@@ -1,5 +1,5 @@
 import React from "react";
-import AdminDashboard from "@/components/dashboard/admin";
+import BuyerDashboard from "@/components/dashboard/buyer";
 import Head from "next/head";
 import { AdminGuard } from "@/utils/authGuard";
 
@@ -9,7 +9,7 @@ const Admin = () => {
             <Head>
                 <title>Dashboard | Admin</title>
             </Head>
-            <AdminDashboard />
+            <BuyerDashboard />
         </AdminGuard>
     )
 }

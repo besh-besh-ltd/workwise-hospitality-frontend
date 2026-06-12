@@ -1,0 +1,125 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e8e8e3;
+  border-radius: 14px;
+  padding: 56px 32px 48px;
+  margin-top: 8px;
+  box-shadow: 0 1px 0 rgba(15, 15, 14, 0.04);
+
+  @media (max-width: 600px) {
+    padding: 40px 20px 36px;
+  }
+}
+
+.icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: #f4f4f1;
+  border: 1px solid #e8e8e3;
+  display: grid;
+  place-items: center;
+  color: #71717a;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #18181b;
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #52525b;
+  margin: 0 0 12px;
+  line-height: 1.55;
+  max-width: 540px;
+}
+
+.buName {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: #fafaf9;
+  border: 1px solid #e8e8e3;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #18181b;
+  margin: 0 2px;
+  font-size: 13px;
+  vertical-align: baseline;
+}
+
+.help {
+  font-size: 12.5px;
+  color: #71717a;
+  margin: 0 0 22px;
+  line-height: 1.55;
+  max-width: 480px;
+}
+
+.code {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+  background: #f4f4f1;
+  border: 1px solid #e8e8e3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #3f3f46;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: -0.005em;
+  border: 1px solid;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.primaryBtn {
+  background: #18181b;
+  color: #ffffff;
+  border-color: #18181b;
+
+  &:hover {
+    background: #27272a;
+    border-color: #27272a;
+  }
+}
+
+.secondaryBtn {
+  background: #ffffff;
+  color: #3f3f46;
+  border-color: #d6d6cf;
+
+  &:hover {
+    background: #fafaf9;
+    border-color: #a1a1aa;
+    color: #18181b;
+  }
+}

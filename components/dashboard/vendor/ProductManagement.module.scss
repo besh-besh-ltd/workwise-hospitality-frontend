@@ -1,0 +1,253 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+
+.pageTitle { font-size: 20px; font-weight: 700; color: var(--dark-color); margin: 0; }
+.pageSubtitle { font-size: 13px; color: #999; margin: -18px 0 0; }
+
+/* ── Mappings Grid ── */
+.mappingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.mappingCard {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  overflow: hidden;
+}
+
+.mappingHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.mappingIcon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+.iconBlue { background: #eef4ff; color: #2E5BA8; }
+.iconGreen { background: #ecfdf5; color: #16a34a; }
+
+.mappingTitle { font-size: 13.5px; font-weight: 600; color: var(--dark-color); display: block; }
+.mappingCount { font-size: 11px; color: #999; display: block; }
+
+.mappingBody { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; }
+
+/* Hotels */
+.hotelRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #f0f0f0;
+}
+
+.greenDot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+
+.hotelInfo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hotelName { font-size: 13px; font-weight: 500; color: var(--dark-color); }
+.hotelCity { font-size: 11px; color: #999; }
+
+/* Categories */
+.catGroup {
+  border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden;
+  background: #f9fafb; transition: background 0.15s;
+}
+
+.catRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; user-select: none;
+}
+
+.catChevron { color: #999; flex-shrink: 0; }
+.catName { flex: 1; font-size: 13px; font-weight: 500; color: var(--dark-color); }
+.catBadge {
+  font-size: 10px; font-weight: 600; color: #666;
+  background: #e5e7eb; padding: 1px 7px; border-radius: 999px;
+}
+
+.subCatWrap { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 12px 10px 32px; }
+.subCatTag {
+  font-size: 12px; font-weight: 500; color: #555;
+  background: #fff; border: 1px solid #e5e7eb; padding: 3px 10px; border-radius: 5px;
+}
+
+.parentRef { color: #aaa; font-size: 11px; }
+
+.catDividerLabel {
+  font-size: 10px; font-weight: 600; color: #aaa;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 8px 0 4px;
+}
+
+/* ── Product Table ── */
+.tableCard {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.tableTitle { font-size: 16px; font-weight: 700; color: var(--dark-color); margin: 0; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.searchWrap {
+  display: flex; align-items: center; gap: 0;
+  border: 1px solid #e2e2e2; border-radius: 8px; overflow: hidden;
+  flex: 1; max-width: 400px;
+}
+
+.searchIcon { margin-left: 10px; color: #999; flex-shrink: 0; }
+
+.searchInput {
+  flex: 1; border: none; outline: none; padding: 7px 10px;
+  font-size: 12.5px; color: var(--dark-color); background: transparent; min-width: 120px;
+}
+
+.searchBtn {
+  padding: 7px 16px; background: var(--primary-color); color: #fff;
+  border: none; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s;
+  &:hover { background: #1e4a8a; }
+}
+
+.tableWrap { overflow-x: auto; }
+
+.table {
+  width: 100%; border-collapse: collapse;
+
+  th {
+    padding: 10px 18px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; color: #999;
+    background: #fafbfc; border-bottom: 1px solid #eee; text-align: left;
+  }
+
+  td {
+    padding: 12px 18px; font-size: 13px; color: #555;
+    border-bottom: 1px solid #f5f5f5; vertical-align: middle;
+  }
+
+  tbody tr:hover { background: #fafbfd; }
+  tbody tr:last-child td { border-bottom: none; }
+}
+
+.productNameCell {
+  display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--dark-color);
+}
+
+.productIcon { color: #bbb; flex-shrink: 0; }
+
+.statusPill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+
+.statusActive { background: #ecfdf5; color: #16a34a; }
+.statusInactive { background: #fef2f2; color: #ef4444; }
+
+.catPill {
+  font-size: 11.5px; font-weight: 500; color: var(--primary-color);
+  background: #eef4ff; padding: 3px 10px; border-radius: 5px;
+}
+
+.subCatCellWrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.subCatPill {
+  font-size: 11px; font-weight: 500; color: #555;
+  background: #f5f5f5; padding: 2px 8px; border-radius: 4px;
+}
+
+.noCat { color: #ccc; }
+
+.loadingCell, .emptyCell { text-align: center; padding: 40px 18px !important; color: #999; font-size: 13px; }
+
+/* ── Skeleton Loading ── */
+@keyframes skeletonShimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.shimmerBar {
+  background: #f0f0f0;
+  background-image: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 800px 100%;
+  animation: skeletonShimmer 1.2s linear infinite;
+  border-radius: 4px;
+}
+
+/* Mappings skeleton */
+.skeletonMappingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.skeletonMappingCard {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.skeletonMappingHeader {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid #f0f0f0;
+}
+
+.skeletonMappingIcon { width: 32px; height: 32px; border-radius: 8px; }
+.skeletonMappingHeaderText { display: flex; flex-direction: column; gap: 5px; }
+
+.skeletonMappingBody { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; }
+
+.skeletonHotelRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #f0f0f0;
+}
+
+.skeletonDot { width: 7px; height: 7px; border-radius: 50%; }
+.skeletonHotelInfo { display: flex; flex-direction: column; gap: 4px; }
+
+.skeletonCatRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 8px; background: #f9fafb; border: 1px solid #f0f0f0;
+}
+
+/* Table skeleton */
+.skeletonTableRow {
+  display: flex; align-items: center; gap: 18px; padding: 12px 18px;
+  border-bottom: 1px solid #f5f5f5;
+  &:last-child { border-bottom: none; }
+}
+
+.skeletonTableCell { display: flex; align-items: center; gap: 8px; }
+
+/* Pagination */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 14px 18px; border-top: 1px solid #f0f0f0;
+}
+
+.pageBtn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid #e2e2e2; background: #fff; color: #555;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+  &:hover:not(:disabled) { background: #f5f5f5; border-color: #ccc; }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+}
+
+.pageInfo { font-size: 12.5px; color: #777; font-weight: 500; }

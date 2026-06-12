@@ -6,7 +6,7 @@ import { createRfq, saveDraft, updateRfq, getRFQById, getTerms, vendorApproveLis
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
-import Loader from "@/components/shared/Loader";
+import CreateRFQSkeleton from "./CreateRFQSkeleton";
 import { useDispatch, useSelector } from "react-redux";
 import {
   intializeRfq,
@@ -41,6 +41,7 @@ import AddVendorModal from "../editRFQ/AddVendorModal";
 import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
+import AddProductsModal from "./AddProductsModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { IoIosCloseCircleOutline } from "react-icons/io";
@@ -562,6 +563,12 @@ const CreateRFQ = () => {
   const [refreshingVendors, setRefreshingVendors] = useState(false);
   const [showRemoveProductConfirmModal, setShowRemoveProductConfirmModal] = useState(false);
   const [pendingProductToRemove, setPendingProductToRemove] = useState(null);
+  // In-page modal for adding products to draft OR existing RFQ. Replaces the
+  // legacy redirect to /dashboard/buyer/start-rfq?rfq_id=… which broke for
+  // published RFQs (it tried to load them via /rfq/get-draft-by-id and 403d).
+  // The modal stages products into Redux; the existing snapshot save in
+  // PUT /rfq/update persists them as diff.products.added.
+  const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [queryMeta, setQueryMeta] = useState({
     draft_id: null,
     sheet_id: null,
@@ -649,7 +656,20 @@ const CreateRFQ = () => {
 
   const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
     try {
-      if(!rfqProductId) return;
+      // Bail early for staged-but-unsaved products. Their accordion key is
+      // the stringified `undefined` from `${product.id}`, which slips past a
+      // plain `!rfqProductId` check; cast and number-check to reject both
+      // missing values and string keys like "undefined" / "null" / "NaN".
+      const numericId = Number(rfqProductId);
+      if (
+        rfqProductId == null ||
+        rfqProductId === "" ||
+        rfqProductId === "undefined" ||
+        rfqProductId === "null" ||
+        Number.isNaN(numericId)
+      ) {
+        return;
+      }
 
       const key = `${rfqProductId}`;
       if(!refetch && vendors?.[key] && vendors[key].length > 0) return;
@@ -2910,14 +2930,11 @@ useEffect(() => {
     if (selectedSheet) setSelectedSheetsForRFQ([selectedSheet.value]);
   }, [selectedSheet]);
 
-  // Handle permission loading state
+  // Handle permission loading state — render the structured skeleton so
+  // the page transition is consistent and the user never sees a stray
+  // full-screen spinner.
   if (permissionsLoading && selectedHotelIds.length > 0) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: "80vh" }}>
-        <Loader size="lg" />
-        <span className="ms-2">Checking permissions...</span>
-      </div>
-    );
+    return <CreateRFQSkeleton />;
   }
 
   // Handle access denied (no create/update permission for drafts)
@@ -2959,49 +2976,75 @@ useEffect(() => {
           : new Date(Date.now() + 5 * 60 * 1000)
       );
 
+  // Initial load = no draft hydrated into Redux yet. Until that's done, show
+  // the structured skeleton so the user sees the page taking shape instead of
+  // being blocked behind a full-screen overlay.
+  const isHydrated = Boolean(
+    rfqFormDataFromStore?.id ||
+    (rfqProducts && rfqProducts.length > 0) ||
+    rfqFormDataFromStore?.title
+  );
+  const isPageLoading = mainLoading || storeLoading;
+
+  if (isPageLoading && !isHydrated) {
+    return <CreateRFQSkeleton />;
+  }
+
   return (
     <>
-      {(mainLoading || storeLoading) && <Loader />}
-
       <div className="create-rfq-page">
-        {/* Page header — "Create RFQ for [hotels]" */}
-        <header className="rfq-page-header">
-          <h1 className="rfq-page-header__title">
-            {isViewOnlyDraft || (selectedHotelIds.length > 0 && !hasPermission && canRead) ? "View" : isEditMode ? "Update" : "Create"} {getEntityLabel(rfqFormDataFromStore.is_tender)}
+        {/* In-flight action (submit / sheet switch) with the form already
+            populated — thin non-blocking progress bar replaces the legacy
+            black-overlay spinner. */}
+        {isPageLoading && isHydrated && (
+          <div className="rfq-progress-bar" aria-hidden="true">
+            <div className="rfq-progress-bar__indicator" />
+          </div>
+        )}
+        {/* Context strip — page title lives in TwoPanelPage; this strip
+            shows fine-grained context (entity + hotel) or the hotel picker
+            when nothing has been chosen yet. */}
+        {(selectedHotelIds.length > 0 || (userHotelMappings.length > 0 && selectedHotelIds.length === 0)) && (
+          <header className="rfq-page-header">
             {selectedHotelIds.length > 0 && userHotelMappings.length > 0 && (
-              <>
-                {" for "}
+              <span className="rfq-page-header__context">
+                <span className="rfq-page-header__context-label">
+                  {isViewOnlyDraft || (!hasPermission && canRead) ? "Viewing" : isEditMode ? "Editing" : "Creating"}
+                </span>
+                <span>{getEntityLabel(rfqFormDataFromStore.is_tender)}</span>
+                <span className="rfq-page-header__context-dot" aria-hidden="true" />
+                <span className="rfq-page-header__context-label">for</span>
                 <span className="rfq-page-header__hotels">
                   {userHotelMappings
                     .filter(m => selectedHotelIds.includes(m.hospitality_hotel_id))
                     .map(m => m.hotel_name)
                     .join(", ")}
                 </span>
-              </>
+              </span>
             )}
-          </h1>
-          {userHotelMappings.length > 0 && selectedHotelIds.length === 0 && (
-            <div className="rfq-page-header__hotel-picker">
-              <label className="rfq-label">Business Units <span className="rfq-required">*</span></label>
-              <Select
-                id="select_hotels-create_rfq_page"
-                isMulti
-                options={userHotelMappings}
-                value={[]}
-                onChange={(selectedOptions) => {
-                  const ids = selectedOptions ? selectedOptions.map(opt => opt.hospitality_hotel_id) : [];
-                  handleHotelSelectionChange(ids);
-                }}
-                placeholder="Select Business Units..."
-                closeMenuOnSelect={false}
-                classNamePrefix="react-select"
-                isClearable
-                formatOptionLabel={(option) => (<div><span>{option.hotel_name}</span></div>)}
-                getOptionValue={(option) => option.hospitality_hotel_id}
-              />
-            </div>
-          )}
-        </header>
+            {userHotelMappings.length > 0 && selectedHotelIds.length === 0 && (
+              <div className="rfq-page-header__hotel-picker">
+                <label className="rfq-label">Business Units <span className="rfq-required">*</span></label>
+                <Select
+                  id="select_hotels-create_rfq_page"
+                  isMulti
+                  options={userHotelMappings}
+                  value={[]}
+                  onChange={(selectedOptions) => {
+                    const ids = selectedOptions ? selectedOptions.map(opt => opt.hospitality_hotel_id) : [];
+                    handleHotelSelectionChange(ids);
+                  }}
+                  placeholder="Select Business Units..."
+                  closeMenuOnSelect={false}
+                  classNamePrefix="react-select"
+                  isClearable
+                  formatOptionLabel={(option) => (<div><span>{option.hotel_name}</span></div>)}
+                  getOptionValue={(option) => option.hospitality_hotel_id}
+                />
+              </div>
+            )}
+          </header>
+        )}
 
         {/* Read-only banner - viewing someone else's draft */}
         {isViewOnlyDraft && (
@@ -3320,7 +3363,19 @@ useEffect(() => {
                     user only sees the read-only review summary. */}
                 {!isViewOnlyDraft && (
                 <div className="rfq-stepper-card">
-                  <ol className="rfq-stepper" aria-label="Create RFQ steps">
+                  {/* `--rfq-stepper-progress` drives the brand-blue fill on
+                      the rail. We fill up to the furthest reached step so
+                      the bar always reflects the user's overall progress,
+                      even when they step back to revisit an earlier one. */}
+                  <ol
+                    className="rfq-stepper"
+                    aria-label="Create RFQ steps"
+                    style={{
+                      "--rfq-stepper-progress": STEPS.length > 1
+                        ? ((Math.max(currentStep, maxStepReached) - 1) / (STEPS.length - 1)) * 100
+                        : 0,
+                    }}
+                  >
                     {STEPS.map((s, idx) => {
                       // Status:
                       //   active  → on it now (amber)
@@ -3351,12 +3406,18 @@ useEffect(() => {
                             onClick={() => clickable && goToStep(s.id)}
                             disabled={!clickable}
                             aria-current={s.id === currentStep ? 'step' : undefined}
+                            aria-label={`Step ${s.id}: ${s.label}`}
                           >
                             <span className="rfq-step-pill__num">
-                              {status === 'done' ? '✓' : status === 'pending' ? '!' : s.id}
+                              {status === 'done' ? (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              ) : (
+                                s.id
+                              )}
                             </span>
                             <span className="rfq-step-pill__text">
-                              <span className="rfq-step-pill__overline">Step {s.id}</span>
                               <span className="rfq-step-pill__label">{s.label}</span>
                             </span>
                           </button>
@@ -3386,13 +3447,14 @@ useEffect(() => {
                         <div className="rfq-products-empty">
                           <p className="rfq-products-empty__title">No products yet</p>
                           <p className="rfq-products-empty__hint">Add products from the catalog to start building this {getEntityLabel(rfqFormDataFromStore.is_tender)}.</p>
-                          <Link
-                            href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""}`}
+                          <button
+                            type="button"
                             className="rfq-btn rfq-btn--primary"
                             id="add_products-create_rfq_page"
+                            onClick={() => setShowAddProductsModal(true)}
                           >
                             Add Products
-                          </Link>
+                          </button>
                         </div>
                       ) : (
                         <>
@@ -3434,13 +3496,14 @@ useEffect(() => {
                                 </button>
                               )}
                               {!isViewOnlyDraft && !isReadOnly && !isRestrictedEdit && (
-                                <Link
-                                  href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}${selectedSheet ? `&sheet_id=${selectedSheet.value}` : ``}` : ""}`}
+                                <button
+                                  type="button"
                                   className="rfq-btn rfq-btn--primary rfq-btn--sm"
                                   id="add_more_products-create_rfq_page"
+                                  onClick={() => setShowAddProductsModal(true)}
                                 >
                                   + Add Products
-                                </Link>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -3512,7 +3575,12 @@ useEffect(() => {
                             </div>
                           </div>
 
-                          {loading && <Loader />}
+                          {loading && (
+                            <div className="rfq-inline-loading" role="status" aria-live="polite">
+                              <span className="rfq-inline-loading__spinner" aria-hidden="true" />
+                              <span className="rfq-inline-loading__text">Loading…</span>
+                            </div>
+                          )}
 
                           {sheetNameList && sheetNameList.length > 0 && (
                             <ValidationErrorsDisplay
@@ -4524,6 +4592,14 @@ useEffect(() => {
         confirmButtonColor="danger"
         confirmButtonText="Remove"
         cancelButtonText="Cancel"
+      />
+
+      <AddProductsModal
+        isOpen={showAddProductsModal}
+        onClose={() => setShowAddProductsModal(false)}
+        hotelIds={selectedHotelIds}
+        isRestrictedEdit={isRestrictedEdit}
+        rfqLabel={getEntityLabel(rfqFormDataFromStore?.is_tender)}
       />
       <style jsx>{`
         .refresh-vendors-btn {

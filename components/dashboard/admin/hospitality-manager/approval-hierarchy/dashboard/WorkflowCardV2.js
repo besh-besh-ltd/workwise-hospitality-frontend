@@ -4,7 +4,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { DS, PROCESS_TYPE_COLORS, getStageEntityOrder, getEntityTypeConfig } from "../constants";
 import s from "./WorkflowCardV2.module.scss";
 
-const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order Approval", TENDER: "Tender Submission", ARC: "ARC Committee Approval" };
+const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC Committee Approval" };
 const STAGE_DESCRIPTIONS = { RFQ: "Triggered when a new RFQ is submitted for approval", TECHNICAL: "Approves technical evaluation markings", NEGOTIATION: "Approves negotiation rounds", NEGOTIATION_QUOTE: "Final approval on vendor quotes after negotiation", PO: "Final sign-off before purchase order is issued", TENDER: "Approval gate when a tender is submitted", ARC: "Award & Recognition Committee final review" };
 const STAGE_SHORT = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Neg", NEGOTIATION_QUOTE: "NQ", PO: "PO", TENDER: "Tender", ARC: "ARC" };
 

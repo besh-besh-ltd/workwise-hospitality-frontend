@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Header from "./Header";
+import DashboardShell from "./DashboardShell";
 // import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
-import { setSwSubscription } from "@/redux/slice";
-import { SWSubscribe } from "@/services/Auth";
+import { setSwSubscription, setUserProfile } from "@/redux/slice";
+import { SWSubscribe, verifyVendorToken, getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import { toast } from "react-toastify";
+import GuestAccessModal from "@/components/shared/GuestAccessModal";
+import PushPermissionPrompt from "@/components/shared/PushPermissionPrompt";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
@@ -17,44 +21,21 @@ const Layout = (props) => {
   const router = useRouter();
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      async function fetchData() {
-        // window.addEventListener("load", async () => {
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) return;
 
-        const register = await navigator.serviceWorker.register(
-          "/service-worker.js",
-          { scope: "/" }
-        );
-        console.log("SERVICE WORKER REGISTERED");
-
-        const serviceWorker = await navigator.serviceWorker.ready;
-
-        const subscription = await register.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey:
-            process.env.NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY,
-        });
-        dispatch(setSwSubscription(subscription));
-        console.log("SUBSCRIPTION REGISTERD");
-
-        // await fetch(
-        //   `${process.env.NEXT_PUBLIC_API_URL}/users/notifications/subscribe`,
-        //   {
-        //     method: "POST",
-        //     body: JSON.stringify(subscription),
-        //     headers: {
-        //       "Content-Type": "application/json",
-        //     },
-        //   }
-        // );
-
-        // });
-      }
-      fetchData();
-    } else {
-      console.log("NO SERVICE WORKER PRESENT");
-    }
-  }, []);
+    navigator.serviceWorker
+      .register("/service-worker.js", { scope: "/" })
+      .then((registration) => {
+        if (typeof window !== "undefined" && Notification.permission === "granted") {
+          registration.pushManager
+            .getSubscription()
+            .then((sub) => sub && dispatch(setSwSubscription(sub)))
+            .catch(() => {});
+        }
+      })
+      .catch((err) => console.warn("SW registration failed", err));
+  }, [dispatch]);
 
   /* REMOVED UN-USED CALL TO CMS DATA API */
   // useEffect(() => {
@@ -91,6 +72,10 @@ const Layout = (props) => {
 
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestExpiresIn, setGuestExpiresIn] = useState(1800);
+  const [tokenExchangeLoading, setTokenExchangeLoading] = useState(false);
+  const tokenExchangeAttempted = useRef(false);
 
   useEffect(() => {
     const checkLoginStatus = () => {
@@ -119,11 +104,84 @@ const Layout = (props) => {
     };
   }, [router]);
 
+  // Vendor token → JWT auto-login
+  // When a vendor arrives via email link with ?token=... and is not
+  // logged in, exchange the token for a short-lived JWT so they get
+  // a normal dashboard experience (sidebar, nav, full access).
+  useEffect(() => {
+    if (tokenExchangeAttempted.current) return;
+    const urlToken = router.query.token;
+    if (!urlToken) return;
+
+    const existingJwt = localStorage.getItem('token');
+    if (existingJwt) return; // Already logged in — skip
+
+    const isDashboardPath = router.pathname?.startsWith('/dashboard');
+    if (!isDashboardPath) return; // Only on dashboard routes
+
+    tokenExchangeAttempted.current = true;
+    setTokenExchangeLoading(true);
+
+    (async () => {
+      try {
+        // Axios interceptor unwraps response.data, so res = { status: 1, data: { token, user, ... } }
+        const res = await verifyVendorToken(urlToken);
+        if (!res || res.status !== 1 || !res.data?.token) {
+          toast.error("Invalid or expired access link.");
+          router.push("/");
+          return;
+        }
+
+        const { token: jwt, user, expires_in } = res.data;
+
+        // Store session — same keys as normal login
+        localStorage.setItem('token', jwt);
+        localStorage.setItem('current-user-type', 'vendor');
+        localStorage.setItem('current-user-name', user.name || '');
+        localStorage.setItem('current-user-email', user.email || '');
+        localStorage.setItem('guest-session', 'true');
+
+        // Fetch full profile and dispatch to Redux — same as normal login.
+        // Vendor dashboard and other pages depend on userProfile in Redux.
+        try {
+          const profileRes = await getProfile();
+          dispatch(setUserProfile(profileRes.data));
+        } catch (_) {}
+
+        // Trigger login status update
+        setIsLoggedIn(true);
+        setGuestExpiresIn(expires_in || 1800);
+        setShowGuestModal(true);
+
+        // Clean token from URL
+        const { token: _removed, ...restQuery } = router.query;
+        router.replace(
+          { pathname: router.pathname, query: restQuery },
+          undefined,
+          { shallow: true }
+        );
+      } catch (err) {
+        console.error("Token exchange failed:", err);
+        toast.error("Failed to verify access link. Please try logging in.");
+        router.push("/");
+      } finally {
+        setTokenExchangeLoading(false);
+      }
+    })();
+  }, [router.query.token]);
+
   const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
   const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage;
+
+  // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
+  // Public/marketing pages (and anonymous visits to /vendor/*) continue to use
+  // the existing top Header.
+  const isDashboardPath =
+    router.pathname?.startsWith('/dashboard') || router.pathname?.startsWith('/vendor');
+  const isDashboardRoute = isDashboardPath && isLoggedIn;
 
   return (
     <>
@@ -134,11 +192,31 @@ const Layout = (props) => {
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
-        {!shouldHideNavbarFooter && <Header />}
-        {/* Home-only announcement bar just below navbar */}
-        <main className="flex-grow-1 ">{props.children}</main>
+        {tokenExchangeLoading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 12 }}>
+            <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem', borderWidth: '2.5px' }} />
+            <span style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>Verifying access...</span>
+          </div>
+        ) : shouldHideNavbarFooter ? (
+          <main className="flex-grow-1 ">{props.children}</main>
+        ) : isDashboardRoute ? (
+          <DashboardShell>{props.children}</DashboardShell>
+        ) : (
+          <>
+            <Header />
+            <main className="flex-grow-1 ">{props.children}</main>
+          </>
+        )}
         {/* {!shouldHideNavbarFooter && <Footer />} */}
+        {isLoggedIn && <PushPermissionPrompt />}
       </div>
+
+      {showGuestModal && (
+        <GuestAccessModal
+          expiresIn={guestExpiresIn}
+          onDismiss={() => setShowGuestModal(false)}
+        />
+      )}
     </>
   );
 };

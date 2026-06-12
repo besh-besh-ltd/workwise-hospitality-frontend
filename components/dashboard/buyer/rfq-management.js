@@ -1,26 +1,40 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from 'next/router';
-import { Badge } from "react-bootstrap";
-import { BsBellFill } from "react-icons/bs";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
 import CreateRFQ from "./createRFQ/CreateRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
 import PendingApprovalsList from "./manageRFQ/PendingApprovalsList";
 import FilterSection from "@/components/shared/FilterSection";
 import { getPendingApprovalRFQs } from "@/services/rfq";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
+import styles from "./rfq-management.module.scss";
+
+const TAB_CONFIG = [
+  { key: "pendingRFQs", label: "Approval Pending", urlKey: "pending-rfq", showBadge: true },
+  { key: "manageRFQs", label: "Running", urlKey: "manage-rfq" },
+  { key: "draftRFQs", label: "Drafts", urlKey: "draft-rfq" },
+  { key: "closedRFQs", label: "Closed", urlKey: "closed-rfq" },
+  { key: "completedRFQs", label: "Approved", urlKey: "completed-rfq" },
+];
+
+const URL_TO_TAB = {};
+TAB_CONFIG.forEach(t => { URL_TO_TAB[t.urlKey] = t.key; });
+// Hidden tab (not in pill nav, but accessible via URL)
+URL_TO_TAB['create-rfq'] = 'createRFQs';
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("pendingRFQs");
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingRFQs, setPendingRFQs] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [filterData, setFilterData] = useState({
     project_id: -1,
     rfq_type: "",
     reverse_auction: "-1",
     sort: "DESC",
-    rfq_no: null,
+    search_val: null,
     is_tender: null,
     page: 1,
     limit: 10,
@@ -62,7 +76,7 @@ const RfqManagement = () => {
   useEffect(() => {
     const handleBeforeUnload = (event) => {
       event.preventDefault();
-      event.returnValue = ''; // Modern browsers require an empty string.
+      event.returnValue = '';
       return "Data will be lost if you leave the page, are you sure?";
     };
 
@@ -74,166 +88,112 @@ const RfqManagement = () => {
   }, []);
 
   useEffect(() => {
-    if(tab && tab == 'create-rfq'){
-      setActiveTab('createRFQs')
-    } else if(tab && tab == 'draft-rfq'){
-      setActiveTab('draftRFQs')
-    } else if (tab && tab == 'processing-rfq') {
-      setActiveTab('processingRFQs')
-    } else if (tab && tab == 'completed-rfq') {
-      setActiveTab('completedRFQs')
-    } else if (tab && tab == 'closed-rfq') {
-      setActiveTab('closedRFQs')
-    } else if (tab && tab == 'manage-rfq') {
-      setActiveTab('manageRFQs')
-    } else {
-      setActiveTab('pendingRFQs')
+    if (tab && URL_TO_TAB[tab]) {
+      setActiveTab(URL_TO_TAB[tab]);
+    } else if (!tab) {
+      setActiveTab('pendingRFQs');
     }
   }, [router])
-  
 
+
+  const showFilters = activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs" || activeTab === "draftRFQs";
 
   const activeFilterData = useMemo(() => ({ ...filterData, completed_status: 'active' }), [filterData]);
   const completedFilterData = useMemo(() => ({ ...filterData, completed_status: 'completed' }), [filterData]);
   const closedFilterData = useMemo(() => ({ ...filterData, completed_status: 'closed' }), [filterData]);
 
-const handleTabChange = (tabKey) => {
-  let newQuery = { tab: '' };
+  const handleTabChange = (tabKey) => {
+    const tabCfg = TAB_CONFIG.find(t => t.key === tabKey);
+    const newQuery = { tab: tabCfg ? tabCfg.urlKey : '' };
 
-  if (tabKey === 'pendingRFQs') {
-    newQuery.tab = 'pending-rfq';
-  } else if (tabKey === 'manageRFQs') {
-    newQuery.tab = 'manage-rfq';
-  } else if (tabKey === 'draftRFQs') {
-    newQuery.tab = 'draft-rfq';
-    // Reset draft_id when switching to draft tab
-    newQuery = { tab: 'draft-rfq' };
-  } else if (tabKey === 'completedRFQs') {
-    newQuery.tab = 'completed-rfq';
-  } else if (tabKey === 'closedRFQs') {
-    newQuery.tab = 'closed-rfq';
-  }
+    setActiveTab(tabKey);
+    setFilterData((prev) => ({ ...prev, page: 1 }));
+    router.push(
+      { pathname: router.pathname, query: newQuery },
+      undefined,
+      { shallow: true }
+    );
+  };
 
-  setActiveTab(tabKey);
-  // Reset filter page when switching tabs
-  setFilterData((prev) => ({ ...prev, page: 1 }));
-  router.push(
-    { pathname: router.pathname, query: newQuery },
-    undefined,
-    { shallow: true }
+  // Tab pill bar — minimal flat group (no icons, inline count after label)
+  const tabPillBar = (
+    <div className={styles.tabPills}>
+      {TAB_CONFIG.map((tabItem) => {
+        const isActive = activeTab === tabItem.key;
+        const showCount = tabItem.showBadge && pendingCount > 0;
+        return (
+          <button
+            key={tabItem.key}
+            id={`${tabItem.key}-rfq_tabs-rfq_management_page`}
+            type="button"
+            className={`${styles.tabPill} ${isActive ? styles.tabPillActive : ""}`}
+            onClick={() => handleTabChange(tabItem.key)}
+          >
+            <span>{tabItem.label}</span>
+            {showCount && (
+              <span className={styles.tabPillCount}>{pendingCount}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
-};
 
-
-
-
-
- 
+  // The shell header should reflect what's actually being shown — when the
+  // (URL-only) Create RFQ tab is active, the listing-page title would be
+  // misleading and competes with the form's own context strip.
+  const isCreateTab = activeTab === "createRFQs";
+  const pageTitle = isCreateTab
+    ? "New Tender / RFQ"
+    : "Tender / RFQ Management";
+  const pageSubtitle = isCreateTab
+    ? "Define products, vendors, and a timeline for a new procurement request."
+    : "Create, track, and manage your procurement requests.";
 
   return (
-    <>
-      <section className="buyer-common-header sc-pt-80">
-        <div className="container-fluid">
-          <h1 className="heading">Tender / RFQ Management</h1>
-        </div>
-      </section>
+    <TwoPanelPage
+      title={pageTitle}
+      subtitle={pageSubtitle}
+      filters={
+        !isCreateTab ? (
+          <>
+            {tabPillBar}
+            {showFilters && (
+              <FilterSection setFilterData={setFilterData} disabled={pendingLoading || listLoading} />
+            )}
+          </>
+        ) : null
+      }
+    >
 
-      <section className="buyer-rfq-sec-1 buyer-rfq-sec-tab">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-12">
-              <div className="tabs-container">
-                <button
-                  id="pending_rfqs-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "pendingRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("pendingRFQs")}
-                >
-                  <span>Pending Tender / RFQ</span>
-                  {pendingCount > 0 && (
-                    <Badge bg="danger" pill style={{ fontSize: "0.7rem", marginLeft: "8px" }}>
-                      {pendingCount}
-                    </Badge>
-                  )}
-                </button>
-                <button
-                  id="manage_group_rfq-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "manageRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("manageRFQs")}
-                >
-                  Manage Tender / RFQ
-                </button>
-                <button
-                  id="draft_rfqs-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "draftRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("draftRFQs")}
-                >
-                  Draft Tender / RFQ
-                </button>
-                <button
-                  id="closed_rfqs-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "closedRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("closedRFQs")}
-                >
-                  Closed Tender / RFQ
-                </button>
-                <button
-                  id="completed_rfqs-rfq_tabs-rfq_management_page"
-                  className={`tab ${
-                    activeTab === "completedRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("completedRFQs")}
-                >
-                  Approved Tender / RFQ
-                </button>
-              </div>
+      <div className="mt-2">
+        {activeTab === "pendingRFQs" && (
+          <PendingApprovalsList
+            filterData={filterData}
+            setFilterData={setFilterData}
+            pendingRFQs={pendingRFQs}
+            totalRFQs={pendingCount}
+            loading={pendingLoading}
+          />
+        )}
 
-              {/* Filter Section - Shared across pending, manage, and completed tabs */}
-              {(activeTab === "pendingRFQs" || activeTab === "manageRFQs" || activeTab === "closedRFQs" || activeTab === "completedRFQs") && (
-                <div className="manage-rfq-con pb-0">
-                  <FilterSection setFilterData={setFilterData} />
-                </div>
-              )}
-
-              {activeTab === "pendingRFQs" && (
-                <div className="manage-rfq-con">
-                  <PendingApprovalsList
-                    filterData={filterData}
-                    setFilterData={setFilterData}
-                    pendingRFQs={pendingRFQs}
-                    totalRFQs={pendingCount}
-                    loading={pendingLoading}
-                  />
-                </div>
-              )}
-
-              {activeTab === "createRFQs" && (
-                <CreateRFQ/>
-              )}
-              {activeTab === "manageRFQs" && (
-                <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} />
-              )}
-              {activeTab === "draftRFQs" && (
-                <DraftRFQ/>
-              )}
-              {activeTab === "closedRFQs" && (
-                <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} />
-              )}
-              {activeTab === "completedRFQs" && (
-                <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} />
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
+        {activeTab === "createRFQs" && (
+          <CreateRFQ/>
+        )}
+        {activeTab === "manageRFQs" && (
+          <ManageRFQ filterData={activeFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+        {activeTab === "draftRFQs" && (
+          <DraftRFQ filterData={filterData} setFilterData={setFilterData} />
+        )}
+        {activeTab === "closedRFQs" && (
+          <ManageRFQ filterData={closedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+        {activeTab === "completedRFQs" && (
+          <ManageRFQ filterData={completedFilterData} setFilterData={setFilterData} onLoadingChange={setListLoading} />
+        )}
+      </div>
+    </TwoPanelPage>
   );
 };
 

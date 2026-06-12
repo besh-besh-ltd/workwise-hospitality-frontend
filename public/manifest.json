@@ -1,0 +1,16 @@
+{
+  "name": "Workwise Hospitality",
+  "short_name": "Workwise",
+  "description": "Hospitality procurement platform — RFQ, PO and vendor management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "icons": [
+    {
+      "src": "/fabicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

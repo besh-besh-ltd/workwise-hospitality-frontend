@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { previewTotals } from "@/services/pricing";
 
-const DEBOUNCE_MS = 300;
+const DEFAULT_DEBOUNCE_MS = 300;
 
 // Returns { totals, isLoading, error } for a draft pricing payload.
 //
-// The hook debounces input changes (300ms) so rapid typing in unit_price /
-// charge fields doesn't fire a request per keystroke. In-flight responses
-// from a stale draft are discarded — only the latest debounced payload's
-// response is committed to state.
+// The hook debounces input changes (default 300ms; tune via
+// `options.debounceMs`) so rapid typing in unit_price / charge fields
+// doesn't fire a request per keystroke. In-flight responses from a stale
+// draft are discarded — only the latest debounced payload's response is
+// committed to state.
 //
 // `draft` should be memoised by the caller so the same logical payload doesn't
 // retrigger on unrelated re-renders.
-export default function usePreviewTotals(draft) {
+export default function usePreviewTotals(draft, options = {}) {
+  const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const [totals, setTotals] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -44,10 +46,10 @@ export default function usePreviewTotals(draft) {
           setIsLoading(false);
         }
       }
-    }, DEBOUNCE_MS);
+    }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [JSON.stringify(draft)]);
+  }, [JSON.stringify(draft), debounceMs]);
 
   return { totals, isLoading, error };
 }
