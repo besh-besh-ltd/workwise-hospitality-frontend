@@ -62,7 +62,7 @@ const StepProduct = ({
   const rfqDisabled = !!rfqDisabledTooltip;
 
   return (
-    <>
+    <div className={styles.stepStack}>
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <span className={styles.cardHeaderIcon}>
@@ -250,7 +250,7 @@ const StepProduct = ({
         </div>
       )}
     </section>
-    </>
+    </div>
   );
 };
 

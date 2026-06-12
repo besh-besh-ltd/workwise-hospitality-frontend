@@ -32,6 +32,7 @@ import {
   Package,
   Wallet,
   Lock,
+  Plus,
 } from "lucide-react";
 
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -1634,6 +1635,16 @@ const QuoteComparison = () => {
                 </span>
               </div>
             </div>
+            {/* Entry point to the negotiation round wizard */}
+            <button
+              type="button"
+              className={styles.createNegotiationBtn}
+              onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create`)}
+              disabled={!rfq}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Create Negotiation
+            </button>
           </div>
           <div className={styles.rfqDetailGrid}>
             <div className={styles.cell}>

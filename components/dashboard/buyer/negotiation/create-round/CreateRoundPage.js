@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import { OverlayTrigger, Spinner, Tooltip } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { Check, Plus, X } from 'lucide-react';
-import { getQuoteComparison } from '@/services/pricing';
+import { getQuoteComparison, getQuoteComparisonView } from '@/services/pricing';
 import { createNegotiationRound, getAllActiveNegotiationRounds, getQuoteApprovalStatus } from '@/services/negotiation';
 import { getChargeNames } from '@/services/rfq';
 import useCreateRoundState from './useCreateRoundState';
@@ -31,6 +32,9 @@ const CreateRoundPage = () => {
   const [products, setProducts] = useState([]);
   const [quoteApprovalStatuses, setQuoteApprovalStatuses] = useState({});
   const [chargeNamesList, setChargeNamesList] = useState([]);
+  // RFQ banner data — same contract the Commercial Evaluation band uses
+  // (`view.rfq` from the quote-comparison view endpoint).
+  const [rfqInfo, setRfqInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   // Sequential-submit progress. Null when idle; otherwise `{ index, total }`.
@@ -40,6 +44,13 @@ const CreateRoundPage = () => {
   // Cancel confirmation modal — opened only when there are queued rounds to
   // protect, offering "cancel whole" vs "cancel this selection, keep queue".
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  // The sticky footer renders into DashboardShell's `.main` column (via
+  // portal) so it spans the full content column under the shell's padding.
+  // Falls back to inline rendering if the shell element isn't found.
+  const [shellMainEl, setShellMainEl] = useState(null);
+  useEffect(() => {
+    setShellMainEl(document.querySelector('[class*="DashboardShell_main"]'));
+  }, []);
 
   const wizard = useCreateRoundState({
     products,
@@ -55,13 +66,17 @@ const CreateRoundPage = () => {
       setLoading(true);
       setLoadError(null);
       try {
-        const [qcRes, activeRoundsRes, chargesRes] = await Promise.all([
+        const [qcRes, activeRoundsRes, chargesRes, viewRes] = await Promise.all([
           getQuoteComparison(rfqId).catch(() => null),
           getAllActiveNegotiationRounds(rfqId).catch(() => null),
           getChargeNames().catch(() => null),
+          // Banner data only — failure must not block the wizard.
+          getQuoteComparisonView(rfqId).catch(() => null),
         ]);
 
         if (cancelled) return;
+
+        setRfqInfo(viewRes?.rfq || viewRes?.data?.rfq || null);
 
         const productList = qcRes?.data?.products || qcRes?.products || [];
         const activeRounds = activeRoundsRes?.data || (Array.isArray(activeRoundsRes) ? activeRoundsRes : []);
@@ -359,11 +374,35 @@ const CreateRoundPage = () => {
       <div className={styles.pageInner}>
         <header className={styles.header}>
           <div className={styles.headerTopRow}>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <p className={styles.eyebrow}>New negotiation round</p>
-              <h1 className={styles.title}>Create a round</h1>
+              <h1 className={styles.title}>
+                Create a round
+                {rfqInfo?.number && (
+                  <span className={styles.heroRfqNum}>RFQ #{rfqInfo.number}</span>
+                )}
+                {rfqInfo?.status && (
+                  <span className={styles.heroStatusChip}>{rfqInfo.status}</span>
+                )}
+              </h1>
               <p className={styles.subtitle}>
-                Pick a product, choose the fields to improve, set targets per vendor, then send it for approval.
+                {rfqInfo ? (
+                  <>
+                    {rfqInfo.title && <span>{rfqInfo.title}</span>}
+                    {rfqInfo.title && <span className={styles.heroSep}>·</span>}
+                    <span className={styles.heroEm}>{rfqInfo.company}</span>
+                    {(rfqInfo.hotel || rfqInfo.department) && (
+                      <span> · {rfqInfo.hotel}{rfqInfo.department ? ` · ${rfqInfo.department}` : ''}</span>
+                    )}
+                    {rfqInfo.quotes_invited != null && (
+                      <span className={styles.heroQuotesChip}>
+                        {rfqInfo.quotes_received ?? 0} of {rfqInfo.quotes_invited} quotes received
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Pick a product, choose the fields to improve, set targets per vendor, then send it for approval.'
+                )}
               </p>
             </div>
             {wizard.queuedRounds.length > 0 && (
@@ -403,6 +442,52 @@ const CreateRoundPage = () => {
               </div>
             )}
           </div>
+
+          {/* RFQ detail grid — mirrors the Commercial Evaluation band */}
+          {rfqInfo && (
+            <div className={styles.heroDetailGrid}>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Contact person</div>
+                <div className={styles.heroV}>{rfqInfo.contact || '—'}</div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Submission deadline</div>
+                <div className={`${styles.heroV} ${styles.heroMono}`}>
+                  {rfqInfo.deadline
+                    ? new Date(rfqInfo.deadline).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : '—'}
+                </div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Reverse auction</div>
+                <div className={styles.heroV}>{rfqInfo.reverse_auction ? 'Enabled' : 'Disabled'}</div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Negotiation rounds</div>
+                <div className={styles.heroV}>
+                  {(rfqInfo.rounds?.ended ?? 0)} ended · {(rfqInfo.rounds?.active ?? 0)} active
+                </div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Response email</div>
+                <div className={`${styles.heroV} ${styles.heroMono}`} style={{ fontSize: '11.5px' }}>
+                  {rfqInfo.email || '—'}
+                </div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Delivery location</div>
+                <div className={styles.heroV}>{rfqInfo.delivery_location || '—'}</div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Contact number</div>
+                <div className={styles.heroV}>{rfqInfo.phone || '—'}</div>
+              </div>
+              <div className={styles.heroCell}>
+                <div className={styles.heroK}>Technical clauses</div>
+                <div className={styles.heroV}>{rfqInfo.tech_clauses ? 'Configured' : 'None configured'}</div>
+              </div>
+            </div>
+          )}
         </header>
 
         <div className={styles.stepper} role="list">
@@ -496,75 +581,82 @@ const CreateRoundPage = () => {
         )}
       </div>
 
-      <footer className={styles.footer}>
-        <div className={styles.footerInner}>
-          <div className={styles.footerStepInfo}>
-            <span><span className={styles.footerStepNum}>Step {wizard.step} of 3</span></span>
-            {wizard.mode === 'rfq' && (
-              <span className={styles.footerProductTag} title="RFQ-level fields">
-                RFQ-level fields
-              </span>
-            )}
-            {wizard.mode !== 'rfq' && selectedDetails && (
-              <span className={styles.footerProductTag} title={selectedDetails.name}>
-                {selectedDetails.name}
-              </span>
-            )}
-          </div>
-          <div className={styles.footerActions}>
-            {wizard.step > 1 && (
-              <button
-                type="button"
-                className={styles.btnSecondary}
-                onClick={() => {
-                  // Queue-only review has no current round, so Step 2 is empty —
-                  // Back jumps to the product picker instead.
-                  if (wizard.step === 3 && !wizard.hasCurrentRound) wizard.goToStep(1);
-                  else wizard.goBack();
-                }}
-                disabled={submitting}
-              >
-                Back
-              </button>
-            )}
-            <button
-              type="button"
-              className={styles.btnGhost}
-              onClick={handleCancel}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            {wizard.step === 3 && (
-              <OverlayTrigger
-                placement="top"
-                overlay={<Tooltip id="add-more-product-tooltip">{addMoreTooltip}</Tooltip>}
-              >
-                <span className="d-inline-block">
+      {(() => {
+        const footerEl = (
+          <footer className={styles.footer}>
+            <div className={styles.footerInner}>
+              <div className={styles.footerStepInfo}>
+                <span><span className={styles.footerStepNum}>Step {wizard.step} of 3</span></span>
+                {wizard.mode === 'rfq' && (
+                  <span className={styles.footerProductTag} title="RFQ-level fields">
+                    RFQ-level fields
+                  </span>
+                )}
+                {wizard.mode !== 'rfq' && selectedDetails && (
+                  <span className={styles.footerProductTag} title={selectedDetails.name}>
+                    {selectedDetails.name}
+                  </span>
+                )}
+              </div>
+              <div className={styles.footerActions}>
+                {wizard.step > 1 && (
                   <button
                     type="button"
                     className={styles.btnSecondary}
-                    onClick={handleAddMoreProduct}
-                    disabled={addMoreDisabled}
-                    style={addMoreDisabled ? { pointerEvents: 'none' } : undefined}
+                    onClick={() => {
+                      // Queue-only review has no current round, so Step 2 is empty —
+                      // Back jumps to the product picker instead.
+                      if (wizard.step === 3 && !wizard.hasCurrentRound) wizard.goToStep(1);
+                      else wizard.goBack();
+                    }}
+                    disabled={submitting}
                   >
-                    <Plus size={14} strokeWidth={2.5} style={{ marginRight: 4, verticalAlign: -2 }} />
-                    Add More Product
+                    Back
                   </button>
-                </span>
-              </OverlayTrigger>
-            )}
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={onPrimaryClick}
-              disabled={primaryDisabled}
-            >
-              {primaryLabel}
-            </button>
-          </div>
-        </div>
-      </footer>
+                )}
+                <button
+                  type="button"
+                  className={styles.btnGhost}
+                  onClick={handleCancel}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                {wizard.step === 3 && (
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={<Tooltip id="add-more-product-tooltip">{addMoreTooltip}</Tooltip>}
+                  >
+                    <span className="d-inline-block">
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={handleAddMoreProduct}
+                        disabled={addMoreDisabled}
+                        style={addMoreDisabled ? { pointerEvents: 'none' } : undefined}
+                      >
+                        <Plus size={14} strokeWidth={2.5} style={{ marginRight: 4, verticalAlign: -2 }} />
+                        Add More Product
+                      </button>
+                    </span>
+                  </OverlayTrigger>
+                )}
+                <button
+                  type="button"
+                  className={styles.btnPrimary}
+                  onClick={onPrimaryClick}
+                  disabled={primaryDisabled}
+                >
+                  {primaryLabel}
+                </button>
+              </div>
+            </div>
+          </footer>
+        );
+        // Mount the dock inside DashboardShell's `.main` (sibling of the
+        // scrollable content) so it spans the column edge-to-edge.
+        return shellMainEl ? createPortal(footerEl, shellMainEl) : footerEl;
+      })()}
 
       {cancelModalOpen && (
         <div

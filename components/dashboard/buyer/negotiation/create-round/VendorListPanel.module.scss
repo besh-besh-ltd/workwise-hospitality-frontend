@@ -1,14 +1,16 @@
-$ink-strong: #0f172a;
-$ink: #334155;
-$ink-soft: #64748b;
-$ink-muted: #94a3b8;
-$divider: #e2e8f0;
-$divider-strong: #cbd5e1;
+// Palette aligned to the new app UI (see QuoteComparison.module.scss qc-tokens).
+$ink-strong: #18181b;
+$ink: #3f3f46;
+$ink-soft: #71717a;
+$ink-muted: #a1a1aa;
+$divider: #e8e8e3;
+$divider-strong: #d6d6cf;
 $surface: #ffffff;
-$surface-soft: #f8fafc;
-$accent-green: #16a34a;
-$primary: #1f3d63;
-$primary-soft: #2e5ba8;
+$surface-soft: #fafaf9;
+$accent-green: #15803d;
+$primary: #1f2937;
+$primary-soft: #1f2937;
+$font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 
 .surface {
   background: $surface;
@@ -69,7 +71,7 @@ $primary-soft: #2e5ba8;
 
 .itemSelected {
   border-color: $primary-soft;
-  background: rgba(46, 91, 168, 0.04);
+  background: rgba(31, 41, 55, 0.04);
 
   &:hover {
     border-color: $primary-soft;
@@ -168,6 +170,7 @@ $primary-soft: #2e5ba8;
 }
 
 .total {
+  font-family: $font-mono;
   font-size: 14px;
   font-weight: 600;
   color: $accent-green;
@@ -182,6 +185,7 @@ $primary-soft: #2e5ba8;
 }
 
 .totalStruck {
+  font-family: $font-mono;
   font-size: 12.5px;
   font-weight: 500;
   color: $ink-muted;
@@ -189,6 +193,7 @@ $primary-soft: #2e5ba8;
 }
 
 .totalProjected {
+  font-family: $font-mono;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;

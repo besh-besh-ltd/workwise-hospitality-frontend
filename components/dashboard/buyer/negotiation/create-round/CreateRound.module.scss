@@ -1,34 +1,42 @@
 // Create Negotiation Round — page chrome (header, stepper, sticky footer,
 // product picker rows). Inner panels reuse NegotiationUI.module.scss.
 
-$primary: #1f3d63;
-$primary-soft: #2e5ba8;
-$ink-strong: #0f172a;
-$ink: #334155;
-$ink-soft: #64748b;
-$ink-muted: #94a3b8;
-$divider: #e2e8f0;
-$divider-strong: #cbd5e1;
+// Palette aligned to the new app UI (see QuoteComparison.module.scss qc-tokens).
+$primary: #1f2937;
+$primary-soft: #1f2937;
+$primary-hover: #111827;
+$ink-strong: #18181b;
+$ink: #3f3f46;
+$ink-soft: #71717a;
+$ink-muted: #a1a1aa;
+$divider: #e8e8e3;
+$divider-strong: #d6d6cf;
 $surface: #ffffff;
-$surface-soft: #f8fafc;
-$accent-green: #16a34a;
-$danger: #dc2626;
+$surface-soft: #f7f7f5;
+$accent-green: #15803d;
+$danger: #b91c1c;
+$ring: 0 0 0 3px rgba(31, 41, 55, 0.14);
+$font-body: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 
 .page {
-  min-height: 100vh;
-  background: $surface-soft;
-  padding-bottom: 96px; // breathing room above the sticky footer
+  // Background + page padding come from DashboardShell's main/content now.
+  font-family: $font-body;
 }
 
 .pageInner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px 24px;
 }
 
 // ---------- Header ----------
 
 .header {
+  // Dark hero band — mirrors the Commercial Evaluation band on the new
+  // quote-comparison page.
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-radius: 14px;
+  padding: 20px 22px;
   margin-bottom: 24px;
 }
 
@@ -140,24 +148,117 @@ $danger: #dc2626;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: $ink-muted;
+  color: rgba(255, 255, 255, 0.5);
   margin: 0 0 8px;
   text-transform: uppercase;
 }
 
 .title {
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1.2;
   font-weight: 700;
-  color: $ink-strong;
+  letter-spacing: -0.02em;
+  color: #ffffff;
   margin: 0 0 6px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: $ink-soft;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
   margin: 0;
-  max-width: 720px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+// ---------- Hero band RFQ details (mirrors the Commercial Evaluation band) ----
+
+.heroRfqNum {
+  margin-left: 12px;
+  color: #ffffff;
+  font-family: $font-mono;
+  letter-spacing: -0.02em;
+  font-size: 18px;
+}
+
+.heroStatusChip {
+  margin-left: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.3);
+  vertical-align: middle;
+}
+
+.heroSep {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.heroEm {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.heroQuotesChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.heroDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 32px;
+  row-gap: 18px;
+  margin-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 18px;
+}
+
+@media (max-width: 920px) {
+  .heroDetailGrid {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+    row-gap: 16px;
+  }
+}
+
+.heroCell {
+  min-width: 0;
+}
+
+.heroK {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+}
+
+.heroV {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heroMono {
+  font-family: $font-mono;
 }
 
 // ---------- Stepper ----------
@@ -168,7 +269,7 @@ $danger: #dc2626;
   gap: 12px;
   background: $surface;
   border: 1px solid $divider;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 14px 18px;
   margin-bottom: 24px;
 }
@@ -240,9 +341,10 @@ $danger: #dc2626;
 .card {
   background: $surface;
   border: 1px solid $divider;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0;
   overflow: hidden;
+  box-shadow: 0px 1px 2px 0px #1e293b;
 }
 
 .cardHeader {
@@ -258,7 +360,7 @@ $danger: #dc2626;
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: rgba(46, 91, 168, 0.08);
+  background: rgba(31, 41, 55, 0.06);
   color: $primary-soft;
   display: inline-flex;
   align-items: center;
@@ -306,7 +408,7 @@ $danger: #dc2626;
 
   &:focus {
     border-color: $primary-soft;
-    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+    box-shadow: $ring;
   }
 }
 
@@ -331,12 +433,12 @@ $danger: #dc2626;
   }
 
   &:hover:not(.productRowDisabled) {
-    background: rgba(46, 91, 168, 0.03);
+    background: rgba(31, 41, 55, 0.03);
   }
 }
 
 .productRowSelected {
-  background: rgba(46, 91, 168, 0.06);
+  background: rgba(31, 41, 55, 0.05);
   box-shadow: inset 3px 0 0 0 $primary;
 }
 
@@ -364,7 +466,7 @@ $danger: #dc2626;
   }
 
   &:hover:not(.productRowDisabled) {
-    background: rgba(46, 91, 168, 0.03);
+    background: rgba(31, 41, 55, 0.03);
   }
 }
 
@@ -447,12 +549,14 @@ $danger: #dc2626;
 }
 
 .productMetaQty {
+  font-family: $font-mono;
   font-size: 14px;
   color: $ink;
   margin: 0;
 }
 
 .productMetaL1 {
+  font-family: $font-mono;
   font-size: 15px;
   font-weight: 600;
   color: $accent-green;
@@ -540,7 +644,7 @@ $danger: #dc2626;
 .endDateSection {
   background: $surface;
   border: 1px solid $divider;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 20px 24px;
 }
 
@@ -569,7 +673,7 @@ $danger: #dc2626;
 
   &:focus {
     border-color: $primary-soft;
-    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+    box-shadow: $ring;
   }
 }
 
@@ -666,7 +770,7 @@ $danger: #dc2626;
 .reviewBlock {
   background: $surface;
   border: 1px solid $divider;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 20px 24px;
 }
 
@@ -734,7 +838,7 @@ $danger: #dc2626;
 .reviewProductCard {
   background: $surface;
   border: 1px solid $divider;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0;
   overflow: hidden;
 }
@@ -885,11 +989,13 @@ $danger: #dc2626;
 }
 
 .reviewVendorTotalQuoted {
+  font-family: $font-mono;
   color: $ink-muted;
   text-decoration: line-through;
 }
 
 .reviewVendorTotalProjected {
+  font-family: $font-mono;
   color: $ink-strong;
 }
 
@@ -1028,6 +1134,7 @@ $danger: #dc2626;
 }
 
 .reviewGrandQuoted {
+  font-family: $font-mono;
   color: $ink-muted;
   text-decoration: line-through;
   font-weight: 600;
@@ -1035,6 +1142,7 @@ $danger: #dc2626;
 }
 
 .reviewGrandProjected {
+  font-family: $font-mono;
   color: $ink-strong;
   font-weight: 700;
   font-size: 15px;
@@ -1043,15 +1151,21 @@ $danger: #dc2626;
 // ---------- Sticky footer ----------
 
 .footer {
-  position: fixed;
+  // Sticky (not fixed) so the bar stays inside the content column — the new
+  // app shell has a left sidebar, and a fixed full-width bar slides under it.
+  // Rendered via portal as a direct child of DashboardShell's `.main`
+  // flex column (after the scrollable content) — margin-top: auto pushes it
+  // to the bottom on short pages; sticky pins it on long ones.
+  position: sticky;
   bottom: 0;
-  left: 0;
-  right: 0;
-  background: $surface;
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
   border-top: 1px solid $divider;
   padding: 14px 24px;
   z-index: 50;
-  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 -2px 12px rgba(24, 24, 27, 0.04);
 }
 
 .footerInner {
@@ -1105,7 +1219,7 @@ $danger: #dc2626;
   font-size: 14px;
   font-weight: 500;
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
 
@@ -1121,7 +1235,7 @@ $danger: #dc2626;
   font-size: 14px;
   font-weight: 500;
   padding: 9px 18px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 
@@ -1132,18 +1246,24 @@ $danger: #dc2626;
 }
 
 .btnPrimary {
-  background: $ink-strong;
-  border: 1px solid $ink-strong;
+  background: $primary;
+  border: 1px solid $primary;
   color: $surface;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 22px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease, opacity 0.15s ease;
 
+  &:focus-visible {
+    outline: none;
+    box-shadow: $ring;
+  }
+
   &:hover:not(:disabled) {
-    background: #1e293b;
+    background: $primary-hover;
+    border-color: $primary-hover;
   }
 
   &:disabled {
