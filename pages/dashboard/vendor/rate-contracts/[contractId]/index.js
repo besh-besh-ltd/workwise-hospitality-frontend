@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import * as XLSX from "xlsx";
 import * as ArcApi from "@/services/arc_v2";
 
 // ── format helpers ───────────────────────────────────────────────────────
@@ -169,6 +170,62 @@ export default function VendorContractDetailPage() {
     return { committed, consumed, pct };
   }, [lines]);
 
+  // ── downloads (client-side) ──────────────────────────────────────────────
+  const dlAnnexure = () => {
+    if (!contract) return;
+    const rows = lines.map((l, i) => ({
+      "#": i + 1,
+      Item: l.variant_name || `Item #${l.arc_item_id}`,
+      Code: l.variant_slug || l.arc_item_id,
+      "Unit rate (₹)": Number(l.unit_rate || 0),
+      UOM: l.uom || "",
+      "GST %": Number(l.gst_pct ?? 0),
+      "Committed qty": Number(l.committed_qty || 0),
+      "Payment terms": l.payment_terms || arc?.payment_terms_expected || "Net 30",
+      "Line value (₹)": Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 13 }, { wch: 8 }, { wch: 7 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rate annexure");
+    XLSX.writeFile(wb, `${arc?.arc_number || contract.arc_number || "ARC"}_rate-annexure.xlsx`);
+  };
+  const dlContractCopy = () => {
+    if (!contract || typeof window === "undefined") return;
+    // Prefer the stored, hashed PDF; fall back to a printable reconstruction.
+    if (contract.document_s3_url) { window.open(contract.document_s3_url, "_blank"); return; }
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const linesHtml = lines.map((l) => `<tr>
+        <td>${l.variant_name || ""}<div class="sub">${l.variant_slug || l.arc_item_id}</div></td>
+        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${l.uom || ""}</td>
+        <td class="r mono">${Number(l.gst_pct ?? 0)}%</td>
+        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${l.uom || ""}</td>
+        <td class="r mono">₹${Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)).toLocaleString("en-IN")}</td>
+      </tr>`).join("");
+    const signed = contract.status === "active" || contract.signed_by_vendor_at;
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${arc?.arc_number || ""}</title>
+      <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;}
+      h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:20px;}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e2e2dd;border-radius:8px;overflow:hidden;margin-bottom:18px;} .grid>div{padding:12px 16px;} .grid>div:first-child{border-right:1px solid #e2e2dd;}
+      .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8a8a85;font-weight:600;} .v{margin-top:5px;font-size:13px;font-weight:500;}
+      table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;} th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left;} th{background:#fafaf8;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a8a85;} .r{text-align:right;} .mono{font-family:ui-monospace,monospace;} .sub{font-size:10px;color:#9a9a95;}
+      .seal{font-size:11px;color:#6b6b66;margin-top:22px;border-top:1px dashed #d6d6d0;padding-top:10px;}</style></head>
+      <body>
+      <h1>Rate Contract — ${arc?.title || ""}</h1>
+      <div class="meta">${arc?.arc_number || ""} · ${contract.vendor_name || ""} · ${signed ? "Signed " + fmtDate(contract.signed_by_vendor_at) : "Unsigned draft"}</div>
+      <div class="grid">
+        <div><div class="k">Buyer</div><div class="v">${arc?.hotel_name || ""}${arc?.hotel_city ? " · " + arc.hotel_city : ""}</div></div>
+        <div><div class="k">Term</div><div class="v">${fmtDate(arc?.contract_start_at)} → ${fmtDate(arc?.contract_end_at)}</div></div>
+      </div>
+      <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
+      <div class="seal">Signed-document hash (SHA-256): ${contract.document_hash || "—"}</div>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+  };
+
   if (loading) return <DetailSkeleton />;
   if (!contract) {
     return (
@@ -233,7 +290,7 @@ export default function VendorContractDetailPage() {
                 Request amendment
               </Link>
             )}
-            <button className="btn cta">
+            <button className="btn cta" onClick={dlContractCopy}>
               <I.download /> Download PDF
             </button>
           </div>
@@ -442,7 +499,8 @@ export default function VendorContractDetailPage() {
                 </div>
                 <div className="h-right">
                   <span className="pill success"><span className="pdot" />e-signed</span>
-                  <button className="btn btn-secondary btn-sm"><I.download /> Download</button>
+                  <button className="btn btn-secondary btn-sm" onClick={dlAnnexure}><I.download /> Rate annexure (.xlsx)</button>
+                  <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>
                 </div>
               </div>
               <div className="section-body">
