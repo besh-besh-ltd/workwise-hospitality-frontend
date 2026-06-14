@@ -12,7 +12,7 @@ import {
   Building2, ClipboardCheck, FileText, Clock, Send, Download, X,
   Plus, Trash2, ArrowRight, ArrowLeft, Copy, History,
   Check, Layers, MessageSquare, DollarSign, MessageCircle, AlertTriangle,
-  Receipt, CreditCard, HelpCircle, Lock, CheckCircle2,
+  Receipt, CreditCard, HelpCircle, Lock, CheckCircle2, ChevronDown,
 } from "lucide-react";
 
 import {
@@ -52,6 +52,7 @@ import {
   genLocalId,
   sumPaymentTerms,
 } from "./helpers";
+import { downloadQuoteExcel } from "@/utils/quoteExcel";
 
 const ALL_STEPS = [
   { id: "overview", label: "Inquiry overview", meta: "Buyer, products & terms" },
@@ -329,6 +330,25 @@ const SendQuoteWizard = () => {
     };
   }, [pricingTotals]);
   const paymentTotal = useMemo(() => sumPaymentTerms(paymentTerms), [paymentTerms]);
+
+  // Export the live pricing calculation to Excel. Driven by the engine response
+  // (pricingTotals) so the file matches the on-screen totals exactly, with live
+  // formulas seeded from those cached values. See utils/quoteExcel.js.
+  const handleDownloadExcel = useCallback(() => {
+    try {
+      downloadQuoteExcel({
+        rfq,
+        products,
+        globalCharges,
+        pricingTotals,
+        vendorGSTIN,
+        showTechEvalRestrictions,
+      });
+    } catch (e) {
+      console.error("Quote Excel export failed", e);
+      toast.error("Couldn't generate the Excel. Please try again.");
+    }
+  }, [rfq, products, globalCharges, pricingTotals, vendorGSTIN, showTechEvalRestrictions]);
 
   const evalProducts = useMemo(
     () => products.filter((p) => p.has_tech_eval),
@@ -997,7 +1017,8 @@ const SendQuoteWizard = () => {
               _id: genLocalId("oc"),
               name,
               slug: name.toLowerCase().replace(/\s+/g, "_"),
-              amount: 0,
+              // Start blank (not 0) so the field is immediately editable.
+              amount: "",
               amount_mode: "percentage",
               // null = inherit base rate (tri-state). Vendor types 0 to mean "no tax on this charge".
               tax: null,
@@ -1652,6 +1673,7 @@ const SendQuoteWizard = () => {
           onNext={nextStep}
           onSubmit={handleSubmit}
           onRegret={() => setRegretOpen(true)}
+          onDownloadExcel={handleDownloadExcel}
           alreadyQuoted={alreadyQuoted}
           isReadOnly={isReadOnly}
         />
@@ -2929,14 +2951,11 @@ const Step3Pricing = ({
               finalizedLocked || techLocked || negSubmitted || bidExpiredForProduct || isReadOnly;
             // Engine-computed total synced into p.total_price via usePreviewTotals
             const lineTotal = Number(p.total_price) || 0;
+            // Charges total shown on the line pill INCLUDES each charge's GST
+            // so it matches the grand-total breakdown in the summary panel.
             const chargesTotal = (p.other_charges || []).reduce((s, c) => {
               if (!c.name) return s;
-              const base = (parseFloat(p.qty) || 0) * (parseFloat(p.unit_price) || 0);
-              const amt =
-                c.amount_mode === "percentage"
-                  ? (base * (parseFloat(c.amount) || 0)) / 100
-                  : parseFloat(c.amount) || 0;
-              return s + amt;
+              return s + computeChargeBreakdown(c, p).total;
             }, 0);
             const hasCharges = (p.other_charges || []).some((c) => c.name && parseFloat(c.amount) > 0);
             const negFields = (negotiationFields && negotiationFields[p.id]) || [];
@@ -3725,6 +3744,7 @@ const ActionBar = ({
   onNext,
   onSubmit,
   onRegret,
+  onDownloadExcel,
   alreadyQuoted,
   isReadOnly,
   missedInquiry,
@@ -3790,6 +3810,18 @@ const ActionBar = ({
             </div>
           )}
 
+          {(currentStepId === "pricing" || currentStepId === "terms" || currentStepId === "review") && totals.grand > 0 && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={onDownloadExcel}
+              title="Download the pricing calculation as an Excel sheet"
+            >
+              <Download size={13} />
+              Download Excel
+            </button>
+          )}
+
           {!alreadyQuoted && !missedInquiry && (
             <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onRegret}>
               <X size={13} />
@@ -3850,6 +3882,178 @@ const validateCharge = (ch, i) => {
   };
 };
 
+// Money breakdown for a per-line charge, mirroring the pricing engine: the
+// amount (a percentage of the line base, or an absolute ₹ value) plus its GST.
+// A null/blank tax inherits the product's base rate.
+const computeChargeBreakdown = (ch, product) => {
+  const base = (parseFloat(product?.qty) || 0) * (parseFloat(product?.unit_price) || 0);
+  const amount =
+    ch.amount_mode === "percentage"
+      ? (base * (parseFloat(ch.amount) || 0)) / 100
+      : parseFloat(ch.amount) || 0;
+  const inheritsTax = ch.tax == null || ch.tax === "";
+  const taxVal = inheritsTax ? (parseFloat(product?.tax) || 0) : (parseFloat(ch.tax) || 0);
+  const taxMode = inheritsTax
+    ? (product?.tax_mode || "percentage")
+    : (ch.tax_mode || "percentage");
+  const tax = taxMode === "percentage" ? (amount * taxVal) / 100 : taxVal;
+  return { amount, tax, total: amount + tax };
+};
+
+/* Custom charge-type dropdown — replaces the native <select>, whose OS popup
+   doesn't match the wizard's design system. Standard types scroll; the
+   "+ Custom charge" affordance is pinned to the bottom and expands inline into
+   a name field with confirm / cancel buttons (no browser prompt). */
+const ChargeTypeDropdown = ({ types, disabled, onPick, existingNames }) => {
+  const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const wrapRef = useRef(null);
+  const customInputRef = useRef(null);
+
+  const reset = () => {
+    setOpen(false);
+    setCustomMode(false);
+    setCustomName("");
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) reset();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") reset();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Focus the custom-name field as soon as it appears.
+  useEffect(() => {
+    if (customMode) customInputRef.current?.focus();
+  }, [customMode]);
+
+  const standardTypes = types.filter((t) => t !== "Custom");
+  const hasCustom = types.includes("Custom");
+  const allStandardAdded = standardTypes.length === 0;
+
+  const confirmCustom = () => {
+    const name = customName.trim();
+    if (!name) return;
+    if (existingNames && existingNames.has(name.toLowerCase())) {
+      toast.error(`"${name}" is already added.`);
+      return;
+    }
+    onPick(name);
+    reset();
+  };
+
+  return (
+    <div className={styles.ddWrap} ref={wrapRef}>
+      <button
+        type="button"
+        className={styles.ddTrigger}
+        onClick={() => (open ? reset() : setOpen(true))}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className={styles.ddPlaceholder}>
+          {allStandardAdded
+            ? "All standard charge types added — use Custom"
+            : "Select charge type…"}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`${styles.ddChevron} ${open ? styles.ddChevronOpen : ""}`}
+        />
+      </button>
+      {open && (
+        <div className={styles.ddMenu} role="listbox">
+          {standardTypes.length > 0 && (
+            <div className={styles.ddScroll}>
+              {standardTypes.map((t) => (
+                <button
+                  type="button"
+                  key={t}
+                  className={styles.ddItem}
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    onPick(t);
+                    reset();
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+          {hasCustom && (
+            customMode ? (
+              <div className={styles.ddCustomRow}>
+                <input
+                  ref={customInputRef}
+                  className={styles.ddCustomInput}
+                  type="text"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      confirmCustom();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCustomMode(false);
+                      setCustomName("");
+                    }
+                  }}
+                  placeholder="Custom charge name"
+                  maxLength={40}
+                />
+                <button
+                  type="button"
+                  className={`${styles.ddCustomBtn} ${styles.ddCustomBtnOk}`}
+                  onClick={confirmCustom}
+                  disabled={!customName.trim()}
+                  aria-label="Add custom charge"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.ddCustomBtn}
+                  onClick={() => {
+                    setCustomMode(false);
+                    setCustomName("");
+                  }}
+                  aria-label="Cancel"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`${styles.ddItem} ${styles.ddItemCustom}`}
+                onClick={() => setCustomMode(true)}
+              >
+                <Plus size={12} />
+                Custom charge
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, chargeTypes }) => {
   const charges = product?.other_charges || [];
   const chargeReports = charges.map(validateCharge);
@@ -3878,9 +4082,20 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
     return !(f && f.taxDemand);
   };
 
+  // Closing (Done / X / backdrop) is blocked while any charge is incomplete —
+  // each invalid charge raises a toast naming the field(s) that need fixing,
+  // so a half-filled charge can never be silently saved.
+  const attemptClose = () => {
+    if (hasErrors) {
+      errorList.forEach((r) => toast.error(`${r.name}: ${r.errs.join(", ")}`));
+      return;
+    }
+    onClose();
+  };
+
   return (
     <div className={styles.modalBackdrop} onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
+      if (e.target === e.currentTarget) attemptClose();
     }}>
       <div className={styles.modal}>
         <div className={styles.modalHead}>
@@ -3896,46 +4111,18 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
               for this line item.
             </div>
           </div>
-          <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.iconBtn} onClick={attemptClose} aria-label="Close">
             <X size={16} />
           </button>
         </div>
         <div className={styles.modalBody}>
           <label className={styles.label}>Add charge type</label>
-          <select
-            className={styles.select}
-            value=""
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              if (v === "Custom") {
-                const name = window.prompt("Custom charge name", "");
-                if (name && name.trim()) {
-                  const exists = existingNames.has(name.trim().toLowerCase());
-                  if (exists) {
-                    toast.error(`"${name.trim()}" is already added.`);
-                  } else {
-                    onAddCharge(name.trim());
-                  }
-                }
-              } else {
-                onAddCharge(v);
-              }
-              e.target.value = "";
-            }}
+          <ChargeTypeDropdown
+            types={availableTypes}
+            existingNames={existingNames}
             disabled={availableTypes.length === 0 || bidExpired}
-          >
-            <option value="">
-              {availableTypes.length === 0
-                ? "All standard charge types added — use Custom"
-                : "Select charge type…"}
-            </option>
-            {availableTypes.map((t) => (
-              <option key={t} value={t}>
-                {t === "Custom" ? "+ Custom charge" : t}
-              </option>
-            ))}
-          </select>
+            onPick={(v) => onAddCharge(v)}
+          />
 
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
             {(product?.other_charges || []).map((ch, ci) => (
@@ -3959,8 +4146,12 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
-                        value={ch.amount ?? 0}
-                        onChange={(e) => onUpdateCharge(ci, { amount: Number(e.target.value) })}
+                        value={ch.amount ?? ""}
+                        onChange={(e) =>
+                          onUpdateCharge(ci, {
+                            amount: e.target.value === "" ? "" : Number(e.target.value),
+                          })
+                        }
                         placeholder="0"
                         min={0}
                         onWheel={(e) => e.currentTarget.blur()}
@@ -4053,6 +4244,35 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                     />
                   </div>
                 </div>
+                {(() => {
+                  const b = computeChargeBreakdown(ch, product);
+                  return (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 10,
+                        borderTop: "1px dashed var(--border)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        fontSize: 12,
+                        color: "var(--fg-3)",
+                      }}
+                    >
+                      Breakdown:
+                      <span className={styles.mono}>₹{fmtINR(b.amount)}</span>
+                      <span>amount</span>
+                      <span>+</span>
+                      <span className={styles.mono}>₹{fmtINR(b.tax)}</span>
+                      <span>GST</span>
+                      <span>=</span>
+                      <span className={styles.mono} style={{ color: "var(--fg)", fontWeight: 600 }}>
+                        ₹{fmtINR(b.total)}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -4099,9 +4319,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
           <button
             type="button"
             className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={onClose}
-            disabled={hasErrors}
-            title={hasErrors ? "Fix all errors before saving" : ""}
+            onClick={attemptClose}
           >
             Done
           </button>
@@ -4173,39 +4391,12 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
         </div>
         <div className={styles.modalBody}>
           <label className={styles.label}>Add charge type</label>
-          <select
-            className={styles.select}
-            value=""
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              if (v === "Custom") {
-                const name = window.prompt("Custom global charge name", "");
-                if (name && name.trim()) {
-                  if (existingNames.has(name.trim().toLowerCase())) {
-                    toast.error(`"${name.trim()}" is already added.`);
-                  } else {
-                    onAddCharge(name.trim());
-                  }
-                }
-              } else {
-                onAddCharge(v);
-              }
-              e.target.value = "";
-            }}
+          <ChargeTypeDropdown
+            types={availableTypes}
+            existingNames={existingNames}
             disabled={availableTypes.length === 0 || bidExpired}
-          >
-            <option value="">
-              {availableTypes.length === 0
-                ? "All standard charge types added — use Custom"
-                : "Select charge type…"}
-            </option>
-            {availableTypes.map((t) => (
-              <option key={t} value={t}>
-                {t === "Custom" ? "+ Custom charge" : t}
-              </option>
-            ))}
-          </select>
+            onPick={(v) => onAddCharge(v)}
+          />
 
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
             {(charges || []).map((ch, ci) => (
