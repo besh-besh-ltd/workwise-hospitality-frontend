@@ -24,8 +24,14 @@ import {
   fetchQuoteHistory,
   fetchDeviationPreviews,
   handleUploadFile,
+  createTenderPaymentOrder,
+  verifyTenderPayment,
+  getChargeNames,
 } from "@/services/rfq";
-import { getAllActiveNegotiationRounds } from "@/services/negotiation";
+import {
+  getAllActiveNegotiationRounds,
+  getAllVendorNegotiationStatus,
+} from "@/services/negotiation";
 import { getClarifications } from "@/services/clarification";
 import { checkBidExpired } from "@/utils/sharedFunctions";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
@@ -75,6 +81,25 @@ const parseISTDateTimeToUTCDate = (dateStr) => {
   return new Date(utcMs);
 };
 
+// Razorpay checkout SDK loader — identical to the legacy send-quote page.
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(false);
+      return;
+    }
+    if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const formatCountdown = (ms) => {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
@@ -109,6 +134,9 @@ const PAY_TYPE_OPTIONS = [
 const SendQuoteWizard = () => {
   const router = useRouter();
   const { id, token, type: pageType } = router.query;
+  // Mirrors the legacy send-quote page: when enabled, products whose tech
+  // evaluation exists but is not accepted by the buyer cannot be priced.
+  const showTechEvalRestrictions = router.query.showTechEvalRestrictions === "true";
   const userProfile = useSelector((s) => s.userProfile);
 
   /* ─────────────────────────── State ─────────────────────────── */
@@ -147,12 +175,23 @@ const SendQuoteWizard = () => {
 
   // Edit eligibility + negotiation
   const [isBidExpired, setIsBidExpired] = useState(false);
-  // keyed by rfq_product_id → array of { name, targetPrice, demand, mode }
+  // keyed by rfq_product_id → array of { name, targetPrice, demand, mode, taxDemand }
+  // (RFQ-level fields live under the `__rfq_level__` key)
   const [negotiationFields, setNegotiationFields] = useState({});
+  // rfq_product_ids covered by any active round (excludes the RFQ-level bucket)
+  const [activeNegotiationProductIds, setActiveNegotiationProductIds] = useState(new Set());
+  // rfq_product_id → status for products the vendor already re-quoted in the
+  // LATEST round (once-per-round rule, legacy parity)
+  const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
   const [negotiationLoading, setNegotiationLoading] = useState(false);
+  // One-shot guard so negotiated charges are auto-added only once per load
+  const negotiationChargesAddedRef = useRef(false);
 
   // Charges modal
   const [chargesOpenIdx, setChargesOpenIdx] = useState(null);
+  // Backend-managed charge type list (legacy parity). Hardcoded CHARGE_TYPES /
+  // GLOBAL_CHARGE_TYPES remain as fallback when the API has no data.
+  const [chargeNamesList, setChargeNamesList] = useState([]);
 
   // History modal
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -162,9 +201,21 @@ const SendQuoteWizard = () => {
   // Regret
   const [regretOpen, setRegretOpen] = useState(false);
 
+  // Tender fees (legacy parity) — quotes on fee-bearing tenders can't be
+  // submitted until the fee is paid via Razorpay.
+  const [tenderFees, setTenderFees] = useState(0);
+  const [tenderPaymentPaid, setTenderPaymentPaid] = useState(false);
+
   // Submitted confirmation
   const [submittedRef, setSubmittedRef] = useState(null);
   const [submittedAt, setSubmittedAt] = useState("");
+
+  // Unsaved-changes guard (legacy parity) — set by user-facing mutators,
+  // cleared on successful submit. A ref (not state) so the navigation
+  // handlers always read the live value, even right before router.push.
+  const hasUnsavedChangesRef = useRef(false);
+  const markUnsaved = () => { hasUnsavedChangesRef.current = true; };
+  const clearUnsaved = () => { hasUnsavedChangesRef.current = false; };
 
   // Clarifications (tenders only) — list + open status + modals.
   const [clarifications, setClarifications] = useState([]);
@@ -458,7 +509,7 @@ const SendQuoteWizard = () => {
       return {
         kind: "info",
         title: "Negotiation round in progress — you're invited",
-        body: `The bid deadline has passed, but you've been invited to a negotiation round on ${Object.keys(negotiationFields).length} product(s). The buyer's target asks are highlighted on each line.`,
+        body: `The bid deadline has passed, but you've been invited to a negotiation round on ${activeNegotiationProductIds.size || Object.keys(negotiationFields).filter((k) => k !== "__rfq_level__").length} product(s). The buyer's target asks are highlighted on each line.`,
         canEdit: true,
       };
     }
@@ -527,6 +578,50 @@ const SendQuoteWizard = () => {
   useEffect(() => {
     refreshClarifications();
   }, [refreshClarifications]);
+
+  // Fetch the backend-managed charge type list once (legacy parity).
+  useEffect(() => {
+    getChargeNames()
+      .then((res) => {
+        const data = res?.data || res || [];
+        if (Array.isArray(data) && data.length) setChargeNamesList(data);
+      })
+      .catch((err) => console.error("Failed to fetch charge names:", err));
+  }, []);
+
+  // Selects fall back to the hardcoded lists when the API returns nothing.
+  const lineChargeTypes = useMemo(() => {
+    const names = chargeNamesList.filter((c) => !c.is_global).map((c) => c.name).filter(Boolean);
+    return names.length ? [...names, "Custom"] : CHARGE_TYPES;
+  }, [chargeNamesList]);
+  const globalChargeTypes = useMemo(() => {
+    const names = chargeNamesList.filter((c) => c.is_global === true).map((c) => c.name).filter(Boolean);
+    return names.length ? [...names, "Custom"] : GLOBAL_CHARGE_TYPES;
+  }, [chargeNamesList]);
+
+  // Warn user about unsaved changes when leaving the page (legacy parity)
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChangesRef.current) {
+        e.preventDefault();
+        e.returnValue = "You have unsaved changes. Leaving the site will discard all changes.";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    const handleRouteChange = () => {
+      if (hasUnsavedChangesRef.current && !window.confirm("You have unsaved changes. Leaving will discard all changes. Are you sure?")) {
+        router.events.emit("routeChangeError");
+        throw "Route change aborted due to unsaved changes";
+      }
+    };
+    router.events.on("routeChangeStart", handleRouteChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      router.events.off("routeChangeStart", handleRouteChange);
+    };
+  }, [router]);
   // Read-only because the bid window closed AFTER the vendor submitted —
   // i.e. they have a quote on record but can no longer edit it.
   // Scoped to bid-expiry (NOT finalization, which is its own success/danger
@@ -549,6 +644,8 @@ const SendQuoteWizard = () => {
           return;
         }
         setRfq(data);
+        setTenderFees(data.tender_fees || 0);
+        setTenderPaymentPaid(data.has_paid_tender_fees === true);
 
         const built = buildInitialQuoteProducts(data);
         setProducts(built);
@@ -692,18 +789,54 @@ const SendQuoteWizard = () => {
                   : r.end_date.replace(" ", "T") + "Z";
               return new Date(endStr) > now;
             });
+            // Multi-product rounds list every covered product in `products[]`
+            // (rfq_product_id is NULL on the row); legacy rounds carry a single
+            // rfq_product_id. Collect the union of covered product ids.
+            const coveredIdsOf = (r) => {
+              if (Array.isArray(r.products) && r.products.length > 0) {
+                return r.products
+                  .map((p) => p?.rfq_product_id)
+                  .filter((pid) => pid != null);
+              }
+              return r.rfq_product_id != null ? [r.rfq_product_id] : [];
+            };
+            const coveredProductIds = new Set(activeRounds.flatMap(coveredIdsOf));
+            // `tax_demand` is the buyer's free-text ask on the field's tax —
+            // it gates the vendor's tax inputs independently of the amount target.
+            const mapFields = (rawFields) => (rawFields || []).map((f) => ({
+              name: f.name,
+              targetPrice: f.target || f.target_price,
+              demand: f.demand || null,
+              mode: f.mode || null,
+              taxDemand: f.tax_demand || null,
+            }));
             const fieldsByProduct = {};
             activeRounds.forEach((r) => {
+              if (Array.isArray(r.products) && r.products.length > 0) {
+                // Multi round: backend strips products[].vendor_targets to this
+                // vendor, so the first vendor_targets entry is ours.
+                r.products.forEach((p) => {
+                  const vt = (p?.vendor_targets || [])[0];
+                  if (!vt?.fields?.length) return;
+                  if (p?.is_rfq_level === true) {
+                    // RFQ-level fields apply to the global section — key them
+                    // under a dedicated bucket.
+                    fieldsByProduct.__rfq_level__ = mapFields(vt.fields);
+                  } else if (p?.rfq_product_id != null) {
+                    fieldsByProduct[p.rfq_product_id] = mapFields(vt.fields);
+                  }
+                });
+                return;
+              }
+              // Legacy round: fields live on the vendor's approval entry.
               const myApproval = (r.vendor_approvals || [])[0];
               if (!myApproval?.negotiation_fields) return;
-              fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map((f) => ({
-                name: f.name,
-                targetPrice: f.target || f.target_price,
-                demand: f.demand || null,
-                mode: f.mode || null,
-              }));
+              fieldsByProduct[r.rfq_product_id] = mapFields(myApproval.negotiation_fields);
             });
-            if (!cancelled) setNegotiationFields(fieldsByProduct);
+            if (!cancelled) {
+              setNegotiationFields(fieldsByProduct);
+              setActiveNegotiationProductIds(coveredProductIds);
+            }
           } catch (e) {
             console.error("Failed to load negotiation rounds", e);
           } finally {
@@ -724,12 +857,123 @@ const SendQuoteWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token, userProfile?.id]);
 
+  // Once-per-round rule (legacy parity): if the vendor already submitted a
+  // quote for the LATEST round of a product, that product stays blocked until
+  // the buyer opens a new round.
+  useEffect(() => {
+    if (!id || !rfq?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await getAllVendorNegotiationStatus(id, token);
+        if (cancelled) return;
+        if (response?.status === 1 && response?.data) {
+          const statusMap = {};
+          response.data.forEach((round) => {
+            if (round.hasSubmittedQuote) {
+              statusMap[round.rfq_product_id] = {
+                hasSubmitted: true,
+                quotedPrice: round.vendor_quoted_price,
+                submittedAt: round.vendor_submitted_at,
+                targetPrice: round.target_price,
+                roundId: round.id,
+                roundNumber: round.round_number,
+              };
+            }
+          });
+          setNegotiationQuoteSubmitted(statusMap);
+        }
+      } catch (error) {
+        console.error("Error checking negotiation status:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, token, rfq?.id]);
+
+  // Auto-add missing negotiated charges and drop fields whose target is
+  // already met by the quoted value (legacy parity). Tax demands survive
+  // regardless of the amount target.
+  useEffect(() => {
+    if (negotiationChargesAddedRef.current) return;
+    const fields = negotiationFields;
+    if (!fields || Object.keys(fields).length === 0 || products.length === 0) return;
+    negotiationChargesAddedRef.current = true;
+
+    const filteredFields = {};
+    Object.keys(fields).forEach((productId) => {
+      if (productId === "__rfq_level__") {
+        filteredFields[productId] = fields[productId];
+        return;
+      }
+      const product = products.find((p) => String(p.id) === String(productId));
+      if (!product) {
+        filteredFields[productId] = fields[productId];
+        return;
+      }
+      filteredFields[productId] = fields[productId].filter((f) => {
+        if (f.taxDemand) return true;
+        const target = parseFloat(f.targetPrice);
+        if (isNaN(target)) return true; // keep non-numeric fields like payment_terms
+        if (f.name === "base_price") {
+          const quoted = parseFloat(product.unit_price || 0);
+          return quoted > 0 && target < quoted;
+        }
+        const charge = (product.other_charges || []).find(
+          (c) => (c.slug || c.name) === f.name
+        );
+        if (!charge || parseFloat(charge.amount || 0) <= 0) return true;
+        return target < parseFloat(charge.amount || 0);
+      });
+    });
+    setNegotiationFields(filteredFields);
+
+    // Reserved field names live elsewhere on the form, not in other_charges.
+    const NON_CHARGE_FIELDS = [
+      "base_price", "payment_terms", "comment", "global_comment",
+      "vendor_tc", "documents", "delivery_period",
+    ];
+    setProducts((prev) =>
+      prev.map((product) => {
+        const negFields = filteredFields[product.id] || [];
+        const existingChargeNames = new Set(
+          (product.other_charges || []).map((c) => c.slug || c.name)
+        );
+        const missingCharges = negFields
+          .filter(
+            (f) =>
+              !NON_CHARGE_FIELDS.includes(f.name) &&
+              !existingChargeNames.has(f.name)
+          )
+          .map((f) => ({
+            _id: genLocalId("ch"),
+            name: f.name,
+            slug: f.name,
+            amount: 0,
+            amount_mode: f.mode === "percentage" ? "percentage" : "absolute",
+            // tax: null = inherit base rate (tri-state semantics).
+            tax: null,
+            tax_mode: "percentage",
+          }));
+        if (missingCharges.length === 0) return product;
+        return {
+          ...product,
+          other_charges: [...(product.other_charges || []), ...missingCharges],
+        };
+      })
+    );
+  }, [negotiationFields, products]);
+
   /* ─────────────────────────── Mutators ─────────────────────────── */
   const updateProduct = (idx, patch) => {
+    markUnsaved();
     setProducts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   };
 
   const updateProductCharge = (pIdx, cIdx, patch) => {
+    markUnsaved();
     setProducts((prev) =>
       prev.map((p, i) => {
         if (i !== pIdx) return p;
@@ -741,6 +985,7 @@ const SendQuoteWizard = () => {
   };
 
   const addProductCharge = (pIdx, name = "") => {
+    markUnsaved();
     setProducts((prev) =>
       prev.map((p, i) => {
         if (i !== pIdx) return p;
@@ -766,6 +1011,7 @@ const SendQuoteWizard = () => {
   };
 
   const removeProductCharge = (pIdx, cIdx) => {
+    markUnsaved();
     setProducts((prev) =>
       prev.map((p, i) => {
         if (i !== pIdx) return p;
@@ -833,15 +1079,29 @@ const SendQuoteWizard = () => {
     });
   };
 
+  const changeGSTIN = (v) => {
+    markUnsaved();
+    setVendorGSTIN(v);
+  };
+  const changeGlobalComment = (v) => {
+    markUnsaved();
+    setGlobalComment(v);
+  };
+
   /* ─────────────────────────── Payment terms ─────────────────────────── */
-  const addPaymentTerm = () =>
+  const addPaymentTerm = () => {
+    markUnsaved();
     setPaymentTerms((prev) => [
       ...prev,
       { id: null, type: "advance", value: 0, days: "", comment: "" },
     ]);
-  const updatePaymentTerm = (i, patch) =>
+  };
+  const updatePaymentTerm = (i, patch) => {
+    markUnsaved();
     setPaymentTerms((prev) => prev.map((t, j) => (i === j ? { ...t, ...patch } : t)));
+  };
   const removePaymentTerm = (i) => {
+    markUnsaved();
     setPaymentTerms((prev) => {
       const next = [...prev];
       if (next[i].id) {
@@ -878,6 +1138,80 @@ const SendQuoteWizard = () => {
     setTechSubmitted((prev) => ({ ...prev, [productId]: true }));
   };
 
+  /* ─────────────────────────── Tender fee gate ─────────────────────────── */
+  // Resolves true when the fee is paid (or not required). Opens the Razorpay
+  // checkout when payment is still pending — mirroring the legacy send-quote
+  // flow, including the already-paid skip.
+  const ensureTenderFeesPaid = async () => {
+    if (!(rfq?.is_tender === 1 && (tenderFees || 0) > 0 && !tenderPaymentPaid)) return true;
+
+    const orderRes = await createTenderPaymentOrder(id, token);
+    if (orderRes?.data?.already_paid) {
+      setTenderPaymentPaid(true);
+      toast.success("Tender fees already paid.");
+      return true;
+    }
+    const orderData = orderRes?.data?.order;
+    if (!orderData?.id) {
+      toast.error("Failed to create payment order. Please try again.");
+      return false;
+    }
+    const sdkLoaded = await loadRazorpayScript();
+    if (!sdkLoaded) {
+      toast.error("Razorpay SDK failed to load. Please try again.");
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+        order_id: orderData.id,
+        // When order_id is provided Razorpay fetches the amount from the
+        // order — passing it again risks a mismatch.
+        currency: orderData.currency || "INR",
+        name: "Workwise",
+        description: "Tender Fees",
+        handler: async (response) => {
+          try {
+            const verifyResponse = await verifyTenderPayment(
+              {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                rfq_id: id,
+              },
+              token
+            );
+            if (verifyResponse?.status !== 1) {
+              throw new Error(verifyResponse?.message || "Payment verification failed");
+            }
+            setTenderPaymentPaid(true);
+            toast.success("Tender fees paid successfully.");
+            resolve(true);
+          } catch (err) {
+            toast.error(err?.message || "Payment verification failed.");
+            resolve(false);
+          }
+        },
+        modal: {
+          // Dismiss without paying → abort the submit; vendor's inputs are
+          // untouched and they can retry.
+          ondismiss: () => resolve(false),
+        },
+        prefill: { name: "", email: "", contact: "" },
+        notes: { rfq: id },
+        theme: { color: "#158993" },
+      };
+      const paymentObject = new window.Razorpay(options);
+      // Razorpay allows retry within the same modal, so only surface the
+      // error here — ondismiss handles the abort when the modal closes.
+      paymentObject.on("payment.failed", () => {
+        toast.error("Payment failed. Please try again.");
+      });
+      paymentObject.open();
+    });
+  };
+
   /* ─────────────────────────── Submit quote ─────────────────────────── */
   const handleSubmit = async () => {
     if (!canSubmit) {
@@ -889,6 +1223,17 @@ const SendQuoteWizard = () => {
     setSubmitting(true);
 
     try {
+      // 0) Tender fee gate — fee-bearing tenders must be paid before the
+      // quote goes in. Aborts silently if the vendor closes the checkout.
+      let feesPaid;
+      try {
+        feesPaid = await ensureTenderFeesPaid();
+      } catch (err) {
+        toast.error(err?.response?.data?.message || "Unable to initiate payment");
+        return;
+      }
+      if (!feesPaid) return;
+
       // 1) Persist any pending tech-eval responses (one network call per product)
       const evalPromises = Object.keys(techResponses)
         .filter((pid) => !techSubmitted[pid])
@@ -901,6 +1246,13 @@ const SendQuoteWizard = () => {
           // Skip finalized / locked products
           if (p.finalization_status === "Another vendor is finalized") return false;
           if (p.finalization_status === "You are finalized") return false;
+          // Tech-eval restriction (legacy parity): not-accepted products are
+          // locked in the pricing grid and must not be quoted.
+          if (showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted) return false;
+          // Once-per-round rule: already re-quoted in the latest round.
+          if (negotiationQuoteSubmitted[p.id]) return false;
+          // Post-expiry, only products with an active negotiation round go out.
+          if (isBidExpired && !activeNegotiationProductIds.has(p.id)) return false;
           return true;
         })
         .map((p) => {
@@ -936,6 +1288,24 @@ const SendQuoteWizard = () => {
           };
         });
 
+      // All lines filtered out (finalized / tech-locked / already negotiated /
+      // not in an active round) — nothing left to submit.
+      if (!filteredProducts.length) {
+        toast.error("No products are currently open for quoting.");
+        return;
+      }
+
+      // Every filled line must be complete (legacy parity): a priced line
+      // needs a delivery period and vice-versa. Fully empty lines pass —
+      // they go out as skipped (unit_price 0).
+      const hasPartialLine = filteredProducts.some(
+        (p) => (p.unit_price > 0) !== (p.delivery_period > 0)
+      );
+      if (hasPartialLine) {
+        toast.error("Base price and delivery period must be greater than zero");
+        return;
+      }
+
       const basePayload = {
         rfq_id: rfq.id,
         rfq_no: rfq.rfq_no,
@@ -947,11 +1317,17 @@ const SendQuoteWizard = () => {
         vendorGSTIN,
         global_charges: globalCharges
           .filter((c) => c.name && c.name.trim())
+          // Legacy contract: the charge amount travels in `tax`/`tax_mode`
+          // (historical naming); `additional_tax` is the extra tax on top.
           .map((c) => ({
             name: c.name,
-            amount: parseFloat(c.amount) || 0,
-            amount_mode: c.amount_mode || "percentage",
+            slug: c.slug || c.name.toLowerCase().replace(/\s+/g, "_"),
+            tax: parseFloat(c.amount) || 0,
+            tax_mode: c.amount_mode || "percentage",
+            additional_tax: parseFloat(c.extra_tax) || 0,
+            additional_tax_mode: c.extra_tax_mode || "percentage",
             comment: (c.comment || "").trim(),
+            is_global: true,
           })),
       };
 
@@ -982,6 +1358,7 @@ const SendQuoteWizard = () => {
           minute: "2-digit",
         })
       );
+      clearUnsaved();
       toast.success("Quote submitted successfully");
     } catch (err) {
       console.error(err);
@@ -1033,6 +1410,7 @@ const SendQuoteWizard = () => {
     };
     sendQuotation(payload, token)
       .then(() => {
+        clearUnsaved();
         toast.success("Quote regretted. The buyer has been notified.");
         setRegretOpen(false);
         router.push(
@@ -1195,8 +1573,8 @@ const SendQuoteWizard = () => {
             globalComment={globalComment}
             vendorGSTIN={vendorGSTIN}
             globalCharges={globalCharges}
-            onChangeGSTIN={setVendorGSTIN}
-            onChangeGlobalComment={setGlobalComment}
+            onChangeGSTIN={changeGSTIN}
+            onChangeGlobalComment={changeGlobalComment}
             onUpdateProduct={updateProduct}
             onOpenCharges={(i) => setChargesOpenIdx(i)}
             onOpenGlobalCharges={() => setGlobalChargesModalOpen(true)}
@@ -1209,6 +1587,10 @@ const SendQuoteWizard = () => {
             editStatus={editStatus}
             isReadOnly={isReadOnly}
             negotiationFields={negotiationFields}
+            showTechEvalRestrictions={showTechEvalRestrictions}
+            isBidExpired={isBidExpired}
+            activeNegotiationProductIds={activeNegotiationProductIds}
+            negotiationQuoteSubmitted={negotiationQuoteSubmitted}
           />
         )}
 
@@ -1222,8 +1604,8 @@ const SendQuoteWizard = () => {
             globalComment={globalComment}
             vendorGSTIN={vendorGSTIN}
             globalCharges={globalCharges}
-            onChangeGSTIN={setVendorGSTIN}
-            onChangeGlobalComment={setGlobalComment}
+            onChangeGSTIN={changeGSTIN}
+            onChangeGlobalComment={changeGlobalComment}
             onOpenGlobalCharges={() => setGlobalChargesModalOpen(true)}
             onAddPaymentTerm={addPaymentTerm}
             onUpdatePaymentTerm={updatePaymentTerm}
@@ -1285,14 +1667,21 @@ const SendQuoteWizard = () => {
             updateProductCharge(chargesOpenIdx, cIdx, patch)
           }
           onRemoveCharge={(cIdx) => removeProductCharge(chargesOpenIdx, cIdx)}
+          negFields={negotiationFields[products[chargesOpenIdx]?.id] || []}
+          bidExpired={isBidExpired}
+          chargeTypes={lineChargeTypes}
         />
       )}
 
       {globalChargesModalOpen && (
         <GlobalChargesModal
           charges={globalCharges}
+          negFields={negotiationFields.__rfq_level__ || []}
+          bidExpired={isBidExpired}
+          chargeTypes={globalChargeTypes}
           onClose={() => setGlobalChargesModalOpen(false)}
-          onAddCharge={(name) =>
+          onAddCharge={(name) => {
+            markUnsaved();
             setGlobalCharges((prev) => [
               ...prev,
               {
@@ -1302,16 +1691,18 @@ const SendQuoteWizard = () => {
                 amount_mode: "percentage",
                 comment: "",
               },
-            ])
-          }
-          onUpdateCharge={(cIdx, patch) =>
+            ]);
+          }}
+          onUpdateCharge={(cIdx, patch) => {
+            markUnsaved();
             setGlobalCharges((prev) =>
               prev.map((c, i) => (i === cIdx ? { ...c, ...patch } : c))
-            )
-          }
-          onRemoveCharge={(cIdx) =>
-            setGlobalCharges((prev) => prev.filter((_, i) => i !== cIdx))
-          }
+            );
+          }}
+          onRemoveCharge={(cIdx) => {
+            markUnsaved();
+            setGlobalCharges((prev) => prev.filter((_, i) => i !== cIdx));
+          }}
         />
       )}
 
@@ -2451,6 +2842,10 @@ const Step3Pricing = ({
   editStatus,
   isReadOnly,
   negotiationFields,
+  showTechEvalRestrictions,
+  isBidExpired,
+  activeNegotiationProductIds,
+  negotiationQuoteSubmitted,
 }) => {
   const hasGlobalCharges = (globalCharges || []).some(
     (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
@@ -2521,7 +2916,17 @@ const Step3Pricing = ({
             const finalizedLocked =
               p.finalization_status === "Another vendor is finalized" ||
               (p.finalization_status === "You are finalized");
-            const locked = finalizedLocked || isReadOnly;
+            // Tech-eval restriction (legacy parity): evaluation exists but the
+            // buyer hasn't accepted it — the line cannot be priced.
+            const techLocked =
+              showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted;
+            // Once-per-round rule: already re-quoted in the latest round.
+            const negSubmitted = !!(negotiationQuoteSubmitted || {})[p.id];
+            // Post-expiry, lines without an active negotiation round are frozen.
+            const bidExpiredForProduct =
+              isBidExpired && !(activeNegotiationProductIds || new Set()).has(p.id);
+            const locked =
+              finalizedLocked || techLocked || negSubmitted || bidExpiredForProduct || isReadOnly;
             // Engine-computed total synced into p.total_price via usePreviewTotals
             const lineTotal = Number(p.total_price) || 0;
             const chargesTotal = (p.other_charges || []).reduce((s, c) => {
@@ -2538,6 +2943,21 @@ const Step3Pricing = ({
             const negByName = (name) =>
               negFields.find((f) => (f.name || "").toLowerCase() === name.toLowerCase());
             const isBeingNegotiated = negFields.length > 0;
+            // Post-expiry, only fields the buyer actually negotiated unlock
+            // (legacy parity). Amount inputs need an AMOUNT target; tax inputs
+            // need a TAX demand — the two are independent.
+            const isFieldNegotiable = (...names) => {
+              if (!isBidExpired) return true;
+              if (locked) return false;
+              return negFields.some(
+                (f) => names.includes(f.name) && f.targetPrice != null && f.targetPrice !== ""
+              );
+            };
+            const isFieldTaxNegotiable = (...names) => {
+              if (!isBidExpired) return true;
+              if (locked) return false;
+              return negFields.some((f) => names.includes(f.name) && f.taxDemand);
+            };
 
             return (
               <div className={`${styles.lineCard} ${locked ? styles.locked : ""}`} key={p.id}>
@@ -2613,7 +3033,7 @@ const Step3Pricing = ({
                           min={0}
                           step="0.01"
                           onWheel={(e) => e.currentTarget.blur()}
-                          disabled={locked}
+                          disabled={locked || !isFieldNegotiable("base_price", "unit_price", "price")}
                         />
                       </div>
                       {(() => {
@@ -2641,14 +3061,14 @@ const Step3Pricing = ({
                           placeholder="0"
                           min={0}
                           onWheel={(e) => e.currentTarget.blur()}
-                          disabled={locked}
+                          disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
                         />
                         <div className={styles.modeSeg} role="group" aria-label="Tax mode">
                           <button
                             type="button"
                             className={p.tax_mode === "percentage" ? styles.modeSegActive : ""}
                             onClick={() => onUpdateProduct(idx, { tax_mode: "percentage" })}
-                            disabled={locked}
+                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
                             aria-pressed={p.tax_mode === "percentage"}
                           >
                             %
@@ -2657,7 +3077,7 @@ const Step3Pricing = ({
                             type="button"
                             className={p.tax_mode === "absolute" ? styles.modeSegActive : ""}
                             onClick={() => onUpdateProduct(idx, { tax_mode: "absolute" })}
-                            disabled={locked}
+                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
                             aria-pressed={p.tax_mode === "absolute"}
                           >
                             ₹
@@ -2711,7 +3131,7 @@ const Step3Pricing = ({
                           placeholder="7"
                           min={1}
                           onWheel={(e) => e.currentTarget.blur()}
-                          disabled={locked}
+                          disabled={locked || !isFieldNegotiable("delivery_period")}
                         />
                         <div
                           className={styles.suffix}
@@ -2744,7 +3164,7 @@ const Step3Pricing = ({
                         placeholder="Add any product-specific notes the buyer should consider."
                         maxLength={300}
                         style={{ minHeight: 64 }}
-                        disabled={locked}
+                        disabled={locked || !isFieldNegotiable("comment")}
                       />
                     </div>
                     <div className={styles.spaceY3}>
@@ -2764,6 +3184,7 @@ const Step3Pricing = ({
                         <input
                           type="file"
                           multiple
+                          disabled={locked || !isFieldNegotiable("documents")}
                           onChange={async (e) => {
                             const files = Array.from(e.target.files || []);
                             const urls = [];
@@ -2790,6 +3211,7 @@ const Step3Pricing = ({
                           <button
                             type="button"
                             className={styles.iconBtn}
+                            disabled={locked || !isFieldNegotiable("documents")}
                             onClick={() =>
                               onUpdateProduct(idx, {
                                 document_files: (p.document_files || []).filter((f) => f !== u),
@@ -3428,7 +3850,7 @@ const validateCharge = (ch, i) => {
   };
 };
 
-const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onRemoveCharge }) => {
+const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, chargeTypes }) => {
   const charges = product?.other_charges || [];
   const chargeReports = charges.map(validateCharge);
   const errorList = chargeReports.filter((r) => r.errs.length > 0);
@@ -3436,9 +3858,25 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
 
   // Filter out charge types already added (one-per-type, except Custom)
   const existingNames = new Set(charges.map((c) => (c.name || "").toLowerCase().trim()));
-  const availableTypes = CHARGE_TYPES.filter(
+  const availableTypes = (chargeTypes || CHARGE_TYPES).filter(
     (t) => t === "Custom" || !existingNames.has(t.toLowerCase())
   );
+
+  // Post-expiry, charges unlock per-field (legacy parity): amount needs an
+  // AMOUNT target on the matching negotiated field, tax needs a TAX demand.
+  // New charges can't be added or removed once the bid window has closed.
+  const findNegField = (ch) =>
+    negFields.find((f) => f.name === ch.name || f.name === ch.slug);
+  const isChargeAmountLocked = (ch) => {
+    if (!bidExpired) return false;
+    const f = findNegField(ch);
+    return !(f && f.targetPrice != null && f.targetPrice !== "");
+  };
+  const isChargeTaxLocked = (ch) => {
+    if (!bidExpired) return false;
+    const f = findNegField(ch);
+    return !(f && f.taxDemand);
+  };
 
   return (
     <div className={styles.modalBackdrop} onClick={(e) => {
@@ -3485,7 +3923,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
               }
               e.target.value = "";
             }}
-            disabled={availableTypes.length === 0}
+            disabled={availableTypes.length === 0 || bidExpired}
           >
             <option value="">
               {availableTypes.length === 0
@@ -3509,6 +3947,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                     className={styles.iconBtn}
                     onClick={() => onRemoveCharge(ci)}
                     aria-label="Remove"
+                    disabled={bidExpired}
                   >
                     <Trash2 size={14} style={{ color: "var(--danger)" }} />
                   </button>
@@ -3525,6 +3964,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                         placeholder="0"
                         min={0}
                         onWheel={(e) => e.currentTarget.blur()}
+                        disabled={isChargeAmountLocked(ch)}
                       />
                       <div className={styles.modeSeg} role="group" aria-label="Charge mode">
                         <button
@@ -3532,6 +3972,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                           className={ch.amount_mode === "percentage" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { amount_mode: "percentage" })}
                           aria-pressed={ch.amount_mode === "percentage"}
+                          disabled={isChargeAmountLocked(ch)}
                         >
                           %
                         </button>
@@ -3540,6 +3981,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                           className={ch.amount_mode === "absolute" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { amount_mode: "absolute" })}
                           aria-pressed={ch.amount_mode === "absolute"}
+                          disabled={isChargeAmountLocked(ch)}
                         >
                           ₹
                         </button>
@@ -3568,6 +4010,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                         }`}
                         min={0}
                         onWheel={(e) => e.currentTarget.blur()}
+                        disabled={isChargeTaxLocked(ch)}
                       />
                       <div className={styles.modeSeg} role="group" aria-label="Tax mode">
                         <button
@@ -3575,6 +4018,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                           className={(ch.tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { tax_mode: "percentage" })}
                           aria-pressed={(ch.tax_mode || "percentage") === "percentage"}
+                          disabled={isChargeTaxLocked(ch)}
                         >
                           %
                         </button>
@@ -3583,6 +4027,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                           className={ch.tax_mode === "absolute" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { tax_mode: "absolute" })}
                           aria-pressed={ch.tax_mode === "absolute"}
+                          disabled={isChargeTaxLocked(ch)}
                         >
                           ₹
                         </button>
@@ -3683,15 +4128,23 @@ const validateGlobalCharge = (ch, i) => {
   };
 };
 
-const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onRemoveCharge }) => {
+const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, chargeTypes }) => {
   const reports = (charges || []).map(validateGlobalCharge);
   const errorList = reports.filter((r) => r.errs.length > 0);
   const hasErrors = errorList.length > 0;
 
   const existingNames = new Set((charges || []).map((c) => (c.name || "").toLowerCase().trim()));
-  const availableTypes = GLOBAL_CHARGE_TYPES.filter(
+  const availableTypes = (chargeTypes || GLOBAL_CHARGE_TYPES).filter(
     (t) => t === "Custom" || !existingNames.has(t.toLowerCase())
   );
+
+  // Post-expiry, only RFQ-level fields the buyer negotiated stay editable
+  // (legacy parity); adding or removing global charges is blocked.
+  const isChargeLocked = (ch) => {
+    if (!bidExpired) return false;
+    const f = negFields.find((x) => x.name === ch.name || x.name === ch.slug);
+    return !(f && f.targetPrice != null && f.targetPrice !== "");
+  };
 
   return (
     <div
@@ -3740,7 +4193,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
               }
               e.target.value = "";
             }}
-            disabled={availableTypes.length === 0}
+            disabled={availableTypes.length === 0 || bidExpired}
           >
             <option value="">
               {availableTypes.length === 0
@@ -3764,6 +4217,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                     className={styles.iconBtn}
                     onClick={() => onRemoveCharge(ci)}
                     aria-label="Remove"
+                    disabled={bidExpired}
                   >
                     <Trash2 size={14} style={{ color: "var(--danger)" }} />
                   </button>
@@ -3780,6 +4234,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                         placeholder="0"
                         min={0}
                         onWheel={(e) => e.currentTarget.blur()}
+                        disabled={isChargeLocked(ch)}
                       />
                       <div className={styles.modeSeg} role="group" aria-label="Charge mode">
                         <button
@@ -3787,6 +4242,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                           className={ch.amount_mode === "percentage" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { amount_mode: "percentage" })}
                           aria-pressed={ch.amount_mode === "percentage"}
+                          disabled={isChargeLocked(ch)}
                         >
                           %
                         </button>
@@ -3795,6 +4251,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                           className={ch.amount_mode === "absolute" ? styles.modeSegActive : ""}
                           onClick={() => onUpdateCharge(ci, { amount_mode: "absolute" })}
                           aria-pressed={ch.amount_mode === "absolute"}
+                          disabled={isChargeLocked(ch)}
                         >
                           ₹
                         </button>

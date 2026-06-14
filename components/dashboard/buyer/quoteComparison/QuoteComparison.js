@@ -33,13 +33,14 @@ import {
   Wallet,
   Lock,
   Plus,
+  ShieldAlert,
 } from "lucide-react";
 
 import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
-import { approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
+import { approveNegotiationQuotes, rejectNegotiationQuotes, getNegotiationApprovalBundle } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
 
 import styles from "./QuoteComparison.module.scss";
@@ -90,6 +91,37 @@ const QuoteComparison = () => {
   const [currentRFQMeta, setCurrentRFQMeta] = useState(null); // hotel_ids/department_id from getRFQById
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Negotiation rounds awaiting THIS user's approval — drives the
+  // "Approval Required" button on the RFQ band. Failure-tolerant.
+  const [pendingApprovalRounds, setPendingApprovalRounds] = useState([]);
+  useEffect(() => {
+    if (!rfq) { setPendingApprovalRounds([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getNegotiationApprovalBundle(rfq);
+        const bundle = res?.data || res || {};
+        const instancesByRound = bundle.negotiation_instances || {};
+        const now = new Date();
+        const parseUtc = (d) => {
+          if (!d) return null;
+          const s = String(d);
+          return new Date(s.includes('+') || s.includes('Z') ? s : s.replace(' ', 'T') + 'Z');
+        };
+        const pending = (bundle.rounds_history || []).filter(r =>
+          r.status === 'PENDING_APPROVAL'
+          && parseUtc(r.end_date) > now
+          && (instancesByRound[String(r.id)] || [])
+            .some(i => i.status === 'PENDING' && i.can_user_approve)
+        );
+        if (!cancelled) setPendingApprovalRounds(pending);
+      } catch {
+        if (!cancelled) setPendingApprovalRounds([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [rfq, view]);
 
   // workspace UI state
   const TABS = { product: "product", category: "category", cost: "overall" };
@@ -1635,16 +1667,30 @@ const QuoteComparison = () => {
                 </span>
               </div>
             </div>
-            {/* Entry point to the negotiation round wizard */}
-            <button
-              type="button"
-              className={styles.createNegotiationBtn}
-              onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create`)}
-              disabled={!rfq}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              Create Negotiation
-            </button>
+            <div className={styles.rfqBandActions}>
+              {/* Visible only to users with a pending approval on an
+                  unexpired negotiation round. */}
+              {pendingApprovalRounds.length > 0 && (
+                <button
+                  type="button"
+                  className={styles.approvalRequiredBtn}
+                  onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/approve`)}
+                >
+                  <ShieldAlert size={14} strokeWidth={2.5} />
+                  Approval Required{pendingApprovalRounds.length > 1 ? ` (${pendingApprovalRounds.length})` : ''}
+                </button>
+              )}
+              {/* Entry point to the negotiation round wizard */}
+              <button
+                type="button"
+                className={styles.createNegotiationBtn}
+                onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create`)}
+                disabled={!rfq}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                Create Negotiation
+              </button>
+            </div>
           </div>
           <div className={styles.rfqDetailGrid}>
             <div className={styles.cell}>
