@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import AddendumSignModal from "@/components/dashboard/rate-contracts/vendor/AddendumSignModal";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx";
 import * as ArcApi from "@/services/arc_v2";
@@ -86,7 +87,7 @@ function amendStatusInfo(am) {
   }
   if (am.status === "awaiting_signature") {
     return { pill: "awaiting signature", tone: "warn",
-             text: "Approved — sign the addendum (My Amendments) to make it effective" };
+             text: "Approved — sign the addendum to apply the new terms" };
   }
   if (am.status === "approved") {
     return { pill: "approved", tone: "success",
@@ -135,6 +136,7 @@ export default function VendorContractDetailPage() {
   const [tab, setTab] = useState("consumption");
   const [amendSub, setAmendSub] = useState("requested");   // requested | active | past
   const [viewingAmend, setViewingAmend] = useState(null);  // amendment open in the modal
+  const [signingAddendum, setSigningAddendum] = useState(null); // addendum open in the sign modal
 
   // Honour ?tab= deep links (My Amendments rows land straight on this tab).
   useEffect(() => {
@@ -144,6 +146,17 @@ export default function VendorContractDetailPage() {
       setTab(q);
     }
   }, [router.isReady, router.query.tab]);
+
+  const load = async () => {
+    if (!contractId) return;
+    setLoading(true);
+    try {
+      const res = await ArcApi.vendorGetContract(contractId);
+      setData(res?.data ?? res ?? null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!contractId) return;
@@ -160,6 +173,15 @@ export default function VendorContractDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [contractId]);
+
+  // Vendor declines the addendum → the amendment is voided (terminal).
+  const declineAddendum = async (am) => {
+    if (!am?.addendum_id) return;
+    const reason = window.prompt("Decline this addendum? The amendment will be voided and nothing on the contract changes. Optional reason:");
+    if (reason === null) return;
+    try { await ArcApi.vendorDeclineAddendum(am.addendum_id, reason || null); setViewingAmend(null); await load(); }
+    catch (e) { window.alert("Could not decline the addendum. Please try again."); }
+  };
 
   const contract   = data?.contract   || null;
   const arc        = data?.arc        || null;
@@ -757,6 +779,21 @@ export default function VendorContractDetailPage() {
           arc={arc}
           lines={lines}
           onClose={() => setViewingAmend(null)}
+          onSign={(am) => setSigningAddendum({
+            id: am.addendum_id,
+            addendum_number: am.addendum_number,
+            amendment_type: am.amendment_type,
+            arc_number: arc?.arc_number,
+          })}
+          onDecline={declineAddendum}
+        />
+      )}
+
+      {signingAddendum && (
+        <AddendumSignModal
+          addendum={signingAddendum}
+          onClose={() => setSigningAddendum(null)}
+          onDone={async () => { setSigningAddendum(null); setViewingAmend(null); await load(); }}
         />
       )}
     </main>
@@ -902,8 +939,9 @@ function VendorAmendmentModal(props) {
   return createPortal(<VendorAmendmentModalInner {...props} />, document.body);
 }
 
-function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
+function VendorAmendmentModalInner({ amendment, arc, lines, onClose, onSign, onDecline }) {
   const am = amendment;
+  const needsSign = am.status === "awaiting_signature" && am.addendum_id;
   const target = am.payload?.arc_contract_line_id
     ? lines.find((l) => String(l.id) === String(am.payload.arc_contract_line_id))
     : null;
@@ -1028,6 +1066,9 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
                   {isPending && (
                     <><strong>In review.</strong> {info.text}. You'll be notified the moment the buyer decides — no action is needed from you.</>
                   )}
+                  {am.status === "awaiting_signature" && (
+                    <><strong>Approved — your signature is required.</strong> Click <strong>Sign addendum</strong> below to seal the addendum and apply the new terms. Until you sign, the original terms stay in effect. You can also <strong>Decline</strong> to void this change.</>
+                  )}
                   {am.status === "approved" && (
                     <><strong>Approved.</strong> The change takes effect for call-offs raised from <strong>{fmtDate(am.amendment_from)}</strong>.</>
                   )}
@@ -1129,9 +1170,16 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
         {/* ── Footer ── */}
         <div className="modal-foot" style={{ justifyContent: "space-between" }}>
           <button className="btn btn-ghost" onClick={onClose}>Close</button>
-          <div className="help-text" style={{ margin: 0 }}>
-            {info.text || <>Amendment is <strong>{am.status}</strong>.</>}
-          </div>
+          {needsSign ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => onDecline && onDecline(am)}>Decline</button>
+              <button className="btn btn-blue" onClick={() => onSign && onSign(am)}>Sign addendum</button>
+            </div>
+          ) : (
+            <div className="help-text" style={{ margin: 0 }}>
+              {info.text || <>Amendment is <strong>{am.status}</strong>.</>}
+            </div>
+          )}
         </div>
       </div>
     </div>

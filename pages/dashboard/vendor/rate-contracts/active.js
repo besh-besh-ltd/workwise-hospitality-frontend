@@ -88,6 +88,13 @@ export default function VendorActiveContractsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [addenda, setAddenda] = useState([]); // addenda awaiting this vendor's signature
+
+  useEffect(() => {
+    ArcApi.vendorListAddendums()
+      .then((res) => setAddenda(res?.data?.addendums || []))
+      .catch(() => setAddenda([]));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +152,13 @@ export default function VendorActiveContractsPage() {
     if (filter === "all") return items;
     return items.filter((c) => c.status === filter);
   }, [items, filter]);
+
+  // contract_id → count of addenda awaiting this vendor's signature.
+  const pendingByContract = useMemo(() => {
+    const m = {};
+    addenda.forEach((a) => { m[a.arc_contract_id] = (m[a.arc_contract_id] || 0) + 1; });
+    return m;
+  }, [addenda]);
 
   // KPI totals
   const totalCommitted = useMemo(
@@ -236,10 +250,27 @@ export default function VendorActiveContractsPage() {
           </div>
         </div>
 
+        {addenda.length > 0 && (
+          <div style={{ margin: "0 18px 0", background: "var(--surface)", border: "1px solid #f0c14b", borderLeft: "3px solid #eab308", borderRadius: "var(--radius-lg)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fg)" }}>
+                {addenda.length} addendum{addenda.length > 1 ? "a" : ""} awaiting your signature
+              </div>
+              <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                A buyer-approved change to your contract takes effect only after you sign the addendum. Sign to apply the new terms.
+              </div>
+            </div>
+            <Link href="/dashboard/vendor/rate-contracts/amendments" className="btn btn-blue btn-sm" style={{ flexShrink: 0 }}>
+              Review &amp; sign
+            </Link>
+          </div>
+        )}
+
         <div className="section-body flush">
           <div className="contract-list" style={{ padding: "14px 18px 18px" }}>
 
             {filtered.map((k) => {
+              const pendingSign = pendingByContract[k.id] || 0;
               const pct = Math.max(0, Math.min(999, Number(k.consumption_pct || 0)));
               const tone = consumptionTone(pct);
               return (
@@ -257,6 +288,11 @@ export default function VendorActiveContractsPage() {
                         <div className="cc-title">
                           <span>{k.title}</span>
                           <span className="cc-num">#{k.arc_number}</span>
+                          {pendingSign > 0 && (
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#a16207", background: "rgba(234,179,8,0.16)", padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap" }}>
+                              ✎ {pendingSign} addendum to sign
+                            </span>
+                          )}
                         </div>
                         <div className="cc-sub">
                           <span>Buyer: <span className="em">{k.buyer_name}</span></span>
