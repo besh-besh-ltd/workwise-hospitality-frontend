@@ -364,6 +364,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         const remaining = Number(ln.remaining_qty != null ? ln.remaining_qty : Math.max(0, committed - consumed));
         const pct = Number(ln.pct_used != null ? ln.pct_used : committed ? (consumed / committed) * 100 : 0);
         const { bp, frt } = extractBpFrt(ln);
+        // Live amendment overlay (from consumptionForContract): the effective
+        // rate a call-off released today would use. cl.unit_rate stays the
+        // committed baseline; effective_unit_rate is the amended rate.
+        const effectiveRate = Number(ln.effective_unit_rate ?? rate);
+        const amended = !!ln.amendment_id && effectiveRate !== rate;
         // Awarded rate per unit = Basic Price + Freight. This is the unit
         // value the client wants reflected in every ₹ figure (#258, #259):
         // values must "include all the charges" before tax.
@@ -377,6 +382,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         out.push({
           ...ln,
           rate, gst, committed, consumed, remaining, pct, bp, frt,
+          effectiveRate, amended,
           awardedRate,
           lineBase, lineTax, lineTotal,
           consumedBase, consumedTax, consumedTotal,
@@ -855,7 +861,15 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                                       <td key={v.vendorId} className="cons-cell">
                                         <div className={`cons-content ${ln.pct >= 100 ? "danger" : ln.pct >= 75 ? "warn" : "ok"}`}>
                                           <div className="cc-top">
-                                            <span className="cc-rate success">{fmt(ln.rate)}</span>
+                                            {ln.amended ? (
+                                              <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                                                <span className="cc-rate" style={{ color: "var(--warn)", fontWeight: 700 }}>{fmt(ln.effectiveRate)}</span>
+                                                <span style={{ fontSize: 10, color: "var(--fg-4)", textDecoration: "line-through" }}>{fmt(ln.rate)}</span>
+                                                <span style={{ fontSize: 9.5, fontWeight: 700, color: "#a16207", background: "rgba(234,179,8,0.16)", padding: "1px 6px", borderRadius: 999 }} title={ln.amendment_effective_to ? `Amended rate, effective until ${fmtDate(ln.amendment_effective_to)}` : "Amended rate"}>amended</span>
+                                              </span>
+                                            ) : (
+                                              <span className="cc-rate success">{fmt(ln.rate)}</span>
+                                            )}
                                             <span className="cc-awarded-badge"><I.check /> Awarded</span>
                                             {itemRankByVendor[`${ln.arc_item_id}:${v.vendorId}`] && (
                                               <span className={`lrank-chip l${Math.min(itemRankByVendor[`${ln.arc_item_id}:${v.vendorId}`], 3)}`} title="Commercial rank for this item (by landed rate)">
