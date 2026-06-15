@@ -133,6 +133,14 @@ export const vendorRequestClarification  = (id, items) => axiosInstance.post(`${
 // All of the vendor's amendment requests across contracts (My Amendments page).
 export const vendorListAmendments        = () => axiosInstance.get(`${BASE}/vendor/amendments`);
 
+// Addendum re-signing — the vendor signs the approved amendment's addendum
+// (sign-to-activate gate) before its effects bind. OTP reuses the contract
+// signature flow, scoped to the addendum id.
+export const vendorListAddendums         = () => axiosInstance.get(`${BASE}/vendor/addendums`);
+export const vendorRequestAddendumOtp    = (id) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/request`, {});
+export const vendorVerifyAddendumOtp     = (id, code) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/verify`, { code });
+export const vendorDeclineAddendum       = (id, reason) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/decline`, { reason });
+
 // Amendments — request + list live now; approve/reject ship with the
 // committee gate (Phase C, still 501).
 //

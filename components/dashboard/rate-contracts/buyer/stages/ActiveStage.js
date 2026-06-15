@@ -286,6 +286,13 @@ export default function ActiveStage({ arc: arcProp, stage }) {
   const events     = data?.events     || [];
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+  const addendums  = data?.addendums  || [];
+  // Addenda grouped per contract for the documents tab (original + addenda).
+  const addendaByContract = useMemo(() => {
+    const m = {};
+    addendums.forEach((a) => { (m[a.arc_contract_id] = m[a.arc_contract_id] || []).push(a); });
+    return m;
+  }, [addendums]);
 
   const isEnded = stage?.state === "ended";
 
@@ -1250,6 +1257,33 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <div style={{ marginTop: 10, padding: "10px 13px", background: "var(--surface-2)", border: "1px dashed var(--border)", borderRadius: 8, fontSize: 11.5, color: "var(--fg-3)" }}>
                         Signed-document hash: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{b.contract.document_hash || "n/a"}</span>
                       </div>
+
+                      {/* Addenda — per-amendment re-signed documents. Never
+                          overwrite the original above; listed as supplements. */}
+                      {(addendaByContract[b.contract.id] || []).length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600, marginBottom: 8 }}>Addenda</div>
+                          {(addendaByContract[b.contract.id] || []).map((ad) => {
+                            const tone = ad.status === "signed"
+                              ? { bg: "rgba(16,185,129,0.12)", fg: "var(--success)", label: `Signed ${fmtDate(ad.signed_by_vendor_at)}` }
+                              : ad.status === "awaiting_signature"
+                                ? { bg: "rgba(234,179,8,0.16)", fg: "#a16207", label: "Awaiting vendor signature" }
+                                : { bg: "var(--surface-2)", fg: "var(--fg-3)", label: "Voided" };
+                            return (
+                              <div key={ad.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 13px", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 8 }}>
+                                <div>
+                                  <div style={{ fontWeight: 600, color: "var(--fg)", fontSize: 12.5 }}>Addendum No. {ad.addendum_number} <span style={{ color: "var(--fg-3)", fontWeight: 500 }}>· {ad.amendment_type}</span></div>
+                                  <div style={{ fontSize: 11, color: "var(--fg-4)", marginTop: 2 }}>SHA-256: <span className="mono">{ad.document_hash || "—"}</span></div>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: tone.fg, background: tone.bg, padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>{tone.label}</span>
+                                  {ad.document_s3_url && <a className="btn btn-ghost btn-sm" href={ad.document_s3_url} target="_blank" rel="noreferrer"><I.download /> PDF</a>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1473,10 +1507,18 @@ export default function ActiveStage({ arc: arcProp, stage }) {
 //    · Active    — approved/live amendments currently overlaying contract terms
 //  Click any row to open the ReviewAmendmentModal.
 // ──────────────────────────────────────────────────────────────────────────
+// Human label for an amendment status pill (awaiting_signature → readable).
+function amStatusLabel(s) {
+  if (s === "awaiting_signature") return "awaiting signature";
+  if (s === "voided") return "voided";
+  return s;
+}
+
 function AmendmentsTab({ arc, amendments, allLines, me, sub, setSub, onReview }) {
   const requested = amendments.filter((a) => a.status === "requested");
-  const active    = amendments.filter((a) => a.status === "approved" || a.status === "live");
-  const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended");
+  // 'awaiting_signature' = approved, pending the vendor's addendum re-sign.
+  const active    = amendments.filter((a) => a.status === "approved" || a.status === "awaiting_signature" || a.status === "live");
+  const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended" || a.status === "voided");
   const list = sub === "requested" ? requested : sub === "active" ? active : rest;
 
   return (
@@ -1528,7 +1570,7 @@ function AmendmentRow({ am, arc, allLines, me, onClick }) {
   const stepIdx = Math.max(0, (Number(am.current_step) || 1) - 1);
   const currentStep = chain[stepIdx] || null;
   const myTurn = isCurrentApprover(am, me);
-  const statusTone = am.status === "requested" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
+  const statusTone = am.status === "requested" || am.status === "awaiting_signature" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
 
   // What changed — headline + the original→proposed delta in one glance.
   const itemLabel = target ? target.variant_name
@@ -1565,7 +1607,7 @@ function AmendmentRow({ am, arc, allLines, me, onClick }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 7 }}>
           <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--fg-3)" }}>AMD-{am.id}</span>
           <span className="pill" style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>{am.amendment_type.replace("_", " ")}</span>
-          <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{am.status}</span>
+          <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{amStatusLabel(am.status)}</span>
           {myTurn && <span className="your-action" style={{ fontSize: 10, padding: "2px 9px" }}>Your approval needed</span>}
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)", lineHeight: 1.35, display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
@@ -1691,7 +1733,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
     onSubmit({ decision, comment: comment.trim() || null, edit });
   }
 
-  const statusTone = isPending ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
+  const statusTone = isPending || am.status === "awaiting_signature" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
   const pctChange = (() => {
     if (am.amendment_type !== "price" || !target || !am.payload?.new_rate) return null;
     const cur = Number(target.rate);
@@ -1722,7 +1764,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
             <div className="t" style={{ flexWrap: "wrap", gap: 8 }}>
               <h3>Review amendment <span className="mono" style={{ color: "var(--fg-3)", fontWeight: 600 }}>AMD-{am.id}</span></h3>
               <span className="pill" style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>{AMENDMENT_TYPE_LABEL[am.amendment_type] || am.amendment_type}</span>
-              <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{am.status}</span>
+              <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{amStatusLabel(am.status)}</span>
             </div>
             <div className="sub">
               Vendor <strong style={{ color: "var(--fg)" }}>{am.vendor_name || am.requested_by_name || `User #${am.requested_by}`}</strong>
@@ -1992,7 +2034,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
               View only — waiting on <strong>{(chain[stepIdx]?.approver_names || []).join(", ") || `step ${stepIdx + 1}`}</strong>.
             </div>
           ) : (
-            <div className="help-text" style={{ margin: 0 }}>No further actions — amendment is <strong>{am.status}</strong>.</div>
+            <div className="help-text" style={{ margin: 0 }}>No further actions — amendment is <strong>{amStatusLabel(am.status)}</strong>.</div>
           )}
         </div>
       </div>
