@@ -5,7 +5,7 @@
 // (buyer contact, performance, status notice).
 // Data: GET /v1/arc-v2/vendor/contracts/:contractId → { contract, lines, arc, callOffs }.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -83,6 +83,10 @@ function amendStatusInfo(am) {
   if (am.status === "requested") {
     return { pill: "in review", tone: "warn",
              text: total ? `At approval level ${cur} of ${total}` : "With the buyer for review" };
+  }
+  if (am.status === "awaiting_signature") {
+    return { pill: "awaiting signature", tone: "warn",
+             text: "Approved — sign the addendum (My Amendments) to make it effective" };
   }
   if (am.status === "approved") {
     return { pill: "approved", tone: "success",
@@ -162,6 +166,19 @@ export default function VendorContractDetailPage() {
   const lines      = data?.lines      || [];
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+
+  // On first load, land the amendments sub-tab on a non-empty bucket so an
+  // approved-but-unsigned (awaiting_signature) amendment isn't hidden behind
+  // the empty default "Requested" tab.
+  const autoPickedSub = useRef(false);
+  useEffect(() => {
+    if (autoPickedSub.current || amendments.length === 0) return;
+    autoPickedSub.current = true;
+    const nRequested = amendments.filter((a) => a.status === "requested").length;
+    const nActive = amendments.filter((a) => ["awaiting_signature", "approved", "live"].includes(a.status)).length;
+    if (nRequested === 0 && nActive > 0) setAmendSub("active");
+    else if (nRequested === 0 && nActive === 0) setAmendSub("rest");
+  }, [amendments]);
 
   const totals = useMemo(() => {
     const committed = lines.reduce((s, l) => s + Number(l.unit_rate || 0) * Number(l.committed_qty || 0), 0);
@@ -754,7 +771,8 @@ export default function VendorContractDetailPage() {
 // ──────────────────────────────────────────────────────────────────────────
 function VendorAmendmentsTab({ amendments, lines, arc, contract, contractId, sub, setSub, onOpen }) {
   const requested = amendments.filter((a) => a.status === "requested");
-  const active    = amendments.filter((a) => a.status === "approved" || a.status === "live");
+  // 'awaiting_signature' = buyer-approved, pending the vendor's addendum re-sign.
+  const active    = amendments.filter((a) => a.status === "awaiting_signature" || a.status === "approved" || a.status === "live");
   const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended" || a.status === "voided");
   const list = sub === "requested" ? requested : sub === "active" ? active : rest;
   const canRequest = contract.status === "active" || contract.status === "expiring_soon";
