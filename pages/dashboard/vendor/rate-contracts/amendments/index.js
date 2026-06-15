@@ -28,6 +28,7 @@ const TYPE_LABEL = {
 // go-live or currently live); ended/voided only surface under All.
 const STATUS_VIEW = {
   requested: { bucket: "requested", label: "Requested",       tone: "warn",    pulse: true  },
+  awaiting_signature: { bucket: "active", label: "Awaiting your signature", tone: "warn", pulse: true },
   approved:  { bucket: "active",    label: "Approved",        tone: "success", pulse: false },
   live:      { bucket: "active",    label: "Live",            tone: "success", pulse: false },
   rejected:  { bucket: "rejected",  label: "Rejected",        tone: "danger",  pulse: false },
@@ -70,19 +71,35 @@ export default function VendorMyAmendmentsPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
   const [filters, setFilters] = useState({ buId: [], contractId: [], type: [] });
+  const [addenda, setAddenda] = useState([]);   // pending addenda awaiting this vendor's signature
+  const [signing, setSigning] = useState(null); // addendum currently in the sign modal
+
+  const reload = () => {
+    setLoading(true);
+    return Promise.all([
+      ArcApi.vendorListAmendments().then((res) => res?.data?.amendments || []).catch(() => []),
+      ArcApi.vendorListAddendums().then((res) => res?.data?.addendums || []).catch(() => []),
+    ]).then(([ams, ads]) => { setRows(ams); setAddenda(ads); })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    ArcApi.vendorListAmendments()
-      .then((res) => {
-        if (cancelled) return;
-        setRows(res?.data?.amendments || []);
-      })
-      .catch(() => { if (!cancelled) setRows([]); })
+    Promise.all([
+      ArcApi.vendorListAmendments().then((res) => res?.data?.amendments || []).catch(() => []),
+      ArcApi.vendorListAddendums().then((res) => res?.data?.addendums || []).catch(() => []),
+    ]).then(([ams, ads]) => { if (!cancelled) { setRows(ams); setAddenda(ads); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  const declineAddendum = async (ad) => {
+    const reason = window.prompt("Decline this addendum? Optionally add a reason — the amendment will be voided and nothing on the contract changes.");
+    if (reason === null) return; // cancelled
+    try { await ArcApi.vendorDeclineAddendum(ad.id, reason || null); await reload(); }
+    catch (e) { window.alert("Could not decline the addendum. Please try again."); }
+  };
 
   const viewOf = (r) => STATUS_VIEW[r.status] || { bucket: "past", label: r.status, tone: "neutral", pulse: false };
 
@@ -278,6 +295,33 @@ export default function VendorMyAmendmentsPage() {
           </div>
 
           <div className="contract-list">
+            {!loading && addenda.length > 0 && (
+              <div style={{ background: "var(--surface)", border: "1px solid #f0c14b", borderLeft: "3px solid #eab308", borderRadius: "var(--radius-lg)", padding: "14px 18px", marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fg)", marginBottom: 4 }}>
+                  Action needed — {addenda.length} addendum{addenda.length > 1 ? "a" : ""} awaiting your signature
+                </div>
+                <div style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 10 }}>
+                  {addenda.length > 1 ? "These approved amendments take" : "This approved amendment takes"} effect only after you re-sign the addendum. The original contract is unchanged — the addendum is kept as a separate document.
+                </div>
+                {addenda.map((ad) => (
+                  <div key={ad.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--fg)" }}>
+                        Addendum No. {ad.addendum_number} <span style={{ color: "var(--fg-3)", fontWeight: 500 }}>· {TYPE_LABEL[ad.amendment_type] || ad.amendment_type}</span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--fg-4)", marginTop: 2 }}>
+                        <span className="mono fw-600">{ad.arc_number || `RC-${ad.arc_contract_id}`}</span>{ad.arc_title ? ` · ${ad.arc_title}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      {ad.document_s3_url && <a className="btn btn-ghost btn-sm" href={ad.document_s3_url} target="_blank" rel="noreferrer">View PDF</a>}
+                      <button className="btn btn-ghost btn-sm" onClick={() => declineAddendum(ad)}>Decline</button>
+                      <button className="btn btn-blue btn-sm" onClick={() => setSigning(ad)}>Sign addendum</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {loading && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -384,7 +428,86 @@ export default function VendorMyAmendmentsPage() {
           </div>
         </div>
       </div>
+
+      {signing && (
+        <AddendumSignModal
+          addendum={signing}
+          onClose={() => setSigning(null)}
+          onDone={async () => { setSigning(null); await reload(); }}
+        />
+      )}
     </main>
+  );
+}
+
+// ── addendum sign modal — OTP request → verify (sign-to-activate) ────────────
+function AddendumSignModal({ addendum, onClose, onDone }) {
+  const [step, setStep] = useState("idle");   // idle → code → done
+  const [code, setCode] = useState("");
+  const [devCode, setDevCode] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const sendOtp = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const res = await ArcApi.vendorRequestAddendumOtp(addendum.id);
+      setDevCode(res?.data?.dev_code || null);
+      setStep("code");
+    } catch (e) { setErr("Could not send the OTP. Please try again."); }
+    finally { setBusy(false); }
+  };
+
+  const verify = async () => {
+    if (!code.trim()) { setErr("Enter the OTP to continue."); return; }
+    setBusy(true); setErr(null);
+    try {
+      await ArcApi.vendorVerifyAddendumOtp(addendum.id, code.trim());
+      await onDone();
+    } catch (e) { setErr("OTP verification failed. Check the code and try again."); setBusy(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 440, maxWidth: "92vw", background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "22px 24px", boxShadow: "var(--shadow-md)" }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: "var(--fg)" }}>Sign Addendum No. {addendum.addendum_number}</div>
+        <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 4 }}>
+          {TYPE_LABEL[addendum.amendment_type] || addendum.amendment_type} · <span className="mono">{addendum.arc_number || `RC-${addendum.arc_contract_id}`}</span>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--fg-4)", marginTop: 10, lineHeight: 1.5 }}>
+          Signing seals this addendum (SHA-256) and makes the amended terms effective. The original contract document is not changed.
+        </div>
+
+        {step === "idle" && (
+          <button className="btn btn-blue" style={{ marginTop: 16, width: "100%" }} disabled={busy} onClick={sendOtp}>
+            {busy ? "Sending…" : "Send OTP to sign"}
+          </button>
+        )}
+
+        {step === "code" && (
+          <>
+            {devCode && (
+              <div style={{ marginTop: 14, padding: "8px 12px", background: "var(--surface-2)", border: "1px dashed var(--border)", borderRadius: 8, fontSize: 12, color: "var(--fg-3)" }}>
+                Dev OTP: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{devCode}</span>
+              </div>
+            )}
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Enter 6-digit OTP"
+              inputMode="numeric"
+              style={{ marginTop: 14, width: "100%", padding: "10px 12px", border: "1px solid var(--border-strong)", borderRadius: 8, fontSize: 14, fontFamily: "'Geist Mono',monospace", letterSpacing: 2 }}
+            />
+            <button className="btn btn-blue" style={{ marginTop: 12, width: "100%" }} disabled={busy} onClick={verify}>
+              {busy ? "Verifying…" : "Verify & sign"}
+            </button>
+          </>
+        )}
+
+        {err && <div style={{ marginTop: 12, fontSize: 12, color: "var(--danger)" }}>{err}</div>}
+        <button className="btn btn-ghost btn-sm" style={{ marginTop: 12, width: "100%" }} onClick={onClose} disabled={busy}>Cancel</button>
+      </div>
+    </div>
   );
 }
 
