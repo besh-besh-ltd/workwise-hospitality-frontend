@@ -235,23 +235,16 @@ export default function ArcLifecyclePage() {
   );
 }
 
-// Withdraw / terminate — lifted from the old detail hero.
+// Withdraw — lifted from the old detail hero. (Terminate ARC is not offered in V1.)
 function HeroActions({ arc, onRefresh }) {
   const [busy, setBusy] = useState(false);
   const canWithdraw = ["floated"].includes(arc.status);
-  const canTerminate = ["contract_active", "expiring_soon"].includes(arc.status);
-  if (!canWithdraw && !canTerminate) return null;
+  if (!canWithdraw) return null;
 
   const withdraw = async () => {
     if (!window.confirm("Withdraw this rate contract? Vendors will be notified.")) return;
     setBusy(true);
     try { await ArcApi.withdraw(arc.id); await onRefresh(); } finally { setBusy(false); }
-  };
-  const terminate = async () => {
-    const reason = window.prompt("Termination reason (required):");
-    if (!reason || !reason.trim()) return;
-    setBusy(true);
-    try { await ArcApi.terminate(arc.id, reason.trim()); await onRefresh(); } finally { setBusy(false); }
   };
 
   return (
@@ -260,12 +253,6 @@ function HeroActions({ arc, onRefresh }) {
         <button className="btn" disabled={busy} onClick={withdraw}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
           Withdraw
-        </button>
-      )}
-      {canTerminate && (
-        <button className="btn" disabled={busy} onClick={terminate}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-          Terminate
         </button>
       )}
     </>

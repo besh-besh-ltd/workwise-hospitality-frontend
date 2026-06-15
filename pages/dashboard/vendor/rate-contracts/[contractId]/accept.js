@@ -69,6 +69,26 @@ function buildTerms(arc) {
   ];
 }
 
+// Disputable fields — what the vendor can flag on a line, and what the buyer's
+// commercial evaluator may edit in return. Mirrors the backend field whitelist.
+const DISPUTE_FIELDS = [
+  { key: "base_price",     label: "Base price / unit rate" },
+  { key: "gst",            label: "GST %" },
+  { key: "charges",        label: "Freight / charges" },
+  { key: "committed_qty",  label: "Committed quantity" },
+  { key: "payment_terms",  label: "Payment terms" },
+  { key: "delivery_terms", label: "Delivery terms" },
+];
+const FIELD_LABEL = Object.fromEntries(DISPUTE_FIELDS.map((f) => [f.key, f.label]));
+const clarValueText = (field, v) => {
+  if (v == null) return "—";
+  if (field === "base_price") return fmtINR(v);
+  if (field === "gst") return `${v}%`;
+  if (field === "committed_qty") return `${Number(v).toLocaleString("en-IN")}`;
+  if (field === "charges") return typeof v === "object" ? JSON.stringify(v) : String(v);
+  return String(v);
+};
+
 // ---------------- icons ----------------
 const Icon = ({ d, w = 14, sw = 2 }) => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{d}</svg>
@@ -116,13 +136,16 @@ export default function VendorAcceptPage() {
   const [contract, setContract] = useState(null);
   const [arc, setArc] = useState(null);
   const [lines, setLines] = useState([]);
+  const [clarifications, setClarifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // line-level state (keyed by line.id)
   const [lineConfirmed, setLineConfirmed] = useState({});
-  const [lineFlagged, setLineFlagged] = useState({}); // {id: {note}}
+  const [lineFlagged, setLineFlagged] = useState({}); // {id: {field, note}}
   const [flagOpen, setFlagOpen] = useState({});
   const [flagDraft, setFlagDraft] = useState({});
+  const [flagField, setFlagField] = useState({});
+  const [submittingClar, setSubmittingClar] = useState(false);
 
   // commercial terms
   const [termCheck, setTermCheck] = useState({
@@ -146,7 +169,16 @@ export default function VendorAcceptPage() {
   const [signing, setSigning] = useState(false);
   const [toast, showToast] = useToast();
 
-  // load contract
+  // load contract (re-callable after a clarification submit re-routes the ARC)
+  const fetchContract = async () => {
+    if (!contractId) return;
+    const res = await ArcApi.vendorGetContract(contractId);
+    setContract(res?.data?.contract || null);
+    setArc(res?.data?.arc || null);
+    setLines(res?.data?.lines || []);
+    setClarifications(res?.data?.clarifications || []);
+  };
+
   useEffect(() => {
     if (!contractId) return;
     let cancelled = false;
@@ -158,6 +190,7 @@ export default function VendorAcceptPage() {
         setContract(res?.data?.contract || null);
         setArc(res?.data?.arc || null);
         setLines(res?.data?.lines || []);
+        setClarifications(res?.data?.clarifications || []);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -182,14 +215,28 @@ export default function VendorAcceptPage() {
   const allLinesConfirmed = confirmedCount === totalLines && totalLines > 0;
   const otpCode = otpDigits.join("");
 
+  // Server-side clarifications. While the contract sits in 'clarification' (or
+  // any clarification is still open), the buyer is reviewing — the whole page
+  // is read-only and signing is blocked. Resolved ones (revised/upheld) are
+  // shown back on each line when the contract re-opens for re-review.
+  const awaitingBuyer = contract?.status === "clarification" ||
+    clarifications.some((c) => c.status === "open");
+  const clarByItem = useMemo(() => {
+    const m = {};
+    for (const c of clarifications) { const k = Number(c.arc_item_id); if (!m[k]) m[k] = c; }
+    return m;
+  }, [clarifications]);
+  const hasLocalFlags = flaggedCount > 0;
+
   const grandTotal = useMemo(
     () => lines.reduce((s, l) => s + Number(l.unit_rate || 0) * Number(l.committed_qty || 0), 0),
     [lines]
   );
 
   // Linear flow gate — each step unlocks the next. OTP signing (step 3) only
-  // becomes interactive once lines (step 1) and terms (step 2) are complete.
-  const step1Done = allLinesConfirmed;
+  // becomes interactive once lines (step 1) and terms (step 2) are complete,
+  // and never while a clarification is pending or staged.
+  const step1Done = allLinesConfirmed && !hasLocalFlags && !awaitingBuyer;
   const step2Done = step1Done && allTermsConfirmed;
   const otpUnlocked = step2Done;          // step 3 may begin
   const signed = otpVerified;             // verifyOtp finalises signing server-side
@@ -219,26 +266,51 @@ export default function VendorAcceptPage() {
 
   // ---- handlers ----
   const toggleConfirm = (id) => {
-    if (lineFlagged[id]) return;
+    if (lineFlagged[id] || awaitingBuyer) return;
     setLineConfirmed((s) => ({ ...s, [id]: !s[id] }));
   };
   const openFlag = (id) => {
+    if (awaitingBuyer) return;
     setFlagOpen((s) => ({ ...s, [id]: true }));
     setFlagDraft((s) => ({ ...s, [id]: s[id] || "" }));
+    setFlagField((s) => ({ ...s, [id]: s[id] || DISPUTE_FIELDS[0].key }));
   };
   const cancelFlag = (id) => {
     setFlagOpen((s) => ({ ...s, [id]: false }));
   };
   const flagLine = (id) => {
-    setLineFlagged((s) => ({ ...s, [id]: { note: flagDraft[id] || "" } }));
+    const note = (flagDraft[id] || "").trim();
+    const field = flagField[id] || DISPUTE_FIELDS[0].key;
+    if (!note) { showToast("Add a short note explaining the concern"); return; }
+    setLineFlagged((s) => ({ ...s, [id]: { field, note } }));
     setLineConfirmed((s) => ({ ...s, [id]: false }));
     setFlagOpen((s) => ({ ...s, [id]: false }));
-    showToast("Line flagged for clarification — routed to CE");
+    showToast("Line staged — submit the clarification request to send it");
   };
   const unflagLine = (id) => {
     setLineFlagged((s) => { const n = { ...s }; delete n[id]; return n; });
     setFlagDraft((s) => ({ ...s, [id]: "" }));
     showToast("Flag removed");
+  };
+
+  // Send every staged flag to the buyer in one request — this rolls the ARC
+  // back to commercial review and parks the contract until they respond.
+  const submitClarifications = async () => {
+    if (submittingClar || !hasLocalFlags) return;
+    setSubmittingClar(true);
+    try {
+      const items = Object.entries(lineFlagged).map(([id, v]) => ({
+        arc_contract_line_id: Number(id), field: v.field, comment: v.note,
+      }));
+      await ArcApi.vendorRequestClarification(contractId, items);
+      setLineFlagged({});
+      setLineConfirmed({});
+      showToast("Clarification submitted — the buyer will review and respond");
+      await fetchContract();
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSubmittingClar(false);
+    }
   };
 
   const toggleTerm = (k) => setTermCheck((s) => ({ ...s, [k]: !s[k] }));
@@ -474,42 +546,82 @@ export default function VendorAcceptPage() {
         </div>
       </section>
 
-      {/* ACTION BANNER — points at the step the vendor needs to act on now */}
-      <section className="action-center">
-        <div className="ac-icon">
-          <Icon w={22} d={currentStep === 4 ? ICONS.check : currentStep === 3 ? ICONS.pen : ICONS.doc} />
-        </div>
-        <div className="ac-body">
-          {currentStep === 4 ? (
-            <>
-              <div className="ac-title">Contract signed &amp; activated</div>
-              <div className="ac-sub">Your signature is sealed. Call-off POs can now be raised against this contract.</div>
-            </>
-          ) : (
-            <>
-              <div className="ac-title">
-                Step {currentStep} of 3 —{" "}
-                {currentStep === 1 ? "Confirm each awarded line"
-                  : currentStep === 2 ? "Accept the commercial terms"
-                  : "Sign with OTP to activate"}
-              </div>
-              <div className="ac-sub">
-                {currentStep === 1 && <>Review the rates &amp; quantities below and <strong>confirm each line</strong>. If anything looks off, <strong>flag that line</strong> — it routes back to the buyer&apos;s evaluator and pauses your timer.</>}
-                {currentStep === 2 && <>All lines confirmed. Now <strong>accept each commercial clause</strong> below to proceed to signing.</>}
-                {currentStep === 3 && <>Lines and terms accepted. <strong>Request an OTP and sign</strong> in the signature panel below — signing is irrevocable.</>}
-              </div>
-            </>
-          )}
-        </div>
-        {currentStep !== 4 && (
+      {/* ACTION BANNER — branches: under buyer review · staged flags to submit ·
+          normal step flow. */}
+      {awaitingBuyer ? (
+        <section className="action-center clar-review">
+          <div className="ac-icon" style={{ background: "var(--warn-soft)", color: "var(--warn)" }}>
+            <Icon w={22} d={ICONS.clock} />
+          </div>
+          <div className="ac-body">
+            <div className="ac-title">Clarification under review by the buyer</div>
+            <div className="ac-sub">
+              You raised {clarifications.filter((c) => c.status === "open").length} clarification(s). The buyer&apos;s
+              commercial evaluator will revise the disputed term(s) or respond — the contract re-opens for your
+              signature once they do. <strong>Signing is paused.</strong>
+            </div>
+          </div>
+        </section>
+      ) : hasLocalFlags ? (
+        <section className="action-center clar-stage">
+          <div className="ac-icon" style={{ background: "var(--warn-soft)", color: "var(--warn)" }}>
+            <Icon w={22} d={ICONS.flag} />
+          </div>
+          <div className="ac-body">
+            <div className="ac-title">{flaggedCount} line(s) flagged for clarification</div>
+            <div className="ac-sub">
+              Submitting routes these back to the buyer&apos;s commercial evaluator and pauses signing until they
+              respond. You can&apos;t sign a contract with an open dispute.
+            </div>
+          </div>
           <div className="ac-actions">
+            <button className="btn btn-warn" onClick={submitClarifications} disabled={submittingClar}>
+              <Icon w={14} d={ICONS.send} />
+              {submittingClar ? "Submitting…" : `Submit clarification request (${flaggedCount})`}
+            </button>
             <button className="btn btn-ghost" onClick={() => setShowDecline(true)}>
               <Icon w={14} d={ICONS.x} />
               Decline
             </button>
           </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="action-center">
+          <div className="ac-icon">
+            <Icon w={22} d={currentStep === 4 ? ICONS.check : currentStep === 3 ? ICONS.pen : ICONS.doc} />
+          </div>
+          <div className="ac-body">
+            {currentStep === 4 ? (
+              <>
+                <div className="ac-title">Contract signed &amp; activated</div>
+                <div className="ac-sub">Your signature is sealed. Call-off POs can now be raised against this contract.</div>
+              </>
+            ) : (
+              <>
+                <div className="ac-title">
+                  Step {currentStep} of 3 —{" "}
+                  {currentStep === 1 ? "Confirm each awarded line"
+                    : currentStep === 2 ? "Accept the commercial terms"
+                    : "Sign with OTP to activate"}
+                </div>
+                <div className="ac-sub">
+                  {currentStep === 1 && <>Review the rates &amp; quantities below and <strong>confirm each line</strong>. If anything looks off, <strong>flag that line</strong> — pick the term in question and it routes back to the buyer&apos;s evaluator.</>}
+                  {currentStep === 2 && <>All lines confirmed. Now <strong>accept each commercial clause</strong> below to proceed to signing.</>}
+                  {currentStep === 3 && <>Lines and terms accepted. <strong>Request an OTP and sign</strong> in the signature panel below — signing is irrevocable.</>}
+                </div>
+              </>
+            )}
+          </div>
+          {currentStep !== 4 && (
+            <div className="ac-actions">
+              <button className="btn btn-ghost" onClick={() => setShowDecline(true)}>
+                <Icon w={14} d={ICONS.x} />
+                Decline
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* TWO COLUMN BODY */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 18, alignItems: "flex-start" }}>
@@ -605,6 +717,7 @@ export default function VendorAcceptPage() {
                   const variantCode = line.variant_slug || line.arc_item_id ? `#${line.arc_item_id || line.id}` : "";
                   const uom = line.uom || "u";
                   const lineValue = Number(line.unit_rate || 0) * Number(line.committed_qty || 0);
+                  const srvClar = clarByItem[Number(line.arc_item_id)];
 
                   return (
                     <div key={line.id} className={rowClass}>
@@ -625,6 +738,17 @@ export default function VendorAcceptPage() {
                               {isFlagged && (
                                 <span className="pill warn" style={{ padding: "2px 7px", fontSize: 10 }}>Flagged</span>
                               )}
+                              {srvClar?.status === "open" && (
+                                <span className="pill warn" style={{ padding: "2px 7px", fontSize: 10 }}>Under review</span>
+                              )}
+                              {srvClar?.status === "revised" && (
+                                <span className="pill success" style={{ padding: "2px 7px", fontSize: 10 }}>
+                                  <Icon w={9} sw={3} d={ICONS.check} /> Revised
+                                </span>
+                              )}
+                              {srvClar?.status === "upheld" && (
+                                <span className="pill neutral" style={{ padding: "2px 7px", fontSize: 10 }}>Buyer responded</span>
+                              )}
                             </div>
                             <div className="lr-spec">{line.spec_note || line.notes || ""}</div>
                           </div>
@@ -633,12 +757,12 @@ export default function VendorAcceptPage() {
                           <label
                             className="confirm-chip"
                             onClick={(e) => { e.preventDefault(); toggleConfirm(line.id); }}
-                            style={isFlagged ? { pointerEvents: "none", opacity: 0.45 } : undefined}
+                            style={(isFlagged || awaitingBuyer) ? { pointerEvents: "none", opacity: 0.45 } : undefined}
                           >
                             <span className="cc-box"></span>
                             <span>{isConfirmed ? "Line confirmed" : "Confirm this line"}</span>
                           </label>
-                          {!isFlagged && !flagOpen[line.id] && (
+                          {!isFlagged && !flagOpen[line.id] && !awaitingBuyer && (
                             <a className="flag-link" onClick={() => openFlag(line.id)}>
                               <Icon w={11} d={ICONS.flag} />
                               Flag for clarification
@@ -690,34 +814,46 @@ export default function VendorAcceptPage() {
                         </div>
                       </div>
 
-                      {/* Flag inline composer */}
+                      {/* Flag inline composer — pick the disputed field + a note */}
                       {flagOpen[line.id] && !isFlagged && (
                         <div className="flag-collapse">
                           <div className="fc-h">
                             <Icon w={12} sw={2.4} d={ICONS.flag} /> Raise clarification on this line
                           </div>
+                          <div className="fc-field">
+                            <label className="fc-label">Which term is the concern?</label>
+                            <select
+                              className="fc-select"
+                              value={flagField[line.id] || DISPUTE_FIELDS[0].key}
+                              onChange={(e) => setFlagField((s) => ({ ...s, [line.id]: e.target.value }))}
+                            >
+                              {DISPUTE_FIELDS.map((f) => (
+                                <option key={f.key} value={f.key}>{f.label}</option>
+                              ))}
+                            </select>
+                          </div>
                           <textarea
                             className="textarea"
                             value={flagDraft[line.id] || ""}
                             onChange={(e) => setFlagDraft((s) => ({ ...s, [line.id]: e.target.value }))}
-                            placeholder={`e.g. Rate of ${fmtINR(line.unit_rate)} assumes Mumbai port FOB — please confirm DDP terms for ${hotelName}.`}
+                            placeholder={`e.g. Freight is marked inclusive (FOB) — for ${hotelName} we need at least 10% freight added.`}
                           />
                           <div className="fc-actions">
                             <button className="btn btn-ghost btn-sm" onClick={() => cancelFlag(line.id)}>Cancel</button>
                             <button className="btn btn-warn btn-sm" onClick={() => flagLine(line.id)}>
-                              <Icon w={12} sw={2.4} d={ICONS.send} />
-                              Send to CE
+                              <Icon w={12} sw={2.4} d={ICONS.flag} />
+                              Flag this line
                             </button>
                           </div>
                         </div>
                       )}
 
-                      {/* Flag confirmed view */}
+                      {/* Staged-locally flag (not yet submitted) */}
                       {isFlagged && (
                         <div className="flag-shown">
                           <div className="fs-h">
                             <span>
-                              <Icon w={11} sw={2.4} d={ICONS.flag} /> Clarification raised · routed to Commercial Evaluator
+                              <Icon w={11} sw={2.4} d={ICONS.flag} /> Staged · {FIELD_LABEL[lineFlagged[line.id].field]} — submit the request to send
                             </span>
                             <button
                               className="btn btn-ghost btn-sm"
@@ -728,6 +864,32 @@ export default function VendorAcceptPage() {
                             </button>
                           </div>
                           <div className="fs-note">{lineFlagged[line.id].note}</div>
+                        </div>
+                      )}
+
+                      {/* Server clarification — under review, or buyer's resolution on re-review */}
+                      {srvClar && (
+                        <div className={`clar-card clar-${srvClar.status}`}>
+                          <div className="clar-h">
+                            <span className="clar-field">
+                              <Icon w={11} sw={2.4} d={srvClar.status === "open" ? ICONS.clock : ICONS.check} />
+                              {FIELD_LABEL[srvClar.field] || srvClar.field}
+                              {srvClar.status === "open" && " · awaiting buyer"}
+                              {srvClar.status === "revised" && " · revised by buyer"}
+                              {srvClar.status === "upheld" && " · buyer responded"}
+                            </span>
+                          </div>
+                          <div className="clar-q">“{srvClar.vendor_comment}”</div>
+                          {srvClar.status === "revised" && (
+                            <div className="clar-change">
+                              <span className="clar-old">{clarValueText(srvClar.field, srvClar.old_value)}</span>
+                              <Icon w={12} sw={2.4} d={ICONS.send} />
+                              <span className="clar-new">{clarValueText(srvClar.field, srvClar.new_value)}</span>
+                            </div>
+                          )}
+                          {srvClar.buyer_response && (
+                            <div className="clar-resp"><strong>Buyer:</strong> {srvClar.buyer_response}</div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1058,6 +1220,15 @@ export default function VendorAcceptPage() {
               <button className="btn btn-success btn-lg" onClick={() => router.push("/dashboard/vendor/rate-contracts/active")}>
                 <Icon w={15} d={ICONS.check} />
                 View active contract
+              </button>
+            ) : awaitingBuyer ? (
+              <span className="dock-hint text-warn">
+                <Icon w={13} d={ICONS.clock} /> Clarification under review — signing paused
+              </span>
+            ) : hasLocalFlags ? (
+              <button className="btn btn-warn btn-lg" onClick={submitClarifications} disabled={submittingClar}>
+                <Icon w={15} d={ICONS.send} />
+                {submittingClar ? "Submitting…" : `Submit clarification request (${flaggedCount})`}
               </button>
             ) : (
               <span className="dock-hint">

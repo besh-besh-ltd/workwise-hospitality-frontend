@@ -28,6 +28,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import * as ArcApi from "@/services/arc_v2";
 import { StageReadOnlyBanner } from "./StageShared";
 
@@ -195,7 +197,7 @@ function pctTone(pct) {
 // ──────────────────────────────────────────────────────────────────────────
 //  Tiny inline icons (kept inline so the stage has no extra import cost)
 // ──────────────────────────────────────────────────────────────────────────
-const Icon = ({ size = 13, sw = 2, children }) => (
+const Icon = ({ size = 16, sw = 2, children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
 );
 const I = {
@@ -617,9 +619,33 @@ export default function ActiveStage({ arc: arcProp, stage }) {
     setTimeout(() => win.print(), 350);
     setDownloadOpenFor(null);
   };
-  const dlVendorBundle = (b) => {
-    window.open(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${b.vendorId}&showContact=true`, "_blank");
+  // Fetch the contracted vendor's uploaded compliance documents (GST, PAN,
+  // cancelled cheque, MSME, FSSAI) — proxied + base64'd by the backend to skip
+  // S3 CORS — and download them as one zip.
+  const dlVendorBundle = async (b) => {
     setDownloadOpenFor(null);
+    setToast("Preparing vendor documents…");
+    try {
+      const res = await ArcApi.getVendorDocumentsBundle(b.contract.id);
+      const data = res?.data || res || {};
+      const ok = (data.files || []).filter((f) => f.content_base64 && !f.error);
+      if (!ok.length) {
+        setToast("No documents on file for this vendor");
+        setTimeout(() => setToast(""), 4500);
+        return;
+      }
+      const zip = new JSZip();
+      ok.forEach((f) => zip.file(f.filename, f.content_base64, { base64: true }));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const vname = (data.vendor_name || b.vendor?.name || "vendor").replace(/[^a-zA-Z0-9_-]+/g, "_");
+      saveAs(blob, `${vname}_documents.zip`);
+      const failed = (data.files || []).length - ok.length;
+      setToast(failed > 0 ? `Downloaded ${ok.length} document(s) · ${failed} unavailable` : `Downloaded ${ok.length} document(s)`);
+      setTimeout(() => setToast(""), 4500);
+    } catch (e) {
+      setToast("Couldn't fetch vendor documents");
+      setTimeout(() => setToast(""), 4500);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -1017,7 +1043,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                 </div>
                 {!isEnded && (
                   <div className="h-right">
-                    <button className="btn btn-sm btn-blue"><I.callOff /> Release new call-off</button>
+                    <button className="btn btn-sm btn-blue" onClick={() => router.push("/dashboard/buyer/material-requisitions/create")}><I.callOff /> Create new MR</button>
                   </div>
                 )}
               </div>
@@ -1026,7 +1052,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                   <div className="empty-state">
                     <div className="ic"><I.callOff /></div>
                     <h2>No call-off POs yet</h2>
-                    <p>{isEnded ? "No call-offs were released against this contract." : "Release the first call-off against this contract using the button above."}</p>
+                    <p>{isEnded ? "No call-offs were released against this contract." : "Create a material requisition (MR) to draw against this contract using the button above."}</p>
                   </div>
                 ) : (
                   <>
@@ -1363,8 +1389,10 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", lineHeight: 1.2 }}>{b.vendor.short}</div>
                       <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
                         {b.lines.length} item{b.lines.length === 1 ? "" : "s"} · <span className="mono">{fmtL(b.total)}</span>
-                        {signed && b.contract.signed_by_vendor_at ? <> · signed {fmtDate(b.contract.signed_by_vendor_at)}</> : null}
                       </div>
+                      {signed && b.contract.signed_by_vendor_at && (
+                        <div style={{ fontSize: 11, color: "var(--fg-4)", marginTop: 2 }}>signed {fmtDate(b.contract.signed_by_vendor_at)}</div>
+                      )}
                     </div>
                     {isEnded ? (
                       <span className="balance-pill shortfall" style={{ flexShrink: 0 }}><I.check /> Ended</span>

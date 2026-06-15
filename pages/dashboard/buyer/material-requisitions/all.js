@@ -1,2 +1,2 @@
-import MrListPage from "@/components/dashboard/material-requisitions/MrListPage";
-export default function AllMrs() { return <MrListPage filterPreset="all" />; }
+import MrAllPage from "@/components/dashboard/material-requisitions/MrAllPage";
+export default function AllMrs() { return <MrAllPage filterPreset="all" />; }

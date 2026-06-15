@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
@@ -201,6 +202,16 @@ const PODetail = ({ id }) => {
   const finalizedBy = rfq.finalized_by;
   const finalizedDate = rfq.finalized_date ? fmtDateOnly(rfq.finalized_date) : null;
 
+  // Call-off provenance (set only for ARC call-off POs, which have no RFQ).
+  const isCallOff = !!po.is_call_off;
+  const callOff = po.call_off || {};
+  const arcHref = callOff.arc_id
+    ? `/dashboard/buyer/rate-contracts/${callOff.arc_id}?stage=active`
+    : null;
+  const mrHref = callOff.mr_id
+    ? `/dashboard/buyer/material-requisitions/${callOff.mr_id}`
+    : null;
+
   return (
     <div className={styles.page}>
       <Breadcrumb onBack={handleBack} current={po.po_number || po.id} />
@@ -225,6 +236,14 @@ const PODetail = ({ id }) => {
                 <>
                   <span className={styles.sep}>·</span>
                   <span className={`${styles.rfqLink} ${styles.mono}`}>RFQ #{rfq.number}</span>
+                </>
+              )}
+              {isCallOff && (
+                <>
+                  <span className={styles.sep}>·</span>
+                  <span className={`${styles.rfqLink} ${styles.mono}`}>
+                    Call-off{callOff.arc_number ? ` · ${callOff.arc_number}` : ""}
+                  </span>
                 </>
               )}
             </div>
@@ -592,6 +611,71 @@ const PODetail = ({ id }) => {
                     </>
                   )}{" "}
                   based on commercial evaluation.
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Call-off source — for ARC call-off POs (no RFQ). Links back to the
+              originating rate contract and material requisition. */}
+          {isCallOff && (
+            <section className={styles.sectionCard}>
+              <div className={styles.sectionHead}>
+                <div className={styles.hLeft}>
+                  <div className={styles.ic}>
+                    <FileText size={13} />
+                  </div>
+                  <h2>Call-off source</h2>
+                </div>
+                <div className={styles.hRight}>
+                  {arcHref && (
+                    <Link href={arcHref} className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}>
+                      <ExternalLink size={12} />
+                      Open rate contract
+                    </Link>
+                  )}
+                </div>
+              </div>
+              <div className={styles.rfqContext}>
+                <div className={styles.rfqIc}>
+                  <FileText size={16} />
+                </div>
+                <div className={styles.meta}>
+                  <div className={styles.title}>
+                    {arcHref ? (
+                      <Link href={arcHref} className={styles.rfqLink} style={{ textDecoration: "none" }}>
+                        {callOff.arc_title || "Rate contract"}
+                      </Link>
+                    ) : (
+                      <span>{callOff.arc_title || "Rate contract"}</span>
+                    )}
+                    {callOff.arc_number && (
+                      <span className={`${styles.pill} ${styles.pillOutline} ${styles.mono}`}>
+                        {callOff.arc_number}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.sub}>
+                    {[rfq.company, rfq.business_unit, rfq.department].filter(Boolean).map((v, i, arr) => (
+                      <React.Fragment key={i}>
+                        <span>{v}</span>
+                        {i < arr.length - 1 && <span className={styles.sep}>·</span>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {callOff.mr_number && (
+                <div className={styles.rfqFinalized}>
+                  Released against material requisition{" "}
+                  {mrHref ? (
+                    <Link href={mrHref} className={styles.mono} style={{ fontWeight: 600 }}>
+                      {callOff.mr_number}
+                    </Link>
+                  ) : (
+                    <strong className={styles.mono}>{callOff.mr_number}</strong>
+                  )}{" "}
+                  at contracted rates — no fresh sourcing required.
                 </div>
               )}
             </section>

@@ -11,6 +11,24 @@ import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton } from "./StageShared";
 
+const CLAR_FIELD_LABEL = {
+  base_price: "Base price / unit rate",
+  gst: "GST %",
+  charges: "Freight / charges",
+  committed_qty: "Committed quantity",
+  payment_terms: "Payment terms",
+  delivery_terms: "Delivery terms",
+};
+const CLAR_FREE_TEXT = new Set(["payment_terms", "delivery_terms"]);
+const fmtClarVal = (field, v) => {
+  if (v == null) return "—";
+  if (field === "base_price" || field === "charges") return "₹" + Number(v).toLocaleString("en-IN");
+  if (field === "gst") return v + "%";
+  if (field === "committed_qty") return Number(v).toLocaleString("en-IN");
+  return String(v);
+};
+const fmtClarDate = (s) => { try { return new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); } catch { return ""; } };
+
 function fmtINR(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return "₹" + Math.round(Number(n)).toLocaleString("en-IN");
@@ -57,6 +75,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   const [commEvaluation, setCommEvaluation] = useState(null);
   const [items, setItems] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [awards, setAwards] = useState([]);
   const [alloc, setAlloc] = useState({});
   const [activeView, setActiveView] = useState("product");
   const [expanded, setExpanded] = useState({});
@@ -70,13 +89,20 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   const [sendBackOpen, setSendBackOpen] = useState(false);
   const [sendBackReason, setSendBackReason] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
+  // Vendor clarifications that re-opened this stage. Each is resolved by a
+  // scoped revise (edit the disputed field) or an uphold (keep it, reply).
+  const [clarifications, setClarifications] = useState([]);
+  const [clarDraft, setClarDraft] = useState({});   // id → { value, response }
+  const [clarBusy, setClarBusy] = useState(null);    // id currently resolving
 
   const applyPayload = (payload) => {
     setCommEvaluation(payload.comm_evaluation || null);
     setItems(Array.isArray(payload.items) ? payload.items : []);
     setQuotes(Array.isArray(payload.quotes) ? payload.quotes : []);
+    setClarifications(Array.isArray(payload.clarifications) ? payload.clarifications : []);
     setQualifiedMap(payload.qualified_by_item || {});
     const aw = Array.isArray(payload.awards) ? payload.awards : [];
+    setAwards(aw);
     const seed = {};
     aw.forEach((a) => {
       if (!a || !a.arc_item_id || !a.awarded_quote_line_id) return;
@@ -146,6 +172,52 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     const v = vendorById.get(vid);
     return v ? v.lines.find((l) => l.arc_item_id === itemId) || null : null;
   };
+
+  // ── clarification overrides ──────────────────────────────────────────
+  // A revise edits the AWARD SNAPSHOT for one item×vendor (the quote line in
+  // the DB never changes). Build: (a) the effective snapshot per awarded cell,
+  // (b) the resolved 'revised' clarifications keyed by item::vendor for the
+  // strike-through + (i) provenance tooltip.
+  const awardSnapByCell = useMemo(() => {
+    const m = {};
+    awards.forEach((a) => {
+      const snap = typeof a.awarded_quote_snapshot === "string"
+        ? JSON.parse(a.awarded_quote_snapshot) : (a.awarded_quote_snapshot || {});
+      m[`${a.arc_item_id}::${a.awarded_vendor_id}`] = snap;
+    });
+    return m;
+  }, [awards]);
+
+  const revisionByCell = useMemo(() => {
+    const m = {};
+    clarifications.forEach((c) => {
+      if (c.status !== "revised") return;
+      const k = `${c.arc_item_id}::${c.vendor_id}`;
+      (m[k] = m[k] || []).push(c);
+    });
+    return m;
+  }, [clarifications]);
+
+  // The quote line overlaid with any revised snapshot fields; `_ov` records the
+  // original (quoted) values so the cell can strike them through.
+  const SNAP_OF = { base_price: "rate", gst: "gst_pct", charges: "charges" };
+  const effLineFor = (vid, itemId) => {
+    const base = lineFor(vid, itemId);
+    if (!base) return base;
+    const snap = awardSnapByCell[`${itemId}::${vid}`];
+    if (!snap) return base;
+    const eff = { ...base };
+    const ov = {};
+    for (const [field, key] of Object.entries(SNAP_OF)) {
+      if (snap[key] == null) continue;
+      const before = toNum(base[key]);
+      const after = toNum(snap[key]);
+      if (Math.abs(before - after) > 1e-9) { eff[key] = after; ov[field] = { before, after }; }
+    }
+    eff._ov = Object.keys(ov).length ? ov : null;
+    return eff;
+  };
+  const revisionFor = (vid, itemId) => revisionByCell[`${itemId}::${vid}`] || null;
 
   // Technical qualification — vendors who didn't clear an item's clauses
   // can't be awarded that item (and never count as its L1).
@@ -238,7 +310,9 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     items.forEach((it) => {
       const itemId = it.id || it.arc_item_id;
       itemAllocations(itemId).rows.forEach((r) => {
-        const lan = landedRate(r.line, includeCharges);
+        // Awarded value is computed on the REVISED rate when a clarification
+        // changed it (the quote line stays the competitive baseline).
+        const lan = landedRate(effLineFor(r.vendor.vendor_id, itemId) || r.line, includeCharges);
         if (lan !== null) s += lan * r.qty;
       });
     });
@@ -439,6 +513,43 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     }
   };
 
+  const openClarifications = useMemo(
+    () => clarifications.filter((c) => c.status === "open"),
+    [clarifications]
+  );
+
+  const resolveClar = async (clar, mode) => {
+    const draft = clarDraft[clar.id] || {};
+    if (mode === "revise" && (draft.value === undefined || draft.value === "")) {
+      toast.error("Enter the revised value."); return;
+    }
+    if (mode === "uphold" && !(draft.response || "").trim()) {
+      toast.error("Add a short response for the vendor."); return;
+    }
+    setClarBusy(clar.id);
+    try {
+      const value = clar.field === "payment_terms" || clar.field === "delivery_terms"
+        ? draft.value : Number(draft.value);
+      let resp;
+      if (mode === "revise") {
+        resp = await ArcApi.reviseClarification(arc.id, clar.id, { value, response: draft.response || "" });
+      } else {
+        resp = await ArcApi.upholdClarification(arc.id, clar.id, { response: draft.response.trim() });
+      }
+      const remaining = resp?.data?.open_remaining ?? resp?.open_remaining ?? 0;
+      toast.success(
+        remaining === 0
+          ? "Resolved — award re-routed to the committee for approval"
+          : `${mode === "revise" ? "Term revised" : "Original upheld"} · ${remaining} clarification(s) left`
+      );
+      setClarDraft((s) => { const n = { ...s }; delete n[clar.id]; return n; });
+      await reload();
+      await onRefresh();
+    } catch (e) { /* interceptor */ } finally {
+      setClarBusy(null);
+    }
+  };
+
   // ── render ────────────────────────────────────────────────────────────
   if (!canRead) return <StageNoPermission stageLabel="Commercial" />;
   if (loading) return <StageSkeleton />;
@@ -485,6 +596,82 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
             finalize starts the committee vote.
           </div>
         </div>
+      )}
+
+      {/* VENDOR CLARIFICATIONS — surgical: award stays locked, only the disputed
+          value is revised or upheld; resolving routes the award back through the
+          committee. */}
+      {openClarifications.length > 0 && (
+        <section className="clar-panel">
+          <div className="clar-panel-head">
+            <span className="clar-dot" />
+            <div>
+              <div className="clar-panel-title">
+                {openClarifications.length} vendor clarification{openClarifications.length === 1 ? "" : "s"} need your decision
+              </div>
+              <div className="clar-panel-sub">
+                The award is locked — only the disputed term can change. Revise the value or uphold it; the
+                award then re-routes through the committee and back to the vendor.
+              </div>
+            </div>
+          </div>
+          <div className="clar-list">
+            {openClarifications.map((cl) => {
+              const draft = clarDraft[cl.id] || {};
+              const busy = clarBusy === cl.id;
+              const freeText = CLAR_FREE_TEXT.has(cl.field);
+              return (
+                <div key={cl.id} className="clar-item">
+                  <div className="clar-item-head">
+                    <span className="clar-field-pill">{CLAR_FIELD_LABEL[cl.field] || cl.field}</span>
+                    <span className="clar-line">{cl.variant_name || `Item #${cl.arc_item_id}`}</span>
+                    <span className="clar-vendor">· {cl.vendor_name || `Vendor ${cl.vendor_id}`}</span>
+                  </div>
+                  <div className="clar-quote">
+                    <span className="clar-quote-ic">“</span>
+                    <span className="clar-quote-text">{cl.vendor_comment}</span>
+                  </div>
+                  <div className="clar-row">
+                    <div className="clar-grp">
+                      <label className="clar-lbl">{freeText ? "Revised term" : "Revised value"}</label>
+                      <input
+                        className="clar-input"
+                        type={freeText ? "text" : "number"}
+                        step="any"
+                        placeholder={freeText ? "e.g. Net 30 from GRN" : "New value"}
+                        value={draft.value ?? ""}
+                        onChange={(e) => setClarDraft((s) => ({ ...s, [cl.id]: { ...s[cl.id], value: e.target.value } }))}
+                        disabled={busy || !canEvaluate}
+                      />
+                    </div>
+                    <div className="clar-grp">
+                      <label className="clar-lbl">Note to vendor <span className="clar-lbl-hint">(required to uphold)</span></label>
+                      <input
+                        className="clar-input"
+                        type="text"
+                        placeholder="Reason / response…"
+                        value={draft.response ?? ""}
+                        onChange={(e) => setClarDraft((s) => ({ ...s, [cl.id]: { ...s[cl.id], response: e.target.value } }))}
+                        disabled={busy || !canEvaluate}
+                      />
+                    </div>
+                    <div className="clar-btns">
+                      <button className="btn btn-ghost btn-sm" disabled={busy || !canEvaluate} onClick={() => resolveClar(cl, "uphold")}>
+                        Uphold
+                      </button>
+                      <button className="btn btn-primary btn-sm" disabled={busy || !canEvaluate} onClick={() => resolveClar(cl, "revise")}>
+                        {busy ? "Saving…" : "Revise"}
+                      </button>
+                    </div>
+                  </div>
+                  {!canEvaluate && (
+                    <div className="clar-noperm">Resolving clarifications requires the commercial evaluate permission.</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* METRICS STRIP */}
@@ -609,6 +796,8 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                       status={itemStatus(itemId)}
                       vendors={vendors}
                       lineFor={lineFor}
+                      effLineFor={effLineFor}
+                      revisionFor={revisionFor}
                       isL1={isL1}
                       isQualified={isQualified}
                       landed={(l) => landedRate(l, includeCharges)}
@@ -785,7 +974,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
 // ── ItemRow — one item row + split editor + expanded breakdowns ──────────
 function ItemRow({
   it, itemId, itemName, uom, indicative, isExp, status, vendors,
-  lineFor, isL1, isQualified, landed, includeCharges, allocatedFor,
+  lineFor, effLineFor, revisionFor, isL1, isQualified, landed, includeCharges, allocatedFor,
   awardCell, unawardCell, setShare, toggleExpand, saving, editable, lockedByApproval,
 }) {
   // Inline share override — { vid, value } while one cell's % is being edited.
@@ -839,7 +1028,12 @@ function ItemRow({
               </td>
             );
           }
-          const lan = landed(l);
+          // Effective line overlays any clarification-revised values; the quote
+          // line `l` stays the struck-through original baseline.
+          const eff = (effLineFor && effLineFor(v.vendor_id, itemId)) || l;
+          const ov = eff._ov || null;
+          const rev = revisionFor ? revisionFor(v.vendor_id, itemId) : null;
+          const lan = landed(eff);
           const qualified = isQualified(v.vendor_id, itemId);
           const l1 = isL1(v.vendor_id, itemId);
           const allocated = allocatedFor(itemId, v.vendor_id);
@@ -869,12 +1063,48 @@ function ItemRow({
             <td key={v.vendor_id} className={"cell" + (isAwarded ? " cell-awarded" : l1 ? " cell-l1" : "")}>
               <div className={"price-cell" + (l1 ? " is-l1" : "") + (isAwarded ? " is-awarded" : "")}>
                 <div className="p-top">
-                  <span className="price mono">{fmtINR(lan)}</span>
+                  {ov ? (
+                    <><span className="price mono price-old">{fmtINR(landed(l))}</span><span className="price mono price-new">{fmtINR(lan)}</span></>
+                  ) : (
+                    <span className="price mono">{fmtINR(lan)}</span>
+                  )}
                   {l1 && !isAwarded && <span className="l1-badge">L1</span>}
+                  {rev && rev.length > 0 && (
+                    <span className="rev-info" tabIndex={0} aria-label="Why this changed">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                      <span className="rev-tip" role="tooltip">
+                        <span className="rev-tip-head">Revised by clarification</span>
+                        {rev.map((c) => (
+                          <span key={c.id} className="rev-tip-row">
+                            <span className="rev-tip-label">{CLAR_FIELD_LABEL[c.field] || c.field}</span>
+                            <span className="rev-tip-change">
+                              <span className="rate-old">{fmtClarVal(c.field, c.old_value)}</span> <span className="rev-tip-arrow">→</span> <span className="rate-new">{fmtClarVal(c.field, c.new_value)}</span>
+                            </span>
+                            {c.vendor_comment && <span className="rev-tip-why">Vendor: “{c.vendor_comment}”</span>}
+                            {c.buyer_response && <span className="rev-tip-resp">You: {c.buyer_response}</span>}
+                            <span className="rev-tip-by">{c.resolved_by_name || "Evaluator"}{c.resolved_at ? ` · ${fmtClarDate(c.resolved_at)}` : ""}</span>
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  )}
                 </div>
                 <div className="landed">
-                  rate <span className="mono">{fmtINR(l.rate)}</span>
-                  {includeCharges && (<>{" · chg "}<span className="mono">{fmtINR(l.charges)}</span></>)}
+                  rate{" "}
+                  {ov?.base_price ? (
+                    <><span className="mono rate-old">{fmtINR(ov.base_price.before)}</span>{" "}<span className="mono rate-new">{fmtINR(ov.base_price.after)}</span></>
+                  ) : (
+                    <span className="mono">{fmtINR(l.rate)}</span>
+                  )}
+                  {includeCharges && (
+                    <>{" · chg "}
+                      {ov?.charges ? (
+                        <><span className="mono rate-old">{fmtINR(ov.charges.before)}</span>{" "}<span className="mono rate-new">{fmtINR(ov.charges.after)}</span></>
+                      ) : (
+                        <span className="mono">{fmtINR(l.charges)}</span>
+                      )}
+                    </>
+                  )}
                 </div>
                 {d !== null && (
                   <div className={"delta-target " + (d > 0 ? "up" : "down")}>

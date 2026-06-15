@@ -100,7 +100,6 @@ const fmtL = (n) => {
   return `₹${v.toLocaleString("en-IN")}`;
 };
 
-const FINANCE_THRESHOLD = 100000;
 
 export default function CreateMrPage() {
   const router = useRouter();
@@ -221,6 +220,37 @@ export default function CreateMrPage() {
   // ----- Form helpers ----------------------------------------------------
   const setField = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
+  // Urgency is NOT user-chosen — it's derived from the Required-by date:
+  //   ≤ 5 days → urgent · 6–14 days → normal · > 14 days → low
+  const deriveUrgency = (dateStr) => {
+    if (!dateStr) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr); target.setHours(0, 0, 0, 0);
+    const days = Math.ceil((target - today) / 86400000);
+    if (days <= 5) return "urgent";
+    if (days <= 14) return "normal";
+    return "low";
+  };
+  useEffect(() => {
+    setForm((f) => {
+      const u = deriveUrgency(f.required_by_date);
+      return f.urgency === u ? f : { ...f, urgency: u };
+    });
+  }, [form.required_by_date]);
+
+  // Real routing preview — the resolved MR approval chain for the chosen BU.
+  const [routing, setRouting] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const params = {};
+    if (form.hospitality_company_id) params.hospitality_company_id = form.hospitality_company_id;
+    if (form.hotel_id) params.hotel_id = form.hotel_id;
+    MrApi.getApprovalPreview(params)
+      .then((res) => { if (!cancelled) setRouting(res?.data || res || null); })
+      .catch(() => { if (!cancelled) setRouting(null); });
+    return () => { cancelled = true; };
+  }, [form.hotel_id, form.hospitality_company_id]);
+
   const addItemRow = () =>
     setItems((rows) => [...rows, { product_variant_id: "", quantity: "", note: "" }]);
 
@@ -273,7 +303,6 @@ export default function CreateMrPage() {
     (s, r) => s + (Number(r.matched_unit_rate) || 0) * (Number(r.quantity) || 0),
     0
   );
-  const needsFinance  = totalEst > FINANCE_THRESHOLD;
   const fastTrackable = filledRows.length > 0;
 
   const canSubmit =
@@ -281,7 +310,6 @@ export default function CreateMrPage() {
     !!form.hotel_id &&
     !!form.department_id &&
     !!form.required_by_date &&
-    !!form.justification &&
     filledRows.some((r) => Number(r.quantity) > 0);
 
   // ----- Toast helper ----------------------------------------------------
@@ -362,7 +390,9 @@ export default function CreateMrPage() {
 
         .urgency-row { display:flex; gap:9px; flex-wrap:wrap; }
         .urg-card { flex:1; min-width:120px; padding:11px 14px; border:1.5px solid var(--border); border-radius:10px; background:var(--surface); cursor:pointer; transition:all 0.13s ease; }
-        .urg-card:hover { border-color:var(--border-strong); }
+        .urg-card:not(.readonly):hover { border-color:var(--border-strong); }
+        .urg-card.readonly { cursor:default; opacity:0.55; }
+        .urg-card.readonly.sel { opacity:1; }
         .urg-card.sel.normal { border-color:var(--primary); background:var(--primary-tint); }
         .urg-card.sel.urgent { border-color:var(--danger); background:var(--danger-soft); }
         .urg-card.sel.low { border-color:var(--success); background:var(--success-tint); }
@@ -375,7 +405,7 @@ export default function CreateMrPage() {
         .mini-summary-row .ms-v { font-family:'Geist Mono',monospace; font-weight:600; color:var(--fg); }
       `}</style>
 
-      <div style={{ paddingBottom: 108 }}>
+      <div className="main-body" style={{ paddingBottom: 108 }}>
         <div>
           <h1 className="page-h1">Raise Material Requisition</h1>
           <p className="page-sub">
@@ -384,7 +414,7 @@ export default function CreateMrPage() {
           </p>
         </div>
 
-        <div className="mr-form-grid" style={{ marginTop: 18 }}>
+        <div className="mr-form-grid">
           <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
 
             {/* Requisition basics --------------------------------------- */}
@@ -394,28 +424,19 @@ export default function CreateMrPage() {
                   <div className="ic">{Icon.cog(14)}</div>
                   <div>
                     <h2>Requisition basics</h2>
-                    <div className="h-sub">Title, scope, urgency, justification</div>
+                    <div className="h-sub">Title, scope, urgency, comment</div>
                   </div>
                 </div>
               </div>
               <div className="section-body">
                 <div className="form-grid">
-                  <div>
+                  <div style={{ gridColumn: "1 / -1" }}>
                     <label className="label">Title <span className="req">*</span></label>
                     <input
                       className="input"
                       value={form.title}
                       onChange={(e) => setField("title", e.target.value)}
                       placeholder="e.g. Restock Basmati Rice · BAB"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Cost centre / GL code</label>
-                    <input
-                      className="input mono"
-                      value={form.cost_center}
-                      onChange={(e) => setField("cost_center", e.target.value)}
-                      placeholder="e.g. F-B-BAB-001"
                     />
                   </div>
                   <div>
@@ -473,39 +494,33 @@ export default function CreateMrPage() {
                   </div>
                 </div>
 
-                <label className="label" style={{ marginTop: 14 }}>Urgency</label>
+                <label className="label" style={{ marginTop: 14 }}>Urgency <span style={{ fontWeight: 400, color: "var(--fg-4)" }}>· auto-set from Required by</span></label>
                 <div className="urgency-row">
-                  <div
-                    className={`urg-card${form.urgency === "low" ? " sel low" : ""}`}
-                    onClick={() => setField("urgency", "low")}
-                  >
+                  <div className={`urg-card readonly${form.urgency === "low" ? " sel low" : ""}`}>
                     <div className="u-name">↓ Low</div>
-                    <div className="u-desc">Plan-ahead · &gt; 2 weeks</div>
+                    <div className="u-desc">Plan-ahead · &gt; 14 days</div>
                   </div>
-                  <div
-                    className={`urg-card${form.urgency === "normal" ? " sel normal" : ""}`}
-                    onClick={() => setField("urgency", "normal")}
-                  >
+                  <div className={`urg-card readonly${form.urgency === "normal" ? " sel normal" : ""}`}>
                     <div className="u-name">— Normal</div>
-                    <div className="u-desc">Standard · 1-2 weeks</div>
+                    <div className="u-desc">Standard · 6–14 days</div>
                   </div>
-                  <div
-                    className={`urg-card${form.urgency === "urgent" ? " sel urgent" : ""}`}
-                    onClick={() => setField("urgency", "urgent")}
-                  >
+                  <div className={`urg-card readonly${form.urgency === "urgent" ? " sel urgent" : ""}`}>
                     <div className="u-name">↑ Urgent</div>
-                    <div className="u-desc">Operations-critical · &lt; 7 days</div>
+                    <div className="u-desc">Operations-critical · ≤ 5 days</div>
                   </div>
                 </div>
+                <div className="help-text">
+                  {form.required_by_date
+                    ? <>Derived from your Required-by date — change the date to adjust urgency.</>
+                    : <>Pick a Required-by date above and urgency is set automatically.</>}
+                </div>
 
-                <label className="label" style={{ marginTop: 14 }}>
-                  Justification <span className="req">*</span>
-                </label>
+                <label className="label" style={{ marginTop: 14 }}>Comment</label>
                 <textarea
                   className="textarea"
                   value={form.justification}
                   onChange={(e) => setField("justification", e.target.value)}
-                  placeholder="Why is this needed? Reference any ARC, event, audit, or operational driver."
+                  placeholder="Add a comment — reference any ARC, event, audit, or operational driver (optional)."
                 />
               </div>
             </div>
@@ -811,79 +826,56 @@ export default function CreateMrPage() {
                   <span className="ms-v">{fmtL(totalEst)}</span>
                 </div>
                 <div className="mini-summary-row">
-                  <span className="ms-k">Finance threshold</span>
-                  <span className="ms-v">₹1.00 L</span>
-                </div>
-                <div className="mini-summary-row">
-                  <span className="ms-k">Needs finance approval</span>
-                  <span
-                    className="ms-v"
-                    style={{ color: needsFinance ? "var(--warn)" : "var(--success)" }}
-                  >
-                    {needsFinance ? "Yes · above threshold" : "No · under threshold"}
+                  <span className="ms-k">Approval steps</span>
+                  <span className="ms-v">
+                    {routing?.found ? `${routing.steps.length} required` : routing && !routing.found ? "Not configured" : "…"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Routing preview */}
+            {/* Routing preview — the REAL resolved MR approval chain */}
             <div className="workflow">
               <div className="wf-head">
                 <div className="t">
                   {Icon.workflow(13)} Routing preview
                 </div>
               </div>
-              <div className="wf-step current">
-                <div className="wf-node"></div>
-                <div className="body">
-                  <div className="nm">Department head approval</div>
-                  <div className="meta">
-                    {(departments.find((d) => String(d.id) === String(form.department_id))?.title) ||
-                      (form.department_id ? `Dept ${form.department_id}` : "Department")}
-                    {" · "}
-                    {(hotels.find((h) => String(h.id) === String(form.hotel_id))?.code) ||
-                      (hotels.find((h) => String(h.id) === String(form.hotel_id))?.name) ||
-                      (form.hotel_id ? `Hotel ${form.hotel_id}` : "Hotel")}
+              {routing?.found ? (
+                <>
+                  {routing.steps.map((s, i) => (
+                    <div key={i} className={`wf-step ${i === 0 ? "current" : "pending"}`}>
+                      <div className="wf-node"></div>
+                      <div className="body">
+                        <div className="nm">{(s.approver_label || s.approver_source_type) + " approval"}</div>
+                        <div className="meta">
+                          Step {s.step_order} · {s.decision_rule === "ALL" ? "all approvers must sign off" : "any one approver"}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="wf-step pending">
+                    <div className="wf-node"></div>
+                    <div className="body">
+                      <div className="nm">{fastTrackable ? "Direct call-off PO release" : "Sourcing / RFQ"}</div>
+                      <div className="meta">{fastTrackable ? "All items under active ARCs — auto-converts on final approval" : "Items need fresh quotes"}</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="wf-step pending">
-                <div className="wf-node"></div>
-                <div className="body">
-                  <div className="nm">Category lead approval</div>
-                  <div className="meta">Procurement · validates ARC match</div>
-                </div>
-              </div>
-              {needsFinance ? (
+                </>
+              ) : routing && !routing.found ? (
                 <div className="wf-step pending">
                   <div className="wf-node"></div>
                   <div className="body">
-                    <div className="nm">Finance approval</div>
-                    <div className="meta">GM Finance · over ₹1L threshold</div>
+                    <div className="nm">No approval policy configured</div>
+                    <div className="meta">An administrator must set up an MR approval policy for this business unit before submission.</div>
                   </div>
                 </div>
               ) : (
                 <div className="wf-step pending">
                   <div className="wf-node"></div>
-                  <div className="body">
-                    <div className="nm">Finance · auto-approve</div>
-                    <div className="meta">Under ₹1L threshold</div>
-                  </div>
+                  <div className="body"><div className="nm">Resolving routing…</div></div>
                 </div>
               )}
-              <div className="wf-step pending">
-                <div className="wf-node"></div>
-                <div className="body">
-                  <div className="nm">
-                    {fastTrackable ? "Direct call-off PO release" : "Sourcing / RFQ"}
-                  </div>
-                  <div className="meta">
-                    {fastTrackable
-                      ? "All items under active ARCs"
-                      : "Items need fresh quotes"}
-                  </div>
-                </div>
-              </div>
             </div>
 
             {fastTrackable && filledRows.length > 0 && (
@@ -929,7 +921,7 @@ export default function CreateMrPage() {
               <span className="fw-600 text-fg">Total est.</span>{" "}
               <span className="mono fw-700">{fmtL(totalEst)}</span>{" "}
               · routes through{" "}
-              <span className="em">{needsFinance ? "3 approvals" : "2 approvals"}</span>
+              <span className="em">{routing?.found ? `${routing.steps.length} approval${routing.steps.length === 1 ? "" : "s"}` : "approval"}</span>
             </span>
           </div>
           <div className="right">

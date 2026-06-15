@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as MrApi from "@/services/mr";
+import { submitApprovalAction } from "@/services/approval";
+import { MrDetailSkeleton } from "@/components/dashboard/material-requisitions/MrSkeletons";
 
 // ---------- formatters ----------
 const fmtINR = (v) => {
@@ -24,21 +26,26 @@ const fmtDate = (iso) => {
     return iso;
   }
 };
+const fmtDateTime = (iso) => {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
+  catch { return iso; }
+};
+const arcHref = (arcId) => `/dashboard/buyer/rate-contracts/${arcId}?stage=active`;
+const poHref = (poId) => `/dashboard/buyer/purchase-orders/${poId}`;
+const vendorHref = (vendorId) => `/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendorId}`;
 
 const MR_STATUS_LABEL = {
   draft: "Draft",
-  pending: "Pending approval",
-  "dept-approval": "Dept approval",
-  "category-approval": "Category approval",
-  "finance-approval": "Finance approval",
+  pending_approval: "Pending approval",
   approved: "Approved",
-  "po-released": "PO released",
+  po_released: "PO released",
   rejected: "Rejected",
   cancelled: "Cancelled",
 };
 
 const statusChipClass = (status) => {
-  if (status === "po-released" || status === "approved") return "active";
+  if (status === "po_released" || status === "approved") return "active";
   if (status === "rejected" || status === "cancelled") return "expired";
   return "eval";
 };
@@ -115,7 +122,21 @@ export default function MrDetailPage() {
   const [loading, setLoading] = useState(true);
   const [mr, setMr] = useState(null);
   const [items, setItems] = useState([]);
+  const [approval, setApproval] = useState(null);
+  const [callOffs, setCallOffs] = useState([]);
   const [error, setError] = useState(null);
+  const [acting, setActing] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const load = async () => {
+    const res = await MrApi.getMrById(mrId);
+    const payload = res?.data || res || {};
+    setMr(payload.mr || null);
+    setItems(Array.isArray(payload.items) ? payload.items : []);
+    setApproval(payload.approval || null);
+    setCallOffs(Array.isArray(payload.callOffs) ? payload.callOffs : []);
+  };
 
   useEffect(() => {
     if (!mrId) return;
@@ -128,6 +149,8 @@ export default function MrDetailPage() {
         const payload = res?.data || res || {};
         setMr(payload.mr || null);
         setItems(Array.isArray(payload.items) ? payload.items : []);
+        setApproval(payload.approval || null);
+        setCallOffs(Array.isArray(payload.callOffs) ? payload.callOffs : []);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -140,6 +163,26 @@ export default function MrDetailPage() {
       cancelled = true;
     };
   }, [mrId]);
+
+  const act = async (action) => {
+    if (!approval?.id || acting) return;
+    setActing(true);
+    try {
+      await submitApprovalAction({
+        approval_instance_id: approval.id,
+        approval_instance_step_id: approval.user_approval_step_id || undefined,
+        action,
+        comment: action === "REJECT" ? (rejectReason || "Rejected") : undefined,
+      });
+      setRejectOpen(false);
+      setRejectReason("");
+      await load();
+    } catch (_e) {
+      // axios interceptor surfaces the error toast
+    } finally {
+      setActing(false);
+    }
+  };
 
   // -------- derived --------
   const totalEst = useMemo(() => {
@@ -169,47 +212,23 @@ export default function MrDetailPage() {
   const allItemsMatched = items.length > 0 && items.every((it) => !!it.arc_contract_id);
   const someItemsMatched = items.some((it) => !!it.arc_contract_id);
 
-  // placeholder approval steps — actual approval steps come from a separate endpoint
+  // Real approval steps from the engine (getApprovalInstanceDetails).
   const approvalSteps = useMemo(() => {
-    if (!mr) return [];
-    const status = mr.status;
-    const steps = [
-      { step: "dept", role: "Department head", label: "Step 1 of 3" },
-      { step: "category", role: "Category manager", label: "Step 2 of 3" },
-      { step: "finance", role: "Finance controller", label: "Step 3 of 3" },
-    ];
-    const order = ["dept", "category", "finance"];
-    let currentIdx = order.length;
-    if (status === "draft" || status === "pending" || status === "dept-approval") currentIdx = 0;
-    else if (status === "category-approval") currentIdx = 1;
-    else if (status === "finance-approval") currentIdx = 2;
-    else if (status === "approved" || status === "po-released") currentIdx = order.length;
-    else if (status === "rejected" || status === "cancelled") currentIdx = -1;
-
-    return steps.map((s, idx) => {
-      let decided = false;
-      let vote = "pending";
-      if (status === "approved" || status === "po-released") {
-        decided = true;
-        vote = "approved";
-      } else if (status === "rejected") {
-        decided = idx < currentIdx;
-        vote = idx < currentIdx ? "approved" : idx === currentIdx ? "rejected" : "pending";
-      } else if (currentIdx >= 0 && idx < currentIdx) {
-        decided = true;
-        vote = "approved";
-      }
-      return { ...s, decided, vote, approver: "—" };
-    });
-  }, [mr]);
+    if (!approval?.steps) return [];
+    return approval.steps
+      .filter((s) => s.status !== "REMOVED")
+      .map((s) => ({
+        step_order: s.step_order,
+        decision_rule: s.decision_rule,
+        status: s.status,                                  // PENDING|APPROVED|REJECTED|SKIPPED
+        isCurrent: approval.status === "PENDING" && approval.current_step === s.step_order,
+        approvers: (s.approvers || []).filter((a) => a.status !== "REMOVED"),
+      }));
+  }, [approval]);
 
   if (!mrId) return null;
 
-  if (loading) {
-    return (
-      <div style={{ padding: "32px", textAlign: "center", color: "var(--fg-3)" }}>Loading MR…</div>
-    );
-  }
+  if (loading) return <MrDetailSkeleton />;
 
   if (error || !mr) {
     return (
@@ -235,10 +254,10 @@ export default function MrDetailPage() {
   const hasMatchBanner = items.length > 0;
   const showConvertCta =
     allItemsMatched &&
-    (mr.status === "approved" || mr.status === "category-approval" || mr.status === "finance-approval");
+    mr.status === "approved";
 
   return (
-    <div style={{ paddingBottom: 108 }}>
+    <div className="main-body" style={{ paddingBottom: 108 }}>
 
       {/* Hero */}
       <section className="arc-hero">
@@ -286,7 +305,7 @@ export default function MrDetailPage() {
             {showConvertCta && arcMatches.length === 1 && (
               <Link
                 className="btn btn-sm cta"
-                href={`/dashboard/buyer/rate-contracts/${arcMatches[0].contractId}/call-off?mrId=${mr.id}`}
+                href={`/dashboard/buyer/rate-contracts/${arcMatches[0].arcId}/call-off?mrId=${mr.id}`}
               >
                 <IconCart /> Convert to call-off PO
               </Link>
@@ -320,14 +339,39 @@ export default function MrDetailPage() {
         </div>
       </section>
 
-      {/* Action banner — placeholder until approval endpoint is wired */}
-      {(mr.status === "dept-approval" || mr.status === "category-approval" || mr.status === "finance-approval") && (
+      {/* Your decision — shown only when the engine says the caller is the current approver */}
+      {approval?.can_user_approve && approval.status === "PENDING" && (
+        <div className="guide warn" style={{ display: "block" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div className="g-ic" style={{ marginTop: 0 }}><IconAlert /></div>
+            <strong>Your decision is needed</strong> — you are the current approver (step {approval.current_step} of {approval.total_steps}).
+          </div>
+          {!rejectOpen ? (
+            <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+              <button className="btn btn-blue btn-sm" disabled={acting} onClick={() => act("APPROVE")}>{acting ? "Working…" : "Approve"}</button>
+              <button className="btn btn-sm" disabled={acting} onClick={() => setRejectOpen(true)} style={{ color: "var(--danger)" }}>Reject</button>
+            </div>
+          ) : (
+            <div style={{ marginTop: 11 }}>
+              <textarea className="textarea" placeholder="Reason for rejection (visible in the audit trail)…" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="btn btn-sm" disabled={acting} onClick={() => { setRejectOpen(false); setRejectReason(""); }}>Cancel</button>
+                <button className="btn btn-sm" disabled={acting || !rejectReason.trim()} onClick={() => act("REJECT")} style={{ background: "var(--danger)", color: "#fff" }}>{acting ? "Working…" : "Confirm reject"}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {approval?.status === "PENDING" && !approval?.can_user_approve && (
         <div className="guide warn">
           <div className="g-ic"><IconAlert /></div>
-          <div>
-            <strong>Approval in progress</strong> at the{" "}
-            {String(mr.status).replace("-approval", "")} stage. Reviewers will see this MR in their queue.
-          </div>
+          <div><strong>Approval in progress</strong> — step {approval.current_step} of {approval.total_steps}. The current approver will see this in their queue.</div>
+        </div>
+      )}
+      {approval?.status === "REJECTED" && (
+        <div className="guide" style={{ borderColor: "rgba(185,28,28,0.3)", background: "var(--danger-soft)" }}>
+          <div className="g-ic" style={{ color: "var(--danger)" }}><IconAlert /></div>
+          <div><strong style={{ color: "var(--danger)" }}>This MR was rejected.</strong> See the approval chain below for who and why.</div>
         </div>
       )}
 
@@ -393,12 +437,17 @@ export default function MrDetailPage() {
                         <td>
                           {row.arc_contract_id ? (
                             <div>
-                              <span className="arc-tag">
+                              <Link href={arcHref(row.arc_id)} className="arc-tag" style={{ textDecoration: "none" }}>
                                 <IconCheck />{" "}
                                 <span>{row.arc_number || ("ARC #" + row.arc_id)}</span>
-                              </span>
+                              </Link>
                               <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 5 }}>
-                                via <strong>{row.vendor_name || "Vendor"}</strong> @{" "}
+                                via{" "}
+                                {row.vendor_id ? (
+                                  <Link href={vendorHref(row.vendor_id)} className="fw-700" style={{ color: "var(--fg)" }}>{row.vendor_name || "Vendor"}</Link>
+                                ) : (
+                                  <strong>{row.vendor_name || "Vendor"}</strong>
+                                )}{" "}@{" "}
                                 <span className="mono fw-700" style={{ color: "var(--fg)" }}>
                                   {fmtINR(rate)}
                                 </span>
@@ -452,68 +501,122 @@ export default function MrDetailPage() {
             </div>
           )}
 
-          {/* Approval chain (placeholder until a dedicated endpoint exists) */}
+          {/* Approval chain — live from the approval engine */}
           <div className="section-card">
             <div className="section-head">
               <div className="h-left">
                 <div className="ic"><IconClipboardCheck /></div>
                 <div>
                   <h2>Approval chain</h2>
-                  <div className="h-sub">Department → Category → Finance → PO release</div>
+                  <div className="h-sub">
+                    {approval ? `${approval.total_steps} step(s) · every step required`
+                      : mr.status === "po_released" ? "Released as a call-off PO"
+                      : mr.status === "draft" ? "Not yet submitted for approval"
+                      : "—"}
+                  </div>
                 </div>
               </div>
             </div>
             <div className="section-body flush">
-              {approvalSteps.map((a, idx) => (
-                <div key={idx} className="approval-step">
-                  <div className="as-av">{a.step === "dept" ? "DH" : a.step === "category" ? "CM" : "FC"}</div>
-                  <div className="as-body">
-                    <div className="as-name">
-                      <span>{a.approver}</span>
-                    </div>
-                    <div className="as-role">{a.role + " · " + a.label}</div>
-                  </div>
-                  <div className="as-right">
-                    {a.decided ? (
-                      <span className={"vote-pill-mr " + a.vote}>
-                        {a.vote === "approved" ? "✓ Approved" : "✗ Rejected"}
-                      </span>
-                    ) : (
-                      <span className="vote-pill-mr pending">● Pending</span>
-                    )}
-                  </div>
+              {/* Created */}
+              <div className="approval-step">
+                <div className="as-av">{initialsOf(requesterName)}</div>
+                <div className="as-body">
+                  <div className="as-name">Requisition created</div>
+                  <div className="as-role">By {requesterName}{requesterRole ? ` · ${requesterRole}` : ""}</div>
                 </div>
-              ))}
-              {mr.status === "po-released" && (
+                <div className="as-right">
+                  <span className="vote-pill-mr pending">Created</span>
+                  <span className="as-time">{fmtDateTime(mr.created_at)}</span>
+                </div>
+              </div>
+
+              {/* Submitted for approval */}
+              {mr.submitted_at && (
                 <div className="approval-step">
-                  <div className="as-av av-green">PO</div>
+                  <div className="as-av">↗</div>
                   <div className="as-body">
-                    <div className="as-name">Call-off PO released</div>
-                    <div className="as-role">
-                      System · linked to ARC{" "}
-                      {arcMatches[0]?.arcNumber && (
-                        <span className="mono fw-600" style={{ color: "var(--fg)" }}>
-                          {arcMatches[0].arcNumber}
-                        </span>
-                      )}
-                    </div>
+                    <div className="as-name">Submitted for approval</div>
+                    <div className="as-role">{approval ? `Routed through a ${approval.total_steps}-step chain` : "Sent for approval"}</div>
                   </div>
                   <div className="as-right">
-                    {arcMatches[0]?.contractId && (
-                      <Link
-                        href={`/dashboard/buyer/rate-contracts/${arcMatches[0].contractId}?stage=active`}
-                        className="vote-pill-mr approved"
-                        style={{ textDecoration: "none" }}
-                      >
-                        View ARC
-                      </Link>
-                    )}
+                    <span className="vote-pill-mr pending">Sent</span>
+                    <span className="as-time">{fmtDateTime(mr.submitted_at)}</span>
                   </div>
                 </div>
               )}
-              <div style={{ padding: "10px 16px", fontSize: 11, color: "var(--fg-4)", borderTop: "1px solid var(--border)" }}>
-                Approval steps shown above reflect MR status. Detailed approver names &amp; comments are loaded from the approval endpoint.
-              </div>
+
+              {/* Approval cycle — one row per step, with the approver's comment */}
+              {approvalSteps.map((s, idx) => {
+                const approved = s.status === "APPROVED";
+                const rejected = s.status === "REJECTED";
+                const skipped = s.status === "SKIPPED";
+                const actor = s.approvers.find((a) => a.status === "APPROVED" || a.status === "REJECTED");
+                const names = s.approvers.map((a) => a.user_name).filter(Boolean);
+                const who = actor?.user_name || names[0] || `Step ${s.step_order}`;
+                const role = actor?.user_designation || actor?.user_department || (s.decision_rule === "ALL" ? "All must approve" : "Approver");
+                return (
+                  <div key={idx} className="approval-step">
+                    <div className={"as-av" + (approved ? " av-green" : rejected ? " av-red" : "")}>{initialsOf(who)}</div>
+                    <div className="as-body">
+                      <div className="as-name">{who}</div>
+                      <div className="as-role">{role} · Step {s.step_order} of {approval?.total_steps || approvalSteps.length}</div>
+                      {actor?.comment && <div className="as-comment">{actor.comment}</div>}
+                    </div>
+                    <div className="as-right">
+                      {approved ? <span className="vote-pill-mr approved">✓ Approved</span>
+                        : rejected ? <span className="vote-pill-mr rejected">✗ Rejected</span>
+                        : skipped ? <span className="vote-pill-mr pending">Skipped</span>
+                        : s.isCurrent ? <span className="vote-pill-mr pending">● Current</span>
+                        : <span className="vote-pill-mr pending">Pending</span>}
+                      {actor?.acted_at && <span className="as-time">{fmtDateTime(actor.acted_at)}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* MR approved summary */}
+              {approval?.status === "APPROVED" && (
+                <div className="approval-step">
+                  <div className="as-av av-green"><IconCheck /></div>
+                  <div className="as-body">
+                    <div className="as-name">Requisition approved</div>
+                    <div className="as-role">All approval steps cleared</div>
+                  </div>
+                  <div className="as-right"><span className="vote-pill-mr approved">Approved</span></div>
+                </div>
+              )}
+
+              {/* Call-off PO released — one row per released PO, each links to its PO */}
+              {(callOffs.length > 0 ? callOffs : (mr.status === "po_released" ? [{}] : [])).map((co, i) => (
+                <div key={i} className="approval-step">
+                  <div className="as-av av-green">PO</div>
+                  <div className="as-body">
+                    <div className="as-name">Call-off PO released{co.po_number ? ` · ${co.po_number}` : ""}</div>
+                    <div className="as-role">
+                      System · linked to ARC{" "}
+                      {arcMatches[0]?.contractId
+                        ? <Link href={arcHref(arcMatches[0].contractId)} className="mono fw-600">{arcMatches[0].arcNumber || ("#" + arcMatches[0].arcId)}</Link>
+                        : <span className="mono fw-600">{arcMatches[0]?.arcNumber || "—"}</span>}
+                      {co.released_at ? ` · ${fmtDateTime(co.released_at)}` : ""}
+                    </div>
+                  </div>
+                  <div className="as-right">
+                    {co.po_id
+                      ? <Link href={poHref(co.po_id)} className="vote-pill-mr approved" style={{ textDecoration: "none" }}>View {co.po_number || "PO"} →</Link>
+                      : arcMatches[0]?.contractId
+                        ? <Link href={arcHref(arcMatches[0].contractId)} className="vote-pill-mr approved" style={{ textDecoration: "none" }}>View ARC</Link>
+                        : null}
+                  </div>
+                </div>
+              ))}
+
+              {/* Draft empty */}
+              {approvalSteps.length === 0 && mr.status === "draft" && callOffs.length === 0 && (
+                <div style={{ padding: "12px 16px", fontSize: 12.5, color: "var(--fg-4)", borderTop: "1px solid var(--border)" }}>
+                  Still a draft — submit it to start the approval chain.
+                </div>
+              )}
             </div>
           </div>
 
@@ -534,7 +637,7 @@ export default function MrDetailPage() {
                   <span key={m.contractId}>
                     {" "}
                     <Link
-                      href={`/dashboard/buyer/rate-contracts/${m.contractId}?stage=active`}
+                      href={`/dashboard/buyer/rate-contracts/${m.arcId}?stage=active`}
                       className="mono fw-700"
                       style={{ color: "var(--success)" }}
                     >
@@ -570,40 +673,31 @@ export default function MrDetailPage() {
                 </div>
               </div>
               <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {arcMatches.map((m) => (
-                  <div key={m.contractId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 9,
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        border: "1px solid var(--border)",
-                        background: "var(--surface-2)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {initialsOf(m.vendorName)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>
-                        {m.vendorName || "Vendor"}
+                {arcMatches.map((m) => {
+                  const avatar = (
+                    <div className="mr-vendor-av">{initialsOf(m.vendorName)}</div>
+                  );
+                  const top = (
+                    <>
+                      {avatar}
+                      <div style={{ minWidth: 0 }}>
+                        <div className="mr-vendor-name">{m.vendorName || "Vendor"}</div>
+                        {m.vendorId && <div className="mr-vendor-sub">View vendor profile →</div>}
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
-                        ARC{" "}
-                        <Link
-                          href={`/dashboard/buyer/rate-contracts/${m.contractId}?stage=active`}
-                          className="mono fw-600"
-                        >
-                          {m.arcNumber || ("#" + m.arcId)}
-                        </Link>
-                      </div>
+                    </>
+                  );
+                  return (
+                    <div key={m.contractId} className="mr-vendor-card">
+                      {m.vendorId
+                        ? <Link href={vendorHref(m.vendorId)} className="mr-vendor-link">{top}</Link>
+                        : <div className="mr-vendor-link" style={{ cursor: "default" }}>{top}</div>}
+                      <Link href={arcHref(m.contractId)} className="mr-vendor-arc">
+                        <span style={{ color: "var(--fg-4)", textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 9.5, fontFamily: "Geist,sans-serif", fontWeight: 600 }}>Rate contract</span>
+                        <span className="mono">{m.arcNumber || ("#" + m.arcId)}</span>
+                      </Link>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

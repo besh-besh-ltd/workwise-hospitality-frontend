@@ -39,6 +39,13 @@ function describe(stage) {
 
   switch (stage.state) {
     case "complete": {
+      // Awarded-but-disputed: a vendor raised a pre-sign clarification. The
+      // award stays finalized (locked), but flag the node so the evaluator
+      // knows there's a decision waiting here.
+      if (stage.key === "commercial" && stage.reason === "clarification_pending") {
+        const n = Number(stage.clarifications_open) || 0;
+        return { node: "act", icon: I.bolt, tone: "act", text: n > 1 ? `${n} clarifications · decide` : "Clarification · decide" };
+      }
       const text =
         stage.key === "overview" ? "Window closed"
         : stage.key === "technical" ? "Approved"
