@@ -420,6 +420,8 @@ export default function VendorContractDetailPage() {
                     <tbody>
                       {lines.map((l) => {
                         const rate = Number(l.unit_rate || 0);
+                        const effRate = Number(l.effective_unit_rate ?? l.unit_rate ?? 0);
+                        const amended = l.amendment_id && effRate !== rate;
                         const uomL = l.uom || "unit";
                         const committed = Number(l.committed_qty || 0);
                         const consumed = Number(l.consumed_qty || 0);
@@ -440,7 +442,19 @@ export default function VendorContractDetailPage() {
                               <div className="mono" style={{ marginTop: 2, fontSize: 10.5, color: "var(--fg-4)" }}>{l.variant_slug || l.arc_item_id}</div>
                             </td>
                             <td className="right">
-                              {fmt(rate)}<span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}> / {uomL}</span>
+                              {amended ? (
+                                <>
+                                  <span className="mono fw-700" style={{ color: "var(--warn)" }}>{fmt(effRate)}</span>
+                                  <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}> / {uomL}</span>
+                                  <div style={{ marginTop: 2, fontSize: 10, color: "var(--fg-4)" }}>
+                                    <span style={{ textDecoration: "line-through" }}>{fmt(rate)}</span> · amended{l.amendment_effective_to ? ` until ${fmtDate(l.amendment_effective_to)}` : ""}
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {fmt(rate)}<span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}> / {uomL}</span>
+                                </>
+                              )}
                               <div style={{ marginTop: 2, fontSize: 10.5, color: "var(--fg-4)", fontWeight: 500 }}>+{Number(l.gst_pct || 0)}% GST</div>
                             </td>
                             <td className="right"><QtyMoney qty={committed} money /></td>
