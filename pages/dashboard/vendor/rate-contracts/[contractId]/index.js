@@ -773,7 +773,9 @@ export default function VendorContractDetailPage() {
         </aside>
       </div>
 
-      {viewingAmend && (
+      {/* One modal at a time: hide the amendment modal while the sign overlay
+          is up; cancelling the sign overlay brings the amendment modal back. */}
+      {viewingAmend && !signingAddendum && (
         <VendorAmendmentModal
           amendment={viewingAmend}
           arc={arc}

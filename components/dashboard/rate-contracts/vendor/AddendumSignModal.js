@@ -7,7 +7,8 @@
 //   onClose  : () => void
 //   onDone   : () => Promise<void> | void   (called after a successful sign)
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import * as ArcApi from "@/services/arc_v2";
 
 const TYPE_LABEL = {
@@ -19,11 +20,16 @@ const TYPE_LABEL = {
 };
 
 export default function AddendumSignModal({ addendum, onClose, onDone }) {
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState("idle"); // idle → code
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+
+  // Render into document.body so the overlay sits above any other modal
+  // (e.g. the amendment-detail modal, which itself portals to body).
+  useEffect(() => setMounted(true), []);
 
   const sendOtp = async () => {
     setBusy(true); setErr(null);
@@ -44,8 +50,10 @@ export default function AddendumSignModal({ addendum, onClose, onDone }) {
     } catch (e) { setErr("OTP verification failed. Check the code and try again."); setBusy(false); }
   };
 
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}>
+  if (!mounted) return null;
+
+  const ui = (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 440, maxWidth: "92vw", background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "22px 24px", boxShadow: "var(--shadow-md)" }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: "var(--fg)" }}>Sign Addendum No. {addendum.addendum_number}</div>
         <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 4 }}>
@@ -87,4 +95,6 @@ export default function AddendumSignModal({ addendum, onClose, onDone }) {
       </div>
     </div>
   );
+
+  return createPortal(ui, document.body);
 }
