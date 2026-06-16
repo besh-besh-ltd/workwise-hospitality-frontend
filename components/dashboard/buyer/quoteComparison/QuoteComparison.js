@@ -1754,26 +1754,35 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
           <div className={styles.rfqTop}>
             <div style={{ minWidth: 0 }}>
               <div className={styles.rfqId}>Commercial evaluation</div>
-              <h1>
-                <span className={styles.rfqNum}>RFQ #{rfqInfo.number}</span>
-                {rfqInfo.status && <span className={styles.statusChip}>{rfqInfo.status}</span>}
-                {!isEmbedded && (
+              {/* Embedded under the lifecycle page: the RFQ identity + metadata
+                  already live in the page header, so show only a slim banner. */}
+              {!isEmbedded && (
+                <h1>
+                  <span className={styles.rfqNum}>RFQ #{rfqInfo.number}</span>
+                  {rfqInfo.status && <span className={styles.statusChip}>{rfqInfo.status}</span>}
                   <button className={styles.rfqSwitchBtn} onClick={() => setShowSwitchRfq(true)}>
                     <Repeat size={13} /> Switch RFQ <ChevronDown size={12} />
                   </button>
-                )}
-              </h1>
+                </h1>
+              )}
               <div className={styles.rfqSub}>
-                {rfqInfo.title && <span>{rfqInfo.title}</span>}
-                <span className={styles.sep}>·</span>
-                <span className={styles.em}>{rfqInfo.company}</span>
-                <span>· {rfqInfo.hotel} · {rfqInfo.department}</span>
+                {!isEmbedded && (
+                  <>
+                    {rfqInfo.title && <span>{rfqInfo.title}</span>}
+                    <span className={styles.sep}>·</span>
+                    <span className={styles.em}>{rfqInfo.company}</span>
+                    <span>· {rfqInfo.hotel} · {rfqInfo.department}</span>
+                  </>
+                )}
                 <span className={styles.quoteCoverage}>
                   <Users size={12} />
                   <span>
                     {rfqInfo.quotes_received} of {rfqInfo.quotes_invited} quotes received
                   </span>
                 </span>
+                {isEmbedded && (
+                  <span>· {(rfqInfo.rounds?.ended ?? 0)} rounds ended · {(rfqInfo.rounds?.active ?? 0)} active</span>
+                )}
               </div>
             </div>
             <div className={styles.rfqBandActions}>
@@ -1801,6 +1810,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               </button>
             </div>
           </div>
+          {!isEmbedded && (
           <div className={styles.rfqDetailGrid}>
             <div className={styles.cell}>
               <div className={styles.k}>Contact person</div>
@@ -1839,6 +1849,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               <div className={styles.v}>{rfqInfo.tech_clauses ? "Configured" : "None configured"}</div>
             </div>
           </div>
+          )}
         </section>
 
         {quotesLocked && (

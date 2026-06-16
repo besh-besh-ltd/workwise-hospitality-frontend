@@ -8,9 +8,7 @@
   /* Break out of DashboardShell.content's 20px 24px padding so the page
      sits flush against the sidebar + topbar, edge to edge. */
   margin: -20px -24px;
-  background: #f7f7f5;
-  background-image: radial-gradient(circle at 1px 1px, rgba(15, 15, 14, 0.035) 1px, transparent 0);
-  background-size: 22px 22px;
+  background: #ffffff;
   min-height: calc(100vh - 56px);
   color: #18181b;
   letter-spacing: -0.005em;

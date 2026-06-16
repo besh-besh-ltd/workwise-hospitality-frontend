@@ -910,22 +910,8 @@ const ViewRFQ = ({
                   Queries
                 </Link>
               )}
-              <Link
-                href={`/dashboard/buyer/quote-compare?rfq_id=${data.rfq_no}`}
-                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                id="compare_quotes_button-rfq_header-view_rfq_page"
-              >
-                <BarChart2 size={13} strokeWidth={2} />
-                Compare quotes
-              </Link>
-              <Link
-                href={`/dashboard/buyer/technical-evaluation?rfq_id=${data.rfq_no}`}
-                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                id="technical_evaluation-rfq_header-view_rfq_page"
-              >
-                <ClipboardCheck size={13} strokeWidth={2} />
-                Technical eval
-              </Link>
+              {/* "Compare quotes" / "Technical eval" removed — the lifecycle
+                  timeline now drives those stages in-page. */}
               <button
                 type="button"
                 className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
