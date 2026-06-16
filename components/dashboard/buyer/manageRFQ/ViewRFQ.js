@@ -59,6 +59,9 @@ import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
 import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
+import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
+import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
+import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
 import { getRfqLifecycle } from "@/services/rfq";
 
 import styles from "./ViewRFQ.module.scss";
@@ -571,9 +574,11 @@ const ViewRFQ = ({
   const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Horizontal lifecycle journey below the header — the same data/page stays;
-  // the timeline is a navigator through the workable stages. Non-tender only.
+  // Horizontal lifecycle journey below the header — the page header stays
+  // persistent; the timeline switches the body in-page between stages. The
+  // current stage opens by default. Non-tender only.
   const [lifecycle, setLifecycle] = useState(null);
+  const [selectedStage, setSelectedStage] = useState(null);
   useEffect(() => {
     const rid = data?.id || router.query.id;
     if (!rid || Number(data?.is_tender) === 1) return;
@@ -584,17 +589,23 @@ const ViewRFQ = ({
     return () => { cancelled = true; };
   }, [data?.id, data?.is_tender, router.query.id]);
 
-  // Clicking a stage jumps to that stage's workable surface (the existing
-  // pages); Overview keeps the buyer here on the details page.
-  const STAGE_HREFS = {
-    technical: (id) => `/dashboard/buyer/technical-evaluation?rfq_id=${id}`,
-    "negotiation-award": (id) => `/dashboard/buyer/quote-comparison?rfq=${id}`,
-    "purchase-order": () => `/dashboard/buyer/purchase-orders`,
-  };
-  const goToStage = (key) => {
-    const id = data?.id || router.query.id;
-    const make = STAGE_HREFS[key];
-    if (make) router.push(make(id));
+  // Open the current stage by default (honour ?stage= when valid + unlocked).
+  useEffect(() => {
+    if (!lifecycle?.stages?.length) return;
+    const q = typeof router.query.stage === "string" ? router.query.stage : null;
+    const valid = q && lifecycle.stages.some((s) => s.key === q && s.state !== "locked");
+    setSelectedStage((prev) => prev || (valid ? q : lifecycle.default_stage));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifecycle]);
+
+  const selectStage = (key) => {
+    const st = lifecycle?.stages?.find((s) => s.key === key);
+    if (st && st.state === "locked") return;
+    setSelectedStage(key);
+    router.replace(
+      { pathname: router.pathname, query: { ...router.query, stage: key } },
+      undefined, { shallow: true }
+    );
   };
 
   // RFQ Copy lineage: parent (if this RFQ is a copy) + descendants.
@@ -1152,16 +1163,32 @@ const ViewRFQ = ({
       {/* ─── Lifecycle journey (horizontal) — below the header, persistent
           across the RFQ; the timeline navigates the workable stages. ─── */}
       {lifecycle?.stages?.length > 0 && (
-        <div style={{ padding: "0 24px", marginTop: 14 }}>
+        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px" }}>
           <RfqStageTimeline
             stages={lifecycle.stages}
-            selectedKey={lifecycle.default_stage}
-            onSelect={goToStage}
+            selectedKey={selectedStage}
+            onSelect={selectStage}
           />
         </div>
       )}
 
-      {/* ─── Page body ─── */}
+      {/* ─── Page body — Overview shows the full RFQ detail; other stages show
+          their workable surface, switched in-page by the timeline. ─── */}
+      {lifecycle?.stages?.length > 0 && selectedStage && selectedStage !== "overview" ? (
+        <main className={styles.pageBody} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
+          <div className={styles.leftCol} style={{ minWidth: 0 }}>
+            {selectedStage === "technical" && (
+              <TechnicalStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "technical")} />
+            )}
+            {selectedStage === "negotiation-award" && (
+              <NegotiationAwardStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "negotiation-award")} />
+            )}
+            {selectedStage === "purchase-order" && (
+              <PurchaseOrderStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "purchase-order")} />
+            )}
+          </div>
+        </main>
+      ) : (
       <main
         className={styles.pageBody}
         style={lifecycle?.stages?.length > 0 ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
@@ -1442,6 +1469,7 @@ const ViewRFQ = ({
           </aside>
         )}
       </main>
+      )}
 
       {/* Edit history modal */}
       {data?.id && (
