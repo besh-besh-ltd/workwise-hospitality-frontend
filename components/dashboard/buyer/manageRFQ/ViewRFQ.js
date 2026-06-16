@@ -58,6 +58,8 @@ import NegotiationRoundsModal from "./NegotiationRoundsModal";
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
+import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
+import { getRfqLifecycle } from "@/services/rfq";
 
 import styles from "./ViewRFQ.module.scss";
 
@@ -568,6 +570,32 @@ const ViewRFQ = ({
   const router = useRouter();
   const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Horizontal lifecycle journey below the header — the same data/page stays;
+  // the timeline is a navigator through the workable stages. Non-tender only.
+  const [lifecycle, setLifecycle] = useState(null);
+  useEffect(() => {
+    const rid = data?.id || router.query.id;
+    if (!rid || Number(data?.is_tender) === 1) return;
+    let cancelled = false;
+    getRfqLifecycle(rid)
+      .then((res) => { if (!cancelled) setLifecycle(res?.data || null); })
+      .catch(() => { if (!cancelled) setLifecycle(null); });
+    return () => { cancelled = true; };
+  }, [data?.id, data?.is_tender, router.query.id]);
+
+  // Clicking a stage jumps to that stage's workable surface (the existing
+  // pages); Overview keeps the buyer here on the details page.
+  const STAGE_HREFS = {
+    technical: (id) => `/dashboard/buyer/technical-evaluation?rfq_id=${id}`,
+    "negotiation-award": (id) => `/dashboard/buyer/quote-comparison?rfq=${id}`,
+    "purchase-order": () => `/dashboard/buyer/purchase-orders`,
+  };
+  const goToStage = (key) => {
+    const id = data?.id || router.query.id;
+    const make = STAGE_HREFS[key];
+    if (make) router.push(make(id));
+  };
 
   // RFQ Copy lineage: parent (if this RFQ is a copy) + descendants.
   // Filtered server-side by accessible hotels so cross-tenant copies don't
@@ -1121,9 +1149,24 @@ const ViewRFQ = ({
         </div>
       </section>
 
+      {/* ─── Lifecycle journey (horizontal) — below the header, persistent
+          across the RFQ; the timeline navigates the workable stages. ─── */}
+      {lifecycle?.stages?.length > 0 && (
+        <div style={{ padding: "0 24px", marginTop: 14 }}>
+          <RfqStageTimeline
+            stages={lifecycle.stages}
+            selectedKey={lifecycle.default_stage}
+            onSelect={goToStage}
+          />
+        </div>
+      )}
+
       {/* ─── Page body ─── */}
-      <main className={styles.pageBody}>
-        <div className={styles.leftCol}>
+      <main
+        className={styles.pageBody}
+        style={lifecycle?.stages?.length > 0 ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
+      >
+        <div className={styles.leftCol} style={{ minWidth: 0 }}>
           {/* Buyer & inquiry details */}
           <section className={styles.card}>
             <header className={styles.cardHead}>
@@ -1380,20 +1423,24 @@ const ViewRFQ = ({
           )}
         </div>
 
-        {/* ─── Right column — lifecycle journey ─── */}
-        <aside className={styles.rightCol}>
-          <div className={styles.rightSticky}>
-            {data?.id && (
-              <div className={styles.journeyShell}>
-                <RFQLifecycleJourneyV2
-                  rfqId={data.id}
-                  isTender={isTender}
-                  closed={rfqStatus === 2}
-                />
-              </div>
-            )}
-          </div>
-        </aside>
+        {/* Right-rail vertical journey — kept for tenders / when the
+            horizontal timeline isn't available; RFQs use the horizontal
+            timeline below the header instead. */}
+        {!(lifecycle?.stages?.length > 0) && (
+          <aside className={styles.rightCol}>
+            <div className={styles.rightSticky}>
+              {data?.id && (
+                <div className={styles.journeyShell}>
+                  <RFQLifecycleJourneyV2
+                    rfqId={data.id}
+                    isTender={isTender}
+                    closed={rfqStatus === 2}
+                  />
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
       </main>
 
       {/* Edit history modal */}

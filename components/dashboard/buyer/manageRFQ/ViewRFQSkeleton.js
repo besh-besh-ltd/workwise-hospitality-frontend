@@ -54,9 +54,22 @@ const ViewRFQSkeleton = () => {
         </div>
       </section>
 
+      {/* ── Lifecycle timeline (horizontal) ── */}
+      <div className={styles.timelineBar}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div className={styles.timelineNode} key={i}>
+            <Bar w="34px" h="34px" r="50%" />
+            <div className={styles.timelineNodeMeta}>
+              <Bar w="84px" h="12px" r="4px" />
+              <Bar w="64px" h="9px" r="3px" />
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* ── Body ── */}
       <main className={styles.body}>
-        <div className={styles.leftCol}>
+        <div className={styles.leftCol} style={{ flex: 1, minWidth: 0 }}>
           {/* Buyer & inquiry details */}
           <section className={styles.card}>
             <div className={styles.cardHead}>
@@ -115,27 +128,6 @@ const ViewRFQSkeleton = () => {
           </section>
         </div>
 
-        {/* Right — lifecycle journey */}
-        <aside className={styles.rightCol}>
-          <div className={styles.journeyCard}>
-            <div className={styles.journeyHead}>
-              <Bar w="180px" h="14px" r="4px" />
-              <Bar w="140px" h="11px" r="4px" />
-              <Bar w="100%" h="4px" r="999px" />
-            </div>
-            <div className={styles.journeyBody}>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div className={styles.timelineRow} key={i}>
-                  <Bar w="16px" h="16px" r="50%" />
-                  <div className={styles.timelineMeta}>
-                    <Bar w={`${70 - i * 8}%`} h="13px" r="4px" />
-                    <Bar w={`${55 - i * 6}%`} h="11px" r="4px" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </main>
     </div>
   );
