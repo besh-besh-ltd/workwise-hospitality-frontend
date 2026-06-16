@@ -22,6 +22,7 @@ import TechnicalStage from "@/components/dashboard/rate-contracts/buyer/stages/T
 import CommercialStage from "@/components/dashboard/rate-contracts/buyer/stages/CommercialStage";
 import AwardingStage from "@/components/dashboard/rate-contracts/buyer/stages/AwardingStage";
 import ActiveStage from "@/components/dashboard/rate-contracts/buyer/stages/ActiveStage";
+import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
 
 const STAGE_KEYS = ["overview", "technical", "commercial", "awarding", "active"];
 
@@ -152,58 +153,32 @@ export default function ArcLifecyclePage() {
 
   return (
     <main className="main-body">
-      {/* ── HERO ── */}
-      <section className="arc-hero">
-        <div className="top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="eyebrow">Rate Contract · lifecycle</div>
-            <h1>
-              <span>{arc.title}</span>
-              <span className={`status-chip ${chip.cls}`}>{chip.label}</span>
-              <span className="num">#{arc.arc_number}</span>
-            </h1>
-            <div className="sub">
-              {arc.category_title && (<><span>{arc.category_title}</span><span className="sep">·</span></>)}
-              {arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
-              {arc.department_title && (<><span>{arc.department_title}</span><span className="sep">·</span></>)}
-              <span>
-                Created by <span className="em">{arc.created_by_name || `User #${arc.created_by}`}</span> · {fmtDate(arc.created_at)}
-              </span>
-            </div>
-          </div>
-          <div className="hero-actions">
-            <HeroActions arc={arc} onRefresh={onRefresh} />
-          </div>
-        </div>
-        <div className="hero-detail-grid">
-          <div className="cell">
-            <div className="k">Submission window</div>
-            <div className="v">
-              <span className="em">{fmtDate(arc.submission_start_at)}</span> → <span className="em">{fmtDate(arc.submission_end_at)}</span>
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Contract term</div>
-            <div className="v">
-              <span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span>
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Eligibility</div>
-            <div className="v"><span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span></div>
-          </div>
-          <div className="cell">
-            <div className="k">Lifecycle</div>
-            <div className="v">
-              <span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Scope</div>
-            <div className="v"><span className="em">Single-BU</span></div>
-          </div>
-        </div>
-      </section>
+      {/* ── HERO (shared LifecycleHero — same component as the RFQ details page) ── */}
+      <LifecycleHero
+        eyebrow="Rate Contract · lifecycle"
+        title={arc.title}
+        status={{ label: chip.label, tone: chip.cls }}
+        idText={`#${arc.arc_number}`}
+        back={{ label: "Back to rate contracts", href: "/dashboard/buyer/rate-contracts" }}
+        sub={
+          <>
+            {arc.category_title && (<><span>{arc.category_title}</span><span className="sep">·</span></>)}
+            {arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
+            {arc.department_title && (<><span>{arc.department_title}</span><span className="sep">·</span></>)}
+            <span>
+              Created by <span className="em">{arc.created_by_name || `User #${arc.created_by}`}</span> · {fmtDate(arc.created_at)}
+            </span>
+          </>
+        }
+        actions={<HeroActions arc={arc} onRefresh={onRefresh} />}
+        meta={[
+          { label: "Submission window", value: <><span className="em">{fmtDate(arc.submission_start_at)}</span> → <span className="em">{fmtDate(arc.submission_end_at)}</span></> },
+          { label: "Contract term", value: <><span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span></> },
+          { label: "Eligibility", value: <span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span> },
+          { label: "Lifecycle", value: <><span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete</> },
+          { label: "Scope", value: <span className="em">Single-BU</span> },
+        ]}
+      />
 
       {/* ── STAGE RAIL ── */}
       <ArcStageTimeline stages={stages} selectedKey={stage.key} onSelect={select} />

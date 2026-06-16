@@ -55,6 +55,7 @@ import { getNegotiationRounds } from "@/services/negotiation";
 import { buildBuyerTechEvalProductSummary } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import NegotiationRoundsModal from "./NegotiationRoundsModal";
 import RfqCopiesModal from "./RfqCopiesModal";
+import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
 
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
@@ -92,9 +93,15 @@ const getEyebrow = (data, publishState) => {
 
 // Edit button shared by header + action bar. Uses canEditRfq() to decide
 // enabled/disabled state; disabled buttons get a tooltip explaining why.
-const EditRfqButton = ({ data, currentUser, label, idAttr, small = false }) => {
+// RFQ eyebrow tone → LifecycleHero status-chip variant (on the dark hero).
+const HERO_STATUS_TONE = { success: "active", info: "floated", warn: "eval", danger: "expired", neutral: "draft" };
+
+const EditRfqButton = ({ data, currentUser, label, idAttr, small = false, onDark = false }) => {
   const { allowed, reason } = canEditRfq(data, currentUser);
-  const cls = `${styles.btn} ${styles.btnPrimary} ${small ? styles.btnSm : ""}`;
+  // onDark → global arc_v2 `btn cta` (white pill) so it reads on the dark hero.
+  const cls = onDark
+    ? "btn btn-sm cta"
+    : `${styles.btn} ${styles.btnPrimary} ${small ? styles.btnSm : ""}`;
   if (allowed) {
     return (
       <Link
@@ -791,172 +798,96 @@ const ViewRFQ = ({
   return (
     <div className={styles.page}>
       {/* ─── Page header ─── */}
-      <section className={styles.pageHeader}>
-        <div className={styles.pageHeaderInner}>
-          <button
-            type="button"
-            className={styles.backBtn}
-            onClick={() => {
+      {/* ─── Lifecycle hero (shared dark header, also used by ARC details) ─── */}
+      <div style={{ maxWidth: 1480, width: "100%", margin: "18px auto 0", padding: "0 24px" }}>
+        <LifecycleHero
+          eyebrow={`${entity} · Lifecycle`}
+          title={data.title || `${entity} #${data.rfq_no}`}
+          status={{ label: eyebrow.label, tone: HERO_STATUS_TONE[eyebrow.tone] || "active" }}
+          idText={`#${data.rfq_no}`}
+          copy={{ copied, onCopy: copyRfqNumber, label: "Copy RFQ number" }}
+          back={{
+            label: `Back to ${entity} management`,
+            onClick: () => {
               if (typeof window !== "undefined" && window.history.length > 1) {
                 router.back();
               } else {
                 router.push("/dashboard/buyer/rfq-management?tab=manage-rfq");
               }
-            }}
-          >
-            <ArrowLeft size={14} strokeWidth={2} />
-            Back to {entity} management
-          </button>
-          <div className={styles.eyebrow}>
-            <span
-              className={`${styles.eyebrowDot} ${
-                eyebrow.tone === "warn"
-                  ? styles.eyebrowDotWarn
-                  : eyebrow.tone === "danger"
-                  ? styles.eyebrowDotDanger
-                  : eyebrow.tone === "neutral"
-                  ? styles.eyebrowDotNeutral
-                  : ""
-              }`}
-            />
-            {eyebrow.label}
-            {data.lifecycle_stage && (
-              <>
-                {" "}· Lifecycle stage:
-                <span className={styles.eyebrowEm}>
-                  {data.lifecycle_stage.replace(/_/g, " ").toLowerCase()}
+            },
+          }}
+          sub={
+            <>
+              {data.company_name && (
+                <>
+                  <span>
+                    <span className="em">{data.company_name}</span>
+                    {data.hotel_name && <> · {data.hotel_name}</>}
+                  </span>
+                  <span className="sep">·</span>
+                </>
+              )}
+              <span>Created <span className="em">{fmtDate(data.timestamp)}</span></span>
+              <span className="sep">·</span>
+              <span>{entity}{data.rfq_type ? ` · ${data.rfq_type}` : ""}</span>
+              {data.lifecycle_stage && (
+                <span className="kv">
+                  <span className="kv-k">Stage</span>
+                  <span className="kv-v">{data.lifecycle_stage.replace(/_/g, " ").toLowerCase()}</span>
                 </span>
-              </>
-            )}
-          </div>
-
-          <div className={styles.titleRow}>
-            <div className={styles.titleBlock}>
-              <h1 className={styles.pageTitle}>
-                <span className={styles.titleText}>
-                  {data.title || `${entity} #${data.rfq_no}`}
-                </span>
-                <span className={styles.rfqNum}>#{data.rfq_no}</span>
-                <OverlayTrigger
-                  placement="top"
-                  show={copied}
-                  overlay={
-                    <Tooltip id={`copied-${data?.id || "x"}`}>Copied to clipboard</Tooltip>
-                  }
-                >
-                  <button
-                    type="button"
-                    className={`${styles.iconBtn} ${copied ? styles.iconBtnCopied : ""}`}
-                    onClick={copyRfqNumber}
-                    disabled={copied}
-                    aria-label={copied ? "Copied" : "Copy RFQ number"}
-                  >
-                    {copied ? (
-                      <Check size={13} strokeWidth={2} />
-                    ) : (
-                      <Copy size={13} strokeWidth={2} />
-                    )}
-                  </button>
-                </OverlayTrigger>
-              </h1>
-              <div className={styles.pageSub}>
-                {data.company_name && (
-                  <>
-                    <span>
-                      <span className="em">{data.company_name}</span>
-                      {data.hotel_name && (
-                        <>
-                          {" · "}
-                          {data.hotel_name}
-                        </>
-                      )}
-                    </span>
-                    <span className="sep">·</span>
-                  </>
+              )}
+            </>
+          }
+          actions={
+            <>
+              <Link
+                href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
+                className="btn btn-sm"
+                id="queries_button-rfq_header-view_rfq_page"
+              >
+                <MessageSquare size={13} strokeWidth={2} />
+                {isTender ? "Clarifications" : "Queries"}
+                {isTender && data.unseen_query_count > 0 && (
+                  <span className="status-pill info" style={{ padding: "1px 6px", fontSize: 10 }}>
+                    {data.unseen_query_count}
+                  </span>
                 )}
-                <span>
-                  Created{" "}
-                  <span className="em">{fmtDate(data.timestamp)}</span>
-                </span>
-                <span className="sep">·</span>
-                <span>
-                  {entity}
-                  {data.rfq_type ? ` · ${data.rfq_type}` : ""}
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.headerActions}>
-              {isTender && (
-                <Link
-                  href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
-                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                  id="queries_button-rfq_header-view_rfq_page"
-                >
-                  <MessageSquare size={13} strokeWidth={2} />
-                  Clarifications
-                  {data.unseen_query_count > 0 && (
-                    <span className={`${styles.pill} ${styles.info}`} style={{ padding: "1px 6px", fontSize: 10 }}>
-                      {data.unseen_query_count}
-                    </span>
-                  )}
-                </Link>
-              )}
-              {!isTender && (
-                <Link
-                  href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
-                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                  id="queries_button-rfq_header-view_rfq_page"
-                >
-                  <MessageSquare size={13} strokeWidth={2} />
-                  Queries
-                </Link>
-              )}
-              {/* "Compare quotes" / "Technical eval" removed — the lifecycle
-                  timeline now drives those stages in-page. */}
+              </Link>
               <button
                 type="button"
-                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                className="btn btn-sm"
                 onClick={() => setShowEditHistoryModal(true)}
                 id="edit_history_button-rfq_header-view_rfq_page"
               >
                 <History size={13} strokeWidth={2} />
                 Edit history
               </button>
-
-              {/* Edit / Close / Withdraw — gated by rfqStatus + isCreator. */}
               {(rfqStatus === 1 || rfqStatus === 3 || rfqStatus === 4 || rfqStatus === 5) && (
                 <EditRfqButton
                   data={data}
                   currentUser={currentUser}
                   label={`Edit ${entity}`}
                   idAttr="edit_rfq-rfq_actions-view_rfq_page"
-                  small
+                  onDark
                 />
               )}
-
               {rfqStatus === 1 && isCreator && (
-                <>
-                  <div className={styles.actionsDivider} />
-                  <button
-                    type="button"
-                    className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`}
-                    id="close_rfq-rfq_actions-view_rfq_page"
-                    onClick={onCloseRFQ}
-                    disabled={closeLoading}
-                  >
-                    <Lock size={13} strokeWidth={2} />
-                    {closeLoading ? "Processing…" : `Close ${entity}`}
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  id="close_rfq-rfq_actions-view_rfq_page"
+                  onClick={onCloseRFQ}
+                  disabled={closeLoading}
+                >
+                  <Lock size={13} strokeWidth={2} />
+                  {closeLoading ? "Processing…" : `Close ${entity}`}
+                </button>
               )}
-
               {(rfqStatus === 3 || rfqStatus === 4) && isCreator && (
                 <>
-                  <div className={styles.actionsDivider} />
                   <button
                     type="button"
-                    className={`${styles.btn} ${styles.btnWarn} ${styles.btnSm}`}
+                    className="btn btn-sm"
                     id="withdraw_publish-rfq_actions-view_rfq_page"
                     onClick={onWithdrawPublish}
                     disabled={withdrawLoading}
@@ -966,7 +897,7 @@ const ViewRFQ = ({
                   {onTerminate && (
                     <button
                       type="button"
-                      className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`}
+                      className="btn btn-sm"
                       id="terminate_rfq-rfq_actions-view_rfq_page"
                       onClick={onTerminate}
                     >
@@ -975,14 +906,10 @@ const ViewRFQ = ({
                   )}
                 </>
               )}
-
-              {/* Forward lineage: a compact count button — the full list opens
-                  in a modal (matching the page aesthetic) instead of cluttering
-                  the header. Only shown when this RFQ has spawned copies. */}
               {lineage.copies.length > 0 && (
                 <button
                   type="button"
-                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  className="btn btn-sm"
                   onClick={() => setShowCopiesModal(true)}
                   id="copies_button-rfq_header-view_rfq_page"
                 >
@@ -990,144 +917,42 @@ const ViewRFQ = ({
                   {lineage.copies.length} {lineage.copies.length === 1 ? "Copy" : "Copies"}
                 </button>
               )}
+            </>
+          }
+          meta={[
+            { label: "Products", value: <span className="em">{products.length}</span> },
+            { label: "Quotes received", value: <span className="em">{data.is_quotes_present ? "Yes" : "No"}</span> },
+            { label: "Quote deadline", value: <span className="em">{data.bid_end_date ? fmtDateTime(data.bid_end_date) : "—"}</span> },
+            { label: "Technical configured", value: <span className="em">{clauseLoading ? "—" : hasClauses ? "Yes" : "No"}</span> },
+            ...(data.reverse_auction === 1
+              ? [{ label: "Reverse auction", value: <span className="em">{data.ra_start_date ? fmtDate(data.ra_start_date) : "—"}{data.ra_end_date ? <> → {fmtDate(data.ra_end_date)}</> : null}</span> }]
+              : []),
+          ]}
+        />
+
+        {/* Closed banner */}
+        {rfqStatus === 2 && (
+          <div className={`${styles.banner} ${styles.warn}`} style={{ marginTop: 14 }}>
+            <div className={styles.bannerIcon} style={{ borderColor: "rgba(185, 28, 28, 0.16)", color: "#b91c1c" }}>
+              <XCircle size={13} strokeWidth={2} />
+            </div>
+            <div>
+              <strong>{entity} is closed.</strong>{" "}
+              {data.close_comment || "Vendors can no longer submit quotes."}
             </div>
           </div>
-
-          {/* Stat strip */}
-          <div className={styles.statStrip}>
-            <div className={styles.statCell}>
-              <div className={styles.statIcon}>
-                <Box size={14} strokeWidth={2} />
-              </div>
-              <div className={styles.statBody}>
-                <div className={styles.statKey}>Products</div>
-                <div className={`${styles.statValue} ${styles.mono}`}>
-                  {products.length}
-                </div>
-              </div>
+        )}
+        {rfqStatus === 5 && (
+          <div className={`${styles.banner} ${styles.warn}`} style={{ marginTop: 14 }}>
+            <div className={styles.bannerIcon} style={{ borderColor: "rgba(180, 83, 9, 0.16)", color: "#b45309" }}>
+              <AlertTriangle size={13} strokeWidth={2} />
             </div>
-            <div className={styles.statCell}>
-              <div className={styles.statIcon}>
-                <Users size={14} strokeWidth={2} />
-              </div>
-              <div className={styles.statBody}>
-                <div className={styles.statKey}>Quotes received</div>
-                <div className={`${styles.statValue} ${styles.mono}`}>
-                  {data.is_quotes_present ? "Yes" : "No"}
-                </div>
-              </div>
+            <div>
+              <strong>Publish request withdrawn.</strong> This {entity} is back in draft.
             </div>
-            <div className={styles.statCell}>
-              <div className={styles.statIcon}>
-                <Calendar size={14} strokeWidth={2} />
-              </div>
-              <div className={styles.statBody}>
-                <div className={styles.statKey}>Quote deadline</div>
-                <div className={`${styles.statValue} ${styles.mono}`}>
-                  {data.bid_end_date ? fmtDateTime(data.bid_end_date) : "—"}
-                </div>
-              </div>
-            </div>
-            <div className={styles.statCell}>
-              <div className={styles.statIcon}>
-                <ClipboardCheck size={14} strokeWidth={2} />
-              </div>
-              <div className={styles.statBody}>
-                <div className={styles.statKey}>
-                  Technical configured
-                  <OverlayTrigger
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`tech-config-${data?.id || "x"}`}>
-                        When configured, this {entity} has technical evaluation
-                        clauses that vendors must clear before commercial
-                        comparison. When not, vendors are compared on commercials
-                        only.
-                      </Tooltip>
-                    }
-                  >
-                    <span className={styles.statInfo}>
-                      <Info size={11} strokeWidth={2} />
-                    </span>
-                  </OverlayTrigger>
-                </div>
-                <div className={`${styles.statValue} ${styles.mono}`}>
-                  {clauseLoading
-                    ? "—"
-                    : hasClauses
-                    ? "Yes"
-                    : "No"}
-                </div>
-              </div>
-            </div>
-            {data.reverse_auction === 1 && (
-              <div className={styles.statCell}>
-                <div className={styles.statIcon}>
-                  <Zap size={14} strokeWidth={2} />
-                </div>
-                <div className={styles.statBody}>
-                  <div className={styles.statKey}>Reverse auction</div>
-                  <div className={`${styles.statValue} ${styles.mono}`}>
-                    {data.ra_start_date ? fmtDate(data.ra_start_date) : "—"}
-                    {data.ra_end_date && (
-                      <>
-                        {" → "}
-                        {fmtDate(data.ra_end_date)}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            {publishState.isPrePublishState && data.tender_publish_date && (
-              <div className={styles.statCell}>
-                <div className={styles.statIcon}>
-                  <Calendar size={14} strokeWidth={2} />
-                </div>
-                <div className={styles.statBody}>
-                  <div className={styles.statKey}>Scheduled publish</div>
-                  <div className={styles.statValue}>
-                    <PublishDateTimer
-                      publishDate={data.tender_publish_date}
-                      variant="full"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-
-          {/* Closed banner */}
-          {rfqStatus === 2 && (
-            <div className={`${styles.banner} ${styles.warn}`}>
-              <div className={styles.bannerIcon} style={{ borderColor: "rgba(185, 28, 28, 0.16)", color: "#b91c1c" }}>
-                <XCircle size={13} strokeWidth={2} />
-              </div>
-              <div>
-                <strong>{entity} is closed.</strong>{" "}
-                {data.close_comment || "Vendors can no longer submit quotes."}
-              </div>
-            </div>
-          )}
-          {rfqStatus === 5 && (
-            <div className={`${styles.banner} ${styles.warn}`}>
-              <div
-                className={styles.bannerIcon}
-                style={{
-                  borderColor: "rgba(180, 83, 9, 0.16)",
-                  color: "#b45309",
-                }}
-              >
-                <AlertTriangle size={13} strokeWidth={2} />
-              </div>
-              <div>
-                <strong>Publish request withdrawn.</strong> This {entity} is
-                back in draft.
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+        )}
+      </div>
 
       {/* ─── Lifecycle journey (horizontal) — below the header, persistent
           across the RFQ; the timeline navigates the workable stages. ─── */}
