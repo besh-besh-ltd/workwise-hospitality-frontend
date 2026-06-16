@@ -32,7 +32,7 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import * as ArcApi from "@/services/arc_v2";
 import { StageReadOnlyBanner } from "./StageShared";
-import { amendmentTooltip, InfoDot } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
+import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 
 // Translate raw tbl_arc_event_log rows into plain language with a tone.
 // Tones: success (milestones moving forward), info (neutral progress),
@@ -869,7 +869,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                                                 <span className="cc-rate" style={{ color: "var(--warn)", fontWeight: 700 }}>{fmt(ln.effectiveRate)}</span>
                                                 <span style={{ fontSize: 10, color: "var(--fg-4)", textDecoration: "line-through" }}>{fmt(ln.rate)}</span>
                                                 <span style={{ fontSize: 9.5, fontWeight: 700, color: "#a16207", background: "rgba(234,179,8,0.16)", padding: "1px 6px", borderRadius: 999 }}>amended</span>
-                                                <InfoDot title={amendmentTooltip(ln, ln.uom)} />
+                                                <AmendmentTooltip line={ln} uom={ln.uom} />
                                               </span>
                                             ) : (
                                               <span className="cc-rate success">{fmt(ln.rate)}</span>

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import AddendumSignModal from "@/components/dashboard/rate-contracts/vendor/AddendumSignModal";
-import { amendmentTooltip, InfoDot } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
+import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx";
 import * as ArcApi from "@/services/arc_v2";
@@ -453,8 +453,7 @@ export default function VendorContractDetailPage() {
                                   <span className="mono fw-700" style={{ color: "var(--warn)" }}>{fmt(effRate)}</span>
                                   <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}>/ {uomL}</span>
                                   <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-4)", textDecoration: "line-through" }}>{fmt(rate)}</span>
-                                  <span style={{ fontSize: 9.5, fontWeight: 700, color: "#a16207", background: "rgba(234,179,8,0.16)", padding: "1px 6px", borderRadius: 999 }}>amended</span>
-                                  <InfoDot title={amendmentTooltip(l, uomL)} />
+                                  <AmendmentTooltip line={l} uom={uomL} />
                                 </span>
                               ) : (
                                 <>
