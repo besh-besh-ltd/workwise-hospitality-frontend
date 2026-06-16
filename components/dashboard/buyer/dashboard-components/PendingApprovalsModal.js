@@ -41,6 +41,26 @@ const ENTITY_CONFIG = {
     color: "#e91e63",
     getUrl: (e) => `/dashboard/buyer/purchase-order?rfq=${e.metadata?.rfq_id || e.entity_id}`,
   },
+  // ARC (Annual Rate Contract) approval stages — surface them in the
+  // consolidated Action Centre queue with a clear tag (Sr 229).
+  ARC_TECH: {
+    label: "ARC — Technical",
+    icon: ClipboardCheck,
+    color: "#0891b2",
+    getUrl: (e) =>
+      e.metadata?.rfq_id
+        ? `/dashboard/buyer/arc-committee?rfq_id=${e.metadata.rfq_id}`
+        : `/dashboard/buyer/arc-committee`,
+  },
+  ARC_COMMITTEE: {
+    label: "ARC — Committee",
+    icon: Handshake,
+    color: "#7c3aed",
+    getUrl: (e) =>
+      e.metadata?.rfq_id
+        ? `/dashboard/buyer/arc-committee?rfq_id=${e.metadata.rfq_id}`
+        : `/dashboard/buyer/arc-committee`,
+  },
 };
 
 const formatWait = (hours) => {

@@ -5,9 +5,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import CardTooltip from "../dashboard-components/CardTooltip";
+import { DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./PersonaCard.module.scss";
 
-const DEFAULT_POLL_MS = 20000;
+const DEFAULT_POLL_MS = DASHBOARD_POLL_MS;
 
 /**
  * Common layout for persona widgets — title bar, polling, loading,

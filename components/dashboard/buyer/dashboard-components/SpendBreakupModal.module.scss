@@ -1,0 +1,171 @@
+/* Compact, subtle modal for the Total spend breakup (Sr 235). */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+  animation: slideUp 0.18s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.headIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #18181b;
+  margin: 0;
+  flex: 1;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: #9aa0a6;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  transition: all 0.15s ease;
+
+  &:hover { background: #f5f5f5; color: #18181b; }
+}
+
+.body {
+  padding: 16px 18px 18px;
+}
+
+.totalBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+
+.totalLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #15803d;
+}
+
+.totalValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 27px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.totalMeta {
+  font-size: 11px;
+  color: #a1a1aa;
+}
+
+/* Proportion bar */
+.bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f1ee;
+  margin-bottom: 14px;
+}
+
+.barBase { background: #15803d; }
+.barGst  { background: #86c79b; }
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 2px;
+  font-size: 13px;
+  color: #3f3f46;
+
+  & + & { border-top: 1px solid #f4f4f1; }
+}
+
+.rowLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.dotBase { background: #15803d; }
+.dotGst  { background: #86c79b; }
+
+.rowValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.rowTotal {
+  margin-top: 4px;
+  border-top: 1.5px solid #e4e4e0;
+
+  .rowLabel { font-weight: 700; color: #18181b; }
+  .rowValue { font-size: 14px; }
+}
+
+.note {
+  margin: 14px 0 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #a1a1aa;
+}

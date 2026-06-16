@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { getSmartInsightsData } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonRankList } from "@/components/dashboard/shared";
+import { SkeletonRankList, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./SmartInsights.module.scss";
 
 const INSIGHT_META = {
@@ -62,7 +62,7 @@ const SmartInsights = ({ filters }) => {
   useEffect(() => {
     setLoading(true);
     fetchData();
-    intervalRef.current = setInterval(fetchData, 20000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);

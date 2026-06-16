@@ -23,12 +23,15 @@
   overflow: hidden;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 
+  /* Per-card accent top bar (subtle, distinct per metric). Falls back to a
+     soft grey when no accent is supplied. */
   &::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: #d6d6cf;
+    background: var(--metric-accent, #d6d6cf);
+    opacity: 0.5; /* subtle for context cards; Total spend overrides to 1 */
   }
 
   &:hover {
@@ -36,14 +39,15 @@
     box-shadow: 0 6px 18px -8px rgba(15, 15, 14, 0.08);
   }
 
+  /* Total spend — green highlight. */
   &.highlighted {
-    background: #f5f9ff;
-    border-color: rgba(37, 99, 235, 0.22);
+    background: #f1fbf4;
+    border-color: rgba(21, 128, 61, 0.22);
 
-    &::before { background: #2563eb; }
+    &::before { opacity: 1; }
 
     .metricValue { color: #18181b; }
-    .metricLabel { color: #2563eb; }
+    .metricLabel { color: #15803d; }
   }
 }
 
@@ -104,6 +108,32 @@
 
 }
 
+/* "Show breakup" trigger on the Total spend tile — opens the detail modal
+   (Sr 235) instead of growing the card with inline rows. */
+.breakupBtn {
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #15803d;
+  background: #ecfdf3;
+  border: 1px solid rgba(21, 128, 61, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  svg { flex-shrink: 0; }
+
+  &:hover {
+    background: #d9f6e3;
+    border-color: rgba(21, 128, 61, 0.32);
+  }
+}
+
 .sparkline {
   display: flex;
   align-items: flex-end;
@@ -123,7 +153,7 @@
   }
 
   .highlighted & {
-    background: rgba(37, 99, 235, 0.20);
-    &.active { background: #2563eb; }
+    background: rgba(21, 128, 61, 0.20);
+    &.active { background: #15803d; }
   }
 }
