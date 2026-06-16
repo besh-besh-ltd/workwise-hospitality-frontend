@@ -17,6 +17,19 @@ export const getTerms = (values) => {
   });
 };
 
+// ARC-style stage lifecycle for the single-page RFQ workspace.
+// Resolves to { status, data: { rfq, stages, default_stage, permissions, ... } }.
+export const getRfqLifecycle = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/${rfqId}/lifecycle`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const downloadRfqTermsPdf = (rfqId) => {
   return new Promise(async (resolve, reject) => {
     try {
