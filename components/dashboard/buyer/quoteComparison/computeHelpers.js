@@ -17,11 +17,40 @@ const num = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-// Per-cell landed total straight from the backend engine.
+// Per-cell landed total straight from the backend engine. This INCLUDES the
+// product's share of quote-level global charges (e.g. TCS) and is the basis for
+// ranking, vendor grand totals and award amounts — do not change it lightly.
 export const cellTotal = (product, vendorId) => {
   const q = product?.quotes?.[vendorId];
   if (!q) return null;
   return num(q.total);
+};
+
+// Per-item LINE total: subtotal (base×qty) + GST + line charges (freight /
+// packaging / other), EXCLUDING global charges. The backend's q.total folds the
+// quote-level globals into every line, which over-states the per-item cost and
+// makes the breakdown rows fail to reconcile. For the per-item DISPLAY we
+// recompute from the line components so the shown total matches the vendor's
+// submitted line total and its own breakdown. (Award / ranking / vendor grand
+// still use cellTotal so globals are counted once at the quote level.)
+export const cellLineTotal = (product, vendorId) => {
+  const q = product?.quotes?.[vendorId];
+  if (!q) return null;
+  const subtotal = num(q.subtotal) ?? (num(q.base) || 0) * (product.qty || 0);
+  const tax = num(q.tax_amt) || 0;
+  // other_charges already contains freight + packaging (plus any custom line
+  // charges); fall back to the scalar fields only when it's absent.
+  const lineCharges = Array.isArray(q.other_charges)
+    ? q.other_charges.reduce((s, c) => s + (num(c.amount) || 0), 0)
+    : (num(q.freight) || 0) + (num(q.packaging) || 0);
+  return (subtotal || 0) + tax + lineCharges;
+};
+
+// Per-unit version of cellLineTotal (line cost / qty).
+export const landedLinePerUnit = (product, vendorId) => {
+  const t = cellLineTotal(product, vendorId);
+  if (t == null || !product.qty) return null;
+  return Math.round(t / product.qty);
 };
 
 export const cellSubtotal = (product, vendorId) => {
@@ -119,11 +148,50 @@ export const pctTone = (pct) => {
 
 export const l1TotalFor = (product, vendors) => {
   const id = l1VendorFor(product, vendors);
-  return id ? cellTotal(product, id) || 0 : 0;
+  return id ? cellLineTotal(product, id) || 0 : 0;
 };
 
-export const vendorTotal = (vendorId, products) =>
-  products.reduce((sum, p) => sum + (cellTotal(p, vendorId) || 0), 0);
+// Quote-level global charges (e.g. TCS) for a vendor, counted ONCE.
+// The backend distributes the global AMOUNT across products (each product's
+// global_charges[].amount is its share, summing to the quote total) but folds
+// the FULL global GST into EVERY product's q.total — so summing q.total
+// over-counts the GST by (numProducts − 1) × GST. We sum the distributed
+// amounts and add the GST a single time, taken from any one product's residual
+// (q.total − line total − that product's global amount).
+export const vendorGlobalCharges = (vendorId, products) => {
+  let amountSum = 0;
+  let gstOnce = 0;
+  (products || []).forEach((p) => {
+    const q = p?.quotes?.[vendorId];
+    if (!q || !Array.isArray(q.global_charges) || q.global_charges.length === 0) return;
+    const gAmt = q.global_charges.reduce((s, c) => s + (num(c.amount) || 0), 0);
+    amountSum += gAmt;
+    if (gstOnce === 0) {
+      const residual = (num(q.total) || 0) - (cellLineTotal(p, vendorId) || 0) - gAmt;
+      if (residual > 0.5) gstOnce = residual;
+    }
+  });
+  return amountSum + gstOnce;
+};
+
+// Vendor grand total = Σ per-item LINE totals + quote-level globals (once).
+export const vendorTotal = (vendorId, products) => {
+  const lineSum = (products || []).reduce(
+    (s, p) => s + (cellLineTotal(p, vendorId) || 0),
+    0
+  );
+  return lineSum + vendorGlobalCharges(vendorId, products);
+};
+
+// Transparency breakdown of the vendor grand total.
+export const vendorTotalBreakdown = (vendorId, products) => {
+  const lines = (products || []).reduce(
+    (s, p) => s + (cellLineTotal(p, vendorId) || 0),
+    0
+  );
+  const globals = vendorGlobalCharges(vendorId, products);
+  return { lines, globals, total: lines + globals };
+};
 
 // coverage: how many of all products a vendor quoted (non-null cell)
 export const vendorCoverage = (vendorId, products) =>
@@ -146,16 +214,38 @@ export const vendorRanks = (vendors, products) => {
   return map;
 };
 
-export const l1GrandTotal = (vendors, products) =>
-  products.reduce((s, p) => s + l1TotalFor(p, vendors), 0);
+export const l1GrandTotal = (vendors, products) => {
+  // Σ per-product L1 LINE totals + each winning vendor's quote-level globals,
+  // counted once over the products they win (exact for a single-vendor mix).
+  const lineSum = products.reduce((s, p) => s + l1TotalFor(p, vendors), 0);
+  const wonByVendor = {};
+  products.forEach((p) => {
+    const vid = l1VendorFor(p, vendors);
+    if (!vid) return;
+    (wonByVendor[vid] = wonByVendor[vid] || []).push(p);
+  });
+  const globalsSum = Object.entries(wonByVendor).reduce(
+    (s, [vid, won]) => s + vendorGlobalCharges(vid, won),
+    0
+  );
+  return lineSum + globalsSum;
+};
 
-export const finalizedGrandTotal = (products) =>
-  products.reduce((s, p) => {
+export const finalizedGrandTotal = (products) => {
+  // Σ line totals of finalized products + each finalized vendor's quote-level
+  // globals once (over the products finalized to them) — same basis as the
+  // vendor total, excluding the per-product global over-count.
+  const wonByVendor = {};
+  products.forEach((p) => {
     if (p.finalized_vendor && (p.state === "pending" || p.state === "approved")) {
-      return s + (cellTotal(p, p.finalized_vendor) || 0);
+      (wonByVendor[p.finalized_vendor] = wonByVendor[p.finalized_vendor] || []).push(p);
     }
-    return s;
+  });
+  return Object.entries(wonByVendor).reduce((s, [vid, won]) => {
+    const lineSum = won.reduce((a, p) => a + (cellLineTotal(p, vid) || 0), 0);
+    return s + lineSum + vendorGlobalCharges(vid, won);
   }, 0);
+};
 
 export const baselineTotal = (products) =>
   products.reduce((s, p) => s + (lprTotalFor(p) || 0), 0);
@@ -190,9 +280,10 @@ export const approvalPct = (products) => {
 };
 
 export const lprDelta = (product, vendorId) => {
-  // Compare the cell's all-in landed/unit against the LPR all-in landed/unit
-  // (same % as grand-total-now vs grand-total-previously).
-  const l = landedPerUnit(product, vendorId);
+  // Compare the cell's line/unit against the LPR/unit. Uses the same line-only
+  // basis as the displayed per-item total so the cell stays internally
+  // consistent (shown landed/unit and the % move agree).
+  const l = landedLinePerUnit(product, vendorId);
   const u = lprUnit(product);
   if (l == null || !u) return null;
   const pct = ((l - u) / u) * 100;
@@ -249,6 +340,26 @@ export const rankTotal = (vendors, products, rank) =>
     const rv = rankVendor(p, vendors, rank);
     return s + (rv ? rv.total || 0 : 0);
   }, 0);
+
+// Line-based "total by rank": Σ per-product (rank-N vendor's LINE total) + each
+// contributing vendor's quote-level globals once. Mirrors l1GrandTotal so the
+// per-rank totals exclude the per-product global over-count.
+export const rankLineTotal = (vendors, products, rank) => {
+  let lineSum = 0;
+  const wonByVendor = {};
+  products.forEach((p) => {
+    const ranks = productRanks(p, vendors);
+    const vid = Object.keys(ranks).find((id) => ranks[id] === rank);
+    if (!vid) return;
+    lineSum += cellLineTotal(p, vid) || 0;
+    (wonByVendor[vid] = wonByVendor[vid] || []).push(p);
+  });
+  const globalsSum = Object.entries(wonByVendor).reduce(
+    (s, [vid, won]) => s + vendorGlobalCharges(vid, won),
+    0
+  );
+  return lineSum + globalsSum;
+};
 
 export const catVendorSubtotal = (catId, vendorId, products) =>
   products

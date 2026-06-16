@@ -343,3 +343,19 @@ export const getNegotiationApprovalBundle = (rfq_id) => {
   });
 };
 
+/**
+ * Buyer landing list — all RFQs in negotiation for the active hospitality
+ * company/hotel context (scope injected via headers by lib/axios). Resolves
+ * the API body `{ status, data: [...] }`.
+ */
+export const listNegotiationRfqs = (params = {}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/negotiation/rfqs`, { params });
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+

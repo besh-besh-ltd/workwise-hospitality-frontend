@@ -225,13 +225,21 @@ export const getProductRoundStatus = (product, quoteApprovalStatuses = {}) => {
 // Text-only negotiation fields (skip the ≥-quoted numeric check).
 export const TEXT_ONLY_NEG_FIELDS = new Set(['payment_terms', 'comment', 'global_comment', 'vendor_tc', 'documents']);
 
+// The rupee base a charge percentage is computed against. For a quote-level
+// global charge (RFQ mode) that's the vendor's WHOLE-quote line subtotal
+// (`rfqSubtotal`); for a per-line charge it's the line base (unit × qty).
+export const chargeBase = (vendorData) => {
+  const rfqSub = parseFloat(vendorData?.rfqSubtotal);
+  if (Number.isFinite(rfqSub) && rfqSub > 0) return rfqSub;
+  return (parseFloat(vendorData?.unitPrice) || 0) * (parseFloat(vendorData?.quantity) || 1);
+};
+
 // Per-(vendor, field) check: is the effective target ≥ the vendor's quoted
 // value? Numeric only — text fields always return false.
 export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, formData) => {
   if (!vendorData || TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return false;
   const unitPrice = parseFloat(vendorData.unitPrice) || 0;
-  const quantity = parseFloat(vendorData.quantity) || 1;
-  const basePrice = unitPrice * quantity;
+  const basePrice = chargeBase(vendorData);
 
   const localVal = vendorTargetMap?.[fieldKey];
   const globalKey = getChargeTargetKey(fieldKey);
@@ -412,9 +420,12 @@ export const aggregateRfqVendors = (products = []) => {
       if (!v.vendorId) return;
       const existing = byVendor.get(v.vendorId);
       if (!existing) {
-        byVendor.set(v.vendorId, { ...v });
+        // rfqSubtotal = Σ per-product line subtotals — the correct base for a
+        // quote-level global charge percentage (e.g. TCS 10% of the whole quote).
+        byVendor.set(v.vendorId, { ...v, rfqSubtotal: Number(v.totalPrice) || 0 });
         return;
       }
+      existing.rfqSubtotal = (existing.rfqSubtotal || 0) + (Number(v.totalPrice) || 0);
       // Merge globals (first non-empty wins). Keeps existing line numbers
       // (unitPrice/qty/totalPrice) from the first product we saw.
       if ((!existing.globalCharges || existing.globalCharges.length === 0) && v.globalCharges?.length) {
@@ -525,7 +536,7 @@ export const computeFieldL1 = (fieldKey, productPriceData) => {
       } else {
         return; // vendor didn't quote this field
       }
-      const basePrice = (parseFloat(v.unitPrice) || 0) * (parseFloat(v.quantity) || 1);
+      const basePrice = chargeBase(v);
       amount = mode === 'percentage' ? (value / 100) * basePrice : value;
     }
 
@@ -562,9 +573,9 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
   if (isNaN(target)) return null;
 
   let quotedValue, quotedMode;
-  const unitPrice = parseFloat(quoteData.unitPrice) || 0;
-  const quantity = parseFloat(quoteData.quantity) || 1;
-  const basePrice = unitPrice * quantity;
+  // Globals (RFQ mode) normalize against the whole-quote subtotal; per-line
+  // charges against the line base (unit × qty).
+  const basePrice = chargeBase(quoteData);
 
   if (fieldKey === 'base_price') {
     quotedValue = parseFloat(quoteData.unitPrice);
@@ -644,16 +655,24 @@ export const compareTaxToQuoted = ({ targetTax, targetTaxMode, quotedTax, quoted
 // apples-to-apples.
 export const quotedAmountFor = (fieldKey, quoteData) => {
   if (!quoteData) return 0;
-  const unitPrice = parseFloat(quoteData.unitPrice) || 0;
-  const quantity = parseFloat(quoteData.quantity) || 1;
-  const basePrice = unitPrice * quantity;
+  const basePrice = chargeBase(quoteData);
   if (fieldKey === 'base_price') return basePrice;
   const charge = (quoteData.otherCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
-  if (!charge) return 0;
-  const val = parseFloat(charge.amount);
-  if (!Number.isFinite(val) || val <= 0) return 0;
-  const mode = charge.amount_mode || 'percentage';
-  return mode === 'percentage' ? (val / 100) * basePrice : val;
+  if (charge) {
+    const val = parseFloat(charge.amount);
+    if (!Number.isFinite(val) || val <= 0) return 0;
+    const mode = charge.amount_mode || 'percentage';
+    return mode === 'percentage' ? (val / 100) * basePrice : val;
+  }
+  // Quote-level global charge: value lives in `.tax` / `.tax_mode`.
+  const g = (quoteData.globalCharges || []).find(c => (c.slug || c.name) === fieldKey || c.name === fieldKey);
+  if (g) {
+    const val = parseFloat(g.tax);
+    if (!Number.isFinite(val) || val <= 0) return 0;
+    const mode = g.tax_mode || 'percentage';
+    return mode === 'percentage' ? (val / 100) * basePrice : val;
+  }
+  return 0;
 };
 
 // Mirrors computeFieldL1 but for the field's TAX (GST). Each vendor's quoted
@@ -672,7 +691,7 @@ export const computeFieldTaxL1 = (fieldKey, productPriceData) => {
     let taxMode = 'percentage';
     let chargeAmt;
 
-    const basePrice = (parseFloat(v.unitPrice) || 0) * (parseFloat(v.quantity) || 1);
+    const basePrice = chargeBase(v);
 
     if (fieldKey === 'base_price') {
       taxValue = parseFloat(v.tax);

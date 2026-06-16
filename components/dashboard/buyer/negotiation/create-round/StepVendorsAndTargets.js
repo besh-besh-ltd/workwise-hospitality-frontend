@@ -235,10 +235,22 @@ const StepVendorsAndTargets = ({
           : 'No tax was given';
       }
       const c = (vendorData.otherCharges || []).find(x => (x.slug || x.name) === base || x.name === base);
-      const t = parseFloat(c?.tax);
-      return Number.isFinite(t) && t > 0
-        ? ((c.tax_mode === 'amount' || c.tax_mode === 'absolute') ? `₹${t}` : `${t}%`)
-        : 'No tax was given';
+      if (c) {
+        const t = parseFloat(c.tax);
+        return Number.isFinite(t) && t > 0
+          ? ((c.tax_mode === 'amount' || c.tax_mode === 'absolute') ? `₹${t}` : `${t}%`)
+          : 'No tax was given';
+      }
+      // Quote-level global charge (e.g. TCS): the charge value lives in `.tax`
+      // and the GST-on-charge in `.additional_tax` / `.additional_tax_mode`.
+      const g = (vendorData.globalCharges || []).find(x => (x.slug || x.name) === base || x.name === base);
+      if (g) {
+        const gt = parseFloat(g.additional_tax);
+        return Number.isFinite(gt) && gt > 0
+          ? ((g.additional_tax_mode === 'amount' || g.additional_tax_mode === 'absolute') ? `₹${gt}` : `${gt}%`)
+          : 'No tax was given';
+      }
+      return 'No tax was given';
     }
     switch (fieldKey) {
       case 'payment_terms':

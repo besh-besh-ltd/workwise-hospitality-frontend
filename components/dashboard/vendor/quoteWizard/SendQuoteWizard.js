@@ -123,7 +123,9 @@ const API_TO_RESPONSE = (raw) => {
 
 // Loose GSTIN format check — 15 chars, India pattern. Optional field, so the
 // "no value" case is handled separately (warning at review).
-const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{2}$/;
+// Canonical 15-char GSTIN: 2-digit state + 10-char PAN + entity digit + 'Z' +
+// checksum. (The previous pattern only matched 14 chars, rejecting valid IDs.)
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const isValidGstin = (v) => !v || GSTIN_PATTERN.test(String(v).trim().toUpperCase());
 
 const PAY_TYPE_OPTIONS = [
@@ -163,6 +165,10 @@ const SendQuoteWizard = () => {
   const [products, setProducts] = useState([]);
   const [vendorGSTIN, setVendorGSTIN] = useState("");
   const [globalComment, setGlobalComment] = useState("");
+  // Vendor's quote-wide attachments — sent as `term_and_condition_files`
+  // (stored in tbl_quotes_files for this quote), returned as the top-level
+  // `terms_and_conditions_files` by getRfqById.
+  const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [paymentTerms, setPaymentTerms] = useState([
     { id: null, type: "advance", value: 50, days: "", comment: "" },
     { id: null, type: "credit", value: 50, days: 30, comment: "" },
@@ -265,6 +271,10 @@ const SendQuoteWizard = () => {
           name: c.name,
           amount: coerceAmount(c.amount),
           amount_mode: c.amount_mode || "percentage",
+          // GST on the global charge — engine returns it in the totals so the
+          // grand total reflects it live.
+          additional_tax: coerceAmount(c.extra_tax),
+          additional_tax_mode: c.extra_tax_mode || "percentage",
         })),
     };
   }, [products, globalCharges]);
@@ -319,6 +329,8 @@ const SendQuoteWizard = () => {
     const engineGlobals = (pricingTotals.global_charges || []).map((g) => ({
       label: g.name,
       amount: Number(g.subtotal) || Number(g.amount) || 0,
+      // GST on the global charge (additional_tax) — shown as a sub-row.
+      tax: Number(g.tax) || Number(g.additional_tax) || 0,
     }));
     return {
       subtotal,
@@ -563,6 +575,22 @@ const SendQuoteWizard = () => {
   const isReadOnly = !editStatus.canEdit;
   const missedInquiry = !!editStatus.missed;
 
+  // Per-line "is this line fully read-only" — mirrors the `locked` flag computed
+  // inside Step3Pricing, so the charges modal (rendered here, outside that
+  // component) can disable its fields while still letting the vendor open it.
+  const isLineLocked = (p) => {
+    if (!p) return false;
+    const finalizedLocked =
+      p.finalization_status === "Another vendor is finalized" ||
+      p.finalization_status === "You are finalized";
+    const techLocked =
+      showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted;
+    const negSubmitted = !!negotiationQuoteSubmitted[p.id];
+    const bidExpiredForProduct =
+      isBidExpired && !activeNegotiationProductIds.has(p.id);
+    return finalizedLocked || techLocked || negSubmitted || bidExpiredForProduct || isReadOnly;
+  };
+
   /* ─────────────────────────── Clarification window ─────────────────────────── */
   // (isTender / clarificationDeadline / isClarWindowActive / clarBlocksQuote /
   //  showClarStep are declared above so the step list + canSubmit memos can
@@ -675,8 +703,19 @@ const SendQuoteWizard = () => {
         if (hasQuote) {
           // Prefill payment terms + GSTIN + global comment from existing quote
           const qd = data.quote_details || {};
+          const q0 = data.quotations?.[0] || {};
           if (qd.gstin) setVendorGSTIN(qd.gstin);
           if (qd.global_comment) setGlobalComment(qd.global_comment);
+          // The vendor's quote attachments come back as the top-level
+          // `terms_and_conditions_files` (built from tbl_quotes_files for THIS
+          // vendor's quote — not the buyer's RFQ files, which are `TERM_files`).
+          // Items are { file_url } objects.
+          const rawAttachments =
+            data.terms_and_conditions_files || q0.terms_and_conditions_files || [];
+          const gFiles = (Array.isArray(rawAttachments) ? rawAttachments : [])
+            .map((f) => (typeof f === "string" ? f : f?.file_url || f?.file_path || ""))
+            .filter(Boolean);
+          if (gFiles.length) setGlobalDocumentFiles(gFiles);
           const pts = data.quotations[0]?.payment_terms || [];
           if (pts.length) {
             setPaymentTerms(pts.map((t) => ({ ...t })));
@@ -691,6 +730,9 @@ const SendQuoteWizard = () => {
                 name: c.name || "",
                 amount: parseFloat(c.amount ?? c.tax ?? 0) || 0,
                 amount_mode: c.amount_mode || c.tax_mode || "percentage",
+                // GST on the charge round-trips via additional_tax.
+                extra_tax: c.additional_tax == null ? "" : parseFloat(c.additional_tax) || 0,
+                extra_tax_mode: c.additional_tax_mode || "percentage",
                 comment: c.comment || "",
               }))
             );
@@ -1109,13 +1151,39 @@ const SendQuoteWizard = () => {
     setGlobalComment(v);
   };
 
+  // Quote-wide document upload (mirrors the per-line attach flow).
+  const uploadGlobalFiles = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    markUnsaved();
+    const urls = [];
+    for (const f of files) {
+      try {
+        const res = await handleUploadFile(f, token);
+        const url = res?.data?.[0]?.file_path;
+        if (url) urls.push(url);
+      } catch (_) {
+        toast.error("File upload failed.");
+      }
+    }
+    if (urls.length) setGlobalDocumentFiles((prev) => [...prev, ...urls]);
+  };
+  const removeGlobalFile = (url) => {
+    markUnsaved();
+    setGlobalDocumentFiles((prev) => prev.filter((u) => u !== url));
+  };
+
   /* ─────────────────────────── Payment terms ─────────────────────────── */
   const addPaymentTerm = () => {
     markUnsaved();
-    setPaymentTerms((prev) => [
-      ...prev,
-      { id: null, type: "advance", value: 0, days: "", comment: "" },
-    ]);
+    setPaymentTerms((prev) => {
+      // Default to the first non-"other" type not already used; fall back to
+      // "other" (which is repeatable) when advance + credit are both taken.
+      const used = new Set(prev.filter((t) => t.action !== "delete").map((t) => t.type));
+      const free = PAY_TYPE_OPTIONS.find((o) => o.value !== "other" && !used.has(o.value));
+      const type = free ? free.value : "other";
+      return [...prev, { id: null, type, value: 0, days: "", comment: "" }];
+    });
   };
   const updatePaymentTerm = (i, patch) => {
     markUnsaved();
@@ -1123,15 +1191,11 @@ const SendQuoteWizard = () => {
   };
   const removePaymentTerm = (i) => {
     markUnsaved();
-    setPaymentTerms((prev) => {
-      const next = [...prev];
-      if (next[i].id) {
-        next[i] = { ...next[i], action: "delete" };
-      } else {
-        next.splice(i, 1);
-      }
-      return next;
-    });
+    // Hard-remove the row from the list. Deletions of existing (id'd) terms are
+    // still sent to the backend — diffPaymentTerms derives them by comparing
+    // against the original snapshot (any original id missing from the current
+    // list is treated as deleted).
+    setPaymentTerms((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   /* ─────────────────────────── Submit tech-eval (per-product) ─────────────────────────── */
@@ -1334,7 +1398,11 @@ const SendQuoteWizard = () => {
         products: filteredProducts,
         globalPaymentTerms: "",
         globalComment,
-        term_and_condition_files: [],
+        // Vendor's quote-wide attachments. The backend reads this key and stores
+        // them in `tbl_quotes_files` (file_type='term_and_condition'), scoped to
+        // this vendor's quote — separate from the buyer's RFQ files. getRfqById
+        // returns them as the top-level `terms_and_conditions_files`.
+        term_and_condition_files: globalDocumentFiles,
         vendorGSTIN,
         global_charges: globalCharges
           .filter((c) => c.name && c.name.trim())
@@ -1625,8 +1693,12 @@ const SendQuoteWizard = () => {
             globalComment={globalComment}
             vendorGSTIN={vendorGSTIN}
             globalCharges={globalCharges}
+            globalDocumentFiles={globalDocumentFiles}
+            token={token}
             onChangeGSTIN={changeGSTIN}
             onChangeGlobalComment={changeGlobalComment}
+            onUploadGlobalFiles={uploadGlobalFiles}
+            onRemoveGlobalFile={removeGlobalFile}
             onOpenGlobalCharges={() => setGlobalChargesModalOpen(true)}
             onAddPaymentTerm={addPaymentTerm}
             onUpdatePaymentTerm={updatePaymentTerm}
@@ -1691,6 +1763,7 @@ const SendQuoteWizard = () => {
           onRemoveCharge={(cIdx) => removeProductCharge(chargesOpenIdx, cIdx)}
           negFields={negotiationFields[products[chargesOpenIdx]?.id] || []}
           bidExpired={isBidExpired}
+          readOnly={isLineLocked(products[chargesOpenIdx])}
           chargeTypes={lineChargeTypes}
         />
       )}
@@ -1698,8 +1771,10 @@ const SendQuoteWizard = () => {
       {globalChargesModalOpen && (
         <GlobalChargesModal
           charges={globalCharges}
+          engineBreakdown={totals.globalCharges}
           negFields={negotiationFields.__rfq_level__ || []}
           bidExpired={isBidExpired}
+          readOnly={isReadOnly}
           chargeTypes={globalChargeTypes}
           onClose={() => setGlobalChargesModalOpen(false)}
           onAddCharge={(name) => {
@@ -1709,8 +1784,12 @@ const SendQuoteWizard = () => {
               {
                 _id: genLocalId("gc"),
                 name,
-                amount: 0,
+                // Start blank (not 0) so the field is immediately editable.
+                amount: "",
                 amount_mode: "percentage",
+                // Optional GST on the charge (maps to additional_tax on save).
+                extra_tax: "",
+                extra_tax_mode: "percentage",
                 comment: "",
               },
             ]);
@@ -2772,12 +2851,22 @@ const QuoteSummary = ({
                 <>
                   <div className={styles.breakdownDivider}>On grand total</div>
                   {totals.globalCharges.map((gc) => (
-                    <div className={styles.breakdownRow} key={`g-${gc.label}`}>
-                      <span className={styles.lbl}>
-                        <span className={`${styles.swatch} ${styles.bdGlobal}`} /> {gc.label}
-                      </span>
-                      <span className={styles.val}>₹ {fmtINR(gc.amount)}</span>
-                    </div>
+                    <React.Fragment key={`g-${gc.label}`}>
+                      <div className={styles.breakdownRow}>
+                        <span className={styles.lbl}>
+                          <span className={`${styles.swatch} ${styles.bdGlobal}`} /> {gc.label}
+                        </span>
+                        <span className={styles.val}>₹ {fmtINR(gc.amount)}</span>
+                      </div>
+                      {gc.tax > 0 && (
+                        <div className={`${styles.breakdownRow} ${styles.breakdownSub}`}>
+                          <span className={styles.lbl}>
+                            <span className={styles.subBranch} /> GST on {gc.label.toLowerCase()}
+                          </span>
+                          <span className={styles.val}>₹ {fmtINR(gc.tax)}</span>
+                        </div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </>
               )}
@@ -3113,7 +3202,11 @@ const Step3Pricing = ({
                           hasCharges ? styles.chargesActive : ""
                         }`}
                         onClick={() => onOpenCharges(idx)}
-                        disabled={locked}
+                        // Stays clickable when locked so the vendor can OPEN and
+                        // review existing charges (the modal's fields are
+                        // read-only). Only disabled when locked AND there's
+                        // nothing to review.
+                        disabled={locked && !hasCharges}
                       >
                         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {hasCharges ? (
@@ -3306,8 +3399,12 @@ const Step4CommercialTerms = ({
   globalComment,
   vendorGSTIN,
   globalCharges,
+  globalDocumentFiles = [],
+  token,
   onChangeGSTIN,
   onChangeGlobalComment,
+  onUploadGlobalFiles,
+  onRemoveGlobalFile,
   onOpenGlobalCharges,
   onAddPaymentTerm,
   onUpdatePaymentTerm,
@@ -3359,17 +3456,60 @@ const Step4CommercialTerms = ({
         </div>
 
         <div className={styles.cardSection}>
-          <label className={styles.label}>
-            Global comment <span className={styles.labelMeta}>visible to buyer</span>
-          </label>
-          <textarea
-            className={styles.textarea}
-            value={globalComment}
-            onChange={(e) => onChangeGlobalComment(e.target.value)}
-            placeholder="Any quote-wide notes — packaging, batching, conditions, etc."
-            maxLength={500}
-            disabled={isReadOnly}
-          />
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
+            <div style={{ flex: "1 1 calc(50% - 8px)", minWidth: 240, display: "flex", flexDirection: "column" }}>
+              <label className={styles.label}>
+                Global comment <span className={styles.labelMeta}>visible to buyer</span>
+              </label>
+              <textarea
+                className={styles.textarea}
+                value={globalComment}
+                onChange={(e) => onChangeGlobalComment(e.target.value)}
+                placeholder="Any quote-wide notes — packaging, batching, conditions, etc."
+                maxLength={500}
+                disabled={isReadOnly}
+                style={{ flex: 1 }}
+              />
+            </div>
+            <div style={{ flex: "1 1 calc(50% - 8px)", minWidth: 240, display: "flex", flexDirection: "column" }}>
+              <label className={styles.label}>
+                Attachments <span className={styles.labelMeta}>visible to buyer · optional</span>
+              </label>
+              <label
+                className={styles.uploadMini}
+                style={{ width: "100%", justifyContent: "center", padding: 14 }}
+              >
+                <Download size={13} style={{ transform: "rotate(180deg)" }} />
+                Attach quote-wide documents
+                <input
+                  type="file"
+                  multiple
+                  disabled={isReadOnly}
+                  onChange={async (e) => {
+                    await onUploadGlobalFiles?.(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                {(globalDocumentFiles || []).map((u) => (
+                  <div className={styles.uploadedFile} key={u}>
+                    <Download size={12} style={{ color: "var(--fg-3)" }} />
+                    <span className={styles.name}>{u.split("/").pop()}</span>
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      disabled={isReadOnly}
+                      onClick={() => onRemoveGlobalFile?.(u)}
+                      aria-label="Remove"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className={styles.cardSection}>
@@ -3388,7 +3528,10 @@ const Step4CommercialTerms = ({
               type="button"
               className={`${styles.chargesTrigger} ${hasGlobalCharges ? styles.chargesActive : ""}`}
               onClick={onOpenGlobalCharges}
-              disabled={isReadOnly}
+              // Stays clickable in read-only so the vendor can review existing
+              // global charges; the modal's fields are disabled. Only blocked
+              // when read-only AND there's nothing to review.
+              disabled={isReadOnly && activeGlobalCount === 0}
               style={{ maxWidth: 280, flexShrink: 0 }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3433,6 +3576,25 @@ const Step4CommercialTerms = ({
           <div className={styles.payList}>
             {paymentTerms.map((t, i) => {
               const isDeleted = t.action === "delete";
+              // Each type can be picked only once — hide types already used by
+              // OTHER rows. "other" is always available (repeatable), and the
+              // row's own current type stays so it renders as selected.
+              const usedByOthers = new Set(
+                paymentTerms
+                  .filter((pt, idx) => idx !== i && pt.action !== "delete")
+                  .map((pt) => pt.type)
+              );
+              const typeOptions = PAY_TYPE_OPTIONS.filter(
+                (o) => o.value === "other" || o.value === (t.type || "advance") || !usedByOthers.has(o.value)
+              );
+              // The combined % can't exceed 100 — cap this row's value to
+              // whatever's left after the other (non-deleted) rows.
+              const othersValueSum = paymentTerms.reduce(
+                (s, pt, idx) =>
+                  idx !== i && pt.action !== "delete" ? s + (Number(pt.value) || 0) : s,
+                0
+              );
+              const maxValue = Math.max(0, 100 - othersValueSum);
               return (
                 <div
                   key={i}
@@ -3447,7 +3609,7 @@ const Step4CommercialTerms = ({
                     onChange={(e) => onUpdatePaymentTerm(i, { type: e.target.value })}
                     disabled={isDeleted || isReadOnly}
                   >
-                    {PAY_TYPE_OPTIONS.map((o) => (
+                    {typeOptions.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
@@ -3458,11 +3620,19 @@ const Step4CommercialTerms = ({
                       className={`${styles.input} ${styles.inputNum}`}
                       type="number"
                       min={0}
-                      max={100}
+                      max={maxValue}
                       value={t.value ?? ""}
-                      onChange={(e) =>
-                        onUpdatePaymentTerm(i, { value: Number(e.target.value) })
-                      }
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          onUpdatePaymentTerm(i, { value: "" });
+                          return;
+                        }
+                        let v = Number(raw);
+                        if (!Number.isFinite(v) || v < 0) v = 0;
+                        // Clamp so the combined % never goes over 100.
+                        onUpdatePaymentTerm(i, { value: Math.min(v, maxValue) });
+                      }}
                       disabled={isDeleted || isReadOnly}
                       placeholder="0"
                     />
@@ -3475,7 +3645,9 @@ const Step4CommercialTerms = ({
                         type="number"
                         value={t.days ?? ""}
                         onChange={(e) =>
-                          onUpdatePaymentTerm(i, { days: Number(e.target.value) })
+                          onUpdatePaymentTerm(i, {
+                            days: e.target.value === "" ? "" : Number(e.target.value),
+                          })
                         }
                         disabled={isDeleted || isReadOnly}
                         placeholder="30"
@@ -3512,6 +3684,8 @@ const Step4CommercialTerms = ({
                 type="button"
                 className={styles.payAdd}
                 onClick={onAddPaymentTerm}
+                // Nothing left to allocate once the terms already total 100%.
+                disabled={paymentTotal >= 100}
               >
                 <Plus size={13} />
                 Add another term
@@ -3665,12 +3839,27 @@ const Step5Review = ({
                     <span className={styles.reviewKvMuted}>— none —</span>
                   ) : (
                     <div className={styles.reviewChargeList}>
-                      {activeGlobalCharges.map((c, i) => (
-                        <div key={i} className={styles.reviewChargeRow}>
-                          <span>{c.name}</span>
-                          <span className={styles.mono}>₹ {fmtINR(c.amount)}{c.tax ? ` · ${c.tax}% tax` : ""}</span>
-                        </div>
-                      ))}
+                      {activeGlobalCharges.map((c, i) => {
+                        // Show the engine-computed value (amount + GST), not the
+                        // raw "10%" input. b.amount is the charge's full
+                        // contribution incl GST; net = b.amount − b.tax.
+                        const b =
+                          (totals?.globalCharges || []).find(
+                            (g) => (g.label || "").toLowerCase() === (c.name || "").toLowerCase()
+                          ) || { amount: 0, tax: 0 };
+                        const total = Number(b.amount) || 0;
+                        const gst = Number(b.tax) || 0;
+                        const net = total - gst;
+                        return (
+                          <div key={i} className={styles.reviewChargeRow}>
+                            <span>{c.name}</span>
+                            <span className={styles.mono}>
+                              ₹ {fmtINR(total)}
+                              {gst > 0 ? ` (₹${fmtINR(net)} + ₹${fmtINR(gst)} GST)` : ""}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </span>
@@ -4054,7 +4243,7 @@ const ChargeTypeDropdown = ({ types, disabled, onPick, existingNames }) => {
   );
 };
 
-const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, chargeTypes }) => {
+const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, readOnly = false, chargeTypes }) => {
   const charges = product?.other_charges || [];
   const chargeReports = charges.map(validateCharge);
   const errorList = chargeReports.filter((r) => r.errs.length > 0);
@@ -4069,14 +4258,17 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
   // Post-expiry, charges unlock per-field (legacy parity): amount needs an
   // AMOUNT target on the matching negotiated field, tax needs a TAX demand.
   // New charges can't be added or removed once the bid window has closed.
+  // `readOnly` (finalized / read-only quote) locks every field outright.
   const findNegField = (ch) =>
     negFields.find((f) => f.name === ch.name || f.name === ch.slug);
   const isChargeAmountLocked = (ch) => {
+    if (readOnly) return true;
     if (!bidExpired) return false;
     const f = findNegField(ch);
     return !(f && f.targetPrice != null && f.targetPrice !== "");
   };
   const isChargeTaxLocked = (ch) => {
+    if (readOnly) return true;
     if (!bidExpired) return false;
     const f = findNegField(ch);
     return !(f && f.taxDemand);
@@ -4084,9 +4276,10 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
 
   // Closing (Done / X / backdrop) is blocked while any charge is incomplete —
   // each invalid charge raises a toast naming the field(s) that need fixing,
-  // so a half-filled charge can never be silently saved.
+  // so a half-filled charge can never be silently saved. Read-only quotes have
+  // nothing to validate, so they just close.
   const attemptClose = () => {
-    if (hasErrors) {
+    if (!readOnly && hasErrors) {
       errorList.forEach((r) => toast.error(`${r.name}: ${r.errs.join(", ")}`));
       return;
     }
@@ -4120,7 +4313,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
           <ChargeTypeDropdown
             types={availableTypes}
             existingNames={existingNames}
-            disabled={availableTypes.length === 0 || bidExpired}
+            disabled={availableTypes.length === 0 || bidExpired || readOnly}
             onPick={(v) => onAddCharge(v)}
           />
 
@@ -4134,7 +4327,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                     className={styles.iconBtn}
                     onClick={() => onRemoveCharge(ci)}
                     aria-label="Remove"
-                    disabled={bidExpired}
+                    disabled={bidExpired || readOnly}
                   >
                     <Trash2 size={14} style={{ color: "var(--danger)" }} />
                   </button>
@@ -4241,6 +4434,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                       onChange={(e) => onUpdateCharge(ci, { comment: e.target.value })}
                       placeholder="e.g. GST 18% inclusive"
                       maxLength={120}
+                      disabled={readOnly}
                     />
                   </div>
                 </div>
@@ -4346,7 +4540,13 @@ const validateGlobalCharge = (ch, i) => {
   };
 };
 
-const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, chargeTypes }) => {
+const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, readOnly = false, chargeTypes, engineBreakdown = [] }) => {
+  // Engine-computed amount + GST per global charge (matched by name), so the
+  // in-modal breakdown equals the grand-total summary exactly.
+  const breakdownFor = (name) =>
+    engineBreakdown.find(
+      (g) => (g.label || "").toLowerCase() === (name || "").toLowerCase()
+    ) || { amount: 0, tax: 0 };
   const reports = (charges || []).map(validateGlobalCharge);
   const errorList = reports.filter((r) => r.errs.length > 0);
   const hasErrors = errorList.length > 0;
@@ -4357,18 +4557,31 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
   );
 
   // Post-expiry, only RFQ-level fields the buyer negotiated stay editable
-  // (legacy parity); adding or removing global charges is blocked.
+  // (legacy parity); adding or removing global charges is blocked. `readOnly`
+  // (finalized / read-only quote) locks every field outright.
   const isChargeLocked = (ch) => {
+    if (readOnly) return true;
     if (!bidExpired) return false;
     const f = negFields.find((x) => x.name === ch.name || x.name === ch.slug);
     return !(f && f.targetPrice != null && f.targetPrice !== "");
+  };
+
+  // Closing is blocked while any charge is incomplete — each invalid charge
+  // raises a toast naming the field(s) to fix, so a half-filled charge can
+  // never be silently saved. Read-only quotes just close.
+  const attemptClose = () => {
+    if (!readOnly && hasErrors) {
+      errorList.forEach((r) => toast.error(`${r.name}: ${r.errs.join(", ")}`));
+      return;
+    }
+    onClose();
   };
 
   return (
     <div
       className={styles.modalBackdrop}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) attemptClose();
       }}
     >
       <div className={styles.modal}>
@@ -4385,7 +4598,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
               total, not on individual line items.
             </div>
           </div>
-          <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.iconBtn} onClick={attemptClose} aria-label="Close">
             <X size={16} />
           </button>
         </div>
@@ -4394,7 +4607,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
           <ChargeTypeDropdown
             types={availableTypes}
             existingNames={existingNames}
-            disabled={availableTypes.length === 0 || bidExpired}
+            disabled={availableTypes.length === 0 || bidExpired || readOnly}
             onPick={(v) => onAddCharge(v)}
           />
 
@@ -4408,7 +4621,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                     className={styles.iconBtn}
                     onClick={() => onRemoveCharge(ci)}
                     aria-label="Remove"
-                    disabled={bidExpired}
+                    disabled={bidExpired || readOnly}
                   >
                     <Trash2 size={14} style={{ color: "var(--danger)" }} />
                   </button>
@@ -4420,8 +4633,12 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
-                        value={ch.amount ?? 0}
-                        onChange={(e) => onUpdateCharge(ci, { amount: Number(e.target.value) })}
+                        value={ch.amount ?? ""}
+                        onChange={(e) =>
+                          onUpdateCharge(ci, {
+                            amount: e.target.value === "" ? "" : Number(e.target.value),
+                          })
+                        }
                         placeholder="0"
                         min={0}
                         onWheel={(e) => e.currentTarget.blur()}
@@ -4449,7 +4666,48 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       </div>
                     </div>
                   </div>
-                  <div style={{ gridColumn: "span 2" }}>
+                  <div>
+                    <label className={styles.label}>
+                      Tax (GST) <span className={styles.labelMeta}>optional</span>
+                    </label>
+                    <div className={styles.taxField}>
+                      <input
+                        className={styles.taxInput}
+                        type="number"
+                        value={ch.extra_tax == null ? "" : ch.extra_tax}
+                        onChange={(e) =>
+                          onUpdateCharge(ci, {
+                            extra_tax: e.target.value === "" ? "" : Number(e.target.value),
+                          })
+                        }
+                        placeholder="0"
+                        min={0}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        disabled={isChargeLocked(ch)}
+                      />
+                      <div className={styles.modeSeg} role="group" aria-label="Tax mode">
+                        <button
+                          type="button"
+                          className={(ch.extra_tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
+                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "percentage" })}
+                          aria-pressed={(ch.extra_tax_mode || "percentage") === "percentage"}
+                          disabled={isChargeLocked(ch)}
+                        >
+                          %
+                        </button>
+                        <button
+                          type="button"
+                          className={ch.extra_tax_mode === "absolute" ? styles.modeSegActive : ""}
+                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "absolute" })}
+                          aria-pressed={ch.extra_tax_mode === "absolute"}
+                          disabled={isChargeLocked(ch)}
+                        >
+                          ₹
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
                     <label className={styles.label}>
                       Note <span className={styles.req}>*</span>
                       {!(ch.comment || "").trim() && (
@@ -4465,9 +4723,46 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       onChange={(e) => onUpdateCharge(ci, { comment: e.target.value })}
                       placeholder="e.g. across PO value"
                       maxLength={120}
+                      disabled={readOnly}
                     />
                   </div>
                 </div>
+                {(() => {
+                  const b = breakdownFor(ch.name);
+                  // The engine's global-charge subtotal already INCLUDES its GST
+                  // (it's the charge's full contribution to the grand total), so
+                  // the pre-GST amount is subtotal − tax. Adding the tax again
+                  // would double-count it.
+                  const total = Number(b.amount) || 0;
+                  const gst = Number(b.tax) || 0;
+                  const net = total - gst;
+                  return (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 10,
+                        borderTop: "1px dashed var(--border)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        fontSize: 12,
+                        color: "var(--fg-3)",
+                      }}
+                    >
+                      Breakdown:
+                      <span className={styles.mono}>₹{fmtINR(net)}</span>
+                      <span>amount</span>
+                      <span>+</span>
+                      <span className={styles.mono}>₹{fmtINR(gst)}</span>
+                      <span>GST</span>
+                      <span>=</span>
+                      <span className={styles.mono} style={{ color: "var(--fg)", fontWeight: 600 }}>
+                        ₹{fmtINR(total)}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -4514,9 +4809,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
           <button
             type="button"
             className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={onClose}
-            disabled={hasErrors}
-            title={hasErrors ? "Fix all errors before saving" : ""}
+            onClick={attemptClose}
           >
             Done
           </button>

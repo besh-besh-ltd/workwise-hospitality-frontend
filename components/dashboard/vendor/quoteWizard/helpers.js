@@ -225,6 +225,9 @@ export const diffPaymentTerms = (current, original) => {
   const createdTerms = [];
   const updatedTerms = [];
   const deletedTerms = [];
+  // Track which original ids are still present so we can derive deletions for
+  // rows that were hard-removed from the list (no `action: "delete"` flag).
+  const liveIds = new Set();
 
   current.forEach((t) => {
     if (t.action === "delete") {
@@ -235,6 +238,7 @@ export const diffPaymentTerms = (current, original) => {
       createdTerms.push(t);
       return;
     }
+    liveIds.add(t.id);
     const orig = origById.get(t.id);
     if (!orig) return;
     const changed =
@@ -243,6 +247,13 @@ export const diffPaymentTerms = (current, original) => {
       orig.days !== t.days ||
       orig.comment !== t.comment;
     if (changed) updatedTerms.push(t);
+  });
+
+  // Any original term whose id is no longer in the list was removed.
+  (original || []).forEach((t) => {
+    if (t.id != null && !liveIds.has(t.id) && !deletedTerms.includes(t.id)) {
+      deletedTerms.push(t.id);
+    }
   });
 
   return { createdTerms, updatedTerms, deletedTerms };

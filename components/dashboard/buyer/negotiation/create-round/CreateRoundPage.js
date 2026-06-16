@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import { OverlayTrigger, Spinner, Tooltip } from 'react-bootstrap';
@@ -22,7 +22,7 @@ const STEPS = [
 
 const CreateRoundPage = () => {
   const router = useRouter();
-  const { rfqId: rawRfqId, preSelectProductId } = router.query;
+  const { rfqId: rawRfqId, preSelectProductId, level } = router.query;
   const rfqId = useMemo(() => {
     if (!rawRfqId) return null;
     const n = parseInt(rawRfqId);
@@ -56,6 +56,28 @@ const CreateRoundPage = () => {
     products,
     preSelectedProductId: preSelectProductId ? Number(preSelectProductId) : null,
   });
+
+  // Apply a preselection passed via query params, once products have loaded.
+  // `?level=rfq`            → start an RFQ-wide round (mode=rfq, all vendors).
+  // `?preSelectProductId=N` → start a single-product round with product N (and
+  //                           its vendors) selected. Both jump to Step 2.
+  const { setMode: wizardSetMode, handleSelectProduct: wizardSelectProduct, goToStep: wizardGoToStep } = wizard;
+  const preselectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (preselectAppliedRef.current || !router.isReady) return;
+    if (level === 'rfq') {
+      if (!products.length) return; // need vendor data to preselect vendors
+      preselectAppliedRef.current = true;
+      wizardSetMode('rfq');
+      wizardGoToStep(2);
+    } else if (preSelectProductId) {
+      const pid = Number(preSelectProductId);
+      if (!products.some((p) => Number(p.id) === pid)) return; // wait for load
+      preselectAppliedRef.current = true;
+      wizardSelectProduct(pid);
+      wizardGoToStep(2);
+    }
+  }, [router.isReady, level, preSelectProductId, products, wizardSetMode, wizardSelectProduct, wizardGoToStep]);
 
   // Load RFQ products + active rounds + charge names
   useEffect(() => {
