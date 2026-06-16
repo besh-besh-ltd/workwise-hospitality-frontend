@@ -20,6 +20,86 @@ export function StageCard({ icon, title, right, children }) {
 }
 
 
+// ── Status pill + approval-chain renderer ────────────────────────────────
+// Shared by every stage panel so the in-page surfaces show real status
+// (approvers, decisions, pass/fail) — not just a one-line summary.
+
+const PILL = {
+  approved:  { bg: "#ecfdf3", fg: "#15803d", bd: "#bbf7d0" },
+  pending:   { bg: "#fffbeb", fg: "#b45309", bd: "#fde68a" },
+  rejected:  { bg: "#fef2f2", fg: "#b91c1c", bd: "#fecaca" },
+  cancelled: { bg: "#f4f4f5", fg: "#71717a", bd: "#e4e4e7" },
+  neutral:   { bg: "#f4f4f5", fg: "#52525b", bd: "#e4e4e7" },
+};
+
+function pillTone(status) {
+  const s = String(status || "").toUpperCase();
+  if (["APPROVED", "PASSED", "COMPLETED", "FINALIZED", "DONE", "ACCEPTED"].includes(s)) return PILL.approved;
+  if (["PENDING", "IN_PROGRESS", "APPROVING", "ACTIVE", "ONGOING"].includes(s)) return PILL.pending;
+  if (["REJECTED", "FAILED", "DECLINED"].includes(s)) return PILL.rejected;
+  if (["CANCELLED", "SKIPPED"].includes(s)) return PILL.cancelled;
+  return PILL.neutral;
+}
+
+export function StatusPill({ status, label }) {
+  const t = pillTone(status);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", fontSize: 10, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 999, background: t.bg, color: t.fg, border: `1px solid ${t.bd}`, whiteSpace: "nowrap" }}>
+      {label || status || "—"}
+    </span>
+  );
+}
+
+// Renders rfqModel.getLifecycleSummary() approval_instances: each instance →
+// its steps → the approvers on each step, with a status dot + designation.
+export function ApprovalChain({ instances, title = "Approvals" }) {
+  const list = Array.isArray(instances) ? instances : [];
+  if (!list.length) return null;
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#a1a1aa", marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {list.map((inst, ii) => {
+          const steps = Array.isArray(inst?.steps) ? inst.steps : [];
+          return (
+            <div key={inst?.id || ii} style={{ border: "1px solid #ebebe6", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: "#fafafa", borderBottom: "1px solid #f0f0ec" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#3f3f46" }}>
+                  {inst?.total_steps > 1 ? `Step ${inst?.current_step || 1} of ${inst.total_steps}` : "Approval"}
+                </span>
+                <StatusPill status={inst?.status} />
+              </div>
+              <div style={{ padding: "4px 12px" }}>
+                {steps.map((s, si) => {
+                  const approvers = Array.isArray(s?.approvers) ? s.approvers : [];
+                  return (
+                    <div key={si} style={{ padding: "8px 0", borderBottom: si < steps.length - 1 ? "1px dashed #f0f0ec" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: approvers.length ? 7 : 0 }}>
+                        <span style={{ fontSize: 10, color: "#a1a1aa", fontWeight: 700 }}>L{s?.step_order || si + 1}</span>
+                        {s?.decision_rule ? <span style={{ fontSize: 10, color: "#c4c4c8" }}>{s.decision_rule}</span> : null}
+                        <StatusPill status={s?.status} />
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {approvers.map((a, ai) => (
+                          <span key={ai} title={a?.comment || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#3f3f46", background: "#f7f7f5", border: "1px solid #ececec", borderRadius: 7, padding: "3px 8px" }}>
+                            <span style={{ width: 6, height: 6, borderRadius: 999, background: pillTone(a?.status).fg, flexShrink: 0 }} />
+                            {a?.user_name || a?.user_email || "Approver"}
+                            {a?.user_designation ? <span style={{ color: "#a1a1aa" }}>· {a.user_designation}</span> : null}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function StageNoPermission({ stageLabel }) {
   return (
     <div className="empty-state" style={{ padding: "48px 24px" }}>

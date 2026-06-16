@@ -1163,7 +1163,7 @@ const ViewRFQ = ({
       {/* ─── Lifecycle journey (horizontal) — below the header, persistent
           across the RFQ; the timeline navigates the workable stages. ─── */}
       {lifecycle?.stages?.length > 0 && (
-        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px" }}>
+        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 16px" }}>
           <RfqStageTimeline
             stages={lifecycle.stages}
             selectedKey={selectedStage}
