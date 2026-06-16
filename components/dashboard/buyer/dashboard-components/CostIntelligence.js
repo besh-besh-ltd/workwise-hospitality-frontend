@@ -167,14 +167,19 @@ const CostIntelligence = ({ filters }) => {
   }));
 
   const priceTrend = data?.price_trend;
-  const durationVal = filters.duration_type || "past7days";
+  // Backend resolves day/month granularity (Sr 301 "month-wise" for long ranges).
+  const granularity = data?.granularity || (filters.duration_type === "past6months" ? "month" : "day");
   const chartLabels = (priceTrend?.labels || []).map((l) => {
     const d = new Date(l);
-    if (durationVal === "past6months") {
+    if (granularity === "month") {
       return d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
     }
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   });
+
+  // Benchmark = best unit price previously paid for the selected item.
+  const bench = data?.benchmark && data.benchmark.benchmark_price != null ? data.benchmark : null;
+
   const hasData = priceTrend?.avg?.some((v) => v > 0);
   const chartData = priceTrend && hasData
     ? {
@@ -219,6 +224,22 @@ const CostIntelligence = ({ filters }) => {
             tension: 0.3,
             spanGaps: false,
           },
+          // Flat reference line at the benchmark (best price paid) so it's
+          // obvious where the trend sits above/below it (Sr 302 demand flow).
+          ...(bench
+            ? [{
+                label: "Benchmark",
+                data: priceTrend.avg.map(() => bench.benchmark_price),
+                borderColor: "#2563eb",
+                backgroundColor: "transparent",
+                borderWidth: 1.5,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                tension: 0,
+                spanGaps: true,
+              }]
+            : []),
         ],
       }
     : null;
@@ -229,7 +250,7 @@ const CostIntelligence = ({ filters }) => {
     <PersonaCardShell
       title="Price benchmarking"
       icon={LineChart}
-      tooltip="Compare vendor pricing trends for your most ordered products."
+      tooltip="High-value (A-class) items benchmarked against the best unit price you've previously paid. The dashed blue line marks that benchmark; the trend above/below it shows where you're over- or under-paying."
       actions={
         <div className={styles.productSelector}>
           <Select
@@ -259,6 +280,36 @@ const CostIntelligence = ({ filters }) => {
         fetchData(currentProductRef.current);
       }}
     >
+      {bench && (
+        <div className={styles.benchmarkBar}>
+          <div className={styles.benchItem}>
+            <span className={styles.benchLabel}>Best price paid</span>
+            <span className={styles.benchValue}>{formatCurrency(bench.benchmark_price)}</span>
+          </div>
+          {bench.current_price != null && (
+            <div className={styles.benchItem}>
+              <span className={styles.benchLabel}>Latest avg</span>
+              <span className={styles.benchValue}>{formatCurrency(bench.current_price)}</span>
+            </div>
+          )}
+          {bench.vs_benchmark_pct != null && (
+            <span
+              className={`${styles.benchDelta} ${
+                bench.vs_benchmark_pct > 0 ? styles.over : bench.vs_benchmark_pct < 0 ? styles.under : styles.even
+              }`}
+            >
+              {bench.vs_benchmark_pct > 0 ? "▲ " : bench.vs_benchmark_pct < 0 ? "▼ " : "● "}
+              {Math.abs(bench.vs_benchmark_pct)}%{" "}
+              {bench.vs_benchmark_pct > 0 ? "above" : bench.vs_benchmark_pct < 0 ? "below" : "at"} benchmark
+            </span>
+          )}
+        </div>
+      )}
+      {bench && (
+        <p className={styles.benchNote}>
+          Benchmark = best unit price previously paid for this item (value-based).
+        </p>
+      )}
       <div className={styles.chartContainer}>
         <Line data={chartData} options={chartOptions} />
       </div>

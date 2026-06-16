@@ -137,9 +137,9 @@ const Vendor = () => {
 
   const OPP_CARDS = [
     { key: "new_rfqs", label: "New RFQs", icon: FileText, accent: "info", statusLabel: "NEW", href: "/dashboard/vendor/inquiries-received" },
-    { key: "pending_quotes", label: "Pending Quotes", icon: Clock, accent: "warn", statusLabel: "ACTION", href: "/dashboard/vendor/inquiries-received" },
-    { key: "closing_soon", label: "Closing Soon", icon: Flame, accent: "danger", statusLabel: "URGENT", href: "/dashboard/vendor/inquiries-received" },
-    { key: "pos_received", label: "POs Received", icon: ShoppingCart, accent: "success", statusLabel: null, href: "/dashboard/vendor/order-book" },
+    { key: "pending_quotes", label: "RFQ Pending Quotes", icon: Clock, accent: "warn", statusLabel: "ACTION", href: "/dashboard/vendor/inquiries-received" },
+    { key: "closing_soon", label: "RFQ Closing Soon", icon: Flame, accent: "danger", statusLabel: "URGENT", href: "/dashboard/vendor/inquiries-received" },
+    { key: "pos_received", label: "Purchase Orders Received", icon: ShoppingCart, accent: "success", statusLabel: null, href: "/dashboard/vendor/order-book" },
   ];
 
   // Response efficiency breakdown
@@ -187,7 +187,7 @@ const Vendor = () => {
           </div>
         </div>
 
-        <VendorStatusBanner />
+        <VendorStatusBanner filters={filters} />
 
         {/* Subscription status moved to the topbar pill (VendorSubscriptionPill). */}
 

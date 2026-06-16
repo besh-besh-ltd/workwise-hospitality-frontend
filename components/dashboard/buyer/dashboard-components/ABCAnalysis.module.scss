@@ -1,0 +1,211 @@
+/* ABCAnalysis — inner-content only. Card frame from PersonaCardShell. */
+
+.metricSelect {
+  height: 28px;
+  border: 1px solid #ebebe6;
+  border-radius: 7px;
+  background: #ffffff;
+  font-size: 12px;
+  color: #3f3f46;
+  /* Room on the right for the native dropdown arrow so it never overlaps the
+     selected text; the control auto-sizes to the widest option + this padding. */
+  padding: 0 28px 0 10px;
+  cursor: pointer;
+
+  &:hover { border-color: #d6d6cf; }
+  &:focus { outline: none; border-color: #2563eb; }
+}
+
+/* Headline Pareto takeaway. */
+.insight {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #52525b;
+  background: #f8fafc;
+  border: 1px solid #eef0ee;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.insightStrong {
+  font-weight: 700;
+  color: #18181b;
+}
+
+.insightMeta {
+  color: #a1a1aa;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Distribution bar. */
+.distBar {
+  display: flex;
+  height: 8px;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f1ee;
+  margin-bottom: 14px;
+}
+
+.distSeg {
+  height: 100%;
+  & + & { box-shadow: inset 1px 0 0 #fff; }
+}
+
+/* Tier rows. */
+.tierList {
+  display: flex;
+  flex-direction: column;
+}
+
+.tierRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 2px;
+
+  & + & { border-top: 1px solid #f4f4f1; }
+}
+
+.tierBadge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tierMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.tierName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #18181b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tierTag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+}
+
+.tierGuidance {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #71717a;
+  margin-top: 1px;
+}
+
+.tierStats {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.tierValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.01em;
+}
+
+.tierMeta {
+  font-size: 10.5px;
+  color: #a1a1aa;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* Focus items. */
+.itemList {
+  margin-top: 16px;
+  border-top: 1px solid #ebebe6;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.itemListHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #71717a;
+  margin-bottom: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+
+  & + & { border-top: 1px solid #f7f7f4; }
+}
+
+.itemRank {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbcbcb;
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: #27272a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemTier {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.itemMetric {
+  flex-shrink: 0;
+  min-width: 64px;
+  text-align: right;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 28px 16px;
+  color: #a1a1aa;
+  font-size: 13px;
+}

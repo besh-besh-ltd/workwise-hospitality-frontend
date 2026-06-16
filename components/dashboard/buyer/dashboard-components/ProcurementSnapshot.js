@@ -15,14 +15,17 @@ const formatCurrency = (value) => {
   return `₹${value.toLocaleString("en-IN")}`;
 };
 
-// `accent` drives each card's top-bar colour (subtle, distinct per metric) so the
-// strip no longer reads as plain/grey. Total spend gets the green highlight.
+// `accent` drives each card's top-bar colour. The four context cards share one
+// deep, muted green accent (rendered at low opacity, see scss) — subtle and easy
+// on the eye; Total spend uses a brighter green at full opacity + green tint so
+// it still stands out as the headline figure.
+const CARD_ACCENT = "#166534"; // deep muted green for context cards
 const METRICS = [
-  { key: "active_rfqs",     label: "Active RFQs",     tooltip: "Currently live, published RFQs open for vendor bidding", format: (v) => v ?? 0, trendKind: "neutral", accent: "#2563eb" },
-  { key: "closed_rfqs",     label: "Closed RFQs",     tooltip: "RFQs closed in the selected period",                   format: (v) => v ?? 0, trendKind: "neutral", accent: "#b45309" },
-  { key: "pos_issued",      label: "POs issued against RFQs", tooltip: "Purchase orders created in the selected period", format: (v) => v ?? 0, trendKind: "neutral", accent: "#7c3aed" },
+  { key: "active_rfqs",     label: "Active RFQs",     tooltip: "Currently live, published RFQs open for vendor bidding", format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
+  { key: "closed_rfqs",     label: "Closed RFQs",     tooltip: "RFQs closed in the selected period",                   format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
+  { key: "pos_issued",      label: "POs issued against RFQs", tooltip: "Purchase orders created in the selected period", format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
   { key: "total_spend",     label: "Total spend",     tooltip: "Sum of all approved PO values including taxes",       format: formatCurrency, highlighted: true, trendKind: "spend", accent: "#15803d" },
-  { key: "avg_turnaround",  label: "Average Turnaround Time", tooltip: "Avg days from RFQ publish to finalisation",     format: (v) => v ? `${parseFloat(v).toFixed(1)} Days` : "0 Days", trendKind: "lower-better", accent: "#0891b2" },
+  { key: "avg_turnaround",  label: "Average Turnaround Time", tooltip: "Avg days from RFQ publish to finalisation",     format: (v) => v ? `${parseFloat(v).toFixed(1)} Days` : "0 Days", trendKind: "lower-better", accent: CARD_ACCENT },
 ];
 
 // Compute % change from first non-zero sparkline point to the last value.

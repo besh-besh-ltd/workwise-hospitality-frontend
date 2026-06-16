@@ -110,7 +110,18 @@
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.78);
   letter-spacing: -0.005em;
-  max-width: 80ch;
+}
+
+/* Second narrative line (e.g. "You also have N approvals waiting on you.").
+   Kept at the same prominence as the primary line — the follow-up (approvals)
+   matters too — with its highlighted count standing out. */
+.narrativeSecondary {
+  position: relative;
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: -0.005em;
 }
 
 /* Highlight fragments are sometimes plain text, sometimes a Next <Link>
@@ -119,7 +130,7 @@
    affordance for the interactive ones. */
 .highlight {
   color: #fbbf24;
-  font-weight: 600;
+  font-weight: 700;
   background: none;
   border: 0;
   padding: 0;
@@ -156,6 +167,16 @@ button.highlight:hover {
 .modeSteady .brandIcon { color: #60a5fa; }
 .modeSteady .brandIcon { background: rgba(96, 165, 250, 0.16); }
 .modeSteady .highlight { color: #fbbf24; }
+
+/* Win — a positive, actionable state (e.g. vendor has an order to accept).
+   Green-tinted card so it reads as good news, not a warning. */
+.modeWin {
+  background: linear-gradient(135deg, #0f2e1c 0%, #0a1f13 100%);
+}
+.modeWin .brandName,
+.modeWin .brandIcon { color: #4ade80; }
+.modeWin .brandIcon { background: rgba(74, 222, 128, 0.18); }
+.modeWin .highlight { color: #4ade80; }
 
 .modeActionNeeded .brandName,
 .modeActionNeeded .brandIcon { color: #fbbf24; }

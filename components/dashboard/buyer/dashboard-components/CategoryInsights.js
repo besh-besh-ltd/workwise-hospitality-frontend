@@ -53,23 +53,30 @@ const chartOptions = {
   },
 };
 
+const DIMENSION_OPTIONS = [
+  { value: "category", label: "Category" },
+  { value: "subcategory", label: "Sub-category" },
+  { value: "item", label: "Item" },
+];
+
 const CategoryInsights = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dimension, setDimension] = useState("category");
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     setError(null);
     try {
-      const res = await getCategoryInsights(filters);
+      const res = await getCategoryInsights({ ...filters, dimension });
       setData(res.data);
     } catch (e) {
       setError(e?.message || "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, dimension]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,7 +84,7 @@ const CategoryInsights = ({ filters }) => {
     intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, dimension]);
 
   const categories = data?.categories || [];
   const totalSpend = useMemo(
@@ -105,6 +112,18 @@ const CategoryInsights = ({ filters }) => {
       title="Spend by category"
       icon={PieChart}
       tooltip="Procurement spend split across product categories in this period."
+      actions={
+        <select
+          className={styles.dimSelect}
+          value={dimension}
+          onChange={(e) => setDimension(e.target.value)}
+          aria-label="Group spend by"
+        >
+          {DIMENSION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      }
       loading={loading}
       error={error}
       skeleton={<SkeletonChart legendCount={4} />}

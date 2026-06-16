@@ -31,7 +31,7 @@
     top: 0; left: 0; right: 0;
     height: 3px;
     background: var(--metric-accent, #d6d6cf);
-    opacity: 0.85;
+    opacity: 0.5; /* subtle for context cards; Total spend overrides to 1 */
   }
 
   &:hover {

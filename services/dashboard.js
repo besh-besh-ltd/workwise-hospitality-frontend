@@ -68,6 +68,19 @@ export const getCategoryInsights = (params) => {
   });
 };
 
+// ABC (Pareto) analysis — classify items into A/B/C tiers by value or volume.
+// params: { hotel_ids, start_date, end_date, metric: 'value' | 'volume' }
+export const getAbcAnalysis = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/abc-analysis', { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
 export const getWorkflowEfficiency = (params) => {
   return new Promise(async (resolve, reject) => {
     try {

@@ -56,6 +56,35 @@
   }
 }
 
+/* Custom date-range picker (Sr 304) — shown when range = "Custom". */
+.customRange {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dateInput {
+  height: 34px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  color: #18181b;
+  padding: 0 8px;
+  cursor: pointer;
+
+  &:hover { border-color: #d6d6cf; }
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+  }
+}
+
+.dateSep {
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
 .filterItem {
   position: relative;
 
