@@ -68,10 +68,14 @@ const fmtDate = (d) => {
 const Portal = ({ children }) =>
   typeof document !== "undefined" ? createPortal(children, document.body) : null;
 
-const QuoteComparison = () => {
+// `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
+// page, locked to one RFQ: the Switch-RFQ control/modal are suppressed and the
+// id comes from the prop instead of the URL. Negotiation deep-links are kept
+// (the user wants the negotiation module reused).
+const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
   const router = useRouter();
 
-  const [rfq, setRfq] = useState(router.query.rfq || null);
+  const [rfq, setRfq] = useState((isEmbedded ? rfqIdProp : router.query.rfq) || null);
 
   // Switch-RFQ modal list — server-side search + infinite scroll
   const RFQ_PAGE_SIZE = 10;
@@ -157,17 +161,18 @@ const QuoteComparison = () => {
   const latestRfqRef = useRef(rfq ? String(rfq) : null);
   latestRfqRef.current = rfq ? String(rfq) : null;
 
-  // Keep rfq synced from URL (back/forward)
+  // Keep rfq synced from the URL (standalone) or the rfqId prop (embedded)
   useEffect(() => {
-    const queryRfq = router.query.rfq || null;
-    if (queryRfq && queryRfq !== rfq) setRfq(queryRfq);
-  }, [router.query.rfq]); // eslint-disable-line react-hooks/exhaustive-deps
+    const next = (isEmbedded ? rfqIdProp : router.query.rfq) || null;
+    if (next && next !== rfq) setRfq(next);
+  }, [router.query.rfq, rfqIdProp, isEmbedded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRfqSelect = (id) => {
     const newId = String(id);
     setShowSwitchRfq(false);
     if (newId === String(rfq)) return;
     setRfq(newId);
+    if (isEmbedded) return; // locked to one RFQ; don't rewrite the host URL
     const params = new URLSearchParams({ rfq: newId });
     if (router.query.tab) params.set("tab", router.query.tab);
     const url = `/dashboard/buyer/quote-comparison?${params.toString()}`;
@@ -177,6 +182,7 @@ const QuoteComparison = () => {
   /* ─────────────── ?tab= URL sync ─────────────── */
   const setActiveViewSynced = (v) => {
     setActiveView(v);
+    if (isEmbedded) return; // don't rewrite the host page URL for tab changes
     const params = new URLSearchParams();
     if (rfq) params.set("rfq", String(rfq));
     params.set("tab", TAB_BY_VIEW[v] || "product");
@@ -1751,9 +1757,11 @@ const QuoteComparison = () => {
               <h1>
                 <span className={styles.rfqNum}>RFQ #{rfqInfo.number}</span>
                 {rfqInfo.status && <span className={styles.statusChip}>{rfqInfo.status}</span>}
-                <button className={styles.rfqSwitchBtn} onClick={() => setShowSwitchRfq(true)}>
-                  <Repeat size={13} /> Switch RFQ <ChevronDown size={12} />
-                </button>
+                {!isEmbedded && (
+                  <button className={styles.rfqSwitchBtn} onClick={() => setShowSwitchRfq(true)}>
+                    <Repeat size={13} /> Switch RFQ <ChevronDown size={12} />
+                  </button>
+                )}
               </h1>
               <div className={styles.rfqSub}>
                 {rfqInfo.title && <span>{rfqInfo.title}</span>}
@@ -2767,7 +2775,9 @@ const QuoteComparison = () => {
   const isContentLoading = !!rfq && !isAccessDenied && (loading || permsLoading || !currentRFQMeta);
 
   return (
-    <div className={styles.page}>
+    // Embedded: drop the full-bleed `.page` (negative margins + 100vh) so the
+    // workspace sits inside the lifecycle stage; `.root` keeps the design tokens.
+    <div className={isEmbedded ? styles.root : styles.page}>
       <div className={styles.root}>
         {!rfq && !isContentLoading && (
           <div className={styles.contentWrap}>
@@ -2808,13 +2818,15 @@ const QuoteComparison = () => {
               </div>
               <h4>Couldn’t load this comparison</h4>
               <p>We weren’t able to fetch the quote comparison for this RFQ. Try selecting it again.</p>
-              <button
-                className={`${styles.btn} ${styles.btnSecondary}`}
-                style={{ marginTop: 16 }}
-                onClick={() => setShowSwitchRfq(true)}
-              >
-                <Repeat size={14} /> Switch RFQ
-              </button>
+              {!isEmbedded && (
+                <button
+                  className={`${styles.btn} ${styles.btnSecondary}`}
+                  style={{ marginTop: 16 }}
+                  onClick={() => setShowSwitchRfq(true)}
+                >
+                  <Repeat size={14} /> Switch RFQ
+                </button>
+              )}
             </div>
           </div>
         )}
