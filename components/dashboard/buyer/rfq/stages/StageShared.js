@@ -1,6 +1,24 @@
 // Shared pieces for the RFQ lifecycle stage components: the no-permission
-// panel, a generic content-aware stage skeleton, and a read-only banner.
-// Cloned from the ARC StageShared (same arc_v2.css classes).
+// panel, a generic content-aware stage skeleton, a read-only banner, and the
+// StageCard — a card whose header matches the Overview cards (icon-in-rounded-
+// box + bold label) so every stage's sections look consistent with ViewRFQ.
+
+// Mirrors ViewRFQ.module.scss .card / .cardHead / .cardTitleIcon exactly.
+export function StageCard({ icon, title, right, children }) {
+  return (
+    <section style={{ background: "#ffffff", border: "1px solid #ebebe6", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #ebebe6", background: "linear-gradient(180deg,#fdfdfb 0%,#ffffff 100%)", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span style={{ width: 26, height: 26, borderRadius: 7, background: "#f4f4f1", border: "1px solid #ebebe6", display: "grid", placeItems: "center", color: "#71717a", flexShrink: 0 }}>{icon}</span>
+          <h2 style={{ fontSize: 13.5, fontWeight: 600, color: "#18181b", letterSpacing: "-0.01em", margin: 0 }}>{title}</h2>
+        </div>
+        {right ? <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>{right}</div> : null}
+      </header>
+      <div style={{ padding: "18px 20px" }}>{children}</div>
+    </section>
+  );
+}
+
 
 export function StageNoPermission({ stageLabel }) {
   return (
