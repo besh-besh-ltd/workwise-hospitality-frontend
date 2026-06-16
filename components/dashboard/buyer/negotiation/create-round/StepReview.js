@@ -328,6 +328,7 @@ const ReviewProductCard = ({
   rfqSavingByVendor = {},
   onEdit,
   onRemove,
+  readOnly = false,
 }) => {
   const productHeader = round.productMeta || {};
   const isRfq = round.mode === 'rfq';
@@ -362,7 +363,7 @@ const ReviewProductCard = ({
       <div className={styles.reviewProductHead}>
         <div className={styles.reviewProductHeadMain}>
           <p className={styles.reviewProductTag}>
-            {round.isCurrent ? 'Current round' : 'Queued round'}
+            {readOnly ? 'Round' : (round.isCurrent ? 'Current round' : 'Queued round')}
             {isRfq && <span className={styles.reviewRfqChip}>RFQ-WIDE</span>}
           </p>
           <h3 className={styles.reviewProductName}>{round.productName}</h3>
@@ -556,6 +557,9 @@ const StepReview = ({
   onRemoveQueuedRound,
   onEditQueuedRound,
   mode = 'product',
+  // Read-only review (approval page): end date renders as static text,
+  // validation errors are suppressed. Default keeps wizard behavior intact.
+  readOnly = false,
 }) => {
   const endDateUtc = useMemo(() => {
     if (!formData.end_date) return null;
@@ -739,23 +743,33 @@ const StepReview = ({
         </div>
         <p className={styles.endDateTitle}>
           <CalendarDays size={16} style={{ marginRight: 6, verticalAlign: -3, color: '#64748b' }} />
-          End date <span style={{ color: '#dc2626' }}>*</span>
+          End date {!readOnly && <span style={{ color: '#dc2626' }}>*</span>}
         </p>
         <p className={styles.endDateHint}>
           Vendors can submit one quote per product until this date.
         </p>
-        <input
-          type="datetime-local"
-          value={formData.end_date || ''}
-          onChange={(e) => updateFormData && updateFormData({ end_date: e.target.value })}
-          min={new Date().toISOString().slice(0, 16)}
-          className={`${styles.endDateInput} ${endDateError ? styles.endDateInputError : ''}`}
-          required
-        />
-        {formData.end_date && (
-          <p className={styles.endDateHint} style={{ marginTop: 8 }}>
-            Will be sent as <strong>{endDateUtc}</strong>.
+        {readOnly ? (
+          <p className={styles.reviewVal} style={{ fontSize: 15, fontWeight: 600 }}>
+            {formData.end_date
+              ? moment(formData.end_date).format('DD MMM YYYY · hh:mm A')
+              : '—'}
           </p>
+        ) : (
+          <>
+            <input
+              type="datetime-local"
+              value={formData.end_date || ''}
+              onChange={(e) => updateFormData && updateFormData({ end_date: e.target.value })}
+              min={new Date().toISOString().slice(0, 16)}
+              className={`${styles.endDateInput} ${endDateError ? styles.endDateInputError : ''}`}
+              required
+            />
+            {formData.end_date && (
+              <p className={styles.endDateHint} style={{ marginTop: 8 }}>
+                Will be sent as <strong>{endDateUtc}</strong>.
+              </p>
+            )}
+          </>
         )}
         <div className={styles.reviewKeyValue} style={{ marginTop: 16 }}>
           <span className={styles.reviewKey}>Negotiation fields</span>
@@ -784,7 +798,7 @@ const StepReview = ({
           </div>
         )}
 
-        {step3Errors.length > 0 && (
+        {!readOnly && step3Errors.length > 0 && (
           <ul className={styles.errorList} style={{ marginTop: 12 }}>
             {step3Errors.map((err, i) => <li key={i}>{err}</li>)}
           </ul>
@@ -808,6 +822,7 @@ const StepReview = ({
             vendorGrandTotals={vendorGrandTotals}
             productSavingByVendor={productSavingByVendor}
             rfqSavingByVendor={rfqSavingByVendor}
+            readOnly={readOnly}
             onEdit={r.isCurrent
               ? onEditProduct
               : (onEditQueuedRound ? () => onEditQueuedRound(r.queueIndex) : undefined)}
