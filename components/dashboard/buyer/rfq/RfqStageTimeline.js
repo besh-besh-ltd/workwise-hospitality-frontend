@@ -33,8 +33,14 @@ function describe(stage) {
   const yourApproval = !!action?.can_approve;
 
   switch (stage.state) {
-    case "complete":
-      return { node: "done", icon: I.tick, tone: "ok", text: stage.summary || DONE_TEXT[stage.key] || "Done" };
+    case "complete": {
+      // Negotiation & Award: keep it glanceable — "Completed" beats spelling out
+      // "1 product finalized · 1 negotiation round".
+      const text = stage.key === "negotiation-award"
+        ? "Completed"
+        : (stage.summary || DONE_TEXT[stage.key] || "Done");
+      return { node: "done", icon: I.tick, tone: "ok", text };
+    }
     case "skipped":
       return { node: "skipped", icon: I.skip, tone: "neutral", text: "Skipped · not applicable" };
     case "ended":

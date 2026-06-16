@@ -54,6 +54,7 @@ import { getTechEvalStatus } from "@/services/rfq";
 import { getNegotiationRounds } from "@/services/negotiation";
 import { buildBuyerTechEvalProductSummary } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import NegotiationRoundsModal from "./NegotiationRoundsModal";
+import RfqCopiesModal from "./RfqCopiesModal";
 
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
@@ -612,6 +613,7 @@ const ViewRFQ = ({
   // Filtered server-side by accessible hotels so cross-tenant copies don't
   // leak in or out.
   const [lineage, setLineage] = useState({ copied_from: null, copies: [] });
+  const [showCopiesModal, setShowCopiesModal] = useState(false);
   useEffect(() => {
     let cancelled = false;
     if (!data?.id) return undefined;
@@ -974,38 +976,19 @@ const ViewRFQ = ({
                 </>
               )}
 
-              {/* Forward lineage: every RFQ that was copied from this one,
-                  filtered server-side by accessible hotels. Hidden when there
-                  are no descendants — only renders when the buyer has spawned
-                  copies (typical for recurring procurement). */}
+              {/* Forward lineage: a compact count button — the full list opens
+                  in a modal (matching the page aesthetic) instead of cluttering
+                  the header. Only shown when this RFQ has spawned copies. */}
               {lineage.copies.length > 0 && (
-                <div className="container-fluid mt-3 p-3 border rounded bg-light">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <CopyIcon size={16} />
-                    <strong>Copies of this RFQ ({lineage.copies.length})</strong>
-                  </div>
-                  <ul className="list-unstyled mb-0">
-                    {lineage.copies.map((copy) => (
-                      <li key={copy.id} className="mb-1">
-                        <Link
-                          href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${copy.id}`}
-                          className="text-decoration-none"
-                        >
-                          RFQ #{copy.rfq_no}
-                        </Link>
-                        {copy.title ? <span className="text-muted ms-2">— {copy.title}</span> : null}
-                        {copy.hotel_name ? (
-                          <span className="text-muted ms-2">@ {copy.hotel_name}</span>
-                        ) : null}
-                        {copy.timestamp ? (
-                          <span className="text-muted ms-2">
-                            ({moment(copy.timestamp).format('DD MMM YYYY')})
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  onClick={() => setShowCopiesModal(true)}
+                  id="copies_button-rfq_header-view_rfq_page"
+                >
+                  <CopyIcon size={13} strokeWidth={2} />
+                  {lineage.copies.length} {lineage.copies.length === 1 ? "Copy" : "Copies"}
+                </button>
               )}
             </div>
           </div>
@@ -1473,6 +1456,14 @@ const ViewRFQ = ({
         onClose={() => setNegModal((m) => ({ ...m, open: false }))}
         rounds={negModal.rounds}
         productName={negModalProductName}
+      />
+
+      {/* Copies of this RFQ — opened from the header count button. */}
+      <RfqCopiesModal
+        open={showCopiesModal}
+        onClose={() => setShowCopiesModal(false)}
+        copies={lineage.copies}
+        parentTitle={data?.title}
       />
     </div>
   );
