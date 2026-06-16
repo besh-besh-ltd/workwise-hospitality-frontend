@@ -212,19 +212,24 @@ export default function VendorContractDetailPage() {
   // ── downloads (client-side) ──────────────────────────────────────────────
   const dlAnnexure = () => {
     if (!contract) return;
-    const rows = lines.map((l, i) => ({
-      "#": i + 1,
-      Item: l.variant_name || `Item #${l.arc_item_id}`,
-      Code: l.variant_slug || l.arc_item_id,
-      "Unit rate (₹)": Number(l.unit_rate || 0),
-      UOM: l.uom || "",
-      "GST %": Number(l.gst_pct ?? 0),
-      "Committed qty": Number(l.committed_qty || 0),
-      "Payment terms": l.payment_terms || arc?.payment_terms_expected || "Net 30",
-      "Line value (₹)": Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)),
-    }));
+    const rows = lines.map((l, i) => {
+      const amended = l.amendment_id && Number(l.effective_unit_rate) !== Number(l.unit_rate);
+      return {
+        "#": i + 1,
+        Item: l.variant_name || `Item #${l.arc_item_id}`,
+        Code: l.variant_slug || l.arc_item_id,
+        "Unit rate (₹)": Number(l.unit_rate || 0),
+        "Amended rate (₹)": amended ? Number(l.effective_unit_rate) : "",
+        "Amended effective until": amended && l.amendment_effective_to ? fmtDate(l.amendment_effective_to) : "",
+        UOM: l.uom || "",
+        "GST %": Number(l.gst_pct ?? 0),
+        "Committed qty": Number(l.committed_qty || 0),
+        "Payment terms": l.payment_terms || arc?.payment_terms_expected || "Net 30",
+        "Line value (₹)": Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)),
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 13 }, { wch: 8 }, { wch: 7 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
+    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 13 }, { wch: 14 }, { wch: 20 }, { wch: 8 }, { wch: 7 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Rate annexure");
     XLSX.writeFile(wb, `${arc?.arc_number || contract.arc_number || "ARC"}_rate-annexure.xlsx`);

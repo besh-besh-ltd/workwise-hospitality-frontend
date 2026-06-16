@@ -572,6 +572,8 @@ export default function ActiveStage({ arc: arcProp, stage }) {
       "Basic price (₹)": Number(ln.bp || 0),
       "Freight (₹)": Number(ln.frt || 0),
       "Awarded rate (₹)": Number((ln.bp || 0) + (ln.frt || 0)),
+      "Amended rate (₹)": ln.amended ? Number(ln.effectiveRate) : "",
+      "Amended effective until": ln.amended && ln.amendment_effective_to ? fmtDate(ln.amendment_effective_to) : "",
       UOM: ln.uom || "",
       "GST %": Number(ln.gst ?? ln.gst_pct ?? 0),
       "Committed qty": Number(ln.committed || 0),
@@ -579,7 +581,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
       "Line value (₹)": Math.round(Number(ln.lineBase || 0)),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 }, { wch: 6 }, { wch: 7 }, { wch: 14 }, { wch: 16 }, { wch: 15 }];
+    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 }, { wch: 14 }, { wch: 20 }, { wch: 6 }, { wch: 7 }, { wch: 14 }, { wch: 16 }, { wch: 15 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Rate annexure");
     XLSX.writeFile(wb, `${arc.arc_number || "ARC"}_${b.vendor.short}_rate-annexure.xlsx`);
