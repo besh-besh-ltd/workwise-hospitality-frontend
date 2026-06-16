@@ -483,12 +483,26 @@ const QuoteComparison = () => {
       ? C.recommendNextVendor(p, vendors, p.finalized_vendor)
       : null;
   const cellTotal = (p, vid) => C.cellTotal(p, vid);
-  const landed = (p, vid) => C.landedPerUnit(p, vid);
+  // Per-item DISPLAY total/landed exclude quote-level global charges so the
+  // shown amount matches the vendor's line total and its breakdown rows.
+  // (Ranking, vendor grand totals and award amounts still use cellTotal.)
+  const cellLineTotal = (p, vid) => C.cellLineTotal(p, vid);
+  const landed = (p, vid) => C.landedLinePerUnit(p, vid);
   const vendorTotal = (vid) => C.vendorTotal(vid, products);
   const vendorRankMap = useMemo(() => C.vendorRanks(vendors, products), [vendors, products]);
   const vendorRank = (vid) => vendorRankMap[vid];
-  const catVendorSubtotal = (catId, vid) =>
-    products.filter((p) => String(p.category) === String(catId)).reduce((s, p) => s + (cellTotal(p, vid) || 0), 0);
+  // Category subtotal = Σ line totals for the category + that category's slice
+  // of the vendor's quote-level globals (distributed by line subtotal, so the
+  // category subtotals add up to the vendor total). Excludes the per-product
+  // global over-count.
+  const catVendorSubtotal = (catId, vid) => {
+    const catProducts = products.filter((p) => String(p.category) === String(catId));
+    const catLineSum = catProducts.reduce((s, p) => s + (C.cellLineTotal(p, vid) || 0), 0);
+    const allLineSum = products.reduce((s, p) => s + (C.cellLineTotal(p, vid) || 0), 0);
+    const totalGlobals = C.vendorGlobalCharges(vid, products);
+    const catGlobals = allLineSum > 0 ? totalGlobals * (catLineSum / allLineSum) : 0;
+    return catLineSum + catGlobals;
+  };
   const lprDelta = (p, vid) => C.lprDelta(p, vid);
   const l1GrandTotal = useMemo(() => C.l1GrandTotal(vendors, products), [vendors, products]);
   const finalizedTotal = useMemo(() => C.finalizedGrandTotal(products), [products]);
@@ -510,16 +524,32 @@ const QuoteComparison = () => {
   const openCount = products.filter((p) => p.state === "open").length;
   const selVendorCount = new Set(Object.values(selections)).size;
   const isSplitPO = selVendorCount > 1;
-  const selTotal = Object.entries(selections).reduce(
-    (s, [pid, vid]) => s + (cellTotal(productById(pid), vid) || 0),
+  // Award totals = Σ line totals of the selected products + each selected
+  // vendor's quote-level globals once (over the products picked from them) —
+  // same basis as the vendor total, so awards aren't inflated by the
+  // per-product global over-count.
+  const selByVendor = (sel) => {
+    const byVendor = {};
+    Object.entries(sel).forEach(([pid, vid]) => {
+      const p = productById(pid);
+      if (!p) return;
+      (byVendor[vid] = byVendor[vid] || []).push(p);
+    });
+    return byVendor;
+  };
+  const vendorSelTotal = (vid, prods) =>
+    prods.reduce((s, p) => s + (C.cellLineTotal(p, vid) || 0), 0) +
+    C.vendorGlobalCharges(vid, prods);
+  const selTotal = Object.entries(selByVendor(selections)).reduce(
+    (s, [vid, prods]) => s + vendorSelTotal(vid, prods),
     0
   );
   const selVendorBreakdown = useMemo(() => {
-    const map = {};
-    Object.entries(selections).forEach(([pid, vid]) => {
-      map[vid] = (map[vid] || 0) + (cellTotal(productById(pid), vid) || 0);
-    });
-    return Object.entries(map).map(([vid, total]) => ({ vendor: vendorById(vid), total }));
+    const byVendor = selByVendor(selections);
+    return Object.entries(byVendor).map(([vid, prods]) => ({
+      vendor: vendorById(vid),
+      total: vendorSelTotal(vid, prods),
+    }));
   }, [selections]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectCell = (p, vid) => {
@@ -612,7 +642,7 @@ const QuoteComparison = () => {
         list.push({
           product: p,
           vendor: vendorById(p.finalized_vendor),
-          total: cellTotal(p, p.finalized_vendor),
+          total: cellLineTotal(p, p.finalized_vendor),
           decision: d,
         });
     });
@@ -871,7 +901,7 @@ const QuoteComparison = () => {
             <MoreVertical size={13} />
           </button>
           <div className={styles.pTop}>
-            <span className={styles.price}>₹{fmt(cellTotal(p, vid))}</span>
+            <span className={styles.price}>₹{fmt(cellLineTotal(p, vid))}</span>
             {(() => {
               const lr = ranksFor(p)[vid];
               const tr = C.productTechRank(p, vid);
@@ -1080,9 +1110,15 @@ const QuoteComparison = () => {
       { k: "Packaging", f: "packaging" },
       { k: "GST", f: "tax" },
     ];
-    C.chargeLabels(p, sortedVendors, "other_charges").forEach((label) =>
-      fields.push({ k: label, f: "other", label })
-    );
+    // Freight & packaging already have dedicated static rows above; the backend
+    // ALSO echoes them inside other_charges, so skip those labels here to avoid
+    // rendering each charge twice. Any other (custom) line charge still shows.
+    C.chargeLabels(p, sortedVendors, "other_charges")
+      .filter((label) => {
+        const l = String(label || "").toLowerCase().trim();
+        return l !== "freight" && l !== "packaging";
+      })
+      .forEach((label) => fields.push({ k: label, f: "other", label }));
     C.chargeLabels(p, sortedVendors, "global_charges").forEach((label) =>
       fields.push({ k: label, f: "global", label, global: true })
     );
@@ -1226,6 +1262,21 @@ const QuoteComparison = () => {
                     <span className={styles.rBadge}>Round {p.round.n}</span>
                     {p.round.when && <span>Ended {fmtDateTime(p.round.when)}</span>}
                   </div>
+                )}
+                {/* Per-product entry into the negotiation wizard — preselects
+                    this product. Shown for negotiable (quoted, unlocked) items. */}
+                {!quotesLocked && sortedVendors.some((v) => p.quotes?.[v.id]) && (
+                  <button
+                    type="button"
+                    className={styles.rowNegotiateBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (rfq) router.push(`/dashboard/buyer/negotiation/${rfq}/create?preSelectProductId=${p.id}`);
+                    }}
+                  >
+                    <GitBranch size={11} strokeWidth={2.4} />
+                    Create Negotiation
+                  </button>
                 )}
                 {p.state !== "open" && (
                   <button
@@ -1414,6 +1465,56 @@ const QuoteComparison = () => {
             })}
           </tbody>
           <tfoot>
+            {/* Transparency: how the vendor total is built —
+                Σ per-item line totals + quote-level global charges (once). */}
+            <tr>
+              <td className={styles.colItem}>Line items subtotal</td>
+              {sortedVendors.map((v) => {
+                if (quotesLocked)
+                  return (
+                    <td key={v.id}>
+                      <div className={`${styles.tSub} ${styles.lockedBlur}`}>₹•,••,•••</div>
+                    </td>
+                  );
+                if (!isFull(v.id))
+                  return (
+                    <td key={v.id}>
+                      <div className={styles.tSub}>—</div>
+                    </td>
+                  );
+                const bd = C.vendorTotalBreakdown(v.id, products);
+                return (
+                  <td key={v.id}>
+                    <div className={styles.tSub}>₹{fmt(bd.lines)}</div>
+                  </td>
+                );
+              })}
+            </tr>
+            <tr>
+              <td className={styles.colItem}>
+                Global charges <span className={styles.bdGlobalTag}>applied once</span>
+              </td>
+              {sortedVendors.map((v) => {
+                if (quotesLocked)
+                  return (
+                    <td key={v.id}>
+                      <div className={`${styles.tSub} ${styles.lockedBlur}`}>₹•,•••</div>
+                    </td>
+                  );
+                if (!isFull(v.id))
+                  return (
+                    <td key={v.id}>
+                      <div className={styles.tSub}>—</div>
+                    </td>
+                  );
+                const bd = C.vendorTotalBreakdown(v.id, products);
+                return (
+                  <td key={v.id}>
+                    <div className={styles.tSub}>{bd.globals ? "+ ₹" + fmt(bd.globals) : "—"}</div>
+                  </td>
+                );
+              })}
+            </tr>
             <tr>
               <td className={styles.colItem}>Vendor total</td>
               {sortedVendors.map((v) => {
@@ -1518,7 +1619,7 @@ const QuoteComparison = () => {
                     <td className={`${styles.rankedCell} ${rank === 1 ? styles.isL1 : ""}`} key={rank}>
                       {rv ? (
                         <div>
-                          <div className={styles.amt}>₹{fmt(rv.total)}</div>
+                          <div className={styles.amt}>₹{fmt(C.cellLineTotal(p, rv.vendor.id))}</div>
                           <div className={styles.vn}>{rv.vendor.name}</div>
                         </div>
                       ) : (
@@ -1536,10 +1637,10 @@ const QuoteComparison = () => {
             <td colSpan={2}>
               <span className={styles.lbl}>Total by rank</span>
             </td>
-            <td className={`${styles.amt} ${styles.amtL1}`}>₹{fmt(C.rankTotal(vendors, products, 1))}</td>
-            <td className={styles.amt}>₹{fmt(C.rankTotal(vendors, products, 2))}</td>
+            <td className={`${styles.amt} ${styles.amtL1}`}>₹{fmt(C.rankLineTotal(vendors, products, 1))}</td>
+            <td className={styles.amt}>₹{fmt(C.rankLineTotal(vendors, products, 2))}</td>
             <td className={styles.amt}>
-              {C.rankTotal(vendors, products, 3) ? "₹" + fmt(C.rankTotal(vendors, products, 3)) : "—"}
+              {C.rankLineTotal(vendors, products, 3) ? "₹" + fmt(C.rankLineTotal(vendors, products, 3)) : "—"}
             </td>
           </tr>
         </tfoot>
@@ -1684,7 +1785,7 @@ const QuoteComparison = () => {
               <button
                 type="button"
                 className={styles.createNegotiationBtn}
-                onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create`)}
+                onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create?level=rfq`)}
                 disabled={!rfq}
               >
                 <Plus size={14} strokeWidth={2.5} />

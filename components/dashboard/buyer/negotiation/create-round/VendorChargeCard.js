@@ -2,7 +2,7 @@ import React from 'react';
 import { Check, Pencil, AlertTriangle, TrendingDown } from 'lucide-react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
-import { compareTargetToQuoted } from './negotiationHelpers';
+import { compareTargetToQuoted, chargeBase } from './negotiationHelpers';
 import styles from './VendorChargeCard.module.scss';
 
 // Field keys that take free-text targets (open in a sub-modal).
@@ -117,7 +117,9 @@ const VendorChargeCard = ({
 }) => {
   const fieldKey = charge.fieldKey;
   const supportsTarget = charge.supportsTarget !== false && charge.kind !== 'info';
-  const basePrice = (parseFloat(vendorQuoteData?.unitPrice) || 0) * (parseFloat(vendorQuoteData?.quantity) || 0);
+  // For quote-level globals (RFQ mode) this is the whole-quote subtotal; for
+  // per-line charges it's the line base (unit × qty).
+  const basePrice = chargeBase(vendorQuoteData);
 
   const vt = vendorTargets[vendorId] || {};
   const localFields = vt._localFields || [];

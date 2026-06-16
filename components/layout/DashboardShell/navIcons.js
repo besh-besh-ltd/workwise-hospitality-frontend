@@ -58,6 +58,8 @@ export const NAV_ICONS = {
   // Quote comparison → side-by-side compare arrows.
   "/dashboard/buyer/quote-compare": GitCompare,
   "/dashboard/buyer/quote-comparison": GitCompare,
+  // Negotiation → handshake = "striking the deal".
+  "/dashboard/buyer/negotiation": Handshake,
   // Awarding → trophy = "you've won the bid".
   "/dashboard/buyer/purchase-order": Trophy,
 
