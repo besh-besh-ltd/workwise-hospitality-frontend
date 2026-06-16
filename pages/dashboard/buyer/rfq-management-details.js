@@ -1,12 +1,10 @@
 import React from "react";
-import RfqManagementDetailsPage from "@/components/dashboard/buyer/rfq-management-details";
+import RfqLifecycleShell from "@/components/dashboard/buyer/rfq/RfqLifecycleShell";
 
+// Single-page RFQ workspace (ARC-style lifecycle). Replaces the previous
+// scattered detail view; old per-stage routes deep-link in via ?stage=.
 const RfqManagementDetails = () => {
-    return (
-        <>
-            <RfqManagementDetailsPage />
-        </>
-    )
-}
+  return <RfqLifecycleShell />;
+};
 
 export default RfqManagementDetails;
