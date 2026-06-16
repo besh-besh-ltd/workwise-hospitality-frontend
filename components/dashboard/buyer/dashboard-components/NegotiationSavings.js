@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonHeadline } from "@/components/dashboard/shared";
+import { SkeletonHeadline, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./NegotiationSavings.module.scss";
 
 const formatCurrency = (value) => {
@@ -34,7 +34,7 @@ const NegotiationSavings = ({ filters }) => {
   useEffect(() => {
     setLoading(true);
     fetchData();
-    intervalRef.current = setInterval(fetchData, 20000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
@@ -89,7 +89,7 @@ const NegotiationSavings = ({ filters }) => {
       <div className={styles.bars}>
         <div className={styles.barGroup}>
           <div className={styles.barLabel}>
-            <span>Market baseline</span>
+            <span>Total quoted before negotiation</span>
             <span className={styles.mono}>{formatCurrency(baseline)}</span>
           </div>
           <div className={styles.barTrack}>
@@ -98,13 +98,17 @@ const NegotiationSavings = ({ filters }) => {
         </div>
         <div className={styles.barGroup}>
           <div className={styles.barLabel}>
-            <span>Negotiated total</span>
+            <span>Total finalised after negotiation</span>
             <span className={styles.mono}>{formatCurrency(negotiated)}</span>
           </div>
           <div className={styles.barTrack}>
             <div className={`${styles.barFill} ${styles.green}`} style={{ width: `${negotiatedPct}%` }} />
           </div>
         </div>
+      </div>
+
+      <div className={styles.exclusionNote}>
+        Terminated or rejected RFQs (by us or by vendors) are excluded from these figures.
       </div>
     </PersonaCardShell>
   );

@@ -112,6 +112,19 @@ export const getPendingApprovalsDetail = (params) => {
   });
 };
 
+// No-response drill-down: published RFQs with zero quotes, split into
+// { active, expired } by bid window (Sr 228).
+export const getNoResponseDetail = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/no-response', { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
 /* ────────────────────────────────────────────────────────────
    Persona-targeted widget endpoints — role-aware dashboard v3.
    Each method mirrors the convention above: GET against

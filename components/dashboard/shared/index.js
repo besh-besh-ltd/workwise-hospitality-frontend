@@ -21,3 +21,7 @@ export {
 } from "./Skeletons";
 
 export { default as surfaceStyles } from "./DashboardSurface.module.scss";
+
+/* Dashboard live-refresh cadence. Client asked for ~10s updates (Sr 232).
+ * Single source of truth so every widget + PersonaCard stay in sync. */
+export const DASHBOARD_POLL_MS = 10000;

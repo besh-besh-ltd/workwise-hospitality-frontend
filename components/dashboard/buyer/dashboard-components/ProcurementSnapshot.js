@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { BarChart3, ArrowUpRight, ArrowDownRight, PieChart } from "lucide-react";
 import { getProcurementSnapshot } from "@/services/dashboard";
 import CardTooltip from "./CardTooltip";
+import SpendBreakupModal from "./SpendBreakupModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./ProcurementSnapshot.module.scss";
 
 const formatCurrency = (value) => {
@@ -14,12 +15,14 @@ const formatCurrency = (value) => {
   return `₹${value.toLocaleString("en-IN")}`;
 };
 
+// `accent` drives each card's top-bar colour (subtle, distinct per metric) so the
+// strip no longer reads as plain/grey. Total spend gets the green highlight.
 const METRICS = [
-  { key: "total_rfqs",      label: "Total RFQs",      tooltip: "Total number of RFQs created in the selected period", format: (v) => v ?? 0, trendKind: "neutral" },
-  { key: "active_tenders",  label: "Active tenders",  tooltip: "Currently live tenders open for vendor bidding",       format: (v) => v ?? 0, trendKind: "neutral" },
-  { key: "pos_issued",      label: "POs issued",      tooltip: "Purchase orders created in the selected period",      format: (v) => v ?? 0, trendKind: "neutral" },
-  { key: "total_spend",     label: "Total spend",     tooltip: "Sum of all approved PO values including taxes",       format: formatCurrency, highlighted: true, trendKind: "spend" },
-  { key: "avg_turnaround",  label: "Avg turnaround",  tooltip: "Avg days from RFQ publish to finalisation",            format: (v) => v ? `${parseFloat(v).toFixed(1)}d` : "0d", trendKind: "lower-better" },
+  { key: "active_rfqs",     label: "Active RFQs",     tooltip: "Currently live, published RFQs open for vendor bidding", format: (v) => v ?? 0, trendKind: "neutral", accent: "#2563eb" },
+  { key: "closed_rfqs",     label: "Closed RFQs",     tooltip: "RFQs closed in the selected period",                   format: (v) => v ?? 0, trendKind: "neutral", accent: "#b45309" },
+  { key: "pos_issued",      label: "POs issued against RFQs", tooltip: "Purchase orders created in the selected period", format: (v) => v ?? 0, trendKind: "neutral", accent: "#7c3aed" },
+  { key: "total_spend",     label: "Total spend",     tooltip: "Sum of all approved PO values including taxes",       format: formatCurrency, highlighted: true, trendKind: "spend", accent: "#15803d" },
+  { key: "avg_turnaround",  label: "Average Turnaround Time", tooltip: "Avg days from RFQ publish to finalisation",     format: (v) => v ? `${parseFloat(v).toFixed(1)} Days` : "0 Days", trendKind: "lower-better", accent: "#0891b2" },
 ];
 
 // Compute % change from first non-zero sparkline point to the last value.
@@ -44,6 +47,7 @@ const ProcurementSnapshot = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showBreakup, setShowBreakup] = useState(false);
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(async () => {
@@ -61,14 +65,14 @@ const ProcurementSnapshot = ({ filters }) => {
   useEffect(() => {
     setLoading(true);
     fetchData();
-    intervalRef.current = setInterval(fetchData, 20000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
   return (
     <PersonaCardShell
-      title="Procurement snapshot"
+      title="Procurement (Products & Services) snapshot"
       icon={BarChart3}
       tooltip="Headline counts and spend across the selected business units and period."
       loading={loading}
@@ -91,6 +95,7 @@ const ProcurementSnapshot = ({ filters }) => {
             <div
               key={metric.key}
               className={`${styles.metricItem} ${metric.highlighted ? styles.highlighted : ""}`}
+              style={{ "--metric-accent": metric.accent }}
             >
               <div className={styles.metricLabel}>
                 {metric.label}
@@ -105,6 +110,16 @@ const ProcurementSnapshot = ({ filters }) => {
                     <TrendIcon size={9} strokeWidth={2.6} />
                     {Math.abs(trend.delta).toFixed(0)}%
                   </span>
+                )}
+                {metric.key === "total_spend" && !loading && data?.spend_breakup && (
+                  <button
+                    type="button"
+                    className={styles.breakupBtn}
+                    onClick={() => setShowBreakup(true)}
+                  >
+                    <PieChart size={11} strokeWidth={2.4} />
+                    Breakup
+                  </button>
                 )}
               </div>
               {sparklineData.length > 0 && (
@@ -122,6 +137,14 @@ const ProcurementSnapshot = ({ filters }) => {
           );
         })}
       </div>
+
+      {showBreakup && data?.spend_breakup && (
+        <SpendBreakupModal
+          breakup={data.spend_breakup}
+          posIssued={data.pos_issued}
+          onClose={() => setShowBreakup(false)}
+        />
+      )}
     </PersonaCardShell>
   );
 };

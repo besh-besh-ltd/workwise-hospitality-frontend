@@ -14,7 +14,7 @@ import {
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonChart } from "@/components/dashboard/shared";
+import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./CostIntelligence.module.scss";
 
 ChartJS.register(
@@ -148,7 +148,7 @@ const CostIntelligence = ({ filters }) => {
     fetchData();
     intervalRef.current = setInterval(() => {
       fetchData(currentProductRef.current);
-    }, 20000);
+    }, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);

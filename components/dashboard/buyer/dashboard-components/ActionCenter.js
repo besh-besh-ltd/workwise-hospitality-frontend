@@ -5,20 +5,33 @@ import { getActionCenterData } from "@/services/dashboard";
 import CardTooltip from "./CardTooltip";
 import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
+import NoResponseModal from "./NoResponseModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./ActionCenter.module.scss";
 
+// Order follows client request (Sr 231): Pending approvals → PO rejected by
+// vendors (red, "To be Actioned") → No responses → RFQs ending → PO pending.
 const ACTION_CARDS = [
   {
     key: "pending_approvals",
     label: "Pending approvals",
-    tooltip: "RFQs, negotiations or POs waiting for your approval action",
+    tooltip: "RFQs, ARCs, negotiations or POs waiting for your approval action",
     icon: ClipboardCheck,
     accent: "danger",
     statusLabel: "Urgent",
     href: null,
     modal: "approvals",
+  },
+  {
+    key: "rejected_vendors",
+    label: "PO rejected",
+    tooltip: "POs rejected by vendors that need to be reassigned",
+    icon: UserX,
+    accent: "danger",
+    statusLabel: "To be Actioned",
+    href: null,
+    modal: "rejected",
   },
   {
     key: "rfqs_awaiting",
@@ -27,7 +40,8 @@ const ACTION_CARDS = [
     icon: FileText,
     accent: "warn",
     statusLabel: "Action",
-    href: "/dashboard/buyer/rfq-management",
+    href: null,
+    modal: "noresponse",
   },
   {
     key: "rfqs_ending_soon",
@@ -47,16 +61,6 @@ const ACTION_CARDS = [
     statusLabel: null,
     href: "/dashboard/buyer/purchase-order",
   },
-  {
-    key: "rejected_vendors",
-    label: "PO rejected",
-    tooltip: "POs rejected by vendors that need to be reassigned",
-    icon: UserX,
-    accent: "danger",
-    statusLabel: "Reassign",
-    href: null,
-    modal: "rejected",
-  },
 ];
 
 const ActionCenter = ({ filters }) => {
@@ -65,6 +69,7 @@ const ActionCenter = ({ filters }) => {
   const [error, setError] = useState(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
+  const [showNoResponseModal, setShowNoResponseModal] = useState(false);
   const intervalRef = useRef(null);
 
   const fetchData = useCallback(async () => {
@@ -82,7 +87,7 @@ const ActionCenter = ({ filters }) => {
   useEffect(() => {
     setLoading(true);
     fetchData();
-    intervalRef.current = setInterval(fetchData, 20000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
@@ -148,6 +153,7 @@ const ActionCenter = ({ filters }) => {
             if (!card.href) {
               const openModal = () => {
                 if (card.modal === "rejected") setShowRejectedModal(true);
+                else if (card.modal === "noresponse") setShowNoResponseModal(true);
                 else setShowApprovalModal(true);
               };
               return (
@@ -176,6 +182,9 @@ const ActionCenter = ({ filters }) => {
       )}
       {showRejectedModal && (
         <RejectedPOsModal onClose={() => setShowRejectedModal(false)} />
+      )}
+      {showNoResponseModal && (
+        <NoResponseModal onClose={() => setShowNoResponseModal(false)} filters={filters} />
       )}
     </>
   );
