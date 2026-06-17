@@ -291,3 +291,41 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     border-color: $primary-soft;
   }
 }
+
+// Inline "Demand document(s)" block on the RFQ Documents card — moved here
+// from the comment sub-modal so the buyer can request documents directly.
+.docDemand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+
+  .editBtn {
+    align-self: flex-start;
+  }
+}
+
+.docDemandLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $ink-muted;
+}
+
+.docDemandInput {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid $divider-strong;
+  border-radius: 6px;
+  font-size: 13px;
+  background: $surface;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+
+  &:focus {
+    border-color: $primary-soft;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14);
+  }
+}

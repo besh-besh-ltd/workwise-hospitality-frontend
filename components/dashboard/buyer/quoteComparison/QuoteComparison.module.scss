@@ -377,6 +377,32 @@
 .priceCell.selectable:hover { background: var(--info-soft); }
 .priceCell.isL1.selectable:hover { background: #e6f5ec; }
 .cellSelectBtn { margin-top: 8px; width: 100%; padding: 6px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--info); color: var(--info); background: white; border-radius: 6px; cursor: pointer; font-family: inherit; opacity: 0; transition: opacity 0.15s ease; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
+/* Per-item "Quote history" button on the price cell */
+.cellHistoryBtn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+  svg { color: var(--fg-3); }
+
+  &:hover {
+    background: var(--surface-2);
+    border-color: var(--border-strong);
+    color: var(--fg);
+  }
+}
 .priceCell:hover .cellSelectBtn { opacity: 1; }
 .cellSelectBtn:hover { background: var(--info-soft); }
 .priceCell.isSelected { background: var(--info-soft); box-shadow: inset 0 0 0 2px var(--info); }

@@ -691,6 +691,14 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
     if (c.removed) return `removed ${fmtV(c.from)}`;
     return `${fmtV(c.from)} → ${fmtV(c.to)}`;
   };
+  // Format one side (from = original / to = this-round value) of a change.
+  const fmtChangeSide = (c, which) => {
+    const money = (v) => (v == null ? "—" : `₹${fmt(v)}`);
+    const pct = (v) => (v == null ? "—" : `${v}%`);
+    const txt = (v) => (v == null || v === "" ? "—" : String(v));
+    const fmtV = c.kind === "pct" ? pct : c.kind === "money" ? money : txt;
+    return fmtV(which === "from" ? c.from : c.to);
+  };
   const changeToneClass = (c) =>
     (c.kind === "money" || c.kind === "pct") && c.dir === "up"
       ? styles.chgUp
@@ -984,6 +992,22 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               </div>
             );
           })()}
+
+          {/* Per-item quote history for THIS vendor — shows when the vendor
+              updated this item in at least one negotiation round. */}
+          {Array.isArray(q.history) && q.history.length >= 1 && (
+            <button
+              type="button"
+              className={styles.cellHistoryBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowHistory({ product: p, vendor: vendorById(vid) });
+              }}
+              title="See this vendor's quote revisions for this item"
+            >
+              <History size={11} /> Quote history
+            </button>
+          )}
 
           {/* BUYER: selectable, not the rejected vendor */}
           {role === "buyer" &&
@@ -2621,7 +2645,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
             </button>
           </div>
           <div className={styles.modalBody}>
-            {historyRounds.length > 1 ? (
+            {historyRounds.length >= 1 ? (
               <div className={styles.qhList}>
                 {historyRounds.map((r, ri) => (
                   <div
@@ -2646,14 +2670,42 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                       {r.note && <div className={styles.qhNote}>{r.note}</div>}
                       {Array.isArray(r.changes) && r.changes.length > 0 && (
                         <div className={styles.qhChanges}>
-                          <div className={styles.qhChangesLbl}>Changed this round</div>
+                          <div className={styles.qhChangesLbl}>Changes vs original quote</div>
                           {r.changes.map((c, ci) => (
                             <div className={styles.qhChange} key={ci}>
                               <span className={styles.qhChangeLabel}>{c.label}</span>
-                              <span className={`${styles.qhChangeVal} ${changeToneClass(c)}`}>
-                                {fmtChangeVal(c)}
-                                {(c.kind === "money" || c.kind === "pct") && c.dir && !c.added && !c.removed && (
-                                  <span className={styles.qhArrow}>{c.dir === "up" ? "↑" : "↓"}</span>
+                              <span className={styles.qhChangeVal}>
+                                {c.added ? (
+                                  <span className={changeToneClass(c)}>
+                                    added {fmtChangeSide(c, "to")}
+                                  </span>
+                                ) : c.removed ? (
+                                  <>
+                                    <span
+                                      style={{ textDecoration: "line-through", color: "var(--fg-4)" }}
+                                    >
+                                      {fmtChangeSide(c, "from")}
+                                    </span>
+                                    <span className={changeToneClass(c)}> removed</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span
+                                      style={{ textDecoration: "line-through", color: "var(--fg-4)" }}
+                                    >
+                                      {fmtChangeSide(c, "from")}
+                                    </span>
+                                    <span className={styles.qhArrow}>→</span>
+                                    <span className={changeToneClass(c)}>
+                                      {fmtChangeSide(c, "to")}
+                                      {(c.kind === "money" || c.kind === "pct") && c.dir && (
+                                        <span className={styles.qhArrow}>
+                                          {" "}
+                                          {c.dir === "up" ? "↑" : "↓"}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </>
                                 )}
                               </span>
                             </div>
@@ -2666,13 +2718,13 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               </div>
             ) : (
               <div className={styles.qhEmpty}>
-                Single round — no negotiation history for this item from this vendor.
+                This vendor didn't update this item in any negotiation round.
               </div>
             )}
           </div>
           <div className={styles.modalFoot} style={{ justifyContent: "flex-start" }}>
             <span style={{ fontSize: 12, color: "var(--fg-3)" }}>
-              Shows all negotiation revisions for this item from this vendor.
+              The vendor's final quote update per negotiation round for this item.
             </span>
           </div>
         </div>
