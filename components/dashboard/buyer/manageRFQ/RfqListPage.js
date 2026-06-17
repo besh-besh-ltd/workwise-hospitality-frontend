@@ -229,6 +229,16 @@ export default function RfqListPage() {
         </Link>
       </div>
 
+      {/* Tabs sit above the whole filter + listing layout (matches contracts). */}
+      <div className="tab-row">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => { setTab(t.key); setPage(1); }}>
+            {t.label}
+            <span className="ct">{tab_counts[t.key] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="contracts-layout">
         {/* LEFT — facet sidebar */}
         <aside className="filter-sidebar">
@@ -238,7 +248,7 @@ export default function RfqListPage() {
             </h3>
             {activeCount > 0 && <button type="button" className="reset-link" onClick={resetAll}>Reset</button>}
           </div>
-          <div style={{ padding: "6px 14px 14px" }}>
+          <div>
             {FACETS.map((f) => (
               <FilterGroup
                 key={f.group}
@@ -257,17 +267,8 @@ export default function RfqListPage() {
           </div>
         </aside>
 
-        {/* RIGHT — tabs + toolbar + rows + pagination */}
+        {/* RIGHT — toolbar + rows + pagination */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-          <div className="tab-row">
-            {TABS.map((t) => (
-              <button key={t.key} type="button" className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => { setTab(t.key); setPage(1); }}>
-                {t.label}
-                <span className="ct">{tab_counts[t.key] ?? 0}</span>
-              </button>
-            ))}
-          </div>
-
           <div className="list-toolbar">
             <div className="lt-left">
               <span className="em">{total}</span> {total === 1 ? "RFQ" : "RFQs"}
@@ -288,7 +289,27 @@ export default function RfqListPage() {
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="contract-card" style={{ height: 96 }}><div className="arc-sk" style={{ width: "100%", height: "100%", borderRadius: 12 }} /></div>
+                <div key={i} className="contract-card">
+                  <div className="cc-head">
+                    <div className="cc-left">
+                      <span className="arc-sk" style={{ display: "block", width: 48, height: 48, borderRadius: 11, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className="arc-sk" style={{ display: "block", width: "46%", height: 16, marginBottom: 9 }} />
+                        <span className="arc-sk" style={{ display: "block", width: "70%", height: 11, marginBottom: 11 }} />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <span className="arc-sk" style={{ display: "block", width: 84, height: 18, borderRadius: 999 }} />
+                          <span className="arc-sk" style={{ display: "block", width: 110, height: 18, borderRadius: 999 }} />
+                          <span className="arc-sk" style={{ display: "block", width: 72, height: 18, borderRadius: 999 }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 9, flexShrink: 0 }}>
+                      <span className="arc-sk" style={{ display: "block", width: 124, height: 22, borderRadius: 999 }} />
+                      <span className="arc-sk" style={{ display: "block", width: 66, height: 11 }} />
+                      <span className="arc-sk" style={{ display: "block", width: 132, height: 28, borderRadius: 8 }} />
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           ) : rows.length === 0 ? (

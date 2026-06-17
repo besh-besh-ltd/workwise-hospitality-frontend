@@ -1689,8 +1689,9 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
    ═══════════════════════════════════════════════════════════ */
 .contracts-layout { display:grid; grid-template-columns:260px 1fr; gap:18px; align-items:flex-start; }
 @media (max-width:1000px){ .contracts-layout { grid-template-columns:1fr; } }
-.filter-sidebar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; position:sticky; top:78px; }
-@media (max-width:1000px){ .filter-sidebar { position:static; } }
+/* Filter sidebar scrolls WITH the page (not sticky) so the whole listing — facets
+   + rows — moves uniformly, like Amazon/Flipkart. (Was position:sticky; top:78px.) */
+.filter-sidebar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; position:static; }
 .filter-sidebar .fs-head { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fdfdfb 0%, var(--surface) 100%); }
 .filter-sidebar .fs-head h3 { font-size:12.5px; font-weight:600; color:var(--fg); display:flex; align-items:center; gap:8px; margin:0; }
 .filter-sidebar .fs-head .reset-link { font-size:11.5px; color:var(--primary); font-weight:500; cursor:pointer; }
