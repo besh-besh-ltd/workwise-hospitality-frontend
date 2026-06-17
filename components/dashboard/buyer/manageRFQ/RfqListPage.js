@@ -191,6 +191,30 @@ function FilterGroup({ label, group, options, selected, onToggle, mapLabel }) {
   );
 }
 
+/* ─── content-aware filter skeleton (mirrors FilterGroup so the sidebar keeps
+   its height on first load instead of flashing empty) ─── */
+function FilterSkeleton() {
+  const ROWS = [5, 3, 3, 3, 5, 5]; // status / BU / category / dept / product / vendor
+  return (
+    <>
+      {FACETS.map((f, gi) => (
+        <div key={f.group} className="filter-group">
+          <div className="fg-label"><span className="arc-sk" style={{ display: "inline-block", width: 84, height: 9, borderRadius: 4 }} /></div>
+          <div className="fg-options">
+            {Array.from({ length: ROWS[gi] || 3 }).map((_, i) => (
+              <div key={i} className="filter-opt" style={{ cursor: "default" }}>
+                <span className="arc-sk" style={{ display: "block", width: 14, height: 14, borderRadius: 4, flexShrink: 0 }} />
+                <span className="arc-sk" style={{ display: "block", flex: 1, height: 11, borderRadius: 4, maxWidth: 150 }} />
+                <span className="arc-sk" style={{ display: "block", width: 16, height: 9, borderRadius: 4, flexShrink: 0 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* ─── main page ─── */
 export default function RfqListPage() {
   const router = useRouter();
@@ -242,6 +266,7 @@ export default function RfqListPage() {
   };
   const resetAll = () => { setFilters(EMPTY_FILTERS); setSearch(""); setPage(1); };
   const activeCount = useMemo(() => Object.values(filters).reduce((n, a) => n + a.length, 0), [filters]);
+  const hasFacets = useMemo(() => FACETS.some((f) => (resp.facets[f.group] || []).length > 0), [resp.facets]);
 
   const { rows, facets, tab_counts, total, limit } = resp;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -278,19 +303,25 @@ export default function RfqListPage() {
             {activeCount > 0 && <button type="button" className="reset-link" onClick={resetAll}>Reset</button>}
           </div>
           <div>
-            {FACETS.map((f) => (
-              <FilterGroup
-                key={f.group}
-                label={f.label}
-                group={f.group}
-                options={facets[f.group] || []}
-                selected={filters[f.group] || []}
-                onToggle={toggle}
-                mapLabel={f.group === "status" ? (k) => metaFor(k).label : undefined}
-              />
-            ))}
-            {FACETS.every((f) => !(facets[f.group] || []).length) && !loading && (
-              <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>
+            {loading && !hasFacets ? (
+              <FilterSkeleton />
+            ) : (
+              <>
+                {FACETS.map((f) => (
+                  <FilterGroup
+                    key={f.group}
+                    label={f.label}
+                    group={f.group}
+                    options={facets[f.group] || []}
+                    selected={filters[f.group] || []}
+                    onToggle={toggle}
+                    mapLabel={f.group === "status" ? (k) => metaFor(k).label : undefined}
+                  />
+                ))}
+                {!hasFacets && (
+                  <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>
+                )}
+              </>
             )}
           </div>
         </aside>
