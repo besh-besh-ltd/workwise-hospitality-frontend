@@ -64,6 +64,7 @@ import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline"
 import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
 import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
 import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
+import { StageSkeleton } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
 
 import styles from "./ViewRFQ.module.scss";
@@ -587,13 +588,21 @@ const ViewRFQ = ({
   // current stage opens by default. Non-tender only.
   const [lifecycle, setLifecycle] = useState(null);
   const [selectedStage, setSelectedStage] = useState(null);
+  // `lifecycleLoading` distinguishes "still fetching" from "no lifecycle"
+  // (tender / draft / error) so the OLD two-column body + journey never flash
+  // while the new navigator loads — we show a skeleton instead.
+  const [lifecycleLoading, setLifecycleLoading] = useState(true);
   useEffect(() => {
     const rid = data?.id || router.query.id;
-    if (!rid || Number(data?.is_tender) === 1) return;
+    if (!rid) return;
+    // Tenders keep the legacy journey (no horizontal lifecycle) — not loading.
+    if (Number(data?.is_tender) === 1) { setLifecycleLoading(false); return; }
     let cancelled = false;
+    setLifecycleLoading(true);
     getRfqLifecycle(rid)
       .then((res) => { if (!cancelled) setLifecycle(res?.data || null); })
-      .catch(() => { if (!cancelled) setLifecycle(null); });
+      .catch(() => { if (!cancelled) setLifecycle(null); })
+      .finally(() => { if (!cancelled) setLifecycleLoading(false); });
     return () => { cancelled = true; };
   }, [data?.id, data?.is_tender, router.query.id]);
 
@@ -954,10 +963,25 @@ const ViewRFQ = ({
         )}
       </div>
 
+      {/* ─── While the lifecycle loads, show a skeleton for the navigator + body
+          so the legacy journey never flashes. ─── */}
+      {lifecycleLoading && (
+        <>
+          <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px" }}>
+            <div className="arc-sk-tile" style={{ height: 88 }} />
+          </div>
+          <main className={styles.pageBody} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
+            <div className={styles.leftCol} style={{ minWidth: 0 }}>
+              <StageSkeleton />
+            </div>
+          </main>
+        </>
+      )}
+
       {/* ─── Lifecycle journey (horizontal) — below the header, persistent
           across the RFQ; the timeline navigates the workable stages. ─── */}
-      {lifecycle?.stages?.length > 0 && (
-        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 16px" }}>
+      {!lifecycleLoading && lifecycle?.stages?.length > 0 && (
+        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px" }}>
           <RfqStageTimeline
             stages={lifecycle.stages}
             selectedKey={selectedStage}
@@ -968,7 +992,7 @@ const ViewRFQ = ({
 
       {/* ─── Page body — Overview shows the full RFQ detail; other stages show
           their workable surface, switched in-page by the timeline. ─── */}
-      {lifecycle?.stages?.length > 0 && selectedStage && selectedStage !== "overview" ? (
+      {!lifecycleLoading && (lifecycle?.stages?.length > 0 && selectedStage && selectedStage !== "overview" ? (
         <main className={styles.pageBody} style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div className={styles.leftCol} style={{ minWidth: 0 }}>
             {selectedStage === "technical" && (
@@ -1263,7 +1287,7 @@ const ViewRFQ = ({
           </aside>
         )}
       </main>
-      )}
+      ))}
 
       {/* Edit history modal */}
       {data?.id && (
