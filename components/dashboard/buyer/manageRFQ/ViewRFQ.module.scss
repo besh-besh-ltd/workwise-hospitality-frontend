@@ -466,7 +466,8 @@
 .pageBody {
   max-width: 1480px;
   margin: 0 auto;
-  padding: 14px 14px 24px;
+  padding: 14px 24px 24px;
+  padding-bottom: 0px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
   gap: 24px;

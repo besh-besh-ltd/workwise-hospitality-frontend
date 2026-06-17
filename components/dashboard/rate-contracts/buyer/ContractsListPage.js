@@ -444,19 +444,15 @@ export default function ContractsListPage({ filterPreset = "all" }) {
         </Link>
       </div>
 
-      <div className="section-card">
-        <div className="section-head" style={{ padding: "10px 14px" }}>
-          <div className="tab-row">
-            {TABS.map((t) => (
-              <button key={t.key}
-                      type="button"
-                      className={"tab" + (activeTab === t.key ? " active" : "")}
-                      onClick={() => setActiveTab(t.key)}>
-                {t.label} <span className="ct">{tabCounts[t.key] ?? 0}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="tab-row">
+        {TABS.map((t) => (
+          <button key={t.key}
+                  type="button"
+                  className={"tab" + (activeTab === t.key ? " active" : "")}
+                  onClick={() => setActiveTab(t.key)}>
+            {t.label} <span className="ct">{tabCounts[t.key] ?? 0}</span>
+          </button>
+        ))}
       </div>
 
       {(activeFilterCount > 0 || search) && (

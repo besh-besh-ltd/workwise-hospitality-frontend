@@ -2052,14 +2052,6 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               <span className={styles.track} />
               <span>{freightOn ? "Landed cost (with freight)" : "Base cost (no freight)"}</span>
             </div>
-            <div className={styles.divider} />
-            <span className={styles.sectionLabel}>
-              {role === "approver"
-                ? "Approver view"
-                : role === "buyer"
-                ? "Evaluator view"
-                : "Read-only view"}
-            </span>
           </div>
         </div>
 
