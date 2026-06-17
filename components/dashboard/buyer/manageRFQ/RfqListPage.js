@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import moment from "moment";
@@ -414,10 +415,14 @@ function RfqRow({ row, onClone, currentUser }) {
               {edit.allowed ? (
                 <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
               ) : (
-                // Native title doesn't fire on a disabled button — the span carries it.
-                <span title={edit.reason} style={{ display: "inline-flex" }}>
-                  <button type="button" className="btn btn-secondary btn-sm" disabled style={{ opacity: 0.5, cursor: "not-allowed", pointerEvents: "none" }}><Pencil size={13} strokeWidth={2} /></button>
-                </span>
+                // Custom tooltip (immediate on hover) — same pattern as EditRfqButton.
+                // The d-inline-block span is the hover target since the disabled
+                // button doesn't fire mouse events.
+                <OverlayTrigger placement="top" overlay={<Tooltip id={`edit-disabled-${row.id}`}>{edit.reason}</Tooltip>}>
+                  <span className="d-inline-block">
+                    <button type="button" className="btn btn-secondary btn-sm" disabled style={{ opacity: 0.55, cursor: "not-allowed" }}><Pencil size={13} strokeWidth={2} /></button>
+                  </span>
+                </OverlayTrigger>
               )}
               <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
             </div>
