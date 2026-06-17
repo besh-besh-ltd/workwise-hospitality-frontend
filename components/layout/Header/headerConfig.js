@@ -57,9 +57,9 @@ export const roleMenus = {
     // Negotiation — its own section directly below RFQs.
     { href: "/dashboard/buyer/negotiation", label: "All Negotiations", targetMenu: "nav", section: "Negotiation", isNew: true },
     { href: "/dashboard/buyer/negotiation/create", label: "Create New", targetMenu: "nav", section: "Negotiation", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders", label: "PO Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/tracking", label: "PO Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/analytics", label: "PO Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders", label: "Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/analytics", label: "Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     // ── Rate Contracts (ARC v2)
     { href: "/dashboard/buyer/rate-contracts",        label: "Dashboard",      targetMenu: "nav", section: "Rate Contracts", isNew: true },
     { href: "/dashboard/buyer/rate-contracts/all",    label: "All Contracts",  targetMenu: "nav", section: "Rate Contracts", isNew: true },
