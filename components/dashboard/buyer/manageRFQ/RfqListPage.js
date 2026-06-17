@@ -7,6 +7,7 @@
 // (stage + progress + the evaluators/approvers who can act).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSelector } from "react-redux";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import moment from "moment";
@@ -15,6 +16,7 @@ import {
   FileText, Users, Plus,
 } from "lucide-react";
 import { getRfqListView } from "@/services/rfq";
+import { canEditRfq } from "@/utils/sharedFunctions";
 import CopyRFQModal from "./CopyRFQModal";
 
 /* ─── status / lifecycle metadata (label · tone · tooltip copy · progress) ─── */
@@ -166,6 +168,7 @@ function FilterGroup({ label, group, options, selected, onToggle, mapLabel, scro
 /* ─── main page ─── */
 export default function RfqListPage() {
   const router = useRouter();
+  const currentUser = useSelector((state) => state.userProfile);
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState("");
@@ -319,7 +322,7 @@ export default function RfqListPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {rows.map((r) => <RfqRow key={r.id} row={r} onClone={() => setCloneRfq(r)} />)}
+              {rows.map((r) => <RfqRow key={r.id} row={r} currentUser={currentUser} onClone={() => setCloneRfq(r)} />)}
             </div>
           )}
 
@@ -343,11 +346,12 @@ export default function RfqListPage() {
 }
 
 /* ─── one RFQ row (card) ─── */
-function RfqRow({ row, onClone }) {
+function RfqRow({ row, onClone, currentUser }) {
   const meta = metaFor(row.status_key);
   const cats = Array.isArray(row.categories) ? row.categories : [];
   const products = Array.isArray(row.products) ? row.products : [];
   const detailHref = `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${row.id}`;
+  const edit = canEditRfq(row, currentUser); // same gate the detail/edit page uses
 
   return (
     <div className={`contract-card is-${meta.tone}`}>
@@ -374,15 +378,22 @@ function RfqRow({ row, onClone }) {
             )}
           </div>
         </div>
-        <div className="cc-right">
+        {/* Status pill stays top-right; quotes + actions sit at the bottom-right. */}
+        <div className="cc-right" style={{ alignSelf: "stretch", justifyContent: "space-between" }}>
           <StatusPill statusKey={row.status_key} actionHolders={row.action_holders} />
-          <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)" }}>
-            <span className="mono fw-600">{row.submitted_count ?? 0}</span>/{row.invited_count ?? 0} quotes
-          </div>
-          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-            <Link href={detailHref} className="btn btn-secondary btn-sm" title="View"><Eye size={13} strokeWidth={2} /> View</Link>
-            <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
-            <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)" }}>
+              <span className="mono fw-600">{row.submitted_count ?? 0}</span>/{row.invited_count ?? 0} quotes
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Link href={detailHref} className="btn btn-secondary btn-sm" title="View"><Eye size={13} strokeWidth={2} /> View</Link>
+              {edit.allowed ? (
+                <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
+              ) : (
+                <button type="button" className="btn btn-secondary btn-sm" disabled title={edit.reason} style={{ opacity: 0.5, cursor: "not-allowed" }}><Pencil size={13} strokeWidth={2} /></button>
+              )}
+              <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
+            </div>
           </div>
         </div>
       </div>
