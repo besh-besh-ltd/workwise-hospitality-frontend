@@ -56,55 +56,65 @@ const FACETS = [
   { group: "buId", label: "Business Unit" },
   { group: "categoryId", label: "Category" },
   { group: "departmentId", label: "Department" },
-  { group: "productId", label: "Product", scrollable: true },
-  { group: "vendorId", label: "Vendor", scrollable: true },
+  { group: "productId", label: "Product" },
+  { group: "vendorId", label: "Vendor" },
 ];
 const EMPTY_FILTERS = { status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [] };
 
 const fmtDate = (d) => (d ? moment(d).format("DD MMM YYYY") : "—");
 
-/* ─── lifecycle hover tooltip (the RFQ-specific extra) ─── */
+/* ─── lifecycle hover tooltip (the RFQ-specific extra) — compact + theme-aligned ─── */
+const TONE_DOT = { draft: "#71717a", active: "#16a34a", expiring: "#b45309", eval: "#b45309", committee: "#7c3aed", awaiting: "#4338ca", floated: "#2563eb", expired: "#a1a1aa" };
+
 function LifecycleTooltip({ statusKey, actionHolders, anchor }) {
-  if (!anchor) return null;
+  if (!anchor || typeof document === "undefined") return null;
   const meta = metaFor(statusKey);
+  const dot = TONE_DOT[meta.tone] || "#6366f1";
   const segs = 12;
   const filled = Math.max(0, Math.min(segs, Math.round((meta.order / STAGE_TOTAL) * segs)));
   const users = Array.isArray(actionHolders?.users) ? actionHolders.users : [];
-  const top = anchor.bottom + 8;
-  const left = Math.min(anchor.left, (typeof window !== "undefined" ? window.innerWidth : 1200) - 380);
+  const W = 280;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const left = Math.max(8, Math.min(anchor.right - W, vw - W - 8));
+  // Prefer above when there's more room there; anchor the tooltip's BOTTOM 8px
+  // above the pill (via `bottom`) so it can never cover the pill — no height
+  // estimation needed. Otherwise drop it 8px below.
+  const above = anchor.top > (vh - anchor.bottom);
+  const pos = above ? { bottom: Math.max(8, vh - anchor.top + 8) } : { top: anchor.bottom + 8 };
 
   return createPortal(
-    <div style={{ position: "fixed", top, left, zIndex: 4000, width: 360, background: "#fff", border: "1px solid #ebebe6", borderRadius: 14, boxShadow: "0 20px 48px -14px rgba(15,15,14,0.26), 0 4px 12px rgba(15,15,14,0.07)", overflow: "hidden", pointerEvents: "none" }}>
-      <div style={{ padding: "16px 18px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}>
-          <span className={`dot tone-${meta.tone}`} style={{ width: 9, height: 9, borderRadius: 99, background: "var(--primary, #4f46e5)", flexShrink: 0 }} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#18181b", letterSpacing: "-0.01em" }}>{meta.label}</span>
+    <div style={{ position: "fixed", left, ...pos, zIndex: 4000, width: W, background: "#fff", border: "1px solid #ebebe6", borderRadius: 11, boxShadow: "0 10px 30px -10px rgba(15,15,14,0.22), 0 2px 8px rgba(15,15,14,0.06)", overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{ padding: "11px 13px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 99, background: dot, flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#18181b", letterSpacing: "-0.01em" }}>{meta.label}</span>
         </div>
-        {meta.desc && <div style={{ fontSize: 13, color: "#71717a", lineHeight: 1.5 }}>{meta.desc}</div>}
+        {meta.desc && <div style={{ fontSize: 11.5, color: "#71717a", lineHeight: 1.45 }}>{meta.desc}</div>}
       </div>
       {meta.order > 0 && (
-        <div style={{ padding: "12px 18px", borderTop: "1px solid #f4f4f1" }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#a1a1aa", marginBottom: 9 }}>Progress</div>
-          <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ padding: "9px 13px", borderTop: "1px solid #f4f4f1" }}>
+          <div style={{ display: "flex", gap: 3 }}>
             {Array.from({ length: segs }).map((_, i) => (
-              <span key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: i < filled ? "#6366f1" : "#ececec" }} />
+              <span key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < filled ? dot : "#ececec" }} />
             ))}
           </div>
         </div>
       )}
       {users.length > 0 && (
-        <div style={{ padding: "12px 18px 16px", borderTop: "1px solid #f4f4f1" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#a1a1aa", marginBottom: 9 }}>
-            <Users size={12} strokeWidth={2} />
+        <div style={{ padding: "9px 13px 11px", borderTop: "1px solid #f4f4f1" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa", marginBottom: 7 }}>
+            <Users size={11} strokeWidth={2} />
             {actionHolders?.label || "Who can act"}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 16px" }}>
-            {users.slice(0, 10).map((u, i) => (
-              <div key={u.id || i} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: "#16a34a", flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: "#3f3f46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 12px" }}>
+            {users.slice(0, 8).map((u, i) => (
+              <div key={u.id || i} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                <span style={{ width: 5, height: 5, borderRadius: 99, background: "#16a34a", flexShrink: 0 }} />
+                <span style={{ fontSize: 11.5, color: "#3f3f46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</span>
               </div>
             ))}
+            {users.length > 8 && <span style={{ fontSize: 11, color: "#a1a1aa" }}>+{users.length - 8} more</span>}
           </div>
         </div>
       )}
@@ -142,13 +152,19 @@ function StatusPill({ statusKey, actionHolders }) {
 }
 
 /* ─── one facet group in the left sidebar ─── */
-function FilterGroup({ label, group, options, selected, onToggle, mapLabel, scrollable }) {
+const FACET_COLLAPSED = 5;
+function FilterGroup({ label, group, options, selected, onToggle, mapLabel }) {
+  const [expanded, setExpanded] = useState(false);
   if (!options || options.length === 0) return null;
+  // Top-N by count (server already sorts desc); the rest hide behind "Show more"
+  // so long facets never need a scrollbar.
+  const shown = expanded ? options : options.slice(0, FACET_COLLAPSED);
+  const extra = options.length - FACET_COLLAPSED;
   return (
     <div className="filter-group">
       <div className="fg-label">{label}</div>
-      <div className="fg-options" style={scrollable ? { maxHeight: 200, overflowY: "auto" } : undefined}>
-        {options.map((opt) => {
+      <div className="fg-options">
+        {shown.map((opt) => {
           const text = mapLabel ? mapLabel(opt.key) : (opt.label || opt.key);
           const on = selected.includes(String(opt.key));
           return (
@@ -160,6 +176,15 @@ function FilterGroup({ label, group, options, selected, onToggle, mapLabel, scro
             </label>
           );
         })}
+        {extra > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{ marginTop: 5, padding: "3px 2px", background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 500, cursor: "pointer", textAlign: "left", width: "fit-content" }}
+          >
+            {expanded ? "Show less" : `Show ${extra} more`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -260,7 +285,6 @@ export default function RfqListPage() {
                 options={facets[f.group] || []}
                 selected={filters[f.group] || []}
                 onToggle={toggle}
-                scrollable={f.scrollable}
                 mapLabel={f.group === "status" ? (k) => metaFor(k).label : undefined}
               />
             ))}
@@ -390,7 +414,10 @@ function RfqRow({ row, onClone, currentUser }) {
               {edit.allowed ? (
                 <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
               ) : (
-                <button type="button" className="btn btn-secondary btn-sm" disabled title={edit.reason} style={{ opacity: 0.5, cursor: "not-allowed" }}><Pencil size={13} strokeWidth={2} /></button>
+                // Native title doesn't fire on a disabled button — the span carries it.
+                <span title={edit.reason} style={{ display: "inline-flex" }}>
+                  <button type="button" className="btn btn-secondary btn-sm" disabled style={{ opacity: 0.5, cursor: "not-allowed", pointerEvents: "none" }}><Pencil size={13} strokeWidth={2} /></button>
+                </span>
               )}
               <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
             </div>

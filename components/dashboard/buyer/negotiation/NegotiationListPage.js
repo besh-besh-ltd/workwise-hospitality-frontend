@@ -513,35 +513,43 @@ export default function NegotiationListPage() {
 }
 
 // Filter group — repeated in the sidebar; mirrors the Rate Contracts component.
-function FilterGroup({ label, options, group, isOn, toggle, buCode = false, scrollable = false }) {
+function FilterGroup({ label, options, group, isOn, toggle, buCode = false }) {
+  const [expanded, setExpanded] = useState(false);
   const isEmpty = !options || options.length === 0;
+  // Top 5 by count; the rest hide behind "Show more" (no scrollbar).
+  const shown = expanded ? options : (options || []).slice(0, 5);
+  const extra = (options ? options.length : 0) - 5;
   return (
     <div className="filter-group">
       <div className="fg-label">{label}</div>
-      <div
-        className="fg-options"
-        style={scrollable && !isEmpty ? { maxHeight: 200, overflowY: "auto" } : undefined}
-      >
+      <div className="fg-options">
         {isEmpty ? (
           <div className="fg-empty">No options yet</div>
         ) : (
-          options.map((opt) => (
-            <label key={opt.key} className="filter-opt">
-              <input type="checkbox" checked={isOn(group, opt.key)} onChange={() => toggle(group, opt.key)} />
-              <span className="fo-box" />
-              <span className="fo-text" title={opt.label}>
-                {buCode && opt.sub ? (
-                  <>
-                    <span className="mono fw-600">{opt.sub}</span>{" "}
-                    <span style={{ color: "var(--fg-3)" }}>{opt.label}</span>
-                  </>
-                ) : (
-                  opt.label
-                )}
-              </span>
-              <span className="fo-count">{opt.count}</span>
-            </label>
-          ))
+          <>
+            {shown.map((opt) => (
+              <label key={opt.key} className="filter-opt">
+                <input type="checkbox" checked={isOn(group, opt.key)} onChange={() => toggle(group, opt.key)} />
+                <span className="fo-box" />
+                <span className="fo-text" title={opt.label}>
+                  {buCode && opt.sub ? (
+                    <>
+                      <span className="mono fw-600">{opt.sub}</span>{" "}
+                      <span style={{ color: "var(--fg-3)" }}>{opt.label}</span>
+                    </>
+                  ) : (
+                    opt.label
+                  )}
+                </span>
+                <span className="fo-count">{opt.count}</span>
+              </label>
+            ))}
+            {extra > 0 && (
+              <button type="button" onClick={() => setExpanded((v) => !v)} style={{ marginTop: 5, padding: "3px 2px", background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 500, cursor: "pointer", textAlign: "left", width: "fit-content" }}>
+                {expanded ? "Show less" : `Show ${extra} more`}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
