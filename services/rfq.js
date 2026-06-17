@@ -30,6 +30,18 @@ export const getRfqLifecycle = (rfqId) => {
   });
 };
 
+// Server-side faceted + paginated RFQ management listing (rate-contracts style).
+export const getRfqListView = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/list-view`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const downloadRfqTermsPdf = (rfqId) => {
   return new Promise(async (resolve, reject) => {
     try {
