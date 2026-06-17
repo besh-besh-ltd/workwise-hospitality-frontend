@@ -77,7 +77,6 @@ const TextFieldTargetModal = ({
         {isDocuments && (() => {
           const docs = getCurrentVendorValue(vendorId, 'documents');
           const docComments = typeof tempValue === 'object' && tempValue ? tempValue : {};
-          const demand = docComments.demand || '';
           const hasDocs = Array.isArray(docs) && docs.length > 0;
           return (
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -122,24 +121,6 @@ const TextFieldTargetModal = ({
                   No documents uploaded by this vendor.
                 </p>
               )}
-              <div className="mt-2">
-                <label className="fw-semibold mb-1 d-block" style={{ fontSize: '0.82rem' }}>
-                  Demand document(s)
-                </label>
-                <textarea
-                  className="form-control"
-                  rows={2}
-                  value={demand}
-                  onChange={(e) => {
-                    setTempValue(prev => ({
-                      ...(typeof prev === 'object' && prev ? prev : {}),
-                      demand: e.target.value,
-                    }));
-                  }}
-                  placeholder="Specify the document(s) you want the vendor to provide..."
-                  style={{ fontSize: '0.85rem' }}
-                />
-              </div>
             </div>
           );
         })()}
@@ -158,7 +139,7 @@ const TextFieldTargetModal = ({
           style={{ fontSize: '0.8rem', padding: '4px 16px' }}
           onClick={onSave}
         >
-          {isDocuments ? 'Set Demand' : 'Set Target'}
+          {isDocuments ? 'Save Comments' : 'Set Target'}
         </button>
       </div>
     </Modal>

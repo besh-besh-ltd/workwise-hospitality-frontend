@@ -42,6 +42,7 @@ const STATIC_LABELS = {
   delivery_period: 'Delivery Period',
   vendor_tc: 'Vendor T&C',
   comment: 'Comment',
+  documents: 'RFQ Documents',
 };
 
 const AMOUNT_ONLY_KEYS = new Set(['base_price', 'delivery_period']);
@@ -160,12 +161,12 @@ const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []
       seen.add('global_comment');
     }
 
-    // Documents — same shape as the product flow
+    // RFQ Documents — same shape as the product flow
     if (Array.isArray(vendor.documentFiles) && vendor.documentFiles.length > 0) {
       list.push({
         kind: 'text',
         fieldKey: 'documents',
-        label: 'Documents',
+        label: 'RFQ Documents',
         value: `${vendor.documentFiles.length} file${vendor.documentFiles.length > 1 ? 's' : ''}`,
         supportsTarget: true,
       });
@@ -281,12 +282,12 @@ const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []
     seen.add('comment');
   }
 
-  // Documents — special
+  // RFQ Documents — special
   if (Array.isArray(vendor.documentFiles) && vendor.documentFiles.length > 0) {
     list.push({
       kind: 'text',
       fieldKey: 'documents',
-      label: 'Documents',
+      label: 'RFQ Documents',
       value: `${vendor.documentFiles.length} file${vendor.documentFiles.length > 1 ? 's' : ''}`,
       supportsTarget: true,
     });

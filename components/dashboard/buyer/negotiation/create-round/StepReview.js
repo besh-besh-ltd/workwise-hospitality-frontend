@@ -30,7 +30,7 @@ const FIELD_LABELS = {
   comment: 'Comment',
   global_comment: 'Global Comment',
   delivery_period: 'Delivery Period',
-  documents: 'Documents',
+  documents: 'RFQ Documents',
   freight: 'Freight',
   packaging: 'Packaging',
 };

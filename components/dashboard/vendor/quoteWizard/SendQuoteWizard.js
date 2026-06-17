@@ -13,6 +13,7 @@ import {
   Plus, Trash2, ArrowRight, ArrowLeft, Copy, History,
   Check, Layers, MessageSquare, DollarSign, MessageCircle, AlertTriangle,
   Receipt, CreditCard, HelpCircle, Lock, CheckCircle2, ChevronDown,
+  Paperclip, Eye,
 } from "lucide-react";
 
 import {
@@ -53,6 +54,32 @@ import {
   sumPaymentTerms,
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
+
+// Format a buyer's negotiated target for display in an ask chip.
+//  - "days"   → "5 days"          (delivery period)
+//  - "charge" → "10%" | "₹150.00" (mode-aware charge target)
+//  - "text"   → raw string        (payment terms, comments, etc.)
+//  - default  → "₹150.00"         (amount)
+const fmtNegTarget = (nf, kind = "amount") => {
+  const v = nf?.targetPrice;
+  if (v == null || v === "") return null;
+  if (kind === "days") return `${v} days`;
+  if (kind === "charge") return nf.mode === "percentage" ? `${v}%` : `₹${fmtINR(v)}`;
+  if (kind === "text") return String(v);
+  return `₹${fmtINR(v)}`;
+};
+
+// A single "Buyer's ask" chip. `value` is a pre-formatted string; renders
+// nothing when empty so it only appears on fields the buyer actually negotiated.
+const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
+  if (value == null || value === "") return null;
+  return (
+    <div className={styles.negHint}>
+      <span className={styles.negHintDot} />
+      {label}: {mono ? <span className={styles.mono}>{value}</span> : <span>{value}</span>}
+    </div>
+  );
+};
 
 const ALL_STEPS = [
   { id: "overview", label: "Inquiry overview", meta: "Buyer, products & terms" },
@@ -1348,6 +1375,9 @@ const SendQuoteWizard = () => {
           return {
             id: p.id,
             product_id: p.product_id,
+            // Sent so backend validation messages can name the product instead
+            // of showing a bare id (e.g. "freight requires a comment").
+            product_name: p.product_name,
             variant: p.variant,
             quantity: p.qty,
             unit_price: parseFloat(p.unit_price) || 0,
@@ -1694,6 +1724,7 @@ const SendQuoteWizard = () => {
             vendorGSTIN={vendorGSTIN}
             globalCharges={globalCharges}
             globalDocumentFiles={globalDocumentFiles}
+            rfqLevelNegFields={negotiationFields.__rfq_level__ || []}
             token={token}
             onChangeGSTIN={changeGSTIN}
             onChangeGlobalComment={changeGlobalComment}
@@ -3192,6 +3223,17 @@ const Step3Pricing = ({
                           </button>
                         </div>
                       </div>
+                      {(() => {
+                        const ntx =
+                          negByName("unit_price") || negByName("base_price") || negByName("price");
+                        return (
+                          <BuyerAskHint
+                            label="Buyer's ask (tax)"
+                            mono={false}
+                            value={ntx?.taxDemand}
+                          />
+                        );
+                      })()}
                     </div>
 
                     <div>
@@ -3226,6 +3268,18 @@ const Step3Pricing = ({
                           <span className={styles.chargesAmt}>₹ {fmtINR(chargesTotal)}</span>
                         )}
                       </button>
+                      {(() => {
+                        const n = (p.other_charges || []).filter((c) =>
+                          negFields.some((f) => f.name === c.name || f.name === c.slug)
+                        ).length;
+                        if (!n) return null;
+                        return (
+                          <div className={styles.negHint}>
+                            <span className={styles.negHintDot} />
+                            Buyer's ask on {n} charge{n > 1 ? "s" : ""} — open to review
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div>
@@ -3252,6 +3306,7 @@ const Step3Pricing = ({
                           days
                         </div>
                       </div>
+                      <BuyerAskHint value={fmtNegTarget(negByName("delivery_period"), "days")} />
                     </div>
                   </div>
                 </div>
@@ -3277,6 +3332,13 @@ const Step3Pricing = ({
                         maxLength={300}
                         style={{ minHeight: 64 }}
                         disabled={locked || !isFieldNegotiable("comment")}
+                      />
+                      <BuyerAskHint
+                        mono={false}
+                        value={
+                          fmtNegTarget(negByName("comment"), "text") ||
+                          negByName("comment")?.demand
+                        }
                       />
                     </div>
                     <div className={styles.spaceY3}>
@@ -3316,6 +3378,16 @@ const Step3Pricing = ({
                           }}
                         />
                       </label>
+                      {(() => {
+                        const d = negByName("documents");
+                        if (!d) return null;
+                        let v = d.demand;
+                        if (!v && typeof d.targetPrice === "string") v = d.targetPrice;
+                        if (!v && Array.isArray(d.targetPrice) && d.targetPrice.length) {
+                          v = `${d.targetPrice.length} document comment${d.targetPrice.length > 1 ? "s" : ""}`;
+                        }
+                        return <BuyerAskHint mono={false} value={v} />;
+                      })()}
                       {(p.document_files || []).map((u) => (
                         <div className={styles.uploadedFile} key={u}>
                           <Download size={12} style={{ color: "var(--fg-3)" }} />
@@ -3400,6 +3472,7 @@ const Step4CommercialTerms = ({
   vendorGSTIN,
   globalCharges,
   globalDocumentFiles = [],
+  rfqLevelNegFields = [],
   token,
   onChangeGSTIN,
   onChangeGlobalComment,
@@ -3420,6 +3493,12 @@ const Step4CommercialTerms = ({
   ).length;
   const gstinClean = String(vendorGSTIN || "").trim().toUpperCase();
   const gstinValid = isValidGstin(gstinClean);
+  // Buyer's RFQ-level negotiation asks (payment terms, global comment) — keyed
+  // by field name; the global-charge asks are surfaced inside GlobalChargesModal.
+  const rfqAsk = (name) =>
+    (rfqLevelNegFields || []).find((f) => (f.name || "").toLowerCase() === name);
+  const [filesModalOpen, setFilesModalOpen] = useState(false);
+  const attachmentCount = (globalDocumentFiles || []).length;
 
   return (
     <div className={styles.stepPane}>
@@ -3470,6 +3549,13 @@ const Step4CommercialTerms = ({
                 disabled={isReadOnly}
                 style={{ flex: 1 }}
               />
+              <BuyerAskHint
+                mono={false}
+                value={
+                  fmtNegTarget(rfqAsk("global_comment"), "text") ||
+                  rfqAsk("global_comment")?.demand
+                }
+              />
             </div>
             <div style={{ flex: "1 1 calc(50% - 8px)", minWidth: 240, display: "flex", flexDirection: "column" }}>
               <label className={styles.label}>
@@ -3491,23 +3577,43 @@ const Step4CommercialTerms = ({
                   }}
                 />
               </label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-                {(globalDocumentFiles || []).map((u) => (
-                  <div className={styles.uploadedFile} key={u}>
-                    <Download size={12} style={{ color: "var(--fg-3)" }} />
-                    <span className={styles.name}>{u.split("/").pop()}</span>
-                    <button
-                      type="button"
-                      className={styles.iconBtn}
-                      disabled={isReadOnly}
-                      onClick={() => onRemoveGlobalFile?.(u)}
-                      aria-label="Remove"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+              {attachmentCount > 0 && (
+                <button
+                  type="button"
+                  className={`${styles.chargesTrigger} ${styles.chargesActive}`}
+                  style={{ marginTop: 8 }}
+                  onClick={() => setFilesModalOpen(true)}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Paperclip size={12} strokeWidth={2.2} />
+                    <span>
+                      {attachmentCount} file{attachmentCount > 1 ? "s" : ""} attached
+                    </span>
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}>
+                    <Eye size={13} /> View files
+                  </span>
+                </button>
+              )}
+              {filesModalOpen && (
+                <GlobalFilesModal
+                  files={globalDocumentFiles}
+                  readOnly={isReadOnly}
+                  onRemove={onRemoveGlobalFile}
+                  onUpload={onUploadGlobalFiles}
+                  onClose={() => setFilesModalOpen(false)}
+                />
+              )}
+              {(() => {
+                const d = rfqAsk("documents");
+                if (!d) return null;
+                let v = d.demand;
+                if (!v && typeof d.targetPrice === "string") v = d.targetPrice;
+                if (!v && Array.isArray(d.targetPrice) && d.targetPrice.length) {
+                  v = `${d.targetPrice.length} document comment${d.targetPrice.length > 1 ? "s" : ""}`;
+                }
+                return <BuyerAskHint mono={false} value={v} />;
+              })()}
             </div>
           </div>
         </div>
@@ -3572,6 +3678,13 @@ const Step4CommercialTerms = ({
               </span>
             </div>
           </div>
+          <BuyerAskHint
+            mono={false}
+            value={
+              fmtNegTarget(rfqAsk("payment_terms"), "text") ||
+              rfqAsk("payment_terms")?.demand
+            }
+          />
 
           <div className={styles.payList}>
             {paymentTerms.map((t, i) => {
@@ -4467,6 +4580,16 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                     </div>
                   );
                 })()}
+                {(() => {
+                  const f = findNegField(ch);
+                  if (!f) return null;
+                  return (
+                    <>
+                      <BuyerAskHint value={fmtNegTarget(f, "charge")} />
+                      <BuyerAskHint label="Buyer's ask (tax)" mono={false} value={f.taxDemand} />
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -4538,6 +4661,123 @@ const validateGlobalCharge = (ch, i) => {
     name: (ch.name || "").trim() || `Charge ${i + 1}`,
     errs,
   };
+};
+
+/* ════════════════════════════════════════════════════════════════
+   Quote-wide attachments modal — review / add / remove the files that
+   accompany the whole quote (mirrors the legacy attachment list, just
+   moved off the form into a focused dialog).
+   ════════════════════════════════════════════════════════════════ */
+const GlobalFilesModal = ({ files = [], readOnly = false, onRemove, onUpload, onClose }) => {
+  const list = Array.isArray(files) ? files : [];
+  const prettyName = (u) => {
+    try {
+      return decodeURIComponent(String(u).split("/").pop() || u);
+    } catch (_) {
+      return String(u).split("/").pop() || u;
+    }
+  };
+  return (
+    <div
+      className={styles.modalBackdrop}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className={styles.modal} style={{ maxWidth: 560 }}>
+        <div className={styles.modalHead}>
+          <div>
+            <h3>
+              Attachments
+              <span style={{ fontWeight: 450, color: "var(--fg-3)", marginLeft: 6 }}>
+                · visible to buyer
+              </span>
+            </h3>
+            <div className={styles.sub}>
+              Quote-wide documents that accompany this submission.
+            </div>
+          </div>
+          <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
+        </div>
+        <div className={styles.modalBody}>
+          {!readOnly && (
+            <label
+              className={styles.uploadMini}
+              style={{ width: "100%", justifyContent: "center", padding: 12, marginBottom: 14 }}
+            >
+              <Download size={13} style={{ transform: "rotate(180deg)" }} />
+              Attach more documents
+              <input
+                type="file"
+                multiple
+                onChange={async (e) => {
+                  await onUpload?.(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          )}
+          {list.length === 0 ? (
+            <div style={{ textAlign: "center", color: "var(--fg-4)", fontSize: 12.5, padding: "24px 0" }}>
+              No attachments yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {list.map((u, i) => (
+                <div className={styles.uploadedFile} key={u} style={{ marginTop: 0 }}>
+                  <Paperclip size={12} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
+                  <span
+                    className={styles.name}
+                    title={prettyName(u)}
+                    style={{ fontFamily: "inherit", color: "var(--fg-2)" }}
+                  >
+                    Document {i + 1}
+                  </span>
+                  <a
+                    href={u}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--accent)",
+                      textDecoration: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Eye size={13} /> View doc
+                  </a>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className={styles.iconBtn}
+                      onClick={() => onRemove?.(u)}
+                      aria-label="Remove document"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className={styles.modalFoot}>
+          <span style={{ fontSize: 12, color: "var(--fg-3)" }}>
+            {list.length} file{list.length === 1 ? "" : "s"}
+          </span>
+          <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onRemoveCharge, negFields = [], bidExpired = false, readOnly = false, chargeTypes, engineBreakdown = [] }) => {
@@ -4761,6 +5001,16 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                         ₹{fmtINR(total)}
                       </span>
                     </div>
+                  );
+                })()}
+                {(() => {
+                  const f = negFields.find((x) => x.name === ch.name || x.name === ch.slug);
+                  if (!f) return null;
+                  return (
+                    <>
+                      <BuyerAskHint value={fmtNegTarget(f, "charge")} />
+                      <BuyerAskHint label="Buyer's ask (tax)" mono={false} value={f.taxDemand} />
+                    </>
                   );
                 })()}
               </div>

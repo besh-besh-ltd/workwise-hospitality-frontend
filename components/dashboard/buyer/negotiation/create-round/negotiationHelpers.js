@@ -167,7 +167,11 @@ export const getVendorPriceData = (product) => {
     })();
     const comment = src.comment || null;
     const globalComment = src.global_comment || null;
-    const documentFiles = src.document_files || [];
+    // The vendor's quote-wide attachments (uploaded under "Attachments" → stored
+    // in tbl_quotes_files, surfaced as `global_document_files`). This is what the
+    // buyer negotiates on as "RFQ Documents" — NOT the per-line product files
+    // (`document_files` / tbl_quote_item_files), which are a different set.
+    const documentFiles = src.global_document_files || q.global_document_files || [];
     const vendorId = (() => {
       const vd = getVendorDetailsFromQuote(q);
       return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by || 0);
@@ -304,7 +308,11 @@ export const buildVendorTargetsPayload = ({
       if (k === '_localFields' || k === '_excludedFields' || k.endsWith('_mode')) return;
       if (k.endsWith('_tax')) return;
       if (vt[k] == null || vt[k] === '') return;
-      if (globalFields.has(k)) return;
+      // `documents` is special: its demand + per-doc comments are ALWAYS stored
+      // per vendor (there's no global documents target), so it must be emitted
+      // even when documents is a globally-claimed RFQ-level field. Other
+      // globally-claimed fields are handled by the global fallback below.
+      if (k !== 'documents' && globalFields.has(k)) return;
 
       if (k === 'documents') {
         try {

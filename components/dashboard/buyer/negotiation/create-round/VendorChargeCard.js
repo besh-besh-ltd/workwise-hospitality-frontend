@@ -221,6 +221,26 @@ const VendorChargeCard = ({
     if (onVendorTargetChange) onVendorTargetChange(vendorId, `${fieldKey}_mode`, next);
   };
 
+  // Documents: the buyer's free-text "demand" (what documents to request) now
+  // lives inline on this card — moved out of the comment sub-modal. It's kept
+  // under the `demand` key of the documents target JSON so it coexists with the
+  // per-document comments still set in the sub-modal (read-merge-write).
+  const docTargetObj = (() => {
+    if (fieldKey !== 'documents') return null;
+    if (!localTarget) return {};
+    if (typeof localTarget === 'object') return localTarget;
+    try { return JSON.parse(localTarget); } catch { return {}; }
+  })();
+  const docDemandValue = docTargetObj?.demand || '';
+  const handleDocDemandChange = (value) => {
+    const next = { ...(docTargetObj || {}) };
+    if (value) next.demand = value; else delete next.demand;
+    const hasAny = Object.keys(next).length > 0;
+    if (onVendorTargetChange) {
+      onVendorTargetChange(vendorId, fieldKey, hasAny ? JSON.stringify(next) : '');
+    }
+  };
+
   const handleOpenSubModal = () => {
     if (!onOpenTextFieldModal) return;
     // Mark the field as locally active so closing without saving doesn't
@@ -343,14 +363,38 @@ const VendorChargeCard = ({
 
       {showOverrideInput && (
         isTextField ? (
-          <button
-            type="button"
-            className={styles.editBtn}
-            onClick={handleOpenSubModal}
-          >
-            <Pencil size={12} strokeWidth={2} />
-            {hasLocalOverride ? 'Edit target' : (isGloballyClaimed ? 'Override for this vendor' : 'Set target')}
-          </button>
+          fieldKey === 'documents' ? (
+            <div className={styles.docDemand}>
+              <label className={styles.docDemandLabel}>Demand document(s)</label>
+              <textarea
+                className={styles.docDemandInput}
+                rows={2}
+                value={docDemandValue}
+                onChange={(e) => handleDocDemandChange(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Specify the document(s) you want the vendor to provide..."
+              />
+              {!charge.isDemand && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={handleOpenSubModal}
+                >
+                  <Pencil size={12} strokeWidth={2} />
+                  Comment on documents
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.editBtn}
+              onClick={handleOpenSubModal}
+            >
+              <Pencil size={12} strokeWidth={2} />
+              {hasLocalOverride ? 'Edit target' : (isGloballyClaimed ? 'Override for this vendor' : 'Set target')}
+            </button>
+          )
         ) : (
           <>
             <div className={styles.inputRow}>
