@@ -6,10 +6,28 @@
 // Once finalized (stage complete) everything is read-only; a committee
 // send-back re-opens it (stage.reason === 'sent_back').
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton } from "./StageShared";
+
+const CLAR_FIELD_LABEL = {
+  base_price: "Base price / unit rate",
+  gst: "GST %",
+  charges: "Freight / charges",
+  committed_qty: "Committed quantity",
+  payment_terms: "Payment terms",
+  delivery_terms: "Delivery terms",
+};
+const CLAR_FREE_TEXT = new Set(["payment_terms", "delivery_terms"]);
+const fmtClarVal = (field, v) => {
+  if (v == null) return "—";
+  if (field === "base_price" || field === "charges") return "₹" + Number(v).toLocaleString("en-IN");
+  if (field === "gst") return v + "%";
+  if (field === "committed_qty") return Number(v).toLocaleString("en-IN");
+  return String(v);
+};
+const fmtClarDate = (s) => { try { return new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); } catch { return ""; } };
 
 function fmtINR(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
@@ -38,7 +56,9 @@ function avClass(id) {
   return AV_CLASSES[Math.abs(h) % AV_CLASSES.length];
 }
 function landedRate(line, includeCharges) {
-  if (!line) return null;
+  // Redacted (technically disqualified) lines have no commercial terms —
+  // they contribute nothing to totals, ranks, or L1 picks.
+  if (!line || line.disqualified || line.rate == null) return null;
   return toNum(line.rate) + (includeCharges ? toNum(line.charges) : 0);
 }
 
@@ -55,21 +75,34 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   const [commEvaluation, setCommEvaluation] = useState(null);
   const [items, setItems] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [awards, setAwards] = useState([]);
   const [alloc, setAlloc] = useState({});
   const [activeView, setActiveView] = useState("product");
   const [expanded, setExpanded] = useState({});
   const [includeCharges, setIncludeCharges] = useState(true);
   const [savingItem, setSavingItem] = useState(null);
+  const autoPickBusyRef = useRef(false);
+  // item_id → qualified vendor ids; items absent from the map carry no
+  // technical restriction (technical was skipped for them).
+  const [qualifiedMap, setQualifiedMap] = useState({});
   const [finalizing, setFinalizing] = useState(false);
   const [sendBackOpen, setSendBackOpen] = useState(false);
   const [sendBackReason, setSendBackReason] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
+  // Vendor clarifications that re-opened this stage. Each is resolved by a
+  // scoped revise (edit the disputed field) or an uphold (keep it, reply).
+  const [clarifications, setClarifications] = useState([]);
+  const [clarDraft, setClarDraft] = useState({});   // id → { value, response }
+  const [clarBusy, setClarBusy] = useState(null);    // id currently resolving
 
   const applyPayload = (payload) => {
     setCommEvaluation(payload.comm_evaluation || null);
     setItems(Array.isArray(payload.items) ? payload.items : []);
     setQuotes(Array.isArray(payload.quotes) ? payload.quotes : []);
+    setClarifications(Array.isArray(payload.clarifications) ? payload.clarifications : []);
+    setQualifiedMap(payload.qualified_by_item || {});
     const aw = Array.isArray(payload.awards) ? payload.awards : [];
+    setAwards(aw);
     const seed = {};
     aw.forEach((a) => {
       if (!a || !a.arc_item_id || !a.awarded_quote_line_id) return;
@@ -112,8 +145,12 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       }
       map.get(vid).lines.push({
         quote_line_id: q.quote_line_id, arc_item_id: q.arc_item_id,
-        rate: toNum(q.rate), gst_pct: toNum(q.gst_pct), charges: toNum(q.charges),
+        rate: q.rate == null ? null : toNum(q.rate),
+        gst_pct: toNum(q.gst_pct), charges: toNum(q.charges),
         lead_time_days: q.lead_time_days, moq: q.moq,
+        // server-side redacted: technical committee deemed this pair unfit —
+        // pricing fields arrive null and must never enter any total/rank
+        disqualified: !!q.technically_disqualified,
       });
     });
     return Array.from(map.values());
@@ -136,9 +173,63 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     return v ? v.lines.find((l) => l.arc_item_id === itemId) || null : null;
   };
 
+  // ── clarification overrides ──────────────────────────────────────────
+  // A revise edits the AWARD SNAPSHOT for one item×vendor (the quote line in
+  // the DB never changes). Build: (a) the effective snapshot per awarded cell,
+  // (b) the resolved 'revised' clarifications keyed by item::vendor for the
+  // strike-through + (i) provenance tooltip.
+  const awardSnapByCell = useMemo(() => {
+    const m = {};
+    awards.forEach((a) => {
+      const snap = typeof a.awarded_quote_snapshot === "string"
+        ? JSON.parse(a.awarded_quote_snapshot) : (a.awarded_quote_snapshot || {});
+      m[`${a.arc_item_id}::${a.awarded_vendor_id}`] = snap;
+    });
+    return m;
+  }, [awards]);
+
+  const revisionByCell = useMemo(() => {
+    const m = {};
+    clarifications.forEach((c) => {
+      if (c.status !== "revised") return;
+      const k = `${c.arc_item_id}::${c.vendor_id}`;
+      (m[k] = m[k] || []).push(c);
+    });
+    return m;
+  }, [clarifications]);
+
+  // The quote line overlaid with any revised snapshot fields; `_ov` records the
+  // original (quoted) values so the cell can strike them through.
+  const SNAP_OF = { base_price: "rate", gst: "gst_pct", charges: "charges" };
+  const effLineFor = (vid, itemId) => {
+    const base = lineFor(vid, itemId);
+    if (!base) return base;
+    const snap = awardSnapByCell[`${itemId}::${vid}`];
+    if (!snap) return base;
+    const eff = { ...base };
+    const ov = {};
+    for (const [field, key] of Object.entries(SNAP_OF)) {
+      if (snap[key] == null) continue;
+      const before = toNum(base[key]);
+      const after = toNum(snap[key]);
+      if (Math.abs(before - after) > 1e-9) { eff[key] = after; ov[field] = { before, after }; }
+    }
+    eff._ov = Object.keys(ov).length ? ov : null;
+    return eff;
+  };
+  const revisionFor = (vid, itemId) => revisionByCell[`${itemId}::${vid}`] || null;
+
+  // Technical qualification — vendors who didn't clear an item's clauses
+  // can't be awarded that item (and never count as its L1).
+  const isQualified = (vid, itemId) => {
+    const allowed = qualifiedMap[itemId];
+    return !allowed || allowed.includes(Number(vid));
+  };
+
   const l1ForItem = (itemId) => {
     let best = null;
     vendors.forEach((v) => {
+      if (!isQualified(v.vendor_id, itemId)) return;
       const l = v.lines.find((x) => x.arc_item_id === itemId);
       if (!l) return;
       const lan = landedRate(l, includeCharges);
@@ -163,9 +254,16 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     });
     return s;
   };
+  // Lines the vendor actually competes on — quoted AND technically qualified.
+  const eligibleLines = (v) => v.lines.filter((l) => !l.disqualified);
+  // A header L-rank only means something between vendors competing on the
+  // FULL basket; a vendor disqualified on any item gets no rank — their
+  // total isn't comparable.
   const vendorRank = (vid) => {
-    const ranked = vendors.slice().sort((a, b) => vendorTotal(a.vendor_id) - vendorTotal(b.vendor_id));
-    return ranked.findIndex((v) => v.vendor_id === vid) + 1;
+    const fullBasket = vendors.filter((v) => eligibleLines(v).length === items.length);
+    const ranked = fullBasket.slice().sort((a, b) => vendorTotal(a.vendor_id) - vendorTotal(b.vendor_id));
+    const idx = ranked.findIndex((v) => v.vendor_id === vid);
+    return idx === -1 ? null : idx + 1;
   };
 
   // ── allocation helpers ───────────────────────────────────────────────
@@ -212,7 +310,9 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     items.forEach((it) => {
       const itemId = it.id || it.arc_item_id;
       itemAllocations(itemId).rows.forEach((r) => {
-        const lan = landedRate(r.line, includeCharges);
+        // Awarded value is computed on the REVISED rate when a clarification
+        // changed it (the quote line stays the competitive baseline).
+        const lan = landedRate(effLineFor(r.vendor.vendor_id, itemId) || r.line, includeCharges);
         if (lan !== null) s += lan * r.qty;
       });
     });
@@ -286,6 +386,10 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   // Add a vendor to the item's award set (saved immediately).
   const awardCell = async (vid, itemId) => {
     if (!editable || savingItem) return;
+    if (!isQualified(vid, itemId)) {
+      toast.error("This vendor is not technically qualified for this item.");
+      return;
+    }
     const set = awardedSet(itemId);
     if (set.includes(vid)) return;
     const next = [...set, vid];
@@ -332,15 +436,15 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     await postAllocation(itemId, rows, `Share set to ${pct}% — others re-balanced`);
   };
 
-  // Remove a vendor from the award set; the rest re-divide equally. The
-  // last holder can't be removed — every allocated item stays at 100%.
+  // Remove a vendor from the award set; the rest re-divide equally.
+  // Removing the last holder clears the item back to Pending.
   const unawardCell = async (vid, itemId) => {
     if (!editable || savingItem) return;
     const set = awardedSet(itemId);
     if (!set.includes(vid)) return;
     const next = set.filter((x) => x !== vid);
     if (next.length === 0) {
-      toast.error("At least one vendor must hold this item — award another vendor first.");
+      await postAllocation(itemId, [], "Award cleared — item is back to pending");
       return;
     }
     const rows = equalRows(itemId, next);
@@ -350,28 +454,35 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
 
   // Award L1 on every item — persists each, then refreshes once.
   const autoPickL1 = async () => {
-    if (!editable || savingItem) return;
+    // ref guard: state updates are async, so a same-tick double-click would
+    // slip past a savingItem check alone and fire the API run twice
+    if (!editable || savingItem || autoPickBusyRef.current) return;
+    autoPickBusyRef.current = true;
     setSavingItem("all");
-    let done = 0, failed = 0;
-    for (const it of items) {
-      const itemId = it.id || it.arc_item_id;
-      const indicative = toNum(it.indicative_qty);
-      const l1 = l1ForItem(itemId);
-      if (!l1) continue;
-      const v = vendorById.get(l1.vendor_id);
-      try {
-        await ArcApi.saveAllocation(arc.id, {
-          item_id: itemId,
-          allocations: buildAllocations(itemId, [{ vendor: v, line: l1.line, qty: indicative, pct: 100 }]),
-        });
-        done++;
-      } catch (e) { failed++; }
+    try {
+      let done = 0, failed = 0;
+      for (const it of items) {
+        const itemId = it.id || it.arc_item_id;
+        const indicative = toNum(it.indicative_qty);
+        const l1 = l1ForItem(itemId);
+        if (!l1) continue;
+        const v = vendorById.get(l1.vendor_id);
+        try {
+          await ArcApi.saveAllocation(arc.id, {
+            item_id: itemId,
+            allocations: buildAllocations(itemId, [{ vendor: v, line: l1.line, qty: indicative, pct: 100 }]),
+          });
+          done++;
+        } catch (e) { failed++; }
+      }
+      if (done) toast.success(`L1 awarded on ${done} item${done === 1 ? "" : "s"}${failed ? ` · ${failed} failed` : ""}`);
+      else if (failed) toast.error("Could not save L1 awards.");
+      await reload();
+      await onRefresh();
+    } finally {
+      autoPickBusyRef.current = false;
+      setSavingItem(null);
     }
-    setSavingItem(null);
-    if (done) toast.success(`L1 awarded on ${done} item${done === 1 ? "" : "s"}${failed ? ` · ${failed} failed` : ""}`);
-    else if (failed) toast.error("Could not save L1 awards.");
-    await reload();
-    await onRefresh();
   };
 
   const handleFinalize = async () => {
@@ -399,6 +510,43 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       await onRefresh();
     } catch (e) { /* interceptor */ } finally {
       setSendingBack(false);
+    }
+  };
+
+  const openClarifications = useMemo(
+    () => clarifications.filter((c) => c.status === "open"),
+    [clarifications]
+  );
+
+  const resolveClar = async (clar, mode) => {
+    const draft = clarDraft[clar.id] || {};
+    if (mode === "revise" && (draft.value === undefined || draft.value === "")) {
+      toast.error("Enter the revised value."); return;
+    }
+    if (mode === "uphold" && !(draft.response || "").trim()) {
+      toast.error("Add a short response for the vendor."); return;
+    }
+    setClarBusy(clar.id);
+    try {
+      const value = clar.field === "payment_terms" || clar.field === "delivery_terms"
+        ? draft.value : Number(draft.value);
+      let resp;
+      if (mode === "revise") {
+        resp = await ArcApi.reviseClarification(arc.id, clar.id, { value, response: draft.response || "" });
+      } else {
+        resp = await ArcApi.upholdClarification(arc.id, clar.id, { response: draft.response.trim() });
+      }
+      const remaining = resp?.data?.open_remaining ?? resp?.open_remaining ?? 0;
+      toast.success(
+        remaining === 0
+          ? "Resolved — award re-routed to the committee for approval"
+          : `${mode === "revise" ? "Term revised" : "Original upheld"} · ${remaining} clarification(s) left`
+      );
+      setClarDraft((s) => { const n = { ...s }; delete n[clar.id]; return n; });
+      await reload();
+      await onRefresh();
+    } catch (e) { /* interceptor */ } finally {
+      setClarBusy(null);
     }
   };
 
@@ -450,6 +598,82 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         </div>
       )}
 
+      {/* VENDOR CLARIFICATIONS — surgical: award stays locked, only the disputed
+          value is revised or upheld; resolving routes the award back through the
+          committee. */}
+      {openClarifications.length > 0 && (
+        <section className="clar-panel">
+          <div className="clar-panel-head">
+            <span className="clar-dot" />
+            <div>
+              <div className="clar-panel-title">
+                {openClarifications.length} vendor clarification{openClarifications.length === 1 ? "" : "s"} need your decision
+              </div>
+              <div className="clar-panel-sub">
+                The award is locked — only the disputed term can change. Revise the value or uphold it; the
+                award then re-routes through the committee and back to the vendor.
+              </div>
+            </div>
+          </div>
+          <div className="clar-list">
+            {openClarifications.map((cl) => {
+              const draft = clarDraft[cl.id] || {};
+              const busy = clarBusy === cl.id;
+              const freeText = CLAR_FREE_TEXT.has(cl.field);
+              return (
+                <div key={cl.id} className="clar-item">
+                  <div className="clar-item-head">
+                    <span className="clar-field-pill">{CLAR_FIELD_LABEL[cl.field] || cl.field}</span>
+                    <span className="clar-line">{cl.variant_name || `Item #${cl.arc_item_id}`}</span>
+                    <span className="clar-vendor">· {cl.vendor_name || `Vendor ${cl.vendor_id}`}</span>
+                  </div>
+                  <div className="clar-quote">
+                    <span className="clar-quote-ic">“</span>
+                    <span className="clar-quote-text">{cl.vendor_comment}</span>
+                  </div>
+                  <div className="clar-row">
+                    <div className="clar-grp">
+                      <label className="clar-lbl">{freeText ? "Revised term" : "Revised value"}</label>
+                      <input
+                        className="clar-input"
+                        type={freeText ? "text" : "number"}
+                        step="any"
+                        placeholder={freeText ? "e.g. Net 30 from GRN" : "New value"}
+                        value={draft.value ?? ""}
+                        onChange={(e) => setClarDraft((s) => ({ ...s, [cl.id]: { ...s[cl.id], value: e.target.value } }))}
+                        disabled={busy || !canEvaluate}
+                      />
+                    </div>
+                    <div className="clar-grp">
+                      <label className="clar-lbl">Note to vendor <span className="clar-lbl-hint">(required to uphold)</span></label>
+                      <input
+                        className="clar-input"
+                        type="text"
+                        placeholder="Reason / response…"
+                        value={draft.response ?? ""}
+                        onChange={(e) => setClarDraft((s) => ({ ...s, [cl.id]: { ...s[cl.id], response: e.target.value } }))}
+                        disabled={busy || !canEvaluate}
+                      />
+                    </div>
+                    <div className="clar-btns">
+                      <button className="btn btn-ghost btn-sm" disabled={busy || !canEvaluate} onClick={() => resolveClar(cl, "uphold")}>
+                        Uphold
+                      </button>
+                      <button className="btn btn-primary btn-sm" disabled={busy || !canEvaluate} onClick={() => resolveClar(cl, "revise")}>
+                        {busy ? "Saving…" : "Revise"}
+                      </button>
+                    </div>
+                  </div>
+                  {!canEvaluate && (
+                    <div className="clar-noperm">Resolving clarifications requires the commercial evaluate permission.</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* METRICS STRIP */}
       <section className="stat-strip">
         <div className="stat-card">
@@ -472,7 +696,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         </div>
         <div className="stat-card">
           <div className="s-ic indigo">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12" /><path d="M6 8h12" /><path d="m6 13 8.5 8" /><path d="M6 13h3" /><path d="M9 13c6.667 0 6.667-10 0-10" /></svg>
           </div>
           <div><div className="s-val mono">{fmtLakh(contractedValue())}</div><div className="s-label">Contracted value</div></div>
         </div>
@@ -503,9 +727,13 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
             <span className="em fs-12">{includeCharges ? "(rate + charges)" : "(rate only)"}</span>
           </label>
           {editable && (
-            <button className="btn btn-sm btn-secondary" onClick={autoPickL1} style={{ marginLeft: 10 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-              Auto-pick L1 everywhere
+            <button className="btn btn-sm btn-secondary" onClick={autoPickL1} disabled={!!savingItem} style={{ marginLeft: 10 }}>
+              {savingItem === "all" ? (
+                <svg className="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              )}
+              {savingItem === "all" ? "Picking L1…" : "Auto-pick L1 everywhere"}
             </button>
           )}
         </div>
@@ -515,7 +743,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       {activeView === "product" && (
         <div className="matrix-wrap">
           <div className="matrix-scroll">
-            <table className="matrix">
+            <table className="matrix comm-matrix">
               <thead>
                 <tr>
                   <th className="col-item">
@@ -524,25 +752,33 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                       <span className="qty-lbl">Indicative qty</span>
                     </div>
                   </th>
-                  {vendors.map((v) => (
-                    <th key={v.vendor_id} className="vendor-head">
-                      <div className="vh-row">
-                        <div className={"v-av " + avClass(v.vendor_id)}>{initialsOf(v.vendor_name)}</div>
-                        <div className="vh-main">
-                          <div className="vh-name-row">
-                            <span className="v-name">{v.vendor_name}</span>
-                            <span className={"v-rank " + (vendorRank(v.vendor_id) === 1 ? "l1" : vendorRank(v.vendor_id) === 2 ? "l2" : "l3")}>
-                              L{vendorRank(v.vendor_id)}
-                            </span>
-                          </div>
-                          <div className="v-total mono">{fmtINR(Math.round(vendorTotal(v.vendor_id)))}</div>
-                          <div className="v-meta">
-                            <span className="vm-item">{v.lines.length} item{v.lines.length === 1 ? "" : "s"} quoted</span>
+                  {vendors.map((v) => {
+                    const rank = vendorRank(v.vendor_id);
+                    const elig = eligibleLines(v).length;
+                    return (
+                      <th key={v.vendor_id} className="vendor-head">
+                        <div className="vh-row">
+                          <div className={"v-av " + avClass(v.vendor_id)}>{initialsOf(v.vendor_name)}</div>
+                          <div className="vh-main">
+                            <div className="vh-name-row">
+                              <span className="v-name">{v.vendor_name}</span>
+                              {rank != null && (
+                                <span className={"v-rank " + (rank === 1 ? "l1" : rank === 2 ? "l2" : "l3")}>L{rank}</span>
+                              )}
+                            </div>
+                            <div className="v-total mono">{fmtINR(Math.round(vendorTotal(v.vendor_id)))}</div>
+                            <div className="v-meta">
+                              <span className="vm-item">
+                                {elig === v.lines.length
+                                  ? `${v.lines.length} item${v.lines.length === 1 ? "" : "s"} quoted`
+                                  : `${elig} of ${v.lines.length} quoted items eligible`}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </th>
-                  ))}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -560,7 +796,10 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                       status={itemStatus(itemId)}
                       vendors={vendors}
                       lineFor={lineFor}
+                      effLineFor={effLineFor}
+                      revisionFor={revisionFor}
                       isL1={isL1}
+                      isQualified={isQualified}
                       landed={(l) => landedRate(l, includeCharges)}
                       includeCharges={includeCharges}
                       allocatedFor={allocatedFor}
@@ -578,12 +817,17 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
               <tfoot>
                 <tr className="lowest-row">
                   <td className="col-item">Indicative total across {items.length} items</td>
-                  {vendors.map((v) => (
-                    <td key={v.vendor_id}>
-                      <span className="t-val">{fmtINR(Math.round(vendorTotal(v.vendor_id)))}</span>
-                      <span className="t-sub">across {items.length} items</span>
-                    </td>
-                  ))}
+                  {vendors.map((v) => {
+                    const elig = eligibleLines(v).length;
+                    return (
+                      <td key={v.vendor_id}>
+                        <span className="t-val">{fmtINR(Math.round(vendorTotal(v.vendor_id)))}</span>
+                        <span className="t-sub">
+                          {elig === items.length ? `across ${items.length} items` : `across ${elig} eligible item${elig === 1 ? "" : "s"}`}
+                        </span>
+                      </td>
+                    );
+                  })}
                 </tr>
               </tfoot>
             </table>
@@ -619,39 +863,45 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                 {vendors
                   .slice()
                   .sort((a, b) => vendorTotal(a.vendor_id) - vendorTotal(b.vendor_id))
-                  .map((v, idx) => (
-                    <tr key={v.vendor_id} className={idx === 0 ? "row-awarded" : "row-pending"}>
-                      <td className="col-item">
-                        <div className="m-item-cell">
-                          <div className="vendor-cell">
-                            <div className={"vc-av " + avClass(v.vendor_id)}>{initialsOf(v.vendor_name)}</div>
-                            <div className="vc-meta">
-                              <div className="vc-name">{v.vendor_name}</div>
-                              <div className="vc-sub">{v.lines.length} items quoted</div>
+                  .map((v) => {
+                    const rank = vendorRank(v.vendor_id);
+                    const elig = eligibleLines(v).length;
+                    return (
+                      <tr key={v.vendor_id} className={rank === 1 ? "row-awarded" : "row-pending"}>
+                        <td className="col-item">
+                          <div className="m-item-cell">
+                            <div className="vendor-cell">
+                              <div className={"vc-av " + avClass(v.vendor_id)}>{initialsOf(v.vendor_name)}</div>
+                              <div className="vc-meta">
+                                <div className="vc-name">{v.vendor_name}</div>
+                                <div className="vc-sub">
+                                  {elig === v.lines.length ? `${v.lines.length} items quoted` : `${elig} of ${v.lines.length} quoted eligible`}
+                                </div>
+                              </div>
                             </div>
+                            <div className="qty-block"><div className="q mono">{rank != null ? `L${rank}` : "—"}</div></div>
                           </div>
-                          <div className="qty-block"><div className="q mono">L{idx + 1}</div></div>
-                        </div>
-                      </td>
-                      <td className="cell">
-                        <div className="price-cell"><span className="mono fw-700">{v.lines.length} / {items.length}</span></div>
-                      </td>
-                      <td className="cell">
-                        <div className="price-cell">
-                          <span className={"price mono" + (idx === 0 ? " text-success" : "")}>
-                            {fmtINR(Math.round(vendorTotal(v.vendor_id)))}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="cell">
-                        <div className="price-cell">
-                          <span className={"pill " + (idx === 0 ? "success" : "neutral")}>
-                            {idx === 0 ? "L1 · ideal candidate" : "Higher cost"}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="cell">
+                          <div className="price-cell"><span className="mono fw-700">{elig} / {items.length}</span></div>
+                        </td>
+                        <td className="cell">
+                          <div className="price-cell">
+                            <span className={"price mono" + (rank === 1 ? " text-success" : "")}>
+                              {fmtINR(Math.round(vendorTotal(v.vendor_id)))}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="cell">
+                          <div className="price-cell">
+                            <span className={"pill " + (rank === 1 ? "success" : "neutral")}>
+                              {rank === 1 ? "L1 · ideal candidate" : rank != null ? "Higher cost" : "Partial basket · per-item only"}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -724,7 +974,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
 // ── ItemRow — one item row + split editor + expanded breakdowns ──────────
 function ItemRow({
   it, itemId, itemName, uom, indicative, isExp, status, vendors,
-  lineFor, isL1, landed, includeCharges, allocatedFor,
+  lineFor, effLineFor, revisionFor, isL1, isQualified, landed, includeCharges, allocatedFor,
   awardCell, unawardCell, setShare, toggleExpand, saving, editable, lockedByApproval,
 }) {
   // Inline share override — { vid, value } while one cell's % is being edited.
@@ -741,9 +991,10 @@ function ItemRow({
   const statusLabel =
     status.kind === "no_quotes" ? "No quotes"
     : status.kind === "awarded"
-      ? (status.splitCount > 1 ? `Split · ${status.splitCount} vendors` : "Awarded") + (lockedByApproval ? " · locked" : "")
+      ? (status.splitCount > 1 ? `Split · ${status.splitCount} vendors` : "Awarded")
     : status.kind === "partial" ? `Partial · ${pctOf(status.allocated)}%`
     : "Pending";
+  const showLock = lockedByApproval && status.kind === "awarded";
 
   return (
     <>
@@ -755,8 +1006,11 @@ function ItemRow({
             </button>
             <div className="meta">
               <div className="name">{itemName}</div>
-              <div className={"m-item-state " + (status.kind === "awarded" ? "awarded" : "pending")}>
+              <div className={"m-item-state " + (status.kind === "awarded" ? "awarded" : "pending")} title={showLock ? "Locked — with the committee" : undefined}>
                 <span>{statusLabel}</span>
+                {showLock && (
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                )}
               </div>
             </div>
             <div className="qty-block">
@@ -774,22 +1028,83 @@ function ItemRow({
               </td>
             );
           }
-          const lan = landed(l);
+          // Effective line overlays any clarification-revised values; the quote
+          // line `l` stays the struck-through original baseline.
+          const eff = (effLineFor && effLineFor(v.vendor_id, itemId)) || l;
+          const ov = eff._ov || null;
+          const rev = revisionFor ? revisionFor(v.vendor_id, itemId) : null;
+          const lan = landed(eff);
+          const qualified = isQualified(v.vendor_id, itemId);
           const l1 = isL1(v.vendor_id, itemId);
           const allocated = allocatedFor(itemId, v.vendor_id);
           const isAwarded = allocated > 0;
           const fullAwarded = isAwarded && Math.abs(allocated - indicative) <= 0.0001;
           const d = deltaVsTarget(lan);
+          if ((!qualified || l.disqualified) && !isAwarded) {
+            // Server redacts these rates — render a locked placeholder so it
+            // is obvious the terms exist but are sealed for this evaluator.
+            return (
+              <td key={v.vendor_id} className="cell cell-dq">
+                <div className="price-cell is-dq">
+                  <div className="p-top">
+                    <span className="price mono dq-blur" aria-hidden="true">₹ ••••</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fg-4)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  </div>
+                  <div className="landed">rates sealed</div>
+                  <span className="dq-chip">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    Not technically qualified
+                  </span>
+                </div>
+              </td>
+            );
+          }
           return (
             <td key={v.vendor_id} className={"cell" + (isAwarded ? " cell-awarded" : l1 ? " cell-l1" : "")}>
               <div className={"price-cell" + (l1 ? " is-l1" : "") + (isAwarded ? " is-awarded" : "")}>
                 <div className="p-top">
-                  <span className="price mono">{fmtINR(lan)}</span>
+                  {ov ? (
+                    <><span className="price mono price-old">{fmtINR(landed(l))}</span><span className="price mono price-new">{fmtINR(lan)}</span></>
+                  ) : (
+                    <span className="price mono">{fmtINR(lan)}</span>
+                  )}
                   {l1 && !isAwarded && <span className="l1-badge">L1</span>}
+                  {rev && rev.length > 0 && (
+                    <span className="rev-info" tabIndex={0} aria-label="Why this changed">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                      <span className="rev-tip" role="tooltip">
+                        <span className="rev-tip-head">Revised by clarification</span>
+                        {rev.map((c) => (
+                          <span key={c.id} className="rev-tip-row">
+                            <span className="rev-tip-label">{CLAR_FIELD_LABEL[c.field] || c.field}</span>
+                            <span className="rev-tip-change">
+                              <span className="rate-old">{fmtClarVal(c.field, c.old_value)}</span> <span className="rev-tip-arrow">→</span> <span className="rate-new">{fmtClarVal(c.field, c.new_value)}</span>
+                            </span>
+                            {c.vendor_comment && <span className="rev-tip-why">Vendor: “{c.vendor_comment}”</span>}
+                            {c.buyer_response && <span className="rev-tip-resp">You: {c.buyer_response}</span>}
+                            <span className="rev-tip-by">{c.resolved_by_name || "Evaluator"}{c.resolved_at ? ` · ${fmtClarDate(c.resolved_at)}` : ""}</span>
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  )}
                 </div>
                 <div className="landed">
-                  rate <span className="mono">{fmtINR(l.rate)}</span>
-                  {includeCharges && (<>{" · chg "}<span className="mono">{fmtINR(l.charges)}</span></>)}
+                  rate{" "}
+                  {ov?.base_price ? (
+                    <><span className="mono rate-old">{fmtINR(ov.base_price.before)}</span>{" "}<span className="mono rate-new">{fmtINR(ov.base_price.after)}</span></>
+                  ) : (
+                    <span className="mono">{fmtINR(l.rate)}</span>
+                  )}
+                  {includeCharges && (
+                    <>{" · chg "}
+                      {ov?.charges ? (
+                        <><span className="mono rate-old">{fmtINR(ov.charges.before)}</span>{" "}<span className="mono rate-new">{fmtINR(ov.charges.after)}</span></>
+                      ) : (
+                        <span className="mono">{fmtINR(l.charges)}</span>
+                      )}
+                    </>
+                  )}
                 </div>
                 {d !== null && (
                   <div className={"delta-target " + (d > 0 ? "up" : "down")}>
@@ -869,30 +1184,33 @@ function ItemRow({
         })}
       </tr>
 
-      {/* Expanded breakdown rows */}
-      {isExp && (
-        <>
-          {[
-            ["GST", (l) => <span className="mono">{toNum(l.gst_pct)}%</span>],
-            ["Charges", (l) => <span className="mono">{fmtINR(l.charges)}</span>],
-            ["Lead time", (l) => (l.lead_time_days != null ? <span className="mono">{l.lead_time_days} d</span> : <span className="bd-dash">—</span>)],
-            ["MOQ", (l) => (l.moq != null ? <span className="mono">{l.moq}</span> : <span className="bd-dash">—</span>)],
-          ].map(([label, render], rowIdx, arr) => (
-            <tr key={label} className={"bd-row" + (rowIdx === arr.length - 1 ? " bd-last" : "")}>
-              <td className="bd-label">{label}</td>
-              {vendors.map((v) => {
-                const l = lineFor(v.vendor_id, itemId);
-                const l1col = l && isL1(v.vendor_id, itemId);
-                return (
-                  <td key={v.vendor_id} className={"bd-cell" + (l1col ? " is-l1col" : "") + (!l ? " muted" : "")}>
-                    {l ? render(l) : <span className="bd-dash">—</span>}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </>
-      )}
+      {/* Expanded quote details — one spacious row per attribute, values
+          aligned under their vendor columns. Sealed / missing lines show
+          a quiet em-dash (the price cell above explains why). */}
+      {isExp && [
+        ["GST", (l) => <><span className="v mono">{toNum(l.gst_pct)}%</span></>],
+        ["Charges", (l) => <span className="v mono">{fmtINR(l.charges)}</span>],
+        ["Lead time", (l) => (l.lead_time_days != null
+          ? <><span className="v mono">{l.lead_time_days}</span><span className="u">days</span></>
+          : <span className="bd-dash">—</span>)],
+        ["MOQ", (l) => (l.moq != null
+          ? <span className="v mono">{Number(l.moq).toLocaleString("en-IN")}</span>
+          : <span className="bd-dash">—</span>)],
+      ].map(([label, render], rowIdx, arr) => (
+        <tr key={label} className={"bd-row" + (rowIdx === arr.length - 1 ? " bd-last" : "")}>
+          <td className="bd-label">{label}</td>
+          {vendors.map((v) => {
+            const l = lineFor(v.vendor_id, itemId);
+            const sealed = !l || l.disqualified;
+            const l1col = !sealed && isL1(v.vendor_id, itemId);
+            return (
+              <td key={v.vendor_id} className={"bd-cell" + (l1col ? " is-l1col" : "") + (sealed ? " muted" : "")}>
+                {sealed ? <span className="bd-dash">—</span> : render(l)}
+              </td>
+            );
+          })}
+        </tr>
+      ))}
     </>
   );
 }

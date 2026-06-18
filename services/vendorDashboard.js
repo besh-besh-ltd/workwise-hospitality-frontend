@@ -35,10 +35,10 @@ export const getVendorInsights = (params) => {
 
 // Status banner hero on /dashboard/vendor. Returns
 // { mode, counts, soonest_closing, weekly, greeting }.
-export const getVendorStatusBanner = () => {
+export const getVendorStatusBanner = (params) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get('/vendor-dashboard/status-banner');
+      const response = await axiosInstance.get('/vendor-dashboard/status-banner', { params });
       resolve(response);
     } catch (error) {
       reject({ message: error?.response?.data?.message || error.message });

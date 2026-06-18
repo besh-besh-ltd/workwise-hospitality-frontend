@@ -27,6 +27,7 @@ import ProcurementSnapshot from "./dashboard-components/ProcurementSnapshot";
 import NegotiationSavings from "./dashboard-components/NegotiationSavings";
 import CostIntelligence from "./dashboard-components/CostIntelligence";
 import CategoryInsights from "./dashboard-components/CategoryInsights";
+import ABCAnalysis from "./dashboard-components/ABCAnalysis";
 import WorkflowEfficiency from "./dashboard-components/WorkflowEfficiency";
 import SmartInsights from "./dashboard-components/SmartInsights";
 
@@ -158,7 +159,17 @@ export const DASHBOARD_WIDGETS = [
     column: COLUMN.RIGHT,
     order: 10,
     label: "Category Insights",
-    description: "Spend by procurement category — donut chart + top 5 table.",
+    description: "Spend by category / sub-category / item — donut chart + table.",
+  },
+  {
+    code: "dashboard.abc_analysis",
+    permission: "abc_analysis",
+    persona: PERSONAS.CROSS_ROLE,
+    component: ABCAnalysis,
+    column: COLUMN.RIGHT,
+    order: 15,
+    label: "ABC Analysis",
+    description: "Pareto A/B/C classification of procured items by value or volume.",
   },
   {
     code: "dashboard.workflow_efficiency",

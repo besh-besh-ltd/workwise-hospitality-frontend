@@ -22,6 +22,7 @@ import TechnicalStage from "@/components/dashboard/rate-contracts/buyer/stages/T
 import CommercialStage from "@/components/dashboard/rate-contracts/buyer/stages/CommercialStage";
 import AwardingStage from "@/components/dashboard/rate-contracts/buyer/stages/AwardingStage";
 import ActiveStage from "@/components/dashboard/rate-contracts/buyer/stages/ActiveStage";
+import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
 
 const STAGE_KEYS = ["overview", "technical", "commercial", "awarding", "active"];
 
@@ -152,58 +153,32 @@ export default function ArcLifecyclePage() {
 
   return (
     <main className="main-body">
-      {/* ── HERO ── */}
-      <section className="arc-hero">
-        <div className="top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="eyebrow">Rate Contract · lifecycle</div>
-            <h1>
-              <span>{arc.title}</span>
-              <span className={`status-chip ${chip.cls}`}>{chip.label}</span>
-              <span className="num">#{arc.arc_number}</span>
-            </h1>
-            <div className="sub">
-              {arc.category_title && (<><span>{arc.category_title}</span><span className="sep">·</span></>)}
-              {arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
-              {arc.department_title && (<><span>{arc.department_title}</span><span className="sep">·</span></>)}
-              <span>
-                Created by <span className="em">{arc.created_by_name || `User #${arc.created_by}`}</span> · {fmtDate(arc.created_at)}
-              </span>
-            </div>
-          </div>
-          <div className="hero-actions">
-            <HeroActions arc={arc} onRefresh={onRefresh} />
-          </div>
-        </div>
-        <div className="hero-detail-grid">
-          <div className="cell">
-            <div className="k">Submission window</div>
-            <div className="v">
-              <span className="em">{fmtDate(arc.submission_start_at)}</span> → <span className="em">{fmtDate(arc.submission_end_at)}</span>
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Contract term</div>
-            <div className="v">
-              <span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span>
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Eligibility</div>
-            <div className="v"><span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span></div>
-          </div>
-          <div className="cell">
-            <div className="k">Lifecycle</div>
-            <div className="v">
-              <span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete
-            </div>
-          </div>
-          <div className="cell">
-            <div className="k">Scope</div>
-            <div className="v"><span className="em">Single-BU</span></div>
-          </div>
-        </div>
-      </section>
+      {/* ── HERO (shared LifecycleHero — same component as the RFQ details page) ── */}
+      <LifecycleHero
+        eyebrow="Rate Contract · lifecycle"
+        title={arc.title}
+        status={{ label: chip.label, tone: chip.cls }}
+        idText={`#${arc.arc_number}`}
+        back={{ label: "Back to rate contracts", href: "/dashboard/buyer/rate-contracts" }}
+        sub={
+          <>
+            {arc.category_title && (<><span>{arc.category_title}</span><span className="sep">·</span></>)}
+            {arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
+            {arc.department_title && (<><span>{arc.department_title}</span><span className="sep">·</span></>)}
+            <span>
+              Created by <span className="em">{arc.created_by_name || `User #${arc.created_by}`}</span> · {fmtDate(arc.created_at)}
+            </span>
+          </>
+        }
+        actions={<HeroActions arc={arc} onRefresh={onRefresh} />}
+        meta={[
+          { label: "Submission window", value: <><span className="em">{fmtDate(arc.submission_start_at)}</span> → <span className="em">{fmtDate(arc.submission_end_at)}</span></> },
+          { label: "Contract term", value: <><span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span></> },
+          { label: "Eligibility", value: <span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span> },
+          { label: "Lifecycle", value: <><span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete</> },
+          { label: "Scope", value: <span className="em">Single-BU</span> },
+        ]}
+      />
 
       {/* ── STAGE RAIL ── */}
       <ArcStageTimeline stages={stages} selectedKey={stage.key} onSelect={select} />
@@ -235,23 +210,16 @@ export default function ArcLifecyclePage() {
   );
 }
 
-// Withdraw / terminate — lifted from the old detail hero.
+// Withdraw — lifted from the old detail hero. (Terminate ARC is not offered in V1.)
 function HeroActions({ arc, onRefresh }) {
   const [busy, setBusy] = useState(false);
   const canWithdraw = ["floated"].includes(arc.status);
-  const canTerminate = ["contract_active", "expiring_soon"].includes(arc.status);
-  if (!canWithdraw && !canTerminate) return null;
+  if (!canWithdraw) return null;
 
   const withdraw = async () => {
     if (!window.confirm("Withdraw this rate contract? Vendors will be notified.")) return;
     setBusy(true);
     try { await ArcApi.withdraw(arc.id); await onRefresh(); } finally { setBusy(false); }
-  };
-  const terminate = async () => {
-    const reason = window.prompt("Termination reason (required):");
-    if (!reason || !reason.trim()) return;
-    setBusy(true);
-    try { await ArcApi.terminate(arc.id, reason.trim()); await onRefresh(); } finally { setBusy(false); }
   };
 
   return (
@@ -260,12 +228,6 @@ function HeroActions({ arc, onRefresh }) {
         <button className="btn" disabled={busy} onClick={withdraw}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
           Withdraw
-        </button>
-      )}
-      {canTerminate && (
-        <button className="btn" disabled={busy} onClick={terminate}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
-          Terminate
         </button>
       )}
     </>

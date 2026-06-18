@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { AlertTriangle, Workflow } from "lucide-react";
 import { getWorkflowEfficiency } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./WorkflowEfficiency.module.scss";
 
 const formatDwellTime = (hours) => {
@@ -46,7 +46,7 @@ const WorkflowEfficiency = ({ filters }) => {
   useEffect(() => {
     setLoading(true);
     fetchData();
-    intervalRef.current = setInterval(fetchData, 20000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);

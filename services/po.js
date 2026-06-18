@@ -138,8 +138,8 @@ export const getPODashboardList = async (params) => {
 };
 
 // GET /po/dashboard/kpis → { activeCount, awaitingYou, awaitingOldestDays,
-//   inTransit, avgDeliveryDays, approvedThisMonth, approvedDeltaPct,
-//   totalValueMTD, totalValueDeltaPct }
+//   inTransit, vendorAccepted, vendorAcceptancePending, avgDeliveryDays,
+//   approvedThisMonth, approvedDeltaPct, totalValueMTD, totalValueDeltaPct }
 export const getPOKpis = async () => {
   const res = await axiosInstance.get(`/po/dashboard/kpis`);
   return res;

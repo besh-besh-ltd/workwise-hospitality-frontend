@@ -1,5 +1,16 @@
 /* NegotiationSavings — inner-content only. Card frame from PersonaCardShell. */
 
+/* Footnote clarifying the exclusion rule (Sr 240). */
+.exclusionNote {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #ebebe6;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #a1a1aa;
+  font-style: italic;
+}
+
 .headlineRow {
   display: flex;
   align-items: center;

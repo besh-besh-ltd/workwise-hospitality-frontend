@@ -233,7 +233,9 @@
   @media (max-width: 460px)  { grid-template-columns: 1fr; }
 }
 
-/* KPI-tile look — soft-blue tint on the highlighted (REVENUE) tile. */
+/* KPI-tile look — context tiles share one subtle deep-green accent (low
+   opacity); the highlighted REVENUE tile gets a prominent green bar + green
+   tint so it stands out as the headline figure (mirrors the buyer snapshot). */
 .perfItem {
   position: relative;
   background: #ffffff;
@@ -251,7 +253,8 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: #d6d6cf;
+    background: #166534;
+    opacity: 0.5; /* subtle for context tiles; REVENUE overrides to 1 */
   }
 
   &:hover {
@@ -260,11 +263,11 @@
   }
 
   &.highlighted {
-    background: #f5f9ff;
-    border-color: rgba(37, 99, 235, 0.22);
+    background: #f1fbf4;
+    border-color: rgba(21, 128, 61, 0.22);
 
-    &::before { background: #2563eb; }
-    .perfLabel { color: #2563eb; }
+    &::before { background: #15803d; opacity: 1; }
+    .perfLabel { color: #15803d; }
     .perfValue { color: #18181b; }
   }
 }

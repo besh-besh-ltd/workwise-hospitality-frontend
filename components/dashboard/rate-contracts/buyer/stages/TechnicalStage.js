@@ -641,8 +641,8 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
 
       {/* EDGE CASE WARNING */}
       {!isComplete && !isSkipped && (
-        <div className="guide warn">
-          <div className="g-ic"><WarnTriIcon /></div>
+        <div className="guide warn" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}><WarnTriIcon /></div>
           <div>
             If zero vendors clear the minimum passing score for an item after all rounds, that item enters{" "}
             <strong>Closed · No-Award</strong>. Items that do qualify proceed to commercial evaluation independently.

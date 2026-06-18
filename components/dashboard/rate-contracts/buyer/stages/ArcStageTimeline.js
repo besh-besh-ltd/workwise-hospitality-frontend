@@ -39,6 +39,13 @@ function describe(stage) {
 
   switch (stage.state) {
     case "complete": {
+      // Awarded-but-disputed: a vendor raised a pre-sign clarification. The
+      // award stays finalized (locked), but flag the node so the evaluator
+      // knows there's a decision waiting here.
+      if (stage.key === "commercial" && stage.reason === "clarification_pending") {
+        const n = Number(stage.clarifications_open) || 0;
+        return { node: "act", icon: I.bolt, tone: "act", text: n > 1 ? `${n} clarifications · decide` : "Clarification · decide" };
+      }
       const text =
         stage.key === "overview" ? "Window closed"
         : stage.key === "technical" ? "Approved"
@@ -52,7 +59,7 @@ function describe(stage) {
     case "locked": {
       const text =
         stage.reason === "window_open" ? "Opens after quotes close"
-        : stage.reason === "technical_incomplete" ? "After Technical"
+        : stage.reason === "technical_incomplete" ? "Awaits technical approval"
         : stage.reason === "commercial_incomplete" ? "After Commercial"
         : "Not reached";
       return { node: "locked", icon: I.lock, text, tone: "dim" };
@@ -126,8 +133,13 @@ export default function ArcStageTimeline({ stages, selectedKey, onSelect }) {
   const journeyEnded = stages.some((s) => s.state === "ended");
 
   // Where the user stands: the LAST in-motion stage (matches default_stage).
+  // Awarding in read-only 'preview' doesn't count — the work is still on
+  // Commercial until finalize.
   let hereIdx = -1;
-  stages.forEach((s, i) => { if (["active", "partial"].includes(s.state)) hereIdx = i; });
+  stages.forEach((s, i) => {
+    if (s.key === "awarding" && s.reason === "preview") return;
+    if (["active", "partial"].includes(s.state)) hereIdx = i;
+  });
   const here = hereIdx >= 0 ? described[hereIdx] : null;
 
   // Journey progress = settled stages (a live contract counts as journey done).

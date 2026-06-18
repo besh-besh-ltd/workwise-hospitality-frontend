@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   Filter,
   Calendar,
+  UserCheck,
 } from "lucide-react";
 import { getPOKpis, getPODashboardList, getPOAwaiting } from "@/services/po";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -211,6 +212,19 @@ const PODashboard = () => {
               ) : (
                 <>nothing overdue</>
               )
+            }
+          />
+          <Kpi
+            label="Vendor acceptance"
+            value={k.vendorAccepted ?? 0}
+            icon={<UserCheck size={13} />}
+            meta={
+              <>
+                accepted ·{" "}
+                <span style={{ color: "var(--warn)", fontWeight: 600 }}>
+                  {k.vendorAcceptancePending ?? 0} pending
+                </span>
+              </>
             }
           />
           <Kpi

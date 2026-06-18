@@ -10,6 +10,7 @@ import ProcurementSnapshot from "./dashboard-components/ProcurementSnapshot";
 import NegotiationSavings from "./dashboard-components/NegotiationSavings";
 import CostIntelligence from "./dashboard-components/CostIntelligence";
 import CategoryInsights from "./dashboard-components/CategoryInsights";
+import ABCAnalysis from "./dashboard-components/ABCAnalysis";
 import WorkflowEfficiency from "./dashboard-components/WorkflowEfficiency";
 import SmartInsights from "./dashboard-components/SmartInsights";
 import EmptyDashboard from "./EmptyDashboard";
@@ -21,10 +22,13 @@ import {
 import { COLUMN } from "./DashboardRegistry";
 import styles from "../buyer/BuyerDashboard.module.scss";
 
+// FYTD is the default per client request (Sr 304): 1 Apr → today. "Custom"
+// reveals an explicit start/end date picker.
 const RANGE_OPTIONS = [
+  { label: "FYTD", value: "fy" },
   { label: "30D", value: "past30days" },
-  { label: "FY", value: "fy" },
   { label: "All", value: "allTime" },
+  { label: "Custom", value: "custom" },
 ];
 
 const getGreeting = () => {
@@ -70,13 +74,27 @@ const BuyerPage = () => {
   const firstName = userProfile?.name?.split(" ")?.[0] || "there";
 
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
-  const [range, setRange] = useState(RANGE_OPTIONS[0].value); // 30D default
+  const [range, setRange] = useState("fy"); // FYTD default (Sr 304)
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const hotelFilterRef = useRef(null);
 
+  // Today (YYYY-MM-DD) — upper bound for the custom date inputs.
+  const todayStr = useMemo(() => moment().format("YYYY-MM-DD"), []);
+
   const filters = useMemo(() => {
-    const { start_date, end_date } = getDateRange(range);
+    let start_date;
+    let end_date;
+    if (range === "custom" && customStart && customEnd) {
+      // Guard against an inverted range (swap if start > end).
+      start_date = customStart <= customEnd ? customStart : customEnd;
+      end_date = customStart <= customEnd ? customEnd : customStart;
+    } else {
+      // "custom" without both dates yet → fall back to FYTD so widgets still load.
+      ({ start_date, end_date } = getDateRange(range === "custom" ? "fy" : range));
+    }
     return {
       hotel_ids: selectedHotelIds.join(","),
       start_date,
@@ -84,7 +102,7 @@ const BuyerPage = () => {
       duration_type: range,
       _refresh: refreshKey,
     };
-  }, [selectedHotelIds, range, refreshKey]);
+  }, [selectedHotelIds, range, customStart, customEnd, refreshKey]);
 
   // Human-readable label for the BU(s) currently in scope — used in the
   // empty-state copy and any toast that needs to reference the user's
@@ -138,6 +156,28 @@ const BuyerPage = () => {
           </div>
           <div className={styles.filterBar}>
             <Seg options={RANGE_OPTIONS} value={range} onChange={setRange} />
+            {range === "custom" && (
+              <div className={styles.customRange}>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={customStart}
+                  max={customEnd || todayStr}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  aria-label="Start date"
+                />
+                <span className={styles.dateSep}>→</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={customEnd}
+                  min={customStart || undefined}
+                  max={todayStr}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  aria-label="End date"
+                />
+              </div>
+            )}
             <div className={styles.filterItem} ref={hotelFilterRef}>
               <HotelFilter
                 selectedHotelIds={selectedHotelIds}
@@ -189,6 +229,7 @@ const LegacyDashboard = ({ filters }) => (
       </div>
       <div className={styles.rightColumn}>
         <CategoryInsights filters={filters} />
+        <ABCAnalysis filters={filters} />
         <WorkflowEfficiency filters={filters} />
         <SmartInsights filters={filters} />
       </div>

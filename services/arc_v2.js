@@ -46,6 +46,8 @@ export const getContractDetail = (id) => axiosInstance.get(`${BASE}/${id}`);
 // states + the caller's per-ARC permissions.
 export const getLifecycle      = (id) => axiosInstance.get(`${BASE}/${id}/lifecycle`);
 export const getActiveSummary  = (id) => axiosInstance.get(`${BASE}/${id}/active-summary`);
+// Contracted vendor's uploaded compliance docs (base64) for the bundle download.
+export const getVendorDocumentsBundle = (contractId) => axiosInstance.get(`${BASE}/contracts/${contractId}/vendor-documents`);
 
 export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);
 export const updateDraft = (id, patch) => axiosInstance.patch(`${BASE}/${id}`, patch);
@@ -94,6 +96,12 @@ export const finalizeCommEval = (arcId) =>
 export const sendBackCommEval = (arcId, reason) =>
   axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/send-back`, { reason });
 
+// Vendor-clarification resolution (commercial evaluator) — scoped field edit.
+export const reviseClarification = (arcId, clarificationId, { value, response }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/clarification/${clarificationId}/revise`, { value, response });
+export const upholdClarification = (arcId, clarificationId, { response }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/clarification/${clarificationId}/uphold`, { response });
+
 // ============================================================
 // Buyer — Committee
 // ============================================================
@@ -120,8 +128,18 @@ export const vendorGetContract           = (id) => axiosInstance.get(`${BASE}/ve
 export const vendorRequestOtp            = (id) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/request`, {});
 export const vendorVerifyOtp             = (id, code) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/verify`, { code });
 export const vendorDeclineContract       = (id, reason) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/decline`, { reason });
+// Raise a pre-signature clarification: items = [{ arc_contract_line_id, field, comment }].
+export const vendorRequestClarification  = (id, items) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/clarification`, { items });
 // All of the vendor's amendment requests across contracts (My Amendments page).
 export const vendorListAmendments        = () => axiosInstance.get(`${BASE}/vendor/amendments`);
+
+// Addendum re-signing — the vendor signs the approved amendment's addendum
+// (sign-to-activate gate) before its effects bind. OTP reuses the contract
+// signature flow, scoped to the addendum id.
+export const vendorListAddendums         = () => axiosInstance.get(`${BASE}/vendor/addendums`);
+export const vendorRequestAddendumOtp    = (id) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/request`, {});
+export const vendorVerifyAddendumOtp     = (id, code) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/verify`, { code });
+export const vendorDeclineAddendum       = (id, reason) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/decline`, { reason });
 
 // Amendments — request + list live now; approve/reject ship with the
 // committee gate (Phase C, still 501).

@@ -5,10 +5,13 @@
 // (buyer contact, performance, status notice).
 // Data: GET /v1/arc-v2/vendor/contracts/:contractId → { contract, lines, arc, callOffs }.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import AddendumSignModal from "@/components/dashboard/rate-contracts/vendor/AddendumSignModal";
+import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 import { useRouter } from "next/router";
+import * as XLSX from "xlsx";
 import * as ArcApi from "@/services/arc_v2";
 
 // ── format helpers ───────────────────────────────────────────────────────
@@ -83,6 +86,10 @@ function amendStatusInfo(am) {
     return { pill: "in review", tone: "warn",
              text: total ? `At approval level ${cur} of ${total}` : "With the buyer for review" };
   }
+  if (am.status === "awaiting_signature") {
+    return { pill: "awaiting signature", tone: "warn",
+             text: "Approved — sign the addendum to apply the new terms" };
+  }
   if (am.status === "approved") {
     return { pill: "approved", tone: "success",
              text: `Approved — effective ${fmtDate(am.amendment_from)}` };
@@ -130,6 +137,7 @@ export default function VendorContractDetailPage() {
   const [tab, setTab] = useState("consumption");
   const [amendSub, setAmendSub] = useState("requested");   // requested | active | past
   const [viewingAmend, setViewingAmend] = useState(null);  // amendment open in the modal
+  const [signingAddendum, setSigningAddendum] = useState(null); // addendum open in the sign modal
 
   // Honour ?tab= deep links (My Amendments rows land straight on this tab).
   useEffect(() => {
@@ -139,6 +147,17 @@ export default function VendorContractDetailPage() {
       setTab(q);
     }
   }, [router.isReady, router.query.tab]);
+
+  const load = async () => {
+    if (!contractId) return;
+    setLoading(true);
+    try {
+      const res = await ArcApi.vendorGetContract(contractId);
+      setData(res?.data ?? res ?? null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!contractId) return;
@@ -156,11 +175,33 @@ export default function VendorContractDetailPage() {
     return () => { cancelled = true; };
   }, [contractId]);
 
+  // Vendor declines the addendum → the amendment is voided (terminal).
+  const declineAddendum = async (am) => {
+    if (!am?.addendum_id) return;
+    const reason = window.prompt("Decline this addendum? The amendment will be voided and nothing on the contract changes. Optional reason:");
+    if (reason === null) return;
+    try { await ArcApi.vendorDeclineAddendum(am.addendum_id, reason || null); setViewingAmend(null); await load(); }
+    catch (e) { window.alert("Could not decline the addendum. Please try again."); }
+  };
+
   const contract   = data?.contract   || null;
   const arc        = data?.arc        || null;
   const lines      = data?.lines      || [];
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+
+  // On first load, land the amendments sub-tab on a non-empty bucket so an
+  // approved-but-unsigned (awaiting_signature) amendment isn't hidden behind
+  // the empty default "Requested" tab.
+  const autoPickedSub = useRef(false);
+  useEffect(() => {
+    if (autoPickedSub.current || amendments.length === 0) return;
+    autoPickedSub.current = true;
+    const nRequested = amendments.filter((a) => a.status === "requested").length;
+    const nActive = amendments.filter((a) => ["awaiting_signature", "approved", "live"].includes(a.status)).length;
+    if (nRequested === 0 && nActive > 0) setAmendSub("active");
+    else if (nRequested === 0 && nActive === 0) setAmendSub("rest");
+  }, [amendments]);
 
   const totals = useMemo(() => {
     const committed = lines.reduce((s, l) => s + Number(l.unit_rate || 0) * Number(l.committed_qty || 0), 0);
@@ -168,6 +209,67 @@ export default function VendorContractDetailPage() {
     const pct = committed > 0 ? Math.round((consumed / committed) * 100) : 0;
     return { committed, consumed, pct };
   }, [lines]);
+
+  // ── downloads (client-side) ──────────────────────────────────────────────
+  const dlAnnexure = () => {
+    if (!contract) return;
+    const rows = lines.map((l, i) => {
+      const amended = l.amendment_id && Number(l.effective_unit_rate) !== Number(l.unit_rate);
+      return {
+        "#": i + 1,
+        Item: l.variant_name || `Item #${l.arc_item_id}`,
+        Code: l.variant_slug || l.arc_item_id,
+        "Unit rate (₹)": Number(l.unit_rate || 0),
+        "Amended rate (₹)": amended ? Number(l.effective_unit_rate) : "",
+        "Amended effective until": amended && l.amendment_effective_to ? fmtDate(l.amendment_effective_to) : "",
+        UOM: l.uom || "",
+        "GST %": Number(l.gst_pct ?? 0),
+        "Committed qty": Number(l.committed_qty || 0),
+        "Payment terms": l.payment_terms || arc?.payment_terms_expected || "Net 30",
+        "Line value (₹)": Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)),
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 13 }, { wch: 14 }, { wch: 20 }, { wch: 8 }, { wch: 7 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rate annexure");
+    XLSX.writeFile(wb, `${arc?.arc_number || contract.arc_number || "ARC"}_rate-annexure.xlsx`);
+  };
+  const dlContractCopy = () => {
+    if (!contract || typeof window === "undefined") return;
+    // Prefer the stored, hashed PDF; fall back to a printable reconstruction.
+    if (contract.document_s3_url) { window.open(contract.document_s3_url, "_blank"); return; }
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const linesHtml = lines.map((l) => `<tr>
+        <td>${l.variant_name || ""}<div class="sub">${l.variant_slug || l.arc_item_id}</div></td>
+        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${l.uom || ""}</td>
+        <td class="r mono">${Number(l.gst_pct ?? 0)}%</td>
+        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${l.uom || ""}</td>
+        <td class="r mono">₹${Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)).toLocaleString("en-IN")}</td>
+      </tr>`).join("");
+    const signed = contract.status === "active" || contract.signed_by_vendor_at;
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${arc?.arc_number || ""}</title>
+      <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;}
+      h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:20px;}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e2e2dd;border-radius:8px;overflow:hidden;margin-bottom:18px;} .grid>div{padding:12px 16px;} .grid>div:first-child{border-right:1px solid #e2e2dd;}
+      .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8a8a85;font-weight:600;} .v{margin-top:5px;font-size:13px;font-weight:500;}
+      table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;} th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left;} th{background:#fafaf8;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a8a85;} .r{text-align:right;} .mono{font-family:ui-monospace,monospace;} .sub{font-size:10px;color:#9a9a95;}
+      .seal{font-size:11px;color:#6b6b66;margin-top:22px;border-top:1px dashed #d6d6d0;padding-top:10px;}</style></head>
+      <body>
+      <h1>Rate Contract — ${arc?.title || ""}</h1>
+      <div class="meta">${arc?.arc_number || ""} · ${contract.vendor_name || ""} · ${signed ? "Signed " + fmtDate(contract.signed_by_vendor_at) : "Unsigned draft"}</div>
+      <div class="grid">
+        <div><div class="k">Buyer</div><div class="v">${arc?.hotel_name || ""}${arc?.hotel_city ? " · " + arc.hotel_city : ""}</div></div>
+        <div><div class="k">Term</div><div class="v">${fmtDate(arc?.contract_start_at)} → ${fmtDate(arc?.contract_end_at)}</div></div>
+      </div>
+      <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
+      <div class="seal">Signed-document hash (SHA-256): ${contract.document_hash || "—"}</div>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+  };
 
   if (loading) return <DetailSkeleton />;
   if (!contract) {
@@ -233,7 +335,7 @@ export default function VendorContractDetailPage() {
                 Request amendment
               </Link>
             )}
-            <button className="btn cta">
+            <button className="btn cta" onClick={dlContractCopy}>
               <I.download /> Download PDF
             </button>
           </div>
@@ -324,6 +426,8 @@ export default function VendorContractDetailPage() {
                     <tbody>
                       {lines.map((l) => {
                         const rate = Number(l.unit_rate || 0);
+                        const effRate = Number(l.effective_unit_rate ?? l.unit_rate ?? 0);
+                        const amended = l.amendment_id && effRate !== rate;
                         const uomL = l.uom || "unit";
                         const committed = Number(l.committed_qty || 0);
                         const consumed = Number(l.consumed_qty || 0);
@@ -344,7 +448,18 @@ export default function VendorContractDetailPage() {
                               <div className="mono" style={{ marginTop: 2, fontSize: 10.5, color: "var(--fg-4)" }}>{l.variant_slug || l.arc_item_id}</div>
                             </td>
                             <td className="right">
-                              {fmt(rate)}<span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}> / {uomL}</span>
+                              {amended ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                  <span className="mono fw-700" style={{ color: "var(--warn)" }}>{fmt(effRate)}</span>
+                                  <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}>/ {uomL}</span>
+                                  <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-4)", textDecoration: "line-through" }}>{fmt(rate)}</span>
+                                  <AmendmentTooltip line={l} uom={uomL} />
+                                </span>
+                              ) : (
+                                <>
+                                  {fmt(rate)}<span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 10.5, color: "var(--fg-3)" }}> / {uomL}</span>
+                                </>
+                              )}
                               <div style={{ marginTop: 2, fontSize: 10.5, color: "var(--fg-4)", fontWeight: 500 }}>+{Number(l.gst_pct || 0)}% GST</div>
                             </td>
                             <td className="right"><QtyMoney qty={committed} money /></td>
@@ -442,7 +557,8 @@ export default function VendorContractDetailPage() {
                 </div>
                 <div className="h-right">
                   <span className="pill success"><span className="pdot" />e-signed</span>
-                  <button className="btn btn-secondary btn-sm"><I.download /> Download</button>
+                  <button className="btn btn-secondary btn-sm" onClick={dlAnnexure}><I.download /> Rate annexure (.xlsx)</button>
+                  <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>
                 </div>
               </div>
               <div className="section-body">
@@ -676,12 +792,29 @@ export default function VendorContractDetailPage() {
         </aside>
       </div>
 
-      {viewingAmend && (
+      {/* One modal at a time: hide the amendment modal while the sign overlay
+          is up; cancelling the sign overlay brings the amendment modal back. */}
+      {viewingAmend && !signingAddendum && (
         <VendorAmendmentModal
           amendment={viewingAmend}
           arc={arc}
           lines={lines}
           onClose={() => setViewingAmend(null)}
+          onSign={(am) => setSigningAddendum({
+            id: am.addendum_id,
+            addendum_number: am.addendum_number,
+            amendment_type: am.amendment_type,
+            arc_number: arc?.arc_number,
+          })}
+          onDecline={declineAddendum}
+        />
+      )}
+
+      {signingAddendum && (
+        <AddendumSignModal
+          addendum={signingAddendum}
+          onClose={() => setSigningAddendum(null)}
+          onDone={async () => { setSigningAddendum(null); setViewingAmend(null); await load(); }}
         />
       )}
     </main>
@@ -696,7 +829,8 @@ export default function VendorContractDetailPage() {
 // ──────────────────────────────────────────────────────────────────────────
 function VendorAmendmentsTab({ amendments, lines, arc, contract, contractId, sub, setSub, onOpen }) {
   const requested = amendments.filter((a) => a.status === "requested");
-  const active    = amendments.filter((a) => a.status === "approved" || a.status === "live");
+  // 'awaiting_signature' = buyer-approved, pending the vendor's addendum re-sign.
+  const active    = amendments.filter((a) => a.status === "awaiting_signature" || a.status === "approved" || a.status === "live");
   const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended" || a.status === "voided");
   const list = sub === "requested" ? requested : sub === "active" ? active : rest;
   const canRequest = contract.status === "active" || contract.status === "expiring_soon";
@@ -826,8 +960,9 @@ function VendorAmendmentModal(props) {
   return createPortal(<VendorAmendmentModalInner {...props} />, document.body);
 }
 
-function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
+function VendorAmendmentModalInner({ amendment, arc, lines, onClose, onSign, onDecline }) {
   const am = amendment;
+  const needsSign = am.status === "awaiting_signature" && am.addendum_id;
   const target = am.payload?.arc_contract_line_id
     ? lines.find((l) => String(l.id) === String(am.payload.arc_contract_line_id))
     : null;
@@ -952,6 +1087,9 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
                   {isPending && (
                     <><strong>In review.</strong> {info.text}. You'll be notified the moment the buyer decides — no action is needed from you.</>
                   )}
+                  {am.status === "awaiting_signature" && (
+                    <><strong>Approved — your signature is required.</strong> Click <strong>Sign addendum</strong> below to seal the addendum and apply the new terms. Until you sign, the original terms stay in effect. You can also <strong>Decline</strong> to void this change.</>
+                  )}
                   {am.status === "approved" && (
                     <><strong>Approved.</strong> The change takes effect for call-offs raised from <strong>{fmtDate(am.amendment_from)}</strong>.</>
                   )}
@@ -1053,9 +1191,16 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose }) {
         {/* ── Footer ── */}
         <div className="modal-foot" style={{ justifyContent: "space-between" }}>
           <button className="btn btn-ghost" onClick={onClose}>Close</button>
-          <div className="help-text" style={{ margin: 0 }}>
-            {info.text || <>Amendment is <strong>{am.status}</strong>.</>}
-          </div>
+          {needsSign ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => onDecline && onDecline(am)}>Decline</button>
+              <button className="btn btn-blue" onClick={() => onSign && onSign(am)}>Sign addendum</button>
+            </div>
+          ) : (
+            <div className="help-text" style={{ margin: 0 }}>
+              {info.text || <>Amendment is <strong>{am.status}</strong>.</>}
+            </div>
+          )}
         </div>
       </div>
     </div>

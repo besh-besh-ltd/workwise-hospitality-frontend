@@ -27,8 +27,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
+import * as XLSX from "xlsx";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import * as ArcApi from "@/services/arc_v2";
 import { StageReadOnlyBanner } from "./StageShared";
+import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 
 // Translate raw tbl_arc_event_log rows into plain language with a tone.
 // Tones: success (milestones moving forward), info (neutral progress),
@@ -45,6 +49,13 @@ function describeAuditEvent(e, vendorNameById = {}) {
     case "tech_eval_submitted": return { tone: "info",    title: "Technical evaluation submitted for approval" };
     case "tech_eval_approved":  return { tone: "success", title: "Technical evaluation approved", detail: "Qualified vendors moved to commercial evaluation" };
     case "tech_eval_rejected":  return { tone: "warn",    title: "Technical evaluation rejected", detail: "Sent back for re-evaluation" };
+    case "comm_eval_opened":    return { tone: "info",    title: "Commercial evaluation opened", detail: "Buyer began allocating awards across vendors" };
+    case "comm_eval_allocation_updated": {
+      const item = p.item_name || (p.item_id ? `item #${p.item_id}` : "an item");
+      return { tone: "info", title: <>Award allocation updated for <span className="em">{item}</span></>, detail: p.vendor_count != null ? `Split across ${p.vendor_count} vendor${Number(p.vendor_count) === 1 ? "" : "s"}` : null };
+    }
+    case "contract_otp_requested": return { tone: "info", title: <><span className="em">{vname(p.vendor_id)}</span> requested a signing OTP</> };
+    case "contract_signed":     return { tone: "success", title: <><span className="em">{vname(p.vendor_id)}</span> signed the contract</>, detail: "Signature verified via OTP" };
     case "comm_eval_finalized": return { tone: "info",    title: "Commercial evaluation finalised", detail: "Award proposal locked and routed to committee" };
     case "committee_opened":    return { tone: "info",    title: "Committee review started" };
     case "committee_sent_back": return { tone: "warn",    title: "Committee sent the proposal back", detail: "Commercial evaluation reopened for re-allocation" };
@@ -71,6 +82,23 @@ function describeAuditEvent(e, vendorNameById = {}) {
     default:
       return { tone: "info", title: String(e.event_type || "").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) };
   }
+}
+
+// Collapse consecutive same-type events (the noisy allocation-update churn
+// especially) into a single expandable group so the trail stays readable —
+// one entry that opens to reveal every individual edit underneath.
+const GROUPABLE = new Set(["comm_eval_allocation_updated", "contract_otp_requested"]);
+function groupAuditEvents(events) {
+  const out = [];
+  for (const e of events) {
+    const last = out[out.length - 1];
+    if (last && last.event_type === e.event_type && GROUPABLE.has(e.event_type)) {
+      last.children.push(e);
+    } else {
+      out.push({ event_type: e.event_type, head: e, children: [e] });
+    }
+  }
+  return out;
 }
 
 // Is the given user one of the approvers on the amendment's CURRENT step?
@@ -170,7 +198,7 @@ function pctTone(pct) {
 // ──────────────────────────────────────────────────────────────────────────
 //  Tiny inline icons (kept inline so the stage has no extra import cost)
 // ──────────────────────────────────────────────────────────────────────────
-const Icon = ({ size = 13, sw = 2, children }) => (
+const Icon = ({ size = 16, sw = 2, children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
 );
 const I = {
@@ -215,6 +243,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
   const [withTaxes, setWithTaxes] = useState(false);        // #253 toggle
   const [docFilter, setDocFilter] = useState({ vendor: "", product: "", subCat: "" });
   const [downloadOpenFor, setDownloadOpenFor] = useState(null); // contract id
+  const [expandedAudit, setExpandedAudit] = useState({});       // grouped-event id → open
   const dlMenuRef = useRef(null);
   // Amendments tab
   const [amendSub, setAmendSub]       = useState("requested");  // "active" | "requested"
@@ -258,6 +287,13 @@ export default function ActiveStage({ arc: arcProp, stage }) {
   const events     = data?.events     || [];
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+  const addendums  = data?.addendums  || [];
+  // Addenda grouped per contract for the documents tab (original + addenda).
+  const addendaByContract = useMemo(() => {
+    const m = {};
+    addendums.forEach((a) => { (m[a.arc_contract_id] = m[a.arc_contract_id] || []).push(a); });
+    return m;
+  }, [addendums]);
 
   const isEnded = stage?.state === "ended";
 
@@ -267,6 +303,40 @@ export default function ActiveStage({ arc: arcProp, stage }) {
     contracts.forEach(({ contract }) => { map[Number(contract.vendor_id)] = contract.vendor_name; });
     return map;
   }, [contracts]);
+
+  // arc_item_id → product name, for enriching allocation-update audit rows.
+  const itemNameById = useMemo(() => {
+    const map = {};
+    contracts.forEach(({ consumption }) => (consumption || []).forEach((l) => {
+      if (l.arc_item_id) map[Number(l.arc_item_id)] = l.variant_name || `item #${l.arc_item_id}`;
+    }));
+    return map;
+  }, [contracts]);
+
+  // Per-vendor signature state — the single source of truth for who has
+  // signed. A contract is signed once it reaches 'active' (verifyOtp seals it).
+  const isSigned = (contract) => contract?.status === "active" || !!contract?.signed_by_vendor_at;
+  const vendorSignedById = useMemo(() => {
+    const m = {};
+    contracts.forEach(({ contract }) => { m[Number(contract.vendor_id)] = contract?.status === "active" || !!contract?.signed_by_vendor_at; });
+    return m;
+  }, [contracts]);
+  const signTally = useMemo(() => {
+    const signed = contracts.filter(({ contract }) => isSigned(contract)).length;
+    const pending = contracts.filter(({ contract }) => !isSigned(contract)).map(({ contract }) => contract.vendor_name || `Vendor #${contract.vendor_id}`);
+    return { total: contracts.length, signed, pending, allSigned: contracts.length > 0 && pending.length === 0 };
+  }, [contracts]);
+
+  // Audit trail with the noisy allocation churn collapsed into groups.
+  const groupedEvents = useMemo(() => {
+    const enriched = events.map((e) => {
+      if (e.event_type === "comm_eval_allocation_updated" && e.payload?.item_id && !e.payload.item_name) {
+        return { ...e, payload: { ...e.payload, item_name: itemNameById[Number(e.payload.item_id)] } };
+      }
+      return e;
+    });
+    return groupAuditEvents(enriched);
+  }, [events, itemNameById]);
 
   // arc_contract_line_id → count of OPEN (requested) amendments. Drives the
   // "N amendments open" chip on the matching item × vendor consumption cell.
@@ -295,6 +365,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         const remaining = Number(ln.remaining_qty != null ? ln.remaining_qty : Math.max(0, committed - consumed));
         const pct = Number(ln.pct_used != null ? ln.pct_used : committed ? (consumed / committed) * 100 : 0);
         const { bp, frt } = extractBpFrt(ln);
+        // Live amendment overlay (from consumptionForContract): the effective
+        // rate a call-off released today would use. cl.unit_rate stays the
+        // committed baseline; effective_unit_rate is the amended rate.
+        const effectiveRate = Number(ln.effective_unit_rate ?? rate);
+        const amended = !!ln.amendment_id && effectiveRate !== rate;
         // Awarded rate per unit = Basic Price + Freight. This is the unit
         // value the client wants reflected in every ₹ figure (#258, #259):
         // values must "include all the charges" before tax.
@@ -308,6 +383,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         out.push({
           ...ln,
           rate, gst, committed, consumed, remaining, pct, bp, frt,
+          effectiveRate, amended,
           awardedRate,
           lineBase, lineTax, lineTotal,
           consumedBase, consumedTax, consumedTotal,
@@ -474,7 +550,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
     if (docFilter.subCat && (l.sub_category_title || "") !== docFilter.subCat) return false;
     return true;
   };
-  const filteredDocs = byVendor
+  // Only SIGNED vendors have a finalised contract document — unsigned ones
+  // show as "pending signature" instead of a downloadable document.
+  const signedVendors = byVendor.filter((b) => isSigned(b.contract) || isEnded);
+  const pendingDocVendors = byVendor.filter((b) => !isSigned(b.contract) && !isEnded);
+  const filteredDocs = signedVendors
     .filter((b) => {
       if (docFilter.vendor && String(docFilter.vendor) !== String(b.vendorId)) return false;
       return b.lines.some(docLineMatch);
@@ -483,6 +563,106 @@ export default function ActiveStage({ arc: arcProp, stage }) {
     // L1-first ordering by mean per-item rank — a vendor who is L1 on most
     // of their items floats to the top even if they slip on one line.
     .sort((a, b) => (vendorAvgRank[a.vendorId] ?? 99) - (vendorAvgRank[b.vendorId] ?? 99));
+
+  // ── downloads (client-side, no backend round-trip) ──────────────────────
+  const dlAnnexure = (b) => {
+    const rows = (b.docLines || b.lines).map((ln, i) => ({
+      "#": i + 1,
+      Item: ln.variant_name || `Item #${ln.arc_item_id}`,
+      Code: ln.variant_slug || ln.arc_item_id,
+      "Basic price (₹)": Number(ln.bp || 0),
+      "Freight (₹)": Number(ln.frt || 0),
+      "Awarded rate (₹)": Number((ln.bp || 0) + (ln.frt || 0)),
+      "Amended rate (₹)": ln.amended ? Number(ln.effectiveRate) : "",
+      "Amended effective until": ln.amended && ln.amendment_effective_to ? fmtDate(ln.amendment_effective_to) : "",
+      UOM: ln.uom || "",
+      "GST %": Number(ln.gst ?? ln.gst_pct ?? 0),
+      "Committed qty": Number(ln.committed || 0),
+      "Payment terms": ln.payment_terms || "Net 30",
+      "Line value (₹)": Math.round(Number(ln.lineBase || 0)),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 }, { wch: 14 }, { wch: 20 }, { wch: 6 }, { wch: 7 }, { wch: 14 }, { wch: 16 }, { wch: 15 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rate annexure");
+    XLSX.writeFile(wb, `${arc.arc_number || "ARC"}_${b.vendor.short}_rate-annexure.xlsx`);
+    setDownloadOpenFor(null);
+  };
+  const dlContractCopy = (b) => {
+    // Prefer the actual stored PDF (its SHA-256 is the integrity source of
+    // truth); fall back to a printable reconstruction if it isn't generated.
+    if (b.contract?.document_s3_url) {
+      window.open(b.contract.document_s3_url, "_blank");
+      setDownloadOpenFor(null);
+      return;
+    }
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const linesHtml = (b.docLines || b.lines).map((ln) => `<tr>
+        <td>${ln.variant_name || ""}<div class="mono sub">${ln.variant_slug || ln.arc_item_id}</div></td>
+        <td class="r mono">₹${Number((ln.bp || 0) + (ln.frt || 0)).toLocaleString("en-IN")}/${ln.uom || ""}</td>
+        <td class="r mono">${Number(ln.gst ?? ln.gst_pct ?? 0)}%</td>
+        <td class="r mono">${Number(ln.committed || 0).toLocaleString("en-IN")} ${ln.uom || ""}</td>
+        <td class="r">${ln.payment_terms || "Net 30"}</td>
+        <td class="r mono">₹${Math.round(Number(ln.lineBase || 0)).toLocaleString("en-IN")}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${arc.arc_number} · ${b.vendor.name}</title>
+      <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;}
+      h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:20px;}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e2e2dd;border-radius:8px;overflow:hidden;margin-bottom:18px;}
+      .grid>div{padding:12px 16px;} .grid>div:first-child{border-right:1px solid #e2e2dd;}
+      .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#8a8a85;font-weight:600;} .v{margin-top:5px;font-size:13px;font-weight:500;}
+      table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;} th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left;}
+      th{background:#fafaf8;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a8a85;} .r{text-align:right;} .mono{font-family:ui-monospace,monospace;} .sub{font-size:10px;color:#9a9a95;}
+      .sig{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:16px;} .sigbox{border:1px solid #e2e2dd;border-radius:8px;padding:14px 16px;}
+      .seal{font-size:11px;color:#6b6b66;margin-top:18px;border-top:1px dashed #d6d6d0;padding-top:10px;}</style></head>
+      <body>
+      <h1>Rate Contract — ${arc.title || ""}</h1>
+      <div class="meta">${arc.arc_number || ""} · ${b.vendor.name} · ${b.contract.signed_by_vendor_at ? "Signed " + fmtDate(b.contract.signed_by_vendor_at) : "Awaiting signature"}</div>
+      <div class="grid">
+        <div><div class="k">Buyer</div><div class="v">${arc.hotel_name || ""}${arc.hotel_city ? " · " + arc.hotel_city : ""}</div></div>
+        <div><div class="k">Term</div><div class="v">${fmtDate(arc.contract_start_at)} → ${fmtDate(arc.contract_end_at)}</div></div>
+      </div>
+      <table><thead><tr><th>Item</th><th class="r">Awarded rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Payment</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
+      <div class="sig">
+        <div class="sigbox"><div class="k">For buyer</div><div class="v">${arc.buyer_name || "Procurement Lead"}</div></div>
+        <div class="sigbox"><div class="k">For vendor — signed via OTP</div><div class="v">${b.vendor.name}</div></div>
+      </div>
+      <div class="seal">Signed-document hash (SHA-256): ${b.contract.document_hash || "—"}</div>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+    setDownloadOpenFor(null);
+  };
+  // Fetch the contracted vendor's uploaded compliance documents (GST, PAN,
+  // cancelled cheque, MSME, FSSAI) — proxied + base64'd by the backend to skip
+  // S3 CORS — and download them as one zip.
+  const dlVendorBundle = async (b) => {
+    setDownloadOpenFor(null);
+    setToast("Preparing vendor documents…");
+    try {
+      const res = await ArcApi.getVendorDocumentsBundle(b.contract.id);
+      const data = res?.data || res || {};
+      const ok = (data.files || []).filter((f) => f.content_base64 && !f.error);
+      if (!ok.length) {
+        setToast("No documents on file for this vendor");
+        setTimeout(() => setToast(""), 4500);
+        return;
+      }
+      const zip = new JSZip();
+      ok.forEach((f) => zip.file(f.filename, f.content_base64, { base64: true }));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const vname = (data.vendor_name || b.vendor?.name || "vendor").replace(/[^a-zA-Z0-9_-]+/g, "_");
+      saveAs(blob, `${vname}_documents.zip`);
+      const failed = (data.files || []).length - ok.length;
+      setToast(failed > 0 ? `Downloaded ${ok.length} document(s) · ${failed} unavailable` : `Downloaded ${ok.length} document(s)`);
+      setTimeout(() => setToast(""), 4500);
+    } catch (e) {
+      setToast("Couldn't fetch vendor documents");
+      setTimeout(() => setToast(""), 4500);
+    }
+  };
 
   // ── Render ────────────────────────────────────────────────────────────
   if (loading) return <ActiveSkeleton />;
@@ -506,6 +686,19 @@ export default function ActiveStage({ arc: arcProp, stage }) {
           Everything below is the final, read-only record: consumption, call-off POs, signed
           documents, amendments and the full audit trail.
         </StageReadOnlyBanner>
+      )}
+
+      {/* ═════ SIGNING-PROGRESS BANNER — until every vendor has signed ═════ */}
+      {!isEnded && signTally.total > 0 && !signTally.allSigned && (
+        <div className="guide warn" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+          </div>
+          <div>
+            <strong>{signTally.signed} of {signTally.total} vendor contract{signTally.total === 1 ? "" : "s"} signed.</strong>{" "}
+            Awaiting signature from <strong>{signTally.pending.join(", ")}</strong> — their rates stay sealed and call-offs can't be raised against their lines until they sign.
+          </div>
+        </div>
       )}
 
       {/* ═════ KPI STRIP ═════ */}
@@ -590,6 +783,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                           </th>
                           {vendorColumns.map((v) => {
                             const pct = v.total ? Math.round((v.consumed / v.total) * 100) : 0;
+                            const vSigned = !!vendorSignedById[v.vendorId];
                             return (
                               <th key={v.vendorId} className="cons-vendor-head">
                                 <div className="cvh-row">
@@ -597,9 +791,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                                   <div className="cvh-main">
                                     <div className="cvh-name">
                                       <span>{v.vendor.short}</span>
-                                      <span className="cvh-active"><I.check /> {isEnded ? "Ended" : "Active"}</span>
+                                      {isEnded ? <span className="cvh-active"><I.check /> Ended</span>
+                                        : vSigned ? <span className="cvh-active"><I.check /> Signed</span>
+                                        : <span className="cvh-wait"><I.clock /> Awaiting sign</span>}
                                     </div>
-                                    <div className="cvh-total">{fmtL(v.total)}</div>
+                                    <div className="cvh-total">{vSigned || isEnded ? fmtL(v.total) : "—"}</div>
                                     <div className="cvh-meta">
                                       <span>{v.items.length} item{v.items.length === 1 ? "" : "s"}</span>
                                     </div>
@@ -649,13 +845,35 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                                   {vendorColumns.map((v) => {
                                     const ln = lineFor(row.itemId, v.vendorId);
                                     if (!ln) return <td key={v.vendorId} className="cons-cell"><div className="cons-content not-awarded">— not awarded —</div></td>;
+                                    if (!vendorSignedById[v.vendorId] && !isEnded) {
+                                      return (
+                                        <td key={v.vendorId} className="cons-cell">
+                                          <div className="cons-content cons-sealed">
+                                            <span className="cc-rate dq-blur" aria-hidden="true">₹ ••••</span>
+                                            <span className="cons-seal-chip">
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                                              Rates sealed · pending signature
+                                            </span>
+                                          </div>
+                                        </td>
+                                      );
+                                    }
                                     const bal = balanceState(ln);
                                     const rmDisplay = (bal.tone === "excess" ? "−" : bal.tone === "shortfall" ? "+" : "") + Math.abs(bal.delta).toLocaleString("en-IN");
                                     return (
                                       <td key={v.vendorId} className="cons-cell">
                                         <div className={`cons-content ${ln.pct >= 100 ? "danger" : ln.pct >= 75 ? "warn" : "ok"}`}>
                                           <div className="cc-top">
-                                            <span className="cc-rate success">{fmt(ln.rate)}</span>
+                                            {ln.amended ? (
+                                              <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                                                <span className="cc-rate" style={{ color: "var(--warn)", fontWeight: 700 }}>{fmt(ln.effectiveRate)}</span>
+                                                <span style={{ fontSize: 10, color: "var(--fg-4)", textDecoration: "line-through" }}>{fmt(ln.rate)}</span>
+                                                <span style={{ fontSize: 9.5, fontWeight: 700, color: "#a16207", background: "rgba(234,179,8,0.16)", padding: "1px 6px", borderRadius: 999 }}>amended</span>
+                                                <AmendmentTooltip line={ln} uom={ln.uom} />
+                                              </span>
+                                            ) : (
+                                              <span className="cc-rate success">{fmt(ln.rate)}</span>
+                                            )}
                                             <span className="cc-awarded-badge"><I.check /> Awarded</span>
                                             {itemRankByVendor[`${ln.arc_item_id}:${v.vendorId}`] && (
                                               <span className={`lrank-chip l${Math.min(itemRankByVendor[`${ln.arc_item_id}:${v.vendorId}`], 3)}`} title="Commercial rank for this item (by landed rate)">
@@ -752,21 +970,29 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                 <div>
                   {byVendor.map((block) => {
                     const pct = block.total ? Math.round((block.consumed / block.total) * 100) : 0;
+                    const vSigned = isSigned(block.contract) || isEnded;
                     return (
                       <div key={block.vendorId} className="sub-block">
                         <div className="ven-head">
                           <div className={`vh-av ${block.vendor.avClass}`}>{block.vendor.initials}</div>
                           <div className="vh-meta">
-                            <div className="vh-name">{block.vendor.name}</div>
-                            <div className="vh-sub">{block.vendor.email || "—"} · GSTIN <span className="mono">{block.vendor.gstin}</span></div>
+                            <div className="vh-name">{block.vendor.name}
+                              {!vSigned && <span className="sign-wait-pill" style={{ marginLeft: 8 }}><I.clock /> Awaiting sign</span>}
+                            </div>
+                            <div className="vh-sub">{block.vendor.email || "—"}</div>
                           </div>
                           <div className="vh-stats">
-                            <div><div className="vh-s-k">Projected</div><div className="vh-s-v">{fmtL(block.total)}</div></div>
-                            <div><div className="vh-s-k">Consumed</div><div className="vh-s-v">{fmtL(block.consumed)}</div></div>
-                            <div><div className="vh-s-k">Drawn</div><div className={`vh-s-v ${pctTone(pct)}`}>{pct}%</div></div>
+                            <div><div className="vh-s-k">Projected</div><div className="vh-s-v">{vSigned ? fmtL(block.total) : "—"}</div></div>
+                            <div><div className="vh-s-k">Consumed</div><div className="vh-s-v">{vSigned ? fmtL(block.consumed) : "—"}</div></div>
+                            <div><div className="vh-s-k">Drawn</div><div className={`vh-s-v ${pctTone(pct)}`}>{vSigned ? `${pct}%` : "—"}</div></div>
                           </div>
                         </div>
-                        {block.lines.map((line) => {
+                        {!vSigned ? (
+                          <div className="vendor-sealed-note">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                            Rates &amp; quantities are sealed until <strong>{block.vendor.short}</strong> signs the contract.
+                          </div>
+                        ) : block.lines.map((line) => {
                           const bal = balanceState(line);
                           const itemName = line.variant_name || "Item";
                           const rmDisplay = (bal.tone === "excess" ? "−" : bal.tone === "shortfall" ? "+" : "") + Math.abs(bal.delta).toLocaleString("en-IN");
@@ -842,7 +1068,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                 </div>
                 {!isEnded && (
                   <div className="h-right">
-                    <button className="btn btn-sm btn-blue"><I.callOff /> Release new call-off</button>
+                    <button className="btn btn-sm btn-blue" onClick={() => router.push("/dashboard/buyer/material-requisitions/create")}><I.callOff /> Create new MR</button>
                   </div>
                 )}
               </div>
@@ -851,7 +1077,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                   <div className="empty-state">
                     <div className="ic"><I.callOff /></div>
                     <h2>No call-off POs yet</h2>
-                    <p>{isEnded ? "No call-offs were released against this contract." : "Release the first call-off against this contract using the button above."}</p>
+                    <p>{isEnded ? "No call-offs were released against this contract." : "Create a material requisition (MR) to draw against this contract using the button above."}</p>
                   </div>
                 ) : (
                   <>
@@ -898,14 +1124,25 @@ export default function ActiveStage({ arc: arcProp, stage }) {
           {/* ═════ CONTRACT DOCUMENT ═════ */}
           {tab === "doc" && (
             <>
-              <div className="guide" style={{ marginBottom: 14 }}>
+              <div className="guide">
                 <div className="g-ic"><I.info /></div>
-                <div>The contract document is generated <strong>per vendor</strong>. Each awarded vendor receives their own signed document with their item lines, rates, and compliance attachments.</div>
+                <div>The contract document is finalised <strong>per vendor on signature</strong>. Only signed vendors&apos; documents are available to download — a vendor still pending signature has no final document yet.</div>
               </div>
+
+              {pendingDocVendors.length > 0 && (
+                <div className="guide warn" style={{ alignItems: "center" }}>
+                  <div className="g-ic" style={{ marginTop: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                  </div>
+                  <div>
+                    Awaiting signature: <strong>{pendingDocVendors.map((b) => b.vendor.name).join(", ")}</strong>. Their contract document will appear here once they sign with OTP.
+                  </div>
+                </div>
+              )}
 
               {/* Filter row — #266: product / sub-category / vendor, all
                   selectable. Docs sort L1-first below. */}
-              <div className="section-card" style={{ marginBottom: 14 }}>
+              <div className="section-card">
                 <div className="section-head" style={{ padding: "10px 14px" }}>
                   <div className="h-left" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <span className="text-fg-3 fs-12" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><I.filter /> Filter</span>
@@ -918,8 +1155,8 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       {docSubCatOptions.map((sc) => (<option key={sc} value={sc}>{sc}</option>))}
                     </select>
                     <select className="select" value={docFilter.vendor} onChange={(e) => setDocFilter((d) => ({ ...d, vendor: e.target.value }))} style={{ width: 200, padding: "6px 10px", fontSize: 12.5 }}>
-                      <option value="">All vendors</option>
-                      {byVendor.map((b) => (<option key={b.vendorId} value={b.vendorId}>{b.vendor.name}</option>))}
+                      <option value="">All signed vendors</option>
+                      {signedVendors.map((b) => (<option key={b.vendorId} value={b.vendorId}>{b.vendor.name}</option>))}
                     </select>
                     {(docFilter.product || docFilter.subCat || docFilter.vendor) && (
                       <button className="btn btn-ghost btn-sm" onClick={() => setDocFilter({ vendor: "", product: "", subCat: "" })}>Clear</button>
@@ -931,11 +1168,18 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                 </div>
               </div>
 
-              {filteredDocs.length === 0 && (
+              {filteredDocs.length === 0 && signedVendors.length > 0 && (
                 <div className="empty-state">
                   <div className="ic"><I.file /></div>
                   <h2>No matching documents</h2>
                   <p>Clear the filters or pick a different combination.</p>
+                </div>
+              )}
+              {signedVendors.length === 0 && (
+                <div className="empty-state">
+                  <div className="ic"><I.file /></div>
+                  <h2>No signed documents yet</h2>
+                  <p>Documents appear here as each awarded vendor signs their contract with OTP.</p>
                 </div>
               )}
 
@@ -961,10 +1205,10 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                           <I.download /> Download <I.chevron />
                         </button>
                         {dlOpen && (
-                          <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 240, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: 10, boxShadow: "var(--shadow-md)", padding: 6, zIndex: 30 }}>
-                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }}><I.download /> Signed contract copy</button>
-                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }}><I.download /> Approved rate annexure (.xlsx)</button>
-                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }}><I.download /> Vendor documents bundle</button>
+                          <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: 250, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: 10, boxShadow: "var(--shadow-md)", padding: 6, zIndex: 30 }}>
+                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }} onClick={() => dlContractCopy(b)}><I.download /> Signed contract copy (print / PDF)</button>
+                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }} onClick={() => dlAnnexure(b)}><I.download /> Approved rate annexure (.xlsx)</button>
+                            <button className="btn btn-ghost btn-sm" style={{ width: "100%", justifyContent: "flex-start", color: "var(--fg)" }} onClick={() => dlVendorBundle(b)}><I.download /> Vendor documents bundle</button>
                           </div>
                         )}
                       </div>
@@ -973,7 +1217,8 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                         <div style={{ padding: "14px 18px", borderRight: "1px solid var(--border)", background: "var(--surface)" }}>
                           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Buyer</div>
-                          <div style={{ marginTop: 6, fontSize: 13.5, color: "var(--fg)", fontWeight: 500 }}>{arc.hotel_name || "—"}{arc.hotel_city ? <> · {arc.hotel_city}</> : null}</div>
+                          <div style={{ marginTop: 6, fontSize: 13.5, color: "var(--fg)", fontWeight: 500 }}>{arc.company_name || arc.hotel_name || "—"}{arc.hotel_name && arc.company_name ? <> · {arc.hotel_name}</> : null}</div>
+                          <div style={{ marginTop: 3, fontSize: 11.5, color: "var(--fg-3)" }}>POC: <span style={{ color: "var(--fg-2)", fontWeight: 500 }}>{arc.buyer_name || "Procurement Lead"}</span>{arc.buyer_designation ? ` · ${arc.buyer_designation}` : ""}</div>
                         </div>
                         <div style={{ padding: "14px 18px", background: "var(--surface)" }}>
                           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Term</div>
@@ -1018,8 +1263,8 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                         <div className="sig-block">
                           <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600, marginBottom: 8 }}>Buyer signed</div>
-                          <div className="sig-name">—</div>
-                          <div className="sig-meta">On <span className="mono">—</span></div>
+                          <div className="sig-name">{arc.buyer_name || "Procurement Lead"}</div>
+                          <div className="sig-meta">e-signed on committee approval · <span className="mono">{fmtDate(b.contract.generated_at || arc.committee_approved_at || arc.updated_at)}</span></div>
                         </div>
                         <div className="sig-block">
                           <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600, marginBottom: 8 }}>Vendor signed via OTP</div>
@@ -1030,6 +1275,33 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <div style={{ marginTop: 10, padding: "10px 13px", background: "var(--surface-2)", border: "1px dashed var(--border)", borderRadius: 8, fontSize: 11.5, color: "var(--fg-3)" }}>
                         Signed-document hash: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{b.contract.document_hash || "n/a"}</span>
                       </div>
+
+                      {/* Addenda — per-amendment re-signed documents. Never
+                          overwrite the original above; listed as supplements. */}
+                      {(addendaByContract[b.contract.id] || []).length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600, marginBottom: 8 }}>Addenda</div>
+                          {(addendaByContract[b.contract.id] || []).map((ad) => {
+                            const tone = ad.status === "signed"
+                              ? { bg: "rgba(16,185,129,0.12)", fg: "var(--success)", label: `Signed ${fmtDate(ad.signed_by_vendor_at)}` }
+                              : ad.status === "awaiting_signature"
+                                ? { bg: "rgba(234,179,8,0.16)", fg: "#a16207", label: "Awaiting vendor signature" }
+                                : { bg: "var(--surface-2)", fg: "var(--fg-3)", label: "Voided" };
+                            return (
+                              <div key={ad.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 13px", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 8 }}>
+                                <div>
+                                  <div style={{ fontWeight: 600, color: "var(--fg)", fontSize: 12.5 }}>Addendum No. {ad.addendum_number} <span style={{ color: "var(--fg-3)", fontWeight: 500 }}>· {ad.amendment_type}</span></div>
+                                  <div style={{ fontSize: 11, color: "var(--fg-4)", marginTop: 2 }}>SHA-256: <span className="mono">{ad.document_hash || "—"}</span></div>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: tone.fg, background: tone.bg, padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>{tone.label}</span>
+                                  {ad.document_s3_url && <a className="btn btn-ghost btn-sm" href={ad.document_s3_url} target="_blank" rel="noreferrer"><I.download /> PDF</a>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1048,24 +1320,64 @@ export default function ActiveStage({ arc: arcProp, stage }) {
               </div>
               <div className="section-body">
                 <div className="audit-tl">
-                  {events.length === 0 && <div className="empty-state"><h2>No events yet</h2></div>}
-                  {events.map((e) => {
+                  {groupedEvents.length === 0 && <div className="empty-state"><h2>No events yet</h2></div>}
+                  {groupedEvents.map((g) => {
+                    const e = g.head;
                     const d = describeAuditEvent(e, vendorNameById);
-                    const icon =
-                      d.tone === "success" ? <Icon size={11} sw={2.6}><polyline points="20 6 9 17 4 12" /></Icon>
-                      : d.tone === "danger" ? <Icon size={11} sw={2.4}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>
-                      : d.tone === "warn" ? <Icon size={11} sw={2.2}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></Icon>
+                    const tone = d.tone;
+                    const ToneIcon = ({ t }) =>
+                      t === "success" ? <Icon size={11} sw={2.6}><polyline points="20 6 9 17 4 12" /></Icon>
+                      : t === "danger" ? <Icon size={11} sw={2.4}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>
+                      : t === "warn" ? <Icon size={11} sw={2.2}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></Icon>
                       : <Icon size={11} sw={2.4}><circle cx="12" cy="12" r="1.5" /></Icon>;
+                    const grouped = g.children.length > 1;
+                    const open = !!expandedAudit[e.id];
+
+                    if (!grouped) {
+                      return (
+                        <div key={e.id} className="audit-tl-row">
+                          <div className={`tl-ic ${tone}`}><ToneIcon t={tone} /></div>
+                          <div className="tl-main">
+                            <div className="tl-title">{d.title}</div>
+                            {(d.detail || e.actor_name) && (
+                              <div className="tl-detail">
+                                {d.detail}{d.detail && e.actor_name ? " · " : ""}{e.actor_name ? <>by {e.actor_name}</> : null}
+                              </div>
+                            )}
+                          </div>
+                          <div className="tl-time">{fmtDate(e.at)}</div>
+                        </div>
+                      );
+                    }
+
+                    // Grouped: a single collapsible entry for repeated edits.
+                    const label = e.event_type === "comm_eval_allocation_updated" ? "Award allocations updated"
+                      : e.event_type === "contract_otp_requested" ? "Signing OTP requested"
+                      : (d.title || "Updates");
                     return (
-                      <div key={e.id} className="audit-tl-row">
-                        <div className={`tl-ic ${d.tone}`}>{icon}</div>
+                      <div key={e.id} className="audit-tl-row is-group">
+                        <div className={`tl-ic ${tone}`}><ToneIcon t={tone} /></div>
                         <div className="tl-main">
-                          <div className="tl-title">{d.title}</div>
-                          {(d.detail || e.actor_name) && (
-                            <div className="tl-detail">
-                              {d.detail}
-                              {d.detail && e.actor_name ? " · " : ""}
-                              {e.actor_name ? <>by {e.actor_name}</> : null}
+                          <button type="button" className="tl-group-head" onClick={() => setExpandedAudit((s) => ({ ...s, [e.id]: !s[e.id] }))}>
+                            <span className="tl-title">{label} <span className="tl-count">{g.children.length}×</span></span>
+                            <svg className={"tl-chev" + (open ? " is-open" : "")} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                          </button>
+                          <div className="tl-detail">
+                            {e.actor_name ? <>by {e.actor_name} · </> : null}
+                            {fmtDate(g.children[g.children.length - 1].at)} → {fmtDate(e.at)}
+                          </div>
+                          {open && (
+                            <div className="tl-children">
+                              {g.children.map((c) => {
+                                const cd = describeAuditEvent(c, vendorNameById);
+                                return (
+                                  <div key={c.id} className="tl-child">
+                                    <span className="tl-child-dot" />
+                                    <span className="tl-child-main">{cd.title}{cd.detail ? <span className="tl-child-detail"> · {cd.detail}</span> : null}</span>
+                                    <span className="tl-child-time">{fmtDate(c.at)}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -1120,16 +1432,30 @@ export default function ActiveStage({ arc: arcProp, stage }) {
               </div>
             </div>
             <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {byVendor.map((b) => (
-                <div key={b.vendorId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div className={`va-chip ${b.vendor.avClass}`}>{b.vendor.initials}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", lineHeight: 1.2 }}>{b.vendor.short}</div>
-                    <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>{b.lines.length} item{b.lines.length === 1 ? "" : "s"} · <span className="mono">{fmtL(b.total)}</span></div>
+              {byVendor.map((b) => {
+                const signed = isSigned(b.contract);
+                return (
+                  <div key={b.vendorId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className={`va-chip ${b.vendor.avClass}`}>{b.vendor.initials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", lineHeight: 1.2 }}>{b.vendor.short}</div>
+                      <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
+                        {b.lines.length} item{b.lines.length === 1 ? "" : "s"} · <span className="mono">{fmtL(b.total)}</span>
+                      </div>
+                      {signed && b.contract.signed_by_vendor_at && (
+                        <div style={{ fontSize: 11, color: "var(--fg-4)", marginTop: 2 }}>signed {fmtDate(b.contract.signed_by_vendor_at)}</div>
+                      )}
+                    </div>
+                    {isEnded ? (
+                      <span className="balance-pill shortfall" style={{ flexShrink: 0 }}><I.check /> Ended</span>
+                    ) : signed ? (
+                      <span className="balance-pill on-track" style={{ flexShrink: 0 }}><I.check /> Signed</span>
+                    ) : (
+                      <span className="sign-wait-pill" style={{ flexShrink: 0 }}><I.clock /> Awaiting sign</span>
+                    )}
                   </div>
-                  <span className={`balance-pill ${isEnded ? "shortfall" : "on-track"}`} style={{ flexShrink: 0 }}><I.check /> {isEnded ? "Ended" : "Active"}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </aside>
@@ -1199,10 +1525,18 @@ export default function ActiveStage({ arc: arcProp, stage }) {
 //    · Active    — approved/live amendments currently overlaying contract terms
 //  Click any row to open the ReviewAmendmentModal.
 // ──────────────────────────────────────────────────────────────────────────
+// Human label for an amendment status pill (awaiting_signature → readable).
+function amStatusLabel(s) {
+  if (s === "awaiting_signature") return "awaiting signature";
+  if (s === "voided") return "voided";
+  return s;
+}
+
 function AmendmentsTab({ arc, amendments, allLines, me, sub, setSub, onReview }) {
   const requested = amendments.filter((a) => a.status === "requested");
-  const active    = amendments.filter((a) => a.status === "approved" || a.status === "live");
-  const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended");
+  // 'awaiting_signature' = approved, pending the vendor's addendum re-sign.
+  const active    = amendments.filter((a) => a.status === "approved" || a.status === "awaiting_signature" || a.status === "live");
+  const rest      = amendments.filter((a) => a.status === "rejected" || a.status === "ended" || a.status === "voided");
   const list = sub === "requested" ? requested : sub === "active" ? active : rest;
 
   return (
@@ -1254,7 +1588,7 @@ function AmendmentRow({ am, arc, allLines, me, onClick }) {
   const stepIdx = Math.max(0, (Number(am.current_step) || 1) - 1);
   const currentStep = chain[stepIdx] || null;
   const myTurn = isCurrentApprover(am, me);
-  const statusTone = am.status === "requested" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
+  const statusTone = am.status === "requested" || am.status === "awaiting_signature" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
 
   // What changed — headline + the original→proposed delta in one glance.
   const itemLabel = target ? target.variant_name
@@ -1291,7 +1625,7 @@ function AmendmentRow({ am, arc, allLines, me, onClick }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 7 }}>
           <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--fg-3)" }}>AMD-{am.id}</span>
           <span className="pill" style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>{am.amendment_type.replace("_", " ")}</span>
-          <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{am.status}</span>
+          <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{amStatusLabel(am.status)}</span>
           {myTurn && <span className="your-action" style={{ fontSize: 10, padding: "2px 9px" }}>Your approval needed</span>}
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)", lineHeight: 1.35, display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
@@ -1417,7 +1751,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
     onSubmit({ decision, comment: comment.trim() || null, edit });
   }
 
-  const statusTone = isPending ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
+  const statusTone = isPending || am.status === "awaiting_signature" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
   const pctChange = (() => {
     if (am.amendment_type !== "price" || !target || !am.payload?.new_rate) return null;
     const cur = Number(target.rate);
@@ -1448,7 +1782,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
             <div className="t" style={{ flexWrap: "wrap", gap: 8 }}>
               <h3>Review amendment <span className="mono" style={{ color: "var(--fg-3)", fontWeight: 600 }}>AMD-{am.id}</span></h3>
               <span className="pill" style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>{AMENDMENT_TYPE_LABEL[am.amendment_type] || am.amendment_type}</span>
-              <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{am.status}</span>
+              <span className={`status-pill ${statusTone}`} style={{ fontSize: 10.5 }}><span className="dot" />{amStatusLabel(am.status)}</span>
             </div>
             <div className="sub">
               Vendor <strong style={{ color: "var(--fg)" }}>{am.vendor_name || am.requested_by_name || `User #${am.requested_by}`}</strong>
@@ -1718,7 +2052,7 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
               View only — waiting on <strong>{(chain[stepIdx]?.approver_names || []).join(", ") || `step ${stepIdx + 1}`}</strong>.
             </div>
           ) : (
-            <div className="help-text" style={{ margin: 0 }}>No further actions — amendment is <strong>{am.status}</strong>.</div>
+            <div className="help-text" style={{ margin: 0 }}>No further actions — amendment is <strong>{amStatusLabel(am.status)}</strong>.</div>
           )}
         </div>
       </div>

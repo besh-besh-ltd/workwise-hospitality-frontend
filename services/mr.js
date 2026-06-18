@@ -7,9 +7,12 @@ import axiosInstance from "@/lib/axios";
 
 const BASE = "/mr";
 
-// Listing + dashboard counts.
+// Listing + dashboard counts + full analytics.
 export const listMrs = (params = {}) => axiosInstance.get(`${BASE}`, { params });
 export const getDashboardKpis = (params = {}) => axiosInstance.get(`${BASE}/kpis`, { params });
+export const getAnalytics = (params = {}) => axiosInstance.get(`${BASE}/analytics`, { params });
+// Resolved MR approval chain for a scope (drives the create-page routing preview).
+export const getApprovalPreview = (params = {}) => axiosInstance.get(`${BASE}/approval-preview`, { params });
 
 // Contracted-item picker (drives the MR-create wizard).
 export const searchContractedItems = ({ hotel_id, department_id, q = null, limit = 25 } = {}) =>

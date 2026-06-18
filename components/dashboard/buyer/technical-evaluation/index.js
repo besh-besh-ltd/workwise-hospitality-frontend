@@ -26,32 +26,37 @@ import { Tooltip } from "react-tooltip";
 
 
 
-const BuyerTechnicalEvaluation = () => {
+// `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
+// page, locked to one RFQ: the RFQ-list sidebar, the page chrome and the RFQ
+// hero are all suppressed, and the id comes from the prop instead of the URL.
+const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
+  const [rfq_id, setRfqId] = useState((isEmbedded ? rfqIdProp : router.query.rfq_id) || null);
   const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
 
-  // Sync rfq_id from URL on initial load / browser back-forward
+  // Sync rfq_id from the URL (standalone) or the rfqId prop (embedded) on
+  // initial load / browser back-forward / parent change.
   useEffect(() => {
-    const queryRfqId = router.query.rfq_id || null;
-    if (queryRfqId && queryRfqId !== rfq_id) {
-      setRfqId(queryRfqId);
+    const next = (isEmbedded ? rfqIdProp : router.query.rfq_id) || null;
+    if (next && next !== rfq_id) {
+      setRfqId(next);
     }
-  }, [router.query.rfq_id]);
+  }, [router.query.rfq_id, rfqIdProp, isEmbedded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle sidebar RFQ click — update state + URL silently (no route events)
   const handleRfqSelect = (id) => {
     const newId = String(id);
     if (newId === String(rfq_id)) return; // Already selected
     setRfqId(newId);
-    // Update URL without triggering route events
+    // Update URL without triggering route events (standalone page only)
+    if (isEmbedded) return;
     const url = `/dashboard/buyer/technical-evaluation?rfq_id=${newId}`;
     window.history.replaceState({ ...window.history.state, url, as: url }, '', url);
   };
@@ -183,6 +188,7 @@ const BuyerTechnicalEvaluation = () => {
 
   const filtersInitialized = useRef(false);
   useEffect(() => {
+    if (isEmbedded) return; // no RFQ-list sidebar when embedded
     // Skip the first run — mount useEffect already fetches the list
     if (!filtersInitialized.current) {
       filtersInitialized.current = true;
@@ -547,9 +553,10 @@ const BuyerTechnicalEvaluation = () => {
 
   useEffect(() => {
     getUserDetails();
+    if (isEmbedded) return; // RFQ-list sidebar + hotel filters are standalone-only
     getTechEvaluationRFQsByUser();
     fetchUserHotelMappings();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stage 1: Fetch RFQ metadata when rfq_id changes
   useEffect(() => {
@@ -664,16 +671,7 @@ const BuyerTechnicalEvaluation = () => {
   const commentHasContent =
     currentRfq?.comment && currentRfq.comment.replace(/<[^>]*>/g, "").trim() !== "";
 
-  return (
-    <>
-      <TwoPanelPage
-        title="Technical Evaluation"
-        subtitle="Review vendor submissions against technical clauses."
-        sidebar={techEvalSidebar}
-        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
-        mobileSidebarOpen={sidebarOpen}
-        mobileToggleLabel="Select RFQ"
-      >
+  const evalBody = (
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Inline loader - shows inside content area while loading/verifying */}
@@ -720,8 +718,8 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* RFQ Header Card */}
-                {!isContentLoading && !isAccessDenied && currentRfq && (
+                {/* RFQ Header Card — hidden when embedded (host page shows it) */}
+                {!isEmbedded && !isContentLoading && !isAccessDenied && currentRfq && (
                   <div className={styles.rfqHeader}>
                     {/* Hero Strip */}
                     <div className={styles.rfqHero}>
@@ -1053,7 +1051,24 @@ const BuyerTechnicalEvaluation = () => {
                   </>
                 </div>}
               </div>
-      </TwoPanelPage>
+  );
+
+  return (
+    <>
+      {isEmbedded ? (
+        <div className="te-embedded-body">{evalBody}</div>
+      ) : (
+        <TwoPanelPage
+          title="Technical Evaluation"
+          subtitle="Review vendor submissions against technical clauses."
+          sidebar={techEvalSidebar}
+          onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+          mobileSidebarOpen={sidebarOpen}
+          mobileToggleLabel="Select RFQ"
+        >
+          {evalBody}
+        </TwoPanelPage>
+      )}
       <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
       <RfqTermsModal
         open={showTncModal}

@@ -34,69 +34,70 @@ const greetingFor = (hour) => {
 };
 
 /**
- * Build the narrative paragraph from counts as an array of fragments.
- * Each fragment is either plain text or a highlight with an optional
- * `target` (link or modal) so the renderer can hook up the click.
+ * Build the narrative as TWO lines of fragments — { primary, secondary }.
+ * Line 1 (primary) carries the main situational message; line 2 (secondary)
+ * carries the "you also have N approvals…" follow-up. Each fragment is plain
+ * text or a highlight with an optional `target` (link or modal).
  */
+const approvalsFragment = (n) => ({
+  text: `${n} approval${n > 1 ? "s" : ""}`,
+  highlight: true,
+  target: TARGET.APPROVALS,
+});
+const poFragment = (n) => ({
+  text: `${n} PO${n > 1 ? "s" : ""}`,
+  highlight: true,
+  target: TARGET.PO_VENDOR_PENDING,
+});
+
 const buildNarrative = (data, mode) => {
   const c = data?.counts || {};
   const w = data?.weekly || {};
   const close = data?.soonest_closing;
 
   if (mode === "critical") {
-    const parts = [];
+    const primary = [];
     if (c.closed_no_quotes > 0) {
-      parts.push({ text: "Heads up — " });
-      parts.push({
+      primary.push({ text: "Heads up — " });
+      primary.push({
         text: `${c.closed_no_quotes} RFQ${c.closed_no_quotes > 1 ? "s" : ""} ended without quotes`,
         highlight: true,
         target: TARGET.CLOSED_NO_QUOTES,
       });
-      parts.push({ text: ". Vendors aren't responding; consider re-issuing or closing them out. " });
+      primary.push({ text: ". Vendors aren't responding; consider re-issuing or closing them out." });
+    } else {
+      primary.push({ text: "A few items need your attention." });
     }
+    const secondary = [];
     if (c.pending_approvals > 0) {
-      parts.push({ text: "You also have " });
-      parts.push({
-        text: `${c.pending_approvals} approval${c.pending_approvals > 1 ? "s" : ""}`,
-        highlight: true,
-        target: TARGET.APPROVALS,
-      });
-      parts.push({ text: " waiting on you." });
+      secondary.push({ text: "You also have " }, approvalsFragment(c.pending_approvals), { text: " waiting on you." });
     }
-    return parts;
+    return { primary, secondary };
   }
 
   if (mode === "action_needed") {
-    const parts = [];
+    const closingParts = [];
     if (c.closing_soon > 0) {
-      parts.push({
+      closingParts.push({
         text: `${c.closing_soon} RFQ${c.closing_soon > 1 ? "s" : ""} close${c.closing_soon === 1 ? "s" : ""} within 24 hours`,
         highlight: true,
         target: TARGET.CLOSING_SOON,
       });
-      if (close?.title) parts.push({ text: ` — earliest is ${close.title}. ` });
-      else parts.push({ text: ". " });
+      closingParts.push({ text: close?.title ? ` — earliest is ${close.title}.` : "." });
+      closingParts.push({ text: " Work the urgent ones first — the rest can wait." });
     }
+    const followUp = [];
     if (c.pending_approvals > 0) {
-      parts.push({ text: "You have " });
-      parts.push({
-        text: `${c.pending_approvals} approval${c.pending_approvals > 1 ? "s" : ""}`,
-        highlight: true,
-        target: TARGET.APPROVALS,
-      });
-      parts.push({ text: " on your plate" });
+      followUp.push({ text: "You have " }, approvalsFragment(c.pending_approvals), { text: " on your plate" });
     }
     if (c.po_acceptance_pending > 0) {
-      parts.push({ text: " and " });
-      parts.push({
-        text: `${c.po_acceptance_pending} PO${c.po_acceptance_pending > 1 ? "s" : ""}`,
-        highlight: true,
-        target: TARGET.PO_VENDOR_PENDING,
-      });
-      parts.push({ text: " waiting on vendor acceptance" });
+      followUp.push({ text: followUp.length ? " and " : "You have " }, poFragment(c.po_acceptance_pending), { text: " awaiting vendor acceptance" });
     }
-    parts.push({ text: ". Work the urgent ones first — the rest can wait." });
-    return parts;
+    if (followUp.length) followUp.push({ text: "." });
+
+    // If there's no closing-soon line, promote the follow-up to the primary line.
+    if (!closingParts.length) return { primary: followUp, secondary: [] };
+    return { primary: closingParts, secondary: followUp };
   }
 
   if (mode === "steady") {
@@ -104,64 +105,48 @@ const buildNarrative = (data, mode) => {
       (c.pending_approvals || 0) +
       (c.quote_compare_ready || 0) +
       (c.po_acceptance_pending || 0);
-    const parts = [
+    const primary = [
       { text: "You have " },
       { text: `${total} thing${total === 1 ? "" : "s"}`, highlight: true },
-      { text: " on your plate today" },
+      { text: " on your plate today." },
     ];
     const fragments = [];
     if (c.pending_approvals > 0) {
-      fragments.push({
-        text: `${c.pending_approvals} approval${c.pending_approvals > 1 ? "s" : ""} pending`,
-        highlight: true,
-        target: TARGET.APPROVALS,
-      });
+      fragments.push({ text: `${c.pending_approvals} approval${c.pending_approvals > 1 ? "s" : ""} pending`, highlight: true, target: TARGET.APPROVALS });
     }
     if (c.quote_compare_ready > 0) {
-      fragments.push({
-        text: `${c.quote_compare_ready} quote${c.quote_compare_ready > 1 ? "s" : ""} ready to compare`,
-        highlight: true,
-        target: TARGET.QUOTE_COMPARE,
-      });
+      fragments.push({ text: `${c.quote_compare_ready} quote${c.quote_compare_ready > 1 ? "s" : ""} ready to compare`, highlight: true, target: TARGET.QUOTE_COMPARE });
     }
     if (c.po_acceptance_pending > 0) {
-      fragments.push({
-        text: `${c.po_acceptance_pending} PO${c.po_acceptance_pending > 1 ? "s" : ""} awaiting vendor`,
-        highlight: true,
-        target: TARGET.PO_VENDOR_PENDING,
-      });
+      fragments.push({ text: `${c.po_acceptance_pending} PO${c.po_acceptance_pending > 1 ? "s" : ""} awaiting vendor`, highlight: true, target: TARGET.PO_VENDOR_PENDING });
     }
-    if (fragments.length > 0) {
-      parts.push({ text: " — " });
-      fragments.forEach((f, i) => {
-        if (i > 0) parts.push({ text: ", " });
-        parts.push(f);
-      });
-    }
-    parts.push({ text: ". Nothing urgent; pick what to tackle first." });
-    return parts;
+    const secondary = [];
+    fragments.forEach((f, i) => {
+      if (i > 0) secondary.push({ text: ", " });
+      secondary.push(f);
+    });
+    if (secondary.length) secondary.push({ text: ". Nothing urgent; pick what to tackle first." });
+    else secondary.push({ text: "Nothing urgent right now." });
+    return { primary, secondary };
   }
 
   // clear
-  const parts = [{ text: "All caught up — no items need you right now." }];
+  const primary = [{ text: "All caught up — no items need you right now." }];
+  const secondary = [];
   if (w.rfqs_published > 0) {
-    parts.push({ text: " You published " });
-    parts.push({
-      text: `${w.rfqs_published} RFQ${w.rfqs_published === 1 ? "" : "s"}`,
-      highlight: true,
-      target: TARGET.WEEKLY_PUBLISHED,
-    });
-    parts.push({ text: " this week" });
+    secondary.push({ text: "You published " });
+    secondary.push({ text: `${w.rfqs_published} RFQ${w.rfqs_published === 1 ? "" : "s"}`, highlight: true, target: TARGET.WEEKLY_PUBLISHED });
+    secondary.push({ text: " in this period" });
     if (w.savings_pct > 0) {
-      parts.push({ text: " with " });
-      parts.push({ text: `${w.savings_pct}% savings`, highlight: true });
-      parts.push({ text: " from negotiation" });
+      secondary.push({ text: " with " });
+      secondary.push({ text: `${w.savings_pct}% savings`, highlight: true });
+      secondary.push({ text: " from negotiation" });
     }
-    parts.push({ text: "." });
+    secondary.push({ text: "." });
   } else {
-    parts.push({ text: " Start a new RFQ when you're ready." });
+    secondary.push({ text: "Start a new RFQ when you're ready." });
   }
-  return parts;
+  return { primary, secondary };
 };
 
 const BuyerStatusBanner = ({ hotelIds, filters }) => {
@@ -171,12 +156,15 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
   const [refreshTick, setRefreshTick] = useState(0);
   const [openModal, setOpenModal] = useState(null); // null | 'approvals'
 
-  // Fetch on mount + whenever the BU filter or refresh tick changes.
+  // Fetch on mount + whenever the BU filter, date range, or refresh changes.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const params = hotelIds && hotelIds.length ? { hotel_ids: hotelIds.join(",") } : {};
+    const params = {};
+    if (hotelIds && hotelIds.length) params.hotel_ids = hotelIds.join(",");
+    if (filters?.start_date) params.start_date = filters.start_date;
+    if (filters?.end_date) params.end_date = filters.end_date;
     getBuyerStatusBanner(params)
       .then((res) => {
         if (cancelled) return;
@@ -193,7 +181,7 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
     return () => {
       cancelled = true;
     };
-  }, [hotelIds?.join(","), refreshTick]);
+  }, [hotelIds?.join(","), filters?.start_date, filters?.end_date, refreshTick]);
 
   const handleRefresh = useCallback(() => {
     setRefreshTick((n) => n + 1);
@@ -218,7 +206,7 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
 
   const mode = data.mode || "clear";
   const theme = MODE_THEME[mode] || MODE_THEME.clear;
-  const fragments = buildNarrative(data, mode);
+  const { primary, secondary } = buildNarrative(data, mode);
   const name = data.greeting?.first_name;
 
   // Render one fragment — plain span, link, or button depending on target.
@@ -281,7 +269,10 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
           {greetText}{name ? `, ${name}` : ""}.
         </h2>
 
-        <p className={styles.narrative}>{fragments.map(renderFragment)}</p>
+        <p className={styles.narrative}>{primary.map(renderFragment)}</p>
+        {secondary && secondary.length > 0 && (
+          <p className={styles.narrativeSecondary}>{secondary.map(renderFragment)}</p>
+        )}
       </div>
 
       {openModal === "approvals" && (

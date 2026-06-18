@@ -23,12 +23,6 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   // Background + page padding come from DashboardShell's main/content now.
   font-family: $font-body;
 }
-
-.pageInner {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
 // ---------- Header ----------
 
 .header {

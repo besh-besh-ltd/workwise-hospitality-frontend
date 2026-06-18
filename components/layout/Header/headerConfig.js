@@ -50,16 +50,16 @@ export const roleMenus = {
   ],
   buyer: [
     { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", section: null },
-    { href: "/dashboard/buyer/start-rfq", label: "Create RFQ", targetMenu: "nav", section: "RFQs" },
-    { href: "/dashboard/buyer/rfq-management", label: "Management", targetMenu: "nav", section: "RFQs" },
-    { href: "/dashboard/buyer/technical-evaluation", label: "Technical", targetMenu: "nav", section: "RFQs" },
-    // { href: "/dashboard/buyer/quote-compare", label: "Commercial", targetMenu: "nav", section: "RFQs", legacy: true },
-    { href: "/dashboard/buyer/quote-comparison", label: "Comparison", targetMenu: "nav", section: "RFQs", isNew: true },
-    { href: "/dashboard/buyer/negotiation", label: "Negotiation", targetMenu: "nav", section: "RFQs", isNew: true },
-    { href: "/dashboard/buyer/purchase-order", label: "Awarding", targetMenu: "nav", section: "RFQs", legacy: true },
-    { href: "/dashboard/buyer/purchase-orders", label: "PO Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/tracking", label: "PO Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/analytics", label: "PO Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    // RFQs — the lifecycle page now drives Technical / Comparison / Awarding
+    // in-page, so the rail keeps just the two entry points.
+    { href: "/dashboard/buyer/rfq-management", label: "All RFQs", targetMenu: "nav", section: "RFQs" },
+    { href: "/dashboard/buyer/start-rfq", label: "Create New", targetMenu: "nav", section: "RFQs" },
+    // Negotiation — its own section directly below RFQs.
+    { href: "/dashboard/buyer/negotiation", label: "All Negotiations", targetMenu: "nav", section: "Negotiation", isNew: true },
+    { href: "/dashboard/buyer/negotiation/create", label: "Create New", targetMenu: "nav", section: "Negotiation", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders", label: "Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/buyer/purchase-orders/analytics", label: "Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
     // ── Rate Contracts (ARC v2)
     { href: "/dashboard/buyer/rate-contracts",        label: "Dashboard",      targetMenu: "nav", section: "Rate Contracts", isNew: true },
     { href: "/dashboard/buyer/rate-contracts/all",    label: "All Contracts",  targetMenu: "nav", section: "Rate Contracts", isNew: true },

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import * as MrApi from "@/services/mr";
 import { getStoredHospitalityContext } from "@/utils/hospitalityContext";
+import { MrListSkeleton } from "./MrSkeletons";
 
 // Map filterPreset → backend statusGroup parameter.
 const PRESET_TO_STATUS_GROUP = {
@@ -238,8 +239,10 @@ export default function MrListPage({ filterPreset = "all" }) {
     </button>
   );
 
+  if (loading) return <MrListSkeleton />;
+
   return (
-    <>
+    <div className="main-body">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-h1">Material Requisitions</h1>
@@ -340,17 +343,11 @@ export default function MrListPage({ filterPreset = "all" }) {
         <div className="section-body flush">
           <div style={{ padding: "14px 18px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-            {loading && (
-              <div className="empty-state">
-                <h2>Loading…</h2>
-              </div>
-            )}
-
-            {!loading && filtered.map((m) => (
+            {filtered.map((m) => (
               <MrCard key={m.id} m={m} />
             ))}
 
-            {!loading && filtered.length === 0 && (
+            {filtered.length === 0 && (
               <div className="empty-state">
                 <div className="ic">
                   <Icon w={22} h={22} sw={1.8}
@@ -364,6 +361,6 @@ export default function MrListPage({ filterPreset = "all" }) {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

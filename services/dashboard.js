@@ -68,6 +68,19 @@ export const getCategoryInsights = (params) => {
   });
 };
 
+// ABC (Pareto) analysis — classify items into A/B/C tiers by value or volume.
+// params: { hotel_ids, start_date, end_date, metric: 'value' | 'volume' }
+export const getAbcAnalysis = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/abc-analysis', { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
 export const getWorkflowEfficiency = (params) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -105,6 +118,19 @@ export const getPendingApprovalsDetail = (params) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.get('/dashboard-v2/pending-approvals', { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error?.response?.data?.message || error.message });
+    }
+  });
+};
+
+// No-response drill-down: published RFQs with zero quotes, split into
+// { active, expired } by bid window (Sr 228).
+export const getNoResponseDetail = (params) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/dashboard-v2/no-response', { params });
       resolve(response);
     } catch (error) {
       reject({ message: error?.response?.data?.message || error.message });
