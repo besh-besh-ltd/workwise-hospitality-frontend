@@ -64,7 +64,7 @@ import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline"
 import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
 import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
 import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
-import { StageSkeleton } from "@/components/dashboard/buyer/rfq/stages/StageShared";
+import { StageSkeleton, LifecycleContext } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
 
 import styles from "./ViewRFQ.module.scss";
@@ -981,12 +981,14 @@ const ViewRFQ = ({
       {/* ─── Lifecycle journey (horizontal) — below the header, persistent
           across the RFQ; the timeline navigates the workable stages. ─── */}
       {!lifecycleLoading && lifecycle?.stages?.length > 0 && (
-        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px" }}>
+        <div style={{ maxWidth: 1480, width: "100%", margin: "14px auto 0", padding: "0 24px", display: "flex", flexDirection: "column", gap: 12 }}>
           <RfqStageTimeline
             stages={lifecycle.stages}
             selectedKey={selectedStage}
             onSelect={selectStage}
           />
+          {/* Subtle "who's acting now / next" context — persistent across stages. */}
+          <LifecycleContext lifecycle={lifecycle} />
         </div>
       )}
 

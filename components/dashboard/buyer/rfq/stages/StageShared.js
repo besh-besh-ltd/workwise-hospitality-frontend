@@ -165,3 +165,71 @@ export function StageSkeleton() {
     </div>
   );
 }
+
+// ── Lifecycle context: who's acting now / who acts next ──────────────────────
+// Resolves the people on a phase — prefers the live action-holders, falls back
+// to the resolved upcoming evaluators/approvers.
+function actorsOf(phase) {
+  if (!phase) return null;
+  const ah = phase.action_holders;
+  if (ah && Array.isArray(ah.users) && ah.users.length) {
+    return { label: ah.label || "Action holders", names: ah.users.map((u) => u.name), rule: ah.decision_rule || null };
+  }
+  const ua = phase.upcoming_actors;
+  if (ua && Array.isArray(ua.approver_steps) && ua.approver_steps.length) {
+    const s = ua.approver_steps[0];
+    return { label: "Approvers", names: (s.approvers || []).map((a) => a.name), rule: s.decision_rule || null };
+  }
+  if (ua && Array.isArray(ua.evaluators) && ua.evaluators.length) {
+    return { label: "Evaluators", names: ua.evaluators.map((e) => e.name), rule: null };
+  }
+  return null;
+}
+
+function ActorNames({ names, max = 3 }) {
+  const shown = names.slice(0, max);
+  const extra = names.length - shown.length;
+  return (
+    <span style={{ color: "#3f3f46", fontWeight: 500 }}>
+      {shown.join(", ")}{extra > 0 ? <span style={{ color: "#a1a1aa", fontWeight: 400 }}> +{extra}</span> : null}
+    </span>
+  );
+}
+
+const CtxLbl = ({ children }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#a1a1aa", flexShrink: 0 }}>{children}</span>
+);
+
+// A subtle one-line strip surfacing the current + next action-takers for the
+// RFQ's live stage. Renders nothing when nothing is in motion (draft/complete).
+export function LifecycleContext({ lifecycle }) {
+  const stages = Array.isArray(lifecycle?.stages) ? lifecycle.stages : [];
+  const activeIdx = stages.findIndex((s) => s.state === "active");
+  if (activeIdx < 0) return null;
+  const active = stages[activeIdx];
+  const nowActors = actorsOf(active.phase);
+  const nextStage = stages.slice(activeIdx + 1).find((s) => s.state !== "skipped" && actorsOf(s.phase));
+  const nextActors = nextStage ? actorsOf(nextStage.phase) : null;
+  if (!nowActors && !nextActors) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", padding: "9px 14px", background: "#fafafa", border: "1px solid #ebebe6", borderRadius: 10, fontSize: 12.5 }}>
+      {nowActors && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 99, background: "#16a34a", flexShrink: 0 }} />
+          <CtxLbl>Action now</CtxLbl>
+          <span style={{ color: "#71717a" }}>{active.label} · {nowActors.label}{nowActors.rule === "ALL" ? " (all)" : ""}:</span>
+          <ActorNames names={nowActors.names} />
+        </div>
+      )}
+      {nextActors && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ color: "#d4d4d8" }}>→</span>
+          <CtxLbl>Up next</CtxLbl>
+          <span style={{ color: "#71717a" }}>{nextStage.label} · {nextActors.label}:</span>
+          <ActorNames names={nextActors.names} />
+        </div>
+      )}
+    </div>
+  );
+}
