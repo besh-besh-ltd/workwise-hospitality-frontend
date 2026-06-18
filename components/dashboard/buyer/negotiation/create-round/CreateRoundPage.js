@@ -11,7 +11,7 @@ import useCreateRoundState from './useCreateRoundState';
 import StepProduct from './StepProduct';
 import StepVendorsAndTargets from './StepVendorsAndTargets';
 import StepReview from './StepReview';
-import { getProductDetails, getProductRoundStatus } from './negotiationHelpers';
+import { getProductDetails, getProductRoundStatus, roundCoversProduct } from './negotiationHelpers';
 import styles from './CreateRound.module.scss';
 
 const STEPS = [
@@ -104,14 +104,25 @@ const CreateRoundPage = () => {
         const activeRounds = activeRoundsRes?.data || (Array.isArray(activeRoundsRes) ? activeRoundsRes : []);
         const charges = chargesRes?.data || chargesRes || [];
 
-        // Stitch active_round into each product so eligibility logic matches the modal
-        const activeByProduct = {};
-        (Array.isArray(activeRounds) ? activeRounds : []).forEach(r => {
-          if (r?.rfq_product_id != null) activeByProduct[r.rfq_product_id] = r;
-        });
+        // Stitch active_round into each product so eligibility logic matches the
+        // modal. A round is "in flight" (and so should disable its products) only
+        // when it's ACTIVE or PENDING_APPROVAL and hasn't passed its end_date —
+        // matching the gates used by the vendor wizard and QuoteComparison.
+        // Coverage is resolved via roundCoversProduct so BOTH legacy
+        // (rfq_product_id) and multi-product (products[]) rounds are honoured —
+        // multi-product rounds carry a NULL top-level rfq_product_id.
+        const now = new Date();
+        const parseUtc = (d) => {
+          const s = String(d || '');
+          return new Date(s.includes('+') || s.includes('Z') ? s : s.replace(' ', 'T') + 'Z');
+        };
+        const inFlightRounds = (Array.isArray(activeRounds) ? activeRounds : []).filter(r =>
+          ['ACTIVE', 'PENDING_APPROVAL'].includes(String(r?.status || '').toUpperCase())
+          && parseUtc(r.end_date) > now
+        );
         const stitched = productList.map(p => ({
           ...p,
-          active_round: p.active_round || activeByProduct[p.id] || null,
+          active_round: p.active_round || inFlightRounds.find(r => roundCoversProduct(r, p.id)) || null,
         }));
 
         setProducts(stitched);

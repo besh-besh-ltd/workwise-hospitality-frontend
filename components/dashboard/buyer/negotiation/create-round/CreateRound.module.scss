@@ -1058,6 +1058,45 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   font-style: italic;
 }
 
+// Per-document comment detail under a `documents` review row. Spans the full
+// width of the wrapping flex row so it reads as a sub-list.
+.reviewDocDetail {
+  flex-basis: 100%;
+  width: 100%;
+  margin: 4px 0 2px;
+  padding: 8px 10px;
+  background: #fff8e1;
+  border: 1px solid #f0ad4e;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.reviewDocItem {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.reviewDocLabel {
+  font-weight: 600;
+  color: $ink-strong;
+  min-width: 110px;
+
+  a {
+    color: $ink-strong;
+    text-decoration: underline;
+  }
+}
+
+.reviewDocComment {
+  color: $ink-soft;
+  flex: 1;
+}
+
 .reviewDeltaPill {
   font-size: 12px;
   font-weight: 700;
