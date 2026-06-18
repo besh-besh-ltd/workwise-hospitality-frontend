@@ -6,7 +6,6 @@ import {
   BarChart2,
   FileText,
   Clock,
-  Truck,
   Check,
   IndianRupee,
   AlignJustify,
@@ -225,19 +224,6 @@ const PODashboard = () => {
                   {k.vendorAcceptancePending ?? 0} pending
                 </span>
               </>
-            }
-          />
-          <Kpi
-            label="In transit"
-            value={k.inTransit ?? 0}
-            icon={<Truck size={13} />}
-            meta={
-              k.avgDeliveryDays != null ? (
-                <>
-                  avg delivery{" "}
-                  <span style={{ color: "var(--fg-2)", fontWeight: 500 }}>{k.avgDeliveryDays} days</span>
-                </>
-              ) : null
             }
           />
           <Kpi
