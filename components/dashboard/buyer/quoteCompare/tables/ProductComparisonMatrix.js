@@ -15,11 +15,8 @@ import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 import FinalizeVendorModal from "@/components/dashboard/buyer/FinalizeVendorModal";
 import FinalizeHistoryModal from "@/components/dashboard/buyer/FinalizeHistoryModal";
 import HierarchySelectionModal from "@/components/dashboard/buyer/HierarchySelectionModal";
-import ExistingPOModal from "@/components/dashboard/buyer/ExistingPOModal";
 import RoundEndActions from "@/components/dashboard/buyer/negotiation/RoundEndActions";
 import ApprovalWorkflowSection from "@/components/dashboard/buyer/approval/ApprovalWorkflowSection";
-import { getExistingPOByVendor } from "@/services/rfq";
-import { willBeFinalApprover as predictWillBeFinalApprover } from "@/services/approval";
 import {
   approveNegotiationQuotes,
   rejectNegotiationQuotes,
@@ -408,16 +405,8 @@ const ProductComparisonMatrix = ({
     product_details: [],
     previous_quotes: [],
   });
-  const [existingPOId, setExistingPOId] = useState(null);
   const [selectedRouteType, setSelectedRouteType] = useState(null);
   const [finalizeComment, setFinalizeComment] = useState('');
-  // Merge-PO check at finalize time. Auto-approving NEGOTIATION_QUOTE
-  // instances bypass the approval-time merge prompt in
-  // ApprovalWorkflowSection, so we also probe for existing draft POs here
-  // so the user can merge in every flow (including initiator==approver).
-  const [mergeExistingPos, setMergeExistingPos] = useState([]);
-  const [mergeSelectedPo, setMergeSelectedPo] = useState(null);
-  const [mergeProbeLoading, setMergeProbeLoading] = useState(false);
   const [quoteApprovalStatus, setQuoteApprovalStatus] = useState(preloadedQuoteApprovalStatus);
   const [otherChargesExpanded, setOtherChargesExpanded] = useState(false);
   const [globalTaxesExpanded, setGlobalTaxesExpanded] = useState(false);
@@ -1481,8 +1470,8 @@ const ProductComparisonMatrix = ({
 
       <FinalizeVendorModal
         show={activeModal === "finalize"}
-        onHide={() => { if (!finalizeLoading && !mergeProbeLoading) setActiveModal(null); }}
-        loading={finalizeLoading || mergeProbeLoading}
+        onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
+        loading={finalizeLoading}
         onConfirm={async (_selectedPOId, commentFromModal) => {
           const commentTrimmed = (commentFromModal || '').trim();
           setFinalizeComment(commentTrimmed);
@@ -1490,83 +1479,23 @@ const ProductComparisonMatrix = ({
           const routeType = isTender ? "ARC" : "PO";
           setSelectedRouteType(routeType);
 
-          // Helper that runs the actual finalize call (after merge selection,
-          // hierarchy selection, or directly when neither applies).
-          const runFinalize = async (poIdForMerge) => {
-            if (routeType === "ARC") {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "ARC", commentTrimmed);
-              if (result?.success !== false) setActiveModal(null);
-            } else if (!useLegacyHierarchy) {
-              const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, "PO", commentTrimmed);
-              if (result?.success !== false) setActiveModal(null);
-            } else if (availableHierarchies.length <= 0) {
-              toast.error(
-                "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
-              );
-              setActiveModal(null);
-            } else {
-              setActiveModal("hierarchy");
-            }
-          };
-
-          // ARC has no PO concept — no merge probe needed.
+          // PO merge decision is made server-side in draftPurchaseOrder
+          // (auto-merges into an existing draft PO when rfq + vendor +
+          // project + selected_hierarchy match). Frontend always passes
+          // null for the merge target.
           if (routeType === "ARC") {
-            await runFinalize(null);
-            return;
-          }
-
-          const vendorIdForProbe =
-            getVendorDetails(currentItem, proditem)?.id ||
-            currentItem?.quote_details?.created_by;
-          if (!vendorIdForProbe || !activeRfqId) {
-            await runFinalize(null);
-            return;
-          }
-
-          // Probe for existing draft POs AND check whether the calling user
-          // will be the final NEGOTIATION_QUOTE approver. Only the final
-          // approver gets the merge prompt — for everyone else the question
-          // naturally rolls up to whoever closes the chain (handled by
-          // ApprovalWorkflowSection's approval-time merge check). Both
-          // probes run in parallel and either failing is non-fatal.
-          try {
-            setMergeProbeLoading(true);
-            const [posResponse, finalApproverResponse] = await Promise.all([
-              getExistingPOByVendor(vendorIdForProbe, activeRfqId).catch((e) => {
-                console.error("Existing-PO probe failed:", e);
-                return null;
-              }),
-              predictWillBeFinalApprover({
-                entity_type: 'NEGOTIATION_QUOTE',
-                // rfq_id lets the BE derive process_id (and the rest of the
-                // hospitality scope) directly from tbl_rfq, matching exactly
-                // what createApprovalInstance will use at submit time. Without
-                // this, process-scoped policies wouldn't be found and the
-                // probe would falsely return false for sole-approver cases.
-                rfq_id: activeRfqId,
-                hospitality_company_id: hospitalityCompanyId,
-                hotel_id: hotelId,
-                department_id: departmentId,
-              }).catch((e) => {
-                console.error("Final-approver probe failed:", e);
-                return null;
-              }),
-            ]);
-            const pos = posResponse?.existingPOS ?? [];
-            const willBeFinal = !!(finalApproverResponse?.data?.willBeFinal);
-            if (pos.length > 0 && willBeFinal) {
-              setMergeExistingPos(pos);
-              setMergeSelectedPo(null);
-              setExistingPOId(null);
-              setActiveModal("merge_po");
-            } else {
-              await runFinalize(null);
-            }
-          } catch (err) {
-            console.error("Merge-PO gate failed, finalizing without merge:", err);
-            await runFinalize(null);
-          } finally {
-            setMergeProbeLoading(false);
+            const result = await handleFinalize(currentItem, proditem, null, null, "ARC", commentTrimmed);
+            if (result?.success !== false) setActiveModal(null);
+          } else if (!useLegacyHierarchy) {
+            const result = await handleFinalize(currentItem, proditem, null, null, "PO", commentTrimmed);
+            if (result?.success !== false) setActiveModal(null);
+          } else if (availableHierarchies.length <= 0) {
+            toast.error(
+              "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
+            );
+            setActiveModal(null);
+          } else {
+            setActiveModal("hierarchy");
           }
         }}
         vendorName={
@@ -1590,33 +1519,8 @@ const ProductComparisonMatrix = ({
         onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
         hierarchies={availableHierarchies}
         onConfirm={async (selectedHierarchy) => {
-          const result = await handleFinalize(currentItem, proditem, existingPOId, selectedHierarchy, selectedRouteType || "PO", finalizeComment);
+          const result = await handleFinalize(currentItem, proditem, null, selectedHierarchy, selectedRouteType || "PO", finalizeComment);
           if (result?.success !== false) setActiveModal(null);
-        }}
-      />
-
-      <ExistingPOModal
-        show={activeModal === "merge_po"}
-        onHide={() => { if (!finalizeLoading) setActiveModal(null); }}
-        loading={finalizeLoading}
-        existingPos={mergeExistingPos}
-        selectedPo={mergeSelectedPo}
-        setSelectedPo={setMergeSelectedPo}
-        onConfirm={async (selectedPOId) => {
-          const poIdForMerge = selectedPOId || null;
-          setExistingPOId(poIdForMerge);
-          const route = selectedRouteType || "PO";
-          if (!useLegacyHierarchy) {
-            const result = await handleFinalize(currentItem, proditem, poIdForMerge, null, route, finalizeComment);
-            if (result?.success !== false) setActiveModal(null);
-          } else if (availableHierarchies.length <= 0) {
-            toast.error(
-              "You cannot finalize a vendor, as you don't belong to the PO approval hierarchy"
-            );
-            setActiveModal(null);
-          } else {
-            setActiveModal("hierarchy");
-          }
         }}
       />
 

@@ -27,6 +27,11 @@ const formatQuoted = (charge, basePrice = 0) => {
   if (charge.kind === 'info') {
     return charge.value != null ? String(charge.value) : '—';
   }
+  if (charge.kind === 'delivery') {
+    return (charge.value != null && charge.value !== '')
+      ? `${charge.value} day(s)`
+      : '—';
+  }
   if (charge.kind === 'text') {
     return charge.value || '—';
   }
@@ -85,6 +90,7 @@ const formatTarget = (rawValue, mode, fieldKey, basePrice = 0) => {
     }
     return String(rawValue);
   }
+  if (fieldKey === 'delivery_period') return `${rawValue} day(s)`;
   if (AMOUNT_ONLY.has(fieldKey)) return `₹${rawValue}`;
   if (mode === 'amount') return `₹${rawValue}`;
   const pctText = `${rawValue}%`;
@@ -323,7 +329,7 @@ const VendorChargeCard = ({
         // Tax is negotiated via free text per vendor: "Demand" when the
         // vendor gave no tax, "Negotiate" when they did, "Edit" once the
         // buyer has written a note. Text/info fields carry no tax.
-        if (isTextField || charge.kind === 'info' || !supportsTarget) return null;
+        if (isTextField || charge.kind === 'info' || charge.kind === 'delivery' || !supportsTarget) return null;
         if (isGloballyClaimed && !isIncludedForVendor) return null;
         const quotedTaxText = formatQuotedTax(charge, basePrice, vendorQuoteData);
         return (
@@ -404,7 +410,7 @@ const VendorChargeCard = ({
                 min="0"
                 value={localTarget ?? ''}
                 onChange={(e) => handleInputChange(e.target.value)}
-                placeholder={isGloballyClaimed ? 'Override for this vendor (optional)' : (isAmountOnly ? 'Target (₹)' : 'Target amount')}
+                placeholder={isGloballyClaimed ? 'Override for this vendor (optional)' : (fieldKey === 'delivery_period' ? 'Target (days)' : (isAmountOnly ? 'Target (₹)' : 'Target amount'))}
                 className={styles.input}
                 onClick={(e) => e.stopPropagation()}
               />

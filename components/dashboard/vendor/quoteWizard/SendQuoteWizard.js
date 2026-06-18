@@ -81,6 +81,55 @@ const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
   );
 };
 
+// Normalize a `documents` negotiation field into the buyer's per-document
+// comments + an overall demand. `targetPrice` is the array the buyer set per
+// document — `[{ document_index, file_url, comment }]`; `demand` is the buyer's
+// free-text request for additional documents. Returns a stable shape so the
+// caller can match comments against the vendor's own uploaded files (by URL
+// first, then index) and render the demand separately.
+const parseDocAsks = (negField) => {
+  if (!negField) return { comments: [], demand: null };
+  const arr = Array.isArray(negField.targetPrice) ? negField.targetPrice : [];
+  const comments = arr
+    .filter((d) => d && d.comment && String(d.comment).trim())
+    .map((d) => ({
+      index: Number.isInteger(d.document_index) ? d.document_index : null,
+      fileUrl: d.file_url || null,
+      comment: String(d.comment).trim(),
+    }));
+  const demand =
+    negField.demand && String(negField.demand).trim()
+      ? String(negField.demand).trim()
+      : null;
+  return { comments, demand };
+};
+
+// Resolve the buyer's comment for one specific document — matched by file URL
+// first (robust across re-ordering), then by the original document index.
+const docAskFor = (asks, fileUrl, index) => {
+  if (!asks) return null;
+  if (fileUrl) {
+    const byUrl = asks.comments.find((c) => c.fileUrl && c.fileUrl === fileUrl);
+    if (byUrl) return byUrl.comment;
+  }
+  if (index != null) {
+    const byIdx = asks.comments.find((c) => c.index === index);
+    if (byIdx) return byIdx.comment;
+  }
+  return null;
+};
+
+// Per-document buyer comment, shown inline under the matching uploaded file.
+const DocAskComment = ({ comment }) => {
+  if (!comment) return null;
+  return (
+    <div className={styles.negHint} style={{ marginTop: 4, marginBottom: 0 }}>
+      <span className={styles.negHintDot} />
+      Buyer's ask: <span>{comment}</span>
+    </div>
+  );
+};
+
 const ALL_STEPS = [
   { id: "overview", label: "Inquiry overview", meta: "Buyer, products & terms" },
   { id: "clarifications", label: "Clarifications", meta: "Tender clarification window" },
@@ -1736,6 +1785,7 @@ const SendQuoteWizard = () => {
             onRemovePaymentTerm={removePaymentTerm}
             canSubmit={canSubmit && !isReadOnly}
             isReadOnly={isReadOnly}
+            isBidExpired={isBidExpired}
           />
         )}
 
@@ -3379,17 +3429,17 @@ const Step3Pricing = ({
                         />
                       </label>
                       {(() => {
-                        const d = negByName("documents");
-                        if (!d) return null;
-                        let v = d.demand;
-                        if (!v && typeof d.targetPrice === "string") v = d.targetPrice;
-                        if (!v && Array.isArray(d.targetPrice) && d.targetPrice.length) {
-                          v = `${d.targetPrice.length} document comment${d.targetPrice.length > 1 ? "s" : ""}`;
+                        const asks = parseDocAsks(negByName("documents"));
+                        if (asks.demand) {
+                          return <BuyerAskHint mono={false} value={asks.demand} />;
                         }
-                        return <BuyerAskHint mono={false} value={v} />;
+                        return null;
                       })()}
-                      {(p.document_files || []).map((u) => (
-                        <div className={styles.uploadedFile} key={u}>
+                      {(p.document_files || []).map((u, di) => {
+                        const ask = docAskFor(parseDocAsks(negByName("documents")), u, di);
+                        return (
+                        <div key={u}>
+                        <div className={styles.uploadedFile}>
                           <Download size={12} style={{ color: "var(--fg-3)" }} />
                           <span className={styles.name}>{u.split("/").pop()}</span>
                           <button
@@ -3406,7 +3456,10 @@ const Step3Pricing = ({
                             <X size={14} />
                           </button>
                         </div>
-                      ))}
+                        <DocAskComment comment={ask} />
+                        </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -3484,6 +3537,7 @@ const Step4CommercialTerms = ({
   onRemovePaymentTerm,
   canSubmit,
   isReadOnly,
+  isBidExpired = false,
 }) => {
   const hasGlobalCharges = (globalCharges || []).some(
     (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
@@ -3497,6 +3551,15 @@ const Step4CommercialTerms = ({
   // by field name; the global-charge asks are surfaced inside GlobalChargesModal.
   const rfqAsk = (name) =>
     (rfqLevelNegFields || []).find((f) => (f.name || "").toLowerCase() === name);
+  // During the negotiation phase (after bid expiry) only the RFQ-level fields
+  // the buyer explicitly raised an ask on may be edited. Before expiry every
+  // field is editable (still subject to isReadOnly). GSTIN is never negotiable,
+  // so it locks once the bid has expired.
+  const isRfqFieldLocked = (name) => {
+    if (isReadOnly) return true;
+    if (!isBidExpired) return false;
+    return !rfqAsk(name);
+  };
   const [filesModalOpen, setFilesModalOpen] = useState(false);
   const attachmentCount = (globalDocumentFiles || []).length;
 
@@ -3527,7 +3590,7 @@ const Step4CommercialTerms = ({
             placeholder="29ABCDE1234F1Z5"
             maxLength={15}
             style={{ maxWidth: 280 }}
-            disabled={isReadOnly}
+            disabled={isReadOnly || isBidExpired}
           />
           <div style={{ fontSize: 11.5, color: gstinValid ? "var(--fg-4)" : "#b91c1c", marginTop: 6 }}>
             {gstinValid ? "Used to issue invoices for the delivery location." : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
@@ -3546,7 +3609,7 @@ const Step4CommercialTerms = ({
                 onChange={(e) => onChangeGlobalComment(e.target.value)}
                 placeholder="Any quote-wide notes — packaging, batching, conditions, etc."
                 maxLength={500}
-                disabled={isReadOnly}
+                disabled={isRfqFieldLocked("global_comment")}
                 style={{ flex: 1 }}
               />
               <BuyerAskHint
@@ -3570,7 +3633,7 @@ const Step4CommercialTerms = ({
                 <input
                   type="file"
                   multiple
-                  disabled={isReadOnly}
+                  disabled={isRfqFieldLocked("documents")}
                   onChange={async (e) => {
                     await onUploadGlobalFiles?.(e.target.files);
                     e.target.value = "";
@@ -3598,21 +3661,28 @@ const Step4CommercialTerms = ({
               {filesModalOpen && (
                 <GlobalFilesModal
                   files={globalDocumentFiles}
-                  readOnly={isReadOnly}
+                  readOnly={isRfqFieldLocked("documents")}
                   onRemove={onRemoveGlobalFile}
                   onUpload={onUploadGlobalFiles}
                   onClose={() => setFilesModalOpen(false)}
+                  docAsks={parseDocAsks(rfqAsk("documents"))}
                 />
               )}
               {(() => {
-                const d = rfqAsk("documents");
-                if (!d) return null;
-                let v = d.demand;
-                if (!v && typeof d.targetPrice === "string") v = d.targetPrice;
-                if (!v && Array.isArray(d.targetPrice) && d.targetPrice.length) {
-                  v = `${d.targetPrice.length} document comment${d.targetPrice.length > 1 ? "s" : ""}`;
-                }
-                return <BuyerAskHint mono={false} value={v} />;
+                const asks = parseDocAsks(rfqAsk("documents"));
+                if (!asks.demand && asks.comments.length === 0) return null;
+                return (
+                  <>
+                    {asks.demand && <BuyerAskHint mono={false} value={asks.demand} />}
+                    {asks.comments.length > 0 && (
+                      <BuyerAskHint
+                        mono={false}
+                        label="Buyer's ask"
+                        value={`commented on ${asks.comments.length} document${asks.comments.length > 1 ? "s" : ""} — open “View files”`}
+                      />
+                    )}
+                  </>
+                );
               })()}
             </div>
           </div>
@@ -3720,7 +3790,7 @@ const Step4CommercialTerms = ({
                     className={styles.select}
                     value={t.type || "advance"}
                     onChange={(e) => onUpdatePaymentTerm(i, { type: e.target.value })}
-                    disabled={isDeleted || isReadOnly}
+                    disabled={isDeleted || isRfqFieldLocked("payment_terms")}
                   >
                     {typeOptions.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -3746,7 +3816,7 @@ const Step4CommercialTerms = ({
                         // Clamp so the combined % never goes over 100.
                         onUpdatePaymentTerm(i, { value: Math.min(v, maxValue) });
                       }}
-                      disabled={isDeleted || isReadOnly}
+                      disabled={isDeleted || isRfqFieldLocked("payment_terms")}
                       placeholder="0"
                     />
                     <div className={styles.suffix} style={{ padding: "0 9px" }}>%</div>
@@ -3762,7 +3832,7 @@ const Step4CommercialTerms = ({
                             days: e.target.value === "" ? "" : Number(e.target.value),
                           })
                         }
-                        disabled={isDeleted || isReadOnly}
+                        disabled={isDeleted || isRfqFieldLocked("payment_terms")}
                         placeholder="30"
                       />
                       <div className={styles.suffix} style={{ fontFamily: "inherit", fontSize: 12 }}>
@@ -3777,14 +3847,14 @@ const Step4CommercialTerms = ({
                         onUpdatePaymentTerm(i, { comment: e.target.value })
                       }
                       placeholder="Note"
-                      disabled={isDeleted || isReadOnly}
+                      disabled={isDeleted || isRfqFieldLocked("payment_terms")}
                     />
                   )}
                   <button
                     type="button"
                     className={styles.iconBtn}
                     onClick={() => onRemovePaymentTerm(i)}
-                    disabled={(isDeleted && paymentTerms.length === 1) || isReadOnly}
+                    disabled={(isDeleted && paymentTerms.length === 1) || isRfqFieldLocked("payment_terms")}
                     aria-label="Remove"
                   >
                     <Trash2 size={13} />
@@ -3792,7 +3862,7 @@ const Step4CommercialTerms = ({
                 </div>
               );
             })}
-            {!isReadOnly && (
+            {!isRfqFieldLocked("payment_terms") && (
               <button
                 type="button"
                 className={styles.payAdd}
@@ -4668,8 +4738,19 @@ const validateGlobalCharge = (ch, i) => {
    accompany the whole quote (mirrors the legacy attachment list, just
    moved off the form into a focused dialog).
    ════════════════════════════════════════════════════════════════ */
-const GlobalFilesModal = ({ files = [], readOnly = false, onRemove, onUpload, onClose }) => {
+const GlobalFilesModal = ({ files = [], readOnly = false, onRemove, onUpload, onClose, docAsks = null }) => {
   const list = Array.isArray(files) ? files : [];
+  // Buyer comments that didn't match any currently-uploaded file (e.g. the file
+  // was removed/replaced) — still surfaced so nothing the buyer asked is lost.
+  const matchedUrls = new Set(
+    (docAsks?.comments || [])
+      .map((c) => (c.fileUrl && list.includes(c.fileUrl) ? c.fileUrl : null))
+      .filter(Boolean)
+  );
+  const unmatchedComments = (docAsks?.comments || []).filter(
+    (c) => !(c.fileUrl && matchedUrls.has(c.fileUrl)) &&
+      !(c.index != null && c.index < list.length && !c.fileUrl)
+  );
   const prettyName = (u) => {
     try {
       return decodeURIComponent(String(u).split("/").pop() || u);
@@ -4725,8 +4806,11 @@ const GlobalFilesModal = ({ files = [], readOnly = false, onRemove, onUpload, on
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {list.map((u, i) => (
-                <div className={styles.uploadedFile} key={u} style={{ marginTop: 0 }}>
+              {list.map((u, i) => {
+                const ask = docAskFor(docAsks, u, i);
+                return (
+                <div key={u} style={{ display: "flex", flexDirection: "column" }}>
+                <div className={styles.uploadedFile} style={{ marginTop: 0 }}>
                   <Paperclip size={12} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
                   <span
                     className={styles.name}
@@ -4763,6 +4847,37 @@ const GlobalFilesModal = ({ files = [], readOnly = false, onRemove, onUpload, on
                     </button>
                   )}
                 </div>
+                <DocAskComment comment={ask} />
+                </div>
+                );
+              })}
+            </div>
+          )}
+          {(docAsks?.demand || unmatchedComments.length > 0) && (
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 12,
+                borderTop: "1px solid var(--border, #e5e7eb)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              {docAsks?.demand && (
+                <BuyerAskHint
+                  mono={false}
+                  label="Buyer's ask · documents requested"
+                  value={docAsks.demand}
+                />
+              )}
+              {unmatchedComments.map((c, ci) => (
+                <BuyerAskHint
+                  key={`uc-${ci}`}
+                  mono={false}
+                  label={c.index != null ? `Buyer's ask · document ${c.index + 1}` : "Buyer's ask"}
+                  value={c.comment}
+                />
               ))}
             </div>
           )}

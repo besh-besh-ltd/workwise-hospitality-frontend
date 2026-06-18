@@ -83,6 +83,7 @@ const fmtFieldValue = (fieldKey, value, mode, basePrice = 0) => {
     } catch { return String(value); }
   }
   if (TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return String(value);
+  if (fieldKey === 'delivery_period') return `${value} day(s)`;
   if (fieldKey === 'base_price') return `₹${value}`;
   if (mode === 'amount' || mode === 'absolute') return `₹${value}`;
   const pctText = `${value}%`;
@@ -90,6 +91,54 @@ const fmtFieldValue = (fieldKey, value, mode, basePrice = 0) => {
   return amount > 0
     ? `${pctText} (₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })})`
     : pctText;
+};
+
+// Extract the buyer's per-document comments + overall demand from a `documents`
+// target so the review/approver view shows the ACTUAL text, not just a count.
+//
+// Two storage shapes feed this:
+//   - SUBMITTED rounds (payload):  target = [{ document_index, file_url, comment }],
+//                                  demand = "free text"
+//   - LIVE wizard state:           value  = '{"0":"comment","demand":"free text"}'
+// Both normalize to { comments: [{ label, comment, url }], demand }.
+const buildDocDetail = (value, demand, vendorInfo) => {
+  const docFiles = vendorInfo?.documentFiles || [];
+  const comments = [];
+  let dem = demand && String(demand).trim() ? String(demand).trim() : null;
+
+  let parsed = value;
+  if (typeof value === 'string') {
+    try { parsed = JSON.parse(value); } catch { parsed = null; }
+  }
+
+  if (Array.isArray(parsed)) {
+    // Payload shape — array of per-document entries.
+    parsed.forEach((d) => {
+      if (!d || !d.comment || !String(d.comment).trim()) return;
+      const idx = Number.isInteger(d.document_index) ? d.document_index : null;
+      comments.push({
+        label: idx != null ? `Document ${idx + 1}` : 'Document',
+        comment: String(d.comment).trim(),
+        url: d.file_url || (idx != null ? docFiles[idx]?.file_url : null) || null,
+      });
+    });
+  } else if (parsed && typeof parsed === 'object') {
+    // Live wizard shape — keys are indices, plus a `demand` key.
+    if (!dem && parsed.demand && String(parsed.demand).trim()) dem = String(parsed.demand).trim();
+    Object.entries(parsed).forEach(([k, v]) => {
+      if (k === 'demand') return;
+      if (!v || !String(v).trim()) return;
+      const idx = parseInt(k, 10);
+      comments.push({
+        label: Number.isInteger(idx) ? `Document ${idx + 1}` : k,
+        comment: String(v).trim(),
+        url: Number.isInteger(idx) ? (docFiles[idx]?.file_url || null) : null,
+      });
+    });
+  }
+
+  if (!comments.length && !dem) return null;
+  return { comments, demand: dem };
 };
 
 // Format a tax token for the per-field row. Returns null when no tax to show.
@@ -182,6 +231,7 @@ const buildVendorRowsFromPayload = (vendorTargets, priceData) => {
         quotedDisplay: quoted ? fmtFieldValue(f.name, quoted.value, quoted.mode, basePrice) : '—',
         quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
         targetTaxDisplay: f.tax_demand ? `Tax: “${f.tax_demand}”` : null,
+        docDetail: f.name === 'documents' ? buildDocDetail(f.target, f.demand, vendorInfo) : null,
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
         deltaValue: signedDelta(cmp),
@@ -249,6 +299,7 @@ const buildVendorRowsFromLiveState = ({
         quotedDisplay: quoted ? fmtFieldValue(fieldKey, quoted.value, quoted.mode, basePrice) : '—',
         quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
         targetTaxDisplay: hasTaxNote ? `Tax: “${String(taxNote).trim()}”` : null,
+        docDetail: fieldKey === 'documents' ? buildDocDetail(value, null, vendorInfo) : null,
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
         deltaValue: signedDelta(cmp),
@@ -518,6 +569,28 @@ const ReviewProductCard = ({
                           }`}>
                             {t.deltaDisplay}
                           </span>
+                        )}
+                        {t.docDetail && (
+                          <div className={styles.reviewDocDetail}>
+                            {t.docDetail.comments.map((d, di) => (
+                              <div key={di} className={styles.reviewDocItem}>
+                                <span className={styles.reviewDocLabel}>
+                                  {d.url ? (
+                                    <a href={d.url} target="_blank" rel="noopener noreferrer">
+                                      {d.label}
+                                    </a>
+                                  ) : d.label}
+                                </span>
+                                <span className={styles.reviewDocComment}>“{d.comment}”</span>
+                              </div>
+                            ))}
+                            {t.docDetail.demand && (
+                              <div className={styles.reviewDocItem}>
+                                <span className={styles.reviewDocLabel}>Documents requested</span>
+                                <span className={styles.reviewDocComment}>“{t.docDetail.demand}”</span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </li>
                     ))}

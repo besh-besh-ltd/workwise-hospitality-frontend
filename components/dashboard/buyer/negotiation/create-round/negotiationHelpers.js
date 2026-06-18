@@ -196,6 +196,18 @@ export const getVendorPriceData = (product) => {
 // Eligibility for starting a new round on a product. Mirrors modal's
 // getProductRoundStatus but takes the lookup map as an arg (no Redux access here).
 //   quoteApprovalStatuses: { [productId]: { status: 'APPROVED'|'PENDING'|... } }
+// True when a negotiation round covers a given product — handles both the
+// legacy single-product shape (`round.rfq_product_id`) and the multi-product
+// shape (`round.products[].rfq_product_id`). Mirrors the local helper in
+// NegotiationModal.js and the backend `coversProductSql` predicate.
+export const roundCoversProduct = (round, productId) => {
+  if (round?.rfq_product_id != null && String(round.rfq_product_id) === String(productId)) return true;
+  if (Array.isArray(round?.products)) {
+    return round.products.some(p => p?.rfq_product_id != null && String(p.rfq_product_id) === String(productId));
+  }
+  return false;
+};
+
 export const getProductRoundStatus = (product, quoteApprovalStatuses = {}) => {
   if (!product) return { isDisabled: true, statusLabel: '', statusClass: '' };
 
@@ -254,6 +266,12 @@ export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, form
 
   if (fieldKey === 'base_price') {
     return unitPrice > 0 && target >= unitPrice;
+  }
+
+  // Delivery period: target must be fewer days than quoted to be sent.
+  if (fieldKey === 'delivery_period') {
+    const quotedDays = parseFloat(vendorData.deliveryPeriod) || 0;
+    return quotedDays > 0 && target >= quotedDays;
   }
 
   const charge = (vendorData.otherCharges || []).find((c) =>
@@ -596,6 +614,23 @@ export const compareTargetToQuoted = (targetValue, targetMode, quoteData, fieldK
     const fmtTarget = `₹${target.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
     if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
     if (target === quotedValue) return { result: 'equal', diffAmt: '₹0', diffPct: '0%', diffValue: 0, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+  }
+
+  // Delivery period is compared in DAYS (fewer is better). diffValue stays in
+  // days — StepReview deliberately excludes delivery_period from the rupee
+  // savings total so these days don't pollute it.
+  if (fieldKey === 'delivery_period') {
+    quotedValue = parseFloat(quoteData.deliveryPeriod);
+    if (isNaN(quotedValue) || quotedValue <= 0) return null;
+    const diff = Math.abs(target - quotedValue);
+    const diffPct = ((diff / quotedValue) * 100);
+    const fmtDiff = `${diff} day(s)`;
+    const fmtPct = `${diffPct.toFixed(2)}%`;
+    const fmtQuoted = `${quotedValue} day(s)`;
+    const fmtTarget = `${target} day(s)`;
+    if (target > quotedValue) return { result: 'greater', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
+    if (target === quotedValue) return { result: 'equal', diffAmt: '0 day(s)', diffPct: '0%', diffValue: 0, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
     return { result: 'lower', diffAmt: fmtDiff, diffPct: fmtPct, diffValue: diff, quotedAmt: fmtQuoted, targetAmt: fmtTarget };
   }
 

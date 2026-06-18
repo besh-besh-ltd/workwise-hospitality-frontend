@@ -243,10 +243,12 @@ const buildChargeList = (vendor, globalSelectedFields = [], chargeNamesList = []
   // Quote-level global charges (TCS etc.) — handled in a separate surface,
   // skip on this page.
 
-  // Delivery period — numeric in days, amount-only
+  // Delivery period — numeric in days, amount-only. Uses a dedicated `delivery`
+  // kind (NOT `info`) so VendorChargeCard keeps `supportsTarget` true and the
+  // buyer can set a target number of days.
   if (vendor.deliveryPeriod) {
     list.push({
-      kind: 'info',
+      kind: 'delivery',
       fieldKey: 'delivery_period',
       label: 'Delivery Period',
       value: `${vendor.deliveryPeriod}`,
