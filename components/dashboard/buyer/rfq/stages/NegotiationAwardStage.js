@@ -20,6 +20,7 @@ const prettyStatus = (s) => String(s || "").replace(/_/g, " ").toLowerCase();
 function NegotiationSummary({ rfqId, products }) {
   return (
     <StageCard
+      collapsible
       icon={<Handshake size={15} strokeWidth={2} />}
       title="Negotiation status"
       right={<Link href={`/dashboard/buyer/negotiation/${rfqId}/create`} className="btn btn-secondary btn-sm">Manage rounds</Link>}
