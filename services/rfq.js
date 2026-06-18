@@ -561,22 +561,6 @@ export const getLastPurchaseDetails = (payload) => {
   });
 };
 
-export const getExistingPOByVendor = (vendor_id, rfq_id) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/rfq/get-existing-po', {
-        params: {
-          vendor_id,
-          rfq_id
-        },
-      });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
-};
-
 
 export const closeRFQ = (id, comment) => {
   return new Promise(async (resolve, reject) => {
