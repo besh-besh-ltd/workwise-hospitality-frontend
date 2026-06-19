@@ -723,7 +723,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           />
                         </div>
                         <span className="progress-label">
-                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span> committed
+                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span> committed <span className="text-fg-4">(excl. taxes)</span>
                         </span>
                       </div>
                       {row.call_off_count > 0 && (

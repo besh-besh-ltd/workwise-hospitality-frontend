@@ -76,7 +76,9 @@ export const roleMenus = {
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
     { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
     { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
-    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
+    // ── Purchase Orders (vendor portal)
+    { href: "/dashboard/vendor/purchase-orders", label: "Dashboard", targetMenu: "nav", requiresSubscription: true, section: "Purchase Orders", isNew: true },
+    { href: "/dashboard/vendor/purchase-orders/orders", label: "Orders", targetMenu: "nav", requiresSubscription: true, section: "Purchase Orders", isNew: true },
     // ── Rate Contracts (ARC v2 — vendor portal)
     { href: "/dashboard/vendor/rate-contracts",                            label: "Dashboard",          targetMenu: "nav", section: "Rate Contracts", isNew: true },
     { href: "/dashboard/vendor/rate-contracts/requests",                   label: "Received Requests",  targetMenu: "nav", section: "Rate Contracts", isNew: true },

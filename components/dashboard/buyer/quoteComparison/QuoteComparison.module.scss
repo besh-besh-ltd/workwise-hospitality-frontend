@@ -274,6 +274,8 @@
 .vRank.l1 { background: var(--success-soft); color: var(--success); border: 1px solid rgba(21,128,61,0.30); }
 .vRank.l2 { background: var(--surface-3); color: var(--fg-3); border: 1px solid var(--border-strong); }
 .vRank.l3 { background: var(--surface-3); color: var(--fg-4); border: 1px solid var(--border-strong); }
+.vProfileBtn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; color: var(--fg-3); background: var(--surface-3); border: 1px solid var(--border); cursor: pointer; transition: all 0.13s ease; text-decoration: none; }
+.vProfileBtn:hover { color: var(--primary); background: var(--primary-soft); border-color: rgba(37,99,235,0.32); }
 .vTotal { margin-top: 7px; font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 700; color: var(--fg); letter-spacing: -0.015em; }
 .vTotalNone { margin-top: 7px; color: var(--fg-4); font-size: 12px; font-weight: 500; }
 .vTech { margin-top: 9px; display: flex; align-items: center; gap: 6px; }

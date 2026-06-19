@@ -119,12 +119,6 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
     });
   }, [data]);
 
-  const itemTotals = useMemo(() => {
-    const m = {};
-    for (const p of proposals) m[p.itemId] = (m[p.itemId] || 0) + p.allocatedQty;
-    return m;
-  }, [proposals]);
-
   const splitGroups = useMemo(() => {
     const groups = {};
     for (const p of proposals) (groups[p.itemId] = groups[p.itemId] || []).push(p);
@@ -135,6 +129,31 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
         proposals: arr.slice().sort((a, b) => a.rate - b.rate),
       }));
   }, [proposals]);
+
+  // Product-grouped proposals: one entry per item, the awarded vendor(s) within
+  // sorted by their share (then rate). Drives the single "Award proposals"
+  // surface that embeds each product's split — replacing the old flat
+  // product×vendor list + separate Split-award allocation section.
+  const productGroups = useMemo(() => {
+    const order = (data?.items || []).map((it) => it.id);
+    const groups = {};
+    for (const p of proposals) (groups[p.itemId] = groups[p.itemId] || []).push(p);
+    const arr = Object.entries(groups).map(([itemId, list]) => {
+      const sorted = list.slice().sort((a, b) => (b.allocatedQty - a.allocatedQty) || (a.rate - b.rate));
+      return {
+        itemId: Number(itemId),
+        proposals: sorted,
+        totalQty: sorted.reduce((s, p) => s + p.allocatedQty, 0),
+        totalValue: sorted.reduce((s, p) => s + (p.rate * p.allocatedQty), 0),
+        vendorCount: sorted.length,
+      };
+    });
+    arr.sort((a, b) => {
+      const ia = order.indexOf(a.itemId); const ib = order.indexOf(b.itemId);
+      return (ia === -1 ? 1e9 : ia) - (ib === -1 ? 1e9 : ib);
+    });
+    return arr;
+  }, [proposals, data]);
 
   const itemById = useMemo(() => {
     const m = {};
@@ -301,9 +320,9 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
       <section className="stat-strip">
         <div className="stat-card">
           <div className="s-ic green">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
           </div>
-          <div><div className="s-val mono">{fmtLakhs(totalCommitted)}</div><div className="s-label">Committed value</div></div>
+          <div><div className="s-val mono">{fmtLakhs(totalCommitted)}</div><div className="s-label">Committed value <span style={{ color: "var(--fg-4)", fontWeight: 500 }}>(excl. taxes)</span></div></div>
         </div>
         <div className="stat-card">
           <div className="s-ic blue">
@@ -340,143 +359,108 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
       <div className="ccm-grid">
         {/* LEFT — proposals + supporting info */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-          {/* Split allocation — read-only, locked in commercial evaluation */}
-          {splitGroups.length > 0 && (
-            <div>
-              <div style={{ marginBottom: 12 }}>
-                <h2 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em", margin: 0 }}>
-                  Split-award allocation
-                </h2>
-                <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>
-                  {isPreview
-                    ? <>Editable in the <strong>Commercial</strong> stage until it&apos;s finalized.</>
-                    : <>Locked during commercial evaluation. If the split looks wrong, <strong>send back</strong> — the commercial evaluator re-balances and resubmits.</>}
-                </div>
-              </div>
-              {splitGroups.map((group) => (
-                <div key={group.itemId} className="split-card">
-                  <div className="split-head">
-                    <div>
-                      <div className="sh-eyebrow">Allocation balanced · 100%</div>
-                      <div className="sh-title">{itemName(group.itemId)}</div>
-                      <div className="sh-sub">
-                        Total committed:{" "}
-                        <strong className="mono">{(itemTotals[group.itemId] || 0).toLocaleString("en-IN")}</strong> {itemUom(group.itemId)}
-                        {" · split across "}<strong>{group.proposals.length}</strong> vendors
-                      </div>
-                    </div>
-                    <div className="sh-total">Total <span className="v">100%</span></div>
-                  </div>
-                  <div className="split-rows">
-                    {group.proposals.map((p) => {
-                      const tot = itemTotals[group.itemId] || 0;
-                      const pct = tot > 0 ? Math.round((p.allocatedQty / tot) * 100) : 0;
-                      return (
-                        <div key={p.vendorId} className="split-row">
-                          <div className="sr-vendor">
-                            <div className="sr-av">{initials(p.vendorName)}</div>
-                            <div className="sr-meta">
-                              <div className="sr-name">
-                                <span>{p.vendorName}</span>
-                                <span className={`l-rank ${(p.lRank || "L1").toLowerCase()}`}>{p.lRank}</span>
-                              </div>
-                              <div className="sr-stats">
-                                <span>{fmtINR(p.rate)}/{itemUom(group.itemId)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="sr-rate">{fmtLakhs(lineValue(p))}</div>
-                          <div className="sr-share">
-                            <div className="track"><div className="fill" style={{ width: pct + "%" }} /></div>
-                            <span className="pct">{pct}%</span>
-                          </div>
-                          <div className="sr-qty">
-                            <span className="lbl">Committed qty</span>
-                            {p.allocatedQty.toLocaleString("en-IN")} {itemUom(group.itemId)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Award proposals */}
+          {/* Award proposals — grouped by product; each product's awarded
+              vendor(s) and their split are embedded, so no separate
+              split-allocation section is needed. */}
           <div>
             <h2 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em", margin: 0 }}>
               Award proposals
             </h2>
             <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4, marginBottom: 12 }}>
-              One per product × vendor{isPreview ? ", as currently allocated in commercial evaluation" : ", finalized in commercial evaluation"}
+              Grouped by product — each shows the awarded vendor(s) and their split{isPreview ? ", as currently allocated in commercial evaluation" : ", finalized in commercial evaluation"}
               {!isPreview && comm_evaluation?.finalized_at && <> on <span className="mono">{fmtDate(comm_evaluation.finalized_at)}</span></>}.
-              The committee decision covers all of them together.
+              The committee decision covers all of them together. All values are <strong>excl. taxes</strong>.
             </div>
             <div className="prop-list">
-              {proposals.length === 0 && (
+              {productGroups.length === 0 && (
                 <div className="empty-state">
                   <h2>No award proposals yet</h2>
                   <p>Once the commercial evaluator saves per-item allocations{isPreview ? "" : " and finalizes"}, proposals appear here.</p>
                 </div>
               )}
-              {proposals.map((p, idx) => (
-                <div key={p.key} className="prop-card">
-                  <div className="prop-head">
-                    <div className="prop-id">
-                      <div className="prop-num">{String(idx + 1).padStart(2, "0")}</div>
-                      <div className="prop-title-row">
-                        <div className="ptt">
-                          <span>{itemName(p.itemId)}</span>
-                          <span style={{ color: "var(--fg-3)", fontWeight: 450, margin: "0 6px" }}>·</span>
-                          <span>{p.vendorName}</span>
-                        </div>
-                        <div className="ptm">
-                          {itemSlug(p.itemId) && <span className="mono">{itemSlug(p.itemId)}</span>}
-                          <span className={`l-rank ${(p.lRank || "L1").toLowerCase()}`}>{p.lRank}</span>
-                          {p.isL1Default && <span>lowest-rate default</span>}
-                          {itemTotals[p.itemId] > 0 && (
-                            <span>
-                              <span className="mono fw-600">{Math.round((p.allocatedQty / itemTotals[p.itemId]) * 100)}%</span> of item volume
+              {productGroups.map((g, idx) => {
+                const split = g.vendorCount > 1;
+                return (
+                  <div key={g.itemId} className="prop-card">
+                    {/* product header */}
+                    <div className="prop-head">
+                      <div className="prop-id">
+                        <div className="prop-num">{String(idx + 1).padStart(2, "0")}</div>
+                        <div className="prop-title-row">
+                          <div className="ptt">{itemName(g.itemId)}</div>
+                          <div className="ptm">
+                            {itemSlug(g.itemId) && <span className="mono">{itemSlug(g.itemId)}</span>}
+                            <span><span className="mono fw-600">{g.totalQty.toLocaleString("en-IN")}</span> {itemUom(g.itemId)} committed</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: split ? "var(--primary)" : "var(--success)" }}>
+                              <span style={{ width: 5, height: 5, borderRadius: 99, background: "currentColor" }} />
+                              {split ? `Split across ${g.vendorCount} vendors` : "Single source"}
                             </span>
-                          )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="prop-body">
-                    <div className="prop-metrics">
-                      <div className="pm-cell">
-                        <div className="pm-k">Rate</div>
-                        <div className="pm-v">{fmtINR(p.rate)}</div>
-                      </div>
-                      <div className="pm-cell">
-                        <div className="pm-k">GST</div>
-                        <div className="pm-v sub">{p.gstPct == null ? "—" : `${p.gstPct}%`}</div>
-                      </div>
-                      <div className="pm-cell">
-                        <div className="pm-k">Committed qty</div>
-                        <div className="pm-v">
-                          {p.allocatedQty.toLocaleString("en-IN")}{" "}
-                          <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 11, color: "var(--fg-3)" }}>{itemUom(p.itemId)}</span>
-                        </div>
-                      </div>
-                      <div className="pm-cell">
-                        <div className="pm-k">Lead time</div>
-                        <div className="pm-v sub">{p.leadTime == null ? "—" : `${p.leadTime} d`}</div>
-                      </div>
-                      <div className="pm-cell">
-                        <div className="pm-k">Line value</div>
-                        <div className="pm-v success">{fmtLakhs(lineValue(p))}</div>
-                      </div>
-                      <div className="pm-cell">
-                        <div className="pm-k">Share of total</div>
-                        <div className="pm-v sub">{totalCommitted ? Math.round((lineValue(p) / totalCommitted) * 100) + "%" : "—"}</div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--success)" }}>{fmtLakhs(g.totalValue)}</div>
+                        <div style={{ fontSize: 9, color: "var(--fg-4)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Line value · excl. taxes</div>
                       </div>
                     </div>
+                    {/* per-vendor split + metrics */}
+                    <div style={{ padding: "0 18px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                      {g.proposals.map((p) => {
+                        const pct = g.totalQty > 0 ? Math.round((p.allocatedQty / g.totalQty) * 100) : 0;
+                        return (
+                          <div key={p.vendorId} style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface-2)", overflow: "hidden" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "10px 13px", flexWrap: "wrap" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                                <div className="sr-av">{initials(p.vendorName)}</div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <span>{p.vendorName}</span>
+                                  <span className={`l-rank ${(p.lRank || "L1").toLowerCase()}`}>{p.lRank}</span>
+                                  {p.isL1Default && <span style={{ fontSize: 10.5, color: "var(--fg-3)", fontWeight: 500 }}>lowest-rate default</span>}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 9, flex: "0 0 auto", minWidth: 170 }}>
+                                <div style={{ flex: 1, height: 7, borderRadius: 99, background: "var(--surface-3)", overflow: "hidden", minWidth: 80 }}>
+                                  <div style={{ width: pct + "%", height: "100%", borderRadius: 99, background: split ? "var(--primary)" : "var(--success)" }} />
+                                </div>
+                                <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)", minWidth: 70, textAlign: "right" }}>{pct}% of vol</span>
+                              </div>
+                            </div>
+                            <div className="prop-metrics" style={{ border: "none", borderTop: "1px solid var(--border)", borderRadius: 0 }}>
+                              <div className="pm-cell">
+                                <div className="pm-k">Rate</div>
+                                <div className="pm-v">{fmtINR(p.rate)}</div>
+                              </div>
+                              <div className="pm-cell">
+                                <div className="pm-k">GST</div>
+                                <div className="pm-v sub">{p.gstPct == null ? "—" : `${p.gstPct}%`}</div>
+                              </div>
+                              <div className="pm-cell">
+                                <div className="pm-k">Committed qty</div>
+                                <div className="pm-v">
+                                  {p.allocatedQty.toLocaleString("en-IN")}{" "}
+                                  <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 500, fontSize: 11, color: "var(--fg-3)" }}>{itemUom(g.itemId)}</span>
+                                </div>
+                              </div>
+                              <div className="pm-cell">
+                                <div className="pm-k">Lead time</div>
+                                <div className="pm-v sub">{p.leadTime == null ? "—" : `${p.leadTime} d`}</div>
+                              </div>
+                              <div className="pm-cell">
+                                <div className="pm-k">Line value</div>
+                                <div className="pm-v success">{fmtLakhs(p.rate * p.allocatedQty)}</div>
+                              </div>
+                              <div className="pm-cell">
+                                <div className="pm-k">Share of ARC</div>
+                                <div className="pm-v sub">{totalCommitted ? Math.round(((p.rate * p.allocatedQty) / totalCommitted) * 100) + "%" : "—"}</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

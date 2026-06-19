@@ -53,7 +53,7 @@ const Icon = ({ size = 13, sw = 2, children }) => (
 const I = {
   back:     () => <Icon><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></Icon>,
   download: () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></Icon>,
-  rupee:    () => <Icon size={18}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></Icon>,
+  rupee:    () => <Icon size={18}><path d="M6 3h12" /><path d="M6 8h12" /><path d="m6 13 8.5 8" /><path d="M6 13h3" /><path d="M9 13c6.667 0 6.667-10 0-10" /></Icon>,
   activity: () => <Icon size={18}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></Icon>,
   truck:    () => <Icon size={18}><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></Icon>,
   clock:    () => <Icon size={18}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></Icon>,
@@ -701,7 +701,7 @@ export default function VendorContractDetailPage() {
               </div>
               <div>
                 <div className="stat-mini">
-                  <div className="sm-k"><div className="sm-ic"><Icon size={11} sw={2.2}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></Icon></div>Delivered value</div>
+                  <div className="sm-k"><div className="sm-ic"><Icon size={11} sw={2.2}><path d="M6 3h12" /><path d="M6 8h12" /><path d="m6 13 8.5 8" /><path d="M6 13h3" /><path d="M9 13c6.667 0 6.667-10 0-10" /></Icon></div>Delivered value</div>
                   <div className="sm-v success">{fmtL(totals.consumed)}</div>
                 </div>
                 <div className="stat-mini">

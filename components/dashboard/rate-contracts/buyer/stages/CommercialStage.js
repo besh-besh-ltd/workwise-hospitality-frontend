@@ -47,6 +47,25 @@ function initialsOf(name) {
   if (!name) return "?";
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
 }
+// Opens the buyer-side vendor profile in a new tab — so the buyer can see the
+// vendor's full profile (compliance, contacts, track record) without leaving
+// the comparison. Mirrors the old quote-compare "Vendor profile" action.
+function VendorProfileLink({ vendorId, vendorName }) {
+  if (vendorId == null) return null;
+  return (
+    <a
+      href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendorId}&showContact=true`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="vendor-profile-btn"
+      title={`View ${vendorName || "vendor"}'s profile`}
+      aria-label="View vendor profile"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </a>
+  );
+}
 const AV_CLASSES = ["av-blue", "av-green", "av-amber", "av-violet", "av-indigo", "av-pink"];
 function avClass(id) {
   if (id === null || id === undefined) return AV_CLASSES[0];
@@ -765,6 +784,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                               {rank != null && (
                                 <span className={"v-rank " + (rank === 1 ? "l1" : rank === 2 ? "l2" : "l3")}>L{rank}</span>
                               )}
+                              <VendorProfileLink vendorId={v.vendor_id} vendorName={v.vendor_name} />
                             </div>
                             <div className="v-total mono">{fmtINR(Math.round(vendorTotal(v.vendor_id)))}</div>
                             <div className="v-meta">
@@ -873,7 +893,10 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                             <div className="vendor-cell">
                               <div className={"vc-av " + avClass(v.vendor_id)}>{initialsOf(v.vendor_name)}</div>
                               <div className="vc-meta">
-                                <div className="vc-name">{v.vendor_name}</div>
+                                <div className="vc-name" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                  <span>{v.vendor_name}</span>
+                                  <VendorProfileLink vendorId={v.vendor_id} vendorName={v.vendor_name} />
+                                </div>
                                 <div className="vc-sub">
                                   {elig === v.lines.length ? `${v.lines.length} items quoted` : `${elig} of ${v.lines.length} quoted eligible`}
                                 </div>

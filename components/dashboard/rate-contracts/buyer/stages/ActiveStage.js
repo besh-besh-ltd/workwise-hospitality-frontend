@@ -40,7 +40,16 @@ import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/a
 // terminations). Unknown event types fall back to humanised snake_case.
 function describeAuditEvent(e, vendorNameById = {}) {
   const p = e.payload || {};
-  const vname = (id) => vendorNameById[Number(id)] || `Vendor #${id}`;
+  // Resolve a vendor display name. Prefer the payload's vendor_id → contract
+  // vendor name; if that's missing (some events, e.g. signing-OTP, don't carry
+  // vendor_id), fall back to the event's actor name — for vendor-initiated
+  // events the actor IS the vendor — so we never render "Vendor #undefined".
+  const vname = (id) => {
+    const mapped = vendorNameById[Number(id)];
+    if (mapped) return mapped;
+    if (id == null) return e.actor_name || "Vendor";
+    return `Vendor #${id}`;
+  };
   switch (e.event_type) {
     case "created":             return { tone: "success", title: "ARC created" };
     case "floated":             return { tone: "success", title: p.invited ? `Floated to ${p.invited} vendor${Number(p.invited) === 1 ? "" : "s"} for quotations` : "Floated to vendors for quotations" };
@@ -211,7 +220,7 @@ const I = {
   user:          () => <Icon><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></Icon>,
   edit:          () => <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>,
   renew:         () => <Icon><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></Icon>,
-  rupee:         () => <Icon><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></Icon>,
+  rupee:         () => <Icon><path d="M6 3h12" /><path d="M6 8h12" /><path d="m6 13 8.5 8" /><path d="M6 13h3" /><path d="M9 13c6.667 0 6.667-10 0-10" /></Icon>,
   download:      () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></Icon>,
   chevron:       () => <Icon size={11}><polyline points="6 9 12 15 18 9" /></Icon>,
   check:         () => <Icon size={11} sw={2.6}><polyline points="20 6 9 17 4 12" /></Icon>,
@@ -705,7 +714,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
       <section className="stat-strip" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <div className="stat-card">
           <div className="s-ic green"><I.rupee /></div>
-          <div><div className="s-val mono">{fmtL(withTaxes ? kpi.projectedTotal : kpi.projected)}</div><div className="s-label">Projected value</div></div>
+          <div><div className="s-val mono">{fmtL(withTaxes ? kpi.projectedTotal : kpi.projected)}</div><div className="s-label">Projected value <span style={{ color: "var(--fg-4)", fontWeight: 500 }}>({withTaxes ? "incl." : "excl."} taxes)</span></div></div>
         </div>
         <div className="stat-card">
           <div className="s-ic blue"><I.consumption /></div>
@@ -1093,7 +1102,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                     {callOffs.map((co) => (
                       <div key={co.call_off_id} className="po-row">
                         <a className="po-id" href={`/dashboard/buyer/purchase-orders/${co.po_id}`}>{co.po_number || `PO-${co.po_id}`}</a>
-                        <div className="mono" style={{ color: "var(--fg-3)", fontSize: 12 }}>{co.mr_number || `MR-${co.mr_id}`}</div>
+                        {co.mr_id ? (
+                          <a className="po-id" href={`/dashboard/buyer/material-requisitions/${co.mr_id}`} style={{ fontSize: 12 }}>{co.mr_number || `MR-${co.mr_id}`}</a>
+                        ) : (
+                          <div className="mono" style={{ color: "var(--fg-3)", fontSize: 12 }}>{co.mr_number || "—"}</div>
+                        )}
                         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                           <div className="ic-vendor-pill" style={{ padding: "2px 7px 2px 3px" }}>
                             <div className={`vp-av ${avClass(co.vendor_id)}`} style={{ width: 16, height: 16, fontSize: 8 }}>{initials(co.vendor_name)}</div>
@@ -1820,8 +1833,16 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
     if (!cur || !Number.isFinite(nv)) return null;
     return ((nv - cur) / cur) * 100;
   };
-  const pctChange = pctOf(vendorProposedValue(am, "new_rate"));
-  const pctEdited = proposedIsEdited ? pctOf(currentValue(am, "new_rate")) : null;
+  // Single "Proposed" card shows the CURRENT (possibly edited) value; the % is
+  // its change vs the contract original.
+  const pctChange = pctOf(currentValue(am, "new_rate"));
+  // Who last edited, for the "Edited by X from original proposed …" footnote.
+  const lastEdit = (() => {
+    const eh = Array.isArray(am.edit_history) ? am.edit_history : [];
+    if (!eh.length) return null;
+    return eh.slice().sort((a, b) => new Date(b.changed_at || 0) - new Date(a.changed_at || 0))[0];
+  })();
+  const editorName = lastEdit ? (lastEdit.changed_by_name || `User #${lastEdit.changed_by}`) : null;
 
   return (
     <div className="arc-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1875,12 +1896,13 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                 <div className="v" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{am.reason || "—"}</div>
               </div>
 
-              {/* Original vs proposed compare */}
+              {/* Original vs proposed compare — one Proposed card; when a
+                  reviewer counter-offered, the card shows the edited value with
+                  an "(edited)" tag and a footnote crediting the editor and the
+                  vendor's original proposal. */}
               {am.amendment_type !== "item_remove" && (
                 <div style={{ marginTop: 18 }}>
-                  <div className="section-label" style={{ marginBottom: 10 }}>
-                    {proposedIsEdited && !editing ? "Original · proposed · edited" : "Original vs proposed"}
-                  </div>
+                  <div className="section-label" style={{ marginBottom: 10 }}>Original vs proposed</div>
                   <div className="rvm-compare">
                     <div className="rvm-card">
                       <div className="k">Original</div>
@@ -1888,7 +1910,9 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                     </div>
                     <div className="arrow">→</div>
                     <div className="rvm-card proposed">
-                      <div className="k">{proposedIsEdited && !editing ? "Vendor proposed" : "Proposed"}{editing ? " · editing" : ""}</div>
+                      <div className="k">
+                        Proposed{proposedIsEdited && !editing ? <span style={{ color: "var(--warn)", fontWeight: 600 }}> (edited)</span> : null}{editing ? " · editing" : ""}
+                      </div>
                       {editing && am.amendment_type === "term" ? (
                         <input
                           type="date"
@@ -1917,40 +1941,22 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                           ))}
                         </div>
                       ) : (
-                        <div className="v">{proposedDisplay}</div>
+                        <div className="v">{editedDisplay}</div>
+                      )}
+                      {/* Footnote: who edited + the vendor's original proposal. */}
+                      {proposedIsEdited && !editing && (
+                        <div style={{ marginTop: 10, paddingTop: 9, borderTop: "1px dashed var(--border)", fontSize: 11, color: "var(--fg-3)", lineHeight: 1.45 }}>
+                          Edited by <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{editorName}</span> from original proposed <span className="mono" style={{ color: "var(--fg-2)" }}>{proposedDisplay}</span>
+                        </div>
                       )}
                     </div>
-                    {/* Internally-edited (counter-offer) value, shown only when a
-                        reviewer changed the proposal before approving. */}
-                    {proposedIsEdited && !editing && (
-                      <>
-                        <div className="arrow">→</div>
-                        <div className="rvm-card proposed" style={{ borderColor: "rgba(180,83,9,0.34)" }}>
-                          <div className="k" style={{ color: "var(--warn)" }}>Edited</div>
-                          <div className="v">{editedDisplay}</div>
-                        </div>
-                      </>
-                    )}
                   </div>
-                  {!editing && (pctChange != null || pctEdited != null) && (
-                    <div className="help-text" style={{ marginTop: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      {pctChange != null && (
-                        <span>
-                          {proposedIsEdited ? "Proposed: " : "Change: "}
-                          <span className="mono fw-600" style={{ color: "var(--fg)" }}>{pctChange.toFixed(1)}%</span>
-                          <span style={{ color: pctChange > 0 ? "var(--danger)" : "var(--success)", marginLeft: 6, fontWeight: 600 }}>
-                            ({pctChange > 0 ? "increase" : "decrease"})
-                          </span>
-                        </span>
-                      )}
-                      {pctEdited != null && (
-                        <span>
-                          Edited: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{pctEdited.toFixed(1)}%</span>
-                          <span style={{ color: pctEdited > 0 ? "var(--danger)" : "var(--success)", marginLeft: 6, fontWeight: 600 }}>
-                            ({pctEdited > 0 ? "increase" : "decrease"})
-                          </span>
-                        </span>
-                      )}
+                  {pctChange != null && !editing && (
+                    <div className="help-text" style={{ marginTop: 8 }}>
+                      Change: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{pctChange.toFixed(1)}%</span>
+                      <span style={{ color: pctChange > 0 ? "var(--danger)" : "var(--success)", marginLeft: 6, fontWeight: 600 }}>
+                        ({pctChange > 0 ? "increase" : "decrease"})
+                      </span>
                     </div>
                   )}
                 </div>

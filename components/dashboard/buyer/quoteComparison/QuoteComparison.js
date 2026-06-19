@@ -1417,6 +1417,17 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                               {coverage(v.id)}/{products.length}
                             </span>
                           )}
+                          <a
+                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${v.id}&showContact=true`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.vProfileBtn}
+                            title={`View ${v.name || "vendor"}'s profile`}
+                            aria-label="View vendor profile"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <User size={12} />
+                          </a>
                         </div>
                         {full ? (
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>

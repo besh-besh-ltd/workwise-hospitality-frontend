@@ -1003,6 +1003,10 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .vendor-head .v-rank.l2 { background:var(--surface-3); color:var(--fg-3); border:1px solid var(--border-strong); }
 .vendor-head .v-rank.l3 { background:var(--surface-3); color:var(--fg-4); border:1px solid var(--border-strong); }
 .vendor-head .v-total { margin-top:7px; font-family:'Geist Mono',monospace; font-size:15px; font-weight:700; color:var(--fg); letter-spacing:-0.02em; }
+/* "View vendor profile" icon-link — used in the commercial comparison matrix
+   header + the per-vendor summary rows (opens the buyer-side vendor profile). */
+.vendor-profile-btn { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; flex-shrink:0; color:var(--fg-3); background:var(--surface-3); border:1px solid var(--border); cursor:pointer; text-decoration:none; transition:all 0.13s ease; }
+.vendor-profile-btn:hover { color:var(--primary); background:var(--primary-soft); border-color:rgba(37,99,235,0.32); }
 .vendor-head .v-meta { margin-top:10px; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--fg-3); flex-wrap:wrap; }
 .vendor-head .v-meta .vm-item { display:inline-flex; align-items:center; gap:4px; font-weight:500; }
 .vendor-head .v-meta .vm-item.tech { color:var(--success); }
