@@ -409,7 +409,21 @@ const PODetail = ({ id }) => {
                     <td className={styles.itIdx}>{String(idx + 1).padStart(2, "0")}</td>
                     <td>
                       <div className={styles.itName}>{it.name}</div>
-                      {it.spec && <div className={styles.itSpec}>{it.spec}</div>}
+                      {it.size && (
+                        <div className={styles.itSpec}>
+                          <span className={styles.itLabel}>Product size: </span>{it.size}
+                        </div>
+                      )}
+                      {it.spec && (
+                        <div className={styles.itSpec}>
+                          <span className={styles.itLabel}>Product specification: </span>{it.spec}
+                        </div>
+                      )}
+                      {it.comment && (
+                        <div className={styles.itSpec}>
+                          <span className={styles.itLabel}>Comment: </span>{it.comment}
+                        </div>
+                      )}
                     </td>
                     <td className={styles.itHsn}>{it.hsn || "—"}</td>
                     <td className="num">

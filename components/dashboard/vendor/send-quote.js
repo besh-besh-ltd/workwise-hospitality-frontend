@@ -3375,6 +3375,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       )}
                                       {getProductSpecValueByTitle(item?.product_specs, "Size") && (
                                         <p className="text-sm mb-1">
+                                          <strong>Product size: </strong>
                                           {getProductSpecValueByTitle(item?.product_specs, "Size")}
                                         </p>
                                       )}
@@ -3388,14 +3389,27 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         )}`}
                                       </p>
                                       {getProductSpecValueByTitle(item?.product_specs, "Spec") && (
-                                        <ReadMore
-                                          content={`- ${getProductSpecValueByTitle(
-                                            item?.product_specs,
-                                            "Spec"
-                                          )}`}
-                                          maxLines={2}
-                                          additionalClasses="text-sm"
-                                        />
+                                        <div className="text-sm mb-1">
+                                          <strong>Product specification: </strong>
+                                          <ReadMore
+                                            content={getProductSpecValueByTitle(
+                                              item?.product_specs,
+                                              "Spec"
+                                            )}
+                                            maxLines={2}
+                                            additionalClasses="text-sm"
+                                          />
+                                        </div>
+                                      )}
+                                      {item?.comment && item.comment.trim() !== "" && (
+                                        <div className="text-sm mb-1">
+                                          <strong>Comment: </strong>
+                                          <ReadMore
+                                            content={item.comment}
+                                            maxLines={2}
+                                            additionalClasses="text-sm"
+                                          />
+                                        </div>
                                       )}
                                       {isTechEvalPendingOrRejected && (
                                         <small

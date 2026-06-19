@@ -142,6 +142,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
   const [approveSel, setApproveSel] = useState({});
   const [rejectSel, setRejectSel] = useState({});
   const [rejectReasons, setRejectReasons] = useState({});
+  const [approveReasons, setApproveReasons] = useState({});
   const [showFinalize, setShowFinalize] = useState(false);
   const [finalizeComment, setFinalizeComment] = useState(""); // mandatory finalize note
   const [showConfirm, setShowConfirm] = useState(false);
@@ -543,9 +544,19 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
     });
     return byVendor;
   };
-  const vendorSelTotal = (vid, prods) =>
-    prods.reduce((s, p) => s + (C.cellLineTotal(p, vid) || 0), 0) +
-    C.vendorGlobalCharges(vid, prods);
+  // Global charges are "applied once" for the full order, so they should only
+  // be added when ALL of a vendor's quoted products are selected.  Adding them
+  // for a partial selection inflates the displayed total vs. the product-cell
+  // values the buyer sees (e.g. ₹8,850 cell → ₹9,885 modal due to a ₹1,035
+  // per-product global charge residual).
+  const vendorSelTotal = (vid, prods) => {
+    const lineSum = prods.reduce((s, p) => s + (C.cellLineTotal(p, vid) || 0), 0);
+    const allQuotedProds = products.filter((p) => p.quotes?.[vid]);
+    const allSelected = allQuotedProds.length > 0 && allQuotedProds.every((p) =>
+      prods.some((sp) => sp.id === p.id)
+    );
+    return allSelected ? lineSum + C.vendorGlobalCharges(vid, allQuotedProds) : lineSum;
+  };
   const selTotal = Object.entries(selByVendor(selections)).reduce(
     (s, [vid, prods]) => s + vendorSelTotal(vid, prods),
     0
@@ -803,9 +814,10 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
     let rejected = 0;
     let fail = 0;
     for (const pid of Object.keys(approveSel)) {
+      const approveReason = (approveReasons[pid] || "").trim() || null;
       try {
         // eslint-disable-next-line no-await-in-loop
-        await approveNegotiationQuotes(pid, null, departmentId);
+        await approveNegotiationQuotes(pid, approveReason, departmentId);
         approved++;
       } catch (e) {
         fail++;
@@ -942,7 +954,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
             })()}
           </div>
           <div className={styles.landed}>
-            landed <span className={styles.mono}>₹{fmt(landed(p, vid))}/{p.unit}</span>
+            landed <span className={styles.mono}>₹{fmt(p.quotes?.[vid]?.base)}/{p.unit}</span>
           </div>
           {delta && (
             <div className={`${styles.deltaLpr} ${delta.down ? styles.down : styles.up}`}>
@@ -2403,6 +2415,16 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                         <span className={styles.av}>{d.vendor.short}</span>
                         <span>{d.vendor.name}</span>
                       </div>
+                    )}
+                    {d.decision === "approve" && (
+                      <textarea
+                        className={styles.rejectReason}
+                        placeholder="Reason for approval (optional)…"
+                        value={approveReasons[d.product.id] || ""}
+                        onChange={(e) =>
+                          setApproveReasons((prev) => ({ ...prev, [d.product.id]: e.target.value }))
+                        }
+                      />
                     )}
                     {d.decision === "reject" && (
                       <textarea

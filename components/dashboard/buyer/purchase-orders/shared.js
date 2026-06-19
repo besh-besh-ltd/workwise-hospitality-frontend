@@ -85,11 +85,13 @@ export const statusTone = (s) => {
   return (key && styles[key]) || styles.draft;
 };
 
-/* INR with Indian digit grouping + ₹ prefix, e.g. ₹1,56,100. */
+/* INR with Indian digit grouping + ₹ prefix and 2-decimal paise precision,
+   e.g. ₹1,56,100.00 / ₹37,078.10. Must NOT round to whole rupees — that drops
+   paise (e.g. global-charge taxes) and disagrees with the vendor-side total. */
 export const inr = (n) => {
   const num = Number(n);
-  if (!isFinite(num)) return "₹0";
-  return `₹${Math.round(num).toLocaleString("en-IN")}`;
+  if (!isFinite(num)) return "₹0.00";
+  return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 /* Lakh display for the KPI total-value card: value/100000 with "L" suffix. */

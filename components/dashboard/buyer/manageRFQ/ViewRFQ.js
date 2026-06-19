@@ -255,9 +255,13 @@ const ProductCard = ({
                   "no additional information" marker. (Guard against a numeric
                   0 / empty variant rendering as a stray "0".) */}
               {size ? (
-                <span className={`${styles.pill} ${styles.neutral}`}>{size}</span>
+                <span className={`${styles.pill} ${styles.neutral} ${styles.pillWrap}`}>
+                  <span className={styles.pillLabel}>Product size:</span> {size}
+                </span>
               ) : variant ? (
-                <span className={`${styles.pill} ${styles.neutral}`}>{variant}</span>
+                <span className={`${styles.pill} ${styles.neutral} ${styles.pillWrap}`}>
+                  <span className={styles.pillLabel}>Product size:</span> {variant}
+                </span>
               ) : (
                 <span className={`${styles.pill} ${styles.pillMuted}`}>
                   No additional information
@@ -265,10 +269,18 @@ const ProductCard = ({
               )}
             </div>
 
-            {spec && <div className={styles.productSpec}>{spec}</div>}
+            {spec && (
+              <div className={styles.productSpec}>
+                <span className={styles.specLabel}>Product specification: </span>
+                {spec}
+              </div>
+            )}
 
             {product?.comment && (
-              <div className={styles.productSpec}>{product.comment}</div>
+              <div className={styles.productSpec}>
+                <span className={styles.specLabel}>Comment: </span>
+                {product.comment}
+              </div>
             )}
 
             {(datasheetFiles.length > 0 ||
@@ -1233,9 +1245,10 @@ const ViewRFQ = ({
                   >
                     Additional notes
                   </div>
-                  <div className={styles.additionalTerms}>
-                    {additionalTerms}
-                  </div>
+                  <div
+                    className={styles.additionalTerms}
+                    dangerouslySetInnerHTML={{ __html: additionalTerms }}
+                  />
                 </>
               )}
             </div>
