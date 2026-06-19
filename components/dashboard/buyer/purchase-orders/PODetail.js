@@ -194,6 +194,9 @@ const PODetail = ({ id }) => {
   const activity = Array.isArray(po.activity) ? po.activity : [];
   const decisionChecks = Array.isArray(po.decision_checks) ? po.decision_checks : [];
 
+  const rfqDocs = po.rfq_docs || null;
+  const vendorDocs = po.vendor_docs || null;
+
   const freightInsurance = (Number(pricing.freight) || 0) + (Number(pricing.insurance) || 0);
   const passedChecks = decisionChecks.filter((c) => c.status === "ok").length;
 
@@ -1099,12 +1102,70 @@ const PODetail = ({ id }) => {
                 </div>
               </div>
             )}
+
+            {/* Buyer + Vendor documents — sticky wrapper so both cards stay pinned */}
+            {((rfqDocs && (rfqDocs.rfq_level.length > 0 || rfqDocs.products.length > 0)) ||
+              (vendorDocs && (vendorDocs.quote_level.length > 0 || vendorDocs.products.length > 0))) && (
+              <div className={styles.docsSticky}>
+                {rfqDocs && (rfqDocs.rfq_level.length > 0 || rfqDocs.products.length > 0) && (
+                  <DocAsideCard title="Buyer documents" sections={[
+                    rfqDocs.rfq_level.length > 0 && { label: "RFQ level", files: rfqDocs.rfq_level },
+                    ...rfqDocs.products.map((p) => ({ label: p.name, files: p.files })),
+                  ].filter(Boolean)} />
+                )}
+                {vendorDocs && (vendorDocs.quote_level.length > 0 || vendorDocs.products.length > 0) && (
+                  <DocAsideCard title="Vendor documents" sections={[
+                    vendorDocs.quote_level.length > 0 && { label: "Quote level", files: vendorDocs.quote_level },
+                    ...vendorDocs.products.map((p) => ({ label: p.name, files: p.files })),
+                  ].filter(Boolean)} />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
     </div>
   );
 };
+
+const fileDisplayName = (url) => {
+  try {
+    const seg = new URL(url).pathname.split("/").pop();
+    const name = decodeURIComponent(seg);
+    return name.length > 40 ? name.slice(0, 37) + "…" : name || "File";
+  } catch {
+    return "File";
+  }
+};
+
+const DocAsideCard = ({ title, sections }) => (
+  <div className={styles.docAsideCard}>
+    <div className={styles.docAsideHead}>
+      <FileText size={13} />
+      {title}
+    </div>
+    {sections.map((sec, si) => (
+      <div key={si} className={styles.docSection}>
+        <div className={styles.docSectionLabel}>{sec.label}</div>
+        {sec.files.map((f, fi) => (
+          <div key={fi} className={styles.docFileRow}>
+            <Download size={11} />
+            {f.label && <span className={styles.docTypeBadge}>{f.label}</span>}
+            <a
+              href={f.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.docFileName}
+              title={fileDisplayName(f.url)}
+            >
+              {fileDisplayName(f.url)}
+            </a>
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+);
 
 const VRow = ({ icon, label, value }) => (
   <div className={styles.row}>
