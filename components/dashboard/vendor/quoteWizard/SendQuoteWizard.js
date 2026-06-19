@@ -104,6 +104,15 @@ const parseDocAsks = (negField) => {
   return { comments, demand };
 };
 
+// File lists from the API come back either as plain URL strings or as
+// `{ file_url } / { file_path }` objects. The add-vendor-response endpoint only
+// accepts string URLs — sending the raw objects fails with a 500 ("Error adding
+// vendor responses or associated files"). Normalise to string URLs on the way in.
+const toFileUrls = (arr) =>
+  (Array.isArray(arr) ? arr : [])
+    .map((f) => (typeof f === "string" ? f : f?.file_url || f?.file_path || ""))
+    .filter(Boolean);
+
 // Resolve the buyer's comment for one specific document — matched by file URL
 // first (robust across re-ordering), then by the original document index.
 const docAskFor = (asks, fileUrl, index) => {
@@ -850,8 +859,8 @@ const SendQuoteWizard = () => {
                   // single "Reference" attachment chip; the API returns an
                   // array `clause_files`. Pick the first one for the chip and
                   // pass the full list through for downstream use.
-                  file_url: (r.clause_files || [])[0] || "",
-                  files: r.clause_files || [],
+                  file_url: toFileUrls(r.clause_files)[0] || "",
+                  files: toFileUrls(r.clause_files),
                 }));
                 setTechClauses((prev) => ({ ...prev, [p.id]: clauseList }));
 
@@ -866,7 +875,7 @@ const SendQuoteWizard = () => {
                   responses[r.clause_id] = {
                     response: mapped,
                     comment: "",
-                    files: r.vendor_response_files || [],
+                    files: toFileUrls(r.vendor_response_files),
                   };
                 });
                 if (!cancelled) {
@@ -1277,12 +1286,18 @@ const SendQuoteWizard = () => {
   /* ─────────────────────────── Submit tech-eval (per-product) ─────────────────────────── */
   const persistTechEvalForProduct = async (productId) => {
     const responses = techResponses[productId] || {};
-    const payload = Object.entries(responses).map(([clauseId, r]) => {
+    const payload = Object.entries(responses)
+      // Only submit clauses the vendor actually answered — sending an unmapped
+      // / null response makes the backend reject the whole batch.
+      .filter(([, r]) => r.response === "agree" || r.response === "disagree")
+      .map(([clauseId, r]) => {
       const row = {
         rfq_id: parseInt(id),
         rfq_product_id: productId,
         clause_id: parseInt(clauseId),
-        vendor_response: r.response,
+        // Backend expects the API labels ("I Agree" / "I Dont Agree"), not the
+        // wizard's internal "agree" / "disagree" state values.
+        vendor_response: RESPONSE_TO_API[r.response],
         vendor_id: userProfile?.id,
         file_url: r.files || [],
       };
@@ -3155,9 +3170,22 @@ const Step3Pricing = ({
                     <div className={styles.numChip}>{String(idx + 1).padStart(2, "0")}</div>
                     <div>
                       <div className={styles.lineTitle}>{p.product_name}</div>
+                      {p.size && (
+                        <div className={styles.lineDesc}>
+                          <span className={styles.lineLabel}>Product size: </span>
+                          {p.size}
+                        </div>
+                      )}
                       <div className={styles.lineDesc}>
+                        <span className={styles.lineLabel}>Product specification: </span>
                         {p.detailedSpec || p.product_description || "—"}
                       </div>
+                      {p.buyer_comment && (
+                        <div className={styles.lineDesc}>
+                          <span className={styles.lineLabel}>Comment: </span>
+                          {p.buyer_comment}
+                        </div>
+                      )}
                       <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {hasCharges && (
                           <span className={styles.pill}>
