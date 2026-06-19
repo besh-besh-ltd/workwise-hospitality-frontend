@@ -307,7 +307,7 @@ export default function MrDetailPage() {
                 className="btn btn-sm cta"
                 href={`/dashboard/buyer/rate-contracts/${arcMatches[0].arcId}/call-off?mrId=${mr.id}`}
               >
-                <IconCart /> Convert to call-off PO
+                <IconCart /> Convert to released PO
               </Link>
             )}
             <Link className="btn btn-sm" href="/dashboard/buyer/material-requisitions">
@@ -510,7 +510,7 @@ export default function MrDetailPage() {
                   <h2>Approval chain</h2>
                   <div className="h-sub">
                     {approval ? `${approval.total_steps} step(s) · every step required`
-                      : mr.status === "po_released" ? "Released as a call-off PO"
+                      : mr.status === "po_released" ? "Released PO issued"
                       : mr.status === "draft" ? "Not yet submitted for approval"
                       : "—"}
                   </div>
@@ -592,7 +592,7 @@ export default function MrDetailPage() {
                 <div key={i} className="approval-step">
                   <div className="as-av av-green">PO</div>
                   <div className="as-body">
-                    <div className="as-name">Call-off PO released{co.po_number ? ` · ${co.po_number}` : ""}</div>
+                    <div className="as-name">Released PO{co.po_number ? ` · ${co.po_number}` : ""}</div>
                     <div className="as-role">
                       System · linked to ARC{" "}
                       {arcMatches[0]?.contractId
@@ -646,7 +646,7 @@ export default function MrDetailPage() {
                     {i < arcMatches.length - 1 ? "," : ""}
                   </span>
                 ))}
-                . After category approval, this MR can convert directly to a call-off PO — no sourcing.
+                . After category approval, this MR can convert directly to a released PO — no sourcing.
               </div>
             </div>
           )}

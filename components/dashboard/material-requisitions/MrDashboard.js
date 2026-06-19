@@ -115,7 +115,7 @@ export default function MrDashboard() {
         <div className="kpi-tile success">
           <div className="kt-row"><div className="kt-label">PO released</div><div className="kt-ic"><Svg d={I.truck} /></div></div>
           <div className="kt-val mono">{t.po_released || 0}</div>
-          <div className="kt-sub">{fmtL(t.po_released_value)} converted to call-offs</div>
+          <div className="kt-sub">{fmtL(t.po_released_value)} converted to Released POs</div>
         </div>
         <div className="kpi-tile violet">
           <div className="kt-row"><div className="kt-label">Total demand value</div><div className="kt-ic"><Svg d={I.rupee} /></div></div>

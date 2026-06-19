@@ -527,10 +527,10 @@ export default function VendorQuotePage() {
               </div>
               <ul style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.65, paddingLeft: 0, listStyle: "none" }}>
                 <li>• <strong style={{ color: "var(--fg)" }}>Payment:</strong> <span>{arc.payment_expected || "Net 30 after delivery"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Delivery:</strong> <span>{arc.delivery_expected || "As per call-off PO"}</span></li>
+                <li>• <strong style={{ color: "var(--fg)" }}>Delivery:</strong> <span>{arc.delivery_expected || "As per released PO"}</span></li>
                 <li>• <strong style={{ color: "var(--fg)" }}>Penalty / LD:</strong> <span>{arc.penalty_clause || "Standard LD per company policy"}</span></li>
                 <li>• <strong style={{ color: "var(--fg)" }}>Escalation:</strong> <span>{arc.escalation_policy || "Fixed for contract term"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Call-offs:</strong> Buyer releases POs against this framework — qty per call-off; all other terms inherited.</li>
+                <li>• <strong style={{ color: "var(--fg)" }}>Released POs:</strong> Buyer releases POs against this framework — qty per released PO; all other terms inherited.</li>
               </ul>
             </div>
           </div>

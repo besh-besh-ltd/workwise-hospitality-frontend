@@ -177,7 +177,7 @@ export default function CallOffContext() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: "var(--fg-3)" }}>Loading call-off context…</div>
+      <div style={{ padding: 24, color: "var(--fg-3)" }}>Loading Released PO context…</div>
     );
   }
 
@@ -189,13 +189,13 @@ export default function CallOffContext() {
         <div>
           <div className="page-eyebrow">
             <Icon.Truck />
-            Call-off PO context
+            Released PO context
           </div>
-          <h1 className="page-h1">Call-off PO release</h1>
+          <h1 className="page-h1">Released PO release</h1>
           <p className="page-sub">
-            Call-off POs are created <strong>automatically</strong> when a Material Requisition (MR) clears its approval chain.
+            Released POs are created <strong>automatically</strong> when a Material Requisition (MR) clears its approval chain.
             Use this page to view the contract context, remaining committed quantity, and the items that are eligible for fast-track PO release.
-            To raise a new call-off, head to the{" "}
+            To raise a new released PO, head to the{" "}
             <Link href="/dashboard/buyer/material-requisitions/create" style={{ color: "var(--primary)", fontWeight: 600 }}>
               Material Requisitions module
             </Link>.
@@ -219,7 +219,7 @@ export default function CallOffContext() {
           <Icon.Info />
         </div>
         <div>
-          <strong>Read-only view.</strong> Direct PO release from this screen is not enabled in this phase — call-off POs are dispatched
+          <strong>Read-only view.</strong> Direct PO release from this screen is not enabled in this phase — released POs are dispatched
           automatically once an approved MR matches an active contract line. Approval routing, vendor selection and pricing are all derived
           from the underlying rate contract.
         </div>
@@ -264,7 +264,7 @@ export default function CallOffContext() {
               <div className="cb-body">
                 <span className="cb-tag">Active rate contract</span>
                 <div className="cb-title">
-                  <strong>{arc.title}</strong> — items under this contract are call-off eligible.
+                  <strong>{arc.title}</strong> — items under this contract are released-PO eligible.
                 </div>
                 <div className="cb-meta">
                   <span>Contracted from <span className="mono">{fmtDate(arc.contract_start_at)}</span> till <span className="mono">{fmtDate(arc.contract_end_at)}</span></span>
@@ -298,7 +298,7 @@ export default function CallOffContext() {
 
             <div className="kpi-tile">
               <div className="kt-row">
-                <div className="kt-label">Consumed via call-offs</div>
+                <div className="kt-label">Consumed via released POs</div>
                 <div className="kt-ic">
                   <Icon.Truck />
                 </div>
@@ -315,7 +315,7 @@ export default function CallOffContext() {
                 </div>
               </div>
               <div className="kt-val mono" style={{ color: kpis.remaining === 0 ? "var(--danger)" : undefined }}>{fmtQty(kpis.remaining)}</div>
-              <div className="kt-sub">Available for future call-offs</div>
+              <div className="kt-sub">Available for future released POs</div>
             </div>
 
             <div className="kpi-tile">
@@ -357,7 +357,7 @@ export default function CallOffContext() {
                     </svg>
                   </div>
                   <div>
-                    No active vendor contracts found for this ARC. Once the contract is accepted by at least one vendor, call-off-eligible lines will appear here.
+                    No active vendor contracts found for this ARC. Once the contract is accepted by at least one vendor, released-PO-eligible lines will appear here.
                   </div>
                 </div>
               )}
@@ -381,7 +381,7 @@ export default function CallOffContext() {
                     </div>
                     <span className="status active" style={{ fontSize: 10.5 }}>
                       <span className="pdot"></span>
-                      <span>Call-off ready</span>
+                      <span>Released PO ready</span>
                     </span>
                   </div>
 
@@ -436,7 +436,7 @@ export default function CallOffContext() {
                 <div className="ic">
                   <Icon.Approval />
                 </div>
-                <h2>How call-off PO approval works</h2>
+                <h2>How released PO approval works</h2>
               </div>
               <span className="pill info">
                 <span className="pdot"></span>Fast-track
@@ -474,14 +474,14 @@ export default function CallOffContext() {
               <div className="appr-step done">
                 <div className="as-n"><Icon.Check /></div>
                 <div className="as-body">
-                  <div className="as-name">Call-off PO auto-dispatched to vendor</div>
+                  <div className="as-name">Released PO auto-dispatched to vendor</div>
                   <div className="as-meta">Vendor + rate + terms inherited from the rate contract · GRN window opens.</div>
                 </div>
                 <span className="as-stat">Auto</span>
               </div>
 
               <div className="help-text" style={{ marginTop: 10 }}>
-                Call-off approval is lighter than full RFQ awarding — only{" "}
+                Released PO approval is lighter than full RFQ awarding — only{" "}
                 <strong style={{ color: "var(--fg)" }}>quantity/value gating</strong> applies.
                 Vendor selection, rates, and terms were already approved as part of the rate contract.
               </div>
@@ -552,7 +552,7 @@ export default function CallOffContext() {
             </div>
             <div>
               <strong>Guardrails.</strong> If a requested quantity exceeds a vendor's remaining committed capacity,
-              the call-off is routed to elevated approval. If the contract expires before approval, the PO is voided.
+              the released PO is routed to elevated approval. If the contract expires before approval, the PO is voided.
             </div>
           </div>
 

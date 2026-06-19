@@ -976,14 +976,14 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                     <Package size={10} /> {v.pos_accepted}
                   </span>
                 )}
-                {v.quote_pct != null && (
+                {/* {v.quote_pct != null && (
                   <span
                     className={`${styles.trkChip} ${styles[C.pctTone(v.quote_pct)]}`}
                     title={`Quoted in ${v.quoted_rfqs} of ${v.invited_rfqs} RFQs invited`}
                   >
                     {v.quote_pct}%
                   </span>
-                )}
+                )} */}
                 {v.po_value ? (
                   <span className={styles.trkChip} title="Total value of accepted POs">
                     <Wallet size={10} /> ₹{fmtLakh(v.po_value)}

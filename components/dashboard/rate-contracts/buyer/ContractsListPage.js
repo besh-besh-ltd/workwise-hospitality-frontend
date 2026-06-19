@@ -14,7 +14,9 @@
 // submitted counts, awarded vendor names, committed/consumed value, call-
 // off count) that powers every panel of the card.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
 
@@ -75,6 +77,7 @@ const PRESET_TO_GROUP = {
 
 const PRESET_LABEL = {
   all:      "All Rate Contracts",
+  pending:  "Pending for me",
   drafts:   "Drafts",
   ongoing:  "Ongoing Contracts",
   approved: "Approved Contracts",
@@ -84,10 +87,11 @@ const PRESET_LABEL = {
 
 const PRESET_SUB = {
   all:      "Search, filter and drill into every contract — by BU, category, product, vendor, or status.",
+  pending:  "Rate contracts waiting on your approval right now.",
   drafts:   "Contracts you've started but not yet floated.",
   ongoing:  "Live tender lifecycle — floated, in evaluation, or under committee review.",
   approved: "Approved by committee, awaiting vendor signatures.",
-  active:   "Live contracts with call-off enabled, including those expiring soon.",
+  active:   "Live contracts with released-PO enabled, including those expiring soon.",
   ended:    "Expired, terminated, or closed without award.",
 };
 
@@ -182,13 +186,80 @@ function BadgeIcon({ bucket }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+//  Awarded-vendor hover tooltip — portal popover listing each awarded vendor
+//  with their company name. Positioned above the trigger when there's more
+//  room there, else below; never covers the trigger.
+// ──────────────────────────────────────────────────────────────────────────
+function VendorTooltip({ vendors, anchor }) {
+  if (!anchor || typeof document === "undefined") return null;
+  const W = 264;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const left = Math.max(8, Math.min(anchor.left, vw - W - 8));
+  const above = anchor.top > (vh - anchor.bottom);
+  const pos = above ? { bottom: Math.max(8, vh - anchor.top + 8) } : { top: anchor.bottom + 8 };
+  const shown = vendors.slice(0, 10);
+  const extra = vendors.length - shown.length;
+  return createPortal(
+    <div style={{ position: "fixed", left, ...pos, zIndex: 4000, width: W, background: "#fff", border: "1px solid #ebebe6", borderRadius: 11, boxShadow: "0 10px 30px -10px rgba(15,15,14,0.22), 0 2px 8px rgba(15,15,14,0.06)", overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{ padding: "9px 13px", borderBottom: "1px solid #f4f4f1", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa" }}>
+        Awarded vendor{vendors.length === 1 ? "" : "s"} · {vendors.length}
+      </div>
+      <div style={{ padding: "6px 0" }}>
+        {shown.map((v, i) => (
+          <div key={v.id ?? i} style={{ padding: "5px 13px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#18181b", lineHeight: 1.3 }}>{v.name || `Vendor #${v.id}`}</span>
+            {v.company ? <span style={{ fontSize: 11, color: "#71717a", lineHeight: 1.3 }}>{v.company}</span> : null}
+          </div>
+        ))}
+        {extra > 0 && <div style={{ padding: "4px 13px 2px", fontSize: 11, color: "#a1a1aa" }}>+{extra} more</div>}
+      </div>
+      <div style={{ padding: "8px 13px", borderTop: "1px solid #f4f4f1", fontSize: 10.5, fontWeight: 500, color: "var(--primary)" }}>
+        Click to open the Commercial tab →
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// "Vendor: Name +N" cell — hover shows the awarded-vendor tooltip (names +
+// companies); click jumps straight to the contract's Commercial stage
+// (intercepting the row-level <Link>, which would otherwise open the default
+// stage).
+function VendorCell({ vendors, commercialHref }) {
+  const router = useRouter();
+  const ref = useRef(null);
+  const [anchor, setAnchor] = useState(null);
+  if (!vendors.length) return null;
+  const primary = vendors[0]?.name || `Vendor #${vendors[0]?.id}`;
+  const go = (e) => { e.preventDefault(); e.stopPropagation(); setAnchor(null); router.push(commercialHref); };
+  return (
+    <span
+      ref={ref}
+      role="button"
+      tabIndex={0}
+      title=""
+      onMouseEnter={() => { if (ref.current) setAnchor(ref.current.getBoundingClientRect()); }}
+      onMouseLeave={() => setAnchor(null)}
+      onClick={go}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go(e); }}
+      style={{ cursor: "pointer" }}
+    >
+      Vendor: <span className="em">{primary}</span>{vendors.length > 1 ? ` +${vendors.length - 1}` : ""}
+      {anchor && <VendorTooltip vendors={vendors} anchor={anchor} />}
+    </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 //  Page component
 // ──────────────────────────────────────────────────────────────────────────
 // Maps each tab bucket → the lifecycle bucket keys (from statusBucket()) it
 // should contain. Counts and tab-filtering both walk this map so the tab row,
 // counts and filtered rows stay consistent.
 const TAB_TO_BUCKETS = {
-  all:      null, // no filter — show everything
+  all:      null,    // no filter — show everything
+  pending:  "@pending", // special — rows where pending_for_user is true
   drafts:   ["draft"],
   ongoing:  ["floated", "eval", "committee"],
   approved: ["awaiting"],
@@ -198,6 +269,7 @@ const TAB_TO_BUCKETS = {
 
 const TABS = [
   { key: "all",      label: "All" },
+  { key: "pending",  label: "Pending for me" },
   { key: "drafts",   label: "Drafts" },
   { key: "ongoing",  label: "Ongoing" },
   { key: "approved", label: "Approved" },
@@ -240,9 +312,9 @@ export default function ContractsListPage({ filterPreset = "all" }) {
   // Count rows per tab against the full dataset (not the chip-filtered view)
   // so users see what's available before drilling in.
   const tabCounts = useMemo(() => {
-    const acc = { all: rows.length };
+    const acc = { all: rows.length, pending: rows.filter((r) => r.pending_for_user).length };
     TABS.forEach((t) => {
-      if (t.key === "all") return;
+      if (t.key === "all" || t.key === "pending") return;
       const allow = TAB_TO_BUCKETS[t.key];
       acc[t.key] = rows.filter((r) => allow.includes(statusBucket(r.status))).length;
     });
@@ -251,8 +323,9 @@ export default function ContractsListPage({ filterPreset = "all" }) {
 
   // Rows narrowed by the active tab — feeds into the chip-filter pipeline.
   const tabRows = useMemo(() => {
+    if (activeTab === "pending") return rows.filter((r) => r.pending_for_user);
     const allow = TAB_TO_BUCKETS[activeTab];
-    if (!allow) return rows;
+    if (!allow || allow === "@pending") return rows;
     return rows.filter((r) => allow.includes(statusBucket(r.status)));
   }, [rows, activeTab]);
 
@@ -555,6 +628,15 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               const subEnd = fmtDate(row.submission_end_at);
               const itemNames = asArray(row.item_names);
               const awardedVendorNames = asArray(row.awarded_vendor_names);
+              // Paired {id,name,company} objects for the hover tooltip; fall
+              // back to name+id pairs if the backend didn't supply the objects.
+              const awardedVendors = (() => {
+                const objs = asArray(row.awarded_vendors);
+                if (objs.length) return objs;
+                const ids = asArray(row.awarded_vendor_ids);
+                return awardedVendorNames.map((name, i) => ({ id: ids[i], name }));
+              })();
+              const commercialHref = `/dashboard/buyer/rate-contracts/${row.id}?stage=commercial`;
               const pulse = bucket === "committee" || bucket === "awaiting" || bucket === "eval";
               const pct = consumptionPct(row);
               const submittedOverInvited = `${row.submitted_count || 0} of ${row.invited_count || 0}`;
@@ -584,10 +666,10 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                             </>
                           )}
                           {row.department_title && (<><span className="sep">·</span><span>{row.department_title}</span></>)}
-                          {awardedVendorNames.length > 0 && (
+                          {awardedVendors.length > 0 && (
                             <>
                               <span className="sep">·</span>
-                              <span>Vendor: <span className="em">{awardedVendorNames[0]}</span>{awardedVendorNames.length > 1 ? ` +${awardedVendorNames.length - 1}` : ""}</span>
+                              <VendorCell vendors={awardedVendors} commercialHref={commercialHref} />
                             </>
                           )}
                           {(termStart && termEnd) && (
@@ -623,9 +705,6 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           <span className="dot" />{row.active_amendments} amendment{Number(row.active_amendments) === 1 ? "" : "s"} live
                         </span>
                       )}
-                      {(bucket === "active" || bucket === "expiring" || bucket === "expired") && row.committed_value > 0 && (
-                        <span className="mono text-fg-3 fs-12">{fmtL(row.committed_value)} committed</span>
-                      )}
                       {bucket === "floated" && row.invited_count > 0 && (
                         <span className="text-fg-3 fs-12">
                           <span className="mono fw-600 text-fg">{submittedOverInvited}</span> responses
@@ -644,12 +723,12 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           />
                         </div>
                         <span className="progress-label">
-                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span>
+                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span> committed
                         </span>
                       </div>
                       {row.call_off_count > 0 && (
                         <span className="fs-12 text-fg-3">
-                          <span className="mono fw-600 text-fg">{row.call_off_count}</span> call-off PO{row.call_off_count === 1 ? "" : "s"}
+                          <span className="mono fw-600 text-fg">{row.call_off_count}</span> Released PO{row.call_off_count === 1 ? "" : "s"}
                         </span>
                       )}
                     </div>

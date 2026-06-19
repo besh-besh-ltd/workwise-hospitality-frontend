@@ -119,7 +119,7 @@ export default function CreateRateContractPage() {
   const [escalation, setEscalation] = useState("none");
   const [escalationCap, setEscalationCap] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
-  const [deliveryTerms, setDeliveryTerms] = useState("Within 21 days of each call-off PO");
+  const [deliveryTerms, setDeliveryTerms] = useState("Within 21 days of each released PO");
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
   const [samplesRequired, setSamplesRequired] = useState(false);
 
@@ -460,7 +460,7 @@ export default function CreateRateContractPage() {
             <div className="type-row">
               <div className={`cat-card ${type === "product" ? "selected" : ""}`} onClick={() => pickType("product")}>
                 <div className="cc-ic"><BoxIcon size={20} /></div>
-                <div><div className="cc-name">Products</div><div className="cc-meta">Physical goods · call-off POs</div></div>
+                <div><div className="cc-name">Products</div><div className="cc-meta">Physical goods · released POs</div></div>
               </div>
               <div className={`cat-card ${type === "service" ? "selected" : ""}`} onClick={() => pickType("service")}>
                 <div className="cc-ic"><ServiceIcon size={20} /></div>

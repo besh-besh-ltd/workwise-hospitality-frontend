@@ -414,7 +414,7 @@ export default function BuyerRateContractsDashboard() {
           </div>
           <div className="kt-val mono">{c.active}</div>
           <div className="kt-sub">
-            <span className="em mono">{c.totalCallOffs}</span> call-off POs released ·{" "}
+            <span className="em mono">{c.totalCallOffs}</span> Released POs ·{" "}
             <span className="em mono">{c.expiring} expiring</span>
           </div>
         </div>

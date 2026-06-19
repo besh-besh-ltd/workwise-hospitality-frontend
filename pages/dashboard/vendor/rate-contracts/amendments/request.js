@@ -558,7 +558,7 @@ export default function VendorRequestAmendmentPage() {
                       <div>
                         <label className="label">Effective from <span className="req">*</span></label>
                         <input type="date" className="input" value={effFrom} onChange={(e) => setEffFrom(e.target.value)} />
-                        <div className="help-text">Call-offs raised on/after this date use the amended terms.</div>
+                        <div className="help-text">Released POs raised on/after this date use the amended terms.</div>
                       </div>
                       <div>
                         <label className="label">Effective to <span className="req">*</span></label>
@@ -617,7 +617,7 @@ export default function VendorRequestAmendmentPage() {
               <div>
                 <strong>How amendments work.</strong>{" "}
                 Your request goes to the buyer's Category Lead → if cleared, it goes to the ARC Committee
-                for approval. Once approved, the change takes effect for call-offs released after the
+                for approval. Once approved, the change takes effect for Released POs issued after the
                 effective date. In-flight POs are unaffected.
               </div>
             </div>
@@ -669,7 +669,7 @@ export default function VendorRequestAmendmentPage() {
               </div>
               <div>
                 <strong>Honour the contract</strong> while the request is under review. You cannot pause
-                existing call-offs unilaterally.
+                existing released POs unilaterally.
               </div>
             </div>
           </aside>

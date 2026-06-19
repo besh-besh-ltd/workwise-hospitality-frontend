@@ -217,9 +217,8 @@ export default function OverviewStage({ arc, stage }) {
                   const status = classifyInvitation(inv, quoteByVendor);
                   const q = quoteByVendor[inv.vendor_id];
                   const vendorName = inv.vendor_name || vendor.name || `Vendor #${inv.vendor_id}`;
-                  const city = vendor.city || inv.vendor_city || "—";
-                  const gstin = vendor.gstin || inv.vendor_gstin || "—";
-                  const rating = vendor.rating || inv.vendor_rating;
+                  const email = inv.vendor_email || vendor.email || null;
+                  const mobile = inv.vendor_mobile || vendor.mobile || null;
                   return (
                     <div key={inv.id || inv.vendor_id} className="vendor-row">
                       <div className="vendor-cell" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12 }}>
@@ -227,10 +226,10 @@ export default function OverviewStage({ arc, stage }) {
                         <div className="vc-meta">
                           <div className="vc-name">{vendorName}</div>
                           <div className="vc-sub">
-                            <span>{city}</span>
-                            <span className="sep">·</span>
-                            <span className="gst">{gstin}</span>
-                            {rating != null && (<><span className="sep">·</span><span>{`★ ${rating}`}</span></>)}
+                            {email ? <span>{email}</span> : null}
+                            {email && mobile ? <span className="sep">·</span> : null}
+                            {mobile ? <span className="mono">{mobile}</span> : null}
+                            {!email && !mobile ? <span>—</span> : null}
                           </div>
                         </div>
                       </div>

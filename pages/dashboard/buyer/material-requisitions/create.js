@@ -410,7 +410,7 @@ export default function CreateMrPage() {
           <h1 className="page-h1">Raise Material Requisition</h1>
           <p className="page-sub">
             Internal demand request. If items match an active ARC, the MR fast-tracks to a
-            call-off PO after category approval.
+            released PO after category approval.
           </p>
         </div>
 
@@ -857,7 +857,7 @@ export default function CreateMrPage() {
                   <div className="wf-step pending">
                     <div className="wf-node"></div>
                     <div className="body">
-                      <div className="nm">{fastTrackable ? "Direct call-off PO release" : "Sourcing / RFQ"}</div>
+                      <div className="nm">{fastTrackable ? "Direct released PO release" : "Sourcing / RFQ"}</div>
                       <div className="meta">{fastTrackable ? "All items under active ARCs — auto-converts on final approval" : "Items need fresh quotes"}</div>
                     </div>
                   </div>
@@ -883,7 +883,7 @@ export default function CreateMrPage() {
                 <div className="g-ic">{Icon.check(13)}</div>
                 <div>
                   <strong>Fully ARC-matched.</strong> Once approved, this MR converts to
-                  call-off PO(s) automatically — no sourcing or negotiation required.
+                  released PO(s) automatically — no sourcing or negotiation required.
                 </div>
               </div>
             )}

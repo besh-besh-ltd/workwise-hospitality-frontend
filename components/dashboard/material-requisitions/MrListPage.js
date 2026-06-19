@@ -247,7 +247,7 @@ export default function MrListPage({ filterPreset = "all" }) {
         <div>
           <h1 className="page-h1">Material Requisitions</h1>
           <p className="page-sub">
-            Primary demand path. Departmental approval → auto call-off PO when items match an active rate contract.
+            Primary demand path. Departmental approval → auto released PO when items match an active rate contract.
           </p>
         </div>
         <Link href="/dashboard/buyer/material-requisitions/create" className="btn btn-blue btn-lg">
@@ -301,7 +301,7 @@ export default function MrListPage({ filterPreset = "all" }) {
             </div>
           </div>
           <div className="kt-val mono">{c.po_released}</div>
-          <div className="kt-sub">converted to call-off POs</div>
+          <div className="kt-sub">converted to Released POs</div>
         </div>
         <div className="kpi-tile violet">
           <div className="kt-row">

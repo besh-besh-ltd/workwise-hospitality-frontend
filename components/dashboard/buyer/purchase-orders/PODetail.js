@@ -242,7 +242,7 @@ const PODetail = ({ id }) => {
                 <>
                   <span className={styles.sep}>·</span>
                   <span className={`${styles.rfqLink} ${styles.mono}`}>
-                    Call-off{callOff.arc_number ? ` · ${callOff.arc_number}` : ""}
+                    Released PO{callOff.arc_number ? ` · ${callOff.arc_number}` : ""}
                   </span>
                 </>
               )}
@@ -625,7 +625,7 @@ const PODetail = ({ id }) => {
                   <div className={styles.ic}>
                     <FileText size={13} />
                   </div>
-                  <h2>Call-off source</h2>
+                  <h2>Released PO source</h2>
                 </div>
                 <div className={styles.hRight}>
                   {arcHref && (

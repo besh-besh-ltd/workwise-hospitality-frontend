@@ -299,7 +299,7 @@ export default function MrAllPage({ filterPreset = "all" }) {
                         <span className="mono fw-700 text-fg fs-13">{fmtL(r.total_est_value)}</span>
                       )}
                       {Number(r.call_off_count) > 0 && (
-                        <span className="fs-12 text-fg-3">{r.call_off_count} call-off PO{Number(r.call_off_count) === 1 ? "" : "s"}</span>
+                        <span className="fs-12 text-fg-3">{r.call_off_count} Released PO{Number(r.call_off_count) === 1 ? "" : "s"}</span>
                       )}
                     </div>
                   </div>

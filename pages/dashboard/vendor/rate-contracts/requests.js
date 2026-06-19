@@ -552,7 +552,7 @@ export default function VendorRequestsPage() {
                       </div>
                       {k.call_off_count ? (
                         <span className="fs-12 text-fg-3">
-                          <span className="mono fw-600 text-fg">{k.call_off_count}</span> call-off PO{k.call_off_count === 1 ? "" : "s"} served
+                          <span className="mono fw-600 text-fg">{k.call_off_count}</span> Released PO{k.call_off_count === 1 ? "" : "s"} served
                         </span>
                       ) : null}
                     </div>

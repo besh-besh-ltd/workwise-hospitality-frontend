@@ -358,7 +358,7 @@ export default function VendorContractDetailPage() {
             <div className="v" style={{ marginTop: 4, fontSize: 11.5, opacity: 0.75 }}>{totals.pct}% of commitment</div>
           </div>
           <div className="cell">
-            <div className="k">Call-off POs</div>
+            <div className="k">Released POs</div>
             <div className="v"><span className="em mono">{callOffs.length}</span> received</div>
             <div className="v" style={{ marginTop: 4, fontSize: 11.5, opacity: 0.75 }}>across the term</div>
           </div>
@@ -374,7 +374,7 @@ export default function VendorContractDetailPage() {
       <section className="stat-strip" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <div className="stat-card"><div className="s-ic indigo"><I.rupee /></div><div><div className="s-val mono">{fmtL(totals.committed)}</div><div className="s-label">Committed</div></div></div>
         <div className="stat-card"><div className="s-ic green"><I.activity /></div><div><div className="s-val mono">{fmtL(totals.consumed)}</div><div className="s-label">Consumed</div></div></div>
-        <div className="stat-card"><div className="s-ic blue"><I.truck /></div><div><div className="s-val mono">{callOffs.length}</div><div className="s-label">Call-off POs</div></div></div>
+        <div className="stat-card"><div className="s-ic blue"><I.truck /></div><div><div className="s-val mono">{callOffs.length}</div><div className="s-label">Released POs</div></div></div>
         <div className="stat-card"><div className="s-ic amber"><I.clock /></div><div><div className="s-val mono">{daysLeft}</div><div className="s-label">Days remaining</div></div></div>
       </section>
 
@@ -384,7 +384,7 @@ export default function VendorContractDetailPage() {
 
           <div className="tab-row" style={{ alignSelf: "flex-start" }}>
             <button className={`tab ${tab === "consumption" ? "active" : ""}`} onClick={() => setTab("consumption")}><I.chart /> Consumption</button>
-            <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.po /> Call-off POs <span className="ct">{callOffs.length}</span></button>
+            <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.po /> Released POs <span className="ct">{callOffs.length}</span></button>
             <button className={`tab ${tab === "doc" ? "active" : ""}`} onClick={() => setTab("doc")}><I.file /> Contract document</button>
             <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
               <I.edit /> Amendments
@@ -494,7 +494,7 @@ export default function VendorContractDetailPage() {
                 <div className="h-left">
                   <div className="ic"><I.po /></div>
                   <div>
-                    <h2>Call-off POs received</h2>
+                    <h2>Released POs received</h2>
                     <div className="h-sub"><span className="mono fw-600 text-fg">{callOffs.length}</span> POs issued against your award lines</div>
                   </div>
                 </div>
@@ -503,7 +503,7 @@ export default function VendorContractDetailPage() {
                 {callOffs.length === 0 ? (
                   <div className="empty-state" style={{ padding: "30px 20px" }}>
                     <div className="ic"><I.truck /></div>
-                    <h2>No call-offs yet</h2>
+                    <h2>No released POs yet</h2>
                     <p>You'll see release POs here as soon as the buyer raises them against this contract.</p>
                   </div>
                 ) : (
@@ -709,7 +709,7 @@ export default function VendorContractDetailPage() {
                   <div className="sm-v">{fmtL(totals.committed)}</div>
                 </div>
                 <div className="stat-mini">
-                  <div className="sm-k"><div className="sm-ic"><Icon size={11} sw={2.2}><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /></Icon></div>Call-off POs</div>
+                  <div className="sm-k"><div className="sm-ic"><Icon size={11} sw={2.2}><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /></Icon></div>Released POs</div>
                   <div className="sm-v">{callOffs.length}</div>
                 </div>
               </div>
@@ -773,7 +773,7 @@ export default function VendorContractDetailPage() {
               <div className="ac-head"><div className="ac-t"><I.healthy /> Contract healthy</div></div>
               <div className="ac-body">
                 <div style={{ fontSize: 12.5, color: "var(--fg-2)", lineHeight: 1.5 }}>
-                  Continue to fulfil call-off POs as they arrive. You'll be notified 60 days before expiry.
+                  Continue to fulfil released POs as they arrive. You'll be notified 60 days before expiry.
                 </div>
               </div>
             </div>
@@ -1091,7 +1091,7 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose, onSign, onD
                     <><strong>Approved — your signature is required.</strong> Click <strong>Sign addendum</strong> below to seal the addendum and apply the new terms. Until you sign, the original terms stay in effect. You can also <strong>Decline</strong> to void this change.</>
                   )}
                   {am.status === "approved" && (
-                    <><strong>Approved.</strong> The change takes effect for call-offs raised from <strong>{fmtDate(am.amendment_from)}</strong>.</>
+                    <><strong>Approved.</strong> The change takes effect for released POs raised from <strong>{fmtDate(am.amendment_from)}</strong>.</>
                   )}
                   {am.status === "live" && (
                     <><strong>Live.</strong> Amended terms currently apply{am.amendment_to ? <> until <strong>{fmtDate(am.amendment_to)}</strong>, after which the original contract terms resume</> : null}.</>
