@@ -14,6 +14,10 @@ const BASE = "/arc-v2";
 export const listContracts = (params = {}) =>
   axiosInstance.get(`${BASE}`, { params });
 
+// Server-authoritative listing: search / facet / sort / paginate + Pending-for-me.
+export const getContractsListView = (payload = {}) =>
+  axiosInstance.post(`${BASE}/list-view`, payload);
+
 export const getDashboardKpis = (params = {}) =>
   axiosInstance.get(`${BASE}/kpis`, { params });
 

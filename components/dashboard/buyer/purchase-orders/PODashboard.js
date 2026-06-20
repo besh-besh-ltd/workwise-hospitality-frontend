@@ -38,7 +38,7 @@ const PAGE_LIMIT = 10;
    `count`→ key in the response `status_counts` object */
 const STATUS_TABS = [
   { key: "all", label: "All", count: "all" },
-  { key: "action-required", label: "Action Required", count: "action_required" },
+  { key: "action-required", label: "Pending for me", count: "action_required" },
   { key: "approved", label: "Approved", count: "approved" },
   { key: "rejected", label: "Rejected", count: "rejected" },
 ];

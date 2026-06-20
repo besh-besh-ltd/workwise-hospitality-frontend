@@ -419,6 +419,29 @@
 
 /* Section group container — separation is implied through label rhythm,
    not lines. A thin top margin between groups is enough. */
+/* Phase header — the top-level procure-to-pay grouping (Sourcing / Contracts /
+   Requisition & Orders …). Sits above its module sections, separated by a hair
+   rule, and reads as the more prominent label in the hierarchy. */
+.phaseGroup {
+  display: flex;
+  flex-direction: column;
+}
+.phaseHeader {
+  padding: 9px 10px 3px;
+  margin-top: 8px;
+  border-top: 1px solid #f0efeb;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.005em;
+  color: #52525b;
+}
+.phaseHeaderFirst {
+  margin-top: 2px;
+  border-top: none;
+  padding-top: 8px;
+}
+
 .sectionGroup {
   display: flex;
   flex-direction: column;
@@ -436,23 +459,23 @@
 .sectionToggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background: transparent;
   border: 0;
-  padding: 8px 10px 4px;
+  padding: 8px 10px 3px;
   font-family: inherit;
   font-size: 9.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #a1a1aa;
+  letter-spacing: 0.12em;
+  color: #9a9aa2;
   cursor: pointer;
   width: fit-content;
   border-radius: 5px;
   transition: color 0.12s ease;
   margin: 0;
 }
-.sectionToggle:hover { color: #52525b; }
+.sectionToggle:hover { color: #6b6b72; }
 
 .sectionLabelFirst { padding-top: 4px; }
 .sectionLabelText { line-height: 1; }
@@ -534,6 +557,51 @@
   height: 7px;
   border-radius: 50%;
   background: #2563eb;
+  box-shadow: 0 0 0 2px #fafaf9;
+  flex-shrink: 0;
+}
+
+/* "Action required" count pill — the prominent, unmissable cue that N items at
+   this nav module are waiting on the user. Red = you must act. */
+.navActionPill {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+}
+/* On the quiet uppercase module label, keep the pill from shifting the label. */
+.sectionToggle .navActionPill { margin-left: 7px; height: 15px; min-width: 16px; }
+
+/* Collapsed (icon-only) rail — small count badge pinned to the icon corner. */
+.navActionPillCompact {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: #dc2626;
   box-shadow: 0 0 0 2px #fafaf9;
   flex-shrink: 0;
 }

@@ -278,180 +278,65 @@ const TABS = [
 ];
 
 export default function ContractsListPage({ filterPreset = "all" }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("recent");
-  const [activeTab, setActiveTab] = useState(filterPreset);
   const [filters, setFilters] = useState({
     status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [],
   });
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [activeTab, setActiveTab] = useState(filterPreset);
+  const [page, setPage] = useState(1);
+  const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 });
+  const [loading, setLoading] = useState(true);
+  const seq = useRef(0);
 
   // Keep tab in sync when the route preset changes (e.g. user lands on /active
   // directly via an old bookmark).
-  useEffect(() => { setActiveTab(filterPreset); }, [filterPreset]);
+  useEffect(() => { setActiveTab(filterPreset); setPage(1); }, [filterPreset]);
 
-  // Always fetch the full set — the tab + filter system is purely client-side
-  // so users can hop between tabs without refetching, and tab counts are
-  // accurate against the same data the rows render from.
+  // Debounce the search box.
   useEffect(() => {
-    let cancelled = false;
+    const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Server is authoritative (POST /arc-v2/list-view): tabs, faceting, search,
+  // sort and pagination are all computed server-side — refetch on any change.
+  useEffect(() => {
+    const id = ++seq.current;
     setLoading(true);
-    ArcApi.listContracts({ statusGroup: "all", page: 1, limit: 200 })
+    ArcApi.getContractsListView({ tab: activeTab, search: debounced, sort, filters, page, limit: 20 })
       .then((res) => {
-        if (cancelled) return;
-        const payload = res?.data || res;
-        const list = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
-        setRows(list);
+        if (id !== seq.current) return;
+        const d = res?.data || {};
+        setResp({
+          rows: Array.isArray(d.rows) ? d.rows : [],
+          facets: d.facets || {},
+          tab_counts: d.tab_counts || {},
+          total: d.total || 0,
+          limit: d.limit || 20,
+        });
       })
-      .catch(() => { if (!cancelled) setRows([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+      .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
+      .finally(() => { if (id === seq.current) setLoading(false); });
+  }, [activeTab, debounced, sort, filters, page]);
 
-  // Count rows per tab against the full dataset (not the chip-filtered view)
-  // so users see what's available before drilling in.
-  const tabCounts = useMemo(() => {
-    const acc = { all: rows.length, pending: rows.filter((r) => r.pending_for_user).length };
-    TABS.forEach((t) => {
-      if (t.key === "all" || t.key === "pending") return;
-      const allow = TAB_TO_BUCKETS[t.key];
-      acc[t.key] = rows.filter((r) => allow.includes(statusBucket(r.status))).length;
-    });
-    return acc;
-  }, [rows]);
+  const { facets, tab_counts: tabCounts, total } = resp;
+  const filtered = resp.rows;
+  const totalPages = Math.max(1, Math.ceil(total / (resp.limit || 20)));
 
-  // Rows narrowed by the active tab — feeds into the chip-filter pipeline.
-  const tabRows = useMemo(() => {
-    if (activeTab === "pending") return rows.filter((r) => r.pending_for_user);
-    const allow = TAB_TO_BUCKETS[activeTab];
-    if (!allow || allow === "@pending") return rows;
-    return rows.filter((r) => allow.includes(statusBucket(r.status)));
-  }, [rows, activeTab]);
-
-  // ── derived filter options ──────────────────────────────────────────
-  const statusOptions = useMemo(() => {
-    const counts = {};
-    tabRows.forEach((r) => {
-      const b = statusBucket(r.status);
-      counts[b] = (counts[b] || 0) + 1;
-    });
-    const order = ["active", "expiring", "floated", "eval", "committee", "awaiting", "draft", "expired"];
-    return order.filter((k) => counts[k]).map((k) => ({ key: k, label: BUCKET_LABEL[k], count: counts[k] }));
-  }, [tabRows]);
-
-  const buOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.hotel_id == null) return;
-      const k = String(r.hotel_id);
-      const cur = map.get(k) || { key: k, label: r.hotel_name || `Hotel #${r.hotel_id}`, sub: buCodeFor(r.hotel_name) || "—", count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const categoryOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.category_id == null) return;
-      const k = String(r.category_id);
-      const cur = map.get(k) || { key: k, label: r.category_title || `Category #${r.category_id}`, count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const departmentOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.department_id == null) return;
-      const k = String(r.department_id);
-      const cur = map.get(k) || { key: k, label: r.department_title || `Department #${r.department_id}`, count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const productOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      const ids = asArray(r.product_variant_ids);
-      const names = asArray(r.item_names);
-      ids.forEach((id, idx) => {
-        if (id == null) return;
-        const k = String(id);
-        const cur = map.get(k) || { key: k, label: names[idx] || `Variant #${id}`, count: 0 };
-        cur.count += 1;
-        map.set(k, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const vendorOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      const ids = asArray(r.awarded_vendor_ids);
-      const names = asArray(r.awarded_vendor_names);
-      ids.forEach((id, idx) => {
-        if (id == null) return;
-        const k = String(id);
-        const cur = map.get(k) || { key: k, label: names[idx] || `Vendor #${id}`, count: 0 };
-        cur.count += 1;
-        map.set(k, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  // ── filter + sort ──────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    let list = tabRows.filter((r) => {
-      const bucket = statusBucket(r.status);
-      if (filters.status.length && !filters.status.includes(bucket)) return false;
-      if (filters.buId.length && !filters.buId.includes(String(r.hotel_id))) return false;
-      if (filters.categoryId.length && !filters.categoryId.includes(String(r.category_id))) return false;
-      if (filters.departmentId.length && !filters.departmentId.includes(String(r.department_id))) return false;
-      if (filters.productId.length) {
-        const ids = asArray(r.product_variant_ids).map(String);
-        if (!ids.some((id) => filters.productId.includes(id))) return false;
-      }
-      if (filters.vendorId.length) {
-        const ids = asArray(r.awarded_vendor_ids).map(String);
-        if (!ids.some((id) => filters.vendorId.includes(id))) return false;
-      }
-      if (term) {
-        const hay = `${r.title || ""} ${r.arc_number || ""} ${r.category_title || ""} ${r.hotel_name || ""}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
-      return true;
-    });
-    if (sort === "expiry") {
-      list = list.slice().sort((a, b) => {
-        const ba = BUCKET_ORDER_LIFECYCLE[statusBucket(a.status)] ?? 9;
-        const bb = BUCKET_ORDER_LIFECYCLE[statusBucket(b.status)] ?? 9;
-        return ba - bb;
-      });
-    } else if (sort === "value") {
-      list = list.slice().sort((a, b) => Number(b.committed_value || 0) - Number(a.committed_value || 0));
-    } else {
-      list = list.slice().sort((a, b) => {
-        const ax = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bx = b.created_at ? new Date(b.created_at).getTime() : 0;
-        if (bx !== ax) return bx - ax;
-        return String(b.id).localeCompare(String(a.id));
-      });
-    }
-    return list;
-  }, [tabRows, filters, search, sort]);
+  // ── filter options come straight from the server facets (already counted
+  //    over the tab scope, OR-within / AND-across) ─────────────────────
+  const statusOptions = facets.status || [];
+  const buOptions = useMemo(() => (facets.buId || []).map((o) => ({ ...o, sub: buCodeFor(o.label) })), [facets.buId]);
+  const categoryOptions = facets.categoryId || [];
+  const departmentOptions = facets.departmentId || [];
+  const productOptions = facets.productId || [];
+  const vendorOptions = facets.vendorId || [];
 
   // ── mutators ───────────────────────────────────────────────────────
   function toggle(group, key) {
+    setPage(1);
     setFilters((f) => {
       const cur = f[group] || [];
       const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
@@ -496,6 +381,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
   function cardClass(row) {
     const b = statusBucket(row.status);
     let cls = "contract-card";
+    if (row.action_required) cls += " needs-action";
     if (b === "active") cls += " is-active";
     else if (b === "expiring") cls += " is-expiring";
     return cls;
@@ -522,7 +408,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
           <button key={t.key}
                   type="button"
                   className={"tab" + (activeTab === t.key ? " active" : "")}
-                  onClick={() => setActiveTab(t.key)}>
+                  onClick={() => { setActiveTab(t.key); setPage(1); }}>
             {t.label} <span className="ct">{tabCounts[t.key] ?? 0}</span>
           </button>
         ))}
@@ -572,7 +458,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           <div className="list-toolbar">
             <div className="lt-left">
-              <span className="em mono">{filtered.length}</span> of <span className="mono">{tabRows.length}</span> contracts
+              <span className="em mono">{total}</span> {total === 1 ? "contract" : "contracts"}
             </div>
             <div className="lt-right">
               <div className="search-input" style={{ width: 280 }}>
@@ -582,7 +468,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                 </svg>
                 <input className="input" placeholder="Search by title, number, category…" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <select className="select-mini" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <select className="select-mini" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
                 <option value="recent">Most recent</option>
                 <option value="value">Highest value</option>
                 <option value="expiry">Lifecycle order</option>
@@ -657,6 +543,9 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                         <div className="cc-title">
                           <span>{row.title || "(Untitled)"}</span>
                           <span className="cc-num">#{row.arc_number || row.id}</span>
+                          {row.action_required && row.action_label && (
+                            <span className="needs-action-pill">{row.action_label}</span>
+                          )}
                         </div>
                         <div className="cc-sub">
                           {row.category_title && (<><span>{row.category_title}</span><span className="sep">·</span></>)}
@@ -763,6 +652,14 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               </div>
             )}
           </div>
+
+          {totalPages > 1 && !loading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 }}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>‹</button>
+              <span style={{ fontSize: 12.5, color: "#71717a", padding: "0 8px" }}>Page {page} of {totalPages}</span>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>›</button>
+            </div>
+          )}
         </div>
       </div>
     </main>

@@ -16,10 +16,12 @@ const SideNavItem = ({
   active,
   compact,
   locked,
-  hasPending,
+  pendingCount = 0,
   isNew,
   isLegacy,
 }) => {
+  const hasPending = Number(pendingCount) > 0;
+  const pendingLabel = pendingCount > 9 ? "9+" : String(pendingCount);
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ left: 0, top: 0 });
   const itemRef = useRef(null);
@@ -58,7 +60,7 @@ const SideNavItem = ({
 
   if (compact) {
     const dotEl = hasPending ? (
-      <span className={`${styles.approvalDot} ${styles.approvalDotCompact}`} />
+      <span className={styles.navActionPillCompact} aria-label={`${pendingCount} awaiting your action`}>{pendingLabel}</span>
     ) : isNew ? (
       <span className={styles.newDotCompact} />
     ) : null;
@@ -123,7 +125,9 @@ const SideNavItem = ({
       <span className={styles.navLabel}>{label}</span>
       {isNew && <span className={styles.newBadge}>NEW</span>}
       {isLegacy && <span className={styles.legacyBadge}>LEGACY</span>}
-      {hasPending && <span className={styles.approvalDot} />}
+      {hasPending && (
+        <span className={styles.navActionPill} title={`${pendingCount} awaiting your action`}>{pendingLabel}</span>
+      )}
     </Link>
   );
 };
