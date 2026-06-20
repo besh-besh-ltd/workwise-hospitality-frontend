@@ -11,6 +11,9 @@
   display: grid;
   place-items: center;
   text-decoration: none;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.10),
               0 12px 28px -8px rgba(46, 91, 168, 0.45);
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
@@ -24,6 +27,7 @@
 }
 
 .fab:active {
+  cursor: grabbing;
   transform: scale(0.96);
 }
 

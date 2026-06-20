@@ -323,7 +323,8 @@ const CreateRoundPage = () => {
         ? 'Negotiation round created successfully'
         : `Negotiation round created covering ${products.length} item(s)`
     );
-    router.push(`/dashboard/buyer/quote-compare?rfq=${rfqId}&tab=product`);
+    // After "Create Round", land on the Negotiations list (not quote-compare).
+    router.push(`/dashboard/buyer/negotiation`);
   };
 
   const onPrimaryClick = () => {
@@ -342,8 +343,8 @@ const CreateRoundPage = () => {
   const totalRoundsForSubmit = wizard.queuedRounds.length + (wizard.hasCurrentRound ? 1 : 0);
   const primaryLabel = wizard.step === 3
     ? (submitting
-        ? 'Sending…'
-        : `Send for approval${totalRoundsForSubmit > 1 ? ` (${totalRoundsForSubmit})` : ''}`)
+        ? 'Creating…'
+        : `Create Round${totalRoundsForSubmit > 1 ? ` (${totalRoundsForSubmit})` : ''}`)
     : 'Next';
 
   // +Add More gating. RFQ mode adds a second axis: the RFQ-level slot is
