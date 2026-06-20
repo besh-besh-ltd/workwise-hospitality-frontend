@@ -17,7 +17,6 @@ export default function ItemCard({ item, dense = false }) {
       </div>
       <div className={styles.meta}>
         {qty != null && <span><strong>{qty.toLocaleString()}</strong> {item.uom || ""}</span>}
-        {item.target_price != null && <span>Target ₹{Number(item.target_price).toLocaleString()}</span>}
         {item.spec_text && <span className={styles.spec}>{item.spec_text}</span>}
       </div>
     </div>

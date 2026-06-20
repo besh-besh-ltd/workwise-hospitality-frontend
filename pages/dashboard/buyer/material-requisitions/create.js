@@ -11,8 +11,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as MrApi from "@/services/mr";
-import { getDepartments } from "@/services/rbac";
-import { getHospitalityHotels } from "@/services/hospitality";
 import { getStoredHospitalityContext } from "@/utils/hospitalityContext";
 
 // ============================================================
@@ -100,6 +98,27 @@ const fmtL = (n) => {
   return `₹${v.toLocaleString("en-IN")}`;
 };
 
+// Replace raw db column names in a server message with human labels, so users
+// never see things like "hotel_id, department_id are required".
+const FIELD_LABELS = {
+  hotel_id: "Hotel",
+  department_id: "Department",
+  category_id: "Category",
+  required_by_date: "Required-by date",
+  product_variant_id: "Item",
+  arc_contract_line_id: "Contract item",
+  arc_contract_id: "Contract",
+};
+const humanizeError = (msg) => {
+  if (!msg || typeof msg !== "string") return "Something went wrong. Please try again.";
+  let out = msg;
+  // Longest keys first so arc_contract_line_id isn't half-matched by arc_contract_id.
+  for (const key of Object.keys(FIELD_LABELS).sort((a, b) => b.length - a.length)) {
+    out = out.replace(new RegExp(`\\b${key}\\b`, "g"), FIELD_LABELS[key]);
+  }
+  return out;
+};
+
 
 export default function CreateMrPage() {
   const router = useRouter();
@@ -145,25 +164,34 @@ export default function CreateMrPage() {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
+  const errorRef = useRef(null);
 
-  // ----- Load hotels for the dropdown ------------------------------------
+  // When an error is raised, bring the top banner into view (it's far from the
+  // action dock the user clicked).
   useEffect(() => {
-    if (!form.hospitality_company_id) return;
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
+
+  // ----- Load the user's accessible hotels (server-derived from req.user;
+  //       no client company id required) ----------------------------------
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await getHospitalityHotels(form.hospitality_company_id);
+        const res = await MrApi.getFormHotels();
         if (cancelled) return;
-        const list = res?.data?.hotels || res?.data || res?.hotels || [];
+        const list = res?.data?.hotels || [];
         setHotels(Array.isArray(list) ? list : []);
       } catch (_) {
         if (!cancelled) setHotels([]);
       }
     })();
     return () => { cancelled = true; };
-  }, [form.hospitality_company_id]);
+  }, []);
 
-  // ----- Load departments when hotel changes -----------------------------
+  // ----- Load the user's mapped departments for the chosen hotel ----------
   useEffect(() => {
     if (!form.hotel_id) {
       setDepartments([]);
@@ -172,10 +200,9 @@ export default function CreateMrPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await getDepartments({ hotel_id: form.hotel_id });
+        const res = await MrApi.getFormDepartments(form.hotel_id);
         if (cancelled) return;
-        const list =
-          res?.data?.departments || res?.data || res?.departments || [];
+        const list = res?.data?.departments || [];
         setDepartments(Array.isArray(list) ? list : []);
       } catch (_) {
         if (!cancelled) setDepartments([]);
@@ -305,11 +332,25 @@ export default function CreateMrPage() {
   );
   const fastTrackable = filledRows.length > 0;
 
+  // Hard stop: an MR line can never request more than the contract line's
+  // remaining (committed − consumed) quantity. remaining_qty is captured on the
+  // row at pick time; enforce it whenever it's a known finite number.
+  const rowRemaining = (r) =>
+    r && r.remaining_qty != null && Number.isFinite(Number(r.remaining_qty))
+      ? Number(r.remaining_qty)
+      : null;
+  const rowOverQty = (r) => {
+    const rem = rowRemaining(r);
+    return !!r.product_variant_id && rem != null && Number(r.quantity) > rem;
+  };
+  const hasOverQty = items.some(rowOverQty);
+
   const canSubmit =
     !!form.title &&
     !!form.hotel_id &&
     !!form.department_id &&
     !!form.required_by_date &&
+    !hasOverQty &&
     filledRows.some((r) => Number(r.quantity) > 0);
 
   // ----- Toast helper ----------------------------------------------------
@@ -349,7 +390,36 @@ export default function CreateMrPage() {
   };
 
   const handleSubmit = async (asDraft) => {
-    if (!asDraft && !canSubmit) return;
+    // Over-quantity is a hard stop for BOTH save-draft and submit.
+    if (hasOverQty) {
+      const bad = items.find(rowOverQty);
+      setError(
+        `"${bad?.variant_name || "An item"}" requests more than the remaining contracted quantity` +
+          (rowRemaining(bad) != null ? ` (only ${rowRemaining(bad)} ${bad?.uom || "units"} left).` : ".") +
+          " Reduce the quantity to continue."
+      );
+      return;
+    }
+    // Friendly, label-based required-field check (runs for draft AND submit) so
+    // the user never sees the raw server message with db column names. Title,
+    // hotel and department are required even to save a draft; submit also needs
+    // the required-by date and at least one item with a quantity.
+    const missing = [];
+    if (!form.title || !form.title.trim()) missing.push("Title");
+    if (!form.hotel_id) missing.push("Hotel");
+    if (!form.department_id) missing.push("Department");
+    if (!asDraft) {
+      if (!form.required_by_date) missing.push("Required-by date");
+      if (!filledRows.some((r) => Number(r.quantity) > 0)) missing.push("At least one item with a quantity");
+    }
+    if (missing.length) {
+      setError(
+        missing.length === 1
+          ? `${missing[0]} is required.`
+          : `Please fill in the required fields: ${missing.join(", ")}.`
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -364,7 +434,7 @@ export default function CreateMrPage() {
         else router.push(`/dashboard/buyer/material-requisitions`);
       }, 1100);
     } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Failed to save MR");
+      setError(humanizeError(e?.response?.data?.message || e?.message));
     } finally {
       setBusy(false);
     }
@@ -413,6 +483,29 @@ export default function CreateMrPage() {
             released PO after category approval.
           </p>
         </div>
+
+        {error && (
+          <div
+            ref={errorRef}
+            role="alert"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              background: "var(--danger-soft)",
+              color: "var(--danger)",
+              border: "1px solid var(--danger)",
+              padding: "11px 14px",
+              borderRadius: 8,
+              margin: "14px 0 4px",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            {Icon.alert(15)}
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="mr-form-grid">
           <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
@@ -526,7 +619,9 @@ export default function CreateMrPage() {
             </div>
 
             {/* Items section ------------------------------------------- */}
-            <div className="section-card">
+            {/* overflow-visible so the item-picker results panel isn't clipped
+                by .section-card's overflow:hidden (rounded-corner clip). */}
+            <div className="section-card mr-items-card">
               <div className="section-head">
                 <div className="h-left">
                   <div className="ic">{Icon.box(14)}</div>
@@ -710,9 +805,16 @@ export default function CreateMrPage() {
                               onChange={(e) => updateRowField(idx, "quantity", e.target.value)}
                               placeholder="0"
                               min="0"
+                              max={rowRemaining(row) != null ? rowRemaining(row) : undefined}
+                              style={rowOverQty(row) ? { borderColor: "var(--danger)", boxShadow: "0 0 0 2px var(--danger-soft)" } : undefined}
                             />
                             <div className="suffix">{row.product_variant_id ? row.uom : ""}</div>
                           </div>
+                          {rowOverQty(row) && (
+                            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: "var(--danger)" }}>
+                              Max {rowRemaining(row)} {row.uom} left on this contract
+                            </div>
+                          )}
                         </div>
 
                         {/* Note */}
@@ -755,6 +857,13 @@ export default function CreateMrPage() {
                               <strong className="mono">
                                 ₹{estCost.toLocaleString("en-IN")}
                               </strong>
+                              {rowRemaining(row) != null && (
+                                <>
+                                  {" · "}
+                                  <strong className="mono">{rowRemaining(row)} {row.uom}</strong>
+                                  {" remaining"}
+                                </>
+                              )}
                               {" — "}
                               <em>fast-trackable</em>
                             </span>
@@ -889,21 +998,6 @@ export default function CreateMrPage() {
             )}
           </aside>
         </div>
-
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-soft)",
-              color: "var(--danger)",
-              padding: 10,
-              borderRadius: 8,
-              marginTop: 12,
-              fontSize: 12.5,
-            }}
-          >
-            {error}
-          </div>
-        )}
 
         {toast && (
           <div className="arc-toast">

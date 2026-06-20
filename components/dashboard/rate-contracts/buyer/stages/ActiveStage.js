@@ -466,7 +466,6 @@ export default function ActiveStage({ arc: arcProp, stage }) {
           code: l.variant_slug || l.arc_item_id,
           uom:  l.uom || "—",
           subCategory: "Items",       // backend doesn't expose per-item sub-cat yet
-          targetPrice: Number(l.target_price ?? 0),
           indicativeQty: Number(l.indicative_qty ?? l.committed ?? 0),
         });
       }

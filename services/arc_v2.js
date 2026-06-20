@@ -26,19 +26,24 @@ export const getDepartmentsForCategory = ({ category_id, hospitality_company_id 
     params: { category_id, hospitality_company_id },
   });
 
+// Departments the user is mapped to in a given hotel (ARC create picker).
+export const getDepartmentsForHotel = ({ hotel_id } = {}) =>
+  axiosInstance.get(`${BASE}/hotel-departments`, { params: { hotel_id } });
+
 export const getSubCategories = (categoryId) =>
   axiosInstance.get(`${BASE}/sub-categories`, { params: { category_id: categoryId } });
 
 // Wizard pickers — categories, hotels, variants, eligible vendors.
 export const listRootCategories = () => axiosInstance.get(`${BASE}/categories`);
 export const listAccessibleHotels = () => axiosInstance.get(`${BASE}/hotels`);
-export const searchVariants = ({ category_id, sub_category_ids, q, limit } = {}) =>
+export const searchVariants = ({ category_id, sub_category_ids, q, page, limit } = {}) =>
   axiosInstance.get(`${BASE}/variants`, {
     params: {
       category_id,
       sub_category_ids: Array.isArray(sub_category_ids) && sub_category_ids.length > 0
         ? sub_category_ids.join(',') : undefined,
       q: q || undefined,
+      page,
       limit,
     },
   });

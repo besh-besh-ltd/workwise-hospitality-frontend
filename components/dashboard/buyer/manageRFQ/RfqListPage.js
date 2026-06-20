@@ -14,10 +14,12 @@ import { useRouter } from "next/router";
 import moment from "moment";
 import {
   Filter, Search, ChevronLeft, ChevronRight, Eye, Pencil, Copy as CopyIcon,
-  FileText, Users, Plus,
+  FileText, Users, Plus, Trash2,
 } from "lucide-react";
-import { getRfqListView } from "@/services/rfq";
+import { toast } from "react-toastify";
+import { getRfqListView, deleteDraft } from "@/services/rfq";
 import { canEditRfq } from "@/utils/sharedFunctions";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import CopyRFQModal from "./CopyRFQModal";
 
 /* ─── status / lifecycle metadata (label · tone · tooltip copy · progress) ─── */
@@ -230,6 +232,7 @@ export default function RfqListPage() {
   const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
   const [cloneRfq, setCloneRfq] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
 
   // Debounce the search box.
@@ -256,7 +259,7 @@ export default function RfqListPage() {
       })
       .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
       .finally(() => { if (id === seq.current) setLoading(false); });
-  }, [tab, debounced, sort, filters, page]);
+  }, [tab, debounced, sort, filters, page, reloadKey]);
 
   const toggle = (group, key) => {
     setPage(1);
@@ -379,7 +382,7 @@ export default function RfqListPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {rows.map((r) => <RfqRow key={r.id} row={r} currentUser={currentUser} onClone={() => setCloneRfq(r)} />)}
+              {rows.map((r) => <RfqRow key={r.id} row={r} currentUser={currentUser} onClone={() => setCloneRfq(r)} onDeleted={() => setReloadKey((k) => k + 1)} />)}
             </div>
           )}
 
@@ -414,24 +417,56 @@ function myActionLabel(ah) {
   return "Action required";
 }
 
-function RfqRow({ row, onClone, currentUser }) {
+function RfqRow({ row, onClone, onDeleted, currentUser }) {
+  const router = useRouter();
   const meta = metaFor(row.status_key);
   const cats = Array.isArray(row.categories) ? row.categories : [];
   const products = Array.isArray(row.products) ? row.products : [];
+  const isDraft = row.bucket === "drafts";
   const detailHref = `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${row.id}`;
+  // A draft is still a work-in-progress: it opens straight back into the create
+  // RFQ wizard (CreateRFQ) loaded from the saved draft; everything else opens
+  // the lifecycle details page.
+  const draftHref = `/dashboard/buyer/rfq-management-edit?draft_id=${row.id}`;
+  const rowHref = isDraft ? draftHref : detailHref;
   const edit = canEditRfq(row, currentUser); // same gate the detail/edit page uses
   // Is the current user one of the people who can act on this RFQ right now?
   const myId = Number(currentUser?.id);
   const isMyAction = !!myId && (row.action_holders?.users || []).some((u) => Number(u.id) === myId);
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const handleDelete = async () => {
+    try {
+      const res = await deleteDraft(row.id);
+      const failed = res?.status === 0 || res?.status === 3 || res?.data?.status === 0;
+      if (failed) { toast.error("Failed to delete draft"); return; }
+      toast.success("Draft deleted");
+      setConfirmDelete(false);
+      onDeleted?.();
+    } catch (e) {
+      toast.error("Error deleting draft");
+    }
+  };
+
+  // The whole card navigates to rowHref; inner controls stopPropagation so they
+  // run their own action instead of triggering the row click.
+  const onRowClick = () => router.push(rowHref);
+
   return (
-    <div className={`contract-card is-${meta.tone}${isMyAction ? " needs-action" : ""}`}>
+    <div
+      className={`contract-card is-${meta.tone}${isMyAction ? " needs-action" : ""}`}
+      onClick={onRowClick}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onRowClick(); }}
+      style={{ cursor: "pointer" }}
+    >
       <div className="cc-head">
         <div className="cc-left">
           <div className={`cc-badge ${meta.tone}`}><FileText size={20} strokeWidth={2} /></div>
           <div className="cc-meta">
             <div className="cc-title">
-              <Link href={detailHref} style={{ color: "inherit", textDecoration: "none" }}>{row.title || `RFQ #${row.rfq_no}`}</Link>
+              <Link href={rowHref} style={{ color: "inherit", textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>{row.title || `RFQ #${row.rfq_no}`}</Link>
               <span className="cc-num">#{row.rfq_no}</span>
               {isMyAction && <span className="needs-action-pill">{myActionLabel(row.action_holders)}</span>}
             </div>
@@ -457,25 +492,46 @@ function RfqRow({ row, onClone, currentUser }) {
             <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)" }}>
               <span className="mono fw-600">{row.submitted_count ?? 0}</span>/{row.invited_count ?? 0} quotes
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <Link href={detailHref} className="btn btn-secondary btn-sm" title="View"><Eye size={13} strokeWidth={2} /> View</Link>
-              {edit.allowed ? (
-                <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
+            <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+              {isDraft ? (
+                <>
+                  {/* Draft: resume editing in the create wizard + delete; no View / Clone. */}
+                  <Link href={draftHref} className="btn btn-secondary btn-sm" title="Edit draft"><Pencil size={13} strokeWidth={2} /> Edit</Link>
+                  <button type="button" className="btn btn-secondary btn-sm" title="Delete draft" onClick={() => setConfirmDelete(true)} style={{ color: "var(--danger, #dc2626)" }}><Trash2 size={13} strokeWidth={2} /></button>
+                </>
               ) : (
-                // Custom tooltip (immediate on hover) — same pattern as EditRfqButton.
-                // The d-inline-block span is the hover target since the disabled
-                // button doesn't fire mouse events.
-                <OverlayTrigger placement="top" overlay={<Tooltip id={`edit-disabled-${row.id}`}>{edit.reason}</Tooltip>}>
-                  <span className="d-inline-block">
-                    <button type="button" className="btn btn-secondary btn-sm" disabled style={{ opacity: 0.55, cursor: "not-allowed" }}><Pencil size={13} strokeWidth={2} /></button>
-                  </span>
-                </OverlayTrigger>
+                <>
+                  <Link href={detailHref} className="btn btn-secondary btn-sm" title="View" onClick={(e) => e.stopPropagation()}><Eye size={13} strokeWidth={2} /> View</Link>
+                  {edit.allowed ? (
+                    <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
+                  ) : (
+                    <OverlayTrigger placement="top" overlay={<Tooltip id={`edit-disabled-${row.id}`}>{edit.reason}</Tooltip>}>
+                      <span className="d-inline-block">
+                        <button type="button" className="btn btn-secondary btn-sm" disabled style={{ opacity: 0.55, cursor: "not-allowed" }}><Pencil size={13} strokeWidth={2} /></button>
+                      </span>
+                    </OverlayTrigger>
+                  )}
+                  <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
+                </>
               )}
-              <button type="button" className="btn btn-secondary btn-sm" title="Clone" onClick={onClone}><CopyIcon size={13} strokeWidth={2} /></button>
             </div>
           </div>
         </div>
       </div>
+
+      {confirmDelete && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmationModal
+            isOpen={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            onConfirm={handleDelete}
+            title="Delete draft?"
+            description={`This will permanently delete the draft "${row.title || `RFQ #${row.rfq_no}`}". This can't be undone.`}
+            confirmButtonText="Delete"
+            confirmButtonColor="danger"
+          />
+        </div>
+      )}
     </div>
   );
 }

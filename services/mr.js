@@ -22,6 +22,12 @@ export const searchContractedItems = ({ hotel_id, department_id, q = null, limit
     params: { hotel_id, department_id, q, limit },
   });
 
+// Create-form pickers — the user's accessible hotels + their mapped departments
+// (server-derived from the authenticated user; no client company id needed).
+export const getFormHotels      = () => axiosInstance.get(`${BASE}/form/hotels`);
+export const getFormDepartments = (hotelId) =>
+  axiosInstance.get(`${BASE}/form/departments`, { params: { hotel_id: hotelId } });
+
 // CRUD.
 export const getMrById   = (id) => axiosInstance.get(`${BASE}/${id}`);
 export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);

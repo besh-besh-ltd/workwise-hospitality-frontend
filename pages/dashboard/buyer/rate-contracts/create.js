@@ -4,9 +4,10 @@
 // cards, horizontal stepper, cat-grid, item-row, te-clause-row, weight-bar,
 // vendor-pick-row, action-dock) styles every panel directly.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import { getUnits } from "@/services/units";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Constants & helpers
@@ -91,6 +92,7 @@ export default function CreateRateContractPage() {
   const [departments, setDepartments] = useState([]);
   const [variants, setVariants] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [units, setUnits] = useState([]);
 
   // Step 1 — Basics
   const [title, setTitle] = useState("");
@@ -106,10 +108,19 @@ export default function CreateRateContractPage() {
 
   // Step 3 — Items (selectedIds + per-item meta)
   const [itemSearch, setItemSearch] = useState("");
+  const [debouncedItemSearch, setDebouncedItemSearch] = useState("");
+  const [itemSubCat, setItemSubCat] = useState("");   // in-step sub-category filter
+  const [itemPage, setItemPage] = useState(1);
+  const [variantsTotal, setVariantsTotal] = useState(0);
+  const [loadingVariants, setLoadingVariants] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState([]);
+  // Persisted display meta for selected items so they survive pagination/search
+  // (the browse list only holds the current pages; variantById falls back here).
+  const [selectedMeta, setSelectedMeta] = useState({});
   const [itemSpecs, setItemSpecs] = useState({});
   const [itemQtys, setItemQtys] = useState({});
-  const [itemTargets, setItemTargets] = useState({});
+  const [itemUoms, setItemUoms] = useState({});
+  const varSeq = useRef(0);
 
   // Step 4 — Terms
   const [submissionStart, setSubmissionStart] = useState(isoOffset(2));
@@ -145,48 +156,85 @@ export default function CreateRateContractPage() {
     Promise.all([
       ArcApi.listRootCategories().catch(() => null),
       ArcApi.listAccessibleHotels().catch(() => null),
-    ]).then(([catRes, hotelRes]) => {
+      getUnits().catch(() => null),
+    ]).then(([catRes, hotelRes, unitRes]) => {
       if (cancelled) return;
       setCategories(catRes?.data?.categories || []);
       setHotels(hotelRes?.data?.hotels || []);
+      setUnits(unitRes?.data || []);
     });
     return () => { cancelled = true; };
   }, []);
 
-  // Sub-cats + departments + variants + vendors load on category change
+  // Sub-cats + variants + vendors load on category change. Departments are NOT
+  // category-driven — they come from the user's mappings in the selected hotel
+  // (see the hotel effect below).
   useEffect(() => {
     if (!categoryId) {
-      setSubCats([]); setDepartments([]); setVariants([]);
+      setSubCats([]); setVariants([]);
       return;
     }
     let cancelled = false;
-    Promise.all([
-      ArcApi.getSubCategories(categoryId).catch(() => null),
-      ArcApi.getDepartmentsForCategory({ category_id: categoryId }).catch(() => null),
-    ]).then(([subRes, deptRes]) => {
-      if (cancelled) return;
-      setSubCats(subRes?.data?.sub_categories || []);
-      setDepartments(deptRes?.data?.departments || []);
-      if (deptRes?.data?.departments?.length === 1) {
-        setDepartmentId(deptRes.data.departments[0].id);
-      }
-    });
+    ArcApi.getSubCategories(categoryId)
+      .then((subRes) => { if (!cancelled) setSubCats(subRes?.data?.sub_categories || []); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [categoryId]);
 
+  // Departments = every department the user is mapped to in the SELECTED HOTEL
+  // (the department scopes who can raise MRs against this ARC). Independent of
+  // the category. Auto-selects when there's exactly one; clears a stale pick
+  // when the hotel changes.
   useEffect(() => {
-    if (!categoryId) return;
+    if (!hotelId) { setDepartments([]); setDepartmentId(null); return; }
     let cancelled = false;
-    ArcApi.searchVariants({
-      category_id: categoryId,
-      sub_category_ids: selectedSubCats,
-      q: itemSearch || null,
-      limit: 200,
-    }).then((res) => {
-      if (!cancelled) setVariants(res?.data?.variants || []);
-    }).catch(() => {});
+    ArcApi.getDepartmentsForHotel({ hotel_id: hotelId })
+      .then((res) => {
+        if (cancelled) return;
+        const depts = res?.data?.departments || [];
+        setDepartments(depts);
+        if (depts.length === 1) setDepartmentId(depts[0].id);
+        else setDepartmentId((prev) => (depts.some((d) => d.id === prev) ? prev : null));
+      })
+      .catch(() => { if (!cancelled) setDepartments([]); });
     return () => { cancelled = true; };
-  }, [categoryId, selectedSubCats, itemSearch]);
+  }, [hotelId]);
+
+  // Debounce the item search so each keystroke doesn't hit the server.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedItemSearch(itemSearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [itemSearch]);
+
+  // Server-side paginated catalogue load. page 1 REPLACES the list (new query);
+  // later pages APPEND ("Load more"). seq guards against out-of-order responses.
+  const loadVariants = useCallback(async (page) => {
+    if (!categoryId) { setVariants([]); setVariantsTotal(0); return; }
+    const seq = ++varSeq.current;
+    setLoadingVariants(true);
+    try {
+      const res = await ArcApi.searchVariants({
+        category_id: categoryId,
+        sub_category_ids: itemSubCat ? [Number(itemSubCat)] : [],
+        q: debouncedItemSearch || null,
+        page,
+        limit: 30,
+      });
+      if (seq !== varSeq.current) return;
+      const d = res?.data || {};
+      const rows = Array.isArray(d.variants) ? d.variants : [];
+      setVariants((prev) => (page === 1 ? rows : [...prev, ...rows]));
+      setVariantsTotal(Number(d.total) || 0);
+      setItemPage(page);
+    } catch (_) {
+      if (seq === varSeq.current && page === 1) { setVariants([]); setVariantsTotal(0); }
+    } finally {
+      if (seq === varSeq.current) setLoadingVariants(false);
+    }
+  }, [categoryId, itemSubCat, debouncedItemSearch]);
+
+  // Reset to page 1 whenever the query (category / sub-category / search) changes.
+  useEffect(() => { loadVariants(1); }, [loadVariants]);
 
   useEffect(() => {
     if (!categoryId || !hotelId) { setVendors([]); return; }
@@ -201,7 +249,7 @@ export default function CreateRateContractPage() {
   const selectedHotel = useMemo(() => hotels.find((h) => h.id === hotelId), [hotels, hotelId]);
   const selectedCategoryTitle = useMemo(() => categories.find((c) => c.id === categoryId)?.title || categoryTitle, [categories, categoryId, categoryTitle]);
 
-  function variantById(id) { return variants.find((v) => v.id === id) || { id, name: `Variant #${id}`, slug: "", uom: "—" }; }
+  function variantById(id) { return variants.find((v) => v.id === id) || selectedMeta[id] || { id, name: `Variant #${id}`, slug: "", uom: "—" }; }
   function vendorById(id)  { return vendors.find((v) => v.id === id) || null; }
 
   function itemTotalWeight(iid) {
@@ -227,7 +275,7 @@ export default function CreateRateContractPage() {
     if (step === 2) return !!hotelId && !!departmentId;
     if (step === 3)
       return selectedItemIds.length > 0
-        && selectedItemIds.every((id) => Number(itemQtys[id]) > 0 && (itemSpecs[id] || "").trim().length > 0);
+        && selectedItemIds.every((id) => Number(itemQtys[id]) > 0 && !!(itemUoms[id] || "").trim() && (itemSpecs[id] || "").trim().length > 0);
     if (step === 4) return !!submissionStart && !!submissionEnd && !!contractStart && !!contractEnd;
     if (step === 5) {
       if (eligibility === "invitation" && invitedVendorIds.length === 0) return false;
@@ -236,7 +284,7 @@ export default function CreateRateContractPage() {
     }
     return true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techRequired, clausesByItem, minPassByItem]);
+  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techRequired, clausesByItem, minPassByItem]);
 
   function goToStep(s) { if (s <= step) setStep(s); }
   function nextStep() { if (canNext && step < 6) setStep((s) => s + 1); }
@@ -249,7 +297,7 @@ export default function CreateRateContractPage() {
     setCategoryTitle(c.title || "");
     setSelectedSubCats([]);
     setSelectedItemIds([]);
-    setItemSpecs({}); setItemQtys({}); setItemTargets({});
+    setItemSpecs({}); setItemQtys({}); setItemUoms({});
     setClausesByItem({}); setMinPassByItem({});
   }
   function pickType(t) {
@@ -260,15 +308,18 @@ export default function CreateRateContractPage() {
   function toggleSubCat(id) {
     setSelectedSubCats((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   }
-  function toggleItem(id) {
+  function toggleItem(id, meta) {
     setSelectedItemIds((s) => {
       if (s.includes(id)) return s.filter((x) => x !== id);
       // Seed per-item state
       setItemSpecs((sp)   => sp[id] ? sp : { ...sp, [id]: "" });
       setItemQtys((q)     => q[id]  ? q  : { ...q,  [id]: "" });
-      setItemTargets((tp) => tp[id] ? tp : { ...tp, [id]: "" });
+      setItemUoms((u)     => u[id]  ? u  : { ...u,  [id]: "" });
       setClausesByItem((cl)  => cl[id]  ? cl  : { ...cl,  [id]: [] });
       setMinPassByItem((mp)  => mp[id]  ? mp  : { ...mp,  [id]: 65 });
+      // Remember enough to display this item after it scrolls out of the
+      // current catalogue page (Selected panel, tech-eval step, summary).
+      if (meta) setSelectedMeta((m) => (m[id] ? m : { ...m, [id]: { id, name: meta.name, slug: meta.slug, uom: meta.uom ?? null } }));
       return [...s, id];
     });
   }
@@ -302,9 +353,8 @@ export default function CreateRateContractPage() {
       const items = selectedItemIds.map((id) => ({
         product_variant_id: id,
         spec_text:          itemSpecs[id] || "",
-        target_price:       Number(itemTargets[id]) || null,
         indicative_qty:     Number(itemQtys[id]) || 0,
-        uom:                variantById(id).uom || null,
+        uom:                itemUoms[id] || null,
       }));
       const payload = {
         title,
@@ -537,13 +587,13 @@ export default function CreateRateContractPage() {
             )}
             {departments.length === 1 && (
               <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--fg-3)" }}>
-                Department auto-set to <strong style={{ color: "var(--fg)" }}>{departments[0].title}</strong> (only one mapped to this category).
+                Department auto-set to <strong style={{ color: "var(--fg)" }}>{departments[0].title}</strong> (the only one you&apos;re mapped to in this business unit).
               </div>
             )}
-            {departments.length === 0 && categoryId && (
+            {departments.length === 0 && hotelId && (
               <div className="guide" style={{ marginTop: 12 }}>
                 <div className="g-ic"><InfoIcon /></div>
-                <div>No departments mapped to this category for your scope. Ask an admin to update <code>tbl_category_department</code>.</div>
+                <div>You&apos;re not mapped to any department in this business unit. Ask an admin to grant you department access for it.</div>
               </div>
             )}
           </div>
@@ -560,65 +610,107 @@ export default function CreateRateContractPage() {
                 <h2>Items</h2>
                 <div className="h-sub">
                   From <strong>{selectedCategoryTitle}</strong> · {type === "product" ? "Products" : "Services"}
-                  {selectedSubCats.length > 0 && (
-                    <> · <strong>{selectedSubCats.map((id) => subCats.find((s) => s.id === id)?.title).filter(Boolean).join(", ")}</strong></>
-                  )}
+                  {" · "}<strong className="mono">{selectedItemIds.length}</strong> selected
                 </div>
-              </div>
-            </div>
-            <div className="h-right">
-              <div className="search-input" style={{ width: 280 }}>
-                <SearchIcon />
-                <input className="input" placeholder="Search items…" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} />
               </div>
             </div>
           </div>
           <div className="section-body">
-            {variants.length === 0 && (
-              <div className="empty-state">
-                <div className="ic"><BoxIcon size={22} /></div>
-                <h2>No items match</h2>
-                <p>Try clearing sub-category filters or search.</p>
+            {/* Selected items — pinned + configurable; persists across search/pages. */}
+            {selectedItemIds.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="label" style={{ marginBottom: 8 }}>Selected items · configure each</div>
+                {selectedItemIds.map((id) => {
+                  const it = variantById(id);
+                  return (
+                    <div key={id} style={{ marginBottom: 8 }}>
+                      <div className="item-row selected" onClick={() => toggleItem(id)}>
+                        <div className="ir-check" />
+                        <div className="ir-meta">
+                          <div className="ir-name">{it.name}</div>
+                          <div className="ir-sub"><span className="mono">{it.slug}</span></div>
+                        </div>
+                        <div className="ir-tag">{type === "service" ? "Service" : "Product"}</div>
+                      </div>
+                      <div className="item-detail">
+                        <div className="form-grid cols-3">
+                          <div>
+                            <label className="label">Indicative quantity <span className="req">*</span></label>
+                            <div className="input-group" style={{ maxWidth: 200 }}>
+                              <input type="number" className="input input-num" value={itemQtys[id] ?? ""} onChange={(e) => setItemQtys((m) => ({ ...m, [id]: e.target.value }))} placeholder="0" min={0} />
+                              <div className="suffix">{itemUoms[id] || "unit"}</div>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="label">Unit of measure <span className="req">*</span></label>
+                            <select className="select" style={{ maxWidth: 200 }} value={itemUoms[id] ?? ""} onChange={(e) => setItemUoms((m) => ({ ...m, [id]: e.target.value }))}>
+                              <option value="">Select unit…</option>
+                              {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                            </select>
+                          </div>
+                          <div />
+                        </div>
+                        <label className="label" style={{ marginTop: 11 }}>Specification <span className="req">*</span></label>
+                        <textarea className="textarea" value={itemSpecs[id] ?? ""} onChange={(e) => setItemSpecs((m) => ({ ...m, [id]: e.target.value }))} placeholder="Describe the spec, grade, quality requirements…" />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
-            {variants.map((it) => {
-              const picked = selectedItemIds.includes(it.id);
-              return (
-                <div key={it.id}>
-                  <div className={`item-row ${picked ? "selected" : ""}`} onClick={() => toggleItem(it.id)}>
+
+            {/* Browse toolbar — server search (debounced) + sub-category filter + count. */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              <div className="search-input" style={{ flex: 1, minWidth: 220 }}>
+                <SearchIcon />
+                <input className="input" placeholder={`Search ${selectedCategoryTitle || "catalogue"}…`} value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} />
+              </div>
+              {subCats.length > 0 && (
+                <select className="select" style={{ width: 210 }} value={itemSubCat} onChange={(e) => setItemSubCat(e.target.value)}>
+                  <option value="">All sub-categories</option>
+                  {subCats.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+                </select>
+              )}
+              <span style={{ fontSize: 12.5, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
+                <span className="mono fw-600">{variantsTotal.toLocaleString("en-IN")}</span> item{variantsTotal === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {/* Browse list — compact, scrollable (fixed viewport, scales to thousands). */}
+            <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
+              {variants.map((it) => {
+                const picked = selectedItemIds.includes(it.id);
+                return (
+                  <div key={it.id} className={`item-row ${picked ? "selected" : ""}`} onClick={() => toggleItem(it.id, it)} style={{ cursor: "pointer" }}>
                     <div className="ir-check" />
                     <div className="ir-meta">
                       <div className="ir-name">{it.name}</div>
-                      <div className="ir-sub"><span className="mono">{it.slug}</span> · unit <span>{it.uom || "—"}</span></div>
+                      <div className="ir-sub"><span className="mono">{it.slug}</span></div>
                     </div>
                     <div className="ir-tag">{type === "service" ? "Service" : "Product"}</div>
                   </div>
-                  {picked && (
-                    <div className="item-detail">
-                      <div className="form-grid cols-3">
-                        <div>
-                          <label className="label">Indicative quantity <span className="req">*</span></label>
-                          <div className="input-group" style={{ maxWidth: 200 }}>
-                            <input type="number" className="input input-num" value={itemQtys[it.id] ?? ""} onChange={(e) => setItemQtys((m) => ({ ...m, [it.id]: e.target.value }))} placeholder="0" min={0} />
-                            <div className="suffix">{it.uom || "—"}</div>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="label">Target price</label>
-                          <div className="input-group" style={{ maxWidth: 200 }}>
-                            <div className="prefix">₹</div>
-                            <input type="number" className="input input-num" value={itemTargets[it.id] ?? ""} onChange={(e) => setItemTargets((m) => ({ ...m, [it.id]: e.target.value }))} placeholder="0.00" min={0} />
-                          </div>
-                        </div>
-                        <div />
-                      </div>
-                      <label className="label" style={{ marginTop: 11 }}>Specification <span className="req">*</span></label>
-                      <textarea className="textarea" value={itemSpecs[it.id] ?? ""} onChange={(e) => setItemSpecs((m) => ({ ...m, [it.id]: e.target.value }))} placeholder="Describe the spec, grade, quality requirements…" />
-                    </div>
-                  )}
+                );
+              })}
+              {loadingVariants && variants.length === 0 && (
+                <div style={{ padding: 22, textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>Loading items…</div>
+              )}
+              {!loadingVariants && variants.length === 0 && (
+                <div className="empty-state" style={{ padding: "32px 20px" }}>
+                  <div className="ic"><BoxIcon size={22} /></div>
+                  <h2>No items match</h2>
+                  <p>{debouncedItemSearch || itemSubCat ? "Try a different search or sub-category." : "This category has no items in the catalogue yet."}</p>
                 </div>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Load more (append next page). */}
+            {variants.length < variantsTotal && (
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <button type="button" className="btn btn-secondary btn-sm" disabled={loadingVariants} onClick={() => loadVariants(itemPage + 1)}>
+                  {loadingVariants ? "Loading…" : `Load more — showing ${variants.length} of ${variantsTotal.toLocaleString("en-IN")}`}
+                </button>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -735,7 +827,7 @@ export default function CreateRateContractPage() {
                           <div className="te-h-sub">
                             <span className="mono fw-600" style={{ color: "var(--fg)" }}>{cls.length}</span> clause{cls.length === 1 ? "" : "s"}
                             <span style={{ color: "var(--fg-4)" }}>·</span>
-                            <span>per {it.uom || "—"}</span>
+                            <span>per {itemUoms[iid] || "unit"}</span>
                           </div>
                         </div>
                         <div className="te-min-pass">

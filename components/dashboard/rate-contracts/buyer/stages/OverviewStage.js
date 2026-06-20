@@ -281,13 +281,12 @@ export default function OverviewStage({ arc, stage }) {
                       <th>Item</th>
                       <th>Spec</th>
                       <th>Per-BU committed qty</th>
-                      <th className="right">Target price</th>
                       <th className="center">Files</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
-                      <tr><td colSpan={6} style={{ padding: 18, color: "var(--fg-3)", fontSize: 13 }}>No items in scope.</td></tr>
+                      <tr><td colSpan={5} style={{ padding: 18, color: "var(--fg-3)", fontSize: 13 }}>No items in scope.</td></tr>
                     ) : items.map((it) => {
                       const itemKey = it.id || it.arc_item_id;
                       const isOpen = !!expanded[itemKey];
@@ -334,10 +333,6 @@ export default function OverviewStage({ arc, stage }) {
                                   <span className="qc-qty">{fmtQty(qty)}</span>
                                 </span>
                               </div>
-                            </td>
-                            <td className="right">
-                              <span>{fmtMoney(it.target_price)}</span>
-                              <span className="text-fg-4 fs-11 fw-500" style={{ marginLeft: 3 }}>{`/ ${uom}`}</span>
                             </td>
                             <td className="center">
                               <svg className="ico-attach" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
