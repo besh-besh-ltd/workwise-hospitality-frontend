@@ -7,7 +7,7 @@ import {
   Activity,
   Truck,
   AlertTriangle,
-  DollarSign,
+  IndianRupee,
   Check,
   Download,
   Monitor,
@@ -263,7 +263,7 @@ const POTracking = () => {
             <div className={styles.kpiCard}>
               <div className={styles.kHead}>
                 <span className={styles.kLabel}>Payments due</span>
-                <div className={styles.kIc}><DollarSign size={13} /></div>
+                <div className={styles.kIc}><IndianRupee size={13} /></div>
               </div>
               <div className={styles.kValue}>
                 <span className={styles.cur}>₹</span>
@@ -562,7 +562,7 @@ const POTracking = () => {
                                     type="button"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <DollarSign size={12} /> Mark paid
+                                    <IndianRupee size={12} /> Mark paid
                                   </button>
                                 )}
                                 {canUpdate && p.current_stage === "ack" && (

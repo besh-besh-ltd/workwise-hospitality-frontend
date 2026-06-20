@@ -437,6 +437,19 @@ export const getVendorDetailsByID = (id, { showContact = false } = {}) => {
   });
 };
 
+// Buyer-facing engagement metrics for a vendor (RFQs participated, POs released,
+// business value, contracts awarded) — scoped server-side to the buyer.
+export const getVendorEngagement = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/vendor-profile/${id}/engagement`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getVendorRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

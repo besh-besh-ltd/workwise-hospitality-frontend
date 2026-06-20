@@ -359,3 +359,15 @@ export const listNegotiationRfqs = (params = {}) => {
   });
 };
 
+// Server-authoritative listing: search / facet / sort / paginate + Pending-for-me.
+export const getNegotiationListView = (payload = {}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/negotiation/list-view`, payload);
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+

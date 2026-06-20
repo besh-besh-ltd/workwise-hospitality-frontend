@@ -11,7 +11,7 @@ import { toast } from "react-toastify";
 import {
   Building2, ClipboardCheck, FileText, Clock, Send, Download, X,
   Plus, Trash2, ArrowRight, ArrowLeft, Copy, History,
-  Check, Layers, MessageSquare, DollarSign, MessageCircle, AlertTriangle,
+  Check, Layers, MessageSquare, IndianRupee, MessageCircle, AlertTriangle,
   Receipt, CreditCard, HelpCircle, Lock, CheckCircle2, ChevronDown,
   Paperclip, Eye,
 } from "lucide-react";
@@ -2971,7 +2971,7 @@ const QuoteSummary = ({
         ) : (
           <div className={styles.emptyHero}>
             <div className={styles.ic}>
-              <DollarSign size={20} strokeWidth={1.8} />
+              <IndianRupee size={20} strokeWidth={1.8} />
             </div>
             <div className={styles.ttl}>Awaiting your prices</div>
             <div className={styles.sub}>

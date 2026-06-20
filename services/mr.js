@@ -9,6 +9,8 @@ const BASE = "/mr";
 
 // Listing + dashboard counts + full analytics.
 export const listMrs = (params = {}) => axiosInstance.get(`${BASE}`, { params });
+// Server-authoritative listing: search/facet/sort/paginate + Pending-for-me.
+export const getMrListView = (payload = {}) => axiosInstance.post(`${BASE}/list-view`, payload);
 export const getDashboardKpis = (params = {}) => axiosInstance.get(`${BASE}/kpis`, { params });
 export const getAnalytics = (params = {}) => axiosInstance.get(`${BASE}/analytics`, { params });
 // Resolved MR approval chain for a scope (drives the create-page routing preview).

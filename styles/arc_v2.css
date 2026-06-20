@@ -456,6 +456,10 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .status-pill.pulse .dot { animation:pulse 2s ease-in-out infinite; }
 .your-action { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; border-radius:99px; background:var(--warn); color:white; }
 .your-action::before { content:''; width:5px; height:5px; border-radius:50%; background:white; box-shadow:0 0 0 3px rgba(255,255,255,0.3); animation:pulse 2s ease-in-out infinite; }
+/* "Your action required" row pill — minimal amber chip with a dot. Prominent
+   but quiet enough to repeat across many rows without shouting. */
+.needs-action-pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; font-size:10.5px; font-weight:600; border-radius:99px; background:var(--warn-soft); color:var(--warn); border:1px solid rgba(180,83,9,0.24); white-space:nowrap; flex-shrink:0; }
+.needs-action-pill::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--warn); flex-shrink:0; }
 
 /* BU tag */
 .bu-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding:3px 8px; border-radius:99px; background:var(--surface-3); color:var(--fg-2); border:1px solid var(--border); }
@@ -1003,6 +1007,10 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .vendor-head .v-rank.l2 { background:var(--surface-3); color:var(--fg-3); border:1px solid var(--border-strong); }
 .vendor-head .v-rank.l3 { background:var(--surface-3); color:var(--fg-4); border:1px solid var(--border-strong); }
 .vendor-head .v-total { margin-top:7px; font-family:'Geist Mono',monospace; font-size:15px; font-weight:700; color:var(--fg); letter-spacing:-0.02em; }
+/* "View vendor profile" icon-link — used in the commercial comparison matrix
+   header + the per-vendor summary rows (opens the buyer-side vendor profile). */
+.vendor-profile-btn { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; flex-shrink:0; color:var(--fg-3); background:var(--surface-3); border:1px solid var(--border); cursor:pointer; text-decoration:none; transition:all 0.13s ease; }
+.vendor-profile-btn:hover { color:var(--primary); background:var(--primary-soft); border-color:rgba(37,99,235,0.32); }
 .vendor-head .v-meta { margin-top:10px; display:flex; align-items:center; gap:8px; font-size:11px; color:var(--fg-3); flex-wrap:wrap; }
 .vendor-head .v-meta .vm-item { display:inline-flex; align-items:center; gap:4px; font-weight:500; }
 .vendor-head .v-meta .vm-item.tech { color:var(--success); }

@@ -527,10 +527,10 @@ export default function VendorQuotePage() {
               </div>
               <ul style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.65, paddingLeft: 0, listStyle: "none" }}>
                 <li>• <strong style={{ color: "var(--fg)" }}>Payment:</strong> <span>{arc.payment_expected || "Net 30 after delivery"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Delivery:</strong> <span>{arc.delivery_expected || "As per call-off PO"}</span></li>
+                <li>• <strong style={{ color: "var(--fg)" }}>Delivery:</strong> <span>{arc.delivery_expected || "As per released PO"}</span></li>
                 <li>• <strong style={{ color: "var(--fg)" }}>Penalty / LD:</strong> <span>{arc.penalty_clause || "Standard LD per company policy"}</span></li>
                 <li>• <strong style={{ color: "var(--fg)" }}>Escalation:</strong> <span>{arc.escalation_policy || "Fixed for contract term"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Call-offs:</strong> Buyer releases POs against this framework — qty per call-off; all other terms inherited.</li>
+                <li>• <strong style={{ color: "var(--fg)" }}>Released POs:</strong> Buyer releases POs against this framework — qty per released PO; all other terms inherited.</li>
               </ul>
             </div>
           </div>
@@ -766,7 +766,7 @@ export default function VendorQuotePage() {
 
                     <div className="line-section">
                       <div className="line-section-label">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
                         Unit price for this contract
                       </div>
                       <div className="price-grid">
@@ -1092,7 +1092,7 @@ export default function VendorQuotePage() {
                   ) : (
                     <div className="empty-hero">
                       <div className="ic">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
                       </div>
                       <div className="ttl">Awaiting your prices</div>
                       <div className="sub">Your grand total &amp; tax breakdown will appear here as you price each line item.</div>

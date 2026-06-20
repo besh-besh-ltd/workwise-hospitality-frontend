@@ -48,46 +48,62 @@ export const roleMenus = {
     { href: "/dashboard/admin/account-management/manage-accounts", label: "User Management", targetMenu: "nav", section: "Management" },
     { href: "/dashboard/admin/hospitality-manager", label: "Hospitality Network", targetMenu: "nav", section: "Management" },
   ],
+  // Buyer rail — grouped by procure-to-pay phase (Sourcing → Contracts →
+  // Requisition & Orders), in lifecycle order. `group` is the phase header;
+  // `section` is the collapsible module under it.
   buyer: [
-    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", section: null },
-    // RFQs — the lifecycle page now drives Technical / Comparison / Awarding
-    // in-page, so the rail keeps just the two entry points.
-    { href: "/dashboard/buyer/rfq-management", label: "All RFQs", targetMenu: "nav", section: "RFQs" },
-    { href: "/dashboard/buyer/start-rfq", label: "Create New", targetMenu: "nav", section: "RFQs" },
-    // Negotiation — its own section directly below RFQs.
-    { href: "/dashboard/buyer/negotiation", label: "All Negotiations", targetMenu: "nav", section: "Negotiation", isNew: true },
-    { href: "/dashboard/buyer/negotiation/create", label: "Create New", targetMenu: "nav", section: "Negotiation", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders", label: "Dashboard", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    { href: "/dashboard/buyer/purchase-orders/analytics", label: "Analytics", targetMenu: "nav", section: "Purchase Orders", isNew: true },
-    // ── Rate Contracts (ARC v2)
-    { href: "/dashboard/buyer/rate-contracts",        label: "Dashboard",      targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/buyer/rate-contracts/all",    label: "All Contracts",  targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/buyer/rate-contracts/create", label: "Create New",     targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    // ── Material Requisitions
-    { href: "/dashboard/buyer/material-requisitions",        label: "Dashboard",   targetMenu: "nav", section: "Material Requisitions", isNew: true },
-    { href: "/dashboard/buyer/material-requisitions/all",    label: "All MRs",     targetMenu: "nav", section: "Material Requisitions", isNew: true },
-    { href: "/dashboard/buyer/material-requisitions/create", label: "Raise New",   targetMenu: "nav", section: "Material Requisitions", isNew: true },
-    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
+    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav", group: null, section: null },
+
+    // ── SOURCING — solicit & compare competitive bids
+    { href: "/dashboard/buyer/rfq-management", label: "All RFQs",    targetMenu: "nav", group: "Sourcing", section: "RFQs" },
+    { href: "/dashboard/buyer/start-rfq",      label: "Create New",  targetMenu: "nav", group: "Sourcing", section: "RFQs" },
+    { href: "/dashboard/buyer/negotiation",        label: "All Negotiations", targetMenu: "nav", group: "Sourcing", section: "Negotiations" },
+    { href: "/dashboard/buyer/negotiation/create", label: "Create New",       targetMenu: "nav", group: "Sourcing", section: "Negotiations" },
+
+    // ── CONTRACTS — recurring rate agreements
+    { href: "/dashboard/buyer/rate-contracts",        label: "Dashboard",     targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/buyer/rate-contracts/all",    label: "All Contracts", targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/buyer/rate-contracts/create", label: "Create New",    targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+
+    // ── REQUISITION & ORDERS — raise demand, issue & track orders
+    { href: "/dashboard/buyer/material-requisitions",        label: "Dashboard", targetMenu: "nav", group: "Requisition & Orders", section: "Material Requisitions" },
+    { href: "/dashboard/buyer/material-requisitions/all",    label: "All MRs",   targetMenu: "nav", group: "Requisition & Orders", section: "Material Requisitions" },
+    { href: "/dashboard/buyer/material-requisitions/create", label: "Raise New", targetMenu: "nav", group: "Requisition & Orders", section: "Material Requisitions" },
+    { href: "/dashboard/buyer/purchase-orders",          label: "Dashboard", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
+    { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking",  targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
+    { href: "/dashboard/buyer/purchase-orders/analytics",label: "Analytics", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
+
+    // ── INBOX
+    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", group: "Inbox", section: null },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
+  // Vendor rail — grouped by the supplier's goals: win work → fulfil → get paid.
   vendor: [
-    { href: "/dashboard/vendor/", label: "Dashboard", targetMenu: "nav", section: "Main" },
+    { href: "/dashboard/vendor/", label: "Dashboard", targetMenu: "nav", group: null, section: null },
+
+    // ── OPPORTUNITIES — demand to quote
+    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, group: "Opportunities", section: null },
+    { href: "/dashboard/vendor/rate-contracts/requests",               label: "Received Requests", targetMenu: "nav", group: "Opportunities", section: "Rate-Contract Bids" },
+    { href: "/dashboard/vendor/rate-contracts/requests?tab=submitted", label: "Submitted Quotes",  targetMenu: "nav", group: "Opportunities", section: "Rate-Contract Bids" },
+
+    // ── CONTRACTS — won rate agreements
+    { href: "/dashboard/vendor/rate-contracts",                            label: "Dashboard",          targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/vendor/rate-contracts/active",                     label: "Active Contracts",   targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/vendor/rate-contracts/requests?tab=awaiting-sign", label: "Pending Acceptance", targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/vendor/rate-contracts/amendments",         label: "My Amendments",     targetMenu: "nav", group: "Contracts", section: "Amendments" },
+    { href: "/dashboard/vendor/rate-contracts/amendments/request", label: "Request Amendment", targetMenu: "nav", group: "Contracts", section: "Amendments" },
+
+    // ── ORDERS — fulfil purchase orders
+    { href: "/dashboard/vendor/purchase-orders",        label: "Dashboard", targetMenu: "nav", requiresSubscription: true, group: "Orders", section: "Purchase Orders" },
+    { href: "/dashboard/vendor/purchase-orders/orders", label: "Orders",    targetMenu: "nav", requiresSubscription: true, group: "Orders", section: "Purchase Orders" },
+
+    // ── CATALOGUE
+    { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, group: "Catalogue", section: null },
+
+    // ── ACCOUNT
+    { href: "/dashboard/vendor/subscription", label: "Subscription",  targetMenu: "nav", group: "Account", section: null },
+    { href: "/dashboard/notifications",       label: "Notifications", targetMenu: "nav", group: "Account", section: null },
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
-    { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, section: "Catalogue" },
-    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
-    { href: "/dashboard/vendor/order-book", label: "Order Book", targetMenu: "nav", requiresSubscription: true, section: "Orders" },
-    // ── Rate Contracts (ARC v2 — vendor portal)
-    { href: "/dashboard/vendor/rate-contracts",                            label: "Dashboard",          targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/vendor/rate-contracts/requests",                   label: "Received Requests",  targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/vendor/rate-contracts/requests?tab=submitted",     label: "Submitted Quotes",   targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/vendor/rate-contracts/requests?tab=awaiting-sign", label: "Pending Acceptance", targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    { href: "/dashboard/vendor/rate-contracts/active",                     label: "Active Contracts",   targetMenu: "nav", section: "Rate Contracts", isNew: true },
-    // ── Amendments (ARC v2 — vendor portal)
-    { href: "/dashboard/vendor/rate-contracts/amendments",                 label: "My Amendments",      targetMenu: "nav", section: "Amendments", isNew: true },
-    { href: "/dashboard/vendor/rate-contracts/amendments/request",         label: "Request Amendment",  targetMenu: "nav", section: "Amendments", isNew: true },
-    { href: "/dashboard/vendor/subscription", label: "Subscription", targetMenu: "nav", section: "Account" },
-    { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", section: "Inbox" },
   ],
 };
 

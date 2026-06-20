@@ -40,7 +40,16 @@ import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/a
 // terminations). Unknown event types fall back to humanised snake_case.
 function describeAuditEvent(e, vendorNameById = {}) {
   const p = e.payload || {};
-  const vname = (id) => vendorNameById[Number(id)] || `Vendor #${id}`;
+  // Resolve a vendor display name. Prefer the payload's vendor_id → contract
+  // vendor name; if that's missing (some events, e.g. signing-OTP, don't carry
+  // vendor_id), fall back to the event's actor name — for vendor-initiated
+  // events the actor IS the vendor — so we never render "Vendor #undefined".
+  const vname = (id) => {
+    const mapped = vendorNameById[Number(id)];
+    if (mapped) return mapped;
+    if (id == null) return e.actor_name || "Vendor";
+    return `Vendor #${id}`;
+  };
   switch (e.event_type) {
     case "created":             return { tone: "success", title: "ARC created" };
     case "floated":             return { tone: "success", title: p.invited ? `Floated to ${p.invited} vendor${Number(p.invited) === 1 ? "" : "s"} for quotations` : "Floated to vendors for quotations" };
@@ -70,12 +79,12 @@ function describeAuditEvent(e, vendorNameById = {}) {
       return { tone: "success", title: names ? <><span className="em">{names}</span> signed the contract</> : "Vendor signed the contract", detail: "Signature verified via OTP" };
     }
     case "vendor_declined":     return { tone: "danger",  title: <><span className="em">{vname(p.vendor_id)}</span> declined the contract</> };
-    case "contract_active":     return { tone: "success", title: "Contract is now active", detail: "Call-off POs can be raised against contracted items" };
+    case "contract_active":     return { tone: "success", title: "Contract is now active", detail: "Released POs can be raised against contracted items" };
     case "amendment_requested": return { tone: "warn",    title: p.vendor_id ? <><span className="em">{vname(p.vendor_id)}</span> requested an amendment</> : "Vendor requested an amendment" };
     case "amendment_approved":  return { tone: "success", title: "Amendment approved" };
     case "amendment_rejected":  return { tone: "danger",  title: "Amendment rejected" };
-    case "call_off_released":   return { tone: "success", title: "Call-off PO released and linked", detail: p.po_number ? `PO ${p.po_number}` : null };
-    case "call_off_rejected":   return { tone: "danger",  title: "Call-off PO rejected by vendor", detail: "Consumption reversed; MR reopened" };
+    case "call_off_released":   return { tone: "success", title: "Released PO issued and linked", detail: p.po_number ? `PO ${p.po_number}` : null };
+    case "call_off_rejected":   return { tone: "danger",  title: "Released PO rejected by vendor", detail: "Consumption reversed; MR reopened" };
     case "terminated":          return { tone: "danger",  title: "Contract terminated", detail: p.reason || null };
     case "expired":             return { tone: "warn",    title: "Contract expired" };
     case "withdrawn":           return { tone: "warn",    title: "ARC withdrawn by creator" };
@@ -211,7 +220,7 @@ const I = {
   user:          () => <Icon><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></Icon>,
   edit:          () => <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>,
   renew:         () => <Icon><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></Icon>,
-  rupee:         () => <Icon><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></Icon>,
+  rupee:         () => <Icon><path d="M6 3h12" /><path d="M6 8h12" /><path d="m6 13 8.5 8" /><path d="M6 13h3" /><path d="M9 13c6.667 0 6.667-10 0-10" /></Icon>,
   download:      () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></Icon>,
   chevron:       () => <Icon size={11}><polyline points="6 9 12 15 18 9" /></Icon>,
   check:         () => <Icon size={11} sw={2.6}><polyline points="20 6 9 17 4 12" /></Icon>,
@@ -683,7 +692,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
               : "This contract has ended"}
             {arc.contract_end_at ? <> — term ran until {fmtDate(arc.contract_end_at)}</> : null}.
           </strong>{" "}
-          Everything below is the final, read-only record: consumption, call-off POs, signed
+          Everything below is the final, read-only record: consumption, released POs, signed
           documents, amendments and the full audit trail.
         </StageReadOnlyBanner>
       )}
@@ -696,7 +705,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
           </div>
           <div>
             <strong>{signTally.signed} of {signTally.total} vendor contract{signTally.total === 1 ? "" : "s"} signed.</strong>{" "}
-            Awaiting signature from <strong>{signTally.pending.join(", ")}</strong> — their rates stay sealed and call-offs can't be raised against their lines until they sign.
+            Awaiting signature from <strong>{signTally.pending.join(", ")}</strong> — their rates stay sealed and released POs can't be raised against their lines until they sign.
           </div>
         </div>
       )}
@@ -705,7 +714,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
       <section className="stat-strip" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <div className="stat-card">
           <div className="s-ic green"><I.rupee /></div>
-          <div><div className="s-val mono">{fmtL(withTaxes ? kpi.projectedTotal : kpi.projected)}</div><div className="s-label">Projected value</div></div>
+          <div><div className="s-val mono">{fmtL(withTaxes ? kpi.projectedTotal : kpi.projected)}</div><div className="s-label">Projected value <span style={{ color: "var(--fg-4)", fontWeight: 500 }}>({withTaxes ? "incl." : "excl."} taxes)</span></div></div>
         </div>
         <div className="stat-card">
           <div className="s-ic blue"><I.consumption /></div>
@@ -724,7 +733,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         </div>
         <div className="stat-card">
           <div className="s-ic violet"><I.callOff /></div>
-          <div><div className="s-val mono">{callOffs.length}</div><div className="s-label">Call-off POs</div></div>
+          <div><div className="s-val mono">{callOffs.length}</div><div className="s-label">Released POs</div></div>
         </div>
         <div className="stat-card">
           <div className="s-ic indigo"><I.clock /></div>
@@ -740,7 +749,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
 
           <div className="tab-row">
             <button className={`tab ${tab === "consumption" ? "active" : ""}`} onClick={() => setTab("consumption")}><I.consumption /> Consumption</button>
-            <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.callOff /> Call-off POs <span className="ct">{callOffs.length}</span></button>
+            <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.callOff /> Released POs <span className="ct">{callOffs.length}</span></button>
             <button className={`tab ${tab === "doc" ? "active" : ""}`} onClick={() => setTab("doc")}><I.file /> Contract document <span className="ct">{contracts.length}</span></button>
             <button className={`tab ${tab === "audit" ? "active" : ""}`} onClick={() => setTab("audit")}><I.clock /> Audit trail</button>
             <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
@@ -1064,7 +1073,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
               <div className="section-head">
                 <div className="h-left">
                   <div className="ic"><I.callOff /></div>
-                  <div><h2>Call-off purchase orders</h2><div className="h-sub">Every PO released against this contract — each is backed by an approved MR.</div></div>
+                  <div><h2>Released purchase orders</h2><div className="h-sub">Every PO released against this contract — each is backed by an approved MR.</div></div>
                 </div>
                 {!isEnded && (
                   <div className="h-right">
@@ -1076,8 +1085,8 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                 {callOffs.length === 0 ? (
                   <div className="empty-state">
                     <div className="ic"><I.callOff /></div>
-                    <h2>No call-off POs yet</h2>
-                    <p>{isEnded ? "No call-offs were released against this contract." : "Create a material requisition (MR) to draw against this contract using the button above."}</p>
+                    <h2>No released POs yet</h2>
+                    <p>{isEnded ? "No released POs were released against this contract." : "Create a material requisition (MR) to draw against this contract using the button above."}</p>
                   </div>
                 ) : (
                   <>
@@ -1093,7 +1102,11 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                     {callOffs.map((co) => (
                       <div key={co.call_off_id} className="po-row">
                         <a className="po-id" href={`/dashboard/buyer/purchase-orders/${co.po_id}`}>{co.po_number || `PO-${co.po_id}`}</a>
-                        <div className="mono" style={{ color: "var(--fg-3)", fontSize: 12 }}>{co.mr_number || `MR-${co.mr_id}`}</div>
+                        {co.mr_id ? (
+                          <a className="po-id" href={`/dashboard/buyer/material-requisitions/${co.mr_id}`} style={{ fontSize: 12 }}>{co.mr_number || `MR-${co.mr_id}`}</a>
+                        ) : (
+                          <div className="mono" style={{ color: "var(--fg-3)", fontSize: 12 }}>{co.mr_number || "—"}</div>
+                        )}
                         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                           <div className="ic-vendor-pill" style={{ padding: "2px 7px 2px 3px" }}>
                             <div className={`vp-av ${avClass(co.vendor_id)}`} style={{ width: 16, height: 16, fontSize: 8 }}>{initials(co.vendor_name)}</div>
@@ -1579,6 +1592,37 @@ function AmendmentsTab({ arc, amendments, allLines, me, sub, setSub, onReview })
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+//  Proposed-vs-edited helpers. When a reviewer edits an amendment before
+//  approving (counter-offer), the backend OVERWRITES am.payload with the new
+//  value and preserves the vendor's ORIGINAL proposal only in edit_history
+//  (the before_value of the first edit for that field). So am.payload always
+//  reflects the *current* value; to surface what the vendor actually proposed
+//  we trace edit_history. Both the row and the review modal use these.
+// ──────────────────────────────────────────────────────────────────────────
+function firstEditFor(am, field) {
+  const eh = Array.isArray(am.edit_history) ? am.edit_history : [];
+  const forField = eh
+    .filter((e) => e.field_changed === field)
+    .sort((a, b) => new Date(a.changed_at || 0) - new Date(b.changed_at || 0));
+  return forField[0] || null;
+}
+// What the vendor originally proposed for a field (pre any internal edit).
+function vendorProposedValue(am, field) {
+  const first = firstEditFor(am, field);
+  if (first) return first.before_value;
+  if (field === "amendment_from" || field === "amendment_to") return am[field];
+  return am.payload?.[field];
+}
+// Current (possibly edited) value of a field.
+function currentValue(am, field) {
+  if (field === "amendment_from" || field === "amendment_to") return am[field];
+  return am.payload?.[field];
+}
+function wasFieldEdited(am, field) {
+  return !!firstEditFor(am, field);
+}
+
 function AmendmentRow({ am, arc, allLines, me, onClick }) {
   const target = am.payload?.arc_contract_line_id
     ? allLines.find((l) => String(l.arc_contract_line_id) === String(am.payload.arc_contract_line_id))
@@ -1595,14 +1639,20 @@ function AmendmentRow({ am, arc, allLines, me, onClick }) {
     : am.amendment_type === "term" ? "Contract term"
     : am.amendment_type === "item_add" ? "New item"
     : "—";
+  // Small "· edited ₹X" tail shown when a reviewer counter-offered before
+  // approving — so the row reflects BOTH the vendor's proposal and the edit.
+  const editedTail = (field, render) =>
+    wasFieldEdited(am, field)
+      ? <span style={{ color: "var(--fg-4)", fontWeight: 500 }}> · edited <span className="mono fw-700" style={{ color: "var(--fg)" }}>{render(currentValue(am, field))}</span></span>
+      : null;
   const delta = am.amendment_type === "price" && target
-    ? <>₹{target.rate} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>₹{am.payload?.new_rate}</span> / {target.uom || "unit"}</>
+    ? <>₹{target.rate} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>₹{vendorProposedValue(am, "new_rate")}</span> / {target.uom || "unit"}{editedTail("new_rate", (v) => `₹${v}`)}</>
     : am.amendment_type === "qty" && target
-    ? <>{Number(target.committed).toLocaleString("en-IN")} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>{Number(am.payload?.new_qty || 0).toLocaleString("en-IN")}</span> {target.uom || ""}</>
+    ? <>{Number(target.committed).toLocaleString("en-IN")} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>{Number(vendorProposedValue(am, "new_qty") || 0).toLocaleString("en-IN")}</span> {target.uom || ""}{editedTail("new_qty", (v) => Number(v || 0).toLocaleString("en-IN"))}</>
     : am.amendment_type === "term"
-    ? <>{fmtDate(arc.contract_end_at)} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>{fmtDate(am.amendment_from)}</span></>
+    ? <>{fmtDate(arc.contract_end_at)} <span style={{ color: "var(--fg-4)" }}>→</span> <span className="mono fw-700" style={{ color: "var(--warn)" }}>{fmtDate(vendorProposedValue(am, "amendment_from"))}</span>{editedTail("amendment_from", (v) => fmtDate(v))}</>
     : am.amendment_type === "item_add"
-    ? <>₹{am.payload?.new_rate} × {Number(am.payload?.new_qty || 0).toLocaleString("en-IN")}</>
+    ? <>₹{vendorProposedValue(am, "new_rate")} × {Number(vendorProposedValue(am, "new_qty") || 0).toLocaleString("en-IN")}{editedTail("new_rate", (v) => `₹${v}`)}</>
     : <>removal</>;
 
   const waitingOn = currentStep && am.status === "requested"
@@ -1752,12 +1802,10 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
   }
 
   const statusTone = isPending || am.status === "awaiting_signature" ? "warn" : am.status === "approved" || am.status === "live" ? "success" : am.status === "rejected" ? "danger" : "info";
-  const pctChange = (() => {
-    if (am.amendment_type !== "price" || !target || !am.payload?.new_rate) return null;
-    const cur = Number(target.rate);
-    if (!cur) return null;
-    return ((Number(am.payload.new_rate) - cur) / cur) * 100;
-  })();
+
+  // Did a reviewer counter-offer (edit) any of the proposed fields before
+  // approving? If so we show the vendor's proposal AND the edited value.
+  const proposedIsEdited = editableFields.some((f) => wasFieldEdited(am, f));
 
   const originalDisplay =
     am.amendment_type === "term"  ? fmtDate(arc.contract_end_at)
@@ -1766,12 +1814,35 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
     : am.amendment_type === "qty"   ? `${Number(target.committed).toLocaleString("en-IN")} ${target.uom || ""}`
     : am.amendment_type === "item_add" ? "Not on contract"
     : "—";
-  const proposedDisplay =
-    am.amendment_type === "price" ? `₹${am.payload?.new_rate} / ${target?.uom || "unit"}`
-    : am.amendment_type === "qty" ? `${Number(am.payload?.new_qty || 0).toLocaleString("en-IN")} ${target?.uom || ""}`
-    : am.amendment_type === "term" ? fmtDate(am.amendment_from)
-    : am.amendment_type === "item_add" ? `₹${am.payload?.new_rate} × ${Number(am.payload?.new_qty || 0).toLocaleString("en-IN")}`
+  // Format a per-type display given a value picker (vendor proposal vs current).
+  const fmtTypeValue = (pick) =>
+    am.amendment_type === "price" ? `₹${pick("new_rate")} / ${target?.uom || "unit"}`
+    : am.amendment_type === "qty" ? `${Number(pick("new_qty") || 0).toLocaleString("en-IN")} ${target?.uom || ""}`
+    : am.amendment_type === "term" ? fmtDate(pick("amendment_from"))
+    : am.amendment_type === "item_add" ? `₹${pick("new_rate")} × ${Number(pick("new_qty") || 0).toLocaleString("en-IN")}`
     : "—";
+  // "Proposed" = what the vendor originally asked for; "Edited" = current value.
+  const proposedDisplay = fmtTypeValue((f) => vendorProposedValue(am, f));
+  const editedDisplay = fmtTypeValue((f) => currentValue(am, f));
+
+  // % change for a given price value vs the contract original.
+  const pctOf = (rateVal) => {
+    if (am.amendment_type !== "price" || !target) return null;
+    const cur = Number(target.rate);
+    const nv = Number(rateVal);
+    if (!cur || !Number.isFinite(nv)) return null;
+    return ((nv - cur) / cur) * 100;
+  };
+  // Single "Proposed" card shows the CURRENT (possibly edited) value; the % is
+  // its change vs the contract original.
+  const pctChange = pctOf(currentValue(am, "new_rate"));
+  // Who last edited, for the "Edited by X from original proposed …" footnote.
+  const lastEdit = (() => {
+    const eh = Array.isArray(am.edit_history) ? am.edit_history : [];
+    if (!eh.length) return null;
+    return eh.slice().sort((a, b) => new Date(b.changed_at || 0) - new Date(a.changed_at || 0))[0];
+  })();
+  const editorName = lastEdit ? (lastEdit.changed_by_name || `User #${lastEdit.changed_by}`) : null;
 
   return (
     <div className="arc-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1825,7 +1896,10 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                 <div className="v" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{am.reason || "—"}</div>
               </div>
 
-              {/* Original vs proposed compare */}
+              {/* Original vs proposed compare — one Proposed card; when a
+                  reviewer counter-offered, the card shows the edited value with
+                  an "(edited)" tag and a footnote crediting the editor and the
+                  vendor's original proposal. */}
               {am.amendment_type !== "item_remove" && (
                 <div style={{ marginTop: 18 }}>
                   <div className="section-label" style={{ marginBottom: 10 }}>Original vs proposed</div>
@@ -1836,7 +1910,9 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                     </div>
                     <div className="arrow">→</div>
                     <div className="rvm-card proposed">
-                      <div className="k">Proposed{editing ? " · editing" : ""}</div>
+                      <div className="k">
+                        Proposed{proposedIsEdited && !editing ? <span style={{ color: "var(--warn)", fontWeight: 600 }}> (edited)</span> : null}{editing ? " · editing" : ""}
+                      </div>
                       {editing && am.amendment_type === "term" ? (
                         <input
                           type="date"
@@ -1865,7 +1941,13 @@ function ReviewAmendmentModalInner({ amendment, arc, allLines, me, busy, error, 
                           ))}
                         </div>
                       ) : (
-                        <div className="v">{proposedDisplay}</div>
+                        <div className="v">{editedDisplay}</div>
+                      )}
+                      {/* Footnote: who edited + the vendor's original proposal. */}
+                      {proposedIsEdited && !editing && (
+                        <div style={{ marginTop: 10, paddingTop: 9, borderTop: "1px dashed var(--border)", fontSize: 11, color: "var(--fg-3)", lineHeight: 1.45 }}>
+                          Edited by <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{editorName}</span> from original proposed <span className="mono" style={{ color: "var(--fg-2)" }}>{proposedDisplay}</span>
+                        </div>
                       )}
                     </div>
                   </div>

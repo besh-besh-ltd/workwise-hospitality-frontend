@@ -172,3 +172,15 @@ export const getPOAnalytics = async (params) => {
   const res = await axiosInstance.get(`/po/analytics`, { params });
   return res;
 };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Vendor-facing Purchase Order module (vendor's own POs across all buyers).
+   Scoped server-side from req.user — callers never pass a vendor id. The
+   axios interceptor unwraps response.data, so each call resolves to the body
+   ({ status, message, data }).
+   ───────────────────────────────────────────────────────────────────────── */
+
+export const getVendorPoDashboard = () => axiosInstance.get(`/po/vendor/dashboard`);
+export const getVendorPoListView  = (body) => axiosInstance.post(`/po/vendor/list-view`, body);
+export const getVendorPoDetail    = (poId) => axiosInstance.get(`/po/vendor/detail/${poId}`);
+export const getVendorPoPdf        = (poId) => axiosInstance.get(`/po/vendor/detail/${poId}/pdf`);

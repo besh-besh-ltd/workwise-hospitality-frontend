@@ -22,7 +22,7 @@ const PRESET_DESCRIPTIONS = {
   drafts:   "Contracts you've started but not yet floated.",
   ongoing:  "Live tender lifecycle — floated, in evaluation, or under committee review.",
   approved: "Approved by committee, awaiting vendor signatures.",
-  active:   "Live contracts with call-off enabled, including those expiring soon.",
+  active:   "Live contracts with released-PO enabled, including those expiring soon.",
   ended:    "Expired, terminated, or closed without award.",
 };
 

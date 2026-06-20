@@ -80,6 +80,9 @@ export default function CreateRateContractPage() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // H8 — remember a draft already created this session so a retry after a
+  // mid-flight failure resumes (re-publishes) instead of minting a duplicate.
+  const draftArcRef = useRef(null);
 
   // Loaded reference data
   const [categories, setCategories] = useState([]);
@@ -116,7 +119,7 @@ export default function CreateRateContractPage() {
   const [escalation, setEscalation] = useState("none");
   const [escalationCap, setEscalationCap] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
-  const [deliveryTerms, setDeliveryTerms] = useState("Within 21 days of each call-off PO");
+  const [deliveryTerms, setDeliveryTerms] = useState("Within 21 days of each released PO");
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
   const [samplesRequired, setSamplesRequired] = useState(false);
 
@@ -293,6 +296,7 @@ export default function CreateRateContractPage() {
 
   // ── Submit ──────────────────────────────────────────────────────────
   async function submit() {
+    if (busy) return; // H8 — guard against double-submit while a call is in flight
     setBusy(true); setError(null);
     try {
       const items = selectedItemIds.map((id) => ({
@@ -309,10 +313,8 @@ export default function CreateRateContractPage() {
         sub_category_ids: selectedSubCats,
         hotel_id: hotelId,
         department_id: departmentId,
-        // process_id will be picked up backend-side once a Process selection
-        // step lands — for now, hand the first accessible process. Tests
-        // require it to be present for publish to succeed.
-        process_id: 1,
+        // No process_id — ARC approval routes via the committee/hierarchy
+        // model, so the backend stores process_id as NULL (audit H5).
         submission_start_at: submissionStart,
         submission_end_at:   submissionEnd,
         contract_start_at:   contractStart,
@@ -330,12 +332,47 @@ export default function CreateRateContractPage() {
         items,
         invited_vendor_ids:     eligibility === "invitation" ? invitedVendorIds : [],
       };
-      const res = await ArcApi.createDraft(payload);
-      const arc = res?.data?.arc || res?.data?.data?.arc;
-      const arcId = arc?.id;
-      if (!arcId) throw new Error("Could not create draft");
-      await ArcApi.publish(arcId);
-      showToast(`Floated · ${invitedVendorIds.length} vendor(s) notified`);
+      // H8 — if a previous attempt already created the draft, resume it
+      // instead of creating another (avoids orphaned/duplicate drafts).
+      let arcId = draftArcRef.current;
+      let createdItems = [];
+      if (!arcId) {
+        const res = await ArcApi.createDraft(payload);
+        const arc = res?.data?.arc || res?.data?.data?.arc;
+        arcId = arc?.id;
+        if (!arcId) throw new Error("Could not create draft");
+        draftArcRef.current = arcId;
+        createdItems = res?.data?.items || res?.data?.data?.items || [];
+      }
+
+      // H4 — persist the per-item technical evaluation config the wizard
+      // collected (clauses + weights + min passing score) so the qualification
+      // gate actually uses it. Keyed by product_variant_id → created ARC item.
+      if (techRequired && createdItems.length) {
+        const itemIdByVariant = {};
+        for (const it of createdItems) itemIdByVariant[it.product_variant_id] = it.id;
+        for (const vid of selectedItemIds) {
+          const arcItemId = itemIdByVariant[vid];
+          const cls = clausesByItem[vid] || [];
+          if (!arcItemId || cls.length === 0) continue;
+          await ArcApi.setupTechEval(arcItemId, {
+            minimum_passing_score: minPassByItem[vid] ?? 65,
+            clauses: cls.map((c) => ({
+              clause_text: c.text,
+              weightage: Number(c.weight) || 0,
+              clause_type: c.type || null,
+            })),
+          });
+        }
+      }
+
+      const pubRes = await ArcApi.publish(arcId);
+      // M3 — report the truth from the server (count of vendors actually
+      // tagged + notified), not a client-side guess.
+      const vendorCount =
+        pubRes?.data?.vendor_count ?? pubRes?.data?.data?.vendor_count ?? 0;
+      draftArcRef.current = null; // fully published — clear the resume handle
+      showToast(`Floated · ${vendorCount} vendor(s) invited & notified`);
       setTimeout(() => router.push("/dashboard/buyer/rate-contracts/all"), 1100);
     } catch (e) {
       setError(e?.response?.data?.message || e?.message || "Could not publish");
@@ -423,7 +460,7 @@ export default function CreateRateContractPage() {
             <div className="type-row">
               <div className={`cat-card ${type === "product" ? "selected" : ""}`} onClick={() => pickType("product")}>
                 <div className="cc-ic"><BoxIcon size={20} /></div>
-                <div><div className="cc-name">Products</div><div className="cc-meta">Physical goods · call-off POs</div></div>
+                <div><div className="cc-name">Products</div><div className="cc-meta">Physical goods · released POs</div></div>
               </div>
               <div className={`cat-card ${type === "service" ? "selected" : ""}`} onClick={() => pickType("service")}>
                 <div className="cc-ic"><ServiceIcon size={20} /></div>

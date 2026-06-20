@@ -24,16 +24,25 @@ const SideNav = ({
   const hasSubSidebar = !!subSidebar;
   const isCompact = hasSubSidebar || collapsed;
 
-  const { hasPendingApproval } = usePendingApprovalIndicators({
+  const { pendingCountFor } = usePendingApprovalIndicators({
     enabled: !!user,
   });
-
 
   // Menu config
   const isHospitalityCompany = userProfile?.is_hospitality == 1;
   const isHospitalityVendor = isHospitalityCompany && currentUserType === "vendor";
   const hasValidSub = !!userProfile?.has_valid_hospitality_subscription;
   const isSubLocked = isHospitalityVendor && !hasValidSub;
+
+  // Total action-required count for a module section (so a collapsed module
+  // still surfaces "you have N to act on" on its header).
+  const sectionPendingCount = useCallback(
+    (items) => (items || []).reduce((sum, it) => {
+      const locked = isSubLocked && it.requiresSubscription;
+      return sum + (locked ? 0 : pendingCountFor(it.href));
+    }, 0),
+    [pendingCountFor, isSubLocked]
+  );
 
   const currentRoleMenu = useMemo(() => {
     const baseMenu = roleMenus[currentUserType] || [];
@@ -47,18 +56,28 @@ const SideNav = ({
 
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");
 
-  const groupedNavItems = useMemo(() => {
-    const groups = [];
-    let currentSection = null;
+  // Three-level grouping: phase (item.group) → module section (item.section) →
+  // links. A phase renders a non-interactive header; a section renders the
+  // existing collapsible micro-label; a null section drops its items straight
+  // under the phase (for single-link modules like Notifications).
+  const phaseGroups = useMemo(() => {
+    const phases = [];
     navItems.forEach((item) => {
-      const section = item.section || "";
-      if (section !== currentSection) {
-        groups.push({ section, items: [] });
-        currentSection = section;
+      const phase = item.group || null;
+      let pg = phases[phases.length - 1];
+      if (!pg || pg.phase !== phase) {
+        pg = { phase, sections: [] };
+        phases.push(pg);
       }
-      groups[groups.length - 1].items.push(item);
+      const section = item.section || "";
+      let sec = pg.sections[pg.sections.length - 1];
+      if (!sec || sec.section !== section) {
+        sec = { section, items: [] };
+        pg.sections.push(sec);
+      }
+      sec.items.push(item);
     });
-    return groups;
+    return phases;
   }, [navItems]);
 
   // Longest-prefix match wins, so the most specific nav item is the only one
@@ -196,23 +215,26 @@ const SideNav = ({
                     locked={locked}
                     isNew={item.isNew}
                     isLegacy={item.legacy}
-                    hasPending={!locked && hasPendingApproval(item.href)}
+                    pendingCount={locked ? 0 : pendingCountFor(item.href)}
                   />
                 );
               })
             ) : (
               (() => {
-                // While searching, filter items and skip whole groups with no matches.
-                const visibleGroups = groupedNavItems
-                  .map((group) => ({
-                    ...group,
-                    items: isSearching
-                      ? group.items.filter((it) => matchesQuery(it.label))
-                      : group.items,
+                // While searching, filter items and drop empty sections + phases.
+                const visiblePhases = phaseGroups
+                  .map((pg) => ({
+                    ...pg,
+                    sections: pg.sections
+                      .map((s) => ({
+                        ...s,
+                        items: isSearching ? s.items.filter((it) => matchesQuery(it.label)) : s.items,
+                      }))
+                      .filter((s) => s.items.length > 0),
                   }))
-                  .filter((group) => group.items.length > 0);
+                  .filter((pg) => pg.sections.length > 0);
 
-                if (isSearching && visibleGroups.length === 0) {
+                if (isSearching && visiblePhases.length === 0) {
                   return (
                     <div className={styles.navSearchEmpty}>
                       No matches for &ldquo;{searchQuery.trim()}&rdquo;
@@ -220,17 +242,37 @@ const SideNav = ({
                   );
                 }
 
-                return visibleGroups.map((group, gi) => {
-                  // Searching expands every section so the matches are visible.
+                let phaseSeen = false;
+                const renderNavItem = (item) => {
+                  const Icon = getNavIcon(item.href);
+                  const locked = isSubLocked && item.requiresSubscription;
+                  const active = !locked && isItemActive(item.href);
+                  return (
+                    <SideNavItem
+                      key={item.href}
+                      href={item.href}
+                      label={item.label}
+                      Icon={Icon}
+                      active={active}
+                      compact={false}
+                      locked={locked}
+                      isNew={item.isNew}
+                      isLegacy={item.legacy}
+                      pendingCount={locked ? 0 : pendingCountFor(item.href)}
+                    />
+                  );
+                };
+                const renderSection = (group, key) => {
                   const isCollapsed = !isSearching && group.section
                     ? collapsedSections.has(group.section)
                     : false;
+                  const secCount = group.section ? sectionPendingCount(group.items) : 0;
                   return (
-                    <div key={group.section || gi} className={styles.sectionGroup}>
+                    <div key={key} className={styles.sectionGroup}>
                       {group.section ? (
                         <button
                           type="button"
-                          className={`${styles.sectionToggle} ${gi === 0 ? styles.sectionLabelFirst : ""}`}
+                          className={styles.sectionToggle}
                           onClick={() => toggleSection(group.section)}
                           aria-expanded={!isCollapsed}
                           disabled={isSearching}
@@ -241,31 +283,40 @@ const SideNav = ({
                             className={`${styles.sectionChev} ${isCollapsed ? styles.sectionChevCollapsed : ""}`}
                           />
                           <span className={styles.sectionLabelText}>{group.section}</span>
+                          {secCount > 0 && isCollapsed && (
+                            <span className={styles.navActionPill} title={`${secCount} awaiting your action`}>
+                              {secCount > 9 ? "9+" : secCount}
+                            </span>
+                          )}
                         </button>
                       ) : null}
                       {!isCollapsed && (
-                        <div className={styles.sectionItems}>
-                          {group.items.map((item) => {
-                            const Icon = getNavIcon(item.href);
-                            const locked = isSubLocked && item.requiresSubscription;
-                            const active = !locked && isItemActive(item.href);
-                            return (
-                              <SideNavItem
-                                key={item.href}
-                                href={item.href}
-                                label={item.label}
-                                Icon={Icon}
-                                active={active}
-                                compact={false}
-                                locked={locked}
-                                isNew={item.isNew}
-                                isLegacy={item.legacy}
-                                hasPending={!locked && hasPendingApproval(item.href)}
-                              />
-                            );
-                          })}
-                        </div>
+                        <div className={styles.sectionItems}>{group.items.map(renderNavItem)}</div>
                       )}
+                    </div>
+                  );
+                };
+
+                return visiblePhases.map((pg, pi) => {
+                  const phaseHeader = pg.phase ? (() => {
+                    const first = !phaseSeen;
+                    phaseSeen = true;
+                    return (
+                      <div className={`${styles.phaseHeader} ${first ? styles.phaseHeaderFirst : ""}`}>
+                        {pg.phase}
+                      </div>
+                    );
+                  })() : null;
+                  // A phase with a single named module just repeats itself
+                  // (Contracts → Rate Contracts), so drop the module label and
+                  // list its links straight under the phase header.
+                  const single = pg.phase && pg.sections.length === 1 && pg.sections[0].section;
+                  return (
+                    <div key={pg.phase || `phase-${pi}`} className={styles.phaseGroup}>
+                      {phaseHeader}
+                      {single
+                        ? <div className={styles.sectionItems}>{pg.sections[0].items.map(renderNavItem)}</div>
+                        : pg.sections.map((sec, si) => renderSection(sec, sec.section || `s-${pi}-${si}`))}
                     </div>
                   );
                 });

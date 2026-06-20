@@ -43,7 +43,7 @@ export default function MrList({ filterPreset = "all" }) {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{PRESET_LABELS[filterPreset]}</h1>
           <p style={{ color: "#6b7280", fontSize: 13.5, marginTop: 4 }}>
-            Contracted-items-only requisitions. Approved MRs auto-generate call-off POs.
+            Contracted-items-only requisitions. Approved MRs auto-generate Released POs.
           </p>
         </div>
         <Link href="/dashboard/buyer/material-requisitions/create"

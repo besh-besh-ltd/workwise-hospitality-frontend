@@ -70,7 +70,7 @@ const BADGE_PATHS = {
   "draft":              '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
   "dept-approval":      '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   "category-approval":  '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-  "finance-approval":   '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  "finance-approval":   '<path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/>',
   "po-released":        '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/>',
   "rejected":           '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',
 };
@@ -247,7 +247,7 @@ export default function MrListPage({ filterPreset = "all" }) {
         <div>
           <h1 className="page-h1">Material Requisitions</h1>
           <p className="page-sub">
-            Primary demand path. Departmental approval → auto call-off PO when items match an active rate contract.
+            Primary demand path. Departmental approval → auto released PO when items match an active rate contract.
           </p>
         </div>
         <Link href="/dashboard/buyer/material-requisitions/create" className="btn btn-blue btn-lg">
@@ -301,7 +301,7 @@ export default function MrListPage({ filterPreset = "all" }) {
             </div>
           </div>
           <div className="kt-val mono">{c.po_released}</div>
-          <div className="kt-sub">converted to call-off POs</div>
+          <div className="kt-sub">converted to Released POs</div>
         </div>
         <div className="kpi-tile violet">
           <div className="kt-row">

@@ -109,7 +109,7 @@ export function AmendmentTooltip({ line, uom = "" }) {
             <div className="mono" style={{ marginTop: 3, fontSize: 12, color: "var(--fg-2)" }}>{fmtD(info.from)} → {fmtD(info.to)}</div>
           </div>
           <div style={{ marginTop: 9, fontSize: 10.5, color: "var(--fg-4)", lineHeight: 1.45 }}>
-            Applies to call-off POs released within this window. The committed contract rate is unchanged.
+            Applies to Released POs issued within this window. The committed contract rate is unchanged.
           </div>
         </div>,
         document.body

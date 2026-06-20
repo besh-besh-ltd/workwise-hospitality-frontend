@@ -988,14 +988,14 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                     <Package size={10} /> {v.pos_accepted}
                   </span>
                 )}
-                {v.quote_pct != null && (
+                {/* {v.quote_pct != null && (
                   <span
                     className={`${styles.trkChip} ${styles[C.pctTone(v.quote_pct)]}`}
                     title={`Quoted in ${v.quoted_rfqs} of ${v.invited_rfqs} RFQs invited`}
                   >
                     {v.quote_pct}%
                   </span>
-                )}
+                )} */}
                 {v.po_value ? (
                   <span className={styles.trkChip} title="Total value of accepted POs">
                     <Wallet size={10} /> ₹{fmtLakh(v.po_value)}
@@ -1417,6 +1417,17 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                               {coverage(v.id)}/{products.length}
                             </span>
                           )}
+                          <a
+                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${v.id}&showContact=true`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.vProfileBtn}
+                            title={`View ${v.name || "vendor"}'s profile`}
+                            aria-label="View vendor profile"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <User size={12} />
+                          </a>
                         </div>
                         {full ? (
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>

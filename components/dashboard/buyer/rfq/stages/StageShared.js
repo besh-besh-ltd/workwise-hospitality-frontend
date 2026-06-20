@@ -2,19 +2,34 @@
 // panel, a generic content-aware stage skeleton, a read-only banner, and the
 // StageCard — a card whose header matches the Overview cards (icon-in-rounded-
 // box + bold label) so every stage's sections look consistent with ViewRFQ.
+import { useState } from "react";
 
 // Mirrors ViewRFQ.module.scss .card / .cardHead / .cardTitleIcon exactly.
-export function StageCard({ icon, title, right, children }) {
+// `collapsible` makes the header toggle the body (chevron); the `right` actions
+// keep working (their clicks don't toggle).
+export function StageCard({ icon, title, right, children, collapsible = false, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const showBody = !collapsible || open;
   return (
     <section style={{ background: "#ffffff", border: "1px solid #ebebe6", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #ebebe6", background: "linear-gradient(180deg,#fdfdfb 0%,#ffffff 100%)", gap: 12, flexWrap: "wrap" }}>
+      <header
+        onClick={collapsible ? () => setOpen((o) => !o) : undefined}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: showBody ? "1px solid #ebebe6" : "none", background: "linear-gradient(180deg,#fdfdfb 0%,#ffffff 100%)", gap: 12, flexWrap: "wrap", cursor: collapsible ? "pointer" : "default", userSelect: collapsible ? "none" : "auto" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span style={{ width: 26, height: 26, borderRadius: 7, background: "#f4f4f1", border: "1px solid #ebebe6", display: "grid", placeItems: "center", color: "#71717a", flexShrink: 0 }}>{icon}</span>
           <h2 style={{ fontSize: 13.5, fontWeight: 600, color: "#18181b", letterSpacing: "-0.01em", margin: 0 }}>{title}</h2>
         </div>
-        {right ? <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>{right}</div> : null}
+        {(right || collapsible) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {right ? <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>{right}</span> : null}
+            {collapsible && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s ease", flexShrink: 0 }}><polyline points="6 9 12 15 18 9" /></svg>
+            )}
+          </div>
+        )}
       </header>
-      <div style={{ padding: "18px 20px" }}>{children}</div>
+      {showBody && <div style={{ padding: "18px 20px" }}>{children}</div>}
     </section>
   );
 }
@@ -162,6 +177,74 @@ export function StageSkeleton() {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Lifecycle context: who's acting now / who acts next ──────────────────────
+// Resolves the people on a phase — prefers the live action-holders, falls back
+// to the resolved upcoming evaluators/approvers.
+function actorsOf(phase) {
+  if (!phase) return null;
+  const ah = phase.action_holders;
+  if (ah && Array.isArray(ah.users) && ah.users.length) {
+    return { label: ah.label || "Action holders", names: ah.users.map((u) => u.name), rule: ah.decision_rule || null };
+  }
+  const ua = phase.upcoming_actors;
+  if (ua && Array.isArray(ua.approver_steps) && ua.approver_steps.length) {
+    const s = ua.approver_steps[0];
+    return { label: "Approvers", names: (s.approvers || []).map((a) => a.name), rule: s.decision_rule || null };
+  }
+  if (ua && Array.isArray(ua.evaluators) && ua.evaluators.length) {
+    return { label: "Evaluators", names: ua.evaluators.map((e) => e.name), rule: null };
+  }
+  return null;
+}
+
+function ActorNames({ names, max = 3 }) {
+  const shown = names.slice(0, max);
+  const extra = names.length - shown.length;
+  return (
+    <span style={{ color: "#3f3f46", fontWeight: 500 }}>
+      {shown.join(", ")}{extra > 0 ? <span style={{ color: "#a1a1aa", fontWeight: 400 }}> +{extra}</span> : null}
+    </span>
+  );
+}
+
+const CtxLbl = ({ children }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#a1a1aa", flexShrink: 0 }}>{children}</span>
+);
+
+// A subtle one-line strip surfacing the current + next action-takers for the
+// RFQ's live stage. Renders nothing when nothing is in motion (draft/complete).
+export function LifecycleContext({ lifecycle }) {
+  const stages = Array.isArray(lifecycle?.stages) ? lifecycle.stages : [];
+  const activeIdx = stages.findIndex((s) => s.state === "active");
+  if (activeIdx < 0) return null;
+  const active = stages[activeIdx];
+  const nowActors = actorsOf(active.phase);
+  const nextStage = stages.slice(activeIdx + 1).find((s) => s.state !== "skipped" && actorsOf(s.phase));
+  const nextActors = nextStage ? actorsOf(nextStage.phase) : null;
+  if (!nowActors && !nextActors) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", padding: "9px 14px", background: "#fafafa", border: "1px solid #ebebe6", borderRadius: 10, fontSize: 12.5 }}>
+      {nowActors && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 99, background: "#16a34a", flexShrink: 0 }} />
+          <CtxLbl>Action now</CtxLbl>
+          <span style={{ color: "#71717a" }}>{active.label} · {nowActors.label}{nowActors.rule === "ALL" ? " (all)" : ""}:</span>
+          <ActorNames names={nowActors.names} />
+        </div>
+      )}
+      {nextActors && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ color: "#d4d4d8" }}>→</span>
+          <CtxLbl>Up next</CtxLbl>
+          <span style={{ color: "#71717a" }}>{nextStage.label} · {nextActors.label}:</span>
+          <ActorNames names={nextActors.names} />
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
-  DollarSign,
+  IndianRupee,
   Clock,
   Check,
   TrendingUp,
@@ -209,7 +209,7 @@ const POAnalytics = () => {
             <div className={styles.kpiCard}>
               <div className={styles.kHead}>
                 <span className={styles.kLabel}>Total spend</span>
-                <div className={styles.kIc}><DollarSign size={13} /></div>
+                <div className={styles.kIc}><IndianRupee size={13} /></div>
               </div>
               <div className={styles.kValue}>
                 <span className={styles.cur}>₹</span> {toLakh(kpis.total_spend)} <span className={styles.suffix}>L</span>

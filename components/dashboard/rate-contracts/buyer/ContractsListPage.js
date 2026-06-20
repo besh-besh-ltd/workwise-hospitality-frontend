@@ -14,7 +14,9 @@
 // submitted counts, awarded vendor names, committed/consumed value, call-
 // off count) that powers every panel of the card.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
 
@@ -75,6 +77,7 @@ const PRESET_TO_GROUP = {
 
 const PRESET_LABEL = {
   all:      "All Rate Contracts",
+  pending:  "Pending for me",
   drafts:   "Drafts",
   ongoing:  "Ongoing Contracts",
   approved: "Approved Contracts",
@@ -84,10 +87,11 @@ const PRESET_LABEL = {
 
 const PRESET_SUB = {
   all:      "Search, filter and drill into every contract — by BU, category, product, vendor, or status.",
+  pending:  "Rate contracts waiting on your approval right now.",
   drafts:   "Contracts you've started but not yet floated.",
   ongoing:  "Live tender lifecycle — floated, in evaluation, or under committee review.",
   approved: "Approved by committee, awaiting vendor signatures.",
-  active:   "Live contracts with call-off enabled, including those expiring soon.",
+  active:   "Live contracts with released-PO enabled, including those expiring soon.",
   ended:    "Expired, terminated, or closed without award.",
 };
 
@@ -182,13 +186,80 @@ function BadgeIcon({ bucket }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+//  Awarded-vendor hover tooltip — portal popover listing each awarded vendor
+//  with their company name. Positioned above the trigger when there's more
+//  room there, else below; never covers the trigger.
+// ──────────────────────────────────────────────────────────────────────────
+function VendorTooltip({ vendors, anchor }) {
+  if (!anchor || typeof document === "undefined") return null;
+  const W = 264;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const left = Math.max(8, Math.min(anchor.left, vw - W - 8));
+  const above = anchor.top > (vh - anchor.bottom);
+  const pos = above ? { bottom: Math.max(8, vh - anchor.top + 8) } : { top: anchor.bottom + 8 };
+  const shown = vendors.slice(0, 10);
+  const extra = vendors.length - shown.length;
+  return createPortal(
+    <div style={{ position: "fixed", left, ...pos, zIndex: 4000, width: W, background: "#fff", border: "1px solid #ebebe6", borderRadius: 11, boxShadow: "0 10px 30px -10px rgba(15,15,14,0.22), 0 2px 8px rgba(15,15,14,0.06)", overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{ padding: "9px 13px", borderBottom: "1px solid #f4f4f1", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa" }}>
+        Awarded vendor{vendors.length === 1 ? "" : "s"} · {vendors.length}
+      </div>
+      <div style={{ padding: "6px 0" }}>
+        {shown.map((v, i) => (
+          <div key={v.id ?? i} style={{ padding: "5px 13px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#18181b", lineHeight: 1.3 }}>{v.name || `Vendor #${v.id}`}</span>
+            {v.company ? <span style={{ fontSize: 11, color: "#71717a", lineHeight: 1.3 }}>{v.company}</span> : null}
+          </div>
+        ))}
+        {extra > 0 && <div style={{ padding: "4px 13px 2px", fontSize: 11, color: "#a1a1aa" }}>+{extra} more</div>}
+      </div>
+      <div style={{ padding: "8px 13px", borderTop: "1px solid #f4f4f1", fontSize: 10.5, fontWeight: 500, color: "var(--primary)" }}>
+        Click to open the Commercial tab →
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// "Vendor: Name +N" cell — hover shows the awarded-vendor tooltip (names +
+// companies); click jumps straight to the contract's Commercial stage
+// (intercepting the row-level <Link>, which would otherwise open the default
+// stage).
+function VendorCell({ vendors, commercialHref }) {
+  const router = useRouter();
+  const ref = useRef(null);
+  const [anchor, setAnchor] = useState(null);
+  if (!vendors.length) return null;
+  const primary = vendors[0]?.name || `Vendor #${vendors[0]?.id}`;
+  const go = (e) => { e.preventDefault(); e.stopPropagation(); setAnchor(null); router.push(commercialHref); };
+  return (
+    <span
+      ref={ref}
+      role="button"
+      tabIndex={0}
+      title=""
+      onMouseEnter={() => { if (ref.current) setAnchor(ref.current.getBoundingClientRect()); }}
+      onMouseLeave={() => setAnchor(null)}
+      onClick={go}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go(e); }}
+      style={{ cursor: "pointer" }}
+    >
+      Vendor: <span className="em">{primary}</span>{vendors.length > 1 ? ` +${vendors.length - 1}` : ""}
+      {anchor && <VendorTooltip vendors={vendors} anchor={anchor} />}
+    </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 //  Page component
 // ──────────────────────────────────────────────────────────────────────────
 // Maps each tab bucket → the lifecycle bucket keys (from statusBucket()) it
 // should contain. Counts and tab-filtering both walk this map so the tab row,
 // counts and filtered rows stay consistent.
 const TAB_TO_BUCKETS = {
-  all:      null, // no filter — show everything
+  all:      null,    // no filter — show everything
+  pending:  "@pending", // special — rows where pending_for_user is true
   drafts:   ["draft"],
   ongoing:  ["floated", "eval", "committee"],
   approved: ["awaiting"],
@@ -198,6 +269,7 @@ const TAB_TO_BUCKETS = {
 
 const TABS = [
   { key: "all",      label: "All" },
+  { key: "pending",  label: "Pending for me" },
   { key: "drafts",   label: "Drafts" },
   { key: "ongoing",  label: "Ongoing" },
   { key: "approved", label: "Approved" },
@@ -206,179 +278,65 @@ const TABS = [
 ];
 
 export default function ContractsListPage({ filterPreset = "all" }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("recent");
-  const [activeTab, setActiveTab] = useState(filterPreset);
   const [filters, setFilters] = useState({
     status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [],
   });
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [activeTab, setActiveTab] = useState(filterPreset);
+  const [page, setPage] = useState(1);
+  const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 });
+  const [loading, setLoading] = useState(true);
+  const seq = useRef(0);
 
   // Keep tab in sync when the route preset changes (e.g. user lands on /active
   // directly via an old bookmark).
-  useEffect(() => { setActiveTab(filterPreset); }, [filterPreset]);
+  useEffect(() => { setActiveTab(filterPreset); setPage(1); }, [filterPreset]);
 
-  // Always fetch the full set — the tab + filter system is purely client-side
-  // so users can hop between tabs without refetching, and tab counts are
-  // accurate against the same data the rows render from.
+  // Debounce the search box.
   useEffect(() => {
-    let cancelled = false;
+    const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Server is authoritative (POST /arc-v2/list-view): tabs, faceting, search,
+  // sort and pagination are all computed server-side — refetch on any change.
+  useEffect(() => {
+    const id = ++seq.current;
     setLoading(true);
-    ArcApi.listContracts({ statusGroup: "all", page: 1, limit: 200 })
+    ArcApi.getContractsListView({ tab: activeTab, search: debounced, sort, filters, page, limit: 20 })
       .then((res) => {
-        if (cancelled) return;
-        const payload = res?.data || res;
-        const list = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
-        setRows(list);
+        if (id !== seq.current) return;
+        const d = res?.data || {};
+        setResp({
+          rows: Array.isArray(d.rows) ? d.rows : [],
+          facets: d.facets || {},
+          tab_counts: d.tab_counts || {},
+          total: d.total || 0,
+          limit: d.limit || 20,
+        });
       })
-      .catch(() => { if (!cancelled) setRows([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+      .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
+      .finally(() => { if (id === seq.current) setLoading(false); });
+  }, [activeTab, debounced, sort, filters, page]);
 
-  // Count rows per tab against the full dataset (not the chip-filtered view)
-  // so users see what's available before drilling in.
-  const tabCounts = useMemo(() => {
-    const acc = { all: rows.length };
-    TABS.forEach((t) => {
-      if (t.key === "all") return;
-      const allow = TAB_TO_BUCKETS[t.key];
-      acc[t.key] = rows.filter((r) => allow.includes(statusBucket(r.status))).length;
-    });
-    return acc;
-  }, [rows]);
+  const { facets, tab_counts: tabCounts, total } = resp;
+  const filtered = resp.rows;
+  const totalPages = Math.max(1, Math.ceil(total / (resp.limit || 20)));
 
-  // Rows narrowed by the active tab — feeds into the chip-filter pipeline.
-  const tabRows = useMemo(() => {
-    const allow = TAB_TO_BUCKETS[activeTab];
-    if (!allow) return rows;
-    return rows.filter((r) => allow.includes(statusBucket(r.status)));
-  }, [rows, activeTab]);
-
-  // ── derived filter options ──────────────────────────────────────────
-  const statusOptions = useMemo(() => {
-    const counts = {};
-    tabRows.forEach((r) => {
-      const b = statusBucket(r.status);
-      counts[b] = (counts[b] || 0) + 1;
-    });
-    const order = ["active", "expiring", "floated", "eval", "committee", "awaiting", "draft", "expired"];
-    return order.filter((k) => counts[k]).map((k) => ({ key: k, label: BUCKET_LABEL[k], count: counts[k] }));
-  }, [tabRows]);
-
-  const buOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.hotel_id == null) return;
-      const k = String(r.hotel_id);
-      const cur = map.get(k) || { key: k, label: r.hotel_name || `Hotel #${r.hotel_id}`, sub: buCodeFor(r.hotel_name) || "—", count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const categoryOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.category_id == null) return;
-      const k = String(r.category_id);
-      const cur = map.get(k) || { key: k, label: r.category_title || `Category #${r.category_id}`, count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const departmentOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      if (r.department_id == null) return;
-      const k = String(r.department_id);
-      const cur = map.get(k) || { key: k, label: r.department_title || `Department #${r.department_id}`, count: 0 };
-      cur.count += 1;
-      map.set(k, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const productOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      const ids = asArray(r.product_variant_ids);
-      const names = asArray(r.item_names);
-      ids.forEach((id, idx) => {
-        if (id == null) return;
-        const k = String(id);
-        const cur = map.get(k) || { key: k, label: names[idx] || `Variant #${id}`, count: 0 };
-        cur.count += 1;
-        map.set(k, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  const vendorOptions = useMemo(() => {
-    const map = new Map();
-    tabRows.forEach((r) => {
-      const ids = asArray(r.awarded_vendor_ids);
-      const names = asArray(r.awarded_vendor_names);
-      ids.forEach((id, idx) => {
-        if (id == null) return;
-        const k = String(id);
-        const cur = map.get(k) || { key: k, label: names[idx] || `Vendor #${id}`, count: 0 };
-        cur.count += 1;
-        map.set(k, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [tabRows]);
-
-  // ── filter + sort ──────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    let list = tabRows.filter((r) => {
-      const bucket = statusBucket(r.status);
-      if (filters.status.length && !filters.status.includes(bucket)) return false;
-      if (filters.buId.length && !filters.buId.includes(String(r.hotel_id))) return false;
-      if (filters.categoryId.length && !filters.categoryId.includes(String(r.category_id))) return false;
-      if (filters.departmentId.length && !filters.departmentId.includes(String(r.department_id))) return false;
-      if (filters.productId.length) {
-        const ids = asArray(r.product_variant_ids).map(String);
-        if (!ids.some((id) => filters.productId.includes(id))) return false;
-      }
-      if (filters.vendorId.length) {
-        const ids = asArray(r.awarded_vendor_ids).map(String);
-        if (!ids.some((id) => filters.vendorId.includes(id))) return false;
-      }
-      if (term) {
-        const hay = `${r.title || ""} ${r.arc_number || ""} ${r.category_title || ""} ${r.hotel_name || ""}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
-      return true;
-    });
-    if (sort === "expiry") {
-      list = list.slice().sort((a, b) => {
-        const ba = BUCKET_ORDER_LIFECYCLE[statusBucket(a.status)] ?? 9;
-        const bb = BUCKET_ORDER_LIFECYCLE[statusBucket(b.status)] ?? 9;
-        return ba - bb;
-      });
-    } else if (sort === "value") {
-      list = list.slice().sort((a, b) => Number(b.committed_value || 0) - Number(a.committed_value || 0));
-    } else {
-      list = list.slice().sort((a, b) => {
-        const ax = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bx = b.created_at ? new Date(b.created_at).getTime() : 0;
-        if (bx !== ax) return bx - ax;
-        return String(b.id).localeCompare(String(a.id));
-      });
-    }
-    return list;
-  }, [tabRows, filters, search, sort]);
+  // ── filter options come straight from the server facets (already counted
+  //    over the tab scope, OR-within / AND-across) ─────────────────────
+  const statusOptions = facets.status || [];
+  const buOptions = useMemo(() => (facets.buId || []).map((o) => ({ ...o, sub: buCodeFor(o.label) })), [facets.buId]);
+  const categoryOptions = facets.categoryId || [];
+  const departmentOptions = facets.departmentId || [];
+  const productOptions = facets.productId || [];
+  const vendorOptions = facets.vendorId || [];
 
   // ── mutators ───────────────────────────────────────────────────────
   function toggle(group, key) {
+    setPage(1);
     setFilters((f) => {
       const cur = f[group] || [];
       const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
@@ -423,6 +381,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
   function cardClass(row) {
     const b = statusBucket(row.status);
     let cls = "contract-card";
+    if (row.action_required) cls += " needs-action";
     if (b === "active") cls += " is-active";
     else if (b === "expiring") cls += " is-expiring";
     return cls;
@@ -449,7 +408,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
           <button key={t.key}
                   type="button"
                   className={"tab" + (activeTab === t.key ? " active" : "")}
-                  onClick={() => setActiveTab(t.key)}>
+                  onClick={() => { setActiveTab(t.key); setPage(1); }}>
             {t.label} <span className="ct">{tabCounts[t.key] ?? 0}</span>
           </button>
         ))}
@@ -499,7 +458,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           <div className="list-toolbar">
             <div className="lt-left">
-              <span className="em mono">{filtered.length}</span> of <span className="mono">{tabRows.length}</span> contracts
+              <span className="em mono">{total}</span> {total === 1 ? "contract" : "contracts"}
             </div>
             <div className="lt-right">
               <div className="search-input" style={{ width: 280 }}>
@@ -509,7 +468,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                 </svg>
                 <input className="input" placeholder="Search by title, number, category…" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <select className="select-mini" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <select className="select-mini" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
                 <option value="recent">Most recent</option>
                 <option value="value">Highest value</option>
                 <option value="expiry">Lifecycle order</option>
@@ -555,6 +514,15 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               const subEnd = fmtDate(row.submission_end_at);
               const itemNames = asArray(row.item_names);
               const awardedVendorNames = asArray(row.awarded_vendor_names);
+              // Paired {id,name,company} objects for the hover tooltip; fall
+              // back to name+id pairs if the backend didn't supply the objects.
+              const awardedVendors = (() => {
+                const objs = asArray(row.awarded_vendors);
+                if (objs.length) return objs;
+                const ids = asArray(row.awarded_vendor_ids);
+                return awardedVendorNames.map((name, i) => ({ id: ids[i], name }));
+              })();
+              const commercialHref = `/dashboard/buyer/rate-contracts/${row.id}?stage=commercial`;
               const pulse = bucket === "committee" || bucket === "awaiting" || bucket === "eval";
               const pct = consumptionPct(row);
               const submittedOverInvited = `${row.submitted_count || 0} of ${row.invited_count || 0}`;
@@ -575,6 +543,9 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                         <div className="cc-title">
                           <span>{row.title || "(Untitled)"}</span>
                           <span className="cc-num">#{row.arc_number || row.id}</span>
+                          {row.action_required && row.action_label && (
+                            <span className="needs-action-pill">{row.action_label}</span>
+                          )}
                         </div>
                         <div className="cc-sub">
                           {row.category_title && (<><span>{row.category_title}</span><span className="sep">·</span></>)}
@@ -584,10 +555,10 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                             </>
                           )}
                           {row.department_title && (<><span className="sep">·</span><span>{row.department_title}</span></>)}
-                          {awardedVendorNames.length > 0 && (
+                          {awardedVendors.length > 0 && (
                             <>
                               <span className="sep">·</span>
-                              <span>Vendor: <span className="em">{awardedVendorNames[0]}</span>{awardedVendorNames.length > 1 ? ` +${awardedVendorNames.length - 1}` : ""}</span>
+                              <VendorCell vendors={awardedVendors} commercialHref={commercialHref} />
                             </>
                           )}
                           {(termStart && termEnd) && (
@@ -623,9 +594,6 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           <span className="dot" />{row.active_amendments} amendment{Number(row.active_amendments) === 1 ? "" : "s"} live
                         </span>
                       )}
-                      {(bucket === "active" || bucket === "expiring" || bucket === "expired") && row.committed_value > 0 && (
-                        <span className="mono text-fg-3 fs-12">{fmtL(row.committed_value)} committed</span>
-                      )}
                       {bucket === "floated" && row.invited_count > 0 && (
                         <span className="text-fg-3 fs-12">
                           <span className="mono fw-600 text-fg">{submittedOverInvited}</span> responses
@@ -644,12 +612,12 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           />
                         </div>
                         <span className="progress-label">
-                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span>
+                          <span className="mono">{pct}%</span> · <span className="mono">{fmtL(row.consumed_value)}</span> of <span className="mono">{fmtL(row.committed_value)}</span> committed <span className="text-fg-4">(excl. taxes)</span>
                         </span>
                       </div>
                       {row.call_off_count > 0 && (
                         <span className="fs-12 text-fg-3">
-                          <span className="mono fw-600 text-fg">{row.call_off_count}</span> call-off PO{row.call_off_count === 1 ? "" : "s"}
+                          <span className="mono fw-600 text-fg">{row.call_off_count}</span> Released PO{row.call_off_count === 1 ? "" : "s"}
                         </span>
                       )}
                     </div>
@@ -684,6 +652,14 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               </div>
             )}
           </div>
+
+          {totalPages > 1 && !loading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 }}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>‹</button>
+              <span style={{ fontSize: 12.5, color: "#71717a", padding: "0 8px" }}>Page {page} of {totalPages}</span>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>›</button>
+            </div>
+          )}
         </div>
       </div>
     </main>

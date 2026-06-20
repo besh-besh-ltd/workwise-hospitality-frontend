@@ -46,6 +46,7 @@ const metaFor = (key) => STATUS_META[key] || { label: key || "—", tone: "draft
 
 const TABS = [
   { key: "all", label: "All" },
+  { key: "pending", label: "Pending for me" },
   { key: "drafts", label: "Drafts" },
   { key: "ongoing", label: "Ongoing" },
   { key: "approved", label: "Approved" },
@@ -402,15 +403,29 @@ export default function RfqListPage() {
 }
 
 /* ─── one RFQ row (card) ─── */
+// Short, user-facing label for the action this row needs from me.
+function myActionLabel(ah) {
+  if (!ah) return "Action required";
+  if (ah.type === "approval") return "Approval needed";
+  const l = (ah.label || "").toLowerCase();
+  if (l.includes("technical")) return "Technical evaluation";
+  if (l.includes("commercial")) return "Commercial evaluation";
+  if (l.includes("po")) return "Raise PO";
+  return "Action required";
+}
+
 function RfqRow({ row, onClone, currentUser }) {
   const meta = metaFor(row.status_key);
   const cats = Array.isArray(row.categories) ? row.categories : [];
   const products = Array.isArray(row.products) ? row.products : [];
   const detailHref = `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${row.id}`;
   const edit = canEditRfq(row, currentUser); // same gate the detail/edit page uses
+  // Is the current user one of the people who can act on this RFQ right now?
+  const myId = Number(currentUser?.id);
+  const isMyAction = !!myId && (row.action_holders?.users || []).some((u) => Number(u.id) === myId);
 
   return (
-    <div className={`contract-card is-${meta.tone}`}>
+    <div className={`contract-card is-${meta.tone}${isMyAction ? " needs-action" : ""}`}>
       <div className="cc-head">
         <div className="cc-left">
           <div className={`cc-badge ${meta.tone}`}><FileText size={20} strokeWidth={2} /></div>
@@ -418,6 +433,7 @@ function RfqRow({ row, onClone, currentUser }) {
             <div className="cc-title">
               <Link href={detailHref} style={{ color: "inherit", textDecoration: "none" }}>{row.title || `RFQ #${row.rfq_no}`}</Link>
               <span className="cc-num">#{row.rfq_no}</span>
+              {isMyAction && <span className="needs-action-pill">{myActionLabel(row.action_holders)}</span>}
             </div>
             <div className="cc-sub">
               {cats.length > 0 && <><span className="em">{cats.map((c) => c.title).join(", ")}</span><span className="sep">·</span></>}

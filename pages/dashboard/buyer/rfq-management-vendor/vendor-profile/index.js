@@ -1,12 +1,8 @@
 import React from "react";
-import VendorProfileComp from "@/components/dashboard/vendor/company-profile/vendor-editprofile";
+import VendorProfileView from "@/components/dashboard/buyer/vendorProfile/VendorProfileView";
 
 const VendorProfile = () => {
-    return (
-        <>
-            <VendorProfileComp />
-        </>
-    )
-}
+    return <VendorProfileView />;
+};
 
 export default VendorProfile;

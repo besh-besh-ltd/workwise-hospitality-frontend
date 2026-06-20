@@ -43,8 +43,8 @@ function buildTerms(arc) {
     {
       key: "payment", title: "Payment terms", source: "from-arc",
       text: arc.payment_terms_expected
-        ? `${arc.payment_terms_expected} from goods receipt (GRN) at the receiving business unit. Invoices are raised against each call-off PO with the agreed HSN code per line.`
-        : "Payment as agreed per call-off PO at the receiving business unit.",
+        ? `${arc.payment_terms_expected} from goods receipt (GRN) at the receiving business unit. Invoices are raised against each released PO with the agreed HSN code per line.`
+        : "Payment as agreed per released PO at the receiving business unit.",
     },
     {
       key: "delivery", title: "Delivery & lead time", source: "from-arc",
@@ -64,7 +64,7 @@ function buildTerms(arc) {
     },
     {
       key: "termination", title: "Termination & exit", source: "standard",
-      text: "Either party may terminate for cause with 30 days' written notice. On termination, all open call-off POs shall be honoured and the vendor agrees to a 90-day transition support window at the contracted rates.",
+      text: "Either party may terminate for cause with 30 days' written notice. On termination, all open released POs shall be honoured and the vendor agrees to a 90-day transition support window at the contracted rates.",
     },
   ];
 }
@@ -594,7 +594,7 @@ export default function VendorAcceptPage() {
             {currentStep === 4 ? (
               <>
                 <div className="ac-title">Contract signed &amp; activated</div>
-                <div className="ac-sub">Your signature is sealed. Call-off POs can now be raised against this contract.</div>
+                <div className="ac-sub">Your signature is sealed. Released POs can now be raised against this contract.</div>
               </>
             ) : (
               <>
@@ -972,7 +972,7 @@ export default function VendorAcceptPage() {
                   <div className="sd-ic"><Icon w={22} sw={2.6} d={ICONS.check} /></div>
                   <div>
                     <div className="sd-title">Contract signed &amp; activated</div>
-                    <div className="sd-sub">Your OTP signature is sealed. You can now raise call-off POs against this contract.</div>
+                    <div className="sd-sub">Your OTP signature is sealed. You can now raise released POs against this contract.</div>
                   </div>
                   <button className="btn btn-success" onClick={() => router.push("/dashboard/vendor/rate-contracts/active")}>
                     View active contract

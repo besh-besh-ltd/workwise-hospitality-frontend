@@ -104,8 +104,8 @@ const EVENT_VIEW = {
   expiring_soon:                 { icon: "alert", tone: "warn",    who: "System", text: "contract expiring soon" },
   expired:                       { icon: "alert", tone: "",        who: "System", text: "contract expired" },
   renewed:                       { icon: "check", tone: "success", who: "Buyer",  text: "renewed the contract" },
-  call_off_released:             { icon: "truck", tone: "success", who: "Buyer",  text: "released a call-off PO" },
-  call_off_rejected:             { icon: "alert", tone: "warn",    who: "System", text: "call-off PO was rejected" },
+  call_off_released:             { icon: "truck", tone: "success", who: "Buyer",  text: "released a released PO" },
+  call_off_rejected:             { icon: "alert", tone: "warn",    who: "System", text: "released PO was rejected" },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -265,13 +265,13 @@ export default function VendorRateContractsDashboard() {
             </div>
           </div>
           <div className="kt-val mono">{counts.active}</div>
-          <div className="kt-sub"><span className="em mono">{totals.call_off_count}</span> call-offs received</div>
+          <div className="kt-sub"><span className="em mono">{totals.call_off_count}</span> released POs received</div>
         </div>
         <div className="kpi-tile accent">
           <div className="kt-row">
             <div className="kt-label">Awarded value · active</div>
             <div className="kt-ic">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
             </div>
           </div>
           <div className="kt-val mono">{fmtL(totals.awarded_value)}</div>
@@ -430,7 +430,7 @@ export default function VendorRateContractsDashboard() {
               <span className="ic">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
               </span>
-              Recent call-offs
+              Recent released POs
             </h3>
             <div className="h-sub">Last 5 POs received</div>
           </div>
@@ -456,7 +456,7 @@ export default function VendorRateContractsDashboard() {
               );
             })}
             {recentCallOffs.length === 0 && (
-              <div style={{ padding: "18px 16px", fontSize: 12, color: "var(--fg-4)" }}>No call-offs received yet.</div>
+              <div style={{ padding: "18px 16px", fontSize: 12, color: "var(--fg-4)" }}>No released POs received yet.</div>
             )}
           </div>
         </div>
@@ -547,12 +547,12 @@ export default function VendorRateContractsDashboard() {
             </span>
             Your fulfilment card
           </h3>
-          <div className="h-sub">{range === "qtd" ? "Quarter to date" : range === "fy" ? "This financial year" : "All-time"} · from call-off POs</div>
+          <div className="h-sub">{range === "qtd" ? "Quarter to date" : range === "fy" ? "This financial year" : "All-time"} · from released POs</div>
         </div>
         <div className="dash-panel-body">
           <div className="dash-grid cols-3">
             <div style={{ background: "var(--success-soft)", border: "1px solid rgba(21,128,61,0.18)", borderRadius: 10, padding: "13px 16px" }}>
-              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Delivered call-offs</div>
+              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Delivered released POs</div>
               <div className="mono" style={{ marginTop: 4, fontSize: 22, fontWeight: 700, color: "var(--success)" }}>
                 {perf.delivered_pct != null ? perf.delivered_pct + "%" : "—"}
               </div>
@@ -564,12 +564,12 @@ export default function VendorRateContractsDashboard() {
               </div>
             </div>
             <div style={{ background: "var(--violet-soft)", border: "1px solid rgba(109,40,217,0.18)", borderRadius: 10, padding: "13px 16px" }}>
-              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Call-off value</div>
+              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-4)", fontWeight: 600 }}>Released PO value</div>
               <div className="mono" style={{ marginTop: 4, fontSize: 22, fontWeight: 700, color: "var(--violet)" }}>{fmtL(perf.call_off_value)}</div>
             </div>
           </div>
           <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 9, fontSize: 11.5, color: "var(--fg-3)" }}>
-            Based on <span className="fw-600 mono" style={{ color: "var(--fg)" }}>{perf.total_call_offs ?? 0}</span> call-off PO(s)
+            Based on <span className="fw-600 mono" style={{ color: "var(--fg)" }}>{perf.total_call_offs ?? 0}</span> released PO(s)
             {perf.total_call_offs ? <> — <span className="fw-600 mono" style={{ color: "var(--fg)" }}>{perf.delivered}</span> delivered</> : null}.
             Delivery and acceptance are tracked from PO statuses on your contracts.
           </div>
