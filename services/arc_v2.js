@@ -4,6 +4,7 @@
 // global interceptor).
 
 import axiosInstance from "@/lib/axios";
+import axiosFormData from "@/lib/axiosFormData";
 
 const BASE = "/arc-v2";
 
@@ -74,11 +75,16 @@ export const setupTechEval = (itemId, payload) =>
 export const getTechEvalForItem = (itemId) =>
   axiosInstance.get(`${BASE}/evaluation/items/${itemId}/tech-eval`);
 
-export const recordVendorResponse = (payload) =>
-  axiosInstance.post(`${BASE}/evaluation/tech-eval/response`, payload);
-
+// NOTE: the buyer-records-vendor-response path was REMOVED — vendors now
+// self-author technical responses + evidence (two-envelope flow). The buyer
+// ONLY scores them via scoreResponse (which now also carries mandatory_passed
+// for mandatory clauses).
 export const scoreResponse = (payload) =>
   axiosInstance.post(`${BASE}/evaluation/tech-eval/score`, payload);
+
+// Evaluator-side ownership/permission-checked evidence proxy URL (no raw S3).
+export const techEvidenceUrl = (fileId) =>
+  `${BASE}/evaluation/tech-eval/evidence/${fileId}`;
 
 // Tech-eval approval — chain view + approve/reject/amend (approver-only;
 // amend = { marks: [{ response_id, buyer_marks, buyer_remark }] }).
@@ -128,6 +134,15 @@ export const vendorGetRequestDetail    = (arcId) => axiosInstance.get(`${BASE}/v
 export const vendorSaveQuoteDraft      = (payload) => axiosInstance.post(`${BASE}/vendor/quote/draft`, payload);
 export const vendorSubmitQuote         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/submit`, { arc_id: arcId });
 export const vendorWithdrawQuote       = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/withdraw`, { arc_id: arcId });
+
+// ── Vendor — Technical envelope (two-envelope flow) ──────────────────────
+// Self-author clause responses + evidence, sealed BEFORE the commercial quote
+// (hard two-step when the ARC requires technical responses).
+export const vendorGetTechClauses        = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}/tech-clauses`);
+export const vendorSaveTechEnvelopeDraft = (payload) => axiosInstance.post(`${BASE}/vendor/tech-envelope/draft`, payload);
+export const vendorUploadTechEvidence    = (clauseId, formData) => axiosFormData.post(`${BASE}/vendor/tech-envelope/clause/${clauseId}/file`, formData);
+export const vendorDeleteTechEvidence    = (fileId) => axiosInstance.delete(`${BASE}/vendor/tech-envelope/file/${fileId}`);
+export const vendorSubmitTechEnvelope    = (arcId) => axiosInstance.post(`${BASE}/vendor/tech-envelope/submit`, { arc_id: arcId });
 
 // Dashboard rollups — counts, totals, spend ranks, recent call-offs, activity.
 export const vendorGetDashboard          = (params = {}) => axiosInstance.get(`${BASE}/vendor/dashboard`, { params });

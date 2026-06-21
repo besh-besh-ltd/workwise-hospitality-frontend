@@ -329,7 +329,7 @@ export default function CreateRateContractPage() {
   function addClause(iid) {
     setClausesByItem((cl) => ({
       ...cl,
-      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", file: "" }],
+      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", file: "", mandatory: false }],
     }));
   }
   function removeClause(iid, idx) {
@@ -411,6 +411,7 @@ export default function CreateRateContractPage() {
               clause_text: c.text,
               weightage: Number(c.weight) || 0,
               clause_type: c.type || null,
+              is_mandatory: !!c.mandatory,
             })),
           });
         }
@@ -725,15 +726,18 @@ export default function CreateRateContractPage() {
             </div>
           </div>
           <div className="section-body">
-            <div className="form-grid cols-3">
+            {/* ── Tender timeline ── */}
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-3)", marginBottom: 12 }}>Tender timeline</div>
+            <div className="form-grid">
               <div><label className="label">Submission start <span className="req">*</span></label><input type="date" className="input" value={submissionStart} onChange={(e) => setSubmissionStart(e.target.value)} /></div>
               <div><label className="label">Submission end <span className="req">*</span></label><input type="date" className="input" value={submissionEnd} onChange={(e) => setSubmissionEnd(e.target.value)} /></div>
-              <div />
               <div><label className="label">Contract start <span className="req">*</span></label><input type="date" className="input" value={contractStart} onChange={(e) => setContractStart(e.target.value)} /></div>
               <div><label className="label">Contract end <span className="req">*</span></label><input type="date" className="input" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} /></div>
-              <div />
             </div>
-            <div className="form-grid" style={{ marginTop: 14 }}>
+
+            {/* ── Commercial terms ── */}
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-3)", marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)", marginBottom: 12 }}>Commercial terms</div>
+            <div className="form-grid">
               <div>
                 <label className="label">Price escalation</label>
                 <select className="select" value={escalation} onChange={(e) => setEscalation(e.target.value)}>
@@ -743,23 +747,23 @@ export default function CreateRateContractPage() {
                   <option value="tariff">Tariff-linked</option>
                 </select>
               </div>
-              {escalation !== "none" && (
-                <div>
-                  <label className="label">Cap (%)</label>
-                  <div className="input-group" style={{ maxWidth: 200 }}>
-                    <input type="number" className="input input-num" value={escalationCap} onChange={(e) => setEscalationCap(e.target.value)} placeholder="4" min={0} />
-                    <div className="suffix">%</div>
-                  </div>
+              <div>
+                <label className="label">Escalation cap {escalation !== "none" && <span className="req">*</span>}</label>
+                <div className="input-group">
+                  <input type="number" className="input input-num" value={escalation === "none" ? "" : escalationCap} onChange={(e) => setEscalationCap(e.target.value)} placeholder={escalation === "none" ? "Not applicable" : "4"} min={0} disabled={escalation === "none"} />
+                  <div className="suffix">%</div>
                 </div>
-              )}
+              </div>
             </div>
-            <label className="label" style={{ marginTop: 14 }}>Payment terms</label>
-            <input className="input" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} />
-            <label className="label" style={{ marginTop: 14 }}>Delivery / fulfilment terms</label>
-            <input className="input" value={deliveryTerms} onChange={(e) => setDeliveryTerms(e.target.value)} />
-            <label className="label" style={{ marginTop: 14 }}>Penalty / LD clause</label>
-            <textarea className="textarea" value={penalty} onChange={(e) => setPenalty(e.target.value)} />
-            <label className="cbx" style={{ marginTop: 14 }}>
+            <div className="form-grid" style={{ marginTop: 14 }}>
+              <div><label className="label">Payment terms</label><input className="input" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" /></div>
+              <div><label className="label">Delivery / fulfilment terms</label><input className="input" value={deliveryTerms} onChange={(e) => setDeliveryTerms(e.target.value)} placeholder="e.g. Within 21 days of each released PO" /></div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label className="label">Penalty / LD clause</label>
+              <textarea className="textarea" value={penalty} onChange={(e) => setPenalty(e.target.value)} placeholder="e.g. 1.5% LD per week of delay, capped at 7.5% of PO value" />
+            </div>
+            <label className="cbx" style={{ marginTop: 18 }}>
               <input type="checkbox" checked={samplesRequired} onChange={(e) => setSamplesRequired(e.target.checked)} />
               <span className="cbx-box" />
               <span>Require sample submission before tech evaluation</span>
@@ -798,7 +802,8 @@ export default function CreateRateContractPage() {
                   <div className="g-ic"><InfoIcon /></div>
                   <div>
                     <strong>How scoring works.</strong>{" "}
-                    For each item below, add the technical clauses vendors must respond to. Each clause has a <strong>weight</strong> (total must equal 100). Evaluators assign marks and the system auto-computes a per-item percentage score — anyone scoring ≥ the item's <strong>minimum passing score</strong> auto-qualifies for that item.
+                    For each item below, add the technical clauses vendors must respond to. Each clause has a <strong>weight</strong> (total must equal 100). Evaluators assign marks and the system auto-computes a per-item percentage score — anyone scoring ≥ the item's <strong>minimum passing score</strong> auto-qualifies for that item.{" "}
+                    Mark a clause <strong>Mandatory</strong> to make it a hard pass/fail gate: failing (or not yet judging) any mandatory clause disqualifies the vendor for that item <strong>regardless of the weighted score</strong>. Mandatory clauses still carry their weight and count toward the 100.
                   </div>
                 </div>
 
@@ -876,6 +881,19 @@ export default function CreateRateContractPage() {
                               </button>
                               <div className="tcr-bottom">
                                 <span className={`clause-type-mini ${cl.type}`}>{cl.type}</span>
+                                {cl.mandatory && (
+                                  <span className="clause-type-mini" style={{ background: "var(--danger-soft, #fee2e2)", color: "var(--danger, #b91c1c)", fontWeight: 700 }}>
+                                    Mandatory · pass/fail gate
+                                  </span>
+                                )}
+                                <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-3)", cursor: "pointer" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!cl.mandatory}
+                                    onChange={(e) => updateClause(iid, idx, { mandatory: e.target.checked })}
+                                  />
+                                  Mandatory (pass/fail gate)
+                                </label>
                                 <span className="tcr-attach"><PaperclipIcon /> Attach reference document</span>
                                 <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--fg-4)" }}>Vendors must respond &amp; upload evidence</span>
                               </div>
