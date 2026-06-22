@@ -1003,13 +1003,6 @@ function ItemRow({
   // Inline share override — { vid, value } while one cell's % is being edited.
   const [editShare, setEditShare] = useState(null);
   const rowClass = status.kind === "awarded" ? "row-awarded" : "row-pending";
-  const targetUnitRate =
-    it.target_price != null ? toNum(it.target_price)
-    : it.target_unit_rate != null ? toNum(it.target_unit_rate) : null;
-  const deltaVsTarget = (rate) => {
-    if (!targetUnitRate || rate === null) return null;
-    return Math.round(((rate - targetUnitRate) / targetUnitRate) * 100);
-  };
   const pctOf = (qty) => (indicative > 0 ? Math.round((qty / indicative) * 1000) / 10 : 0);
   const statusLabel =
     status.kind === "no_quotes" ? "No quotes"
@@ -1062,7 +1055,6 @@ function ItemRow({
           const allocated = allocatedFor(itemId, v.vendor_id);
           const isAwarded = allocated > 0;
           const fullAwarded = isAwarded && Math.abs(allocated - indicative) <= 0.0001;
-          const d = deltaVsTarget(lan);
           if ((!qualified || l.disqualified) && !isAwarded) {
             // Server redacts these rates — render a locked placeholder so it
             // is obvious the terms exist but are sealed for this evaluator.
@@ -1129,14 +1121,6 @@ function ItemRow({
                     </>
                   )}
                 </div>
-                {d !== null && (
-                  <div className={"delta-target " + (d > 0 ? "up" : "down")}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      {d > 0 ? <polyline points="18 9 12 15 6 9" /> : <polyline points="18 15 12 9 6 15" />}
-                    </svg>
-                    <span>{Math.abs(d)}% vs target</span>
-                  </div>
-                )}
                 {editable ? (
                   !isAwarded ? (
                     <button className="cell-select-btn" disabled={saving} title="Award this vendor — shares re-divide equally" onClick={(e) => { e.stopPropagation(); awardCell(v.vendor_id, itemId); }}>

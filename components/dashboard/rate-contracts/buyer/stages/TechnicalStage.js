@@ -60,6 +60,8 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const [evalByItem, setEvalByItem] = useState({});
   const [marks, setMarks] = useState({});
   const [remarks, setRemarks] = useState({});
+  // Per-cell mandatory pass/fail verdict for mandatory clauses (true/false/null).
+  const [verdicts, setVerdicts] = useState({});
   const [savingKey, setSavingKey] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
@@ -90,23 +92,27 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           tech_evaluation: d.tech_evaluation || null,
           clauses: d.clauses || [],
           responses: d.responses || [],
+          // Server-authoritative per-vendor qualification (incl. mandatory gate).
+          scores: d.scores || [],
         };
       } catch (e) {
-        next[it.id] = { tech_evaluation: null, clauses: [], responses: [] };
+        next[it.id] = { tech_evaluation: null, clauses: [], responses: [], scores: [] };
       }
     }));
     setEvalByItem(next);
-    // Hydrate staged marks/remarks from server rows.
-    const m = {}, r = {};
+    // Hydrate staged marks/remarks/verdicts from server rows.
+    const m = {}, r = {}, v = {};
     for (const it of itemList) {
       for (const resp of next[it.id]?.responses || []) {
         const k = `${it.id}|${resp.vendor_id}|${resp.clause_id}`;
         if (resp.buyer_marks != null) m[k] = Number(resp.buyer_marks);
         if (resp.buyer_remark != null) r[k] = resp.buyer_remark;
+        if (resp.mandatory_passed != null) v[k] = !!resp.mandatory_passed;
       }
     }
     setMarks(m);
     setRemarks(r);
+    setVerdicts(v);
   }, []);
 
   useEffect(() => {
@@ -163,6 +169,29 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     const k = keyFor(itemId, vendorId, clauseId);
     return k in marks ? marks[k] : null;
   }, [marks]);
+  const getVerdict = useCallback((itemId, vendorId, clauseId) => {
+    const k = keyFor(itemId, vendorId, clauseId);
+    return k in verdicts ? verdicts[k] : null; // true | false | null(unjudged)
+  }, [verdicts]);
+  const clauseIsMandatory = (cl) => !!(cl?.is_mandatory);
+
+  // Server-authoritative per-vendor score row for an item (carries the
+  // mandatory gate — qualifies / mandatory_failed). Falls back to null.
+  const serverScoreFor = useCallback((itemId, vendorId) => {
+    const block = evalByItem[itemId];
+    return (block?.scores || []).find((s) => Number(s.vendor_id) === Number(vendorId)) || null;
+  }, [evalByItem]);
+  // True when this item has at least one mandatory clause.
+  const itemHasMandatory = useCallback((itemId) => {
+    const block = evalByItem[itemId];
+    return (block?.clauses || []).some((cl) => clauseIsMandatory(cl));
+  }, [evalByItem]);
+  // A mandatory clause is failed (FALSE) or not-yet-judged (NULL) for this vendor.
+  const vendorMandatoryBlocked = useCallback((itemId, vendorId) => {
+    const block = evalByItem[itemId];
+    return (block?.clauses || []).some((cl) =>
+      clauseIsMandatory(cl) && getVerdict(itemId, vendorId, cl.id) !== true);
+  }, [evalByItem, getVerdict]);
 
   const vendorMaxMarks = useCallback((itemId) => {
     const block = evalByItem[itemId];
@@ -184,12 +213,35 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     const block = evalByItem[itemId];
     return (block?.clauses || []).filter((cl) => getMark(itemId, vendorId, cl.id) != null).length;
   }, [evalByItem, getMark]);
+  // Fully evaluated = every clause marked AND every mandatory clause judged.
   const vendorFullyEvaluated = useCallback((itemId, vendorId) => {
     const block = evalByItem[itemId];
-    return vendorEvaluatedCount(itemId, vendorId) === (block?.clauses || []).length;
-  }, [evalByItem, vendorEvaluatedCount]);
+    const allMarked = vendorEvaluatedCount(itemId, vendorId) === (block?.clauses || []).length;
+    if (!allMarked) return false;
+    // A mandatory clause still unjudged (NULL) means not fully evaluated.
+    const mandatoryUnjudged = (block?.clauses || []).some((cl) =>
+      clauseIsMandatory(cl) && getVerdict(itemId, vendorId, cl.id) == null);
+    return !mandatoryUnjudged;
+  }, [evalByItem, vendorEvaluatedCount, getVerdict]);
   const minPassFor = useCallback((itemId) => evalByItem[itemId]?.tech_evaluation?.minimum_passing_score ?? 60, [evalByItem]);
-  const vendorQualified = useCallback((itemId, vendorId) => vendorScore(itemId, vendorId) >= Number(minPassFor(itemId)), [vendorScore, minPassFor]);
+  // Qualification honours the mandatory gate. Prefer the server's authoritative
+  // verdict when present; otherwise compute locally (weighted ≥ min AND no
+  // mandatory clause failed/unjudged).
+  const vendorQualified = useCallback((itemId, vendorId) => {
+    const srv = serverScoreFor(itemId, vendorId);
+    if (srv && typeof srv.qualifies === "boolean") return srv.qualifies;
+    if (vendorMandatoryBlocked(itemId, vendorId)) return false;
+    return vendorScore(itemId, vendorId) >= Number(minPassFor(itemId));
+  }, [serverScoreFor, vendorMandatoryBlocked, vendorScore, minPassFor]);
+  // Did the vendor fail specifically because of the mandatory gate?
+  const vendorMandatoryFailed = useCallback((itemId, vendorId) => {
+    const srv = serverScoreFor(itemId, vendorId);
+    if (srv && typeof srv.mandatory_failed === "boolean") return srv.mandatory_failed;
+    // Local fallback: a judged mandatory FALSE (not merely unjudged).
+    const block = evalByItem[itemId];
+    return (block?.clauses || []).some((cl) =>
+      clauseIsMandatory(cl) && getVerdict(itemId, vendorId, cl.id) === false);
+  }, [serverScoreFor, evalByItem, getVerdict]);
   const vendorVerdictClass = useCallback((itemId, vendorId) => {
     if (!vendorFullyEvaluated(itemId, vendorId)) return "pending";
     return vendorQualified(itemId, vendorId) ? "pass" : "fail";
@@ -251,19 +303,56 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       }
     }
   };
+  // Mandatory pass/fail verdict. Persists immediately (evaluator) or stages
+  // into the amend payload (approver amend mode).
+  const setVerdictLocal = (itemId, vendorId, clauseId, val) => {
+    const k = keyFor(itemId, vendorId, clauseId);
+    setVerdicts((prev) => ({ ...prev, [k]: val }));
+    if (amendMode && canApprove) {
+      const resp = responseFor(vendorId, clauseId);
+      if (resp?.response_id) {
+        setAmends((prev) => ({ ...prev, [resp.response_id]: { ...prev[resp.response_id], mandatory_passed: val } }));
+      }
+    } else {
+      // Evaluator: persist the verdict (mandatory clauses still need a mark too,
+      // but the verdict can be recorded independently as it's set).
+      persistCell(itemId, vendorId, clauseId, val);
+    }
+  };
 
   // Evaluator path: persist on blur. (Approver amend mode stages instead.)
-  const persistCell = async (itemId, vendorId, clauseId) => {
+  // verdictOverride lets the mandatory Pass/Fail control persist its verdict.
+  const persistCell = async (itemId, vendorId, clauseId, verdictOverride = undefined) => {
     if (!canEvaluate || isComplete || (amendMode && canApprove)) return;
     const resp = responseFor(vendorId, clauseId);
     if (!resp?.response_id) return;
     const k = keyFor(itemId, vendorId, clauseId);
     const marksVal = k in marks ? marks[k] : (resp.buyer_marks ?? null);
-    if (marksVal == null) return;
+    if (marksVal == null) return; // marks are required by the backend
     const remarkVal = k in remarks ? remarks[k] : (resp.buyer_remark ?? "");
+    // Mandatory clause → must send a pass/fail verdict.
+    const block = evalByItem[itemId];
+    const cl = (block?.clauses || []).find((c) => Number(c.id) === Number(clauseId));
+    const isMandatory = clauseIsMandatory(cl);
+    let mandatory_passed;
+    if (isMandatory) {
+      const v = verdictOverride !== undefined ? verdictOverride
+        : (k in verdicts ? verdicts[k] : (resp.mandatory_passed ?? null));
+      if (typeof v !== "boolean") return; // can't score a mandatory clause without a verdict yet
+      mandatory_passed = v;
+    }
     setSavingKey(k);
     try {
-      await ArcApi.scoreResponse({ response_id: resp.response_id, buyer_marks: marksVal, buyer_remark: remarkVal });
+      await ArcApi.scoreResponse({
+        response_id: resp.response_id, buyer_marks: marksVal, buyer_remark: remarkVal,
+        ...(isMandatory ? { mandatory_passed } : {}),
+      });
+      // Refresh server scores for this item so the verdict/gate reflects truth.
+      try {
+        const r = await ArcApi.getTechEvalForItem(itemId);
+        const d = r?.data || r || {};
+        setEvalByItem((prev) => ({ ...prev, [itemId]: { ...prev[itemId], scores: d.scores || [], responses: d.responses || prev[itemId]?.responses || [] } }));
+      } catch (_) { /* best-effort */ }
     } catch (e) {
       // interceptor toast; 409 = immutable
     } finally {
@@ -431,6 +520,11 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                               {fully ? (vendorQualified(activeItem.id, v.vendor_id) ? "Qualified" : "Not qualified") : "In progress"}
                             </span>
                           </div>
+                          {fully && !vendorQualified(activeItem.id, v.vendor_id) && vendorMandatoryFailed(activeItem.id, v.vendor_id) && (
+                            <div style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 999, padding: "1px 8px", display: "inline-block" }}>
+                              Disqualified · failed mandatory clause
+                            </div>
+                          )}
                           <div className="v-pass-line">
                             Min <span className="mono">{minPassFor(activeItem.id)}%</span> · evaluated <span className="mono">{evaluated}/{total}</span>
                           </div>
@@ -449,6 +543,11 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                           <div className="c-meta">
                             <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
                             <span className="c-type">{cl.clause_type || cl.type || "text"}</span>
+                            {clauseIsMandatory(cl) && (
+                              <span className="c-type" style={{ background: "var(--danger-soft, #fee2e2)", color: "var(--danger, #b91c1c)", fontWeight: 700 }}>
+                                Mandatory · gate
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -457,6 +556,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                         const k = keyFor(activeItem.id, v.vendor_id, cl.id);
                         const markVal = k in marks ? marks[k] : (resp?.buyer_marks ?? null);
                         const remarkVal = k in remarks ? remarks[k] : (resp?.buyer_remark ?? "");
+                        const verdictVal = k in verdicts ? verdicts[k] : (resp?.mandatory_passed ?? null);
                         const fully = vendorFullyEvaluated(activeItem.id, v.vendor_id);
                         const disq = fully && !vendorQualified(activeItem.id, v.vendor_id);
                         const isSaving = savingKey === k;
@@ -467,7 +567,45 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                               <div className="response-text" style={!resp?.vendor_response ? { color: "var(--fg-4)" } : undefined}>
                                 <span>{resp?.vendor_response || "No response submitted"}</span>
                               </div>
+                              {/* Vendor-submitted evidence files (ownership-checked proxy links) */}
+                              {Array.isArray(resp?.files) && resp.files.length > 0 && (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "4px 0 2px" }}>
+                                  {resp.files.map((f) => (
+                                    <a key={f.file_id}
+                                       href={`${process.env.NEXT_PUBLIC_API_URL || ""}${ArcApi.techEvidenceUrl(f.file_id)}`}
+                                       target="_blank" rel="noreferrer"
+                                       style={{ fontSize: 11, color: "var(--accent, #1d4ed8)", background: "var(--accent-soft, #eff6ff)", border: "1px solid #bfdbfe", borderRadius: 6, padding: "2px 7px", textDecoration: "none" }}>
+                                      Evidence #{f.file_id}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                               <div className="mark-block" style={amended ? { outline: "1.5px solid var(--warn)", outlineOffset: 2, borderRadius: 7 } : undefined}>
+                                {clauseIsMandatory(cl) && (
+                                  <div style={{ marginBottom: 6 }}>
+                                    <div className="mark-label">
+                                      {editable ? (amendMode && canApprove ? "Amend verdict" : "Pass / Fail (mandatory)") : "Verdict"}
+                                    </div>
+                                    <div style={{ display: "inline-flex", gap: 6, marginTop: 3 }}>
+                                      <button type="button"
+                                        disabled={!editable || !resp?.response_id}
+                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_id, cl.id, true)}
+                                        style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
+                                          border: "1px solid " + (verdictVal === true ? "#047857" : "var(--border-input, #d1d5db)"),
+                                          background: verdictVal === true ? "#ecfdf5" : "white", color: verdictVal === true ? "#047857" : "var(--fg-3, #6b7280)" }}>
+                                        Pass
+                                      </button>
+                                      <button type="button"
+                                        disabled={!editable || !resp?.response_id}
+                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_id, cl.id, false)}
+                                        style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
+                                          border: "1px solid " + (verdictVal === false ? "#b91c1c" : "var(--border-input, #d1d5db)"),
+                                          background: verdictVal === false ? "#fef2f2" : "white", color: verdictVal === false ? "#b91c1c" : "var(--fg-3, #6b7280)" }}>
+                                        Fail
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="mark-label">
                                   {editable ? (amendMode && canApprove ? "Amend marks" : "Your marks") : "Marks"}
                                   {isSaving ? " · saving…" : ""}

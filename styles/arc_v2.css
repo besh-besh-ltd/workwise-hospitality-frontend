@@ -404,6 +404,9 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
    SECTION CARDS · guides · tabs
    ═══════════════════════════════════════════════════════════ */
 .section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+/* The MR item picker renders an absolute results panel below the input; the
+   card must not clip it (keeps rounded corners, just stops the overflow clip). */
+.section-card.mr-items-card { overflow:visible; position:relative; z-index:2; }
 .section-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fdfdfb 0%,var(--surface) 100%); gap:12px; }
 .section-head h2 { font-size:13.5px; font-weight:600; color:var(--fg); letter-spacing:-0.01em; margin:0; display:flex; align-items:center; gap:9px; }
 .section-head .ic { width:26px; height:26px; border-radius:7px; background:var(--surface-3); border:1px solid var(--border); display:grid; place-items:center; color:var(--fg-3); flex-shrink:0; }
@@ -414,7 +417,7 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .section-body.tight { padding:12px 16px; }
 .section-body.flush { padding:0; }
 
-.guide { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-radius:var(--radius); background:var(--info-soft); border:1px solid rgba(37,99,235,0.16); font-size:12.5px; color:var(--fg-2); line-height:1.5; }
+.guide { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:var(--radius); background:var(--info-soft); border:1px solid rgba(37,99,235,0.16); font-size:12.5px; color:var(--fg-2); line-height:1.5; }
 .guide .g-ic { width:26px; height:26px; border-radius:7px; background:white; border:1px solid rgba(37,99,235,0.18); display:grid; place-items:center; color:var(--info); flex-shrink:0; margin-top:1px; }
 .guide strong { color:var(--fg); font-weight:600; }
 .guide.violet { background:var(--violet-soft); border-color:rgba(109,40,217,0.16); } .guide.violet .g-ic { color:var(--violet); border-color:rgba(109,40,217,0.18); }
@@ -1702,6 +1705,11 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .filter-sidebar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; position:static; }
 .filter-sidebar .fs-head { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fdfdfb 0%, var(--surface) 100%); }
 .filter-sidebar .fs-head h3 { font-size:12.5px; font-weight:600; color:var(--fg); display:flex; align-items:center; gap:8px; margin:0; }
+/* Base text-link style — also strips the native <button> chrome so a
+   <button className="reset-link"> doesn't render a default box/outline. */
+.reset-link { background:none; border:none; padding:0; margin:0; font:inherit; font-size:11.5px; line-height:1; color:var(--primary); font-weight:500; cursor:pointer; }
+.reset-link:hover { text-decoration:underline; }
+.reset-link:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-radius:4px; }
 .filter-sidebar .fs-head .reset-link { font-size:11.5px; color:var(--primary); font-weight:500; cursor:pointer; }
 .filter-sidebar .fs-head .reset-link:hover { text-decoration:underline; }
 .filter-group { padding:13px 16px; border-bottom:1px solid var(--border); }
@@ -1973,7 +1981,7 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .te-clause-row .tcr-num { font-family:'Geist Mono',monospace; font-size:11px; color:var(--fg-4); background:var(--surface-3); border:1px solid var(--border); border-radius:5px; padding:3px 0; text-align:center; font-weight:600; align-self:center; }
 .te-clause-row .tcr-text { padding:5px 7px; border:1px solid var(--border-input); border-radius:6px; font-size:12.5px; font-family:inherit; background:white; }
 .te-clause-row .tcr-text:focus { border-color:var(--primary); outline:none; box-shadow:var(--ring-primary); }
-.te-clause-row .tcr-bottom { grid-column:2 / -1; display:flex; align-items:center; gap:9px; padding-left:1px; padding-top:7px; }
+.te-clause-row .tcr-bottom { grid-column:2 / -1; display:flex; align-items:center; gap:9px; }
 .te-clause-row .tcr-bottom .tcr-attach { font-size:11.5px; color:var(--primary); cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-weight:500; }
 .te-clause-row .tcr-bottom .tcr-attach:hover { text-decoration:underline; }
 .te-add-clause { padding:10px 14px; border:1.5px dashed var(--border-strong); background:var(--surface-2); border-radius:9px; cursor:pointer; font-size:12.5px; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:7px; justify-content:center; transition:all 0.13s ease; font-family:inherit; }
