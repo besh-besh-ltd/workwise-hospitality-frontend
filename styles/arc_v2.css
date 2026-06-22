@@ -1952,7 +1952,7 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .te-item-card + .te-item-card { margin-top:14px; }
 .te-item-card.complete { border-color:rgba(21,128,61,0.32); }
 .te-item-card.error { border-color:rgba(185,28,28,0.32); }
-.te-item-head { padding:16px 20px; background:linear-gradient(180deg,#fdfdfb 0%,var(--surface) 100%); border-bottom:1px solid var(--border); display:grid; grid-template-columns:1fr auto auto; gap:18px; align-items:center; }
+.te-item-head { padding:16px 20px; background:linear-gradient(180deg,#fdfdfb 0%,var(--surface) 100%); border-bottom:1px solid var(--border); display:grid; grid-template-columns: auto 1fr auto auto; gap:18px; align-items:center; }
 .te-item-head .te-h-meta { min-width:0; }
 .te-item-head .te-h-name { font-size:15px; font-weight:600; color:var(--fg); letter-spacing:-0.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .te-item-head .te-h-num { font-family:'Geist Mono',monospace; font-size:11px; color:var(--fg-3); background:white; border:1px solid var(--border); border-radius:5px; padding:2px 7px; font-weight:500; }

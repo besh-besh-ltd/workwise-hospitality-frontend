@@ -134,8 +134,11 @@ export default function CreateRateContractPage() {
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
   const [samplesRequired, setSamplesRequired] = useState(false);
 
-  // Step 5 — Tech eval + vendors
-  const [techRequired, setTechRequired] = useState(true);
+  // Step 5 — Tech eval + vendors. Technical evaluation is configured PER ITEM:
+  // techByItem[itemId] toggles whether that product is technically evaluated
+  // (default ON when an item is selected). Items left ON need clauses; items
+  // turned OFF skip tech entirely and let all vendors compete on price.
+  const [techByItem, setTechByItem] = useState({});
   const [clausesByItem, setClausesByItem] = useState({});
   const [minPassByItem, setMinPassByItem] = useState({});
   const [eligibility, setEligibility] = useState("invitation");
@@ -269,6 +272,12 @@ export default function CreateRateContractPage() {
     if (!Number(minPassByItem[iid])) return false;
     return true;
   }
+  // Per-item technical-eval toggle (default ON for any selected item).
+  const itemTechOn = (iid) => techByItem[iid] !== false;
+  // Any item at all being evaluated → vendors must seal a technical envelope.
+  const anyTechRequired = selectedItemIds.some(itemTechOn);
+  // A tech-ON item must have valid clauses; a tech-OFF item is always fine.
+  const itemTechConfigured = (iid) => !itemTechOn(iid) || itemClauseValid(iid);
 
   const canNext = useMemo(() => {
     if (step === 1) return !!title && !!categoryId && !!type;
@@ -279,12 +288,12 @@ export default function CreateRateContractPage() {
     if (step === 4) return !!submissionStart && !!submissionEnd && !!contractStart && !!contractEnd;
     if (step === 5) {
       if (eligibility === "invitation" && invitedVendorIds.length === 0) return false;
-      if (techRequired) return selectedItemIds.every(itemClauseValid);
-      return true;
+      // Only items with technical evaluation ON must be fully configured.
+      return selectedItemIds.every(itemTechConfigured);
     }
     return true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techRequired, clausesByItem, minPassByItem]);
+  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem]);
 
   function goToStep(s) { if (s <= step) setStep(s); }
   function nextStep() { if (canNext && step < 6) setStep((s) => s + 1); }
@@ -298,7 +307,7 @@ export default function CreateRateContractPage() {
     setSelectedSubCats([]);
     setSelectedItemIds([]);
     setItemSpecs({}); setItemQtys({}); setItemUoms({});
-    setClausesByItem({}); setMinPassByItem({});
+    setClausesByItem({}); setMinPassByItem({}); setTechByItem({});
   }
   function pickType(t) {
     if (type === t) return;
@@ -317,6 +326,7 @@ export default function CreateRateContractPage() {
       setItemUoms((u)     => u[id]  ? u  : { ...u,  [id]: "" });
       setClausesByItem((cl)  => cl[id]  ? cl  : { ...cl,  [id]: [] });
       setMinPassByItem((mp)  => mp[id]  ? mp  : { ...mp,  [id]: 65 });
+      setTechByItem((t)      => (id in t) ? t : { ...t, [id]: true }); // default ON
       // Remember enough to display this item after it scrolls out of the
       // current catalogue page (Selected panel, tech-eval step, summary).
       if (meta) setSelectedMeta((m) => (m[id] ? m : { ...m, [id]: { id, name: meta.name, slug: meta.slug, uom: meta.uom ?? null } }));
@@ -370,7 +380,9 @@ export default function CreateRateContractPage() {
         contract_start_at:   contractStart,
         contract_end_at:     contractEnd,
         eligibility_type:    eligibility,
-        technical_response_required: techRequired,
+        // True if ANY item is technically evaluated → vendors must seal a
+        // technical envelope (for the items that have clauses) before quoting.
+        technical_response_required: anyTechRequired,
         sample_required:     samplesRequired,
         escalation_clause_json: {
           type: escalation,
@@ -398,13 +410,15 @@ export default function CreateRateContractPage() {
       // H4 — persist the per-item technical evaluation config the wizard
       // collected (clauses + weights + min passing score) so the qualification
       // gate actually uses it. Keyed by product_variant_id → created ARC item.
-      if (techRequired && createdItems.length) {
+      if (anyTechRequired && createdItems.length) {
         const itemIdByVariant = {};
         for (const it of createdItems) itemIdByVariant[it.product_variant_id] = it.id;
         for (const vid of selectedItemIds) {
           const arcItemId = itemIdByVariant[vid];
           const cls = clausesByItem[vid] || [];
-          if (!arcItemId || cls.length === 0) continue;
+          // Only set up tech eval for items with the toggle ON — a tech-OFF item
+          // gets no tech_evaluation row, so it skips qualification entirely.
+          if (!arcItemId || !itemTechOn(vid) || cls.length === 0) continue;
           await ArcApi.setupTechEval(arcItemId, {
             minimum_passing_score: minPassByItem[vid] ?? 65,
             clauses: cls.map((c) => ({
@@ -775,27 +789,27 @@ export default function CreateRateContractPage() {
       {/* ═════ STEP 5 — Tech & vendors ═════ */}
       {step === 5 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="te-toggle">
-            <label className="cbx" style={{ margin: 0 }}>
-              <input type="checkbox" checked={techRequired} onChange={(e) => setTechRequired(e.target.checked)} />
-              <span className="cbx-box" />
-            </label>
-            <div className="te-toggle-meta">
-              <div className="ttm-name">Technical evaluation required</div>
-              <div className="ttm-desc">When ON, vendors are scored per item using clauses you define below. Auto-qualified if their score ≥ the item's minimum passing score.</div>
-            </div>
-          </div>
-
-          {techRequired && (
-            <div className="section-card">
+          <div className="section-card">
               <div className="section-head">
                 <div className="h-left">
                   <div className="ic"><ChecklistIcon /></div>
                   <div>
                     <h2>Item-level technical evaluation</h2>
-                    <div className="h-sub">Each item carries its own clauses, weights and minimum passing score. Vendor qualification is per (vendor × item).</div>
+                    <div className="h-sub">Toggle technical evaluation per product. A product that's ON is scored on its clauses (only qualified vendors can win it); a product that's OFF skips tech and goes straight to price competition among all vendors.</div>
                   </div>
                 </div>
+                {selectedItemIds.length > 1 && (
+                  <div className="h-right" style={{ display: "flex", gap: 8 }}>
+                    <button type="button" className="btn btn-secondary btn-sm"
+                      onClick={() => setTechByItem(Object.fromEntries(selectedItemIds.map((id) => [id, true])))}>
+                      All on
+                    </button>
+                    <button type="button" className="btn btn-secondary btn-sm"
+                      onClick={() => setTechByItem(Object.fromEntries(selectedItemIds.map((id) => [id, false])))}>
+                      All off
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div className="guide">
@@ -817,38 +831,54 @@ export default function CreateRateContractPage() {
 
                 {selectedItemIds.map((iid) => {
                   const it = variantById(iid);
+                  const techOn = itemTechOn(iid);
                   const status = itemWeightStatus(iid);
                   const valid = itemClauseValid(iid);
                   const cls = clausesByItem[iid] || [];
                   const total = itemTotalWeight(iid);
                   return (
-                    <div key={iid} className={`te-item-card ${valid ? "complete" : status === "over" ? "error" : ""}`}>
+                    <div key={iid} className={`te-item-card ${!techOn ? "" : valid ? "complete" : status === "over" ? "error" : ""}`} style={!techOn ? { opacity: 0.85 } : undefined}>
                       <div className="te-item-head">
+                        {/* Per-item technical-evaluation toggle (default ON). */}
+                        <label className="cbx" style={{ margin: 0 }} title={techOn ? "Technical evaluation ON — vendors are scored on clauses for this product" : "Technical evaluation OFF — this product skips tech; all vendors compete on price"}>
+                          <input type="checkbox" checked={techOn} onChange={(e) => setTechByItem((t) => ({ ...t, [iid]: e.target.checked }))} />
+                          <span className="cbx-box" />
+                        </label>
                         <div className="te-h-meta">
                           <div className="te-h-name">
                             <span>{it.name}</span>
                             <span className="te-h-num">{it.slug}</span>
                           </div>
                           <div className="te-h-sub">
-                            <span className="mono fw-600" style={{ color: "var(--fg)" }}>{cls.length}</span> clause{cls.length === 1 ? "" : "s"}
-                            <span style={{ color: "var(--fg-4)" }}>·</span>
-                            <span>per {itemUoms[iid] || "unit"}</span>
+                            {techOn ? (
+                              <>
+                                <span className="mono fw-600" style={{ color: "var(--fg)" }}>{cls.length}</span> clause{cls.length === 1 ? "" : "s"}
+                                <span style={{ color: "var(--fg-4)" }}>·</span>
+                                <span>per {itemUoms[iid] || "unit"}</span>
+                              </>
+                            ) : (
+                              <span style={{ color: "var(--fg-3)" }}>No technical evaluation — all vendors compete on price for this product</span>
+                            )}
                           </div>
                         </div>
-                        <div className="te-min-pass">
-                          <span className="lbl">Min pass</span>
-                          <div className="input-group" style={{ maxWidth: 110 }}>
-                            <input type="number" className="input input-num" value={minPassByItem[iid] ?? ""} onChange={(e) => setMinPassByItem((m) => ({ ...m, [iid]: Number(e.target.value) || 0 }))} min={0} max={100} placeholder="65" />
-                            <div className="suffix">%</div>
+                        {techOn && (
+                          <div className="te-min-pass">
+                            <span className="lbl">Min pass</span>
+                            <div className="input-group" style={{ maxWidth: 110 }}>
+                              <input type="number" className="input input-num" value={minPassByItem[iid] ?? ""} onChange={(e) => setMinPassByItem((m) => ({ ...m, [iid]: Number(e.target.value) || 0 }))} min={0} max={100} placeholder="65" />
+                              <div className="suffix">%</div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                         <div>
-                          {valid && <span className="te-status complete"><CheckIcon size={11} /> Configured</span>}
-                          {!valid && status === "over" && <span className="te-status error"><Icon size={11}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon> Weights over 100</span>}
-                          {!valid && status !== "over" && <span className="te-status warn">Needs clauses · weights = 100</span>}
+                          {!techOn && <span className="te-status">Tech eval off</span>}
+                          {techOn && valid && <span className="te-status complete"><CheckIcon size={11} /> Configured</span>}
+                          {techOn && !valid && status === "over" && <span className="te-status error"><Icon size={11}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon> Weights over 100</span>}
+                          {techOn && !valid && status !== "over" && <span className="te-status warn">Needs clauses · weights = 100</span>}
                         </div>
                       </div>
 
+                      {techOn && (
                       <div className="weight-bar">
                         <span>Clause weights</span>
                         <div className="wb-track">
@@ -859,7 +889,9 @@ export default function CreateRateContractPage() {
                         {status === "under" && <span style={{ color: "var(--warn)",    fontWeight: 600 }}>— add <span className="mono">{100 - total}</span> more</span>}
                         {status === "ok"    && <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Balanced</span>}
                       </div>
+                      )}
 
+                      {techOn && (
                       <div className="te-clauses">
                         {cls.map((cl, idx) => (
                           <div key={idx}>
@@ -904,12 +936,12 @@ export default function CreateRateContractPage() {
                           <PlusIcon /> Add clause to <span style={{ marginLeft: 4 }}>{it.name}</span>
                         </button>
                       </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
-          )}
 
           {/* Vendor eligibility */}
           <div className="section-card">
@@ -981,26 +1013,41 @@ export default function CreateRateContractPage() {
               <div className="k">Tender</div><div className="v"><span className="mono">{submissionStart}</span> → <span className="mono">{submissionEnd}</span></div>
               <div className="k">Term</div><div className="v"><span className="mono">{contractStart}</span> → <span className="mono">{contractEnd}</span></div>
               <div className="k">Eligibility</div><div className="v">{eligibility === "open" ? "Open · all approved vendors" : `${invitedVendorIds.length} invited`}</div>
-              <div className="k">Tech eval</div><div className="v">{techRequired ? `Required · ${selectedItemIds.length} item(s) configured` : "Not required"}</div>
+              <div className="k">Tech eval</div><div className="v">{
+                anyTechRequired
+                  ? `${selectedItemIds.filter(itemTechOn).length} of ${selectedItemIds.length} product(s) evaluated`
+                  : "Not required — all products price-only"
+              }</div>
             </div>
 
-            {techRequired && selectedItemIds.length > 0 && (
+            {selectedItemIds.length > 0 && (
               <div style={{ marginTop: 18 }}>
                 <div className="section-label">Tech eval summary per item</div>
                 <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 7 }}>
                   {selectedItemIds.map((iid) => {
                     const it = variantById(iid);
+                    const techOn = itemTechOn(iid);
                     const valid = itemClauseValid(iid);
                     return (
                       <div key={iid} style={{ padding: "9px 13px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12.5, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                         <span className="fw-600">{it.name}</span>
-                        <span style={{ color: "var(--fg-3)" }}>·</span>
-                        <span><span className="mono fw-600">{(clausesByItem[iid] || []).length}</span> clauses · weights <span className="mono fw-600">{itemTotalWeight(iid)}</span>/100</span>
-                        <span style={{ color: "var(--fg-3)" }}>·</span>
-                        <span>min pass <span className="mono fw-600">{(minPassByItem[iid] || 0)}%</span></span>
-                        {valid
-                          ? <span style={{ color: "var(--success)", fontWeight: 600, marginLeft: "auto" }}>✓ Configured</span>
-                          : <span style={{ color: "var(--warn)",    fontWeight: 600, marginLeft: "auto" }}>⚠ Incomplete</span>}
+                        {techOn ? (
+                          <>
+                            <span style={{ color: "var(--fg-3)" }}>·</span>
+                            <span><span className="mono fw-600">{(clausesByItem[iid] || []).length}</span> clauses · weights <span className="mono fw-600">{itemTotalWeight(iid)}</span>/100</span>
+                            <span style={{ color: "var(--fg-3)" }}>·</span>
+                            <span>min pass <span className="mono fw-600">{(minPassByItem[iid] || 0)}%</span></span>
+                            {valid
+                              ? <span style={{ color: "var(--success)", fontWeight: 600, marginLeft: "auto" }}>✓ Configured</span>
+                              : <span style={{ color: "var(--warn)",    fontWeight: 600, marginLeft: "auto" }}>⚠ Incomplete</span>}
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ color: "var(--fg-3)" }}>·</span>
+                            <span style={{ color: "var(--fg-3)" }}>No technical evaluation — price-only</span>
+                            <span style={{ color: "var(--fg-4)", fontWeight: 600, marginLeft: "auto" }}>Tech eval off</span>
+                          </>
+                        )}
                       </div>
                     );
                   })}

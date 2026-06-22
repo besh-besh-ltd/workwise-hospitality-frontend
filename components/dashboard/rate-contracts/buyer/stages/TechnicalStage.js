@@ -22,7 +22,9 @@ const ArrowRightIcon = () => (<Icon sw={2.2}><line x1="5" y1="12" x2="19" y2="12
 const PenIcon = () => (<Icon><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /></Icon>);
 
 const AV_CLASSES = ["av-1", "av-2", "av-3", "av-4", "av-5", "av-6"];
-const vendorAvClass = (vendorId) => AV_CLASSES[Math.abs(Number(vendorId) || 0) % AV_CLASSES.length];
+// BLIND EVAL: the avatar colour seed is the small per-ARC alias index, NOT the
+// real vendor_id (which never reaches this component during technical eval).
+const vendorAvClass = (aliasKey) => AV_CLASSES[Math.abs(Number(aliasKey) || 0) % AV_CLASSES.length];
 const vendorInitials = (name) => {
   if (!name) return "VN";
   const parts = String(name).trim().split(/\s+/);
@@ -100,11 +102,13 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       }
     }));
     setEvalByItem(next);
-    // Hydrate staged marks/remarks/verdicts from server rows.
+    // Hydrate staged marks/remarks/verdicts from server rows. BLIND EVAL: the
+    // matrix is keyed on the stable per-ARC alias key (vendor_alias_key), never
+    // the real vendor_id (which is no longer present in the payload).
     const m = {}, r = {}, v = {};
     for (const it of itemList) {
       for (const resp of next[it.id]?.responses || []) {
-        const k = `${it.id}|${resp.vendor_id}|${resp.clause_id}`;
+        const k = `${it.id}|${resp.vendor_alias_key}|${resp.clause_id}`;
         if (resp.buyer_marks != null) m[k] = Number(resp.buyer_marks);
         if (resp.buyer_remark != null) r[k] = resp.buyer_remark;
         if (resp.mandatory_passed != null) v[k] = !!resp.mandatory_passed;
@@ -147,20 +151,23 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const activeItem = useMemo(() => items.find((it) => it.id === activeItemId) || items[0] || null, [items, activeItemId]);
   const activeBlock = activeItem ? evalByItem[activeItem.id] : null;
 
+  // BLIND EVAL: vendor columns are built from the stable per-ARC alias
+  // (vendor_alias_key + vendor_alias = "Vendor A/B…"), never the real
+  // vendor_id/name (which the server no longer sends during technical eval).
   const activeVendors = useMemo(() => {
     if (!activeBlock) return [];
     const seen = new Map();
     for (const r of activeBlock.responses || []) {
-      const vid = Number(r.vendor_id);
-      if (!seen.has(vid)) seen.set(vid, { vendor_id: vid, vendor_name: r.vendor_name || `Vendor #${vid}` });
+      const vid = r.vendor_alias_key;
+      if (!seen.has(vid)) seen.set(vid, { vendor_key: vid, vendor_alias: r.vendor_alias || `Vendor ${vid}` });
     }
     return [...seen.values()];
   }, [activeBlock]);
 
-  const responseFor = useCallback((vendorId, clauseId) => {
+  const responseFor = useCallback((vendorKey, clauseId) => {
     if (!activeBlock) return null;
     return (activeBlock.responses || []).find(
-      (r) => Number(r.vendor_id) === Number(vendorId) && Number(r.clause_id) === Number(clauseId)
+      (r) => Number(r.vendor_alias_key) === Number(vendorKey) && Number(r.clause_id) === Number(clauseId)
     ) || null;
   }, [activeBlock]);
 
@@ -177,9 +184,10 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
 
   // Server-authoritative per-vendor score row for an item (carries the
   // mandatory gate — qualifies / mandatory_failed). Falls back to null.
-  const serverScoreFor = useCallback((itemId, vendorId) => {
+  // BLIND EVAL: matched on the alias key, not the real vendor_id.
+  const serverScoreFor = useCallback((itemId, vendorKey) => {
     const block = evalByItem[itemId];
-    return (block?.scores || []).find((s) => Number(s.vendor_id) === Number(vendorId)) || null;
+    return (block?.scores || []).find((s) => Number(s.vendor_alias_key) === Number(vendorKey)) || null;
   }, [evalByItem]);
   // True when this item has at least one mandatory clause.
   const itemHasMandatory = useCallback((itemId) => {
@@ -246,8 +254,9 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     if (!vendorFullyEvaluated(itemId, vendorId)) return "pending";
     return vendorQualified(itemId, vendorId) ? "pass" : "fail";
   }, [vendorFullyEvaluated, vendorQualified]);
+  // BLIND EVAL: the set of "vendors responding" is a set of alias keys.
   const vendorsRespondingFor = useCallback((itemId) => {
-    const set = new Set((evalByItem[itemId]?.responses || []).map((r) => Number(r.vendor_id)));
+    const set = new Set((evalByItem[itemId]?.responses || []).map((r) => Number(r.vendor_alias_key)));
     return [...set];
   }, [evalByItem]);
   const itemTabState = useCallback((itemId) => {
@@ -503,24 +512,24 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                   <tr>
                     <th className="col-clause"><div className="clause-head">Clause &amp; weight</div></th>
                     {activeVendors.map((v) => {
-                      const verdict = vendorVerdictClass(activeItem.id, v.vendor_id);
-                      const fully = vendorFullyEvaluated(activeItem.id, v.vendor_id);
-                      const evaluated = vendorEvaluatedCount(activeItem.id, v.vendor_id);
+                      const verdict = vendorVerdictClass(activeItem.id, v.vendor_key);
+                      const fully = vendorFullyEvaluated(activeItem.id, v.vendor_key);
+                      const evaluated = vendorEvaluatedCount(activeItem.id, v.vendor_key);
                       const total = (activeBlock.clauses || []).length;
                       return (
-                        <th key={v.vendor_id} className="ven-head">
+                        <th key={v.vendor_key} className="ven-head">
                           <div className="vh-top">
-                            <div className={`v-av ${vendorAvClass(v.vendor_id)}`}>{vendorInitials(v.vendor_name)}</div>
-                            <div className="v-code">{vendorShort(v.vendor_name)}</div>
+                            <div className={`v-av ${vendorAvClass(v.vendor_key)}`}>{vendorInitials(v.vendor_alias)}</div>
+                            <div className="v-code">{vendorShort(v.vendor_alias)}</div>
                           </div>
                           <div className="v-score-row">
-                            <span className={`v-score ${verdict}`}>{fully ? vendorScore(activeItem.id, v.vendor_id) : "—"}</span>
+                            <span className={`v-score ${verdict}`}>{fully ? vendorScore(activeItem.id, v.vendor_key) : "—"}</span>
                             <span className="v-score-max">/100</span>
                             <span className={`v-verdict ${verdict}`}>
-                              {fully ? (vendorQualified(activeItem.id, v.vendor_id) ? "Qualified" : "Not qualified") : "In progress"}
+                              {fully ? (vendorQualified(activeItem.id, v.vendor_key) ? "Qualified" : "Not qualified") : "In progress"}
                             </span>
                           </div>
-                          {fully && !vendorQualified(activeItem.id, v.vendor_id) && vendorMandatoryFailed(activeItem.id, v.vendor_id) && (
+                          {fully && !vendorQualified(activeItem.id, v.vendor_key) && vendorMandatoryFailed(activeItem.id, v.vendor_key) && (
                             <div style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 999, padding: "1px 8px", display: "inline-block" }}>
                               Disqualified · failed mandatory clause
                             </div>
@@ -552,17 +561,17 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                         </div>
                       </td>
                       {activeVendors.map((v) => {
-                        const resp = responseFor(v.vendor_id, cl.id);
-                        const k = keyFor(activeItem.id, v.vendor_id, cl.id);
+                        const resp = responseFor(v.vendor_key, cl.id);
+                        const k = keyFor(activeItem.id, v.vendor_key, cl.id);
                         const markVal = k in marks ? marks[k] : (resp?.buyer_marks ?? null);
                         const remarkVal = k in remarks ? remarks[k] : (resp?.buyer_remark ?? "");
                         const verdictVal = k in verdicts ? verdicts[k] : (resp?.mandatory_passed ?? null);
-                        const fully = vendorFullyEvaluated(activeItem.id, v.vendor_id);
-                        const disq = fully && !vendorQualified(activeItem.id, v.vendor_id);
+                        const fully = vendorFullyEvaluated(activeItem.id, v.vendor_key);
+                        const disq = fully && !vendorQualified(activeItem.id, v.vendor_key);
                         const isSaving = savingKey === k;
                         const amended = resp?.response_id && amends[resp.response_id];
                         return (
-                          <td key={v.vendor_id} className={`score-cell ${disq ? "is-disq" : ""}`}>
+                          <td key={v.vendor_key} className={`score-cell ${disq ? "is-disq" : ""}`}>
                             <div className="resp">
                               <div className="response-text" style={!resp?.vendor_response ? { color: "var(--fg-4)" } : undefined}>
                                 <span>{resp?.vendor_response || "No response submitted"}</span>
@@ -589,7 +598,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                                     <div style={{ display: "inline-flex", gap: 6, marginTop: 3 }}>
                                       <button type="button"
                                         disabled={!editable || !resp?.response_id}
-                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_id, cl.id, true)}
+                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_key, cl.id, true)}
                                         style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
                                           border: "1px solid " + (verdictVal === true ? "#047857" : "var(--border-input, #d1d5db)"),
                                           background: verdictVal === true ? "#ecfdf5" : "white", color: verdictVal === true ? "#047857" : "var(--fg-3, #6b7280)" }}>
@@ -597,7 +606,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                                       </button>
                                       <button type="button"
                                         disabled={!editable || !resp?.response_id}
-                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_id, cl.id, false)}
+                                        onClick={() => setVerdictLocal(activeItem.id, v.vendor_key, cl.id, false)}
                                         style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
                                           border: "1px solid " + (verdictVal === false ? "#b91c1c" : "var(--border-input, #d1d5db)"),
                                           background: verdictVal === false ? "#fef2f2" : "white", color: verdictVal === false ? "#b91c1c" : "var(--fg-3, #6b7280)" }}>
@@ -620,8 +629,8 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                                     placeholder={String(clauseWeight(cl))}
                                     className={markVal != null ? "filled" : ""}
                                     disabled={!editable || !resp?.response_id}
-                                    onChange={(e) => setMarkLocal(activeItem.id, v.vendor_id, cl.id, e.target.value, clauseWeight(cl))}
-                                    onBlur={() => persistCell(activeItem.id, v.vendor_id, cl.id)}
+                                    onChange={(e) => setMarkLocal(activeItem.id, v.vendor_key, cl.id, e.target.value, clauseWeight(cl))}
+                                    onBlur={() => persistCell(activeItem.id, v.vendor_key, cl.id)}
                                   />
                                   <span className="of-max">/ <span>{clauseWeight(cl)}</span></span>
                                   <span className={`mark-hint ${markVal != null ? "done" : ""}`}>
@@ -633,8 +642,8 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                                   placeholder={editable ? "Optional remark" : ""}
                                   value={remarkVal ?? ""}
                                   disabled={!editable || !resp?.response_id}
-                                  onChange={(e) => setRemarkLocal(activeItem.id, v.vendor_id, cl.id, e.target.value)}
-                                  onBlur={() => persistCell(activeItem.id, v.vendor_id, cl.id)}
+                                  onChange={(e) => setRemarkLocal(activeItem.id, v.vendor_key, cl.id, e.target.value)}
+                                  onBlur={() => persistCell(activeItem.id, v.vendor_key, cl.id)}
                                 />
                               </div>
                             </div>
