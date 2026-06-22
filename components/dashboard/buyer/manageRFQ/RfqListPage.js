@@ -33,7 +33,7 @@ const STATUS_META = {
   TECHNICAL_APPROVING:       { label: "Technical Approval", tone: "committee", order: 4, desc: "Technical evaluation done — awaiting technical approval." },
   TECHNICAL_REJECTED:        { label: "Technical Rejected", tone: "expiring", order: 3, desc: "Technical evaluation was rejected — it needs rework." },
   RFQ_STUCK_TECHNICAL:       { label: "Stuck · Technical", tone: "expiring", order: 3, desc: "All evaluated vendors failed technical evaluation." },
-  RFQ_STUCK_COMMERCIAL:      { label: "Stuck · No Vendors", tone: "expiring", order: 2, desc: "The bid window closed with no eligible vendors." },
+  RFQ_STUCK_COMMERCIAL:      { label: "Ended · No Quotes", tone: "expiring", order: 2, desc: "The bid window closed with no vendor quotes received." },
   COMMERCIAL_EVALUATION:     { label: "Commercial Evaluation", tone: "committee", order: 5, desc: "All products have technically cleared vendors, ready for commercial review." },
   NEGOTIATION_ONGOING:       { label: "Negotiation", tone: "eval", order: 6, desc: "A negotiation round is currently active with vendors." },
   QUOTATION_APPROVAL:        { label: "Quote Approval", tone: "committee", order: 7, desc: "Finalized quotes are awaiting approval." },
@@ -234,6 +234,23 @@ export default function RfqListPage() {
   const [cloneRfq, setCloneRfq] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
+  // Guard: apply deep-link params only once (on first ready router state).
+  const deepLinkApplied = useRef(false);
+
+  // One-shot effect: if the URL carries ?ended_no_quotes=1 (from the Wisely
+  // banner) or ?status=RFQ_STUCK_COMMERCIAL, pre-select the "Ended · No Quotes"
+  // filter so the list opens pre-filtered to match the banner count.
+  // Guarded by deepLinkApplied so it only runs once even if router re-renders.
+  useEffect(() => {
+    if (!router.isReady || deepLinkApplied.current) return;
+    deepLinkApplied.current = true;
+    const q = router.query;
+    if (q.ended_no_quotes === "1" || q.status === "RFQ_STUCK_COMMERCIAL") {
+      setTab("all");
+      setFilters({ ...EMPTY_FILTERS, status: ["RFQ_STUCK_COMMERCIAL"] });
+      setPage(1);
+    }
+  }, [router.isReady, router.query]);
 
   // Debounce the search box.
   useEffect(() => {

@@ -59,6 +59,19 @@ const getTitle = (item) => {
   return `#${item.entity_id}`;
 };
 
+// Returns a short identifier string shown in the meta line beneath the title,
+// so both the number and the title are visible for every approval type.
+const getNumber = (item) => {
+  if (typeof item.entity_type === "string" && item.entity_type.startsWith("ARC")) {
+    return item.arc_number || (item.arc_id ? `Rate contract #${item.arc_id}` : null);
+  }
+  if (item.entity_type === "MR") return null; // MR number already IS the title
+  if (item.entity_rfq_no) return `RFQ #${item.entity_rfq_no}`;
+  const m = item.metadata || {};
+  if (m.rfq_number) return `RFQ #${m.rfq_number}`;
+  return null;
+};
+
 const PendingApprovalsModal = ({ onClose, filters }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +169,8 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                         <div className={styles.itemInfo}>
                           <span className={styles.itemTitle}>{getTitle(item)}</span>
                           <span className={styles.itemMetaLine}>
+                            {getNumber(item) && <span>{getNumber(item)}</span>}
+                            {getNumber(item) && <span className={styles.sep}>·</span>}
                             {item.hotel_name && <span>{item.hotel_name}</span>}
                             {item.hotel_name && <span className={styles.sep}>·</span>}
                             <span className={styles.itemWait}><Clock size={11} />{formatWait(item.waiting_hours)}</span>

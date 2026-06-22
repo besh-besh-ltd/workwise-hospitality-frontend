@@ -4,10 +4,12 @@ import { X, Clock, ArrowRight, AlertTriangle } from "lucide-react";
 import { getRejectedPOsDetail } from "@/services/dashboard";
 import styles from "./PendingApprovalsModal.module.scss";
 
+// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
+const trimZeros = (s) => s.replace(/\.?0+$/, "");
 const formatCurrency = (value) => {
   if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
+  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
   if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
   return `₹${Math.round(value).toLocaleString("en-IN")}`;
 };

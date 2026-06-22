@@ -42,22 +42,22 @@ const Section = ({ items, label, color, onClose }) => {
               <span className={styles.itemTitle}>
                 {item.title || `RFQ #${item.rfq_no}`}
               </span>
-              <span className={styles.itemHotel}>
+              <span className={styles.itemMetaLine}>
                 {item.invited_vendor_count
-                  ? `${item.invited_vendor_count} vendor(s) invited`
-                  : "No vendor responses yet"}
-                {item.hotel_name ? ` · ${item.hotel_name}` : ""}
+                  ? <span>{item.invited_vendor_count} vendor(s) invited</span>
+                  : <span>No vendor responses yet</span>}
+                {item.hotel_name && <span className={styles.sep}>·</span>}
+                {item.hotel_name && <span>{item.hotel_name}</span>}
+                {item.bid_end_date && <span className={styles.sep}>·</span>}
+                {item.bid_end_date && (
+                  <span className={styles.itemWait}>
+                    <Clock size={11} />
+                    {formatDeadline(item.bid_end_date)}
+                  </span>
+                )}
               </span>
             </div>
-            <div className={styles.itemMeta}>
-              {item.bid_end_date && (
-                <span className={styles.itemWait}>
-                  <Clock size={11} />
-                  {formatDeadline(item.bid_end_date)}
-                </span>
-              )}
-            </div>
-            <ArrowRight size={14} className={styles.itemArrow} />
+            <span className={styles.reviewBtn}>View <ArrowRight size={13} /></span>
           </Link>
         ))}
       </div>
@@ -92,18 +92,42 @@ const NoResponseModal = ({ onClose, filters }) => {
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h3 className={styles.title}>RFQs Awaiting Vendor Response</h3>
-          <span className={styles.count}>{total}</span>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <X size={18} />
+          <div className={styles.headerMain}>
+            <h3 className={styles.title}>RFQs Awaiting Vendor Response</h3>
+            <p className={styles.sub}>Published RFQs that haven&apos;t received any vendor quotes yet.</p>
+          </div>
+          {total > 0 && <span className={styles.count}>{total}</span>}
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
+            <X size={17} />
           </button>
         </div>
 
         <div className={styles.body}>
           {loading ? (
-            <div className={styles.emptyState}>Loading...</div>
+            [0, 1].map((g) => (
+              <div key={g} className={styles.group}>
+                <div className={styles.groupHeader}>
+                  <span className={styles.skel} style={{ width: 7, height: 7, borderRadius: 99 }} />
+                  <span className={styles.skel} style={{ width: 140, height: 10 }} />
+                </div>
+                <div className={styles.groupItems}>
+                  {Array.from({ length: g === 0 ? 2 : 1 }).map((_, i) => (
+                    <div key={i} className={styles.itemSkel}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className={styles.skel} style={{ width: "62%", height: 12, marginBottom: 8 }} />
+                        <span className={styles.skel} style={{ width: "42%", height: 9 }} />
+                      </div>
+                      <span className={styles.skel} style={{ width: 60, height: 14, borderRadius: 6 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
           ) : total === 0 ? (
-            <div className={styles.emptyState}>No RFQs awaiting a response</div>
+            <div className={styles.emptyState}>
+              <div className={styles.emptyTitle}>No RFQs awaiting a response</div>
+              <div className={styles.emptyHint}>Published RFQs with zero vendor quotes will show here.</div>
+            </div>
           ) : (
             <>
               <Section

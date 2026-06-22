@@ -20,7 +20,7 @@ const MODE_THEME = {
 //   - { modal: 'X' } → renders as a button that opens a banner-owned modal
 const TARGET = {
   CLOSING_SOON:        { href: "/dashboard/buyer/rfq-management?tab=manage-rfq" },
-  CLOSED_NO_QUOTES:    { href: "/dashboard/buyer/rfq-management?tab=manage-rfq" },
+  CLOSED_NO_QUOTES:    { href: "/dashboard/buyer/rfq-management?ended_no_quotes=1" },
   APPROVALS:           { modal: "approvals" },
   QUOTE_COMPARE:       { href: "/dashboard/buyer/quote-comparison" },
   PO_VENDOR_PENDING:   { href: "/dashboard/buyer/purchase-orders/tracking" },
