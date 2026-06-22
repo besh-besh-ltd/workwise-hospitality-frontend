@@ -35,13 +35,14 @@ const TABS = [
 ];
 
 const FACETS = [
+  { group: "rfqId", label: "RFQ" },
   { group: "status", label: "Status" },
   { group: "buId", label: "Business unit" },
   { group: "departmentId", label: "Department" },
   { group: "productId", label: "Product" },
   { group: "vendorId", label: "Vendor" },
 ];
-const EMPTY_FILTERS = { status: [], buId: [], departmentId: [], productId: [], vendorId: [] };
+const EMPTY_FILTERS = { rfqId: [], status: [], buId: [], departmentId: [], productId: [], vendorId: [] };
 
 // Status-aware destination: a pending-approval round goes straight to its
 // approve screen; everything else opens the RFQ's Quote Comparison page.
@@ -81,14 +82,44 @@ function BadgeIcon({ bucket }) {
 
 /* ─── facet group (server provides {key,label,count}) ─── */
 const FACET_COLLAPSED = 5;
+// Facets with more than this many options get a debounced in-group search box
+// (RFQ / Vendor / Product), so long lists stay navigable.
+const FACET_SEARCHABLE = 8;
+
 function FilterGroup({ label, group, options, selected, onToggle }) {
   const [expanded, setExpanded] = useState(false);
+  // In-group option search. `q` updates on every keystroke (controlled input);
+  // `query` is the debounced value that actually filters the options.
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(q.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
   if (!options || options.length === 0) return null;
-  const shown = expanded ? options : options.slice(0, FACET_COLLAPSED);
-  const extra = options.length - FACET_COLLAPSED;
+  const searchable = options.length > FACET_SEARCHABLE;
+  const matches = searchable && query
+    ? options.filter((o) => String(o.label || o.key).toLowerCase().includes(query))
+    : options;
+  // Collapse to the first few only when not actively searching.
+  const collapsed = !expanded && !(searchable && query);
+  const shown = collapsed ? matches.slice(0, FACET_COLLAPSED) : matches;
+  const extra = matches.length - FACET_COLLAPSED;
   return (
     <div className="filter-group">
       <div className="fg-label">{label}</div>
+      {searchable && (
+        <div className="search-input" style={{ width: "100%", margin: "2px 0 8px" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <input
+            className="input"
+            placeholder={`Search ${String(label).toLowerCase()}…`}
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setExpanded(false); }}
+          />
+        </div>
+      )}
       <div className="fg-options">
         {shown.map((opt) => {
           const on = selected.includes(String(opt.key));
@@ -101,7 +132,10 @@ function FilterGroup({ label, group, options, selected, onToggle }) {
             </label>
           );
         })}
-        {extra > 0 && (
+        {shown.length === 0 && (
+          <div style={{ fontSize: 12, color: "#a1a1aa", padding: "4px 2px" }}>No matches.</div>
+        )}
+        {!query && extra > 0 && (
           <button type="button" onClick={() => setExpanded((v) => !v)} style={{ marginTop: 5, padding: "3px 2px", background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 500, cursor: "pointer", textAlign: "left", width: "fit-content" }}>
             {expanded ? "Show less" : `Show ${extra} more`}
           </button>
@@ -188,7 +222,7 @@ export default function NegotiationListPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="page-h1">Negotiations</h1>
-          <p className="page-sub">Every RFQ in negotiation — track rounds, vendor participation and approvals.</p>
+          <p className="page-sub">Every negotiation round — track rounds, vendor participation and approvals.</p>
         </div>
       </div>
 
@@ -224,7 +258,7 @@ export default function NegotiationListPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           <div className="list-toolbar">
-            <div className="lt-left"><span className="em mono">{total}</span> {total === 1 ? "negotiation" : "negotiations"}</div>
+            <div className="lt-left"><span className="em mono">{total}</span> {total === 1 ? "round" : "rounds"}</div>
             <div className="lt-right">
               <div className="search-input" style={{ width: 280 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
@@ -282,7 +316,7 @@ export default function NegotiationListPage() {
                 const endDate = fmtDate(row.end_date);
                 const closedDate = fmtDate(row.closed_at);
                 return (
-                  <Link key={row.rfq_id} href={detailHref(row, bucket)} className={`contract-card${row.action_required ? " needs-action" : ""}`}>
+                  <Link key={row.round_id} href={detailHref(row, bucket)} className={`contract-card${row.action_required ? " needs-action" : ""}`}>
                     <div className="cc-head">
                       <div className="cc-left">
                         <div className={`cc-badge ${badge}`}><BadgeIcon bucket={badge} /></div>
@@ -297,7 +331,7 @@ export default function NegotiationListPage() {
                             {row.department_title && (<><span className="sep">·</span><span>{row.department_title}</span></>)}
                             {vendors.length > 0 && (<><span className="sep">·</span><span>Vendor: <span className="em">{vendors[0]?.name}</span>{vendors.length > 1 ? ` +${vendors.length - 1}` : ""}</span></>)}
                             <span className="sep">·</span>
-                            <span>Round <span className="mono fw-600">{row.latest_round_number || 1}</span>{Number(row.total_rounds) > 1 ? ` of ${row.total_rounds}` : ""}</span>
+                            <span>Round <span className="mono fw-600">{row.round_number || 1}</span>{Number(row.total_rounds) > 1 ? ` of ${row.total_rounds}` : ""}</span>
                           </div>
                           {itemNames.length > 0 && (
                             <div className="cc-tags">
