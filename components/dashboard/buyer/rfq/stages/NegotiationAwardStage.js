@@ -6,6 +6,7 @@
 // deep-links into the /dashboard/buyer/negotiation module.
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Handshake, CheckCircle2, Circle } from "lucide-react";
 import { StageSkeleton, StageCard } from "./StageShared";
 
@@ -18,12 +19,14 @@ const fmtMoney = (n) => (n == null ? null : `₹${Number(n).toLocaleString("en-I
 const prettyStatus = (s) => String(s || "").replace(/_/g, " ").toLowerCase();
 
 function NegotiationSummary({ rfqId, products }) {
+  const router = useRouter();
+  const createHref = `/dashboard/buyer/negotiation/${rfqId}/create?returnTo=${encodeURIComponent(router.asPath)}`;
   return (
     <StageCard
       collapsible
       icon={<Handshake size={15} strokeWidth={2} />}
       title="Negotiation status"
-      right={<Link href={`/dashboard/buyer/negotiation/${rfqId}/create`} className="btn btn-secondary btn-sm">Manage rounds</Link>}
+      right={<Link href={createHref} className="btn btn-secondary btn-sm">View/Create Rounds</Link>}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {products.map((p) => {

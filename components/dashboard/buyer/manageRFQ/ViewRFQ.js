@@ -58,6 +58,7 @@ import RfqCopiesModal from "./RfqCopiesModal";
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
 
 import RFQEditHistory from "./RFQEditHistory/RFQEditHistory";
+import ReadMore from "@/components/shared/ReadMore";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
 import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
@@ -251,35 +252,32 @@ const ProductCard = ({
           <div className={styles.productMeta}>
             <div className={styles.productTitleRow}>
               <span className={styles.productTitle}>{productName}</span>
-              {/* Size pill when there's a real value; otherwise an explicit
-                  "no additional information" marker. (Guard against a numeric
-                  0 / empty variant rendering as a stray "0".) */}
-              {size ? (
-                <span className={`${styles.pill} ${styles.neutral} ${styles.pillWrap}`}>
-                  <span className={styles.pillLabel}>Product size:</span> {size}
-                </span>
-              ) : variant ? (
-                <span className={`${styles.pill} ${styles.neutral} ${styles.pillWrap}`}>
-                  <span className={styles.pillLabel}>Product size:</span> {variant}
-                </span>
-              ) : (
+            </div>
+
+            {(size || variant) ? (
+              <div className={styles.productSizeField}>
+                <span className={styles.specLabel}>Product size:</span>
+                <ReadMore content={size || variant} maxLines={1} />
+              </div>
+            ) : (
+              <div className={styles.productSizeField}>
                 <span className={`${styles.pill} ${styles.pillMuted}`}>
                   No additional information
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             {spec && (
               <div className={styles.productSpec}>
-                <span className={styles.specLabel}>Product specification: </span>
-                {spec}
+                <span className={styles.specLabel}>Product specification:</span>
+                <ReadMore content={spec} maxLines={2} />
               </div>
             )}
 
             {product?.comment && (
               <div className={styles.productSpec}>
-                <span className={styles.specLabel}>Comment: </span>
-                {product.comment}
+                <span className={styles.specLabel}>Comment:</span>
+                <ReadMore content={product.comment} maxLines={2} />
               </div>
             )}
 
@@ -1243,7 +1241,7 @@ const ViewRFQ = ({
                     className={styles.additionalTermsLabel}
                     style={{ marginTop: 14 }}
                   >
-                    Additional notes
+                    Additional Conditions
                   </div>
                   <div
                     className={styles.additionalTerms}

@@ -25,6 +25,7 @@ const StepProduct = ({
   hasQueuedRfqRound = false,
   rfqFieldCount = 0,
   rfqVendorCount = 0,
+  allProductsLocked = false,
 }) => {
   const [search, setSearch] = useState('');
 
@@ -58,6 +59,8 @@ const StepProduct = ({
   const isRfqMode = mode === 'rfq';
   const rfqDisabledTooltip = hasQueuedRfqRound
     ? 'RFQ-level round already queued — only one RFQ-level round per submission.'
+    : allProductsLocked
+    ? 'All vendors are in negotiation or already approved.'
     : null;
   const rfqDisabled = !!rfqDisabledTooltip;
 

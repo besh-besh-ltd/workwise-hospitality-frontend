@@ -162,7 +162,7 @@ const NegotiationCompactBanner = ({
 
   const handleCreateClick = () => {
     if (!rfq_id) return;
-    router.push(`/dashboard/buyer/negotiation/${rfq_id}/create`);
+    router.push(`/dashboard/buyer/negotiation/${rfq_id}/create?returnTo=${encodeURIComponent(router.asPath)}`);
   };
 
   const handleViewApproveClick = () => {

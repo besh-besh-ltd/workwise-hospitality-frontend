@@ -23,6 +23,7 @@ import useIsMobile from "@/hooks/useIsMobile";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock, BsCheckCircleFill, BsCheck2All } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
+import ReadMore from "@/components/shared/ReadMore";
 
 
 
@@ -939,21 +940,15 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = fal
                                     return (
                                       <>
                                         {specs.Size && (
-                                          <span
-                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
-                                            data-tooltip-id="spec-tooltip"
-                                            data-tooltip-content={specs.Size}
-                                          >
-                                            <strong>Size:</strong> {specs.Size}
+                                          <span className={styles.productMetaChip}>
+                                            <strong>Size:</strong>{' '}
+                                            <ReadMore content={specs.Size} maxLines={2} fontSize="0.76rem" />
                                           </span>
                                         )}
                                         {specs.Spec && (
-                                          <span
-                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
-                                            data-tooltip-id="spec-tooltip"
-                                            data-tooltip-content={specs.Spec}
-                                          >
-                                            <strong>Spec:</strong> {specs.Spec}
+                                          <span className={styles.productMetaChip}>
+                                            <strong>Spec:</strong>{' '}
+                                            <ReadMore content={specs.Spec} maxLines={2} fontSize="0.76rem" />
                                           </span>
                                         )}
                                       </>

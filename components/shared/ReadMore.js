@@ -43,7 +43,7 @@ const ReadMore = ({
   return (
     <div
       style={{
-        cursor: "pointer",
+        cursor: isOverflowing ? "pointer" : "default",
         width: "100%",
         maxWidth: "100%",
         minWidth: 0,
@@ -96,13 +96,14 @@ const ReadMore = ({
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
-          className={`btn-link p-0 ${linkClassName} text-sm cursor-pointer`}
+          className={`btn-link p-0 ${linkClassName} cursor-pointer`}
           style={{
             flexShrink: 0,
             alignSelf: "flex-start",
             marginTop: "2px",
             whiteSpace: "nowrap",
-            display: "inline-block"
+            display: "inline-block",
+            fontSize: fontSize || "inherit",
           }}
         >
           {isExpanded ? "Read Less" : "Read More"}

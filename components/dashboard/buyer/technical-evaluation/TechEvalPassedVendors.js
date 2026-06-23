@@ -6,7 +6,7 @@ import { BsCheckCircleFill, BsShieldFillCheck } from 'react-icons/bs';
  * Displays the list of passed/cleared vendors that have been verified
  * These vendors are "locked in" and will proceed to the next stage
  */
-const TechEvalPassedVendors = ({ vendors = [] }) => {
+const TechEvalPassedVendors = ({ vendors = [], minimumPassingScore = null }) => {
   if (!vendors || vendors.length === 0) {
     return null;
   }
@@ -59,7 +59,7 @@ const TechEvalPassedVendors = ({ vendors = [] }) => {
                           style={{ fontSize: '0.85rem' }}
                         >
                           {vendor.calculated_score !== undefined && vendor.calculated_score !== null
-                            ? `${vendor.calculated_score}%`
+                            ? `${!minimumPassingScore ? 100 : vendor.calculated_score}%`
                             : 'N/A'}
                         </Badge>
                       </td>

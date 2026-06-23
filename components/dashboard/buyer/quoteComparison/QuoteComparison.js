@@ -1313,7 +1313,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
                     className={styles.rowNegotiateBtn}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (rfq) router.push(`/dashboard/buyer/negotiation/${rfq}/create?preSelectProductId=${p.id}`);
+                      if (rfq) router.push(`/dashboard/buyer/negotiation/${rfq}/create?preSelectProductId=${p.id}&returnTo=${encodeURIComponent(router.asPath)}`);
                     }}
                   >
                     <GitBranch size={11} strokeWidth={2.4} />
@@ -1849,7 +1849,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
               <button
                 type="button"
                 className={styles.createNegotiationBtn}
-                onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create?level=rfq`)}
+                onClick={() => router.push(`/dashboard/buyer/negotiation/${rfq}/create?level=rfq&returnTo=${encodeURIComponent(router.asPath)}`)}
                 disabled={!rfq}
               >
                 <Plus size={14} strokeWidth={2.5} />
