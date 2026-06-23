@@ -705,7 +705,7 @@ const ClauseProductItem = ({
                                   {/* Score + status */}
                                   {vendorEvaluated && vendor.calculated_score !== undefined && vendor.calculated_score !== null ? (
                                     <div className={styles.vendorScoreLine}>
-                                      <span className={styles.vendorScore}>{vendor.calculated_score}%</span>
+                                      <span className={styles.vendorScore}>{(!minimumPassingScore) ? 100 : vendor.calculated_score}%</span>
                                       {vendor.is_passed !== undefined && vendor.is_passed !== null && (
                                         <span className={`badge rounded-pill py-1 px-2 ${vendor.is_passed ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
                                           {vendor.is_passed ? "Pass" : "Fail"}

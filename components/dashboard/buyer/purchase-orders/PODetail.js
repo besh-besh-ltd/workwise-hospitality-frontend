@@ -24,8 +24,11 @@ import {
   ExternalLink,
   AlertCircle,
   Circle,
+  ChevronDown,
 } from "lucide-react";
+import ReadMore from "@/components/shared/ReadMore";
 import { getPODetailFull, handlePOApproval } from "@/services/po";
+import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import styles, {
@@ -70,6 +73,9 @@ const PODetail = ({ id }) => {
   const [error, setError] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(null); // 'approved' | 'rejected' | null
+  const [preview, setPreview] = useState(null);
+  const [otherChargesOpen, setOtherChargesOpen] = useState(false);
+  const [globalChargesOpen, setGlobalChargesOpen] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!id) return;
@@ -78,7 +84,30 @@ const PODetail = ({ id }) => {
     try {
       const data = await getPODetailFull(id);
       setPo(data || null);
-      if (!data) setError(true);
+      if (!data) { setError(true); return; }
+
+      // Kick off pricing preview — builds the per-line charge breakdown and
+      // global charges totals without any client-side math.
+      try {
+        const rawGlobal = data.global_charges;
+        const globalCharges = Array.isArray(rawGlobal) ? rawGlobal
+          : (typeof rawGlobal === "string" && rawGlobal.trim()
+              ? (() => { try { return JSON.parse(rawGlobal); } catch (_) { return []; } })()
+              : []);
+        const prev = await previewTotals({
+          items: (data.items || []).map((it) => ({
+            unit_price: it.unit_price,
+            quantity: it.quantity,
+            tax: it.gst ?? 0,
+            tax_mode: "percentage",
+            other_charges: it.charges_meta?.other_charges || [],
+          })),
+          global_charges: globalCharges,
+        });
+        setPreview(prev?.data || prev);
+      } catch (_) {
+        // preview is optional — grand total still shown from PO data
+      }
     } catch (e) {
       setError(true);
     } finally {
@@ -198,6 +227,26 @@ const PODetail = ({ id }) => {
   const vendorDocs = po.vendor_docs || null;
 
   const freightInsurance = (Number(pricing.freight) || 0) + (Number(pricing.insurance) || 0);
+
+  const itemAmount = (it) => it.quantity * it.unit_price * (1 + (it.gst || 0) / 100);
+
+  // All breakdown values come from the pricing/preview response — no client math.
+  const previewLines = preview?.lines || null;
+  const previewGlobal = preview?.global_charges || [];
+
+  const computedSubtotal = previewLines
+    ? previewLines.reduce((s, l) => s + (l.base || 0) + (l.base_tax || 0), 0)
+    : items.reduce((s, it) => s + itemAmount(it), 0);
+
+  const totalOtherCharges = previewLines
+    ? previewLines.reduce((s, l) => s + (l.charges_total || 0), 0)
+    : 0;
+
+  const totalGlobalCharges = preview?.global_charges_total ?? 0;
+
+  const showOtherCharges = previewLines?.some((l) => (l.charges_total || 0) > 0) ?? false;
+  const showGlobalCharges = previewGlobal.length > 0;
+
   const passedChecks = decisionChecks.filter((c) => c.status === "ok").length;
 
   const doneSteps = workflow.filter((w) => w.status === "done").length;
@@ -399,7 +448,6 @@ const PODetail = ({ id }) => {
                 <tr>
                   <th style={{ width: 36 }}>#</th>
                   <th>Item</th>
-                  <th>HSN</th>
                   <th className="num">Qty</th>
                   <th className="num">Unit price</th>
                   <th className="num">GST %</th>
@@ -419,57 +467,118 @@ const PODetail = ({ id }) => {
                       )}
                       {it.spec && (
                         <div className={styles.itSpec}>
-                          <span className={styles.itLabel}>Product specification: </span>{it.spec}
+                          <span className={styles.itLabel}>Product specification:</span>
+                          <ReadMore content={it.spec} maxLines={2} />
                         </div>
                       )}
                       {it.comment && (
                         <div className={styles.itSpec}>
-                          <span className={styles.itLabel}>Comment: </span>{it.comment}
+                          <span className={styles.itLabel}>Comment:</span>
+                          <ReadMore content={it.comment} maxLines={2} />
                         </div>
                       )}
                     </td>
-                    <td className={styles.itHsn}>{it.hsn || "—"}</td>
                     <td className="num">
                       {it.quantity}
                       {it.unit && <span className={styles.itUnit}>{it.unit}</span>}
                     </td>
                     <td className="num">{inr(it.unit_price)}</td>
-                    <td className="num">{it.gst != null ? `${it.gst}%` : "—"}</td>
+                    <td className="num">
+                      {it.gst != null
+                        ? `${it.gst}% (${inr((it.quantity * it.unit_price * it.gst) / 100)})`
+                        : "—"}
+                    </td>
                     <td className="num" style={{ fontWeight: 600 }}>
-                      {inr(it.amount)}
+                      {inr(itemAmount(it))}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                {pricing.subtotal != null && (
-                  <tr className="subtotal">
-                    <td colSpan={6} className={styles.tRight}>
-                      Subtotal
-                    </td>
-                    <td className="num">{inr(pricing.subtotal)}</td>
-                  </tr>
+                {/* Subtotal — flat row, sum of qty×price+GST per item */}
+                <tr className="subtotal">
+                  <td colSpan={5} className={styles.tRight}>Subtotal</td>
+                  <td className="num">{inr(computedSubtotal)}</td>
+                </tr>
+
+                {/* Other charges — accordion, one row per charge + tax sub-row */}
+                {showOtherCharges && (
+                  <>
+                    <tr
+                      className={styles.sectionHeadRow}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setOtherChargesOpen((o) => !o)}
+                    >
+                      <td colSpan={5}>
+                        Other charges
+                        <ChevronDown size={13} style={{ marginLeft: 5, verticalAlign: "middle", transition: "transform 0.2s", transform: otherChargesOpen ? "rotate(180deg)" : "none" }} />
+                      </td>
+                      <td className="num">{inr(totalOtherCharges)}</td>
+                    </tr>
+                    {otherChargesOpen && previewLines.flatMap((line, i) => {
+                      const it = items[i];
+                      if (!line.charges.length) return [];
+                      return line.charges.map((c, j) => {
+                        const orig = it?.charges_meta?.other_charges?.[j];
+                        const rateMeta = orig?.amount_mode === "percentage" ? `${orig.amount}%` : "";
+                        return (
+                          <tr key={`${i}-${j}`} className={styles.breakdownRow}>
+                            <td colSpan={4} className={styles.breakdownLabel}>
+                              {it?.name}{c.name ? ` — ${c.name}` : ""}
+                            </td>
+                            <td className={styles.breakdownMeta}>{rateMeta}</td>
+                            <td className={`num ${styles.breakdownAmt}`}>
+                              {inr(c.amount)}
+                              {(c.tax || 0) > 0 && (
+                                <span className={styles.taxNote}> + tax ({inr(c.tax)})</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })}
+                  </>
                 )}
-                {pricing.tax != null && (
-                  <tr className="subtotal">
-                    <td colSpan={6} className={styles.tRight}>
-                      GST
-                    </td>
-                    <td className="num">{inr(pricing.tax)}</td>
-                  </tr>
+
+                {/* Global charges — accordion with per-charge base + additional tax sub-row */}
+                {showGlobalCharges && (
+                  <>
+                    <tr
+                      className={styles.sectionHeadRow}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setGlobalChargesOpen((o) => !o)}
+                    >
+                      <td colSpan={5}>
+                        Global charges
+                        <ChevronDown size={13} style={{ marginLeft: 5, verticalAlign: "middle", transition: "transform 0.2s", transform: globalChargesOpen ? "rotate(180deg)" : "none" }} />
+                      </td>
+                      <td className="num">{inr(totalGlobalCharges)}</td>
+                    </tr>
+                    {globalChargesOpen && previewGlobal.map((gc, i) => (
+                      <tr key={i} className={styles.breakdownRow}>
+                        <td colSpan={4} className={styles.breakdownLabel}>{gc.name}</td>
+                        <td className={styles.breakdownMeta}>{gc.mode === "percentage" ? `${gc.rate}%` : ""}</td>
+                        <td className={`num ${styles.breakdownAmt}`}>
+                          {inr(gc.amount)}
+                          {(gc.additional_tax || 0) > 0 && (
+                            <span className={styles.taxNote}> + tax ({inr(gc.additional_tax)})</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 )}
+
+                {/* Freight + insurance (existing global shipping charges) */}
                 {freightInsurance > 0 && (
                   <tr className="subtotal">
-                    <td colSpan={6} className={styles.tRight}>
-                      Freight + insurance
-                    </td>
+                    <td colSpan={5} className={styles.tRight}>Freight + insurance</td>
                     <td className="num">{inr(freightInsurance)}</td>
                   </tr>
                 )}
+
                 <tr className="total">
-                  <td colSpan={6} className={styles.tRight}>
-                    Grand total
-                  </td>
+                  <td colSpan={5} className={styles.tRight}>Grand total</td>
                   <td className="num">{inr(pricing.total ?? po.total_value)}</td>
                 </tr>
               </tfoot>

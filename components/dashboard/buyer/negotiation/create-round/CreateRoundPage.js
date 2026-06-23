@@ -22,7 +22,7 @@ const STEPS = [
 
 const CreateRoundPage = () => {
   const router = useRouter();
-  const { rfqId: rawRfqId, preSelectProductId, level } = router.query;
+  const { rfqId: rawRfqId, preSelectProductId, level, returnTo } = router.query;
   const rfqId = useMemo(() => {
     if (!rawRfqId) return null;
     const n = parseInt(rawRfqId);
@@ -183,13 +183,20 @@ const CreateRoundPage = () => {
     [wizard.aggregatedPriceData]
   );
 
+  const allProductsLocked = useMemo(
+    () => products.length > 0 && products.every(p => getProductRoundStatus(p, quoteApprovalStatuses).isDisabled),
+    [products, quoteApprovalStatuses]
+  );
+
   // Can the user still queue another round? Three signals: there's an
   // eligible product the buyer hasn't already queued, OR they can still add
   // an RFQ-level round (only one allowed per submission).
   const canQueueMore = otherEligibleCount > 0 || (!wizard.hasQueuedRfqRound && wizard.mode !== 'rfq');
 
   const exitWizard = () => {
-    if (rfqId) {
+    if (returnTo) {
+      router.push(decodeURIComponent(returnTo));
+    } else if (rfqId) {
       router.push(`/dashboard/buyer/quote-compare?rfq=${rfqId}&tab=product`);
     } else {
       router.back();
@@ -569,6 +576,7 @@ const CreateRoundPage = () => {
             hasQueuedRfqRound={wizard.hasQueuedRfqRound}
             rfqFieldCount={rfqFieldCount}
             rfqVendorCount={rfqVendorCount}
+            allProductsLocked={allProductsLocked}
           />
         )}
 
