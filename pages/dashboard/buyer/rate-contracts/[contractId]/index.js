@@ -37,6 +37,8 @@ const fmtDate = (iso) => {
 function statusChip(status) {
   if (!status) return { cls: "draft", label: "—" };
   if (status === "draft") return { cls: "draft", label: "Draft" };
+  if (status === "pending_publish_approval") return { cls: "draft", label: "Pending publish approval" };
+  if (status === "publish_rejected") return { cls: "expired", label: "Publish rejected" };
   if (["floated", "submission_closed"].includes(status)) return { cls: "floated", label: status === "floated" ? "Floated" : "Submission closed" };
   if (status.startsWith("tech_eval")) return { cls: "eval", label: "Technical evaluation" };
   if (status.startsWith("comm_eval")) return { cls: "eval", label: "Commercial evaluation" };
@@ -211,13 +213,18 @@ export default function ArcLifecyclePage() {
 }
 
 // Withdraw — lifted from the old detail hero. (Terminate ARC is not offered in V1.)
+// Also covers a pending publish approval (cancels the approval and returns to draft).
 function HeroActions({ arc, onRefresh }) {
   const [busy, setBusy] = useState(false);
-  const canWithdraw = ["floated"].includes(arc.status);
+  const isPending = arc.status === "pending_publish_approval";
+  const canWithdraw = ["floated", "pending_publish_approval"].includes(arc.status);
   if (!canWithdraw) return null;
 
   const withdraw = async () => {
-    if (!window.confirm("Withdraw this rate contract? Vendors will be notified.")) return;
+    const msg = isPending
+      ? "Withdraw this publish request? It returns to draft."
+      : "Withdraw this rate contract? Vendors will be notified.";
+    if (!window.confirm(msg)) return;
     setBusy(true);
     try { await ArcApi.withdraw(arc.id); await onRefresh(); } finally { setBusy(false); }
   };

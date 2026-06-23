@@ -65,6 +65,11 @@ export const publish    = (id) => axiosInstance.post(`${BASE}/${id}/publish`, {}
 export const withdraw   = (id) => axiosInstance.post(`${BASE}/${id}/withdraw`, {});
 export const terminate  = (id, reason) => axiosInstance.post(`${BASE}/${id}/terminate`, { reason });
 
+// Publish-approval gate — chain detail (latest ARC_PUBLISH instance, or null)
+// + decide (approve/reject; comment required on reject).
+export const getPublishApproval    = (id) => axiosInstance.get(`${BASE}/${id}/publish-approval`);
+export const publishApprovalDecide = (id, body) => axiosInstance.post(`${BASE}/${id}/publish-approval/decide`, body);
+
 // ============================================================
 // Buyer — Tech evaluation
 // ============================================================
@@ -131,6 +136,13 @@ export const decideCommittee  = (arcId, body) => axiosInstance.post(`${BASE}/com
 
 export const vendorListRequests        = () => axiosInstance.get(`${BASE}/vendor/requests`);
 export const vendorGetRequestDetail    = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}`);
+export const vendorGetRequestLifecycle = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}/lifecycle`);
+// Phase 1 §3 — persist T&C acceptance server-side (idempotent).
+export const vendorAcceptTerms         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/accept-terms`, { arc_id: Number(arcId) });
+// Phase 2 — engine-driven stateless preview (qty server-derived, never stored).
+// payload: { arc_id, lines: [...], global_charges?: [...] }
+// Response: res.data.{ lines:[{arc_item_id,base,base_tax,charges,charges_total,total}], grand_subtotal, grand_total, ... }
+export const vendorPreviewQuote        = (payload) => axiosInstance.post(`${BASE}/vendor/quote/preview`, payload);
 export const vendorSaveQuoteDraft      = (payload) => axiosInstance.post(`${BASE}/vendor/quote/draft`, payload);
 export const vendorSubmitQuote         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/submit`, { arc_id: arcId });
 export const vendorWithdrawQuote       = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/withdraw`, { arc_id: arcId });

@@ -1256,7 +1256,7 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 /* Section title (larger than page-h1, used in step panes) */
 .q-section-title { font-size:19px; font-weight:600; letter-spacing:-0.02em; color:var(--fg); margin:0; }
 .q-section-sub { margin-top:4px; font-size:13.5px; color:var(--fg-3); line-height:1.5; }
-.q-section-head { margin-bottom:18px; display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
+.q-section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
 
 /* Stepper */
 .stepper { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:14px 18px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
@@ -1296,6 +1296,24 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .detail-cell .k { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--fg-4); font-weight:500; }
 .detail-cell .v { margin-top:8px; font-size:13.5px; color:var(--fg); font-weight:500; line-height:1.35; }
 @media (max-width:760px){ .detail-grid { grid-template-columns:1fr; } .detail-cell { border-right:none; } .detail-cell:nth-last-child(-n+3) { border-bottom:1px solid var(--border); } .detail-cell:last-child { border-bottom:none; } }
+
+/* Scoped 2-col overview grid — isolates the Vendor Overview stage from the
+   sidebar .detail-grid rule (line ~2302) which collides at equal specificity. */
+.q-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; align-items:stretch; }
+.q-detail-grid .detail-cell { padding:14px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+.q-detail-grid .detail-cell:nth-child(2n) { border-right:none; }
+.q-detail-grid .detail-cell:nth-last-child(-n+2) { border-bottom:none; }
+.q-detail-grid .detail-cell:last-child { border-right:none; border-bottom:none; }
+@media (max-width:760px){ .q-detail-grid { grid-template-columns:1fr; } .q-detail-grid .detail-cell { border-right:none; } .q-detail-grid .detail-cell:nth-last-child(-n+2) { border-bottom:1px solid var(--border); } .q-detail-grid .detail-cell:last-child { border-bottom:none; } }
+/* Scoped 3-col overview grid — same isolation as .q-detail-grid for the Vendor
+   Overview "Contract validity & bid integrity" 3-cell row (also collided with
+   the line ~2311 sidebar .detail-grid rule). */
+.q-detail-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; align-items:stretch; }
+.q-detail-grid-3 .detail-cell { padding:14px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+.q-detail-grid-3 .detail-cell:nth-child(3n) { border-right:none; }
+.q-detail-grid-3 .detail-cell:nth-last-child(-n+3) { border-bottom:none; }
+.q-detail-grid-3 .detail-cell:last-child { border-right:none; border-bottom:none; }
+@media (max-width:760px){ .q-detail-grid-3 { grid-template-columns:1fr; } .q-detail-grid-3 .detail-cell { border-right:none; } .q-detail-grid-3 .detail-cell:nth-last-child(-n+3) { border-bottom:1px solid var(--border); } .q-detail-grid-3 .detail-cell:last-child { border-bottom:none; } }
 
 /* Terms list */
 .terms-list { counter-reset:term; padding:4px 0; }

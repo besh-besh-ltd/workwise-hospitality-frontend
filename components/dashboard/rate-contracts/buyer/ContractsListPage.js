@@ -27,6 +27,9 @@ import * as ArcApi from "@/services/arc_v2";
 function statusBucket(s) {
   if (!s) return "draft";
   if (s === "draft") return "draft";
+  // Pre-live publish-approval states sit under the Drafts tab (creator-owned,
+  // not yet floated). A finer per-row chip label distinguishes them below.
+  if (s === "pending_publish_approval" || s === "publish_rejected") return "draft";
   if (s === "floated" || s === "submission_closed") return "floated";
   if (
     s === "tech_eval_in_progress" ||
@@ -70,6 +73,14 @@ const BUCKET_ORDER_LIFECYCLE = {
   expiring: 0, active: 1, eval: 2, committee: 3, awaiting: 4, floated: 5, draft: 6, expired: 7,
 };
 
+// Finer per-row chip override for the two publish-approval states (they share
+// the "draft" bucket but deserve a distinct label + tone on the card).
+function statusChipOverride(status) {
+  if (status === "pending_publish_approval") return { label: "Pending approval", tone: "committee" };
+  if (status === "publish_rejected")         return { label: "Publish rejected", tone: "expired" };
+  return null;
+}
+
 const PRESET_TO_GROUP = {
   all: "all", drafts: "drafts", ongoing: "ongoing",
   approved: "approved", active: "active", ended: "ended",
@@ -99,6 +110,10 @@ const PRESET_SUB = {
 // page; ?stage= hints jump straight to the stage matching the row's status,
 // and the page itself falls back to its server-computed default stage.
 function detailHref(row, bucket) {
+  // Publish-approval states land on the overview (pending chain / rejection
+  // reason + re-publish), NOT the edit wizard.
+  if (row.status === "pending_publish_approval" || row.status === "publish_rejected")
+    return `/dashboard/buyer/rate-contracts/${row.id}`;
   if (bucket === "draft")     return `/dashboard/buyer/rate-contracts/create?c=${row.id}`;
   if (bucket === "floated")   return `/dashboard/buyer/rate-contracts/${row.id}`;
   if (bucket === "eval") {
@@ -508,7 +523,9 @@ export default function ContractsListPage({ filterPreset = "all" }) {
 
             {!loading && filtered.map((row) => {
               const bucket = statusBucket(row.status);
-              const tone = BUCKET_TONE[bucket];
+              const chipOverride = statusChipOverride(row.status);
+              const tone = chipOverride ? chipOverride.tone : BUCKET_TONE[bucket];
+              const chipLabel = chipOverride ? chipOverride.label : BUCKET_LABEL[bucket];
               const termStart = fmtDate(row.contract_start_at);
               const termEnd = fmtDate(row.contract_end_at);
               const subEnd = fmtDate(row.submission_end_at);
@@ -582,7 +599,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                     </div>
                     <div className="cc-right">
                       <span className={`status-pill ${tone}${pulse ? " pulse" : ""}`}>
-                        <span className="dot" /><span>{BUCKET_LABEL[bucket]}</span>
+                        <span className="dot" /><span>{chipLabel}</span>
                       </span>
                       {Number(row.requested_amendments) > 0 && (
                         <span className="your-action" style={{ fontSize: 10, padding: "3px 9px" }}>

@@ -1,19 +1,20 @@
 // ARC v2 vendor quote wizard — port of prototypes/arc_ui/vendor-quote.html.
-// Three-step flow: Overview & terms → Items & tech eval → Pricing & submit.
+// Stage-driven flow: Overview & terms → Technical envelope → Pricing & submit.
 // Wired to vendorGetRequestDetail / vendorSaveQuoteDraft / vendorSubmitQuote /
 // vendorWithdrawQuote. The page intentionally renders ONLY the inner main-body
 // content — DashboardShell (via pages/_app.js) provides the sidebar + topbar.
+// Body is now driven by stageKey (overview/technical/commercial) — the inner
+// currentStep stepper has been removed; VendorArcStageTimeline is the only nav.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
-
-const STEPS = [
-  { label: "Overview & terms",  meta: "Buyer · scope · T&Cs" },
-  { label: "Items & tech eval", meta: "Specs · clauses · past data" },
-  { label: "Pricing & submit",  meta: "Rates · commercial · sign" },
-];
+import VendorArcStageTimeline from "@/components/dashboard/rate-contracts/vendor/stages/VendorArcStageTimeline";
+import VendorOverviewStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorOverviewStage";
+import VendorTechnicalStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorTechnicalStage";
+import VendorCommercialStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorCommercialStage";
+import useArcQuotePreview from "@/hooks/useArcQuotePreview";
 
 const fmtN = (n) => Math.round(Number(n) || 0).toLocaleString("en-IN");
 const safeNum = (v) => {
@@ -31,8 +32,13 @@ const blankLine = () => ({
   comment: "",
   leadNote: "",
   validity_notes: "",
-  charges: [],
+  charges: [],  // [{ name, amount, amountMode:'%'|'₹', tax:'', taxMode:'%'|'₹', note }]
 });
+
+// Phase 2 — map FE display tokens to engine mode strings.
+const toEngineMode = (m) => (m === "%" || m === "percentage") ? "percentage"
+  : (m === "₹" || m === "absolute") ? "absolute"
+  : "percentage";
 
 export default function VendorQuotePage() {
   const router = useRouter();
@@ -44,16 +50,29 @@ export default function VendorQuotePage() {
   const [invitation, setInvitation] = useState(null);
   const [quote, setQuote] = useState(null);
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // ── Lifecycle host state ──
+  const [lifecycle, setLifecycle] = useState(null);
+  const [stageKey, setStageKey] = useState(null);
+  const [lockedNote, setLockedNote] = useState("");
+
+  // ── Technical envelope (two-envelope flow) ──
+  const [techEnvelope, setTechEnvelope] = useState(null);  // { required, tech_submitted_at, clauses_total, clauses_answered }
+  const [techItems, setTechItems] = useState([]);           // [{ arc_item_id, clauses:[...] }]
+  const [techResponses, setTechResponses] = useState({});  // { [clauseId]: vendor_response }
+  const [techFiles, setTechFiles] = useState({});           // { [clauseId]: [{file_id,url,original_name}] }
+  const [techBusy, setTechBusy] = useState(false);
+  const [techError, setTechError] = useState(null);
+  const [techUploadErrors, setTechUploadErrors] = useState({});  // { [clauseId]: errorMsg }
+
+  // Phase 1 §3 — server-derived T&C gate. Seeded from quote.terms_accepted_at on
+  // load; persisted via acceptTerms endpoint on accept; refreshed via onRefresh.
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [submittedAt, setSubmittedAt] = useState("");
-  const [referenceNumber, setReferenceNumber] = useState("");
   const [openHistory, setOpenHistory] = useState(false);
   const [chargesOpen, setChargesOpen] = useState(null);
 
   const [price, setPrice] = useState({});           // { [arc_item_id]: line }
-  const [techResp, setTechResp] = useState({});     // { 'itemId|clauseId': {decision,note} }
 
   const [globals, setGlobals] = useState({
     gstin: "",
@@ -69,7 +88,47 @@ export default function VendorQuotePage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Regret / withdraw flow ──
+  const [confirmRegret, setConfirmRegret] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawModalError, setWithdrawModalError] = useState(null);
+
+  // ── E1: acceptingTerms guard ──
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
+
   // -------------------- load --------------------
+  const loadTechEnvelope = useCallback(async () => {
+    try {
+      const res = await ArcApi.vendorGetTechClauses(contractId);
+      const d = res?.data || {};
+      setTechItems(d.items || []);
+      const r = {}, f = {};
+      for (const it of d.items || []) {
+        for (const cl of it.clauses || []) {
+          if (cl.vendor_response != null) r[cl.clause_id] = cl.vendor_response;
+          if (Array.isArray(cl.files)) f[cl.clause_id] = cl.files;
+        }
+      }
+      setTechResponses(r);
+      setTechFiles(f);
+      return d;
+    } catch (_e) {
+      // 403 (not invited) is surfaced by the page guard; ignore here.
+      return null;
+    }
+  }, [contractId]);
+
+  const loadLifecycle = useCallback(async () => {
+    try {
+      const res = await ArcApi.vendorGetRequestLifecycle(contractId);
+      const payload = res?.data || null;
+      setLifecycle(payload);
+      return payload;
+    } catch (_e) {
+      return null;
+    }
+  }, [contractId]);
+
   useEffect(() => {
     if (!contractId) return;
     let cancelled = false;
@@ -77,20 +136,46 @@ export default function VendorQuotePage() {
     (async () => {
       setLoading(true);
       try {
+        // §1.1 FIX: read from res.data.* (axios interceptor unwraps to response.data)
         const res = await ArcApi.vendorGetRequestDetail(contractId);
         if (cancelled) return;
-        const a = res?.arc || null;
-        const its = res?.items || [];
-        const inv = res?.invitation || null;
-        const qt = res?.quote || null;
-        const ls = res?.lines || [];
+        const d = res?.data || {};
+        const a = d.arc || null;
+        const its = d.items || [];
+        const inv = d.invitation || null;
+        const qt = d.quote || null;
+        const ls = d.lines || [];
+        const te = d.tech_envelope || null;
 
         setArc(a);
         setItems(its);
         setInvitation(inv);
         setQuote(qt);
+        setTechEnvelope(te);
 
         // Seed price state from draft lines if present.
+        // Phase 2 — charges is now a canonical engine array; hydrate to FE shape.
+        // Legacy: charges was a single number (freight) — normalised here as a
+        // single "Freight" charge entry so the charges modal shows it correctly.
+        const fromEngineCharges = (rawCharges) => {
+          if (!rawCharges) return [];
+          if (Array.isArray(rawCharges) && rawCharges.length > 0) {
+            return rawCharges.map(c => ({
+              name:       c.name || "",
+              amount:     c.amount != null ? String(c.amount) : "",
+              amountMode: (c.amount_mode === "absolute" || c.amount_mode === "₹") ? "₹" : "%",
+              // tax: null/undefined/"" → "" (inherit); 0 → "0" (explicit no tax)
+              tax:        (c.tax === null || c.tax === undefined || c.tax === "") ? "" : String(c.tax),
+              taxMode:    (c.tax_mode === "absolute" || c.tax_mode === "₹") ? "₹" : "%",
+              note:       c.comment || "",
+            }));
+          }
+          const n = Number(rawCharges);
+          if (Number.isFinite(n) && n > 0) {
+            return [{ name: "Freight", amount: String(n), amountMode: "₹", tax: "", taxMode: "%", note: "" }];
+          }
+          return [];
+        };
         const seed = {};
         for (const ln of ls) {
           seed[ln.arc_item_id] = {
@@ -98,7 +183,8 @@ export default function VendorQuotePage() {
             rate: ln.rate ?? "",
             gst_pct: ln.gst_pct ?? 5,
             gstMode: "%",
-            freight: ln.charges ?? "",
+            freight: "",  // Phase 2 — no standalone freight; charges handles it
+            charges: fromEngineCharges(ln.charges),
             lead_time_days: ln.lead_time_days ?? "",
             moq: ln.moq ?? "",
             validity_notes: ln.validity_notes ?? "",
@@ -117,12 +203,21 @@ export default function VendorQuotePage() {
             gstin: qt.gstin_used || "",
             comment: qt.payment_terms_notes || "",
           }));
+          // Phase 1 §3 — seed server-persisted T&C acceptance on load.
+          if (qt.terms_accepted_at) setTermsAcceptedAt(qt.terms_accepted_at);
         }
-        if (qt?.status === "submitted") {
+        if (qt?.submitted_at && !qt?.withdrawn_at) {
           setSubmitted(true);
           setSubmittedAt(qt.submitted_at ? new Date(qt.submitted_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "");
-          setReferenceNumber(qt.reference_number || `QT-${a?.id || ""}`);
         }
+
+        // §1.3 FIX: load tech clauses via the dedicated endpoint when required.
+        if (te?.required) {
+          await loadTechEnvelope();
+        }
+
+        // Load lifecycle for the timeline host.
+        await loadLifecycle();
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -131,8 +226,161 @@ export default function VendorQuotePage() {
     return () => { cancelled = true; };
   }, [contractId]);
 
-  // setGstin placeholder for the older seed line above
+  // Phase 1 §3 — derived boolean from server-persisted timestamp.
+  const acceptedTerms = !!termsAcceptedAt;
+
+  // Stage selection — honour ?stage= when valid + unlocked, else default.
+  const STAGE_KEYS = ["overview", "technical", "commercial", "awarding", "active"];
+  useEffect(() => {
+    if (!lifecycle || !router.isReady) return;
+    const q = typeof router.query.stage === "string" ? router.query.stage : null;
+    const target = q && STAGE_KEYS.includes(q) ? lifecycle.stages.find((s) => s.key === q) : null;
+
+    // Backend-level lock check (includes terms-gate + tech-gate set by server projector)
+    if (target && target.state === "locked") {
+      if (target.reason === "terms_required") {
+        setLockedNote(
+          q === "technical"
+            ? "Accept the rate-contract terms on the Overview tab to unlock the technical envelope."
+            : "Accept the terms first before pricing."
+        );
+      } else if (target.reason === "tech_required") {
+        setLockedNote("Seal your technical envelope before pricing.");
+      } else {
+        setLockedNote(`${target.label} is not available yet.`);
+      }
+      setStageKey((prev) => prev || lifecycle.default_stage);
+      return;
+    }
+
+    // FE-level gate: technical skipped when not required
+    if (q === "technical" && !techEnvelope?.required) {
+      setLockedNote("No technical evaluation is required for this contract.");
+      setStageKey(acceptedTerms ? "commercial" : "overview");
+      return;
+    }
+
+    // FE-level gate: commercial locked until terms accepted
+    if (q === "commercial" && !acceptedTerms) {
+      setLockedNote("Accept the rate-contract terms on the Overview tab to unlock the technical envelope.");
+      setStageKey("overview");
+      return;
+    }
+
+    // FE-level gate: commercial locked until tech sealed when required
+    if (q === "commercial" && techEnvelope?.required && !techEnvelope?.tech_submitted_at) {
+      setLockedNote("Seal your technical envelope before pricing.");
+      setStageKey("technical");
+      return;
+    }
+
+    if (target && target.state !== "locked") {
+      setStageKey(q);
+      return;
+    }
+    setStageKey((prev) => prev || lifecycle.default_stage);
+    if (!q) {
+      router.replace(
+        { pathname: router.pathname, query: { ...router.query, stage: lifecycle.default_stage } },
+        undefined, { shallow: true }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifecycle, router.isReady, techEnvelope, acceptedTerms]);
+
+  // ── Stage advance helpers ──────────────────────────────────────────────────
+  // Derives which stages are currently reachable (FE logic mirrors BE truth).
+  const allowedStages = () => {
+    const out = ["overview"];
+    if (hasTechClauses) out.push("technical");
+    if (acceptedTerms && (!hasTechClauses || techSealed)) out.push("commercial");
+    return out;
+  };
+  const furthestAllowed = () => allowedStages().slice(-1)[0];
+
+  const selectStage = (key) => {
+    // FE gate: skip technical when not required
+    if (key === "technical" && !hasTechClauses) {
+      setLockedNote("No technical evaluation is required for this contract.");
+      return;
+    }
+    // Phase 1 §3 — commercial + technical both locked until terms accepted
+    if ((key === "technical" || key === "commercial") && !acceptedTerms) {
+      setLockedNote(
+        key === "technical"
+          ? "Accept the rate-contract terms on the Overview tab to unlock the technical envelope."
+          : "Accept the terms first before pricing."
+      );
+      return;
+    }
+    // FE gate: commercial locked until tech sealed
+    if (key === "commercial" && hasTechClauses && !techSealed) {
+      setLockedNote("Seal your technical envelope before pricing.");
+      return;
+    }
+    setLockedNote("");
+    setStageKey(key);
+    router.replace(
+      { pathname: router.pathname, query: { ...router.query, stage: key } },
+      undefined, { shallow: true }
+    );
+  };
+
+  // After vendor mutations (save/submit/seal/withdraw): re-fetch lifecycle +
+  // detail so the timeline and stage bodies reflect the fresh state.
+  const onRefresh = useCallback(async ({ advance = false } = {}) => {
+    const [fresh] = await Promise.all([
+      loadLifecycle(),
+      ArcApi.vendorGetRequestDetail(contractId).then((res) => {
+        const d = res?.data || {};
+        setArc(d.arc || null);
+        setItems(d.items || []);
+        setQuote(d.quote || null);
+        const te = d.tech_envelope || null;
+        setTechEnvelope(te);
+        // Phase 1 §3 — refresh server-persisted T&C acceptance.
+        if (d.quote?.terms_accepted_at) setTermsAcceptedAt(d.quote.terms_accepted_at);
+        if (d.quote?.submitted_at && !d.quote?.withdrawn_at) {
+          setSubmitted(true);
+          setSubmittedAt(d.quote.submitted_at ? new Date(d.quote.submitted_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "");
+        } else {
+          setSubmitted(false);
+        }
+        return d;
+      }).catch(() => null),
+    ]);
+    if (advance && fresh?.default_stage) {
+      setStageKey(fresh.default_stage);
+      router.replace(
+        { pathname: router.pathname, query: { ...router.query, stage: fresh.default_stage } },
+        undefined, { shallow: true }
+      );
+    }
+    return fresh;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadLifecycle, contractId]);
+
+  // setGstin helper used in the load effect above
   const setGstin = (v) => setGlobals(g => ({ ...g, gstin: v }));
+
+  // Phase 1 §3 — persist T&C acceptance to server; refresh lifecycle.
+  // E1: guarded with acceptingTerms to prevent double-click.
+  const onAcceptTerms = useCallback(async () => {
+    if (acceptingTerms) return;
+    setAcceptingTerms(true);
+    try {
+      const res = await ArcApi.vendorAcceptTerms(contractId);
+      const ts = res?.data?.terms_accepted_at || new Date().toISOString();
+      setTermsAcceptedAt(ts);
+      showToastMsg("Terms accepted");
+      await onRefresh();
+    } catch (e) {
+      showToastMsg(e?.response?.data?.message || e?.message || "Could not save acceptance");
+    } finally {
+      setAcceptingTerms(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contractId, onRefresh, acceptingTerms]);
 
   // -------------------- pricing helpers --------------------
   const priceLine = (itemId) => price[itemId] || blankLine();
@@ -145,7 +393,8 @@ export default function VendorQuotePage() {
     if (!type) return;
     setPrice(p => {
       const cur = p[itemId] || blankLine();
-      return { ...p, [itemId]: { ...cur, charges: [...cur.charges, { name: type, amount: "", amountMode: "%", tax: "", note: "" }] } };
+      // Phase 2 — charge shape extended with per-charge tax fields.
+      return { ...p, [itemId]: { ...cur, charges: [...cur.charges, { name: type, amount: "", amountMode: "%", tax: "", taxMode: "%", note: "" }] } };
     });
   };
 
@@ -163,7 +412,46 @@ export default function VendorQuotePage() {
     return (l.charges || []).reduce((s, c) => s + safeNum(c.amount), 0);
   };
 
+  // Phase 2 — build preview payload for the engine-backed preview hook.
+  // Converts FE state (price[itemId].charges with amountMode:'%'/'₹') to the
+  // canonical engine charge shape (amount_mode:'percentage'/'absolute').
+  const previewDraft = useMemo(() => {
+    if (!contractId || items.length === 0) return null;
+    const lines = items.map(it => {
+      const l = priceLine(it.id);
+      const engineCharges = (l.charges || []).map(c => ({
+        name:        c.name || null,
+        amount:      safeNum(c.amount),
+        amount_mode: toEngineMode(c.amountMode || "%"),
+        // Per-charge tax: empty string → null (inherit base); 0 → explicit zero.
+        tax:         (c.tax === "" || c.tax == null) ? null : safeNum(c.tax),
+        tax_mode:    toEngineMode(c.taxMode || "%"),
+        ...(c.note ? { comment: c.note } : {}),
+      }));
+      return {
+        arc_item_id: it.id,
+        rate:        safeNum(l.rate),
+        gst_pct:     safeNum(l.gst_pct),
+        gst_mode:    l.gstMode || "%",
+        charges:     engineCharges,
+      };
+    }).filter(line => line.rate > 0); // only priced lines need preview
+    if (lines.length === 0) return null;
+    return { arc_id: Number(contractId), lines, global_charges: [] };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contractId, items, price]);
+
+  // Phase 2 — engine-backed preview (debounced 600ms). `preview` replaces the
+  // client-side totals when available; falls back to client math while loading.
+  const { preview: enginePreview } = useArcQuotePreview(previewDraft);
+
+  // lineTotal: use engine preview when available, else client fallback.
   const lineTotal = (itemId, qty) => {
+    if (enginePreview?.lines) {
+      const el = enginePreview.lines.find(l => Number(l.arc_item_id) === Number(itemId));
+      if (el) return Math.round(el.total);
+    }
+    // Client fallback (Phase 1 math; replaced by engine once preview responds).
     const l = priceLine(itemId);
     if (!l.rate) return 0;
     const subtotal = qty * safeNum(l.rate) + qty * safeNum(l.freight);
@@ -171,7 +459,27 @@ export default function VendorQuotePage() {
     return Math.round(subtotal + tax);
   };
 
+  // totals: use engine preview when available, else client fallback.
   const totals = useMemo(() => {
+    if (enginePreview) {
+      // Reconstruct the legacy shape the aside summary + VendorCommercialStage expect.
+      const gst = enginePreview.lines.reduce((s, l) => s + (l.base_tax || 0), 0);
+      // Aggregate per-charge-name totals across lines for the breakdown legend.
+      const extras = {};
+      enginePreview.lines.forEach(l => {
+        (l.charges || []).forEach(c => {
+          const key = c.name || "Charge";
+          extras[key] = (extras[key] || 0) + (c.amount || 0);
+        });
+      });
+      return {
+        subtotal: Math.round(enginePreview.grand_subtotal || 0),
+        gst: Math.round(gst),
+        extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
+        grand: Math.round(enginePreview.grand_total || 0),
+      };
+    }
+    // Client fallback — preserved from Phase 1 for use while preview is loading.
     let subtotal = 0, gst = 0, extra = 0;
     const extras = {};
     items.forEach(it => {
@@ -195,56 +503,112 @@ export default function VendorQuotePage() {
       extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
       grand: Math.round(subtotal + gst + extra),
     };
-  }, [items, price]);
+  }, [items, price, enginePreview]);
 
   const paymentTotal = useMemo(() => globals.paymentTerms.reduce((s, t) => s + safeNum(t.pct), 0), [globals.paymentTerms]);
 
-  // -------------------- tech eval (backend currently exposes none on this endpoint) --------------------
-  const techClauses = useMemo(() => arc?.tech_clauses || [], [arc]);
+  // -------------------- tech eval — two-envelope flow (§1.3 FIX) --------------------
+  // techItems comes from vendorGetTechClauses (loaded on mount when required).
+  // techEnvelope (lightweight summary) comes from vendorGetRequestDetail.
+  const hasTechClauses = !!techEnvelope?.required;
+  const techSealed = !!techEnvelope?.tech_submitted_at;
+
   const itemClauses = (itemId) => {
-    const block = techClauses.find(b => b.arc_item_id === itemId || b.itemId === itemId);
+    const block = techItems.find(b => Number(b.arc_item_id) === Number(itemId));
     return block?.clauses || [];
   };
-  const hasTechClauses = techClauses.length > 0;
 
-  const respKey = (itemId, cId) => `${itemId}|${cId}`;
-  const getResp = (itemId, cId) => techResp[respKey(itemId, cId)] || { decision: null, note: "" };
-
-  const setDecision = (itemId, cId, d) => {
-    setTechResp(prev => {
-      const k = respKey(itemId, cId);
-      const cur = prev[k] || { decision: null, note: "" };
-      return { ...prev, [k]: { ...cur, decision: cur.decision === d ? null : d } };
-    });
+  const onSaveTechDraft = async () => {
+    setTechBusy(true); setTechError(null);
+    try {
+      const responses = [];
+      for (const it of techItems) {
+        for (const cl of it.clauses || []) {
+          responses.push({ clause_id: cl.clause_id, vendor_response: techResponses[cl.clause_id] ?? "" });
+        }
+      }
+      await ArcApi.vendorSaveTechEnvelopeDraft({ arc_id: Number(contractId), responses });
+    } catch (e) { setTechError(e?.response?.data?.message || e?.message || "Save failed"); }
+    finally { setTechBusy(false); }
   };
 
-  const productEvalCount = (itemId) => itemClauses(itemId).filter(c => getResp(itemId, c.id).decision !== null).length;
-  const evalTotal = items.reduce((s, it) => s + itemClauses(it.id).length, 0);
-  const evalAnswered = items.reduce((s, it) => s + productEvalCount(it.id), 0);
+  const onUploadTechEvidence = async (clauseId, file) => {
+    if (!file) return;
+    setTechBusy(true);
+    // Clear any previous upload error for this clause on new attempt.
+    setTechUploadErrors(p => { const n = { ...p }; delete n[clauseId]; return n; });
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await ArcApi.vendorUploadTechEvidence(clauseId, fd);
+      const f = res?.data?.file;
+      if (f) setTechFiles((prev) => ({ ...prev, [clauseId]: [...(prev[clauseId] || []), f] }));
+    } catch (e) {
+      // Upload errors go to per-clause inline state, NOT the top techError banner.
+      const msg = e?.response?.data?.message || e?.message || "Upload failed";
+      setTechUploadErrors(p => ({ ...p, [clauseId]: msg }));
+    }
+    finally { setTechBusy(false); }
+  };
+
+  const onDeleteTechEvidence = async (clauseId, fileId) => {
+    setTechBusy(true); setTechError(null);
+    try {
+      await ArcApi.vendorDeleteTechEvidence(fileId);
+      setTechFiles((prev) => ({ ...prev, [clauseId]: (prev[clauseId] || []).filter((f) => f.file_id !== fileId) }));
+    } catch (e) { setTechError(e?.response?.data?.message || e?.message || "Delete failed"); }
+    finally { setTechBusy(false); }
+  };
+
+  const onSealTechEnvelope = async () => {
+    setTechBusy(true); setTechError(null);
+    try {
+      await onSaveTechDraft();
+      const res = await ArcApi.vendorSubmitTechEnvelope(Number(contractId));
+      const sealedAt = res?.data?.tech_submitted_at || new Date().toISOString();
+      setTechEnvelope(prev => ({ ...(prev || {}), tech_submitted_at: sealedAt }));
+      showToastMsg("Technical envelope sealed");
+      await onRefresh();
+    } catch (e) { setTechError(e?.response?.data?.message || e?.message || "Seal failed"); }
+    finally { setTechBusy(false); }
+  };
+
+  const evalTotal = techItems.reduce((s, it) => s + (it.clauses || []).length, 0);
+  const evalAnswered = techItems.reduce((s, it) => {
+    return s + (it.clauses || []).filter(c => techResponses[c.clause_id] != null && String(techResponses[c.clause_id]).trim() !== "").length;
+  }, 0);
   const evalProgress = evalTotal ? Math.round((evalAnswered / evalTotal) * 100) : 100;
 
-  // -------------------- step gating --------------------
-  const canVisit = (i) => {
-    if (i <= currentStep) return true;
-    if (i === 1) return acceptedTerms;
-    if (i === 2) return acceptedTerms && (hasTechClauses ? evalAnswered === evalTotal : true);
-    return false;
-  };
-  const canContinue = (() => {
-    if (currentStep === 0) return acceptedTerms;
-    if (currentStep === 1) return hasTechClauses ? evalAnswered === evalTotal : true;
-    return false;
-  })();
+  // -------------------- stage gating --------------------
+  // canSubmit mirrors server's 409 guard — do NOT loosen.
   const canSubmit = (() => {
     if (!acceptedTerms) return false;
-    if (hasTechClauses && evalAnswered < evalTotal) return false;
+    if (hasTechClauses && !techSealed) return false;
     if (paymentTotal !== 100) return false;
     return items.length > 0 && items.every(it => safeNum(priceLine(it.id).rate) > 0);
   })();
 
-  const goToStep = (i) => { if (canVisit(i)) setCurrentStep(i); };
-  const nextStep = () => { if (canContinue && currentStep < 2) setCurrentStep(s => s + 1); };
-  const prevStep = () => { if (currentStep > 0) setCurrentStep(s => s - 1); };
+  // Advance to next allowed stage from current stageKey.
+  const advanceStage = async (saveFirst = false) => {
+    if (saveFirst) await saveDraft(true);
+    const allowed = allowedStages();
+    const idx = allowed.indexOf(stageKey);
+    if (idx < 0) {
+      // stageKey is overview/technical/commercial not in allowed list — go to furthest
+      selectStage(furthestAllowed());
+      return;
+    }
+    const next = allowed[idx + 1];
+    if (next) selectStage(next);
+  };
+
+  // Go back one stage.
+  const retreatStage = () => {
+    const allowed = allowedStages();
+    const idx = allowed.indexOf(stageKey);
+    const prev = idx > 0 ? allowed[idx - 1] : allowed[0];
+    selectStage(prev);
+  };
 
   // -------------------- draft + submit --------------------
   const buildDraftPayload = () => ({
@@ -253,13 +617,26 @@ export default function VendorQuotePage() {
     gstin_used: globals.gstin || "",
     lines: items.map(it => {
       const l = priceLine(it.id);
+      // Phase 2 — send canonical engine charge array (not the legacy single freight number).
+      // FE amountMode '%'/'₹' → engine amount_mode 'percentage'/'absolute'.
+      // Per-charge tax: blank string → null (engine tri-state: inherit base tax);
+      //                 "0" → 0 (explicit no tax); positive number → explicit rate.
+      const engineCharges = (l.charges || []).map(c => ({
+        name:        c.name || null,
+        amount:      safeNum(c.amount),
+        amount_mode: toEngineMode(c.amountMode || "%"),
+        tax:         (c.tax === "" || c.tax == null) ? null : safeNum(c.tax),
+        tax_mode:    toEngineMode(c.taxMode || "%"),
+        ...(c.note ? { comment: c.note } : {}),
+      }));
       return {
-        arc_item_id: it.id,
-        rate: safeNum(l.rate) || null,
-        gst_pct: safeNum(l.gst_pct) || null,
-        charges: safeNum(l.freight) || null,
+        arc_item_id:   it.id,
+        rate:          safeNum(l.rate) || null,
+        gst_pct:       safeNum(l.gst_pct) || null,
+        gst_mode:      l.gstMode === "₹" ? "absolute" : "percentage",
+        charges:       engineCharges,
         lead_time_days: safeNum(l.lead_time_days) || null,
-        moq: safeNum(l.moq) || null,
+        moq:           safeNum(l.moq) || null,
         validity_notes: l.validity_notes || l.comment || "",
       };
     }),
@@ -277,9 +654,7 @@ export default function VendorQuotePage() {
   };
 
   const handleNextStep = async () => {
-    if (!canContinue) return;
-    await saveDraft(true);
-    nextStep();
+    await advanceStage(true);
   };
 
   const submit = async () => {
@@ -288,29 +663,51 @@ export default function VendorQuotePage() {
     try {
       await ArcApi.vendorSaveQuoteDraft(buildDraftPayload());
       await ArcApi.vendorSubmitQuote(contractId);
-      const ref = "QT-" + (arc?.arc_number || "").replace(/\D/g, "") + "-" + Math.floor(1000 + Math.random() * 9000);
-      setReferenceNumber(ref);
-      setSubmittedAt(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
-      setSubmitted(true);
+      // §1.4 FIX: reload to get real submitted_at; drop fabricated reference.
+      await onRefresh({ advance: true });
+    } catch (e) {
+      showToastMsg(e?.response?.data?.message || e?.message || "Submit failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const regretQuote = async () => {
+  // D: Open confirm modal (button calls this, not the API directly).
+  const openRegretModal = () => {
     if (!contractId) return;
+    setWithdrawModalError(null);
+    setConfirmRegret(true);
+  };
+
+  // D: Guarded withdraw — called only from inside the confirm modal.
+  const regretQuote = async () => {
+    if (withdrawing || !contractId) return;
+    setWithdrawing(true);
+    setWithdrawModalError(null);
     try {
       await ArcApi.vendorWithdrawQuote(contractId);
-      showToastMsg("Withdrew from this tender");
-      setTimeout(() => router.push("/dashboard/vendor/rate-contracts/requests"), 800);
+      setConfirmRegret(false);
+      showToastMsg("Quote withdrawn");
+      await onRefresh();
     } catch (e) {
-      showToastMsg("Could not withdraw");
+      const msg = e?.response?.data?.message || e?.message || "Could not withdraw";
+      // Surface 409 deadline-passed inline in the modal, not just a toast.
+      setWithdrawModalError(msg);
+    } finally {
+      setWithdrawing(false);
     }
   };
 
+  // D: Withdrawn state — derived from refreshed quote.
+  const withdrawnAt = quote?.withdrawn_at || null;
+  const isWithdrawn = !!withdrawnAt;
+  // windowOpen: true while submission deadline is in the future (or unknown).
+  const windowOpen = arc?.submission_end_at ? new Date(arc.submission_end_at) > new Date() : true;
+
+  const arcRefLabel = arc?.arc_number ? `ARC-${arc.arc_number}` : `ARC-${contractId || ""}`;
   const copyReference = () => {
-    if (referenceNumber && navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(referenceNumber);
+    if (arcRefLabel && navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(arcRefLabel);
     }
     showToastMsg("Reference copied");
   };
@@ -337,21 +734,27 @@ export default function VendorQuotePage() {
   const history = [];
 
   if (loading) {
-    return <QuoteSkeleton />;
+    return (
+      <main className="main-body">
+        <QuoteSkeleton />
+      </main>
+    );
   }
   if (!arc) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--fg-3)" }}>
-        Could not load this rate-contract request.
-        <div style={{ marginTop: 12 }}>
-          <Link href="/dashboard/vendor/rate-contracts/requests" className="btn btn-secondary btn-sm">Back to requests</Link>
+      <main className="main-body">
+        <div style={{ padding: 40, textAlign: "center", color: "var(--fg-3)" }}>
+          Could not load this rate-contract request.
+          <div style={{ marginTop: 12 }}>
+            <Link href="/dashboard/vendor/rate-contracts/requests" className="btn btn-secondary btn-sm">Back to requests</Link>
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div style={{ paddingBottom: 108 }}>
+    <main className="main-body" style={{ paddingBottom: 108 }}>
       {/* HERO */}
       <section className="arc-hero">
         <div className="top">
@@ -379,10 +782,13 @@ export default function VendorQuotePage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
               Past quotes
             </button>
-            <button className="btn btn-sm" onClick={regretQuote} type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
-              Regret
-            </button>
+            {/* D: Only show Regret when there is a non-withdrawn quote to withdraw. */}
+            {quote && !isWithdrawn && (
+              <button className="btn btn-sm" onClick={openRegretModal} disabled={withdrawing} type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                Regret
+              </button>
+            )}
           </div>
         </div>
         <div className="hero-detail-grid">
@@ -394,728 +800,223 @@ export default function VendorQuotePage() {
         </div>
       </section>
 
-      {/* STEPPER */}
-      <nav className="stepper" aria-label="Progress">
-        {STEPS.map((s, i) => {
-          const cls = [
-            "step",
-            currentStep === i ? "is-active" : "",
-            currentStep > i ? "is-done" : "",
-            currentStep < i && !canVisit(i) ? "is-disabled" : "",
-          ].filter(Boolean).join(" ");
-          return (
-            <div className="contents" key={i}>
-              <button
-                className={cls}
-                onClick={() => goToStep(i)}
-                disabled={currentStep < i && !canVisit(i)}
-                type="button"
-              >
-                <div className="num"><span className="num-text">{i + 1}</span></div>
-                <div className="label-wrap">
-                  <div className="label">{s.label}</div>
-                  <div className="meta">{s.meta}</div>
-                </div>
-              </button>
-              {i < STEPS.length - 1 && <div className="step-divider" />}
-            </div>
-          );
-        })}
-      </nav>
+      {/* LIFECYCLE TIMELINE (vendor-projected stages) */}
+      {lifecycle?.stages && (
+        <VendorArcStageTimeline
+          stages={lifecycle.stages}
+          selectedKey={stageKey}
+          onSelect={selectStage}
+        />
+      )}
 
-      {/* STEP 1 — Overview & terms */}
-      {currentStep === 0 && (
-        <div className="step-pane">
-          <div className="q-section-head">
-            <div>
-              <div className="q-section-title">Tender overview</div>
-              <div className="q-section-sub">Review who&apos;s asking, what they need, and the rate-contract terms.</div>
-            </div>
-            <span className="pill"><span className="pdot" style={{ background: "var(--info)" }}></span>Rate contract · sealed bid</span>
+      {lockedNote && (
+        <div className="guide warn" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
           </div>
-
-          <div className="q-card">
-            <div className="q-card-head">
-              <h3>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-                Buyer &amp; scope
-              </h3>
-              <span className="count">Workwise Hospitality</span>
-            </div>
-            <div className="detail-grid">
-              <div className="detail-cell"><div className="k">Company</div><div className="v">Workwise Hospitality Pvt Ltd</div></div>
-              <div className="detail-cell"><div className="k">Business unit</div><div className="v"><span className="mono fw-600">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
-              <div className="detail-cell"><div className="k">Location</div><div className="v">{arc.hotel_city || "—"}</div></div>
-              <div className="detail-cell"><div className="k">Category</div><div className="v">{arc.category_title || arc.category_id || "—"}</div></div>
-              <div className="detail-cell"><div className="k">Submission window</div><div className="v"><span className="mono">{submissionStart}</span> → <span className="mono">{submissionEnd}</span></div></div>
-              <div className="detail-cell"><div className="k">Contract term</div><div className="v"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
-              <div className="detail-cell"><div className="k">Eligibility</div><div className="v">{arc.eligibility === "open" ? "Open" : "Invitation only"}</div></div>
-              <div className="detail-cell"><div className="k">Samples</div><div className="v">{arc.samples_required ? "Required" : "Not required"}</div></div>
-              <div className="detail-cell"><div className="k">Price escalation</div><div className="v">{arc.escalation_policy || "Fixed for full contract term"}</div></div>
-            </div>
-          </div>
-
-          <div className="q-card">
-            <div className="q-card-head">
-              <h3>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                Items to quote
-              </h3>
-              <span className="count">{items.length} line item{items.length === 1 ? "" : "s"}</span>
-            </div>
-            <div className="q-card-section">
-              {items.map((it, idx) => (
-                <div
-                  key={it.id}
-                  className="flex items-center justify-between"
-                  style={idx > 0 ? { borderTop: "1px solid var(--border)", paddingTop: 13, marginTop: 13 } : undefined}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg grid place-items-center flex-shrink-0" style={{ background: "var(--surface-3)", color: "var(--fg-3)", border: "1px solid var(--border)" }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{it.variant_name || it.title || `Item #${it.id}`}</div>
-                      <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 2, lineHeight: 1.4 }}>
-                        <span className="mono">{it.variant_slug || it.code || ""}</span>
-                        {it.spec ? <> · <span>{it.spec}</span></> : null}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div style={{ fontSize: 10.5, color: "var(--fg-4)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Indicative qty</div>
-                    <div className="mono" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
-                      <span>{safeNum(it.committed_qty ?? it.indicative_qty ?? 0).toLocaleString("en-IN")}</span>{" "}
-                      <span style={{ color: "var(--fg-3)" }}>{it.uom || ""}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="q-card">
-            <div className="q-card-head">
-              <h3>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                Rate-contract terms
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="count">{(arc.terms_list?.length || 0)} clauses</span>
-                <a href="#" className="file-chip-mini" onClick={e => e.preventDefault()}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                  T&amp;C document
-                </a>
-              </div>
-            </div>
-            <div className="q-card-section">
-              <div className="terms-list">
-                {(arc.terms_list || []).map((t, i) => (
-                  <div className="term-item" key={i}>
-                    <span className="term-num"></span>
-                    <div className="term-text"><strong>{t.text}</strong> <span>{t.body}</span></div>
-                  </div>
-                ))}
-                {(!arc.terms_list || arc.terms_list.length === 0) && (
-                  <div style={{ fontSize: 12.5, color: "var(--fg-3)" }}>No specific clauses uploaded for this contract.</div>
-                )}
-              </div>
-            </div>
-            <div className="q-card-section" style={{ background: "var(--surface-2)" }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-                Additional ARC-specific terms
-              </div>
-              <ul style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.65, paddingLeft: 0, listStyle: "none" }}>
-                <li>• <strong style={{ color: "var(--fg)" }}>Payment:</strong> <span>{arc.payment_expected || "Net 30 after delivery"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Delivery:</strong> <span>{arc.delivery_expected || "As per released PO"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Penalty / LD:</strong> <span>{arc.penalty_clause || "Standard LD per company policy"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Escalation:</strong> <span>{arc.escalation_policy || "Fixed for contract term"}</span></li>
-                <li>• <strong style={{ color: "var(--fg)" }}>Released POs:</strong> Buyer releases POs against this framework — qty per released PO; all other terms inherited.</li>
-              </ul>
-            </div>
-          </div>
-
-          <label
-            className={"check" + (acceptedTerms ? " is-checked" : "")}
-            onClick={(e) => { e.preventDefault(); setAcceptedTerms(v => !v); }}
-          >
-            <span className="box"></span>
-            <div className="check-body">
-              <div className="check-title">I have read and accept the rate-contract terms &amp; conditions above.</div>
-              <div className="check-desc">
-                By checking this, you confirm that any quote you submit will follow these terms for the full contract term{" "}
-                <span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span>.
-              </div>
-            </div>
-          </label>
+          <div>{lockedNote}</div>
         </div>
       )}
 
-      {/* STEP 2 — Items & tech eval */}
-      {currentStep === 1 && (
+      {/* D: Terminal withdrawn state banner — replaces the submitted stage after a regret. */}
+      {isWithdrawn && (
+        <div className="guide danger" style={{ alignItems: "flex-start" }}>
+          <div className="g-ic" style={{ marginTop: 2 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Quote withdrawn</div>
+            <div style={{ fontSize: 12.5 }}>
+              You marked this rate contract as declined on{" "}
+              <span className="mono">{new Date(withdrawnAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>.
+              If you wish to re-submit, please return to your rate-contract requests list.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AWARDING STAGE — Award & sign (read-only panel) */}
+      {stageKey === "awarding" && (
         <div className="step-pane">
           <div className="q-section-head">
             <div>
-              <div className="q-section-title">Item specifications &amp; technical evaluation</div>
-              <div className="q-section-sub">Review each item&apos;s spec, study 3-year consumption history, and respond to technical clauses.</div>
+              <div className="q-section-title">Award &amp; sign</div>
+              <div className="q-section-sub">Await the buyer&apos;s award decision. If selected, you&apos;ll be invited to sign the rate contract.</div>
             </div>
-            {hasTechClauses && (
-              <div className="flex flex-col items-end gap-2" style={{ minWidth: 240 }}>
-                <div className="flex items-baseline justify-between w-full">
-                  <span style={{ fontSize: 12, color: "var(--fg-3)", fontWeight: 500 }}>Tech eval progress</span>
-                  <span className="mono" style={{ fontSize: 12, color: "var(--fg)" }}>{evalAnswered} of {evalTotal}</span>
-                </div>
-                <div className="q-bar w-full"><div className="q-fill" style={{ width: `${evalProgress}%` }}></div></div>
-              </div>
-            )}
           </div>
-
-          {items.map((it, pidx) => {
-            const clauses = itemClauses(it.id);
-            const minPassBlock = techClauses.find(b => (b.arc_item_id || b.itemId) === it.id);
+          {(() => {
+            const awardingStage = lifecycle?.stages?.find(s => s.key === "awarding");
+            const reason = awardingStage?.reason;
+            if (reason === "awaiting_sign") {
+              return (
+                <div className="q-card">
+                  <div className="q-card-head">
+                    <h3>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      Congratulations — you&apos;ve been awarded
+                    </h3>
+                  </div>
+                  <div className="q-card-section">
+                    <p style={{ fontSize: 13, color: "var(--fg-2)", marginBottom: 16 }}>
+                      The buyer has selected your quote. Please review and sign the rate contract to activate it.
+                    </p>
+                    <Link href={`/dashboard/vendor/rate-contracts/${contractId}/accept`} className="btn btn-success">
+                      Review &amp; sign contract
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
+            if (reason === "not_awarded") {
+              return (
+                <div className="q-card">
+                  <div className="q-card-section" style={{ color: "var(--fg-3)", fontSize: 13 }}>
+                    The buyer has completed the award process. Your quote was not selected for this rate contract.
+                  </div>
+                </div>
+              );
+            }
             return (
-              <div className="product-card" key={it.id}>
-                <div className="product-head">
-                  <div>
-                    <div className="name">
-                      <span className="idx">{String(pidx + 1).padStart(2, "0")}</span>
-                      <span>{it.variant_name || it.title || `Item #${it.id}`}</span>
-                    </div>
-                    <div className="spec">{it.spec || ""}</div>
-                    <div className="product-meta-row">
-                      <a href="#" className="file-chip-mini" onClick={e => e.preventDefault()}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        TDS · spec sheet
-                      </a>
-                      <a href="#" className="file-chip-mini" onClick={e => e.preventDefault()}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        Sample dispatch label
-                      </a>
-                    </div>
-                  </div>
-                  <div className="qty-block-r">
-                    <div className="lbl">Indicative qty</div>
-                    <div className="val mono">{safeNum(it.committed_qty ?? it.indicative_qty ?? 0).toLocaleString("en-IN")}</div>
-                    <div className="unit">{it.uom || ""}</div>
-                  </div>
+              <div className="q-card">
+                <div className="q-card-section" style={{ color: "var(--fg-3)", fontSize: 13 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: -2, marginRight: 6 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  The buyer&apos;s evaluation team is reviewing all submitted quotes. You&apos;ll be notified once the award decision is made.
                 </div>
-
-                <div className="kv-row"><div className="kv-k">Item code</div><div className="kv-v mono"><span>{it.variant_slug || it.code || "—"}</span> · <span>{it.uom || ""}</span></div></div>
-                <div className="kv-row"><div className="kv-k">Spec</div><div className="kv-v">{it.spec || "—"}</div></div>
-                <div className="kv-row">
-                  <div className="kv-k">Target price</div>
-                  <div className="kv-v">
-                    <span className="mono fw-600">{it.target_price != null ? `₹${fmtN(it.target_price)}` : "N/A"}</span>
-                    {" / "}<span>{it.uom || ""}</span>{" "}
-                    <span className="text-fg-4 fs-11">· buyer reference, non-binding</span>
-                  </div>
-                </div>
-
-                <div className="kv-row">
-                  <div className="kv-k">Past 3-yr<br/>consumption</div>
-                  <div className="kv-v">
-                    <table className="past-3y-table">
-                      <thead>
-                        <tr>
-                          <th>FY {(new Date().getFullYear()) - 3}</th>
-                          <th className="right">FY {(new Date().getFullYear()) - 2}</th>
-                          <th className="right">FY {(new Date().getFullYear()) - 1}</th>
-                          <th className="right">3-yr avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="mono fw-600">{safeNum(it.past?.[0]).toLocaleString("en-IN")} {it.uom || ""}</td>
-                          <td className="right">{safeNum(it.past?.[1]).toLocaleString("en-IN")}</td>
-                          <td className="right">{safeNum(it.past?.[2]).toLocaleString("en-IN")}</td>
-                          <td className="right" style={{ color: "var(--fg-3)" }}>
-                            {Math.round((safeNum(it.past?.[0]) + safeNum(it.past?.[1]) + safeNum(it.past?.[2])) / 3).toLocaleString("en-IN")}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="fs-11 text-fg-4 mt-2">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: -2 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>{" "}
-                      Historical data drawn from past POs — for your demand-planning reference only.
-                    </div>
-                  </div>
-                </div>
-
-                {hasTechClauses && clauses.length > 0 && (
-                  <div>
-                    <div className="q-card-head" style={{ borderTop: "1px solid var(--border)" }}>
-                      <h3>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        Technical evaluation
-                      </h3>
-                      <span className="count">
-                        <span>{productEvalCount(it.id)}</span> of <span>{clauses.length}</span> answered · min pass{" "}
-                        <span>{(minPassBlock?.min_pass ?? minPassBlock?.minPass ?? 0) + "%"}</span>
-                      </span>
-                    </div>
-                    {clauses.map((c, cidx) => {
-                      const resp = getResp(it.id, c.id);
-                      return (
-                        <div className={"clause" + (resp.decision !== null ? " is-answered" : "")} key={c.id}>
-                          <span className="clause-num">{String(cidx + 1).padStart(2, "0")}</span>
-                          <div>
-                            <div className="clause-text">{c.text}</div>
-                            <div className="clause-meta">
-                              <span className="c-weight-pill">weight <span className="mono">{c.weight}</span> marks</span>
-                              <span className="pill">{c.type}</span>
-                            </div>
-                            <div className="clause-actions">
-                              <button
-                                className={"radio-chip" + (resp.decision === "agree" ? " is-selected agree" : "")}
-                                onClick={() => setDecision(it.id, c.id, "agree")}
-                                type="button"
-                              >
-                                <span className="indicator"></span> I agree
-                              </button>
-                              <button
-                                className={"radio-chip" + (resp.decision === "disagree" ? " is-selected disagree" : "")}
-                                onClick={() => setDecision(it.id, c.id, "disagree")}
-                                type="button"
-                              >
-                                <span className="indicator"></span> I don&apos;t agree
-                              </button>
-                              <button className="upload-mini" type="button">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                                Attach evidence
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {!hasTechClauses && (
-                  <div className="q-card-section" style={{ background: "var(--surface-2)", color: "var(--fg-3)", fontSize: 12.5 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: -2 }}><circle cx="12" cy="12" r="10"/><polyline points="22 4 12 14.01 9 11.01"/></svg>{" "}
-                    No technical evaluation required for this item. Proceed to pricing.
-                  </div>
-                )}
               </div>
             );
-          })}
+          })()}
         </div>
       )}
 
-      {/* STEP 3 — Pricing */}
-      {currentStep === 2 && (
+      {/* ACTIVE STAGE — Contract live (read-only panel) */}
+      {stageKey === "active" && (
         <div className="step-pane">
           <div className="q-section-head">
             <div>
-              <div className="q-section-title">Pricing &amp; commercial terms</div>
-              <div className="q-section-sub">Enter your single price per item for the full contract term. Single-BU contract — one price applies.</div>
-              <div className="mini-stats">
-                <div className="mini-stat"><div className="lbl">Items to price</div><div className="val">{items.length}</div></div>
-                <div className="div"></div>
-                <div className="mini-stat"><div className="lbl">Business unit</div><div className="val"><span className="mono">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
-                <div className="div"></div>
-                <div className="mini-stat"><div className="lbl">Contract term</div><div className="val"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
-              </div>
+              <div className="q-section-title">Active contract</div>
+              <div className="q-section-sub">Your rate contract is active. Call-off POs will be released by the buyer against this framework.</div>
             </div>
           </div>
-
-          <div className="q-cols">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between mt-1">
-                <div className="flex items-center gap-2">
-                  <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}>Line items</h3>
-                  <span className="pill">{items.length} {items.length === 1 ? "item" : "items"}</span>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--fg-3)" }}><span className="kbd">↹</span> tab between fields</div>
-              </div>
-
-              {items.map((it, idx) => {
-                const l = priceLine(it.id);
-                const qty = safeNum(it.committed_qty ?? it.indicative_qty ?? 0);
-                const lt = lineTotal(it.id, qty);
-                return (
-                  <div className="line-card" key={it.id}>
-                    <div className="line-card-head">
-                      <div className="left">
-                        <div className="num-chip">{String(idx + 1).padStart(2, "0")}</div>
-                        <div>
-                          <div className="title">{it.variant_name || it.title || `Item #${it.id}`}</div>
-                          <div className="desc">{it.spec || ""}</div>
-                          <div className="mt-2 flex gap-1 flex-wrap">
-                            {l.charges.length > 0 && (
-                              <span className="pill">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                {" "}{l.charges.length} extra {l.charges.length > 1 ? "charges" : "charge"}
-                              </span>
-                            )}
-                            {l.rate ? (
-                              <span className="pill success"><span className="pdot"></span> Priced</span>
-                            ) : (
-                              <span className="pill warn">Awaiting price</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="qty-block">
-                        <div className="lbl">Qty required</div>
-                        <div className="val mono">{qty.toLocaleString("en-IN")}</div>
-                        <div className="unit">{it.uom || ""}</div>
-                      </div>
-                    </div>
-
-                    <div className="line-section">
-                      <div className="line-section-label">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
-                        Unit price for this contract
-                      </div>
-                      <div className="price-grid">
-                        <div>
-                          <label className="label">Unit price <span className="req">*</span></label>
-                          <div className="input-group">
-                            <div className="prefix">₹</div>
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.rate}
-                              onChange={e => updateLine(it.id, { rate: e.target.value })}
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                            />
-                            <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>/ <span>{it.uom || ""}</span></div>
-                          </div>
-                          <div className="help-text">
-                            Target was <span className="mono">{it.target_price != null ? `₹${fmtN(it.target_price)}` : "N/A"}</span> per <span>{it.uom || ""}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="label">Tax (GST)</label>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.gst_pct}
-                              onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
-                              placeholder="0"
-                              min="0"
-                            />
-                            <div className="suffix" style={{ padding: 0 }}>
-                              <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                                <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }}>%</button>
-                                <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }}>₹</button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="label">Freight (per <span>{it.uom || ""}</span>)</label>
-                          <div className="input-group">
-                            <div className="prefix">₹</div>
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.freight}
-                              onChange={e => updateLine(it.id, { freight: e.target.value })}
-                              placeholder="0"
-                              min="0"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="label">Lead time <span className="req">*</span></label>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.lead_time_days}
-                              onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
-                              placeholder="7"
-                              min="1"
-                            />
-                            <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>days</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        <label className="label">Other charges <span className="label-meta">insurance, packaging, TCS, etc.</span></label>
-                        <button
-                          type="button"
-                          className={"charges-trigger" + (l.charges.length > 0 ? " has-items" : "")}
-                          onClick={() => setChargesOpen(chargesOpen === it.id ? null : it.id)}
-                        >
-                          <span className="flex items-center gap-2">
-                            {l.charges.length === 0 ? (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-                            ) : (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                            )}
-                            <span>
-                              {l.charges.length === 0
-                                ? "Add insurance, packaging, TCS…"
-                                : `${l.charges.length} charge${l.charges.length > 1 ? "s" : ""} added`}
-                            </span>
-                          </span>
-                          {l.charges.length > 0 && (
-                            <span className="ch-amt">{`₹ ${fmtN(productChargesTotal(it.id))}`}</span>
-                          )}
-                        </button>
-                        {chargesOpen === it.id && (
-                          <div className="rounded-lg mt-2 p-3" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
-                            <div className="flex items-center gap-2 mb-2" style={{ flexWrap: "wrap" }}>
-                              {["Insurance", "Packaging", "TCS", "Loading", "Other"].map(t => (
-                                <button key={t} type="button" className="btn btn-sm" onClick={() => addChargeOfType(it.id, t)}>+ {t}</button>
-                              ))}
-                            </div>
-                            {l.charges.length === 0 && (
-                              <div style={{ fontSize: 12, color: "var(--fg-3)" }}>Pick a charge type above to add it to this line.</div>
-                            )}
-                            {l.charges.map((c, ci) => (
-                              <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 110px 90px 32px" }}>
-                                <input
-                                  className="input"
-                                  type="text"
-                                  value={c.name}
-                                  onChange={e => setPrice(p => { const cur = { ...(p[it.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], name: e.target.value }; cur.charges = ch; return { ...p, [it.id]: cur }; })}
-                                  placeholder="Charge name"
-                                />
-                                <div className="input-group">
-                                  <input
-                                    className="input input-num"
-                                    type="number"
-                                    value={c.amount}
-                                    onChange={e => setPrice(p => { const cur = { ...(p[it.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amount: e.target.value }; cur.charges = ch; return { ...p, [it.id]: cur }; })}
-                                    placeholder="0"
-                                  />
-                                  <div className="suffix" style={{ padding: 0 }}>
-                                    <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                                      <button type="button" className={c.amountMode === "%" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[it.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amountMode: "%" }; cur.charges = ch; return { ...p, [it.id]: cur }; })} style={{ borderRadius: 0 }}>%</button>
-                                      <button type="button" className={c.amountMode === "₹" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[it.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amountMode: "₹" }; cur.charges = ch; return { ...p, [it.id]: cur }; })} style={{ borderRadius: 0 }}>₹</button>
-                                    </div>
-                                  </div>
-                                </div>
-                                <input
-                                  className="input"
-                                  type="text"
-                                  value={c.note}
-                                  onChange={e => setPrice(p => { const cur = { ...(p[it.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], note: e.target.value }; cur.charges = ch; return { ...p, [it.id]: cur }; })}
-                                  placeholder="Note"
-                                />
-                                <button
-                                  type="button"
-                                  className="icon-btn"
-                                  onClick={() => removeCharge(it.id, ci)}
-                                  title="Remove"
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="line-section">
-                      <div className="line-section-label">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-                        Notes &amp; attachments
-                      </div>
-                      <div className="notes-grid">
-                        <div>
-                          <label className="label">Comment to buyer <span className="label-meta">optional</span></label>
-                          <textarea
-                            className="textarea"
-                            value={l.comment}
-                            onChange={e => updateLine(it.id, { comment: e.target.value })}
-                            placeholder="MOQ, validity caveats, substitute proposals…"
-                            maxLength={300}
-                            style={{ minHeight: 64 }}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-3">
-                          <div>
-                            <label className="label">Lead-time note</label>
-                            <input
-                              className="input"
-                              type="text"
-                              value={l.leadNote}
-                              onChange={e => updateLine(it.id, { leadNote: e.target.value })}
-                              placeholder="e.g. Subject to PO confirmation"
-                            />
-                          </div>
-                          <button className="upload-mini w-full justify-center" type="button" style={{ padding: 9 }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                            Attach supporting documents
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="line-card-foot">
-                      <div className="badges">
-                        <span>
-                          <span className="mono">{qty.toLocaleString("en-IN")}</span> ×{" "}
-                          <span className="mono">{l.rate ? `₹${fmtN(l.rate)}` : "—"}</span>
-                          {safeNum(l.gst_pct) > 0 && (
-                            <> + <span className="mono">{l.gstMode === "%" ? `${l.gst_pct}% GST` : `₹${l.gst_pct} tax`}</span></>
-                          )}
-                        </span>
-                      </div>
-                      <div className="ltot">
-                        <span className="lbl">Line total</span>
-                        <span className={"val" + (lt === 0 ? " is-zero" : "")}>{`₹ ${fmtN(lt)}`}</span>
-                      </div>
-                    </div>
+          {(() => {
+            const activeStage = lifecycle?.stages?.find(s => s.key === "active");
+            const reason = activeStage?.reason;
+            if (reason === "live") {
+              return (
+                <div className="q-card">
+                  <div className="q-card-section">
+                    <p style={{ fontSize: 13, color: "var(--fg-2)", marginBottom: 16 }}>
+                      Your rate contract is live. The buyer will release call-off purchase orders against the agreed rates.
+                    </p>
+                    <Link href={`/dashboard/vendor/rate-contracts/${contractId}`} className="btn btn-blue">
+                      View active contract
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </Link>
                   </div>
-                );
-              })}
-
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-2">
-                  <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}>Commercial terms</h3>
-                  <span className="pill">Applies to entire quote</span>
+                </div>
+              );
+            }
+            if (["expired", "terminated", "declined"].includes(reason)) {
+              return (
+                <div className="q-card">
+                  <div className="q-card-section" style={{ color: "var(--fg-3)", fontSize: 13 }}>
+                    This contract has ended ({reason}).
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="q-card">
+                <div className="q-card-section" style={{ color: "var(--fg-3)", fontSize: 13 }}>
+                  Contract status: {reason || "pending"}.
                 </div>
               </div>
-
-              <div className="commercial-card">
-                <div className="q-card-section">
-                  <label className="label">GSTIN <span className="label-meta">used for invoicing</span></label>
-                  <input
-                    className="input mono"
-                    value={globals.gstin}
-                    onChange={e => setGlobals(g => ({ ...g, gstin: e.target.value }))}
-                    placeholder="29ABCDE1234F1Z5"
-                    maxLength={15}
-                    style={{ maxWidth: 280 }}
-                  />
-                </div>
-                <div className="q-card-section">
-                  <label className="label">Global comment <span className="label-meta">visible to buyer</span></label>
-                  <textarea
-                    className="textarea"
-                    value={globals.comment}
-                    onChange={e => setGlobals(g => ({ ...g, comment: e.target.value }))}
-                    placeholder="Quote-wide notes — packaging, batching, validity, etc."
-                    maxLength={500}
-                  />
-                </div>
-                <div className="q-card-section">
-                  <div className="flex items-baseline justify-between mb-2">
-                    <label className="label" style={{ marginBottom: 0 }}>Payment terms <span className="req">*</span></label>
-                    <div className="tot-hint">
-                      <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>Must sum to 100% · currently</span>
-                      <span className={"tot-num ml-1 " + (paymentTotal === 100 ? "ok" : "err")}>{paymentTotal}%</span>
-                    </div>
-                  </div>
-                  <div className="rounded-lg" style={{ border: "1px solid var(--border)", overflow: "hidden" }}>
-                    {globals.paymentTerms.map((pt, i) => (
-                      <div
-                        key={i}
-                        className={"grid items-center gap-2 px-3 py-2" + (i === 0 ? " !border-t-0" : "")}
-                        style={{ gridTemplateColumns: "24px 1fr 130px 32px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}
-                      >
-                        <div className="mono" style={{ fontSize: 11, color: "var(--fg-4)", textAlign: "center" }}>{String(i + 1).padStart(2, "0")}</div>
-                        <input
-                          className="input"
-                          style={{ border: "none", background: "transparent", padding: "4px 6px" }}
-                          type="text"
-                          value={pt.label}
-                          onChange={e => updatePaymentTerm(i, { label: e.target.value })}
-                          placeholder={i === 0 ? "e.g. Advance on PO acceptance" : "e.g. Net 30 after delivery"}
-                        />
-                        <div className="input-group" style={{ border: "1px solid var(--border)" }}>
-                          <input
-                            className="input input-num"
-                            style={{ padding: "5px 10px" }}
-                            type="number"
-                            value={pt.pct}
-                            onChange={e => updatePaymentTerm(i, { pct: Number(e.target.value) })}
-                            min="0"
-                            max="100"
-                            placeholder="0"
-                          />
-                          <div className="suffix" style={{ padding: "0 9px" }}>%</div>
-                        </div>
-                        <button
-                          className="icon-btn"
-                          onClick={() => removePaymentTerm(i)}
-                          type="button"
-                          disabled={globals.paymentTerms.length === 1}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      className="w-full text-left px-3 py-2 flex items-center gap-2"
-                      onClick={addPaymentTerm}
-                      type="button"
-                      style={{ borderTop: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12.5, color: "var(--primary)" }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-                      Add another term
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <aside>
-              <div className="hero-summary">
-                <div className="hero-summary-inner">
-                  <div className="hero-head">
-                    <div className="h-title">Quote summary</div>
-                    <div className="h-rfq">{`#${arcNumber}`}</div>
-                  </div>
-                  {totals.grand > 0 ? (
-                    <div>
-                      <div className="hero-grand-label">Grand total · full term</div>
-                      <div className="hero-grand"><span className="cur">₹</span><span>{fmtN(totals.grand)}</span></div>
-                      <div className="hero-grand-meta">Inclusive of GST &amp; all charges · INR · full contract term</div>
-                      <div className="breakdown-bar">
-                        <div className="bd-subtotal" style={{ width: `${(totals.subtotal / totals.grand) * 100 || 0}%` }}></div>
-                        <div className="bd-gst" style={{ width: `${(totals.gst / totals.grand) * 100 || 0}%` }}></div>
-                        <div className="bd-charges" style={{ width: `${(totals.extraCharges.reduce((s, c) => s + c.amount, 0) / totals.grand) * 100 || 0}%` }}></div>
-                      </div>
-                      <div className="breakdown-legend">
-                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-subtotal"></span> Subtotal</span><span className="val">{`₹ ${fmtN(totals.subtotal)}`}</span></div>
-                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-gst"></span> GST</span><span className="val">{`₹ ${fmtN(totals.gst)}`}</span></div>
-                        {totals.extraCharges.map(ec => (
-                          <div className="breakdown-row" key={ec.label}>
-                            <span className="lbl"><span className="swatch bd-charges"></span> <span>{ec.label}</span></span>
-                            <span className="val">{`₹ ${fmtN(ec.amount)}`}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="empty-hero">
-                      <div className="ic">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
-                      </div>
-                      <div className="ttl">Awaiting your prices</div>
-                      <div className="sub">Your grand total &amp; tax breakdown will appear here as you price each line item.</div>
-                    </div>
-                  )}
-                </div>
-                <div className="hero-foot">
-                  <div className="meta-row"><span className="k">Payment</span><span className="v">{globals.paymentTerms.length} term{globals.paymentTerms.length === 1 ? "" : "s"} · {paymentTotal}%</span></div>
-                  <div className="meta-row"><span className="k">BU</span><span className="v"><span>{arc.hotel_code || "—"}</span> · <span>{arc.hotel_name || ""}</span></span></div>
-                  <div className="meta-row"><span className="k">Closes</span><span className="v">{submissionEnd}</span></div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <span className={"completion-pill" + (canSubmit ? " is-ready" : "")}>
-                      <span className="pulse"></span>
-                      <span>{canSubmit ? "Ready to submit" : "In progress"}</span>
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>v1 · draft</span>
-                  </div>
-                </div>
-              </div>
-            </aside>
-          </div>
+            );
+          })()}
         </div>
       )}
+
+      {/* Inner stepper removed — VendorArcStageTimeline above is the only nav */}
+
+      {/* STAGE BODIES — driven by stageKey, not an internal stepper */}
+      {(stageKey === "overview" || (!stageKey && true)) && (
+        <VendorOverviewStage
+          arc={arc}
+          items={items}
+          invitation={invitation}
+          techEnvelope={techEnvelope}
+          acceptedTerms={acceptedTerms}
+          termsAcceptedAt={termsAcceptedAt}
+          onAcceptTerms={onAcceptTerms}
+          acceptingTerms={acceptingTerms}
+          readOnly={submitted}
+          submissionStart={submissionStart}
+          submissionEnd={submissionEnd}
+          termStart={termStart}
+          termEnd={termEnd}
+        />
+      )}
+
+      {stageKey === "technical" && hasTechClauses && (
+        <VendorTechnicalStage
+          items={items}
+          techItems={techItems}
+          itemClauses={itemClauses}
+          techResponses={techResponses}
+          techFiles={techFiles}
+          techSealed={techSealed}
+          techBusy={techBusy}
+          techError={techError}
+          evalTotal={evalTotal}
+          evalAnswered={evalAnswered}
+          evalProgress={evalProgress}
+          onChangeResponse={(clauseId, value) => setTechResponses(prev => ({ ...prev, [clauseId]: value }))}
+          onUploadEvidence={onUploadTechEvidence}
+          onDeleteEvidence={onDeleteTechEvidence}
+          uploadErrors={techUploadErrors}
+          readOnly={false}
+        />
+      )}
+
+      {stageKey === "commercial" && (
+        <VendorCommercialStage
+          arc={arc}
+          items={items}
+          price={price}
+          priceLine={priceLine}
+          updateLine={updateLine}
+          addChargeOfType={addChargeOfType}
+          removeCharge={removeCharge}
+          productChargesTotal={productChargesTotal}
+          lineTotal={lineTotal}
+          totals={totals}
+          globals={globals}
+          setGlobals={setGlobals}
+          onChangePaymentTerms={updatePaymentTerm}
+          onChangeComment={(v) => setGlobals(g => ({ ...g, comment: v }))}
+          paymentTotal={paymentTotal}
+          chargesOpen={chargesOpen}
+          setChargesOpen={setChargesOpen}
+          canSubmit={canSubmit}
+          submitting={submitting}
+          onSaveDraft={() => saveDraft(false)}
+          onSubmit={submit}
+          onWithdraw={openRegretModal}
+          submitted={submitted}
+          submittedAt={submittedAt}
+          readOnly={false}
+          arcNumber={arcNumber}
+          termStart={termStart}
+          termEnd={termEnd}
+          submissionEnd={submissionEnd}
+          addPaymentTerm={addPaymentTerm}
+          removePaymentTerm={removePaymentTerm}
+          updatePaymentTerm={updatePaymentTerm}
+          setPrice={setPrice}
+          blankLine={blankLine}
+        />
+      )}
+
 
       {toast && (
         <div className="arc-toast">
@@ -1124,71 +1025,123 @@ export default function VendorQuotePage() {
         </div>
       )}
 
-      {/* Action dock */}
-      {!submitted && (
+      {/* Action dock — single action center for all stage navigation + commercial submit.
+          Phase 1 §D: Submit + Save-draft are NOW here (not in VendorCommercialStage aside).
+          Accept-terms and seal-envelope remain inside their stage bodies (stage-specific seals). */}
+      {!submitted && ["overview", "technical", "commercial"].includes(stageKey) && (() => {
+        const visibleOrder = ["overview", ...(hasTechClauses ? ["technical"] : []), "commercial"];
+        const curIdx = visibleOrder.indexOf(stageKey);
+        const prevStage = curIdx > 0 ? visibleOrder[curIdx - 1] : null;
+        const nextStage = curIdx >= 0 && curIdx < visibleOrder.length - 1 ? visibleOrder[curIdx + 1] : null;
+        const continueBlocked =
+          savingDraft ||
+          (stageKey === "overview" && !acceptedTerms) ||
+          (stageKey === "technical" && hasTechClauses && !techSealed);
+        return (
         <div className="action-dock">
           <div className="inner">
             <div className="left">
-              {currentStep === 0 && (
-                <span className="fs-13 text-fg-2"><span className="fw-600 text-fg">Step 1 of 3.</span> Acknowledge the terms above to continue.</span>
+              {stageKey === "overview" && (
+                <span className="fs-13 text-fg-2"><span className="fw-600 text-fg">Tender &amp; terms.</span> {acceptedTerms ? "Terms acknowledged — continue when ready." : "Acknowledge the terms above to continue."}</span>
               )}
-              {currentStep === 1 && (
+              {stageKey === "technical" && (
                 <span className="fs-13 text-fg-2">
-                  <span className="fw-600 text-fg">Step 2 of 3.</span>{" "}
+                  <span className="fw-600 text-fg">Technical envelope.</span>{" "}
                   {hasTechClauses
-                    ? <span>Answer <span className="fw-600 text-fg">{evalTotal - evalAnswered}</span> remaining clause(s) to continue.</span>
-                    : <span>Review item specs &amp; past consumption.</span>}
+                    ? (techSealed
+                        ? <span>Envelope sealed — continue to your quote.</span>
+                        : (evalTotal === 0
+                            ? <span>No clauses to respond to on this envelope — seal when ready.</span>
+                            : <span>{evalAnswered} of {evalTotal} answered — respond to all clauses, then seal the envelope to continue.</span>))
+                    : <span>No technical evaluation required for these items.</span>}
                 </span>
               )}
-              {currentStep === 2 && (
-                <span className="fs-13 text-fg-2"><span className="fw-600 text-fg">Step 3 of 3.</span> Review totals, then submit when ready.</span>
+              {stageKey === "commercial" && (
+                <span className="fs-13 text-fg-2">
+                  <span className="fw-600 text-fg">Your quote.</span>{" "}
+                  {canSubmit
+                    ? <span style={{ color: "var(--success, #22c55e)" }}>Ready to submit — all lines priced.</span>
+                    : <span>Enter rates for all items, then submit.</span>}
+                </span>
               )}
             </div>
             <div className="right">
-              {currentStep === 2 && totals.grand > 0 && (
-                <span className="fs-13 text-fg-3 mr-2">Total <span className="mono fw-700 text-fg">{`₹ ${fmtN(totals.grand)}`}</span></span>
+              {prevStage && (
+                <button className="btn btn-secondary btn-sm" onClick={() => selectStage(prevStage)} type="button">Back</button>
               )}
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => saveDraft(false)}
-                disabled={savingDraft}
-                type="button"
-              >
-                {savingDraft ? "Saving…" : "Save draft"}
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={regretQuote} type="button">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
-                Regret quote
-              </button>
-              {currentStep > 0 && (
-                <button className="btn btn-secondary btn-sm" onClick={prevStep} type="button">Back</button>
+              {/* C: Technical stage — Seal + Save Draft (unsealed) or Continue (sealed) */}
+              {stageKey === "technical" && (
+                techSealed ? (
+                  <button
+                    className="btn btn-blue"
+                    onClick={handleNextStep}
+                    type="button"
+                  >
+                    <span>Continue to your quote</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={onSaveTechDraft}
+                      disabled={techBusy}
+                    >
+                      {techBusy ? "Saving…" : "Save Draft"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-blue"
+                      onClick={onSealTechEnvelope}
+                      disabled={techBusy || evalTotal === 0 || evalAnswered < evalTotal}
+                      title={evalTotal === 0 ? "No clauses to respond to" : evalAnswered < evalTotal ? `Respond to all ${evalTotal} clauses first` : "Seal technical envelope"}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      {techBusy ? "Sealing…" : "Seal Technical Evaluation"}
+                    </button>
+                  </>
+                )
               )}
-              {currentStep < 2 && (
+              {/* Phase 1 §D — commercial: Save draft + Submit in the dock (SINGLE action center) */}
+              {stageKey === "commercial" && !nextStage && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => saveDraft(false)}
+                    disabled={submitting || savingDraft}
+                  >
+                    {savingDraft ? "Saving…" : "Save draft"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    onClick={submit}
+                    disabled={!canSubmit || submitting || savingDraft}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    {submitting ? "Submitting…" : "Submit quote"}
+                  </button>
+                </>
+              )}
+              {/* Overview → next stage Continue button (non-technical stages) */}
+              {nextStage && stageKey !== "technical" && (
                 <button
                   className="btn btn-blue"
                   onClick={handleNextStep}
-                  disabled={!canContinue || savingDraft}
+                  disabled={continueBlocked}
                   type="button"
                 >
-                  <span>{currentStep === 0 ? "Continue to items" : "Continue to pricing"}</span>
+                  <span>{nextStage === "technical" ? "Continue to technical" : "Continue to your quote"}</span>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </button>
-              )}
-              {currentStep === 2 && (
-                <button
-                  className="btn btn-success"
-                  onClick={submit}
-                  disabled={!canSubmit || submitting}
-                  type="button"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                  {submitting ? "Submitting…" : "Submit quote"}
                 </button>
               )}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Confirmation overlay */}
       {submitted && (
@@ -1208,7 +1161,7 @@ export default function VendorQuotePage() {
               </p>
               <div className="ref-chip">
                 <span className="ref-tag">Reference</span>
-                <span className="ref-num">{referenceNumber}</span>
+                <span className="ref-num">{arcRefLabel}</span>
                 <button className="copy-btn" type="button" onClick={copyReference}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
@@ -1246,6 +1199,46 @@ export default function VendorQuotePage() {
                 Back to dashboard{" "}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* D: Regret confirmation modal */}
+      {confirmRegret && (
+        <div className="confirm-overlay" onClick={(e) => { if (e.target === e.currentTarget && !withdrawing) setConfirmRegret(false); }}>
+          <div className="confirm-modal" style={{ maxWidth: 420 }}>
+            <div className="confirm-body" style={{ padding: "28px 28px 20px" }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fg)", marginBottom: 10 }}>Withdraw your quote?</div>
+              <div style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                This notifies the buyer and marks you as declined for this rate contract.
+              </div>
+              {withdrawModalError && (
+                <div className="guide danger" style={{ alignItems: "center", marginTop: 14 }}>
+                  <div className="g-ic" style={{ marginTop: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
+                  <div style={{ fontSize: 12.5 }}>{withdrawModalError}</div>
+                </div>
+              )}
+            </div>
+            <div className="confirm-foot">
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => { if (!withdrawing) setConfirmRegret(false); }}
+                disabled={withdrawing}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                type="button"
+                onClick={regretQuote}
+                disabled={withdrawing}
+              >
+                {withdrawing ? "Withdrawing…" : "Withdraw quote"}
+              </button>
             </div>
           </div>
         </div>
@@ -1290,7 +1283,7 @@ export default function VendorQuotePage() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

@@ -19,7 +19,7 @@ const STEPS = [
   { key: "items",     label: "Items",          meta: "Pick from catalogue" },
   { key: "terms",     label: "Terms",          meta: "Dates · escalation" },
   { key: "tech",      label: "Tech & vendors", meta: "Clauses · eligibility" },
-  { key: "review",    label: "Review",         meta: "Publish & float" },
+  { key: "review",    label: "Review",         meta: "Submit for approval" },
 ];
 
 const TODAY = new Date();
@@ -432,14 +432,23 @@ export default function CreateRateContractPage() {
       }
 
       const pubRes = await ArcApi.publish(arcId);
-      // M3 — report the truth from the server (count of vendors actually
-      // tagged + notified), not a client-side guess.
-      const vendorCount =
-        pubRes?.data?.vendor_count ?? pubRes?.data?.data?.vendor_count ?? 0;
-      draftArcRef.current = null; // fully published — clear the resume handle
-      showToast(`Floated · ${vendorCount} vendor(s) invited & notified`);
-      setTimeout(() => router.push("/dashboard/buyer/rate-contracts/all"), 1100);
+      draftArcRef.current = null; // fully submitted — clear the resume handle
+      // Publish now routes through an approval gate. If the publisher is the
+      // sole/ANY approver the engine auto-approves and the ARC floats in the
+      // same request (floated:true); otherwise it parks pending publish approval.
+      const floated = pubRes?.data?.data?.floated ?? pubRes?.data?.floated;
+      if (floated) {
+        const vendorCount =
+          pubRes?.data?.vendor_count ?? pubRes?.data?.data?.vendor_count ?? 0;
+        showToast(vendorCount ? `Floated · ${vendorCount} vendor(s) invited & notified` : "Floated · vendors invited & notified");
+        setTimeout(() => router.push("/dashboard/buyer/rate-contracts/all"), 1100);
+      } else {
+        showToast("Submitted for publish approval");
+        // Land the creator on the detail/overview so they see the pending banner.
+        setTimeout(() => router.push(`/dashboard/buyer/rate-contracts/${arcId}`), 1100);
+      }
     } catch (e) {
+      // Surface the server message verbatim — the no-policy message is actionable.
       setError(e?.response?.data?.message || e?.message || "Could not publish");
     } finally { setBusy(false); }
   }
@@ -1055,6 +1064,13 @@ export default function CreateRateContractPage() {
               </div>
             )}
 
+            <div className="guide" style={{ marginTop: 18 }}>
+              <div className="g-ic"><InfoIcon /></div>
+              <div>
+                This rate contract goes for <strong>publish approval</strong> before vendors can see it. If you are the sole approver, it goes live immediately on publish.
+              </div>
+            </div>
+
             {error && (
               <div className="guide" style={{ marginTop: 14 }}>
                 <div className="g-ic"><InfoIcon /></div>
@@ -1088,7 +1104,7 @@ export default function CreateRateContractPage() {
             )}
             {step === 6 && (
               <button className="btn btn-success" disabled={busy} onClick={submit}>
-                <SendIcon /> {busy ? "Publishing…" : "Publish & float"}
+                <SendIcon /> {busy ? "Submitting…" : "Submit for publish approval"}
               </button>
             )}
           </div>

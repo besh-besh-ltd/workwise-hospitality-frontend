@@ -4,8 +4,27 @@
 // and quick-action links moved to the lifecycle shell / stage timeline.
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
+import storageInstance from "@/utils/storageInstance";
 import { StageSkeleton } from "./StageShared";
+
+const vendorInitials = (name) => {
+  if (!name) return "?";
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// Read the logged-in user's id (creator gate for the re-publish CTA).
+function currentUserId() {
+  try {
+    const raw = storageInstance.getStorage("user");
+    if (!raw) return null;
+    const u = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return u?.id ?? null;
+  } catch { return null; }
+}
 
 const AV_PALETTE = ["av-warm", "av-sky", "av-indigo", "av-violet", "av-green", "av-zinc"];
 const pickAv = (id) => {
@@ -57,10 +76,19 @@ function classifyInvitation(inv, quoteByVendor) {
   return "none";
 }
 
-export default function OverviewStage({ arc, stage }) {
+export default function OverviewStage({ arc, stage, lifecycle, permissions, onRefresh }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [expanded, setExpanded] = useState({});
+
+  // Publish-approval gate state.
+  const reason = stage?.reason;
+  const isPendingPublish = reason === "pending_publish_approval";
+  const isPublishRejected = reason === "publish_rejected";
+  const publishSummary = stage?.publish_approval || null; // { status, current_step, can_user_approve }
+  const [pubChain, setPubChain] = useState(null);  // full getApprovalInstanceDetails shape
+  const [decideComment, setDecideComment] = useState("");
+  const [decideBusy, setDecideBusy] = useState(false);
 
   useEffect(() => {
     if (!arc?.id) return;
@@ -77,6 +105,51 @@ export default function OverviewStage({ arc, stage }) {
     })();
     return () => { cancelled = true; };
   }, [arc?.id]);
+
+  // Fetch the full publish-approval chain only while pending/rejected.
+  useEffect(() => {
+    if (!arc?.id || !(isPendingPublish || isPublishRejected)) { setPubChain(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await ArcApi.getPublishApproval(arc.id);
+        if (!cancelled) setPubChain(res?.data?.approval || null);
+      } catch { if (!cancelled) setPubChain(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [arc?.id, isPendingPublish, isPublishRejected]);
+
+  const decidePublish = async (decision) => {
+    if (decision === "reject" && !decideComment.trim()) {
+      toast.error("Add a reason before rejecting");
+      return;
+    }
+    setDecideBusy(true);
+    try {
+      await ArcApi.publishApprovalDecide(arc.id, { decision, comment: decideComment.trim() || undefined });
+      toast.success(decision === "approve" ? "Approved — rate contract going live" : "Publish rejected");
+      setDecideComment("");
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Could not record your decision";
+      toast.error(typeof msg === "string" ? msg : "Could not record your decision");
+    } finally {
+      setDecideBusy(false);
+    }
+  };
+
+  // Last rejection reason from the chain (or the ARC's closed_reason fallback).
+  const rejectReason = useMemo(() => {
+    if (arc?.closed_reason) return arc.closed_reason;
+    const steps = pubChain?.steps || [];
+    for (let i = steps.length - 1; i >= 0; i--) {
+      const rej = (steps[i].approvers || []).find((a) => a.status === "REJECTED" && a.comment);
+      if (rej) return rej.comment;
+    }
+    return null;
+  }, [pubChain, arc?.closed_reason]);
+
+  const isCreator = arc?.created_by != null && currentUserId() != null && Number(arc.created_by) === Number(currentUserId());
 
   const items = data?.items || [];
   const invitations = data?.invitations || [];
@@ -147,7 +220,100 @@ export default function OverviewStage({ arc, stage }) {
         .file-chip .fc-name { font-weight: 600; color: var(--fg); }
         .file-chip .fc-sub { font-size: 10.5px; color: var(--fg-4); font-family: 'Geist Mono', monospace; }
         .ico-attach { color: var(--fg-3); }
+        .pub-mem-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+        .pub-mem-row:last-child { border-bottom: none; }
+        .pub-mem-av { width: 30px; height: 30px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--border); display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--fg-2); flex-shrink: 0; }
+        .pub-mem-meta { min-width: 0; flex: 1; }
+        .pub-mem-name { font-size: 13px; font-weight: 500; color: var(--fg); }
+        .pub-mem-role { font-size: 11px; color: var(--fg-3); }
+        .pub-mem-comment { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; font-style: italic; }
       `}</style>
+
+      {/* ── PUBLISH-APPROVAL GATE (pending / rejected) ── */}
+      {isPendingPublish && (
+        <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--warn)" }}>
+          <div className="guide warn" style={{ alignItems: "center", margin: 0, borderRadius: "10px 10px 0 0" }}>
+            <div className="g-ic" style={{ marginTop: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            </div>
+            <div>
+              <strong>Pending publish approval.</strong> This rate contract is not yet live — vendors cannot see it until the approval below completes.
+            </div>
+          </div>
+          <div className="section-body">
+            {(pubChain?.steps || []).map((step) => {
+              const isCurrent = publishSummary?.status === "PENDING" && Number(step.step_order) === Number(pubChain?.current_step);
+              return (
+                <div key={step.step_order}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0 2px" }}>
+                    <span style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.07em", color: isCurrent ? "var(--warn)" : "var(--fg-4)", fontWeight: 700 }}>
+                      Level {step.step_order}{step.decision_rule ? (step.decision_rule === "ALL" ? " · all must approve" : " · any one approves") : ""}
+                    </span>
+                    <span className={`status-pill ${step.status === "APPROVED" ? "success" : step.status === "REJECTED" ? "danger" : isCurrent ? "warn" : "neutral"}`} style={{ fontSize: 9.5 }}>
+                      <span className="dot" />
+                      {step.status === "APPROVED" ? "cleared" : step.status === "REJECTED" ? "rejected" : isCurrent ? "reviewing now" : "waiting"}
+                    </span>
+                  </div>
+                  {(step.approvers || []).map((ap) => (
+                    <div key={ap.user_id} className="pub-mem-row">
+                      <div className="pub-mem-av">{vendorInitials(ap.user_name)}</div>
+                      <div className="pub-mem-meta">
+                        <div className="pub-mem-name">{ap.user_name}</div>
+                        <div className="pub-mem-role">{ap.user_designation || ap.user_department || "Approver"}</div>
+                        {ap.comment && <div className="pub-mem-comment">{ap.comment}</div>}
+                      </div>
+                      <span className={`status-pill ${ap.status === "APPROVED" ? "success" : ap.status === "REJECTED" ? "danger" : "neutral"}`} style={{ fontSize: 9.5 }}>
+                        <span className="dot" />{ap.status === "APPROVED" ? "approved" : ap.status === "REJECTED" ? "rejected" : "pending"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+
+            {/* Decision box — current approver only */}
+            {publishSummary?.can_user_approve && publishSummary?.status === "PENDING" && (
+              <div className="you-row" style={{ marginTop: 14 }}>
+                <div className="here-now">Your decision</div>
+                <textarea
+                  value={decideComment}
+                  onChange={(e) => setDecideComment(e.target.value)}
+                  placeholder="Remark for the approval trail — mandatory if you reject…"
+                  style={{ marginTop: 8, width: "100%", minHeight: 54, padding: "8px 11px", border: "1px solid var(--border-input)", borderRadius: 7, fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "white", resize: "vertical" }}
+                />
+                <div style={{ marginTop: 11, display: "flex", gap: 8 }}>
+                  <button type="button" className="btn btn-danger" disabled={decideBusy} onClick={() => decidePublish("reject")}>
+                    Reject
+                  </button>
+                  <button type="button" className="btn btn-success" disabled={decideBusy} style={{ flex: 1 }} onClick={() => decidePublish("approve")}>
+                    {decideBusy ? "Submitting…" : "Approve & publish"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {isPublishRejected && (
+        <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--danger)" }}>
+          <div className="guide danger" style={{ alignItems: "center", margin: 0, borderRadius: "10px 10px 0 0" }}>
+            <div className="g-ic" style={{ marginTop: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+            </div>
+            <div>
+              <strong>Publish was rejected.</strong> {rejectReason ? <>Reason: {rejectReason}. </> : null}Revise the rate contract and re-publish to send it for approval again.
+            </div>
+          </div>
+          {isCreator && (
+            <div className="section-body">
+              <a className="btn btn-primary" href={`/dashboard/buyer/rate-contracts/create?c=${arc.id}`}>
+                Edit &amp; re-publish
+              </a>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* GUIDE BANNER */}
       {isFloated && !windowClosed && (

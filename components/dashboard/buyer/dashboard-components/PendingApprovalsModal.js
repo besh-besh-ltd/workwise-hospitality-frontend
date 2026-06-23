@@ -28,6 +28,7 @@ const ENTITY_CONFIG = {
   NEGOTIATION:       { label: "Negotiation approval",    tone: "amber",  getUrl: rfqStage("negotiation-award") },
   NEGOTIATION_QUOTE: { label: "Award approval",          tone: "violet", getUrl: rfqStage("negotiation-award") },
   PO:                { label: "Purchase order approval", tone: "rose",   getUrl: rfqStage("purchase-order") },
+  ARC_PUBLISH:       { label: "Rate contract — publish",   tone: "blue",   getUrl: arcStage("overview") },
   ARC_TECH:          { label: "Rate contract — technical", tone: "cyan",   getUrl: arcStage("technical") },
   ARC_COMMITTEE:     { label: "Rate contract — committee", tone: "violet", getUrl: arcStage("awarding") },
   ARC_AMENDMENT:     { label: "Rate contract — amendment", tone: "amber",  getUrl: arcStage("active", "amendments") },
@@ -93,7 +94,7 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
   }, []);
 
   // Preserve a stable, sensible group order (sourcing → contracts → orders).
-  const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
+  const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
   const grouped = items.reduce((acc, item) => {
     (acc[item.entity_type] = acc[item.entity_type] || []).push(item);
     return acc;
