@@ -1695,11 +1695,12 @@ const SendQuoteWizard = () => {
           </div>
         </div>
       )}
-      {(editStatus.kind === "success" || editStatus.kind === "danger") && editStatus.title && (
-        <StatusBanner status={editStatus} />
-      )}
 
       <main className={styles.content}>
+         {(editStatus.kind === "success" || editStatus.kind === "danger") && editStatus.title && (
+        <StatusBanner status={editStatus} />
+          )}
+          
         {currentStepId === "overview" && (
           <Step1Overview
             rfq={rfq}
@@ -3065,12 +3066,6 @@ const Step3Pricing = ({
   ).length;
   return (
     <div className={styles.stepPane}>
-      {/* Read-only / missed banners are hoisted to the top of the wizard.
-          Only render the inline banner for non-warn cases (success, info)
-          so we don't duplicate the same red strip in two places. */}
-      {editStatus?.title && editStatus.kind !== "warn" && (
-        <StatusBanner status={editStatus} />
-      )}
       <div className={styles.sectionHead}>
         <div>
           <div className={styles.sectionTitle}>Pricing &amp; commercial terms</div>
