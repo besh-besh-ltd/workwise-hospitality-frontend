@@ -3369,7 +3369,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         />
                                       )}
                                       {isProductFinalized && (
-                                        <span className="badge bg-warning text-dark mt-1 d-block" style={{ fontSize: "0.7rem" }}>
+                                        <span
+                                          className={`badge mt-1 d-block ${item.finalization_status === "You are finalized" ? "bg-success" : "bg-danger"}`}
+                                          style={{ fontSize: "0.7rem" }}
+                                        >
                                           {item.finalization_status === "You are finalized" ? "You are Finalized" : "Another Vendor is Finalized"} — Quote cannot be edited
                                         </span>
                                       )}
@@ -3464,18 +3467,28 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           </small>
                                         )}
 
-                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
-                                          <span
-                                            className="text-primary d-block text-end mt-1"
-                                            style={{ fontSize: "0.72rem", cursor: "pointer" }}
-                                            onClick={() => setChargesModalOpen(index)}
-                                          >
-                                            {isProductDisabled
-                                              ? (getChargesSummary(quoteProducts[index]).length > 0 ? "Show Charges" : "")
-                                              : (getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges")
-                                            }
-                                          </span>
-                                        )}
+                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (() => {
+                                          const hasCharges = getChargesSummary(quoteProducts[index]).length > 0;
+                                          const disabledNotExpiry = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct;
+                                          let label;
+                                          if (disabledNotExpiry) {
+                                            label = hasCharges ? "Show Charges" : "";
+                                          } else if (isBidExpiredForProduct) {
+                                            label = hasCharges ? "View Charges" : "View Charges";
+                                          } else {
+                                            label = hasCharges ? "Edit Charges" : "+ Add Charges";
+                                          }
+                                          if (!label) return null;
+                                          return (
+                                            <span
+                                              className="text-primary d-block text-end mt-1"
+                                              style={{ fontSize: "0.72rem", cursor: "pointer" }}
+                                              onClick={() => setChargesModalOpen(index)}
+                                            >
+                                              {label}
+                                            </span>
+                                          );
+                                        })()}
 
                                         {/* Tax/VAT inline — during negotiation this only
                                             unlocks when the buyer raised a TAX demand on

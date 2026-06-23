@@ -1686,7 +1686,7 @@ const SendQuoteWizard = () => {
         onStep={goToStep}
       />
 
-      {(missedInquiry || reviewOnly) && (
+      {(missedInquiry || reviewOnly) && editStatus.kind !== "success" && editStatus.kind !== "danger" && (
         <div className={`${styles.missedBanner} ${reviewOnly ? styles.missedBannerReview : ""}`}>
           <AlertTriangle size={16} strokeWidth={2.2} />
           <div className={styles.missedBannerBody}>
@@ -1694,6 +1694,9 @@ const SendQuoteWizard = () => {
             <div className={styles.missedBannerDetail}>{editStatus.body}</div>
           </div>
         </div>
+      )}
+      {(editStatus.kind === "success" || editStatus.kind === "danger") && editStatus.title && (
+        <StatusBanner status={editStatus} />
       )}
 
       <main className={styles.content}>
@@ -3327,6 +3330,7 @@ const Step3Pricing = ({
                         // read-only). Only disabled when locked AND there's
                         // nothing to review.
                         disabled={locked && !hasCharges}
+                        style={locked && hasCharges ? { pointerEvents: "auto" } : undefined}
                       >
                         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {hasCharges ? (
