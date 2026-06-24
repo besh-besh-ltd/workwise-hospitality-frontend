@@ -19,6 +19,8 @@ import {
 import { toast } from "react-toastify";
 import { getRfqListView, deleteDraft } from "@/services/rfq";
 import { canEditRfq } from "@/utils/sharedFunctions";
+import { fyToRange, currentFyRange, defaultFyState } from "@/utils/financialYear";
+import FyFilter from "@/components/shared/FyFilter";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import CopyRFQModal from "./CopyRFQModal";
 
@@ -63,7 +65,10 @@ const FACETS = [
   { group: "productId", label: "Product" },
   { group: "vendorId", label: "Vendor" },
 ];
-const EMPTY_FILTERS = { status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [] };
+const EMPTY_FILTERS = { status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [], dateFrom: "", dateTo: "" };
+// Default view is scoped to the current financial year; the user can switch to
+// another FY, a custom range, or "All financial years" in the FY filter.
+const DEFAULT_FILTERS = { ...EMPTY_FILTERS, dateFrom: currentFyRange().from, dateTo: currentFyRange().to };
 
 const fmtDate = (d) => (d ? moment(d).format("DD MMM YYYY") : "—");
 
@@ -223,7 +228,8 @@ export default function RfqListPage() {
   const router = useRouter();
   const currentUser = useSelector((state) => state.userProfile);
   const [tab, setTab] = useState("all");
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [fy, setFy] = useState(defaultFyState());
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState("recent");
@@ -247,7 +253,10 @@ export default function RfqListPage() {
     const q = router.query;
     if (q.ended_no_quotes === "1" || q.status === "RFQ_STUCK_COMMERCIAL") {
       setTab("all");
+      // Action-oriented deep link: show stuck RFQs across all years (don't hide
+      // older ones behind the current-FY default), and sync the FY display.
       setFilters({ ...EMPTY_FILTERS, status: ["RFQ_STUCK_COMMERCIAL"] });
+      setFy({ mode: "none", fy: "", from: "", to: "" });
       setPage(1);
     }
   }, [router.isReady, router.query]);
@@ -285,8 +294,19 @@ export default function RfqListPage() {
       return { ...prev, [group]: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] };
     });
   };
-  const resetAll = () => { setFilters(EMPTY_FILTERS); setSearch(""); setPage(1); };
-  const activeCount = useMemo(() => Object.values(filters).reduce((n, a) => n + a.length, 0), [filters]);
+  const resetAll = () => { setFilters(DEFAULT_FILTERS); setFy(defaultFyState()); setSearch(""); setPage(1); };
+  const activeCount = useMemo(
+    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0),
+    [filters]
+  );
+  function applyFy(next) {
+    setFy(next);
+    setPage(1);
+    const range = next.mode === "fy" ? fyToRange(next.fy)
+                : next.mode === "custom" ? { from: next.from || "", to: next.to || "" }
+                : { from: "", to: "" };
+    setFilters((f) => ({ ...f, dateFrom: range.from, dateTo: range.to }));
+  }
   const hasFacets = useMemo(() => FACETS.some((f) => (resp.facets[f.group] || []).length > 0), [resp.facets]);
 
   const { rows, facets, tab_counts, total, limit } = resp;
@@ -339,6 +359,7 @@ export default function RfqListPage() {
                     mapLabel={f.group === "status" ? (k) => metaFor(k).label : undefined}
                   />
                 ))}
+                <FyFilter value={fy} onChange={applyFy} />
                 {!hasFacets && (
                   <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>
                 )}
@@ -365,6 +386,16 @@ export default function RfqListPage() {
               </select>
             </div>
           </div>
+
+          {(filters.dateFrom || filters.dateTo) && (
+            <div className="active-filters">
+              <span className="af-label">Filters</span>
+              <span className="af-chip">
+                <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
+                <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
+              </span>
+            </div>
+          )}
 
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

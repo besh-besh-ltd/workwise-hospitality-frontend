@@ -13,6 +13,9 @@ export const listMrs = (params = {}) => axiosInstance.get(`${BASE}`, { params })
 export const getMrListView = (payload = {}) => axiosInstance.post(`${BASE}/list-view`, payload);
 export const getDashboardKpis = (params = {}) => axiosInstance.get(`${BASE}/kpis`, { params });
 export const getAnalytics = (params = {}) => axiosInstance.get(`${BASE}/analytics`, { params });
+// Scoped BU + Department options for the dashboard header filters (same
+// role-scope matrix the analytics scope uses — dropdowns can't offer out-of-scope choices).
+export const getDashboardFilterOptions = () => axiosInstance.get(`${BASE}/dashboard/filter-options`);
 // Resolved MR approval chain for a scope (drives the create-page routing preview).
 export const getApprovalPreview = (params = {}) => axiosInstance.get(`${BASE}/approval-preview`, { params });
 

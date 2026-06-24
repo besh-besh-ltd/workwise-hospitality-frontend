@@ -7,6 +7,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getMrListView } from "@/services/mr";
+import { fyToRange, currentFyRange, defaultFyState } from "@/utils/financialYear";
+import FyFilter from "@/components/shared/FyFilter";
 
 const fmtL = (n) => {
   const v = Number(n) || 0;
@@ -53,7 +55,10 @@ const FACETS = [
   { group: "vendorId", label: "Vendor" },
   { group: "urgency", label: "Urgency" },
 ];
-const EMPTY_FILTERS = { status: [], buId: [], departmentId: [], categoryId: [], productId: [], vendorId: [], urgency: [] };
+const EMPTY_FILTERS = { status: [], buId: [], departmentId: [], categoryId: [], productId: [], vendorId: [], urgency: [], dateFrom: "", dateTo: "" };
+// Default view is scoped to the current financial year; the user can switch to
+// another FY, a custom range, or "All financial years" in the FY filter.
+const DEFAULT_FILTERS = { ...EMPTY_FILTERS, dateFrom: currentFyRange().from, dateTo: currentFyRange().to };
 
 const Svg = ({ d, w = 14, sw = 2 }) => (
   <svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -118,7 +123,8 @@ function FilterSkeleton() {
 
 export default function MrAllPage({ filterPreset = "all" }) {
   const [tab, setTab] = useState(TABS.some((t) => t.key === filterPreset) ? filterPreset : "all");
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [fy, setFy] = useState(defaultFyState());
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState("recent");
@@ -132,6 +138,13 @@ export default function MrAllPage({ filterPreset = "all" }) {
     const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Sync the active tab when filterPreset resolves after first render — on a
+  // direct URL / hard refresh, router.query.tab is undefined on the first paint
+  // then populates, so the initial useState may have missed a valid ?tab=.
+  useEffect(() => {
+    if (TABS.some((t) => t.key === filterPreset)) { setTab(filterPreset); setPage(1); }
+  }, [filterPreset]);
 
   useEffect(() => {
     const id = ++seq.current;
@@ -159,8 +172,19 @@ export default function MrAllPage({ filterPreset = "all" }) {
       return { ...prev, [group]: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] };
     });
   };
-  const resetAll = () => { setFilters(EMPTY_FILTERS); setSearch(""); setPage(1); };
-  const activeCount = useMemo(() => Object.values(filters).reduce((n, a) => n + a.length, 0), [filters]);
+  const resetAll = () => { setFilters(DEFAULT_FILTERS); setFy(defaultFyState()); setSearch(""); setPage(1); };
+  const activeCount = useMemo(
+    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0),
+    [filters]
+  );
+  function applyFy(next) {
+    setFy(next);
+    setPage(1);
+    const range = next.mode === "fy" ? fyToRange(next.fy)
+                : next.mode === "custom" ? { from: next.from || "", to: next.to || "" }
+                : { from: "", to: "" };
+    setFilters((f) => ({ ...f, dateFrom: range.from, dateTo: range.to }));
+  }
   const hasFacets = useMemo(() => FACETS.some((f) => (resp.facets[f.group] || []).length > 0), [resp.facets]);
 
   const { rows, facets, tab_counts, total, limit } = resp;
@@ -210,6 +234,7 @@ export default function MrAllPage({ filterPreset = "all" }) {
                     onToggle={toggle}
                   />
                 ))}
+                <FyFilter value={fy} onChange={applyFy} />
                 {!hasFacets && <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>}
               </>
             )}
@@ -232,6 +257,16 @@ export default function MrAllPage({ filterPreset = "all" }) {
               </select>
             </div>
           </div>
+
+          {(filters.dateFrom || filters.dateTo) && (
+            <div className="active-filters">
+              <span className="af-label">Filters</span>
+              <span className="af-chip">
+                <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
+                <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
+              </span>
+            </div>
+          )}
 
           {loading ? (
             <div className="contract-list" style={{ marginTop: 12 }}>

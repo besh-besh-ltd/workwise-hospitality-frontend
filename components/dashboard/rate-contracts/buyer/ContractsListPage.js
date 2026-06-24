@@ -19,6 +19,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
+import { fyToRange, currentFyRange, defaultFyState } from "@/utils/financialYear";
+import FyFilter from "@/components/shared/FyFilter";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Bucket mapping — the prototype groups the backend's fine-grained
@@ -293,9 +295,13 @@ const TABS = [
 ];
 
 export default function ContractsListPage({ filterPreset = "all" }) {
-  const [filters, setFilters] = useState({
-    status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [],
+  // Default view is scoped to the current financial year; the user can switch to
+  // another FY, a custom range, or "All financial years" in the FY filter.
+  const [filters, setFilters] = useState(() => {
+    const r = currentFyRange();
+    return { status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [], dateFrom: r.from, dateTo: r.to };
   });
+  const [fy, setFy] = useState(defaultFyState());
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState("recent");
@@ -360,12 +366,23 @@ export default function ContractsListPage({ filterPreset = "all" }) {
   }
   function isOn(group, key) { return (filters[group] || []).includes(key); }
   function resetAll() {
-    setFilters({ status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [] });
+    const r = currentFyRange();
+    setFilters({ status: [], buId: [], categoryId: [], departmentId: [], productId: [], vendorId: [], dateFrom: r.from, dateTo: r.to });
+    setFy(defaultFyState());
     setSearch("");
   }
   const activeFilterCount =
     filters.status.length + filters.buId.length + filters.categoryId.length +
-    filters.departmentId.length + filters.productId.length + filters.vendorId.length;
+    filters.departmentId.length + filters.productId.length + filters.vendorId.length +
+    (filters.dateFrom || filters.dateTo ? 1 : 0);
+  function applyFy(next) {
+    setFy(next);
+    setPage(1);
+    const range = next.mode === "fy" ? fyToRange(next.fy)
+                : next.mode === "custom" ? { from: next.from || "", to: next.to || "" }
+                : { from: "", to: "" };
+    setFilters((f) => ({ ...f, dateFrom: range.from, dateTo: range.to }));
+  }
 
   function activeChips() {
     const chips = [];
@@ -438,6 +455,12 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               <button type="button" className="x-btn" onClick={() => toggle(ch.group, ch.key)} aria-label="Remove">×</button>
             </span>
           ))}
+          {(filters.dateFrom || filters.dateTo) && (
+            <span className="af-chip">
+              <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
+              <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
+            </span>
+          )}
           {search && (
             <span className="af-chip">
               Search: "<span>{search}</span>"
@@ -462,6 +485,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
           </div>
 
           <FilterGroup label="Status"        options={statusOptions}     group="status"       isOn={isOn} toggle={toggle} />
+          <FyFilter value={fy} onChange={applyFy} />
           <FilterGroup label="Business unit" options={buOptions}         group="buId"         isOn={isOn} toggle={toggle} buCode />
           <FilterGroup label="Category"      options={categoryOptions}   group="categoryId"   isOn={isOn} toggle={toggle} />
           <FilterGroup label="Department"    options={departmentOptions} group="departmentId" isOn={isOn} toggle={toggle} />

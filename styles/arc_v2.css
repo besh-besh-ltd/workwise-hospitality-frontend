@@ -1768,6 +1768,43 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .list-toolbar .lt-right .select-mini:hover { border-color:var(--border-strong); color:var(--fg); }
 .list-toolbar .lt-right .select-mini:focus { border-color:var(--primary); box-shadow:var(--ring-primary); }
 
+/* MR dashboard header filter bar — the .select-mini controls (BU/Department
+   multi-select triggers, the date-range <select>, custom date inputs, Reset)
+   live outside a .list-toolbar, so give them the same polished chrome here. */
+.mr-filter-bar { row-gap:8px; }
+.mr-filter-bar .select-mini {
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  padding:8px 12px; font-size:12.5px; font-weight:500;
+  border:1px solid var(--border-input); border-radius:var(--radius-sm);
+  background:var(--surface); color:var(--fg-2);
+  font-family:inherit; cursor:pointer; outline:none; transition:all 0.15s ease;
+  line-height:1.2;
+}
+/* Native <select> gets the chevron background + room for it; the multi-select
+   trigger buttons carry their own inline chevron, so they keep flat padding. */
+.mr-filter-bar select.select-mini {
+  padding-right:30px;
+  background:var(--surface) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2384847e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+}
+.mr-filter-bar input.select-mini { color:var(--fg); cursor:text; }
+.mr-filter-bar .select-mini:hover { border-color:var(--border-strong); color:var(--fg); }
+.mr-filter-bar .select-mini:focus { border-color:var(--primary); box-shadow:var(--ring-primary); }
+
+/* Multi-select dropdown rows: hover cue on unselected rows; a selected row's
+   tint/accent is applied inline so it overrides the hover. */
+.mr-filter-opt { transition:background 0.12s ease; }
+.mr-filter-opt:not([data-on]):hover { background:rgba(0,0,0,0.035); }
+
+/* A KPI tile rendered as a link (the clickable "Pending approval" card) gets a
+   discoverable hover affordance — the rest of the tiles are static. */
+a.kpi-tile { cursor:pointer; }
+a.kpi-tile:hover {
+  border-color:var(--border-strong);
+  box-shadow:0 8px 24px rgba(15,15,14,0.08);
+  transform:translateY(-2px);
+  transition:transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
 /* ═══════════════════════════════════════════════════════════
    CONSUMPTION MATRIX (buyer-active · Sub-category & Product views)
    Items as rows · vendors as columns · per-cell consumption data

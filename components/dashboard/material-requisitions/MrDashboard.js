@@ -3,11 +3,54 @@
 // approval cycle time, overdue alert, top requesters and a recent feed.
 // Data: GET /v1/mr/analytics (+ /v1/mr/kpis fallback).
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import * as MrApi from "@/services/mr";
-import { getStoredHospitalityContext } from "@/utils/hospitalityContext";
 import { MrDashboardSkeleton } from "./MrSkeletons";
+
+// ── Date-range presets → { created_from, created_to } (inclusive YYYY-MM-DD).
+// Indian fiscal year starts April 1. The server treats created_to as inclusive
+// (it converts to an exclusive next-day boundary). "all" omits both bounds.
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+// FY start year for a date: Jan–Mar (months 0–2) belong to the previous FY.
+const fyStartYear = (d) => (d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1);
+
+const DATE_PRESETS = [
+  { key: "fytd", label: "Financial YTD" },
+  { key: "last_year", label: "Last financial year" },
+  { key: "this_month", label: "This month" },
+  { key: "this_quarter", label: "This quarter" },
+  { key: "all", label: "All time" },
+  { key: "custom", label: "Custom range…" },
+];
+
+function presetToRange(preset, customFrom, customTo, now = new Date()) {
+  switch (preset) {
+    case "fytd": {
+      const y = fyStartYear(now);
+      return { created_from: `${y}-04-01`, created_to: iso(now) };
+    }
+    case "last_year": {
+      const y = fyStartYear(now);
+      return { created_from: `${y - 1}-04-01`, created_to: `${y}-03-31` };
+    }
+    case "this_month": {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { created_from: iso(from), created_to: iso(now) };
+    }
+    case "this_quarter": {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3; // Jan/Apr/Jul/Oct
+      const from = new Date(now.getFullYear(), qStartMonth, 1);
+      return { created_from: iso(from), created_to: iso(now) };
+    }
+    case "custom":
+      return { created_from: customFrom || null, created_to: customTo || null };
+    case "all":
+    default:
+      return { created_from: null, created_to: null };
+  }
+}
 
 const fmtL = (n) => {
   const v = Number(n) || 0;
@@ -43,23 +86,112 @@ const I = {
   trend: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
 };
 
+// Compact multi-select checklist dropdown for the header BU/Department filters.
+// Options are server-scoped (filter-options endpoint) — the user can only ever
+// pick BUs/departments they can already read.
+function MultiFilter({ label, options, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  const toggle = (val) => {
+    const v = String(val);
+    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  };
+  const count = selected.length;
+  const summary = count === 0 ? `All ${label.toLowerCase()}` : `${count} selected`;
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="select-mini"
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", whiteSpace: "nowrap" }}
+      >
+        <span style={{ color: count ? "var(--fg)" : "var(--fg-3)" }}>{label}: {summary}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", left: 0, minWidth: 220, maxHeight: 280, overflowY: "auto", background: "var(--surface-1, #fff)", border: "1px solid var(--border, #e4e4e7)", borderRadius: 10, boxShadow: "0 8px 28px rgba(0,0,0,.12)", padding: 6 }}>
+          {options.length === 0 && <div style={{ fontSize: 12.5, color: "var(--fg-4, #a1a1aa)", padding: "8px 8px" }}>No options in scope.</div>}
+          {count > 0 && (
+            <button type="button" onClick={() => onChange([])} style={{ display: "block", width: "100%", textAlign: "left", padding: "5px 8px", background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Clear</button>
+          )}
+          {options.map((o) => {
+            const v = String(o.value);
+            const on = selected.includes(v);
+            // .filter-opt hides the native checkbox and renders .fo-box as the
+            // visible control (arc_v2.css). Selected rows also get a tinted
+            // background + accent/bold text so the selection reads at a glance.
+            return (
+              <label key={v} className="filter-opt mr-filter-opt" title={o.label} data-on={on ? "1" : undefined} style={{ padding: "6px 8px", borderRadius: 6, background: on ? "rgba(37,99,235,0.08)" : "transparent" }}>
+                <input type="checkbox" checked={on} onChange={() => toggle(v)} />
+                <span className="fo-box" />
+                <span className="fo-text" style={{ fontSize: 13, color: on ? "var(--primary, #2563eb)" : "var(--fg)", fontWeight: on ? 600 : 400 }}>{o.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MrDashboard() {
   const [a, setA] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Header filters (in-component state, reset on visit). Default date = FYTD.
+  const [buIds, setBuIds] = useState([]);
+  const [deptIds, setDeptIds] = useState([]);
+  const [datePreset, setDatePreset] = useState("fytd");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [opts, setOpts] = useState({ hotels: [], departments: [] });
+  const seq = useRef(0);
+
+  // Scoped BU + Department option lists (single source of truth = readScopeFor).
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    const ctx = getStoredHospitalityContext() || {};
-    const params = {};
-    if (ctx.hospitality_company_id) params.hospitality_company_id = ctx.hospitality_company_id;
-    if (ctx.hotel_id) params.hotel_ids = String(ctx.hotel_id);
-    MrApi.getAnalytics(params)
-      .then((res) => { if (!cancelled) setA(res?.data || res || null); })
-      .catch(() => { if (!cancelled) setA(null); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    MrApi.getDashboardFilterOptions()
+      .then((res) => {
+        if (cancelled) return;
+        const d = res?.data || res || {};
+        setOpts({ hotels: Array.isArray(d.hotels) ? d.hotels : [], departments: Array.isArray(d.departments) ? d.departments : [] });
+      })
+      .catch(() => { if (!cancelled) setOpts({ hotels: [], departments: [] }); });
     return () => { cancelled = true; };
   }, []);
+
+  // Re-fetch analytics whenever the filters change. seq guard ignores stale
+  // responses when several filter changes race.
+  useEffect(() => {
+    const id = ++seq.current;
+    setLoading(true);
+    const { created_from, created_to } = presetToRange(datePreset, customFrom, customTo);
+    const params = {};
+    if (buIds.length) params.hotel_ids = buIds.join(",");
+    if (deptIds.length) params.department_ids = deptIds.join(",");
+    if (created_from) params.created_from = created_from;
+    if (created_to) params.created_to = created_to;
+    MrApi.getAnalytics(params)
+      .then((res) => { if (id === seq.current) setA(res?.data || res || null); })
+      .catch(() => { if (id === seq.current) setA(null); })
+      .finally(() => { if (id === seq.current) setLoading(false); });
+  }, [buIds, deptIds, datePreset, customFrom, customTo]);
+
+  const buOptions = useMemo(
+    () => (opts.hotels || []).map((h) => ({ value: h.id, label: h.name || `Hotel ${h.id}` })),
+    [opts.hotels]
+  );
+  const deptOptions = useMemo(
+    () => (opts.departments || []).map((d) => ({ value: d.id, label: d.title || `Dept ${d.id}` })),
+    [opts.departments]
+  );
 
   const t = a?.totals || {};
   const byStatus = useMemo(() => {
@@ -82,7 +214,10 @@ export default function MrDashboard() {
   }, [a]);
   const urgencyTotal = urgency.reduce((s, r) => s + r.count, 0) || 1;
 
-  if (loading) return <MrDashboardSkeleton />;
+  // Full-page skeleton only on the very first load. Once data has arrived once,
+  // keep the header + filter bar mounted and just dim the body during re-fetch
+  // (so changing a filter doesn't blank the whole page including the filters).
+  if (loading && a === null) return <MrDashboardSkeleton />;
 
   return (
     <div className="main-body">
@@ -100,6 +235,30 @@ export default function MrDashboard() {
         </div>
       </div>
 
+      {/* HEADER FILTER BAR — Business Unit + Department (scoped multi-select) +
+          Date range preset. Filters can only NARROW within the user's scope. */}
+      <div className="mr-filter-bar flex items-center gap-2 flex-wrap" style={{ marginTop: 4 }}>
+        <MultiFilter label="Business unit" options={buOptions} selected={buIds} onChange={setBuIds} />
+        <MultiFilter label="Department" options={deptOptions} selected={deptIds} onChange={setDeptIds} />
+        <select className="select-mini" value={datePreset} onChange={(e) => setDatePreset(e.target.value)} aria-label="Date range">
+          {DATE_PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </select>
+        {datePreset === "custom" && (
+          <>
+            <input type="date" className="select-mini" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="From date" />
+            <span style={{ color: "var(--fg-4, #a1a1aa)", fontSize: 13 }}>→</span>
+            <input type="date" className="select-mini" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="To date" />
+          </>
+        )}
+        {(buIds.length > 0 || deptIds.length > 0 || datePreset !== "fytd") && (
+          <button type="button" className="select-mini" style={{ cursor: "pointer", color: "var(--primary, #2563eb)" }}
+            onClick={() => { setBuIds([]); setDeptIds([]); setDatePreset("fytd"); setCustomFrom(""); setCustomTo(""); }}>
+            Reset
+          </button>
+        )}
+        {loading && <span style={{ fontSize: 12, color: "var(--fg-4, #a1a1aa)" }}>Updating…</span>}
+      </div>
+
       {/* PRIMARY KPIs */}
       <section className="kpi-grid">
         <div className="kpi-tile accent">
@@ -107,11 +266,11 @@ export default function MrDashboard() {
           <div className="kt-val mono">{t.all || 0}</div>
           <div className="kt-sub">all requisitions in scope</div>
         </div>
-        <div className="kpi-tile warn">
+        <Link href="/dashboard/buyer/material-requisitions/all?tab=for_me" className="kpi-tile warn" title="View MRs pending your approval" style={{ textDecoration: "none", color: "inherit" }}>
           <div className="kt-row"><div className="kt-label">Pending approval</div><div className="kt-ic"><Svg d={I.clock} /></div></div>
           <div className="kt-val mono">{t.pending_approval || 0}</div>
           <div className="kt-sub">{fmtL(t.pending_value)} awaiting a decision</div>
-        </div>
+        </Link>
         <div className="kpi-tile success">
           <div className="kt-row"><div className="kt-label">PO released</div><div className="kt-ic"><Svg d={I.truck} /></div></div>
           <div className="kt-val mono">{t.po_released || 0}</div>
