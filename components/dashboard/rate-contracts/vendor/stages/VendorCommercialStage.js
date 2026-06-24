@@ -35,6 +35,14 @@ export default function VendorCommercialStage({
   paymentTotal,
   chargesOpen,
   setChargesOpen,
+  // #2 — global charges props
+  globalCharges,
+  setGlobalCharges,
+  globalChargesOpen,
+  setGlobalChargesOpen,
+  addGlobalCharge,
+  removeGlobalCharge,
+  updateGlobalCharge,
   canSubmit,
   submitting,
   onSaveDraft,
@@ -376,6 +384,41 @@ export default function VendorCommercialStage({
                     )}
                   </div>
                 </div>
+
+                {/* #2 — Document-level charges section (mirrors per-line charges modal trigger) */}
+                <div className="q-card-section">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <label className="label" style={{ marginBottom: 0 }}>Document-level charges <span className="label-meta">applied to entire quote</span></label>
+                    {(globalCharges || []).length > 0 && (
+                      <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>
+                        {(globalCharges || []).length} charge{(globalCharges || []).length === 1 ? "" : "s"}
+                        {totals.globalChargesTotal > 0 ? ` · ₹ ${fmtN(totals.globalChargesTotal)}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={"charges-trigger" + ((globalCharges || []).length > 0 ? " has-items" : "")}
+                    onClick={() => setGlobalChargesOpen(true)}
+                    disabled={readOnly}
+                  >
+                    <span className="flex items-center gap-2">
+                      {(globalCharges || []).length === 0 ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                      )}
+                      <span>
+                        {(globalCharges || []).length === 0
+                          ? "Add document-level charges (logistics, handling, etc.)"
+                          : `${(globalCharges || []).length} document charge${(globalCharges || []).length > 1 ? "s" : ""} added`}
+                      </span>
+                    </span>
+                    {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (
+                      <span className="ch-amt">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Submitted summary when readOnly (quote already submitted) */}
@@ -427,6 +470,13 @@ export default function VendorCommercialStage({
                             <span className="val">{`₹ ${fmtN(ec.amount)}`}</span>
                           </div>
                         ))}
+                        {/* #2 — global charges legend (engine-computed, from totals.globalCharges echo) */}
+                        {totals.globalChargesTotal > 0 && (
+                          <div className="breakdown-row">
+                            <span className="lbl"><span className="swatch bd-charges"></span> Doc. charges</span>
+                            <span className="val">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -576,6 +626,118 @@ export default function VendorCommercialStage({
           </div>
         );
       })()}
+
+      {/* #2 — Document-level charges modal (mirrors per-line charges overlay above) */}
+      {globalChargesOpen && (
+        <div
+          className="arc-modal-backdrop"
+          onClick={(e) => { if (e.target === e.currentTarget) setGlobalChargesOpen(false); }}
+        >
+          <div className="arc-modal" style={{ maxWidth: 620 }}>
+            <div className="modal-head">
+              <div>
+                <div className="t"><h3>Document-level charges</h3></div>
+                <div className="sub">Charges that apply to the entire quote (e.g. logistics, handling fee, documentation)</div>
+              </div>
+              <button className="icon-btn" onClick={() => setGlobalChargesOpen(false)} type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: "16px 20px" }}>
+              <div className="flex items-center gap-2 mb-3" style={{ flexWrap: "wrap" }}>
+                {["Logistics", "Handling", "Documentation", "Insurance", "Other"].map(t => (
+                  <button key={t} type="button" className="btn btn-sm" onClick={() => addGlobalCharge && addGlobalCharge(t)} disabled={readOnly}>+ {t}</button>
+                ))}
+              </div>
+              {(globalCharges || []).length === 0 && (
+                <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "12px 0" }}>Pick a charge type above to add a document-level charge.</div>
+              )}
+              {(globalCharges || []).length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Charge name</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tax on charge</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Note</span>
+                    <span></span>
+                  </div>
+                  {(globalCharges || []).map((c, ci) => (
+                    <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                      <input
+                        className="input"
+                        type="text"
+                        value={c.name}
+                        onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { name: e.target.value })}
+                        placeholder="Charge name"
+                        disabled={readOnly}
+                      />
+                      <div className="input-group">
+                        <input
+                          className="input input-num"
+                          type="number"
+                          value={c.amount}
+                          onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { amount: e.target.value })}
+                          placeholder="0"
+                          disabled={readOnly}
+                        />
+                        <div className="suffix" style={{ padding: 0 }}>
+                          <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                            <button type="button" className={c.amountMode === "%" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { amountMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                            <button type="button" className={c.amountMode === "₹" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { amountMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="input-group">
+                        <input
+                          className="input input-num"
+                          type="number"
+                          value={c.tax ?? ""}
+                          onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { tax: e.target.value })}
+                          placeholder="inherit"
+                          min="0"
+                          disabled={readOnly}
+                          title="Leave blank to inherit the base GST; enter 0 for no tax; enter a rate for a custom charge tax."
+                        />
+                        <div className="suffix" style={{ padding: 0 }}>
+                          <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                            <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                            <button type="button" className={c.taxMode === "₹" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                          </div>
+                        </div>
+                      </div>
+                      <input
+                        className="input"
+                        type="text"
+                        value={c.note}
+                        onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { note: e.target.value })}
+                        placeholder="Note"
+                        disabled={readOnly}
+                      />
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => removeGlobalCharge && removeGlobalCharge(ci)}
+                        title="Remove"
+                        disabled={readOnly}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 10 }}>
+                  Total document charges: <span className="mono">₹ {fmtN(totals.globalChargesTotal)}</span>
+                </div>
+              )}
+            </div>
+            <div className="modal-foot" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)" }}>
+              <button type="button" className="btn btn-blue" onClick={() => setGlobalChargesOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

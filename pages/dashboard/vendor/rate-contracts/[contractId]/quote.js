@@ -83,6 +83,12 @@ export default function VendorQuotePage() {
     ],
   });
 
+  // #2 — Document-level (global) charges state.
+  // Shape mirrors per-line charges: { name, amount, amountMode:'%'|'₹', tax, taxMode:'%'|'₹', note }
+  // amountMode defaults to '₹' (absolute) per spec §2.1 to avoid % ambiguity.
+  const [globalCharges, setGlobalCharges] = useState([]);
+  const [globalChargesOpen, setGlobalChargesOpen] = useState(false);
+
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -160,15 +166,22 @@ export default function VendorQuotePage() {
         const fromEngineCharges = (rawCharges) => {
           if (!rawCharges) return [];
           if (Array.isArray(rawCharges) && rawCharges.length > 0) {
-            return rawCharges.map(c => ({
-              name:       c.name || "",
-              amount:     c.amount != null ? String(c.amount) : "",
-              amountMode: (c.amount_mode === "absolute" || c.amount_mode === "₹") ? "₹" : "%",
-              // tax: null/undefined/"" → "" (inherit); 0 → "0" (explicit no tax)
-              tax:        (c.tax === null || c.tax === undefined || c.tax === "") ? "" : String(c.tax),
-              taxMode:    (c.tax_mode === "absolute" || c.tax_mode === "₹") ? "₹" : "%",
-              note:       c.comment || "",
-            }));
+            return rawCharges.map(c => {
+              // Per-line charges carry tax on `tax`; document-level (global) charges
+              // carry it on the engine's `additional_tax` key. Read either so this
+              // shared hydrator works for both (per-line rows have no additional_tax).
+              const _t  = c.additional_tax ?? c.tax;
+              const _tm = c.additional_tax_mode ?? c.tax_mode;
+              return {
+                name:       c.name || "",
+                amount:     c.amount != null ? String(c.amount) : "",
+                amountMode: (c.amount_mode === "absolute" || c.amount_mode === "₹") ? "₹" : "%",
+                // tax: null/undefined/"" → "" (inherit); 0 → "0" (explicit no tax)
+                tax:        (_t === null || _t === undefined || _t === "") ? "" : String(_t),
+                taxMode:    (_tm === "absolute" || _tm === "₹") ? "₹" : "%",
+                note:       c.comment || "",
+              };
+            });
           }
           const n = Number(rawCharges);
           if (Number.isFinite(n) && n > 0) {
@@ -205,6 +218,9 @@ export default function VendorQuotePage() {
           }));
           // Phase 1 §3 — seed server-persisted T&C acceptance on load.
           if (qt.terms_accepted_at) setTermsAcceptedAt(qt.terms_accepted_at);
+          // #2 — hydrate global charges from persisted quote_pricing.global_charges_input.
+          // fromEngineCharges already handles undefined/null → [].
+          setGlobalCharges(fromEngineCharges(qt?.quote_pricing?.global_charges_input));
         }
         if (qt?.submitted_at && !qt?.withdrawn_at) {
           setSubmitted(true);
@@ -412,6 +428,29 @@ export default function VendorQuotePage() {
     return (l.charges || []).reduce((s, c) => s + safeNum(c.amount), 0);
   };
 
+  // #2 — Global charge helpers (document-level).
+  const addGlobalCharge = (type) => {
+    if (!type) return;
+    setGlobalCharges(prev => [...prev, { name: type, amount: "", amountMode: "₹", tax: "", taxMode: "%", note: "" }]);
+  };
+  const removeGlobalCharge = (idx) => {
+    setGlobalCharges(prev => { const next = prev.slice(); next.splice(idx, 1); return next; });
+  };
+  const updateGlobalCharge = (idx, patch) => {
+    setGlobalCharges(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+  };
+  // Document-level (global) charges carry their tax on the engine's
+  // additional_tax/_mode keys — normalizeGlobalCharge ONLY reads those (per-line
+  // charges use `tax`/`tax_mode`). FE state keeps tax/taxMode for display.
+  const globalChargesToEngine = (charges) => (charges || []).map(c => ({
+    name:                c.name || null,
+    amount:              safeNum(c.amount),
+    amount_mode:         toEngineMode(c.amountMode || "₹"),
+    additional_tax:      (c.tax === "" || c.tax == null) ? null : safeNum(c.tax),
+    additional_tax_mode: toEngineMode(c.taxMode || "%"),
+    ...(c.note ? { comment: c.note } : {}),
+  }));
+
   // Phase 2 — build preview payload for the engine-backed preview hook.
   // Converts FE state (price[itemId].charges with amountMode:'%'/'₹') to the
   // canonical engine charge shape (amount_mode:'percentage'/'absolute').
@@ -437,9 +476,9 @@ export default function VendorQuotePage() {
       };
     }).filter(line => line.rate > 0); // only priced lines need preview
     if (lines.length === 0) return null;
-    return { arc_id: Number(contractId), lines, global_charges: [] };
+    return { arc_id: Number(contractId), lines, global_charges: globalChargesToEngine(globalCharges) };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractId, items, price]);
+  }, [contractId, items, price, globalCharges]);
 
   // Phase 2 — engine-backed preview (debounced 600ms). `preview` replaces the
   // client-side totals when available; falls back to client math while loading.
@@ -472,14 +511,20 @@ export default function VendorQuotePage() {
           extras[key] = (extras[key] || 0) + (c.amount || 0);
         });
       });
+      // #2 — global charges from engine echo (includes amounts computed by engine).
+      const engineGlobals = Array.isArray(enginePreview.global_charges) ? enginePreview.global_charges : [];
+      const globalChargesTotal = Math.round(enginePreview.global_charges_total || 0);
       return {
         subtotal: Math.round(enginePreview.grand_subtotal || 0),
         gst: Math.round(gst),
         extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
+        globalCharges: engineGlobals,
+        globalChargesTotal,
         grand: Math.round(enginePreview.grand_total || 0),
       };
     }
     // Client fallback — preserved from Phase 1 for use while preview is loading.
+    // Global charges are omitted from the fallback total (acceptable: labelled as approximate).
     let subtotal = 0, gst = 0, extra = 0;
     const extras = {};
     items.forEach(it => {
@@ -501,6 +546,8 @@ export default function VendorQuotePage() {
       subtotal: Math.round(subtotal),
       gst: Math.round(gst),
       extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
+      globalCharges: [],
+      globalChargesTotal: 0,
       grand: Math.round(subtotal + gst + extra),
     };
   }, [items, price, enginePreview]);
@@ -615,6 +662,7 @@ export default function VendorQuotePage() {
     arc_id: Number(contractId),
     payment_terms: globals.paymentTerms.map(t => `${t.label || ""}: ${safeNum(t.pct)}%`).join(" | "),
     gstin_used: globals.gstin || "",
+    global_charges: globalChargesToEngine(globalCharges),
     lines: items.map(it => {
       const l = priceLine(it.id);
       // Phase 2 — send canonical engine charge array (not the legacy single freight number).
@@ -997,6 +1045,13 @@ export default function VendorQuotePage() {
           paymentTotal={paymentTotal}
           chargesOpen={chargesOpen}
           setChargesOpen={setChargesOpen}
+          globalCharges={globalCharges}
+          setGlobalCharges={setGlobalCharges}
+          globalChargesOpen={globalChargesOpen}
+          setGlobalChargesOpen={setGlobalChargesOpen}
+          addGlobalCharge={addGlobalCharge}
+          removeGlobalCharge={removeGlobalCharge}
+          updateGlobalCharge={updateGlobalCharge}
           canSubmit={canSubmit}
           submitting={submitting}
           onSaveDraft={() => saveDraft(false)}

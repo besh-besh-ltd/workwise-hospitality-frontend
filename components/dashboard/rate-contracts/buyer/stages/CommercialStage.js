@@ -81,6 +81,44 @@ function landedRate(line, includeCharges) {
   return toNum(line.rate) + (includeCharges ? toNum(line.charges) : 0);
 }
 
+// Per-UNIT landed cost — engine-authoritative when line_pricing is present,
+// else the legacy client estimate. Honors the includeCharges toggle by mapping
+// it onto the engine breakdown. Returns null for redacted/missing lines so they
+// contribute nothing to totals/ranks/L1 (same contract as landedRate).
+//
+// IMPORTANT — clarification-revised lines (`line._ov` is truthy): the engine
+// line_pricing was computed from the ORIGINAL quote BEFORE the committee revised
+// rate/charges. For revised cells, `effLineFor` overlays rate/charges but does NOT
+// re-run the engine. We MUST fall back to the client `landedRate` so the revised
+// values are honoured. Documented: re-running engine client-side is out of scope.
+//
+// Toggle ↔ engine mapping:
+//   includeCharges ON  → lp.total (base + base_tax + charges_total)
+//   includeCharges OFF → lp.base + lp.base_tax (rate + its GST, no extra charges)
+// NOTE: the OFF basis now includes base_tax (GST on the rate), which is an
+// intentional improvement over the old client landedRate(line,false) = rate only.
+// If strict parity with the old "rate only" basis is needed, use lp.base instead.
+//
+// Mixed engine/legacy ranking: when a live ARC has some submitted quotes with
+// line_pricing (new) and some without (legacy/pre-Phase-2), engine-ON and
+// legacy lines compare apples-to-oranges (legacy lacks base_tax in landed). This
+// is documented and rare (line_pricing written on every save/submit going forward).
+function engineLanded(line, includeCharges) {
+  if (!line || line.disqualified) return null;            // redacted: excluded
+  // Revised-by-clarification: line_pricing is stale (computed before the committee
+  // changed rate/charges). Prefer the client math which reads the overlaid values.
+  if (line._ov) return landedRate(line, includeCharges);
+  const lp = line.line_pricing;
+  if (lp && lp.total != null) {
+    // Engine breakdown: base + base_tax + charges_total === lp.total (pricingEngine.js ~143-150)
+    return includeCharges
+      ? Number(lp.total)
+      : Number(lp.base || 0) + Number(lp.base_tax || 0);
+  }
+  // Legacy rows (line_pricing absent — pre-Phase-2 quotes): fall back so they rank.
+  return landedRate(line, includeCharges);
+}
+
 export default function CommercialStage({ arc, stage, permissions, onRefresh }) {
   const commPerms = permissions["arc-comm"] || [];
   const isAdmin = (permissions["arc"] || []).includes("admin");
@@ -167,6 +205,8 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         rate: q.rate == null ? null : toNum(q.rate),
         gst_pct: toNum(q.gst_pct), charges: toNum(q.charges),
         lead_time_days: q.lead_time_days, moq: q.moq,
+        // §1.1 — engine output for display + ranking (null when disqualified/redacted)
+        line_pricing: q.line_pricing || null,
         // server-side redacted: technical committee deemed this pair unfit —
         // pricing fields arrive null and must never enter any total/rank
         disqualified: !!q.technically_disqualified,
@@ -251,7 +291,8 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       if (!isQualified(v.vendor_id, itemId)) return;
       const l = v.lines.find((x) => x.arc_item_id === itemId);
       if (!l) return;
-      const lan = landedRate(l, includeCharges);
+      // §1.6 #1 — engine-authoritative landed (falls back to legacy for pre-Phase-2 rows)
+      const lan = engineLanded(l, includeCharges);
       if (lan === null) return;
       if (best === null || lan < best.landed) best = { vendor_id: v.vendor_id, line: l, landed: lan };
     });
@@ -267,7 +308,8 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       const itemId = it.id || it.arc_item_id;
       const l = lineFor(vid, itemId);
       if (!l) return;
-      const lan = landedRate(l, includeCharges);
+      // §1.6 #2 — engine-authoritative landed (vendorRank inherits via vendorTotal)
+      const lan = engineLanded(l, includeCharges);
       if (lan === null) return;
       s += lan * toNum(it.indicative_qty);
     });
@@ -331,7 +373,9 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       itemAllocations(itemId).rows.forEach((r) => {
         // Awarded value is computed on the REVISED rate when a clarification
         // changed it (the quote line stays the competitive baseline).
-        const lan = landedRate(effLineFor(r.vendor.vendor_id, itemId) || r.line, includeCharges);
+        // §1.6 #5 / §1.7: effLineFor overlays rate/charges from revise snapshot; its
+        // _ov flag causes engineLanded to fall back to client math (line_pricing stale).
+        const lan = engineLanded(effLineFor(r.vendor.vendor_id, itemId) || r.line, includeCharges);
         if (lan !== null) s += lan * r.qty;
       });
     });
@@ -346,9 +390,10 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   // rows: [{ vendor, line, qty, pct }] — ranked by landed rate for l_rank.
   const buildAllocations = (itemId, rows) => {
     const l1 = l1ForItem(itemId);
+    // §1.6 #4 — sort by engine landed (null lines sort last via ?? MAX_VALUE)
     const ranked = rows.slice().sort((a, b) =>
-      (landedRate(a.line, includeCharges) ?? Number.MAX_VALUE) -
-      (landedRate(b.line, includeCharges) ?? Number.MAX_VALUE));
+      (engineLanded(a.line, includeCharges) ?? Number.MAX_VALUE) -
+      (engineLanded(b.line, includeCharges) ?? Number.MAX_VALUE));
     return ranked.map((r, idx) => ({
       awarded_vendor_id: r.vendor.vendor_id,
       awarded_quote_line_id: r.line.quote_line_id,
@@ -356,10 +401,14 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
       allocated_share_pct: r.pct,
       l_rank: `L${idx + 1}`,
       is_l1_default: !!(l1 && r.line.quote_line_id === l1.line.quote_line_id),
+      // §1.7 — snapshot records the engine landed rate so the awarded value is
+      // reconstructible from the snapshot alone and matches the ranked number.
+      // line_pricing added for provenance (stable even if engine changes later).
       awarded_quote_snapshot: {
         rate: r.line.rate, gst_pct: r.line.gst_pct, charges: r.line.charges,
         lead_time_days: r.line.lead_time_days, moq: r.line.moq,
-        landed_rate: landedRate(r.line, includeCharges), include_charges: includeCharges,
+        landed_rate: engineLanded(r.line, includeCharges), include_charges: includeCharges,
+        line_pricing: r.line.line_pricing || null,
       },
     }));
   };
@@ -820,7 +869,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
                       revisionFor={revisionFor}
                       isL1={isL1}
                       isQualified={isQualified}
-                      landed={(l) => landedRate(l, includeCharges)}
+                      landed={(l) => engineLanded(l, includeCharges)}
                       includeCharges={includeCharges}
                       allocatedFor={allocatedFor}
                       awardCell={awardCell}
@@ -1120,6 +1169,8 @@ function ItemRow({
                       )}
                     </>
                   )}
+                  {/* §1.4 — compact authoritative landed (engine basis; ranked on this number) */}
+                  {(() => { const el = engineLanded(eff, includeCharges); return el != null ? <>{" · "}<span className="mono" style={{ fontWeight: 600 }}>{fmtINR(el)}</span></> : null; })()}
                 </div>
                 {editable ? (
                   !isAwarded ? (
@@ -1203,6 +1254,37 @@ function ItemRow({
         ["MOQ", (l) => (l.moq != null
           ? <span className="v mono">{Number(l.moq).toLocaleString("en-IN")}</span>
           : <span className="bd-dash">—</span>)],
+        // §1.3 — engine breakdown rows (base, base_tax, charges_total, landed all-in).
+        // Each null-guards l.line_pricing; disqualified lines are already em-dashed by
+        // the `sealed` check. Non-disqualified legacy rows (line_pricing absent) also
+        // show em-dash gracefully (l.line_pricing == null).
+        ["Base (engine)", (l) => l.line_pricing != null
+          ? <span className="v mono">{fmtINR(l.line_pricing.base)}</span>
+          : <span className="bd-dash">—</span>],
+        ["Base tax (engine)", (l) => l.line_pricing != null
+          ? <span className="v mono">{fmtINR(l.line_pricing.base_tax)}</span>
+          : <span className="bd-dash">—</span>],
+        ["Charges (engine)", (l) => {
+          if (l.line_pricing == null) return <span className="bd-dash">—</span>;
+          const chgs = l.line_pricing.charges || [];
+          return (
+            <span>
+              <span className="v mono">{fmtINR(l.line_pricing.charges_total)}</span>
+              {chgs.length > 0 && (
+                <span style={{ display: "block", fontSize: 10.5, color: "var(--fg-4)", marginTop: 2 }}>
+                  {chgs.map((c, ci) => (
+                    <span key={ci} style={{ display: "block" }}>
+                      {c.name || "Charge"}: {fmtINR(c.amount)}{c.tax != null ? ` + tax ${fmtINR(c.tax)}` : ""}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </span>
+          );
+        }],
+        ["Landed / unit (engine)", (l) => l.line_pricing != null
+          ? <span className="v mono" style={{ fontWeight: 600 }}>{fmtINR(l.line_pricing.total)}</span>
+          : <span className="bd-dash">—</span>],
       ].map(([label, render], rowIdx, arr) => (
         <tr key={label} className={"bd-row" + (rowIdx === arr.length - 1 ? " bd-last" : "")}>
           <td className="bd-label">{label}</td>
