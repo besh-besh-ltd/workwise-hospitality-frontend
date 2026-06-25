@@ -200,3 +200,44 @@ export const reviewAmendment         = (amendmentId, body) => axiosInstance.post
 // Legacy aliases — backend returns 501 → use reviewAmendment instead.
 export const approveAmendment        = (amendmentId)     => axiosInstance.post(`${BASE}/amendments/${amendmentId}/approve`, {});
 export const rejectAmendment         = (amendmentId, r)  => axiosInstance.post(`${BASE}/amendments/${amendmentId}/reject`, { reason: r });
+
+// ============================================================
+// Buyer — Manual ARC entry / backfill  (/v1/arc-v2/manual/*)
+// ============================================================
+// Single dense back-office workspace where the purchase team hand-keys a
+// complete ARC at any lifecycle target stage (S0 Draft … S5 Ended) with
+// backdated timestamps. The draft IS the ARC row (status='draft'); resume via
+// ?d=<arcId>. All tenant scope is server-derived from req.user — the client
+// never sends company_id. See spec §6.
+
+// All vendors (user_type=3,status=1) with a `subscribed` flag for the
+// "show all / override eligibility" toggle (§4.4). Eligible-only set still
+// comes from the existing listEligibleVendors export above.
+export const listAllVendors        = ({ hotel_id, category_id } = {}) =>
+  axiosInstance.get(`${BASE}/manual/all-vendors`, { params: { hotel_id, category_id } });
+
+// Create the draft ARC + provenance row. Payload: { header, scope, provenance }.
+// Company is derived server-side from the chosen hotel; never sent by the client.
+export const createManualDraft     = (payload) => axiosInstance.post(`${BASE}/manual/draft`, payload);
+
+// Full hydrated graph (groups A–M as entered) for resume.
+export const getManualDraft        = (id) => axiosInstance.get(`${BASE}/manual/draft/${id}`);
+
+// Coarse partial patch (PATCH) — kept for whole-section bulk saves.
+export const patchManualDraft      = (id, patch) => axiosInstance.patch(`${BASE}/manual/draft/${id}`, patch);
+
+// Per-section autosave (PUT section). section ∈ {header,scope,provenance,
+// vendors,items,quotes,awards,terms,contract,signatures,approvals}; body = that
+// section's fields. Server validates the section but never enforces cross-stage
+// completeness until finalize.
+export const saveManualSection     = (id, section, body) =>
+  axiosInstance.put(`${BASE}/manual/draft/${id}/section/${section}`, body);
+
+// S4/S5 already-signed PDF upload (multipart). Rejected with 409 for S3.
+export const uploadManualContractDoc = (id, vendorId, formData) =>
+  axiosFormData.post(`${BASE}/manual/draft/${id}/contract/${vendorId}/document`, formData);
+
+// Atomic finalize/backfill — writes the full object graph with backdated
+// timestamps and lands tbl_arc.status at the target stage's persisted status.
+export const finalizeManualArc     = (id, body = { confirm: true }) =>
+  axiosInstance.post(`${BASE}/manual/draft/${id}/finalize`, body);

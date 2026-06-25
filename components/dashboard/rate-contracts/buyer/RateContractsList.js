@@ -62,9 +62,14 @@ export default function RateContractsList({ filterPreset = "all" }) {
             <p className={styles.sub}>{PRESET_DESCRIPTIONS[filterPreset]}</p>
           )}
         </div>
-        <Link href="/dashboard/buyer/rate-contracts/create" className={styles.primary}>
-          + Create New
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link href="/dashboard/buyer/rate-contracts/manual-entry" className={styles.secondary}>
+            + Manual entry
+          </Link>
+          <Link href="/dashboard/buyer/rate-contracts/create" className={styles.primary}>
+            + Create New
+          </Link>
+        </div>
       </header>
 
       {kpis && (
