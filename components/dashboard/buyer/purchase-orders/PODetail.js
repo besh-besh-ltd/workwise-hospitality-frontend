@@ -720,10 +720,16 @@ const PODetail = ({ id }) => {
                   <h2>RFQ context</h2>
                 </div>
                 <div className={styles.hRight}>
-                  <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                    <ExternalLink size={12} />
-                    Open RFQ
-                  </button>
+                  {rfq.id && (
+                    <button
+                      className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                      type="button"
+                      onClick={() => router.push(`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}`)}
+                    >
+                      <ExternalLink size={12} />
+                      Open RFQ
+                    </button>
+                  )}
                 </div>
               </div>
               <div className={styles.rfqContext}>
