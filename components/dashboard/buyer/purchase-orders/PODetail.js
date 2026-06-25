@@ -25,9 +25,10 @@ import {
   AlertCircle,
   Circle,
   ChevronDown,
+  Send,
 } from "lucide-react";
 import ReadMore from "@/components/shared/ReadMore";
-import { getPODetailFull, handlePOApproval } from "@/services/po";
+import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -62,17 +63,22 @@ const PODetail = ({ id }) => {
     return mappings.map((m) => m.hospitality_hotel_id).filter(Boolean);
   }, [userProfile]);
 
-  const { canRead, canApprove, loading: permissionsLoading } = useModulePermissions({
+  const { canRead, canApprove, canUpdate, canCreate, loading: permissionsLoading } = useModulePermissions({
     moduleKey: "awarding",
     hotelIds,
     departmentId: null,
   });
+  // Matches the legacy `canWrite` gate (PurchaseOrders.js): the PO creator
+  // typically holds `create` (used to draft the PO) but not necessarily
+  // `update`. Either is sufficient to trigger the standard initiate flow.
+  const canWrite = canUpdate || canCreate;
 
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(null); // 'approved' | 'rejected' | null
+  const [initiating, setInitiating] = useState(false);
   const [preview, setPreview] = useState(null);
   const [otherChargesOpen, setOtherChargesOpen] = useState(false);
   const [globalChargesOpen, setGlobalChargesOpen] = useState(false);
@@ -150,6 +156,29 @@ const PODetail = ({ id }) => {
       toast.error(message);
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  // Force Initiate — drives the draft PO into the standard initiation flow
+  // (GET /po/initiate/:id). Triggers approval-instance creation, PDF
+  // generation, and approver notification. No approval bypass; if no
+  // policy is configured the backend returns the same error it would for
+  // any other initiate trigger.
+  const handleForceInitiate = async () => {
+    setInitiating(true);
+    try {
+      const res = await handlePOInitialization(id);
+      const message =
+        res?.data?.message ||
+        res?.message ||
+        "Purchase Order initiated successfully";
+      toast.success(message);
+      await fetchDetail();
+    } catch (e) {
+      const message = e?.response?.data?.message || e?.message || "Failed to initiate Purchase Order";
+      toast.error(message);
+    } finally {
+      setInitiating(false);
     }
   };
 
@@ -344,6 +373,17 @@ const PODetail = ({ id }) => {
               >
                 <Download size={13} />
                 Download PO
+              </button>
+            )}
+            {po.status === "draft" && canWrite && (
+              <button
+                className={`${styles.btn} ${styles.btnSuccess}`}
+                type="button"
+                disabled={initiating}
+                onClick={handleForceInitiate}
+              >
+                <Send size={13} />
+                {initiating ? "Initiating…" : "Force Initiate"}
               </button>
             )}
             {isPending && awaitingMe && canApprove && (
@@ -680,10 +720,16 @@ const PODetail = ({ id }) => {
                   <h2>RFQ context</h2>
                 </div>
                 <div className={styles.hRight}>
-                  <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                    <ExternalLink size={12} />
-                    Open RFQ
-                  </button>
+                  {rfq.id && (
+                    <button
+                      className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                      type="button"
+                      onClick={() => router.push(`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}`)}
+                    >
+                      <ExternalLink size={12} />
+                      Open RFQ
+                    </button>
+                  )}
                 </div>
               </div>
               <div className={styles.rfqContext}>
