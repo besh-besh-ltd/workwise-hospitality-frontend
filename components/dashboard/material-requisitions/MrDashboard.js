@@ -116,7 +116,7 @@ function MultiFilter({ label, options, selected, onChange }) {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
       {open && (
-        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", left: 0, minWidth: 220, maxHeight: 280, overflowY: "auto", background: "var(--surface-1, #fff)", border: "1px solid var(--border, #e4e4e7)", borderRadius: 10, boxShadow: "0 8px 28px rgba(0,0,0,.12)", padding: 6 }}>
+        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", left: 0, minWidth: 220, maxHeight: 280, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-md)", padding: 6 }}>
           {options.length === 0 && <div style={{ fontSize: 12.5, color: "var(--fg-4, #a1a1aa)", padding: "8px 8px" }}>No options in scope.</div>}
           {count > 0 && (
             <button type="button" onClick={() => onChange([])} style={{ display: "block", width: "100%", textAlign: "left", padding: "5px 8px", background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Clear</button>

@@ -145,32 +145,6 @@ export function MrAllSkeleton() {
   );
 }
 
-// ── filtered list pages (MrListPage: drafts/pending/…) ─────────────────────
-export function MrListSkeleton() {
-  return (
-    <div className="main-body">
-      <PageHead subW={520} />
-      <Sk w="100%" h={46} r={10} />
-      <section className="kpi-grid">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="kpi-tile">
-            <div className="kt-row"><Sk w={90} h={11} /><Sk w={28} h={28} r={8} /></div>
-            <Sk w={60} h={26} style={{ marginTop: 11 }} /><Sk w={120} h={11} style={{ marginTop: 9 }} />
-          </div>
-        ))}
-      </section>
-      <div className="section-card">
-        <div className="section-head"><Sk w={360} h={34} r={8} /><Sk w={260} h={34} r={6} /></div>
-        <div className="section-body flush">
-          <div style={{ padding: "14px 18px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-            {Array.from({ length: 4 }).map((_, i) => <MrCardSk key={i} foot />)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // one list card skeleton (contract-card shape; `foot` adds the approval-chain row)
 function MrCardSk({ foot }) {
   return (

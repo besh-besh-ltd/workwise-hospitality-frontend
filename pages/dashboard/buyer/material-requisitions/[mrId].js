@@ -46,7 +46,7 @@ const MR_STATUS_LABEL = {
 
 const statusChipClass = (status) => {
   if (status === "po_released" || status === "approved") return "active";
-  if (status === "rejected" || status === "cancelled") return "expired";
+  if (status === "rejected" || status === "cancelled") return "rejected";
   return "eval";
 };
 
@@ -111,6 +111,26 @@ const IconInfo = () => (
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
     <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+// Vendor / supplier company — distinct from the box (goods) icon so the
+// "Vendor mapping" header doesn't reuse the same glyph as "Items requested".
+const IconStore = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="1.5" />
+    <path d="M9.5 21v-4h5v4" />
+    <line x1="9" y1="7.5" x2="9" y2="7.5" />
+    <line x1="15" y1="7.5" x2="15" y2="7.5" />
+    <line x1="9" y1="11.5" x2="9" y2="11.5" />
+    <line x1="15" y1="11.5" x2="15" y2="11.5" />
+  </svg>
+);
+// Paper-plane "sent" — avatar glyph for the Submitted-for-approval step, so
+// system events read as icons instead of a stray ↗ text character.
+const IconSend = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m22 2-7 20-4-9-9-4Z" />
+    <path d="M22 2 11 13" />
   </svg>
 );
 
@@ -348,15 +368,15 @@ export default function MrDetailPage() {
           </div>
           {!rejectOpen ? (
             <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
-              <button className="btn btn-blue btn-sm" disabled={acting} onClick={() => act("APPROVE")}>{acting ? "Working…" : "Approve"}</button>
-              <button className="btn btn-sm" disabled={acting} onClick={() => setRejectOpen(true)} style={{ color: "var(--danger)" }}>Reject</button>
+              <button className="btn btn-success btn-sm" disabled={acting} onClick={() => act("APPROVE")}>{acting ? "Working…" : "Approve"}</button>
+              <button className="btn btn-outline-danger btn-sm" disabled={acting} onClick={() => setRejectOpen(true)}>Reject</button>
             </div>
           ) : (
             <div style={{ marginTop: 11 }}>
               <textarea className="textarea" placeholder="Reason for rejection (visible in the audit trail)…" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button className="btn btn-sm" disabled={acting} onClick={() => { setRejectOpen(false); setRejectReason(""); }}>Cancel</button>
-                <button className="btn btn-sm" disabled={acting || !rejectReason.trim()} onClick={() => act("REJECT")} style={{ background: "var(--danger)", color: "#fff" }}>{acting ? "Working…" : "Confirm reject"}</button>
+                <button className="btn btn-secondary btn-sm" disabled={acting} onClick={() => { setRejectOpen(false); setRejectReason(""); }}>Cancel</button>
+                <button className="btn btn-danger btn-sm" disabled={acting || !rejectReason.trim()} onClick={() => act("REJECT")}>{acting ? "Working…" : "Confirm reject"}</button>
               </div>
             </div>
           )}
@@ -422,7 +442,7 @@ export default function MrDetailPage() {
                           <div style={{ fontWeight: 600, color: "var(--fg)" }}>
                             {row.variant_name || row.product_name || "—"}
                           </div>
-                          <div style={{ fontSize: 11, color: "var(--fg-4)", marginTop: 2 }}>
+                          <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
                             {row.variant_slug && <span className="mono">{row.variant_slug}</span>}
                             {row.uom && <> · <span>{row.uom}</span></>}
                           </div>
@@ -455,7 +475,7 @@ export default function MrDetailPage() {
                               </div>
                             </div>
                           ) : (
-                            <span style={{ fontSize: 11.5, color: "var(--fg-4)", fontStyle: "italic" }}>
+                            <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontStyle: "italic" }}>
                               — no match · sourcing —
                             </span>
                           )}
@@ -534,7 +554,7 @@ export default function MrDetailPage() {
               {/* Submitted for approval */}
               {mr.submitted_at && (
                 <div className="approval-step">
-                  <div className="as-av">↗</div>
+                  <div className="as-av"><IconSend /></div>
                   <div className="as-body">
                     <div className="as-name">Submitted for approval</div>
                     <div className="as-role">{approval ? `Routed through a ${approval.total_steps}-step chain` : "Sent for approval"}</div>
@@ -668,7 +688,7 @@ export default function MrDetailPage() {
             <div className="section-card">
               <div className="section-head">
                 <div className="h-left">
-                  <div className="ic"><IconBox /></div>
+                  <div className="ic"><IconStore /></div>
                   <div><h2>Vendor mapping</h2></div>
                 </div>
               </div>

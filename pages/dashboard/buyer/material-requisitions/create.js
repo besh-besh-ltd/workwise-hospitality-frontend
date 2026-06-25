@@ -95,7 +95,7 @@ const fmtL = (n) => {
   const v = Number(n) || 0;
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)} Cr`;
   if (v >= 100000)  return `₹${(v / 100000).toFixed(2)} L`;
-  return `₹${v.toLocaleString("en-IN")}`;
+  return `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 };
 
 // Replace raw db column names in a server message with human labels, so users
@@ -1027,7 +1027,7 @@ export default function CreateMrPage() {
               Cancel
             </Link>
             <button
-              className="btn btn-ghost btn-sm"
+              className="btn btn-secondary btn-sm"
               onClick={() => handleSubmit(true)}
               type="button"
               disabled={busy}

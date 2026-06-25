@@ -13,7 +13,7 @@ import FyFilter from "@/components/shared/FyFilter";
 const fmtL = (n) => {
   const v = Number(n) || 0;
   if (v >= 100000) return "₹" + (v / 100000).toFixed(2) + " L";
-  return "₹" + v.toLocaleString("en-IN");
+  return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 };
 const fmtDate = (s) => {
   if (!s) return "—";
@@ -26,7 +26,7 @@ const BUCKET_LABEL = {
   po_released: "Released PO", cancelled: "Cancelled / rejected",
 };
 const BUCKET_TONE = {
-  drafts: "draft", pending: "eval", approved: "committee", po_released: "active", cancelled: "expired",
+  drafts: "draft", pending: "eval", approved: "committee", po_released: "active", cancelled: "terminated",
 };
 const BADGE_D = {
   drafts:      '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
