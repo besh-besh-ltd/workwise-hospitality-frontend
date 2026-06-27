@@ -13,7 +13,7 @@
 // GET /manual/draft/:id. Section autosave on blur (PUT section). On finalize,
 // navigate to the new ARC's lifecycle detail page. arc_v2.css tokens only.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import {
@@ -853,41 +853,45 @@ export default function ManualArcEntryPage() {
     stage === "sig_pending" ? "awaiting_vendor_acceptance" : null);
 
   return (
-    <div className="main-body" style={{ paddingBottom: 90 }}>
-      {/* ── Header (normal flow — no sticky banner) ── */}
-      <div className="me-head">
-        <div>
+    <div className="main-body" style={{ paddingBottom: 96 }}>
+      {/* ── Header (full width — shares the grid's left edge) ── */}
+      <header className="me-head">
+        <div className="me-head-text">
           <h1 className="page-h1">Manual ARC Entry</h1>
           <p className="page-sub">Reconstruct a historical or in-flight rate contract — one step at a time.</p>
         </div>
         <SaveChip state={saveState} />
-      </div>
+      </header>
 
-      {error && <div className="guide danger"><span className="g-ic"><InfoIcon /></span><div><strong>Error.</strong> {error}</div></div>}
+      {error && <div className="guide danger" style={{ marginTop: 14 }}><span className="g-ic"><InfoIcon /></span><div><strong>Error.</strong> {error}</div></div>}
 
-      {/* ── Stepper (normal flow) ── */}
-      <nav className="me-stepper" aria-label="Manual entry steps">
-        {steps.map((s, i) => {
-          const status = stepStatus(s);
-          const isCurrent = i === clampedIdx;
-          const showCheck = status === "done" && !isCurrent;
-          return (
-            <Fragment key={s.key}>
-              {i > 0 && <span className={`me-conn ${i <= clampedIdx ? "filled" : ""}`} aria-hidden="true" />}
-              <button type="button"
-                      className={`me-step-item ${isCurrent ? "current" : ""} ${status} ${showCheck ? "checked" : ""}`}
+      {/* ── Two-column workspace: vertical step rail + content ── */}
+      <div className="me-grid">
+        {/* vertical step rail (sticky side, not a top banner) */}
+        <aside className="me-rail" aria-label="Manual entry steps">
+          {steps.map((s, i) => {
+            const status = stepStatus(s);
+            const isCurrent = i === clampedIdx;
+            const showCheck = status === "done" && !isCurrent;
+            const cls = isCurrent ? "current" : (showCheck ? "checked" : "");
+            const stateText = isCurrent ? "In progress" : status === "done" ? "Done" : status === "optional" ? "Optional" : "Required";
+            return (
+              <button key={s.key} type="button"
+                      className={`me-rail-item ${cls} ${i < clampedIdx ? "reached" : ""}`}
                       aria-current={isCurrent ? "step" : undefined}
                       onClick={() => gotoStep(i)}>
-                <span className="me-num mono">{showCheck ? <CheckIcon size={13} /> : i + 1}</span>
-                <span className="me-step-label">{s.label}</span>
+                <span className="me-rail-num mono">{showCheck ? <CheckIcon size={14} /> : i + 1}</span>
+                <span className="me-rail-text">
+                  <span className="me-rail-label">{s.label}</span>
+                  <span className="me-rail-state">{stateText}</span>
+                </span>
               </button>
-            </Fragment>
-          );
-        })}
-      </nav>
+            );
+          })}
+        </aside>
 
-      {/* ── Active step ── */}
-      <div className="me-step" key={current.key}>
+        {/* active step content */}
+        <div className="me-main" key={current.key}>
         {resuming && <div className="guide"><span className="g-ic"><InfoIcon /></span><div>Loading saved draft…</div></div>}
 
         <div className="me-step-head">
@@ -1506,6 +1510,7 @@ export default function ManualArcEntryPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* ── Wizard footer nav ── */}
@@ -1533,32 +1538,44 @@ export default function ManualArcEntryPage() {
 
       {/* page-scoped layout styles — arc_v2.css tokens only */}
       <style jsx>{`
-        .me-head { max-width: 960px; margin: 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .me-stepper { max-width: 960px; margin: 6px auto 0; display: flex; align-items: center; gap: 3px; padding: 8px 2px; overflow-x: auto; }
-        .me-conn { flex: 1 0 14px; height: 2px; min-width: 12px; background: var(--border-strong); border-radius: 2px; }
-        .me-conn.filled { background: var(--accent); }
-        .me-step-item { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: none; cursor: pointer;
-          padding: 5px 6px; border-radius: 8px; font-family: inherit; white-space: nowrap; transition: background 0.15s ease; }
-        .me-step-item:hover { background: var(--surface-3); }
-        .me-num { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
-          font-size: 12px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--fg-3); transition: all 0.18s ease; }
-        .me-step-label { font-size: 12.5px; font-weight: 600; color: var(--fg-3); }
-        .me-step-item.todo .me-num { border-color: var(--warn); color: var(--warn); }
-        .me-step-item.checked .me-num { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .me-step-item.current .me-num { border-color: var(--primary); color: var(--primary); box-shadow: var(--ring-primary); }
-        .me-step-item.current .me-step-label { color: var(--fg); }
-        .me-step-item.checked .me-step-label { color: var(--fg-2); }
-        .me-step { max-width: 960px; margin: 10px auto 0; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+        .me-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+          padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .me-head-text { min-width: 0; }
+        .me-grid { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 20px; }
+        /* vertical step rail */
+        .me-rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; }
+        .me-rail-item { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; align-items: center;
+          width: 100%; text-align: left; padding: 8px 11px; border: 1px solid transparent; border-radius: var(--radius);
+          background: transparent; cursor: pointer; font-family: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
+        .me-rail-item:hover { background: var(--surface-3); }
+        .me-rail-item.current { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-sm); }
+        .me-rail-num { position: relative; width: 30px; height: 30px; flex: none; border-radius: var(--radius-pill, 999px); display: grid; place-items: center;
+          font-size: 12.5px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--fg-3);
+          z-index: 1; transition: all 0.18s ease; }
+        .me-rail-item:not(:last-child) .me-rail-num::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+          width: 2px; height: 12px; background: var(--border-strong); }
+        .me-rail-item.reached .me-rail-num::after { background: var(--accent); }
+        .me-rail-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .me-rail-label { font-size: 13px; font-weight: 600; color: var(--fg-3); line-height: 1.25; }
+        .me-rail-state { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; color: var(--fg-4); text-transform: uppercase; }
+        .me-rail-item.current .me-rail-num { border-color: var(--primary); color: var(--primary); box-shadow: var(--ring-primary); }
+        .me-rail-item.current .me-rail-label { color: var(--fg); }
+        .me-rail-item.current .me-rail-state { color: var(--primary); }
+        .me-rail-item.checked .me-rail-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .me-rail-item.checked .me-rail-label { color: var(--fg-2); }
+        .me-rail-item.checked .me-rail-state { color: var(--success); }
+        /* step content column */
+        .me-main { min-width: 0; display: flex; flex-direction: column; gap: 16px;
           animation: meStepIn 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
-        .me-step-head { padding: 2px 2px 0; }
-        .me-step-head h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--fg); }
-        .me-step-head p { margin: 4px 0 0; font-size: 13px; color: var(--fg-3); line-height: 1.5; max-width: 70ch; }
+        .me-step-head { padding: 0 2px; }
+        .me-step-head h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--fg); }
+        .me-step-head p { margin: 5px 0 0; font-size: 13px; color: var(--fg-3); line-height: 1.5; max-width: 72ch; }
         .me-review { display: flex; flex-direction: column; gap: 16px; }
         .me-check { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; text-align: left;
-          padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+          padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
           cursor: pointer; font-family: inherit; transition: background 0.15s ease; }
         .me-check:hover { background: var(--surface-2); }
-        .me-check-ic { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 700;
+        .me-check-ic { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--radius-pill, 999px); font-size: 12px; font-weight: 700;
           background: var(--surface-3); color: var(--fg-3); }
         .me-check-done .me-check-ic { background: var(--success-soft); color: var(--success); }
         .me-check-todo .me-check-ic { background: var(--warn-soft); color: var(--warn); }
@@ -1572,15 +1589,23 @@ export default function ManualArcEntryPage() {
         .me-dock-right { display: flex; align-items: center; gap: 10px; }
         .muted-hint { font-weight: 400; color: var(--fg-4); font-size: 10.5px; }
         :global(.stage-grid) { grid-template-columns: repeat(3, 1fr); }
-        :global(.stage-card) { padding: 12px 13px; flex-direction: column; gap: 8px; align-items: flex-start; }
+        :global(.stage-card) { padding: 13px 14px; flex-direction: column; gap: 8px; align-items: flex-start; }
         @keyframes meStepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-        @media (max-width: 720px) {
-          .me-dock-mid { display: none; }
+        @media (max-width: 960px) {
+          .me-grid { grid-template-columns: 1fr; gap: 16px; }
+          .me-rail { position: static; flex-direction: row; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+          .me-rail-item { width: auto; flex: none; grid-template-columns: auto auto; gap: 8px; padding: 6px 10px; }
+          .me-rail-item:not(:last-child) .me-rail-num::after { display: none; }
+          .me-rail-state { display: none; }
           :global(.stage-grid) { grid-template-columns: repeat(2, 1fr); }
         }
+        @media (max-width: 560px) {
+          .me-dock-mid { display: none; }
+          :global(.stage-grid) { grid-template-columns: 1fr; }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .me-step { animation: none; }
-          .me-step-item, .me-num, .me-check { transition: none; }
+          .me-main { animation: none; }
+          .me-rail-item, .me-rail-num, .me-check { transition: none; }
         }
       `}</style>
     </div>
