@@ -16,6 +16,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import {
+  buildSectionPayload,
+  buildDraftPayload,
+  buildFinalizePayload,
+} from "@/utils/manualEntryPayloads";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Target stages (the master affordance) + the §2.3 field-group matrix
@@ -187,6 +192,10 @@ export default function ManualArcEntryPage() {
   // ── Group E — items ──  rows keyed by a local uid
   const [items, setItems] = useState([]); // [{uid, product_variant_id, name, spec_text, target_price, indicative_qty, uom, hsn}]
   const itemSeq = useRef(0);
+  // SC-2/FE-02 — maps local item uid → SERVER arc_item_id so quotes/awards
+  // payloads (and their autosaves) key by the controller's arc_item_id. Filled
+  // on resume hydrate and after each items-section save (refreshItemIds).
+  const itemIdByUidRef = useRef({});
 
   // ── Group F/G/J — per-vendor quote lines + awards + contract docs ──
   // quoteLines[vendorId][itemUid] = { rate, gst_pct, lead_time_days, moq }
@@ -328,28 +337,86 @@ export default function ManualArcEntryPage() {
         setCategoryId(arc.category_id || null);
         setSelectedSubCats(Array.isArray(arc.sub_category_ids) ? arc.sub_category_ids : []);
         setDepartmentId(arc.department_id || null);
-        // C
+        // C — floated_at lives only on the PUBLISHED event; hydrate doesn't
+        // return it for a draft, so take the best available (explicit field →
+        // submission_start_at) so the field is not left blank on resume.
         setCreatedAt(isoDateTime(arc.created_at));
-        setFloatedAt(isoDateTime(body.floated_at));
+        setFloatedAt(isoDateTime(body.floated_at || arc.submission_start_at));
         setSubmissionStart(isoDateTime(arc.submission_start_at));
         setSubmissionEnd(isoDateTime(arc.submission_end_at));
         setContractStart(isoDate(arc.contract_start_at));
         setContractEnd(isoDate(arc.contract_end_at));
-        // E
-        const its = (body.items || []).map((it) => ({
-          uid: `i${itemSeq.current++}`,
-          product_variant_id: it.product_variant_id,
-          name: it.variant_name || `Variant #${it.product_variant_id}`,
-          spec_text: it.spec_text || "",
-          target_price: it.target_price != null ? String(it.target_price) : "",
-          indicative_qty: it.indicative_qty != null ? String(it.indicative_qty) : "",
-          uom: it.uom || "",
-          hsn: it.hsn || "",
-          _id: it.id,
-        }));
+        // E — keep a stable uid per item and remember its SERVER arc_item_id so
+        // quotes/awards can be hydrated against the local uid, and so a later
+        // awards/quotes autosave keys correctly (FE-02: awards state is fully
+        // populated BEFORE any awards autosave can fire → no DELETE-from-empty).
+        const idMap = {};                       // uid → server arc_item_id
+        const uidByItemId = {};                 // server arc_item_id → uid
+        const its = (body.items || []).map((it) => {
+          const uid = `i${itemSeq.current++}`;
+          if (it.id != null) { idMap[uid] = Number(it.id); uidByItemId[Number(it.id)] = uid; }
+          return {
+            uid,
+            product_variant_id: it.product_variant_id,
+            name: it.variant_name || `Variant #${it.product_variant_id}`,
+            spec_text: it.spec_text || "",
+            target_price: it.target_price != null ? String(it.target_price) : "",
+            indicative_qty: it.indicative_qty != null ? String(it.indicative_qty) : "",
+            uom: it.uom || "",
+            hsn: it.hsn || "",
+            _id: it.id,
+          };
+        });
         setItems(its);
+        itemIdByUidRef.current = idMap;
         // D
         setSelectedVendorIds((body.invitations || []).map((i) => i.vendor_id));
+        // F — quotes → quoteLines (keyed vendor_id + item uid) + quoteMeta.
+        const qLines = {};
+        const qMeta = {};
+        for (const q of (body.quotes || [])) {
+          const vid = q.vendor_id;
+          qMeta[vid] = {
+            submitted_at: isoDateTime(q.submitted_at),
+            payment_terms: q.payment_terms || "",
+            gstin_used: q.gstin_used || "",
+          };
+          for (const line of (q.lines || [])) {
+            const uid = uidByItemId[Number(line.arc_item_id)];
+            if (!uid) continue;
+            qLines[vid] = qLines[vid] || {};
+            qLines[vid][uid] = {
+              rate: line.rate != null ? String(line.rate) : "",
+              gst_pct: line.gst_pct != null ? String(line.gst_pct) : "",
+              lead_time_days: line.lead_time_days != null ? String(line.lead_time_days) : "",
+              moq: line.moq != null ? String(line.moq) : "",
+            };
+          }
+        }
+        setQuoteLines(qLines);
+        setQuoteMeta(qMeta);
+        // G — awards → awards[itemUid] = [{ vendor_id, allocated_qty }]
+        //     (resolve server arc_item_id → local uid).
+        const aw = {};
+        for (const a of (body.awards || [])) {
+          const uid = uidByItemId[Number(a.arc_item_id)];
+          if (!uid) continue;
+          aw[uid] = aw[uid] || [];
+          aw[uid].push({ vendor_id: a.awarded_vendor_id, allocated_qty: a.allocated_qty != null ? String(a.allocated_qty) : "" });
+        }
+        setAwards(aw);
+        setFinalizedAt(isoDateTime(body.comm_eval?.finalized_at));
+        // J/K — contracts → contractDocs (generated/signed/document per vendor).
+        const docs = {};
+        for (const c of (body.contracts || [])) {
+          docs[c.vendor_id] = {
+            generated_at: isoDateTime(c.generated_at),
+            signed_by_vendor_at: isoDateTime(c.signed_by_vendor_at),
+            document_s3_url: c.document_s3_url || undefined,
+            document_hash: c.document_hash || undefined,
+          };
+        }
+        setContractDocs(docs);
         // H
         setPaymentTermsExpected(arc.payment_terms_expected || "");
         setDeliveryExpected(arc.delivery_expected || "");
@@ -359,7 +426,6 @@ export default function ManualArcEntryPage() {
         setCommitteeDecidedAt(isoDateTime(me.committee_decided_at));
         setCommitteeDecidedBy(me.committee_decided_by != null ? String(me.committee_decided_by) : "");
         setCommitteeComment(me.committee_comment || "");
-        setFinalizedAt(isoDateTime(body.finalized_at));
         showToast("Draft loaded");
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || e?.message || "Could not load draft");
@@ -374,7 +440,10 @@ export default function ManualArcEntryPage() {
   // ── Derived ──
   const selectedHotel = useMemo(() => hotels.find((h) => h.id === hotelId), [hotels, hotelId]);
   const selectedCategory = useMemo(() => categories.find((c) => c.id === categoryId), [categories, categoryId]);
-  const isAwarded = stage === "ended" ? awarded : true;
+  // FE-03 — closed_no_award collapses groups D–G to optional. Derive awardedness
+  // from the ENDED status (not merely disabling the checkbox while leaving
+  // awarded=true): closed_no_award is never "awarded", so D/E/F/G become O.
+  const isAwarded = stage === "ended" ? (endedStatus !== "closed_no_award" && awarded) : true;
 
   // Vendor list shown in group D: eligible-only, or all (override) with a flag.
   const vendorPickList = useMemo(() => {
@@ -496,88 +565,83 @@ export default function ManualArcEntryPage() {
   }, [arcId, arcNumber, title, description, type, eligibilityType, technicalRequired, sampleRequired,
       hotelId, categoryId, selectedSubCats, departmentId, stage, createdAt, router]);
 
-  function buildPayload() {
-    return {
-      header: { arc_number: arcNumber || undefined, title, description, type,
-        eligibility_type: eligibilityType, technical_response_required: technicalRequired, sample_required: sampleRequired },
-      scope: { hotel_id: hotelId, category_id: categoryId, sub_category_ids: selectedSubCats, department_id: departmentId },
-      provenance: {
-        target_stage: stage,
-        ended_status: stage === "ended" ? endedStatus : undefined,
-        closed_reason: stage === "ended" ? closedReason : undefined,
-        eligibility_overridden: overrideEligibility,
-        created_at: createdAt || undefined, floated_at: floatedAt || undefined,
-        submission_start_at: submissionStart || undefined, submission_end_at: submissionEnd || undefined,
-        contract_start_at: contractStart || undefined, contract_end_at: contractEnd || undefined,
-      },
-      vendors: selectedVendorIds.map((id) => ({ vendor_id: id })),
-      items: items.map((it) => ({
-        id: it._id, product_variant_id: it.product_variant_id, spec_text: it.spec_text,
-        target_price: it.target_price === "" ? null : num(it.target_price),
-        indicative_qty: num(it.indicative_qty), uom: it.uom || null, hsn: it.hsn || null,
-      })),
-      quotes: selectedVendorIds.map((vid) => ({
-        vendor_id: vid, ...(quoteMeta[vid] || {}),
-        lines: items
-          .filter((it) => quoteLines[vid]?.[it.uid])
-          .map((it) => ({
-            product_variant_id: it.product_variant_id,
-            rate: num(quoteLines[vid][it.uid].rate),
-            gst_pct: num(quoteLines[vid][it.uid].gst_pct),
-            lead_time_days: quoteLines[vid][it.uid].lead_time_days === "" ? null : num(quoteLines[vid][it.uid].lead_time_days),
-            moq: quoteLines[vid][it.uid].moq === "" ? null : num(quoteLines[vid][it.uid].moq),
-          })),
-      })),
-      awards: {
-        finalized_at: finalizedAt || undefined,
-        allocations: items.map((it) => ({
-          product_variant_id: it.product_variant_id,
-          splits: (awards[it.uid] || []).map((a) => ({ vendor_id: a.vendor_id, allocated_qty: num(a.allocated_qty) })),
-        })),
-      },
-      terms: { payment_terms_expected: paymentTermsExpected, delivery_expected: deliveryExpected, penalty_clause: penaltyClause },
-      contract: {
-        vendors: selectedVendors.map((v) => ({
-          vendor_id: v.id,
-          generated_at: contractDocs[v.id]?.generated_at || undefined,
-          document_s3_url: contractDocs[v.id]?.document_s3_url || undefined,
-        })),
-      },
-      signatures: {
-        vendors: selectedVendors.map((v) => ({
-          vendor_id: v.id, signed_by_vendor_at: contractDocs[v.id]?.signed_by_vendor_at || undefined,
-        })),
-      },
-      approvals: {
-        committee_decision: committeeDecision, committee_decided_at: committeeDecidedAt || undefined,
-        committee_decided_by: committeeDecidedBy === "" ? undefined : num(committeeDecidedBy),
-        committee_comment: committeeComment,
-      },
-    };
-  }
+  // FE-01 — collect the LIVE component state into the plain object the pure
+  // payload builders consume. This is a plain function (NOT memoized), so every
+  // caller reads FRESH state at call time — the stale-closure bug that the old
+  // memoized autosaveSection + eslint-disable masked is gone. `selectedVendors`
+  // is read from the ref so finalize/contract/signatures see the current list.
+  const collectState = useCallback(() => ({
+    arcNumber, title, description, type, eligibilityType, technicalRequired, sampleRequired,
+    hotelId, categoryId, selectedSubCats, departmentId,
+    stage, endedStatus, closedReason, awarded, overrideEligibility,
+    createdAt, floatedAt, submissionStart, submissionEnd, contractStart, contractEnd,
+    selectedVendorIds, selectedVendors,
+    items, quoteLines, quoteMeta, awards, finalizedAt, contractDocs,
+    paymentTermsExpected, deliveryExpected, penaltyClause,
+    committeeDecision, committeeDecidedAt, committeeDecidedBy, committeeComment,
+  }), [arcNumber, title, description, type, eligibilityType, technicalRequired, sampleRequired,
+      hotelId, categoryId, selectedSubCats, departmentId,
+      stage, endedStatus, closedReason, awarded, overrideEligibility,
+      createdAt, floatedAt, submissionStart, submissionEnd, contractStart, contractEnd,
+      selectedVendorIds, selectedVendors,
+      items, quoteLines, quoteMeta, awards, finalizedAt, contractDocs,
+      paymentTermsExpected, deliveryExpected, penaltyClause,
+      committeeDecision, committeeDecidedAt, committeeDecidedBy, committeeComment]);
 
-  // Section autosave on blur — PUT a single section.
+  // Re-hydrate items from the server and refresh uid→arc_item_id (by unique
+  // product_variant_id) so subsequent quotes/awards autosaves carry real ids.
+  const refreshItemIds = useCallback(async (id) => {
+    try {
+      const res = await ArcApi.getManualDraft(id);
+      const body = res?.data || res || {};
+      const serverItems = body.items || [];
+      const byVariant = new Map(serverItems.map((si) => [Number(si.product_variant_id), Number(si.id)]));
+      const map = {};
+      setItems((cur) => cur.map((it) => {
+        const sid = byVariant.get(Number(it.product_variant_id));
+        if (sid != null) { map[it.uid] = sid; return { ...it, _id: sid }; }
+        return it;
+      }));
+      itemIdByUidRef.current = { ...itemIdByUidRef.current, ...map };
+    } catch { /* non-fatal — next save retries */ }
+  }, []);
+
+  // Section autosave on blur — PUT a single section. FE-01: builds the payload
+  // from FRESH state via buildSectionPayload (the same code the test covers), so
+  // the "Saved" chip reflects a confirmed save of CURRENT data, not a stale one.
   const autosaveSection = useCallback(async (section) => {
     if (busy || resuming) return;
     try {
       const id = await ensureDraft();
       setSaveState("saving");
-      const payload = buildPayload();
-      await ArcApi.saveManualSection(id, section, payload[section] || {});
+      // Items must be persisted before quotes/awards so their arc_item_id keys
+      // resolve. If we're saving quotes/awards but some items are unsaved, flush
+      // items first and learn their server ids.
+      if ((section === "quotes" || section === "awards")
+          && items.some((it) => it._id == null && itemIdByUidRef.current[it.uid] == null)) {
+        await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", collectState()));
+        await refreshItemIds(id);
+      }
+      const body = buildSectionPayload(section, collectState(), itemIdByUidRef.current);
+      await ArcApi.saveManualSection(id, section, body);
+      // After items save, learn the server ids so quotes/awards can key off them.
+      if (section === "items") await refreshItemIds(id);
       setSaveState("saved");
     } catch (e) {
       setSaveState("error");
       showToast(e?.response?.data?.message || "Couldn't save — your edits are kept; retry.");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy, resuming, ensureDraft]);
+  }, [busy, resuming, ensureDraft, items, collectState, refreshItemIds]);
 
   async function saveDraft() {
     if (busy) return;
     setBusy(true); setError(null); setSaveState("saving");
     try {
       const id = await ensureDraft();
-      await ArcApi.patchManualDraft(id, buildPayload());
+      // Persist items first so the bulk patch carries resolvable arc_item_ids.
+      await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", collectState()));
+      await refreshItemIds(id);
+      await ArcApi.patchManualDraft(id, buildDraftPayload(collectState(), itemIdByUidRef.current));
       setSaveState("saved");
       showToast("Draft saved");
     } catch (e) {
@@ -603,9 +667,23 @@ export default function ManualArcEntryPage() {
     setBusy(true); setError(null);
     try {
       const id = await ensureDraft();
-      // Persist the full graph first, then finalize atomically server-side.
-      await ArcApi.patchManualDraft(id, buildPayload());
-      const res = await ArcApi.finalizeManualArc(id, { confirm: true });
+      // SC-2 — persist the full graph through the per-section endpoints in the
+      // controller's order (items → vendors → quotes → awards → approvals) so
+      // every section lands in its canonical shape with resolved arc_item_ids
+      // BEFORE the atomic finalize reads them back from the DB.
+      const st = collectState();
+      await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", st));
+      await refreshItemIds(id);
+      const st2 = collectState();
+      const idMap = itemIdByUidRef.current;
+      if (rule("D", stage, isAwarded) !== "H") await ArcApi.saveManualSection(id, "vendors", buildSectionPayload("vendors", st2, idMap));
+      if (rule("F", stage, isAwarded) !== "H") await ArcApi.saveManualSection(id, "quotes", buildSectionPayload("quotes", st2, idMap));
+      if (rule("G", stage, isAwarded) !== "H" && isAwarded) await ArcApi.saveManualSection(id, "awards", buildSectionPayload("awards", st2, idMap));
+      if (rule("H", stage, isAwarded) !== "H") await ArcApi.saveManualSection(id, "terms", buildSectionPayload("terms", st2, idMap));
+      if (rule("L", stage, isAwarded) !== "H") await ArcApi.saveManualSection(id, "approvals", buildSectionPayload("approvals", st2, idMap));
+      // SC-1 — send the FULL top-level finalize payload (all backdated dates +
+      // ended_sub_status/closed_reason/was_awarded/committee_*), not {confirm:true}.
+      const res = await ArcApi.finalizeManualArc(id, buildFinalizePayload(st2));
       const body = res?.data || res || {};
       const newId = body.arc?.id || id;
       showToast("ARC finalised");
