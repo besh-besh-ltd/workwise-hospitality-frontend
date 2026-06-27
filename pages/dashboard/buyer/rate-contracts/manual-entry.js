@@ -680,6 +680,13 @@ export default function ManualArcEntryPage() {
   // the "Saved" chip reflects a confirmed save of CURRENT data, not a stale one.
   const autosaveSection = useCallback(async (section) => {
     if (busy || resuming) return;
+    const st = collectState();
+    // Until the draft row exists the server needs the minimum create fields
+    // (title + hotel + category + department, all NOT NULL on tbl_arc). Don't
+    // fire autosave — or surface the server's "…required" error — on blur
+    // before those exist. The data stays in local state and is persisted on
+    // Save draft / Finalize, or by the first autosave once prerequisites are met.
+    if (!arcId && !(st.title && st.hotelId && st.categoryId && st.departmentId)) return;
     try {
       const id = await ensureDraft();
       setSaveState("saving");
@@ -688,19 +695,21 @@ export default function ManualArcEntryPage() {
       // items first and learn their server ids.
       if ((section === "quotes" || section === "awards")
           && items.some((it) => it._id == null && itemIdByUidRef.current[it.uid] == null)) {
-        await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", collectState()));
+        await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", st));
         await refreshItemIds(id);
       }
-      const body = buildSectionPayload(section, collectState(), itemIdByUidRef.current);
+      const body = buildSectionPayload(section, st, itemIdByUidRef.current);
       await ArcApi.saveManualSection(id, section, body);
       // After items save, learn the server ids so quotes/awards can key off them.
       if (section === "items") await refreshItemIds(id);
       setSaveState("saved");
     } catch (e) {
+      // Autosave is best-effort: reflect failure on the status chip only (no
+      // disruptive blur-time toast). Real validation is surfaced when the user
+      // explicitly clicks Save draft or Finalize.
       setSaveState("error");
-      showToast(e?.response?.data?.message || "Couldn't save — your edits are kept; retry.");
     }
-  }, [busy, resuming, ensureDraft, items, collectState, refreshItemIds]);
+  }, [busy, resuming, arcId, ensureDraft, items, collectState, refreshItemIds]);
 
   async function saveDraft() {
     if (busy) return;
@@ -1541,9 +1550,9 @@ export default function ManualArcEntryPage() {
         .me-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;
           padding-bottom: 16px; border-bottom: 1px solid var(--border); }
         .me-head-text { min-width: 0; }
-        .me-grid { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 20px; }
+        .me-grid { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 32px; align-items: start; }
         /* vertical step rail */
-        .me-rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; }
+        .me-rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; padding: 0px; }
         .me-rail-item { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; align-items: center;
           width: 100%; text-align: left; padding: 8px 11px; border: 1px solid transparent; border-radius: var(--radius);
           background: transparent; cursor: pointer; font-family: inherit; transition: background 0.15s ease, border-color 0.15s ease; }
