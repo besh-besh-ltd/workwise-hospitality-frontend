@@ -126,8 +126,13 @@ export function buildQuoteWorkbook({
  */
 export function downloadQuoteExcel(args) {
   const wb = buildQuoteWorkbook(args);
-  const rfqNo = args?.rfq?.rfq_no || args?.rfq?.id || "quote";
-  const fileName = `Quote_Calculation_${String(rfqNo).replace(/[^\w-]+/g, "-")}.xlsx`;
+  // File name = <rfq_title>_<rfq_no>.xlsx (filesystem-safe). Falls back to the
+  // RFQ number alone when no title is available.
+  const slug = (s) => String(s ?? "").trim().replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "");
+  const noPart = slug(args?.rfq?.rfq_no || args?.rfq?.id || "quote");
+  const titlePart = slug(args?.rfq?.title);
+  const base = titlePart ? `${titlePart}_${noPart}` : `Quote_Calculation_${noPart}`;
+  const fileName = `${base}.xlsx`;
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   saveAs(
     new Blob([out], {
