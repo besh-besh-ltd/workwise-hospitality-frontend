@@ -426,13 +426,22 @@ export default function ContractsListPage({ filterPreset = "all" }) {
           <h1 className="page-h1">{PRESET_LABEL[activeTab] || "Rate Contracts"}</h1>
           <p className="page-sub">{PRESET_SUB[activeTab] || PRESET_SUB.all}</p>
         </div>
-        <Link href="/dashboard/buyer/rate-contracts/create" className="btn btn-blue btn-sm">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          New contract
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/buyer/rate-contracts/manual-entry" className="btn btn-secondary btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            Manual entry
+          </Link>
+          <Link href="/dashboard/buyer/rate-contracts/create" className="btn btn-blue btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New contract
+          </Link>
+        </div>
       </div>
 
       <div className="tab-row">

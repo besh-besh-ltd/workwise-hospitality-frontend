@@ -13,7 +13,7 @@
 // GET /manual/draft/:id. Section autosave on blur (PUT section). On finalize,
 // navigate to the new ARC's lifecycle detail page. arc_v2.css tokens only.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import {
@@ -99,6 +99,38 @@ const RULE_BADGE = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────
+//  Wizard steps — the page is a guided, one-step-at-a-time flow. Each step
+//  carries one or more field-groups; a step is shown only when at least one of
+//  its groups is not Hidden for the chosen target stage. 'stage' and 'review'
+//  always show. (Group M / audit is system-only and never a step.)
+// ──────────────────────────────────────────────────────────────────────────
+const STEP_DEFS = [
+  { key: "stage",     label: "Stage",       groups: [],             always: true },
+  { key: "basics",    label: "Details",     groups: ["A", "B", "C"] },
+  { key: "vendors",   label: "Vendors",     groups: ["D"] },
+  { key: "items",     label: "Line items",  groups: ["E"] },
+  { key: "quotes",    label: "Quotes",      groups: ["F"] },
+  { key: "awards",    label: "Awards",      groups: ["G"] },
+  { key: "terms",     label: "Terms",       groups: ["H", "I"] },
+  { key: "contract",  label: "Contract",    groups: ["J", "K"] },
+  { key: "approvals", label: "Approvals",   groups: ["L"] },
+  { key: "review",    label: "Review",      groups: [],             always: true },
+];
+
+const STEP_INTRO = {
+  stage:     "Where is this contract in its life? Your choice tailors the rest of the steps.",
+  basics:    "The contract's identity, where it applies, and the (backdated) key dates.",
+  vendors:   "Choose the supplier(s) on this contract — by business unit and category.",
+  items:     "The rate schedule — every product with its quantity, UOM and target rate.",
+  quotes:    "What each vendor quoted, line by line.",
+  awards:    "Allocate the awarded quantity across vendors. Splits are allowed.",
+  terms:     "Payment, delivery and penalty terms; compliance notes.",
+  contract:  "The signed contract document and its signature dates.",
+  approvals: "The committee's approval outcome for this contract.",
+  review:    "Check everything, then finalise the rate contract.",
+};
+
+// ──────────────────────────────────────────────────────────────────────────
 //  Tiny inline icons (matches create.js convention)
 // ──────────────────────────────────────────────────────────────────────────
 const Ic = (p) => (
@@ -147,7 +179,7 @@ export default function ManualArcEntryPage() {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
-  const [activeSection, setActiveSection] = useState("header");
+  const [stepIdx, setStepIdx] = useState(0);   // current wizard step
 
   // reference data
   const [categories, setCategories] = useState([]);
@@ -528,6 +560,43 @@ export default function ManualArcEntryPage() {
     .filter((g) => rules[g.id] === "R")
     .every((g) => completeness[g.id]);
 
+  // ── Wizard steps (filtered by the chosen target stage) ──
+  const steps = useMemo(
+    () => STEP_DEFS.filter((s) => s.always || s.groups.some((g) => rules[g] !== "H")),
+    [rules]
+  );
+  const clampedIdx = Math.max(0, Math.min(stepIdx, steps.length - 1));
+  const current = steps[clampedIdx] || steps[0];
+  const isLastStep = clampedIdx >= steps.length - 1;
+  const inStep = (gid) => current.groups.includes(gid);
+
+  // keep the step index valid when the step list changes (e.g. stage switch)
+  useEffect(() => {
+    setStepIdx((i) => Math.max(0, Math.min(i, steps.length - 1)));
+  }, [steps.length]);
+
+  // per-step status for the stepper: 'done' | 'todo' | 'optional'
+  function stepStatus(step) {
+    if (step.key === "review") return allRequiredComplete ? "done" : "todo";
+    if (step.key === "stage") return "done";
+    const req = step.groups.filter((g) => rules[g] === "R");
+    if (!req.length) return "optional";
+    return req.every((g) => completeness[g]) ? "done" : "todo";
+  }
+  function stepIndexForGroup(gid) {
+    return steps.findIndex((s) => s.groups.includes(gid));
+  }
+  function gotoStep(i) {
+    const next = Math.max(0, Math.min(i, steps.length - 1));
+    setStepIdx(next);
+    if (typeof window !== "undefined") {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    }
+  }
+  const goNext = () => gotoStep(clampedIdx + 1);
+  const goBack = () => gotoStep(clampedIdx - 1);
+
   // ── Stage selection (warn on downgrade that hides filled groups) ──
   function pickStage(next) {
     if (next === stage) return;
@@ -655,11 +724,11 @@ export default function ManualArcEntryPage() {
   async function finalize() {
     if (busy) return;
     if (!allRequiredComplete) {
-      // anchor to first incomplete required group
+      // jump to the step holding the first incomplete required group
       const firstBad = visibleGroups.find((g) => rules[g.id] === "R" && !completeness[g.id]);
       if (firstBad) {
-        setActiveSection(firstBad.key);
-        document.getElementById(`sec-${firstBad.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const si = stepIndexForGroup(firstBad.id);
+        if (si >= 0) gotoStep(si);
         showToast(`Complete "${firstBad.title}" before finalising.`);
       }
       return;
@@ -763,16 +832,15 @@ export default function ManualArcEntryPage() {
     return <span className={cls} style={r === "A" ? { color: "var(--violet)", background: "var(--violet-soft)", borderColor: "rgba(109,40,217,0.18)" } : undefined}>{text}</span>;
   }
 
-  // a section wrapper that hides hidden groups and renders the rule badge
+  // a section card — only renders when its group belongs to the active step and
+  // is not hidden for the current stage; shows the title + a Required/Optional badge.
   function Section({ g, children }) {
     if (rules[g.id] === "H") return null;
+    if (!current.groups.includes(g.id)) return null;
     return (
-      <div className="section-card" id={`sec-${g.key}`} style={{ scrollMarginTop: 90 }}>
+      <div className="section-card" id={`sec-${g.key}`}>
         <div className="section-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="mono" style={{ fontSize: 12, color: "var(--fg-4)", fontWeight: 700 }}>{g.id}</span>
-            <strong style={{ fontSize: 14 }}>{g.title}</strong>
-          </div>
+          <strong style={{ fontSize: 14 }}>{g.title}</strong>
           <RuleBadge gid={g.id} />
         </div>
         <div className="section-body">{children}</div>
@@ -780,117 +848,104 @@ export default function ManualArcEntryPage() {
     );
   }
 
-  const railDot = (gid) => {
-    if (rules[gid] === "H") return null;
-    if (rules[gid] === "A") return "·";
-    if (rules[gid] === "R") return completeness[gid] ? "■" : "▣";
-    return completeness[gid] ? "●" : "○";
-  };
-
   const numericContract = stage === "ended" ? endedStatus : (
     stage === "active" ? "contract_active" :
     stage === "sig_pending" ? "awaiting_vendor_acceptance" : null);
 
   return (
     <div className="main-body" style={{ paddingBottom: 90 }}>
-      {/* ── Hero band ── */}
-      <div className="arc-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
-          <div>
-            <div className="page-eyebrow" style={{ background: "rgba(255,255,255,0.12)", color: "white", borderColor: "rgba(255,255,255,0.18)" }}>Back-office · Manual entry</div>
-            <h1 style={{ fontSize: 22, fontWeight: 650, letterSpacing: "-0.02em", margin: 0 }}>Manual ARC Entry</h1>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(255,255,255,0.78)", lineHeight: 1.5 }}>
-              Reconstruct a historical or in-flight rate contract into the platform.
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <SaveChip state={saveState} />
-            <button className="btn btn-secondary btn-md" disabled={busy} onClick={saveDraft}>Save draft</button>
-            <button className="btn btn-primary btn-md" disabled={busy} onClick={finalize} style={{ background: "white", color: "var(--accent)" }}>Finalize</button>
-          </div>
+      {/* ── Header (normal flow — no sticky banner) ── */}
+      <div className="me-head">
+        <div>
+          <h1 className="page-h1">Manual ARC Entry</h1>
+          <p className="page-sub">Reconstruct a historical or in-flight rate contract — one step at a time.</p>
         </div>
+        <SaveChip state={saveState} />
       </div>
 
       {error && <div className="guide danger"><span className="g-ic"><InfoIcon /></span><div><strong>Error.</strong> {error}</div></div>}
 
-      {/* ── Sticky target-stage selector ── */}
-      <div className="stage-selector-sticky">
-        <div className="section-card">
-          <div className="section-head">
-            <strong style={{ fontSize: 13 }}>Target stage</strong>
-            <span className="section-label">Drives required fields</span>
-          </div>
-          <div className="section-body">
-            <div className="cat-grid stage-grid">
-              {STAGES.map((s) => (
-                <button key={s.key} type="button"
-                        className={`cat-card stage-card ${stage === s.key ? "selected" : ""}`}
-                        onClick={() => pickStage(s.key)}>
-                  <div className="cc-ic mono" style={{ fontSize: 12, fontWeight: 700 }}>{s.n}</div>
-                  <div>
-                    <div className="cc-name">{s.label}</div>
-                    <div className="cc-meta">{s.meta}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className={`guide ${guide.tone}`} style={{ marginTop: 12 }}>
-              <span className="g-ic"><InfoIcon /></span>
-              <div>{guide.text}</div>
-            </div>
-            {stage === "ended" && (
-              <div className="form-grid cols-3" style={{ marginTop: 12 }}>
-                <div>
-                  <label className="label">End status <span className="req">*</span></label>
-                  <select className="select" value={endedStatus} onChange={(e) => { setEndedStatus(e.target.value); markDirty(); }}>
-                    <option value="expired">Expired</option>
-                    <option value="terminated">Terminated</option>
-                    <option value="closed_no_award">Closed — no award</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <label className="cbx">
-                    <input type="checkbox" checked={awarded} disabled={endedStatus === "closed_no_award"}
-                           onChange={(e) => { setAwarded(e.target.checked); markDirty(); }} />
-                    Was this awarded before it ended?
-                  </label>
-                </div>
-                {(endedStatus === "terminated" || endedStatus === "closed_no_award") && (
-                  <div className="span-3" style={{ gridColumn: "span 3" }}>
-                    <label className="label">{endedStatus === "terminated" ? "Termination reason" : "Closed reason"} <span className="req">*</span></label>
-                    <textarea className="textarea" value={closedReason} onBlur={() => autosaveSection("provenance")}
-                              onChange={(e) => { setClosedReason(e.target.value); markDirty(); }} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Three-column workspace ── */}
-      <div className="manual-layout">
-        {/* left rail */}
-        <aside className="manual-rail">
-          <div className="section-label" style={{ padding: "0 4px 8px" }}>Sections</div>
-          {GROUPS.map((g) => {
-            const dot = railDot(g.id);
-            if (dot === null) return null;
-            return (
-              <button key={g.id} type="button"
-                      className={`rail-item ${activeSection === g.key ? "active" : ""}`}
-                      onClick={() => { setActiveSection(g.key); document.getElementById(`sec-${g.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-                <span className="rail-dot mono">{dot}</span>
-                <span className="rail-id mono">{g.id}</span>
-                <span className="rail-name">{g.title}</span>
+      {/* ── Stepper (normal flow) ── */}
+      <nav className="me-stepper" aria-label="Manual entry steps">
+        {steps.map((s, i) => {
+          const status = stepStatus(s);
+          const isCurrent = i === clampedIdx;
+          const showCheck = status === "done" && !isCurrent;
+          return (
+            <Fragment key={s.key}>
+              {i > 0 && <span className={`me-conn ${i <= clampedIdx ? "filled" : ""}`} aria-hidden="true" />}
+              <button type="button"
+                      className={`me-step-item ${isCurrent ? "current" : ""} ${status} ${showCheck ? "checked" : ""}`}
+                      aria-current={isCurrent ? "step" : undefined}
+                      onClick={() => gotoStep(i)}>
+                <span className="me-num mono">{showCheck ? <CheckIcon size={13} /> : i + 1}</span>
+                <span className="me-step-label">{s.label}</span>
               </button>
-            );
-          })}
-        </aside>
+            </Fragment>
+          );
+        })}
+      </nav>
 
-        {/* body */}
-        <div className="manual-body">
-          {resuming && <div className="guide"><span className="g-ic"><InfoIcon /></span><div>Loading saved draft…</div></div>}
+      {/* ── Active step ── */}
+      <div className="me-step" key={current.key}>
+        {resuming && <div className="guide"><span className="g-ic"><InfoIcon /></span><div>Loading saved draft…</div></div>}
+
+        <div className="me-step-head">
+          <h2>{current.label}</h2>
+          <p>{STEP_INTRO[current.key]}</p>
+        </div>
+
+        {/* Step · Stage (the master choice) */}
+        {current.key === "stage" && (
+          <div className="section-card">
+            <div className="section-body">
+              <label className="label">Target stage <span className="req">*</span></label>
+              <div className="cat-grid stage-grid" style={{ marginTop: 8 }}>
+                {STAGES.map((s) => (
+                  <button key={s.key} type="button"
+                          className={`cat-card stage-card ${stage === s.key ? "selected" : ""}`}
+                          onClick={() => pickStage(s.key)}>
+                    <div className="cc-ic mono" style={{ fontSize: 12, fontWeight: 700 }}>{s.n}</div>
+                    <div>
+                      <div className="cc-name">{s.label}</div>
+                      <div className="cc-meta">{s.meta}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className={`guide ${guide.tone}`} style={{ marginTop: 14 }}>
+                <span className="g-ic"><InfoIcon /></span>
+                <div>{guide.text}</div>
+              </div>
+              {stage === "ended" && (
+                <div className="form-grid cols-3" style={{ marginTop: 14 }}>
+                  <div>
+                    <label className="label">End status <span className="req">*</span></label>
+                    <select className="select" value={endedStatus} onChange={(e) => { setEndedStatus(e.target.value); markDirty(); }}>
+                      <option value="expired">Expired</option>
+                      <option value="terminated">Terminated</option>
+                      <option value="closed_no_award">Closed — no award</option>
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-end" }}>
+                    <label className="cbx">
+                      <input type="checkbox" checked={awarded} disabled={endedStatus === "closed_no_award"}
+                             onChange={(e) => { setAwarded(e.target.checked); markDirty(); }} />
+                      Was this awarded before it ended?
+                    </label>
+                  </div>
+                  {(endedStatus === "terminated" || endedStatus === "closed_no_award") && (
+                    <div className="span-3" style={{ gridColumn: "span 3" }}>
+                      <label className="label">{endedStatus === "terminated" ? "Termination reason" : "Closed reason"} <span className="req">*</span></label>
+                      <textarea className="textarea" value={closedReason} onBlur={() => autosaveSection("provenance")}
+                                onChange={(e) => { setClosedReason(e.target.value); markDirty(); }} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
           {/* A — header */}
           <Section g={GROUPS[0]}>
@@ -1405,53 +1460,71 @@ export default function ManualArcEntryPage() {
               <div>Recorded as a committee <strong>outcome snapshot</strong> — no live approval instance is created and no approval notifications fire for backfill.</div>
             </div>
           </Section>
-        </div>
 
-        {/* right summary */}
-        <aside className="manual-summary">
-          <div className="section-card">
-            <div className="section-head"><strong style={{ fontSize: 13 }}>Summary</strong></div>
-            <div className="section-body">
-              <div className="kv-grid">
-                <span className="text-fg-3">Business unit</span><span>{selectedHotel?.name || "—"}</span>
-                <span className="text-fg-3">Category</span><span>{selectedCategory?.title || "—"}</span>
-                <span className="text-fg-3">Target stage</span><span>{STAGES.find((s) => s.key === stage)?.label}</span>
-                <span className="text-fg-3">Items</span><span className="mono">{items.length}</span>
-                <span className="text-fg-3">Vendors</span><span className="mono">{selectedVendorIds.length}</span>
-                <span className="text-fg-3">Awarded</span><span className="mono">{Object.values(awards).filter((r) => (r || []).length).length}</span>
-              </div>
-              <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                <div className="section-label" style={{ marginBottom: 8 }}>Completeness</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {visibleGroups.filter((g) => !g.sys).map((g) => {
-                    const req = rules[g.id] === "R";
-                    const ok = completeness[g.id];
-                    const color = rules[g.id] === "A" ? "var(--violet)" : req ? (ok ? "var(--success)" : "var(--warn)") : (ok ? "var(--success)" : "var(--fg-4)");
-                    return (
-                      <span key={g.id} className="mono" title={g.title}
-                            style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: "var(--surface-3)", color }}>
-                        {g.id}{rules[g.id] === "A" ? "·" : ok ? "■" : "□"}
-                      </span>
-                    );
-                  })}
+        {/* Step · Review & finalise */}
+        {current.key === "review" && (
+          <div className="me-review">
+            <div className="section-card">
+              <div className="section-head"><strong style={{ fontSize: 14 }}>Summary</strong></div>
+              <div className="section-body">
+                <div className="kv-grid">
+                  <span className="text-fg-3">Business unit</span><span>{selectedHotel?.name || "—"}</span>
+                  <span className="text-fg-3">Category</span><span>{selectedCategory?.title || "—"}</span>
+                  <span className="text-fg-3">Department</span><span>{departments.find((d) => d.id === departmentId)?.name || departments.find((d) => d.id === departmentId)?.title || "—"}</span>
+                  <span className="text-fg-3">Target stage</span><span>{STAGES.find((s) => s.key === stage)?.label}</span>
+                  <span className="text-fg-3">Validity</span><span className="mono">{contractStart || "—"}{contractEnd ? ` → ${contractEnd}` : ""}</span>
+                  <span className="text-fg-3">Line items</span><span className="mono">{items.length}</span>
+                  <span className="text-fg-3">Vendors</span><span className="mono">{selectedVendorIds.length}</span>
+                  <span className="text-fg-3">Awarded items</span><span className="mono">{Object.values(awards).filter((r) => (r || []).length).length}</span>
                 </div>
               </div>
-              <button className="btn btn-primary btn-block btn-md" style={{ marginTop: 16 }} disabled={busy} onClick={finalize}>
-                {allRequiredComplete ? "Finalize ARC" : "Complete required sections"}
-              </button>
+            </div>
+
+            <div className="section-card">
+              <div className="section-head">
+                <strong style={{ fontSize: 14 }}>Checklist</strong>
+                <span className="section-label">{allRequiredComplete ? "Ready to finalise" : "Some steps need attention"}</span>
+              </div>
+              <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {steps.filter((s) => s.key !== "stage" && s.key !== "review").map((s) => {
+                  const st = stepStatus(s);
+                  const i = steps.findIndex((x) => x.key === s.key);
+                  return (
+                    <button key={s.key} type="button" className={`me-check me-check-${st}`} onClick={() => gotoStep(i)}>
+                      <span className="me-check-ic">{st === "done" ? <CheckIcon size={12} /> : st === "optional" ? "○" : "!"}</span>
+                      <span className="me-check-label">{s.label}</span>
+                      <span className="me-check-state mono">{st === "done" ? "Complete" : st === "optional" ? "Optional" : "Required"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="guide">
+              <span className="g-ic"><InfoIcon /></span>
+              <div>On finalise the server writes the full contract with your backdated dates and enforces date ordering, award balance and scope. Historical stages send nothing to vendors{stage === "sig_pending" ? "; only signature-pending notifies the vendor to e-sign." : "."}</div>
             </div>
           </div>
-        </aside>
+        )}
       </div>
 
-      {/* sticky action dock */}
+      {/* ── Wizard footer nav ── */}
       <div className="action-dock">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
-          <button className="btn btn-ghost btn-md" onClick={() => router.push("/dashboard/buyer/rate-contracts/all")}>← Back to list</button>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="me-dock">
+          {clampedIdx === 0 ? (
+            <button className="btn btn-ghost btn-md" onClick={() => router.push("/dashboard/buyer/rate-contracts/all")}>← Exit</button>
+          ) : (
+            <button className="btn btn-secondary btn-md" onClick={goBack}>← Back</button>
+          )}
+          <div className="me-dock-mid mono">Step {clampedIdx + 1} / {steps.length} · <span className="me-dock-step">{current.label}</span></div>
+          <div className="me-dock-right">
             <SaveChip state={saveState} />
             <button className="btn btn-secondary btn-md" disabled={busy} onClick={saveDraft}>Save draft</button>
-            <button className="btn btn-primary btn-md" disabled={busy || !allRequiredComplete} onClick={finalize}>Finalize</button>
+            {isLastStep ? (
+              <button className="btn btn-primary btn-md" disabled={busy} onClick={finalize}>Finalize ARC</button>
+            ) : (
+              <button className="btn btn-blue btn-md" disabled={busy} onClick={goNext}>Next →</button>
+            )}
           </div>
         </div>
       </div>
@@ -1460,33 +1533,54 @@ export default function ManualArcEntryPage() {
 
       {/* page-scoped layout styles — arc_v2.css tokens only */}
       <style jsx>{`
-        .stage-selector-sticky { position: sticky; top: 60px; z-index: 15; }
-        .manual-layout { display: grid; grid-template-columns: 200px 1fr 300px; gap: 18px; align-items: flex-start; }
-        .manual-rail { position: sticky; top: 230px; display: flex; flex-direction: column; gap: 2px; }
-        .manual-body { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-        .manual-summary { position: sticky; top: 230px; }
-        .rail-item { display: grid; grid-template-columns: 18px 18px 1fr; gap: 8px; align-items: center; text-align: left;
-          padding: 7px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer;
-          font-family: inherit; color: var(--fg-2); transition: all 0.13s ease; }
-        .rail-item:hover { background: var(--surface-3); }
-        .rail-item.active { background: var(--primary-tint); border-color: var(--primary); color: var(--fg); }
-        .rail-dot { font-size: 11px; color: var(--fg-3); }
-        .rail-id { font-size: 11px; font-weight: 700; color: var(--fg-4); }
-        .rail-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .me-head { max-width: 960px; margin: 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .me-stepper { max-width: 960px; margin: 6px auto 0; display: flex; align-items: center; gap: 3px; padding: 8px 2px; overflow-x: auto; }
+        .me-conn { flex: 1 0 14px; height: 2px; min-width: 12px; background: var(--border-strong); border-radius: 2px; }
+        .me-conn.filled { background: var(--accent); }
+        .me-step-item { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: none; cursor: pointer;
+          padding: 5px 6px; border-radius: 8px; font-family: inherit; white-space: nowrap; transition: background 0.15s ease; }
+        .me-step-item:hover { background: var(--surface-3); }
+        .me-num { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+          font-size: 12px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--fg-3); transition: all 0.18s ease; }
+        .me-step-label { font-size: 12.5px; font-weight: 600; color: var(--fg-3); }
+        .me-step-item.todo .me-num { border-color: var(--warn); color: var(--warn); }
+        .me-step-item.checked .me-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .me-step-item.current .me-num { border-color: var(--primary); color: var(--primary); box-shadow: var(--ring-primary); }
+        .me-step-item.current .me-step-label { color: var(--fg); }
+        .me-step-item.checked .me-step-label { color: var(--fg-2); }
+        .me-step { max-width: 960px; margin: 10px auto 0; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+          animation: meStepIn 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
+        .me-step-head { padding: 2px 2px 0; }
+        .me-step-head h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--fg); }
+        .me-step-head p { margin: 4px 0 0; font-size: 13px; color: var(--fg-3); line-height: 1.5; max-width: 70ch; }
+        .me-review { display: flex; flex-direction: column; gap: 16px; }
+        .me-check { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px; text-align: left;
+          padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+          cursor: pointer; font-family: inherit; transition: background 0.15s ease; }
+        .me-check:hover { background: var(--surface-2); }
+        .me-check-ic { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 700;
+          background: var(--surface-3); color: var(--fg-3); }
+        .me-check-done .me-check-ic { background: var(--success-soft); color: var(--success); }
+        .me-check-todo .me-check-ic { background: var(--warn-soft); color: var(--warn); }
+        .me-check-label { font-size: 13px; font-weight: 600; color: var(--fg); }
+        .me-check-state { font-size: 11px; font-weight: 700; color: var(--fg-3); }
+        .me-check-done .me-check-state { color: var(--success); }
+        .me-check-todo .me-check-state { color: var(--warn); }
+        .me-dock { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .me-dock-mid { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+        .me-dock-step { color: var(--fg); font-weight: 700; }
+        .me-dock-right { display: flex; align-items: center; gap: 10px; }
         .muted-hint { font-weight: 400; color: var(--fg-4); font-size: 10.5px; }
-        :global(.stage-grid) { grid-template-columns: repeat(6, 1fr); }
+        :global(.stage-grid) { grid-template-columns: repeat(3, 1fr); }
         :global(.stage-card) { padding: 12px 13px; flex-direction: column; gap: 8px; align-items: flex-start; }
-        @media (max-width: 1200px) {
-          .manual-layout { grid-template-columns: 180px 1fr; }
-          .manual-summary { grid-column: 1 / -1; position: static; }
-        }
-        @media (max-width: 1024px) {
-          .manual-layout { grid-template-columns: 1fr; }
-          .manual-rail { position: static; flex-direction: row; flex-wrap: wrap; }
-          :global(.stage-grid) { grid-template-columns: repeat(3, 1fr); }
+        @keyframes meStepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        @media (max-width: 720px) {
+          .me-dock-mid { display: none; }
+          :global(.stage-grid) { grid-template-columns: repeat(2, 1fr); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .rail-item { transition: none; }
+          .me-step { animation: none; }
+          .me-step-item, .me-num, .me-check { transition: none; }
         }
       `}</style>
     </div>
