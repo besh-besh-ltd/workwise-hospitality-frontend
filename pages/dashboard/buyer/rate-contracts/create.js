@@ -29,6 +29,32 @@ const isoOffset = (d) => {
   return dt.toISOString().slice(0, 10);
 };
 
+// A stored timestamp → the "YYYY-MM-DDTHH:mm" a <input type="datetime-local">
+// expects. The columns are `timestamp without time zone`, so we treat the stored
+// value as wall-clock and slice it directly (normalising a space or trailing Z)
+// rather than going through Date(), which would shift it by the local TZ offset.
+// Empty string when absent so the input renders cleanly.
+const isoDateTime = (ts) => (ts ? String(ts).replace(" ", "T").slice(0, 16) : "");
+
+// Infer the "furthest-progressed" step for a resumed draft (no stored
+// current_step). Open the highest step that has data — vendors/eligibility →
+// step 5, then items → 3, then dates → 4, then BU → 2, else 1; and step 6
+// (Review) once the draft is complete enough to publish (BU + items + dates).
+function deriveResumeStep(arc, items = [], invitations = []) {
+  const hasBU      = !!arc.hotel_id && !!arc.department_id;
+  const hasItems   = items.length > 0;
+  const hasDates   = !!arc.submission_start_at && !!arc.submission_end_at
+                     && !!arc.contract_start_at && !!arc.contract_end_at;
+  const hasVendors = invitations.length > 0;
+  // Fully-formed draft → land on Review so the user can publish straightaway.
+  if (hasBU && hasItems && hasDates) return 6;
+  if (hasVendors) return 5;
+  if (hasItems)   return 3;
+  if (hasDates)   return 4;
+  if (hasBU)      return 2;
+  return 1;
+}
+
 function buCodeFor(name) {
   if (!name) return "—";
   const parts = String(name).replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
@@ -62,6 +88,7 @@ const BoxIcon        = (p) => <Icon {...p}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7
 const ClockIcon      = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>;
 const CheckIcon      = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
 const InfoIcon       = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Icon>;
+const AlertIcon      = (p) => <Icon {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Icon>;
 const SearchIcon     = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
 const TrashIcon      = (p) => <Icon {...p}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></Icon>;
 const PlusIcon       = (p) => <Icon size={p.size || 12} {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
@@ -79,7 +106,15 @@ const ChecklistIcon  = (p) => <Icon {...p}><path d="M9 11l3 3L22 4"/><path d="M2
 export default function CreateRateContractPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  // Track C — monotonic "furthest reached" step. It only ever increases, so a
+  // step the user has reached stays unlocked/clickable even after navigating
+  // backward; forward progress past it on a fresh wizard still needs per-step
+  // validation (nextStep gates on canNext). A resumed draft sets this to the
+  // furthest hydrated stage so every reached step is reachable.
+  const [furthestStep, setFurthestStep] = useState(1);
   const [busy, setBusy] = useState(false);
+  // Resume (?c=<id>) — true while the draft is being fetched + hydrated.
+  const [resuming, setResuming] = useState(false);
   const [error, setError] = useState(null);
   // H8 — remember a draft already created this session so a retry after a
   // mid-flight failure resumes (re-publishes) instead of minting a duplicate.
@@ -168,6 +203,118 @@ export default function CreateRateContractPage() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  // ── Resume a draft (?c=<id>) ────────────────────────────────────────
+  // Opening …/create?c=<id> rehydrates EVERY wizard field/selection from the
+  // saved draft, unlocks all stages, and auto-opens the furthest-progressed
+  // stage (not step 1). draftArcRef is set to the draft id so submitting a
+  // resumed draft re-publishes the SAME ARC (PATCH the scalars, then publish) —
+  // never mints a duplicate (spec §2.4). The category/hotel-driven effects below
+  // react to the ids we set here and load sub-cats / variants / vendors /
+  // departments on their own; the departments effect preserves a matching
+  // departmentId, so order doesn't matter.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const c = Number(router.query.c);
+    if (!c) return;
+    let cancelled = false;
+    (async () => {
+      setResuming(true);
+      setError(null);
+      try {
+        const res = await ArcApi.getContractDetail(c);
+        const arc = res?.data?.arc;
+        const items = res?.data?.items || [];
+        const invitations = res?.data?.invitations || [];
+        if (!arc || cancelled) return;
+        // Remember the existing ARC so submit() resumes it (no duplicate draft).
+        draftArcRef.current = arc.id;
+
+        // ── Step 1 — Basics ──
+        setTitle(arc.title || "");
+        const desc = arc.description || "";
+        setInternalRef(desc.startsWith("Internal ref: ") ? desc.slice(14) : "");
+        setCategoryId(arc.category_id || null);
+        // categoryTitle is otherwise resolved by selectedCategoryTitle once the
+        // categories list loads; seed a placeholder so labels read before then.
+        setCategoryTitle("");
+        setType(arc.type || "product");
+        setSelectedSubCats(Array.isArray(arc.sub_category_ids) ? arc.sub_category_ids : []);
+
+        // ── Step 2 — Business unit ──
+        setHotelId(arc.hotel_id || null);
+        setDepartmentId(arc.department_id || null);
+
+        // ── Step 3 — Items ──
+        const ids = items.map((it) => it.product_variant_id);
+        setSelectedItemIds(ids);
+        setSelectedMeta(Object.fromEntries(items.map((it) => [it.product_variant_id, {
+          id: it.product_variant_id, name: it.variant_name, slug: it.variant_slug, uom: it.uom ?? null,
+        }])));
+        setItemSpecs(Object.fromEntries(items.map((it) => [it.product_variant_id, it.spec_text || ""])));
+        setItemQtys(Object.fromEntries(items.map((it) => [it.product_variant_id, it.indicative_qty != null ? String(it.indicative_qty) : ""])));
+        setItemUoms(Object.fromEntries(items.map((it) => [it.product_variant_id, it.uom || ""])));
+
+        // ── Step 4 — Terms ──
+        setSubmissionStart(isoDateTime(arc.submission_start_at));
+        setSubmissionEnd(isoDateTime(arc.submission_end_at));
+        setContractStart(isoDateTime(arc.contract_start_at));
+        setContractEnd(isoDateTime(arc.contract_end_at));
+        const esc = arc.escalation_clause_json || {};
+        setEscalation(esc.type || "none");
+        setEscalationCap(esc.cap_pct != null ? String(esc.cap_pct) : "");
+        setPaymentTerms(arc.payment_terms_expected || "");
+        setDeliveryTerms(arc.delivery_expected || "");
+        setPenalty(arc.penalty_clause || "");
+        setSamplesRequired(!!arc.sample_required);
+
+        // ── Step 5 — Tech eval (per item) + vendors ──
+        // Default every selected item's tech toggle ON (the wizard's rule), then
+        // overlay any persisted per-item config from items[].tech_eval.
+        const techOn = {};
+        const clauseMap = {};
+        const minPass = {};
+        for (const it of items) {
+          const vid = it.product_variant_id;
+          const te = it.tech_eval; // { minimum_passing_score, clauses[] } | null
+          if (te) {
+            techOn[vid] = true;
+            minPass[vid] = Number(te.minimum_passing_score) || 0;
+            clauseMap[vid] = (te.clauses || []).map((cl) => ({
+              text: cl.clause_text || "",
+              weight: Number(cl.weightage) || 0,
+              type: cl.clause_type || "spec",
+              file: "",
+              mandatory: !!cl.is_mandatory,
+            }));
+          } else {
+            // No persisted config: ON with empty clauses, unless the draft was
+            // saved price-only (technical_response_required === false).
+            techOn[vid] = arc.technical_response_required !== false;
+            minPass[vid] = 65;
+            clauseMap[vid] = [];
+          }
+        }
+        setTechByItem(techOn);
+        setClausesByItem(clauseMap);
+        setMinPassByItem(minPass);
+        setEligibility(arc.eligibility_type || "open");
+        setInvitedVendorIds(invitations.map((i) => i.vendor_id));
+
+        // ── Unlock all stages + open the furthest-progressed one ──
+        // The draft was fully created once, so every step is reachable: set the
+        // high-water mark to 6 (Track C) so all steps stay clickable.
+        setFurthestStep(6);
+        setStep(deriveResumeStep(arc, items, invitations));
+      } catch (e) {
+        if (!cancelled) setError(e?.response?.data?.message || e?.message || "Could not load draft");
+      } finally {
+        if (!cancelled) setResuming(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.c]);
 
   // Sub-cats + variants + vendors load on category change. Departments are NOT
   // category-driven — they come from the user's mappings in the selected hotel
@@ -295,8 +442,17 @@ export default function CreateRateContractPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem]);
 
-  function goToStep(s) { if (s <= step) setStep(s); }
-  function nextStep() { if (canNext && step < 6) setStep((s) => s + 1); }
+  // Any step the user has already REACHED (<= furthestStep) is freely clickable
+  // in either direction — back-nav never relocks it (Track C).
+  function goToStep(s) { if (s >= 1 && s <= furthestStep) setStep(s); }
+  function nextStep() {
+    if (canNext && step < 6) {
+      const next = step + 1;
+      setStep(next);
+      setFurthestStep((f) => Math.max(f, next)); // bump the high-water mark
+    }
+  }
+  // Going back only moves the cursor; it must NOT shrink furthestStep.
   function backStep() { if (step > 1) setStep((s) => s - 1); }
 
   // ── Item / clause / vendor mutators ────────────────────────────────
@@ -371,6 +527,7 @@ export default function CreateRateContractPage() {
         description: internalRef ? `Internal ref: ${internalRef}` : "",
         category_id: categoryId,
         sub_category_ids: selectedSubCats,
+        type,
         hotel_id: hotelId,
         department_id: departmentId,
         // No process_id — ARC approval routes via the committee/hierarchy
@@ -405,6 +562,13 @@ export default function CreateRateContractPage() {
         if (!arcId) throw new Error("Could not create draft");
         draftArcRef.current = arcId;
         createdItems = res?.data?.items || res?.data?.data?.items || [];
+      } else {
+        // Resumed draft (?c=<id> or a prior in-session create): the ARC already
+        // exists, so PATCH the scalar edits onto it before publishing rather
+        // than minting a duplicate (spec §2.4). updateDraft whitelists scalars
+        // only — item/vendor/tech-eval edits on a resumed draft are a documented
+        // v1 limitation (resume = rehydrate + scalar-edits + finish/publish).
+        await ArcApi.updateDraft(arcId, payload);
       }
 
       // H4 — persist the per-item technical evaluation config the wizard
@@ -457,11 +621,23 @@ export default function CreateRateContractPage() {
   return (
     <main className="main-body" style={{ paddingBottom: 108 }}>
       <div>
-        <h1 className="page-h1">Create Rate Contract</h1>
+        {/* Resuming a saved draft → a quiet "Draft" eyebrow orients the user. */}
+        {draftArcRef.current && (
+          <span className="page-eyebrow info">Draft · resuming</span>
+        )}
+        <h1 className="page-h1">{draftArcRef.current ? "Resume Rate Contract draft" : "Create Rate Contract"}</h1>
         <p className="page-sub">Single-BU ARC. Category drives the catalogue; tech eval is configured per item with explicit weights and a minimum passing score.</p>
       </div>
 
-      {/* Horizontal stepper */}
+      {/* Resume — clean loading state while the draft hydrates. */}
+      {resuming && (
+        <div className="guide" style={{ marginBottom: 14 }}>
+          <div className="g-ic"><ClockIcon /></div>
+          <div>Loading saved draft…</div>
+        </div>
+      )}
+
+      {/* Horizontal stepper — orientation line + the reached/current/locked rail. */}
       <nav className="h-stepper" aria-label="Lifecycle progress">
         {STEPS.map((s, i) => (
           <span key={s.key} style={{ display: "contents" }}>
@@ -470,10 +646,14 @@ export default function CreateRateContractPage() {
               className={[
                 "hs-step",
                 step === i + 1 ? "is-active" : "",
-                step > i + 1 ? "is-done" : "",
-                step < i + 1 ? "is-locked" : "",
+                // "done" = a reached step that isn't the active one (uses the
+                // monotonic furthestStep so checkmarks persist after back-nav).
+                furthestStep >= i + 1 && step !== i + 1 ? "is-done" : "",
+                // only a never-reached step is locked.
+                furthestStep < i + 1 ? "is-locked" : "",
               ].filter(Boolean).join(" ")}
               onClick={() => goToStep(i + 1)}
+              aria-current={step === i + 1 ? "step" : undefined}
             >
               <div className="hs-num"><span className="n">{i + 1}</span></div>
               <div className="hs-lab">
@@ -482,11 +662,19 @@ export default function CreateRateContractPage() {
               </div>
             </button>
             {i < STEPS.length - 1 && (
-              <div className={`hs-divider ${step > i + 1 ? "is-done" : ""}`} />
+              <div className={`hs-divider ${furthestStep > i + 1 ? "is-done" : ""}`} />
             )}
           </span>
         ))}
       </nav>
+
+      {/* Orientation line — "Step X of 6 · Label" mirrors ArcStageTimeline. */}
+      <div className="wiz-orient">
+        <span className="section-label">Step <span className="mono">{step}</span> of <span className="mono">6</span></span>
+        <span className="wiz-orient-sep">·</span>
+        <span className="wiz-orient-lab">{STEPS[step - 1].label}</span>
+        <span className="wiz-orient-meta">{STEPS[step - 1].meta}</span>
+      </div>
 
       {/* ═════ STEP 1 — Basics ═════ */}
       {step === 1 && (
@@ -502,14 +690,17 @@ export default function CreateRateContractPage() {
               <div>
                 <label className="label">Contract title <span className="req">*</span></label>
                 <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. F&B Staples · BAB · Q3 2026" />
+                <div className="help-text">Shown to vendors and across dashboards. Keep it specific to the BU and period.</div>
               </div>
               <div>
                 <label className="label">Internal reference</label>
                 <input className="input mono" value={internalRef} onChange={(e) => setInternalRef(e.target.value)} placeholder="e.g. FY26-ARC-BAB-FB-01" />
+                <div className="help-text">Optional. Your own filing code — kept internal, not shared with vendors.</div>
               </div>
             </div>
 
             <label className="label" style={{ marginTop: 18 }}>Category <span className="req">*</span></label>
+            <div className="help-text" style={{ marginTop: -2, marginBottom: 9 }}>Drives the item catalogue and the pool of eligible vendors for this contract.</div>
             {categories.length === 0 ? (
               <div className="guide"><div className="g-ic"><InfoIcon /></div><div>No categories available yet.</div></div>
             ) : (
@@ -610,7 +801,7 @@ export default function CreateRateContractPage() {
               </div>
             )}
             {departments.length === 1 && (
-              <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--fg-3)" }}>
+              <div className="help-text" style={{ marginTop: 12 }}>
                 Department auto-set to <strong style={{ color: "var(--fg)" }}>{departments[0].title}</strong> (the only one you&apos;re mapped to in this business unit).
               </div>
             )}
@@ -642,8 +833,10 @@ export default function CreateRateContractPage() {
           <div className="section-body">
             {/* Selected items — pinned + configurable; persists across search/pages. */}
             {selectedItemIds.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div className="label" style={{ marginBottom: 8 }}>Selected items · configure each</div>
+              <div style={{ marginBottom: 18 }}>
+                <div className="section-label" style={{ marginBottom: 10 }}>
+                  Selected items · configure each <span className="mono fw-600" style={{ color: "var(--fg)" }}>({selectedItemIds.length})</span>
+                </div>
                 {selectedItemIds.map((id) => {
                   const it = variantById(id);
                   return (
@@ -684,6 +877,9 @@ export default function CreateRateContractPage() {
             )}
 
             {/* Browse toolbar — server search (debounced) + sub-category filter + count. */}
+            {selectedItemIds.length > 0 && (
+              <div className="section-label" style={{ marginBottom: 10 }}>Browse catalogue</div>
+            )}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
               <div className="search-input" style={{ flex: 1, minWidth: 220 }}>
                 <SearchIcon />
@@ -745,21 +941,21 @@ export default function CreateRateContractPage() {
           <div className="section-head">
             <div className="h-left">
               <div className="ic"><ClockIcon /></div>
-              <div><h2>Tender dates &amp; commercial terms</h2></div>
+              <div><h2>Tender dates &amp; commercial terms</h2><div className="h-sub">Submission window, contract term, and the commercial baseline vendors quote against</div></div>
             </div>
           </div>
           <div className="section-body">
             {/* ── Tender timeline ── */}
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-3)", marginBottom: 12 }}>Tender timeline</div>
+            <div className="section-label" style={{ marginBottom: 12 }}>Tender timeline</div>
             <div className="form-grid">
-              <div><label className="label">Submission start <span className="req">*</span></label><input type="date" className="input" value={submissionStart} onChange={(e) => setSubmissionStart(e.target.value)} /></div>
-              <div><label className="label">Submission end <span className="req">*</span></label><input type="date" className="input" value={submissionEnd} onChange={(e) => setSubmissionEnd(e.target.value)} /></div>
-              <div><label className="label">Contract start <span className="req">*</span></label><input type="date" className="input" value={contractStart} onChange={(e) => setContractStart(e.target.value)} /></div>
-              <div><label className="label">Contract end <span className="req">*</span></label><input type="date" className="input" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} /></div>
+              <div><label className="label">Submission start <span className="req">*</span></label><input type="datetime-local" className="input" value={submissionStart} onChange={(e) => setSubmissionStart(e.target.value)} /></div>
+              <div><label className="label">Submission end <span className="req">*</span></label><input type="datetime-local" className="input" value={submissionEnd} onChange={(e) => setSubmissionEnd(e.target.value)} /></div>
+              <div><label className="label">Contract start <span className="req">*</span></label><input type="datetime-local" className="input" value={contractStart} onChange={(e) => setContractStart(e.target.value)} /></div>
+              <div><label className="label">Contract end <span className="req">*</span></label><input type="datetime-local" className="input" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} /></div>
             </div>
 
             {/* ── Commercial terms ── */}
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--fg-3)", marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)", marginBottom: 12 }}>Commercial terms</div>
+            <div className="section-label" style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)", marginBottom: 12 }}>Commercial terms</div>
             <div className="form-grid">
               <div>
                 <label className="label">Price escalation</label>
@@ -957,7 +1153,7 @@ export default function CreateRateContractPage() {
             <div className="section-head">
               <div className="h-left">
                 <div className="ic"><ShieldIcon /></div>
-                <div><h2>Vendor eligibility</h2></div>
+                <div><h2>Vendor eligibility</h2><div className="h-sub">Who may quote against this contract</div></div>
               </div>
             </div>
             <div className="section-body">
@@ -972,9 +1168,13 @@ export default function CreateRateContractPage() {
                 </label>
               </div>
               {eligibility === "invitation" && (
-                <div style={{ marginTop: 14 }}>
+                <div style={{ marginTop: 16 }}>
                   <label className="label">Invite vendors <span className="req">*</span></label>
-                  <div style={{ marginTop: 7 }}>
+                  <div className="help-text" style={{ marginTop: -2, marginBottom: 9 }}>
+                    Only vendors subscribed to this business unit × category are listed.
+                    {invitedVendorIds.length > 0 && <> <span className="mono fw-600" style={{ color: "var(--fg)" }}>{invitedVendorIds.length}</span> selected.</>}
+                  </div>
+                  <div>
                     {vendors.length === 0 && (
                       <div className="guide"><div className="g-ic"><InfoIcon /></div><div>No vendors are subscribed to this hotel × category yet.</div></div>
                     )}
@@ -986,8 +1186,8 @@ export default function CreateRateContractPage() {
                           <div className="vpr-info">
                             <div className={`vpr-av ${avClassFor(v.id)}`}>{initialsFor(v.name)}</div>
                             <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>{v.name}</div>
-                              <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>{v.email || "—"}</div>
+                              <div className="vpr-name">{v.name}</div>
+                              <div className="vpr-email">{v.email || "—"}</div>
                             </div>
                           </div>
                           <div className="vpr-stat"><div className="k">Rating</div><div className="v">—</div></div>
@@ -1010,10 +1210,11 @@ export default function CreateRateContractPage() {
           <div className="section-head">
             <div className="h-left">
               <div className="ic"><CheckIcon /></div>
-              <div><h2>Review &amp; publish</h2></div>
+              <div><h2>Review &amp; publish</h2><div className="h-sub">Confirm the contract before it goes for publish approval</div></div>
             </div>
           </div>
           <div className="section-body">
+            <div className="section-label" style={{ marginBottom: 10 }}>Summary</div>
             <div className="kv-grid">
               <div className="k">Title</div><div className="v">{title}</div>
               <div className="k">Category</div><div className="v">{selectedCategoryTitle} · {type === "service" ? "Services" : "Products"}</div>
@@ -1030,31 +1231,31 @@ export default function CreateRateContractPage() {
             </div>
 
             {selectedItemIds.length > 0 && (
-              <div style={{ marginTop: 18 }}>
-                <div className="section-label">Tech eval summary per item</div>
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 7 }}>
+              <div style={{ marginTop: 20 }}>
+                <div className="section-label" style={{ marginBottom: 8 }}>Tech eval summary per item</div>
+                <div className="rev-items">
                   {selectedItemIds.map((iid) => {
                     const it = variantById(iid);
                     const techOn = itemTechOn(iid);
                     const valid = itemClauseValid(iid);
                     return (
-                      <div key={iid} style={{ padding: "9px 13px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12.5, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                        <span className="fw-600">{it.name}</span>
+                      <div key={iid} className="rev-item">
+                        <span className="ri-name">{it.name}</span>
                         {techOn ? (
                           <>
-                            <span style={{ color: "var(--fg-3)" }}>·</span>
-                            <span><span className="mono fw-600">{(clausesByItem[iid] || []).length}</span> clauses · weights <span className="mono fw-600">{itemTotalWeight(iid)}</span>/100</span>
-                            <span style={{ color: "var(--fg-3)" }}>·</span>
-                            <span>min pass <span className="mono fw-600">{(minPassByItem[iid] || 0)}%</span></span>
+                            <span className="ri-dot">·</span>
+                            <span className="ri-fact"><span className="mono fw-600">{(clausesByItem[iid] || []).length}</span> clauses · weights <span className="mono fw-600">{itemTotalWeight(iid)}</span>/100</span>
+                            <span className="ri-dot">·</span>
+                            <span className="ri-fact">min pass <span className="mono fw-600">{(minPassByItem[iid] || 0)}%</span></span>
                             {valid
-                              ? <span style={{ color: "var(--success)", fontWeight: 600, marginLeft: "auto" }}>✓ Configured</span>
-                              : <span style={{ color: "var(--warn)",    fontWeight: 600, marginLeft: "auto" }}>⚠ Incomplete</span>}
+                              ? <span className="ri-stat ok"><CheckIcon size={11} /> Configured</span>
+                              : <span className="ri-stat warn">Incomplete</span>}
                           </>
                         ) : (
                           <>
-                            <span style={{ color: "var(--fg-3)" }}>·</span>
-                            <span style={{ color: "var(--fg-3)" }}>No technical evaluation — price-only</span>
-                            <span style={{ color: "var(--fg-4)", fontWeight: 600, marginLeft: "auto" }}>Tech eval off</span>
+                            <span className="ri-dot">·</span>
+                            <span className="ri-fact muted">No technical evaluation — price-only</span>
+                            <span className="ri-stat off">Tech eval off</span>
                           </>
                         )}
                       </div>
@@ -1064,7 +1265,7 @@ export default function CreateRateContractPage() {
               </div>
             )}
 
-            <div className="guide" style={{ marginTop: 18 }}>
+            <div className="guide" style={{ marginTop: 20 }}>
               <div className="g-ic"><InfoIcon /></div>
               <div>
                 This rate contract goes for <strong>publish approval</strong> before vendors can see it. If you are the sole approver, it goes live immediately on publish.
@@ -1072,9 +1273,9 @@ export default function CreateRateContractPage() {
             </div>
 
             {error && (
-              <div className="guide" style={{ marginTop: 14 }}>
-                <div className="g-ic"><InfoIcon /></div>
-                <div style={{ color: "var(--danger)" }}>{error}</div>
+              <div className="guide danger" style={{ marginTop: 14 }}>
+                <div className="g-ic"><AlertIcon /></div>
+                <div><strong>Couldn&apos;t publish.</strong> {error}</div>
               </div>
             )}
           </div>

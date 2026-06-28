@@ -146,6 +146,16 @@ export const vendorPreviewQuote        = (payload) => axiosInstance.post(`${BASE
 export const vendorSaveQuoteDraft      = (payload) => axiosInstance.post(`${BASE}/vendor/quote/draft`, payload);
 export const vendorSubmitQuote         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/submit`, { arc_id: arcId });
 export const vendorWithdrawQuote       = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/withdraw`, { arc_id: arcId });
+// Download the vendor's OWN submitted quote as a PDF (blob). responseType:'blob'
+// makes axios set response.data to a Blob; the shared instance's response
+// interceptor returns response.data, so this resolves to the Blob directly.
+// Auth + hospitality headers are injected by the shared instance's request
+// interceptor (same token source as every other call).
+export const downloadVendorQuotePdf    = (arcId) => axiosInstance.get(`${BASE}/vendor/quote/${arcId}/pdf`, { responseType: "blob" });
+// Version history of the vendor's OWN quote submissions (newest-first, vendor-
+// isolated server-side). Response: res.data.{ quote_id, versions:[{version_no,
+// submitted_at, grand_total, line_count}] }.
+export const vendorQuoteHistory        = (arcId) => axiosInstance.get(`${BASE}/vendor/quote/${arcId}/history`);
 
 // ── Vendor — Technical envelope (two-envelope flow) ──────────────────────
 // Self-author clause responses + evidence, sealed BEFORE the commercial quote

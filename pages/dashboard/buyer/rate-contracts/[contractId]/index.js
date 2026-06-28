@@ -32,6 +32,19 @@ const fmtDate = (iso) => {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
+// Date + time for the windows. The columns are `timestamp without time zone`, so
+// render the stored wall-clock by slicing the raw string — going through Date()
+// would shift it by the viewer's TZ offset (and mismatch the datetime-local input).
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDateTime = (iso) => {
+  if (!iso) return "—";
+  const m = String(iso).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return fmtDate(iso);
+  const [, y, mo, da, hh, mi] = m;
+  const h = Number(hh);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${da} ${MON[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
+};
 
 // Status chip from the real lifecycle enum.
 function statusChip(status) {
@@ -174,7 +187,7 @@ export default function ArcLifecyclePage() {
         }
         actions={<HeroActions arc={arc} onRefresh={onRefresh} />}
         meta={[
-          { label: "Submission window", value: <><span className="em">{fmtDate(arc.submission_start_at)}</span> → <span className="em">{fmtDate(arc.submission_end_at)}</span></> },
+          { label: "Submission window", value: <><span className="em">{fmtDateTime(arc.submission_start_at)}</span> → <span className="em">{fmtDateTime(arc.submission_end_at)}</span></> },
           { label: "Contract term", value: <><span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span></> },
           { label: "Eligibility", value: <span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span> },
           { label: "Lifecycle", value: <><span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete</> },
