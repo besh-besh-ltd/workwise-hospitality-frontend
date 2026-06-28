@@ -51,6 +51,14 @@ export default function VendorCommercialStage({
   submitted,
   submittedAt,
   readOnly,
+  // Update-after-submit + version history
+  editing,
+  currentVersion,
+  windowOpen,
+  isWithdrawn,
+  onUpdateQuote,
+  onDownloadPdf,
+  downloadingPdf,
   // derived strings
   arcNumber,
   termStart,
@@ -85,12 +93,11 @@ export default function VendorCommercialStage({
               grid doesn't force the aside off-screen; aside gets max-width + sticky. */}
           <div className="q-cols" style={{ alignItems: "start" }}>
             <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
-              <div className="flex items-center justify-between mt-1">
+              <div className="vq-group-head mt-1">
                 <div className="flex items-center gap-2">
-                  <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}>Line items</h3>
+                  <span className="vq-group-title">Line items</span>
                   <span className="pill">{items.length} {items.length === 1 ? "item" : "items"}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--fg-3)" }}><span className="kbd">↹</span> tab between fields</div>
               </div>
 
               {items.map((it, idx) => {
@@ -98,121 +105,100 @@ export default function VendorCommercialStage({
                 const qty = safeNum(it.committed_qty ?? it.indicative_qty ?? 0);
                 const lt = lineTotal(it.id, qty);
                 return (
-                  <div className="line-card" key={it.id}>
-                    <div className="line-card-head">
-                      <div className="left">
-                        <div className="num-chip">{String(idx + 1).padStart(2, "0")}</div>
-                        <div>
-                          <div className="title">{it.variant_name || it.title || `Item #${it.id}`}</div>
-                          <div className="desc">{it.spec || ""}</div>
-                          <div className="mt-2 flex gap-1 flex-wrap">
-                            {l.charges.length > 0 && (
-                              <span className="pill">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                {" "}{l.charges.length} extra {l.charges.length > 1 ? "charges" : "charge"}
-                              </span>
-                            )}
-                            {l.rate ? (
-                              <span className="pill success"><span className="pdot"></span> Priced</span>
-                            ) : (
-                              <span className="pill warn">Awaiting price</span>
-                            )}
+                  <div className="vq-line" key={it.id}>
+                    <div className="vq-line-head">
+                      <div className="meta">
+                        <span className="ord">{String(idx + 1).padStart(2, "0")}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="vq-line-title">{it.variant_name || it.title || `Item #${it.id}`}</div>
+                          {it.spec ? <div className="vq-line-spec">{it.spec}</div> : null}
+                          <div className={"vq-line-status" + (l.rate ? " is-priced" : "")}>
+                            <span className="dot"></span>
+                            {l.rate ? "Priced" : "Awaiting price"}
                           </div>
                         </div>
                       </div>
-                      <div className="qty-block">
-                        <div className="lbl">Qty required</div>
-                        <div className="val mono">{qty.toLocaleString("en-IN")}</div>
-                        <div className="unit">{it.uom || ""}</div>
+                      <div className="vq-qty">
+                        <div className="k">Qty required</div>
+                        <div className="n">{qty.toLocaleString("en-IN")}</div>
+                        <div className="u">{it.uom || ""}</div>
                       </div>
                     </div>
 
                     {!readOnly && (
-                    <div className="line-section">
-                      <div className="line-section-label">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
-                        Unit price for this contract
-                      </div>
-                      <div className="price-grid">
-                        <div>
-                          <label className="label">Unit price <span className="req">*</span></label>
-                          <div className="input-group">
-                            <div className="prefix">₹</div>
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.rate}
-                              onChange={e => updateLine(it.id, { rate: e.target.value })}
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                              disabled={readOnly}
-                            />
-                            <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>/ <span>{it.uom || ""}</span></div>
-                          </div>
-                          {/* Phase 1 §D — "Target was N/A per uom" help-text removed (buyer-internal) */}
+                    <div className="vq-fields">
+                      <div className="vq-field">
+                        <label className="label">Unit price <span className="req">*</span></label>
+                        <div className="input-group">
+                          <div className="prefix">₹</div>
+                          <input
+                            type="number"
+                            className="input input-num"
+                            value={l.rate}
+                            onChange={e => updateLine(it.id, { rate: e.target.value })}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}><span>/&nbsp;{it.uom || ""}</span></div>
                         </div>
-                        <div>
-                          <label className="label">Tax (GST)</label>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.gst_pct}
-                              onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
-                              placeholder="0"
-                              min="0"
-                              disabled={readOnly}
-                            />
-                            <div className="suffix" style={{ padding: 0 }}>
-                              <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                                <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
-                                <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
-                              </div>
+                      </div>
+                      <div className="vq-field">
+                        <label className="label">GST</label>
+                        <div className="input-group">
+                          <input
+                            type="number"
+                            className="input input-num"
+                            value={l.gst_pct}
+                            onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
+                            placeholder="0"
+                            min="0"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ padding: 0 }}>
+                            <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                              <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                              <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
                             </div>
                           </div>
                         </div>
-                        {/* Phase 1 §D — standalone Freight field removed; freight is now a
-                            named charge inside the Other charges modal below. */}
-                        <div>
-                          <label className="label">Lead time <span className="req">*</span></label>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="input input-num"
-                              value={l.lead_time_days}
-                              onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
-                              placeholder="7"
-                              min="1"
-                              disabled={readOnly}
-                            />
-                            <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>days</div>
-                          </div>
+                      </div>
+                      {/* Phase 1 §D — standalone Freight field removed; freight is now a
+                          named charge inside the Other charges modal below. */}
+                      <div className="vq-field">
+                        <label className="label">Lead time <span className="req">*</span></label>
+                        <div className="input-group">
+                          <input
+                            type="number"
+                            className="input input-num"
+                            value={l.lead_time_days}
+                            onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
+                            placeholder="7"
+                            min="1"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>days</div>
                         </div>
                       </div>
-                      {/* Phase 1 §D — Other charges + Freight modal (RFQ-style) */}
-                      <div className="mt-3">
-                        <label className="label">Other charges &amp; freight <span className="label-meta">insurance, packaging, TCS, freight, etc.</span></label>
+                      {/* Phase 1 §D — Other charges + Freight modal (RFQ-style), quiet inline affordance */}
+                      <div className="vq-field">
+                        <label className="label">Charges <span className="label-meta">freight, GST, etc.</span></label>
                         <button
                           type="button"
-                          className={"charges-trigger" + (l.charges.length > 0 ? " has-items" : "")}
+                          className={"vq-charges-btn" + (l.charges.length > 0 ? " has-items" : "")}
                           onClick={() => setChargesOpen(it.id)}
                           disabled={readOnly}
                         >
-                          <span className="flex items-center gap-2">
-                            {l.charges.length === 0 ? (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-                            ) : (
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                            )}
-                            <span>
-                              {l.charges.length === 0
-                                ? "Add freight, insurance, packaging, TCS…"
-                                : `${l.charges.length} charge${l.charges.length > 1 ? "s" : ""} added`}
-                            </span>
+                          <span>
+                            {l.charges.length === 0
+                              ? "Add charges"
+                              : `${l.charges.length} charge${l.charges.length > 1 ? "s" : ""}`}
                           </span>
-                          {l.charges.length > 0 && (
-                            <span className="ch-amt">{`₹ ${fmtN(productChargesTotal(it.id))}`}</span>
+                          {l.charges.length > 0 ? (
+                            <span className="ch-amt amt">{`₹ ${fmtN(productChargesTotal(it.id))}`}</span>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                           )}
                         </button>
                       </div>
@@ -220,71 +206,75 @@ export default function VendorCommercialStage({
                     )}
 
                     {readOnly && l.rate && (
-                      <div className="line-section">
-                        <div className="line-section-label">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
-                          Submitted price
-                        </div>
-                        <div className="detail-grid" style={{ gap: 10 }}>
-                          <div className="detail-cell"><div className="k">Unit price</div><div className="v"><span className="mono fw-600">₹{fmtN(l.rate)}</span> / {it.uom || ""}</div></div>
-                          <div className="detail-cell"><div className="k">GST</div><div className="v"><span className="mono">{l.gst_pct}{l.gstMode}</span></div></div>
-                          {safeNum(l.freight) > 0 && <div className="detail-cell"><div className="k">Freight</div><div className="v"><span className="mono">₹{fmtN(l.freight)}</span> / {it.uom || ""}</div></div>}
-                          {l.lead_time_days && <div className="detail-cell"><div className="k">Lead time</div><div className="v"><span className="mono">{l.lead_time_days}</span> days</div></div>}
-                        </div>
+                      <div className="vq-readback">
+                        <div><div className="k">Unit price</div><div className="v"><span className="mono fw-600">₹{fmtN(l.rate)}</span> / {it.uom || ""}</div></div>
+                        <div><div className="k">GST</div><div className="v"><span className="mono">{l.gst_pct}{l.gstMode}</span></div></div>
+                        {safeNum(l.freight) > 0 && <div><div className="k">Freight</div><div className="v"><span className="mono">₹{fmtN(l.freight)}</span> / {it.uom || ""}</div></div>}
+                        {l.lead_time_days && <div><div className="k">Lead time</div><div className="v"><span className="mono">{l.lead_time_days}</span> days</div></div>}
+                        {l.charges.length > 0 && <div><div className="k">Charges</div><div className="v"><span className="mono">₹{fmtN(productChargesTotal(it.id))}</span></div></div>}
                       </div>
                     )}
 
-                    <div className="line-section">
-                      <div className="line-section-label">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-                        Notes &amp; attachments
-                      </div>
-                      <div className="notes-grid">
-                        <div>
-                          <label className="label">Comment to buyer <span className="label-meta">optional</span></label>
-                          <textarea
-                            className="textarea"
-                            value={l.comment}
-                            onChange={e => updateLine(it.id, { comment: e.target.value })}
-                            placeholder="MOQ, validity caveats, substitute proposals…"
-                            maxLength={300}
-                            style={{ minHeight: 64 }}
-                            disabled={readOnly}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-3">
+                    {/* Notes & attachments — quiet inline disclosure (collapsed by default).
+                        Progressive disclosure for secondary inputs; bindings unchanged. */}
+                    {!readOnly ? (
+                      <details className="vq-disclosure">
+                        <summary>
+                          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                          Add note or attachment
+                        </summary>
+                        <div className="vq-disclosure-body">
                           <div>
-                            <label className="label">Lead-time note</label>
-                            <input
-                              className="input"
-                              type="text"
-                              value={l.leadNote}
-                              onChange={e => updateLine(it.id, { leadNote: e.target.value })}
-                              placeholder="e.g. Subject to PO confirmation"
+                            <label className="label">Comment to buyer <span className="label-meta">optional</span></label>
+                            <textarea
+                              className="textarea"
+                              value={l.comment}
+                              onChange={e => updateLine(it.id, { comment: e.target.value })}
+                              placeholder="MOQ, validity caveats, substitute proposals…"
+                              maxLength={300}
+                              style={{ minHeight: 64 }}
                               disabled={readOnly}
                             />
                           </div>
-                          <button className="upload-mini w-full justify-center" type="button" style={{ padding: 9 }} disabled={readOnly}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                            Attach supporting documents
-                          </button>
+                          <div className="flex flex-col gap-3">
+                            <div>
+                              <label className="label">Lead-time note</label>
+                              <input
+                                className="input"
+                                type="text"
+                                value={l.leadNote}
+                                onChange={e => updateLine(it.id, { leadNote: e.target.value })}
+                                placeholder="e.g. Subject to PO confirmation"
+                                disabled={readOnly}
+                              />
+                            </div>
+                            <button className="upload-mini w-full justify-center" type="button" style={{ padding: 9 }} disabled={readOnly}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                              Attach supporting documents
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      </details>
+                    ) : (
+                      (l.comment || l.leadNote) ? (
+                        <div className="vq-readback">
+                          {l.comment && <div><div className="k">Comment to buyer</div><div className="v">{l.comment}</div></div>}
+                          {l.leadNote && <div><div className="k">Lead-time note</div><div className="v">{l.leadNote}</div></div>}
+                        </div>
+                      ) : null
+                    )}
 
-                    <div className="line-card-foot">
-                      <div className="badges">
-                        <span>
-                          <span className="mono">{qty.toLocaleString("en-IN")}</span> ×{" "}
-                          <span className="mono">{l.rate ? `₹${fmtN(l.rate)}` : "—"}</span>
-                          {safeNum(l.gst_pct) > 0 && (
-                            <> + <span className="mono">{l.gstMode === "%" ? `${l.gst_pct}% GST` : `₹${l.gst_pct} tax`}</span></>
-                          )}
-                        </span>
+                    <div className="vq-line-foot">
+                      <div className="vq-line-calc">
+                        <span className="mono">{qty.toLocaleString("en-IN")}</span> ×{" "}
+                        <span className="mono">{l.rate ? `₹${fmtN(l.rate)}` : "—"}</span>
+                        {safeNum(l.gst_pct) > 0 && (
+                          <> + <span className="mono">{l.gstMode === "%" ? `${l.gst_pct}% GST` : `₹${l.gst_pct} tax`}</span></>
+                        )}
                       </div>
-                      <div className="ltot">
-                        <span className="lbl">Line total</span>
-                        <span className={"val" + (lt === 0 ? " is-zero" : "")}>{`₹ ${fmtN(lt)}`}</span>
+                      <div className="vq-line-total">
+                        <span className="k">Line total</span>
+                        <span className={"v" + (lt === 0 ? " is-zero" : "")}>{`₹ ${fmtN(lt)}`}</span>
                       </div>
                     </div>
                   </div>
@@ -398,7 +388,7 @@ export default function VendorCommercialStage({
                   </div>
                   <button
                     type="button"
-                    className={"charges-trigger" + ((globalCharges || []).length > 0 ? " has-items" : "")}
+                    className={"vq-charges-btn" + ((globalCharges || []).length > 0 ? " has-items" : "")}
                     onClick={() => setGlobalChargesOpen(true)}
                     disabled={readOnly}
                   >
@@ -415,7 +405,7 @@ export default function VendorCommercialStage({
                       </span>
                     </span>
                     {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (
-                      <span className="ch-amt">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
+                      <span className="amt">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
                     )}
                   </button>
                 </div>
@@ -428,17 +418,44 @@ export default function VendorCommercialStage({
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
                   <div>
-                    <div>Quote submitted on <span className="mono">{submittedAt}</span>. Grand total: <span className="mono fw-600">₹ {fmtN(totals.grand)}</span>.</div>
-                    {onWithdraw && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        style={{ marginTop: 8 }}
-                        onClick={onWithdraw}
-                      >
-                        Withdraw quote
-                      </button>
-                    )}
+                    <div>
+                      Quote submitted on <span className="mono">{submittedAt}</span>
+                      {currentVersion > 0 ? <> · <span className="mono fw-600">v{currentVersion}</span></> : null}. Grand total: <span className="mono fw-600">₹ {fmtN(totals.grand)}</span>.
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 4 }}>
+                      This submission is recorded for audit. {windowOpen && !isWithdrawn ? "Update it before the window closes and a new version is saved to history." : "The submission window has closed."}
+                    </div>
+                    <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+                      {onUpdateQuote && windowOpen && !isWithdrawn && !editing && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-blue"
+                          onClick={onUpdateQuote}
+                        >
+                          Update quote
+                        </button>
+                      )}
+                      {onDownloadPdf && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={onDownloadPdf}
+                          disabled={downloadingPdf}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          {downloadingPdf ? "Preparing…" : "Download PDF"}
+                        </button>
+                      )}
+                      {onWithdraw && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={onWithdraw}
+                        >
+                          Withdraw quote
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -496,9 +513,9 @@ export default function VendorCommercialStage({
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <span className={"completion-pill" + (canSubmit ? " is-ready" : "")}>
                       <span className="pulse"></span>
-                      <span>{submitted ? "Submitted" : canSubmit ? "Ready to submit" : "In progress"}</span>
+                      <span>{submitted ? (editing ? "Updating" : `Submitted${currentVersion > 0 ? ` · v${currentVersion}` : ""}`) : canSubmit ? "Ready to submit" : "In progress"}</span>
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>v1 · draft</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>{submitted ? `v${currentVersion > 0 ? currentVersion : 1} · submitted` : "v1 · draft"}</span>
                   </div>
                   {/* Phase 1 §D — Submit + Save-draft REMOVED from here; they are in the action dock (quote.js). */}
                 </div>

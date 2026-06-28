@@ -68,9 +68,23 @@ export default function VendorQuotePage() {
   // load; persisted via acceptTerms endpoint on accept; refreshed via onRefresh.
   const [termsAcceptedAt, setTermsAcceptedAt] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  // True ONLY right after the vendor submits in this session — drives the
+  // one-time "Quote submitted" confirmation. `submitted` (above) is true for any
+  // already-submitted quote on load, so gating the modal on it would re-trap the
+  // vendor behind the overlay on every revisit. Closing it reveals the lifecycle.
+  const [justSubmitted, setJustSubmitted] = useState(false);
   const [submittedAt, setSubmittedAt] = useState("");
   const [openHistory, setOpenHistory] = useState(false);
   const [chargesOpen, setChargesOpen] = useState(null);
+
+  // ── Update-after-submit + version history ──
+  // `editing` re-opens an already-submitted quote for a new submission while the
+  // window is still open. `history` is the audit trail of every prior submission
+  // (newest-first), loaded from the server (vendor-isolated). The previous quote
+  // is ALWAYS recorded for audit — re-submitting just appends a new version.
+  const [editing, setEditing] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [price, setPrice] = useState({});           // { [arc_item_id]: line }
 
@@ -93,6 +107,7 @@ export default function VendorQuotePage() {
   const toastTimer = useRef(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // ── Regret / withdraw flow ──
   const [confirmRegret, setConfirmRegret] = useState(false);
@@ -132,6 +147,24 @@ export default function VendorQuotePage() {
       return payload;
     } catch (_e) {
       return null;
+    }
+  }, [contractId]);
+
+  // Version history of this vendor's OWN past submissions (newest-first). Loaded
+  // when the quote is submitted (on mount / refresh) and when the "Past quotes"
+  // modal opens, so the count + the modal stay fresh after each re-submit.
+  const loadHistory = useCallback(async () => {
+    if (!contractId) return [];
+    setHistoryLoading(true);
+    try {
+      const res = await ArcApi.vendorQuoteHistory(contractId);
+      const versions = res?.data?.versions || [];
+      setHistory(versions);
+      return versions;
+    } catch (_e) {
+      return [];
+    } finally {
+      setHistoryLoading(false);
     }
   }, [contractId]);
 
@@ -241,6 +274,13 @@ export default function VendorQuotePage() {
 
     return () => { cancelled = true; };
   }, [contractId]);
+
+  // Load the version history once the quote is submitted (and whenever the
+  // submitted flag flips back on after a refresh). Re-submits additionally call
+  // loadHistory() directly so the count updates without a flag change.
+  useEffect(() => {
+    if (submitted) loadHistory();
+  }, [submitted, loadHistory]);
 
   // Phase 1 §3 — derived boolean from server-persisted timestamp.
   const acceptedTerms = !!termsAcceptedAt;
@@ -713,6 +753,12 @@ export default function VendorQuotePage() {
       await ArcApi.vendorSubmitQuote(contractId);
       // §1.4 FIX: reload to get real submitted_at; drop fabricated reference.
       await onRefresh({ advance: true });
+      // Leave edit mode and refresh the version history so the new submission
+      // (just archived server-side) is reflected in the count + Past quotes.
+      setEditing(false);
+      await loadHistory();
+      // Show the one-time confirmation only for THIS submit (not on revisit).
+      setJustSubmitted(true);
     } catch (e) {
       showToastMsg(e?.response?.data?.message || e?.message || "Submit failed");
     } finally {
@@ -751,6 +797,13 @@ export default function VendorQuotePage() {
   const isWithdrawn = !!withdrawnAt;
   // windowOpen: true while submission deadline is in the future (or unknown).
   const windowOpen = arc?.submission_end_at ? new Date(arc.submission_end_at) > new Date() : true;
+  // Re-open an already-submitted quote for a new submission (only while the
+  // window is open — the server's submissionWindowGate is the real enforcement;
+  // this just surfaces the affordance). Lands on the editable commercial stage.
+  const startEditing = () => {
+    setEditing(true);
+    selectStage("commercial");
+  };
 
   const arcRefLabel = arc?.arc_number ? `ARC-${arc.arc_number}` : `ARC-${contractId || ""}`;
   const copyReference = () => {
@@ -766,6 +819,29 @@ export default function VendorQuotePage() {
     toastTimer.current = setTimeout(() => setToast(""), 2400);
   };
 
+  // Download the submitted quote as a PDF. Fetches the blob (auth header injected
+  // by the shared axios instance), builds an object URL, and triggers a download
+  // via a temporary anchor — then revokes the URL. Toast on failure.
+  const handleDownloadPdf = async () => {
+    if (downloadingPdf || !contractId) return;
+    setDownloadingPdf(true);
+    try {
+      const blob = await ArcApi.downloadVendorQuotePdf(contractId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Quote-${arcNumber !== "—" ? arcNumber : contractId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      showToastMsg(e?.response?.data?.message || e?.message || "Could not download PDF");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   // -------------------- payment-term editors --------------------
   const addPaymentTerm  = () => setGlobals(g => ({ ...g, paymentTerms: [...g.paymentTerms, { label: "", pct: 0 }] }));
   const removePaymentTerm = (i) => setGlobals(g => g.paymentTerms.length === 1 ? g : ({ ...g, paymentTerms: g.paymentTerms.filter((_, idx) => idx !== i) }));
@@ -778,8 +854,9 @@ export default function VendorQuotePage() {
   const termEnd = arc?.contract_end_at ? new Date(arc.contract_end_at).toLocaleDateString("en-IN") : "—";
   const arcNumber = arc?.arc_number || "—";
 
-  // Fallback for history — we don't have a backend feed yet.
-  const history = [];
+  // Current (latest) version number — history is newest-first, so [0] is latest.
+  // Falls back to 1 once submitted but before the history feed has loaded.
+  const currentVersion = history.length > 0 ? history[0].version_no : (submitted ? 1 : 0);
 
   if (loading) {
     return (
@@ -807,7 +884,6 @@ export default function VendorQuotePage() {
       <section className="arc-hero">
         <div className="top">
           <div>
-            <div className="eyebrow">Invitation to tender · sealed bid</div>
             <h1>
               <span>{arc.title}</span>
               <span className="num">{`#${arcNumber}`}</span>
@@ -821,15 +897,29 @@ export default function VendorQuotePage() {
               <span>
                 <span className="em">{arc.hotel_code || ""}</span> {arc.hotel_name || ""}
               </span>
-              <span className="sep">·</span>
-              <span>Single-BU contract</span>
             </div>
           </div>
           <div className="hero-actions">
-            <button className="btn btn-sm" onClick={() => setOpenHistory(true)} type="button">
+            <button className="btn btn-sm" onClick={() => { setOpenHistory(true); loadHistory(); }} type="button">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
-              Past quotes
+              Past quotes{submitted && currentVersion > 0 ? ` · v${currentVersion}` : ""}
             </button>
+            {/* Update quote — re-open the submitted quote for a new submission while
+                the window is still open. Hidden once the window closes (the form
+                then stays read-only and the server gate would reject a re-submit). */}
+            {submitted && !isWithdrawn && windowOpen && !editing && (
+              <button className="btn btn-sm btn-blue" onClick={startEditing} type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Update quote
+              </button>
+            )}
+            {/* Download the submitted quote PDF — available anytime once submitted. */}
+            {submitted && (
+              <button className="btn btn-sm" onClick={handleDownloadPdf} disabled={downloadingPdf} type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                {downloadingPdf ? "Preparing…" : "Download quote PDF"}
+              </button>
+            )}
             {/* D: Only show Regret when there is a non-withdrawn quote to withdraw. */}
             {quote && !isWithdrawn && (
               <button className="btn btn-sm" onClick={openRegretModal} disabled={withdrawing} type="button">
@@ -863,6 +953,22 @@ export default function VendorQuotePage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
           </div>
           <div>{lockedNote}</div>
+        </div>
+      )}
+
+      {/* Audit notice — updating an already-submitted quote. The current
+          submission is recorded for audit; re-submitting appends a new version. */}
+      {editing && (
+        <div className="guide violet" style={{ alignItems: "flex-start" }}>
+          <div className="g-ic" style={{ marginTop: 2 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>You&apos;re updating a submitted quote</div>
+            <div style={{ fontSize: 12.5 }}>
+              Your current submission <strong>(v{currentVersion})</strong> is <strong>recorded for audit</strong>, and re-submitting saves a <strong>new version to history</strong> — nothing is lost. You can keep updating until <span className="mono">{submissionEnd}</span>.
+            </div>
+          </div>
         </div>
       )}
 
@@ -997,7 +1103,7 @@ export default function VendorQuotePage() {
           termsAcceptedAt={termsAcceptedAt}
           onAcceptTerms={onAcceptTerms}
           acceptingTerms={acceptingTerms}
-          readOnly={submitted}
+          readOnly={submitted && !editing}
           submissionStart={submissionStart}
           submissionEnd={submissionEnd}
           termStart={termStart}
@@ -1059,7 +1165,14 @@ export default function VendorQuotePage() {
           onWithdraw={openRegretModal}
           submitted={submitted}
           submittedAt={submittedAt}
-          readOnly={false}
+          readOnly={submitted && !editing}
+          editing={editing}
+          currentVersion={currentVersion}
+          windowOpen={windowOpen}
+          isWithdrawn={isWithdrawn}
+          onUpdateQuote={startEditing}
+          onDownloadPdf={handleDownloadPdf}
+          downloadingPdf={downloadingPdf}
           arcNumber={arcNumber}
           termStart={termStart}
           termEnd={termEnd}
@@ -1083,7 +1196,7 @@ export default function VendorQuotePage() {
       {/* Action dock — single action center for all stage navigation + commercial submit.
           Phase 1 §D: Submit + Save-draft are NOW here (not in VendorCommercialStage aside).
           Accept-terms and seal-envelope remain inside their stage bodies (stage-specific seals). */}
-      {!submitted && ["overview", "technical", "commercial"].includes(stageKey) && (() => {
+      {(!submitted || editing) && ["overview", "technical", "commercial"].includes(stageKey) && (() => {
         const visibleOrder = ["overview", ...(hasTechClauses ? ["technical"] : []), "commercial"];
         const curIdx = visibleOrder.indexOf(stageKey);
         const prevStage = curIdx > 0 ? visibleOrder[curIdx - 1] : null;
@@ -1176,7 +1289,7 @@ export default function VendorQuotePage() {
                     disabled={!canSubmit || submitting || savingDraft}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                    {submitting ? "Submitting…" : "Submit quote"}
+                    {submitting ? "Submitting…" : (editing ? "Re-submit quote" : "Submit quote")}
                   </button>
                 </>
               )}
@@ -1198,10 +1311,15 @@ export default function VendorQuotePage() {
         );
       })()}
 
-      {/* Confirmation overlay */}
-      {submitted && (
-        <div className="confirm-overlay">
+      {/* One-time post-submit confirmation. Gated on justSubmitted (this session)
+          so revisiting an already-submitted quote shows the lifecycle, not this
+          overlay. Closeable via the ✕, the backdrop, or the footer actions. */}
+      {justSubmitted && (
+        <div className="confirm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setJustSubmitted(false); }}>
           <div className="confirm-modal">
+            <button className="confirm-close" type="button" aria-label="Close" onClick={() => setJustSubmitted(false)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
             <div className="confirm-hero">
               <div className="check-stage">
                 <svg className="check-svg" viewBox="0 0 80 80">
@@ -1246,14 +1364,17 @@ export default function VendorQuotePage() {
               </div>
             </div>
             <div className="confirm-foot">
-              <button className="btn btn-secondary" type="button">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                Download PDF
-              </button>
-              <Link className="btn btn-blue" href="/dashboard/vendor/rate-contracts">
-                Back to dashboard{" "}
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              <Link className="btn btn-secondary" href="/dashboard/vendor/rate-contracts">
+                Back to dashboard
               </Link>
+              <button className="btn btn-secondary" type="button" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                {downloadingPdf ? "Preparing…" : "Download PDF"}
+              </button>
+              <button className="btn btn-blue" type="button" onClick={() => setJustSubmitted(false)}>
+                View contract status{" "}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -1305,8 +1426,8 @@ export default function VendorQuotePage() {
           <div className="arc-modal" style={{ maxWidth: 520 }}>
             <div className="modal-head">
               <div>
-                <div className="t"><h3>Your previous quotes</h3></div>
-                <div className="sub">Most recent quotes from your team for similar items.</div>
+                <div className="t"><h3>Your submitted versions</h3></div>
+                <div className="sub">Every version you&apos;ve submitted for this rate contract, newest first. Each re-submission is kept for audit.</div>
               </div>
               <button className="icon-btn" onClick={() => setOpenHistory(false)} type="button">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -1314,22 +1435,32 @@ export default function VendorQuotePage() {
             </div>
             <div className="modal-body">
               <div className="flex flex-col gap-2">
-                {history.length === 0 && (
+                {historyLoading && history.length === 0 && (
+                  <div style={{ fontSize: 13, color: "var(--fg-3)", padding: 16, textAlign: "center" }}>
+                    Loading your submission history…
+                  </div>
+                )}
+                {!historyLoading && history.length === 0 && (
                   <div style={{ fontSize: 13, color: "var(--fg-3)", padding: 16, textAlign: "center" }}>
                     No previous quote history available yet.
                   </div>
                 )}
-                {history.map(h => (
-                  <div className="p-3 rounded-lg flex items-center justify-between" style={{ border: "1px solid var(--border)" }} key={h.id}>
+                {history.map((h, idx) => (
+                  <div className="p-3 rounded-lg flex items-center justify-between" style={{ border: "1px solid var(--border)" }} key={h.version_no}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{h.product}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        <span className="mono">v{h.version_no}</span>
+                        {idx === 0 && <span className="pill" style={{ marginLeft: 8 }}>Current</span>}
+                      </div>
                       <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 3 }}>
-                        <span className="mono">{h.rfq}</span> · <span>{h.buyer}</span> · <span>{h.date}</span>
+                        <span>{h.submitted_at ? new Date(h.submitted_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}</span>
+                        {" · "}
+                        <span>{h.line_count} line item{h.line_count === 1 ? "" : "s"}</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{`₹ ${h.amount}`}</div>
-                      <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 2 }}>{h.status}</div>
+                      <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{`₹ ${fmtN(h.grand_total)}`}</div>
+                      <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 2 }}>Grand total</div>
                     </div>
                   </div>
                 ))}

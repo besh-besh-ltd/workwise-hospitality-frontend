@@ -1695,6 +1695,24 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
             ? "Vendor finalized! Approval is required before Purchase Order can be created."
             : "Vendor finalized! Purchase Order created.";
         toast.success(res.message ?? defaultMsg);
+        // Auto-initiate summary — backend fires this when the RFQ becomes
+        // fully awarded after this finalize. Surface the batch outcome so
+        // the buyer knows POs went out (or which ones need attention).
+        const summary = res?.auto_initiate_summary;
+        if (summary) {
+          const initiatedCount = summary.initiated?.length || 0;
+          const skippedCount = summary.skipped_no_policy?.length || 0;
+          const failedCount = summary.failed?.length || 0;
+          if (initiatedCount && !skippedCount && !failedCount) {
+            toast.success(`All awards complete · ${initiatedCount} PO${initiatedCount === 1 ? '' : 's'} auto-initiated.`);
+          } else if (initiatedCount || skippedCount || failedCount) {
+            const parts = [];
+            if (initiatedCount) parts.push(`${initiatedCount} auto-initiated`);
+            if (skippedCount) parts.push(`${skippedCount} skipped: no approval policy`);
+            if (failedCount) parts.push(`${failedCount} failed`);
+            toast.info(`All awards complete · ${parts.join(' · ')}.`);
+          }
+        }
         // Optimistic in-place update: mark this product as finalized so the UI
         // reflects the change immediately. Then reconcile from the backend —
         // the row, the approval bundle (so the new NEGOTIATION_QUOTE instance
