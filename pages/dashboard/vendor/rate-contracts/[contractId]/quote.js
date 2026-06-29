@@ -667,8 +667,23 @@ export default function VendorQuotePage() {
   const evalProgress = evalTotal ? Math.round((evalAnswered / evalTotal) * 100) : 100;
 
   // -------------------- stage gating --------------------
+  // Submission window state — vendors may only act ('open') while
+  // submission_start_at <= now <= submission_end_at. Before the start it's
+  // 'not_started'; after the end it's 'ended'. The server's submissionWindowGate
+  // is the real enforcement; this drives the UI lock + the status banner.
+  const windowState = (() => {
+    const now = Date.now();
+    const start = arc?.submission_start_at ? new Date(arc.submission_start_at).getTime() : null;
+    const end   = arc?.submission_end_at   ? new Date(arc.submission_end_at).getTime()   : null;
+    if (start && now < start) return "not_started";
+    if (end && now > end)     return "ended";
+    return "open";
+  })();
+  const windowOpen = windowState === "open";
+
   // canSubmit mirrors server's 409 guard — do NOT loosen.
   const canSubmit = (() => {
+    if (!windowOpen) return false;
     if (!acceptedTerms) return false;
     if (hasTechClauses && !techSealed) return false;
     if (paymentTotal !== 100) return false;
@@ -795,8 +810,6 @@ export default function VendorQuotePage() {
   // D: Withdrawn state — derived from refreshed quote.
   const withdrawnAt = quote?.withdrawn_at || null;
   const isWithdrawn = !!withdrawnAt;
-  // windowOpen: true while submission deadline is in the future (or unknown).
-  const windowOpen = arc?.submission_end_at ? new Date(arc.submission_end_at) > new Date() : true;
   // Re-open an already-submitted quote for a new submission (only while the
   // window is open — the server's submissionWindowGate is the real enforcement;
   // this just surfaces the affordance). Lands on the editable commercial stage.
@@ -850,6 +863,7 @@ export default function VendorQuotePage() {
   // -------------------- derived helpers --------------------
   const submissionEnd = arc?.submission_end_at ? new Date(arc.submission_end_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
   const submissionStart = arc?.submission_start_at ? new Date(arc.submission_start_at).toLocaleDateString("en-IN") : "—";
+  const submissionStartFull = arc?.submission_start_at ? new Date(arc.submission_start_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
   const termStart = arc?.contract_start_at ? new Date(arc.contract_start_at).toLocaleDateString("en-IN") : "—";
   const termEnd = arc?.contract_end_at ? new Date(arc.contract_end_at).toLocaleDateString("en-IN") : "—";
   const arcNumber = arc?.arc_number || "—";
@@ -953,6 +967,30 @@ export default function VendorQuotePage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
           </div>
           <div>{lockedNote}</div>
+        </div>
+      )}
+
+      {/* Submission window lock — when the window hasn't started yet or has
+          ended, NOTHING can be submitted (terms, technical envelope, or quote).
+          The server's submissionWindowGate enforces this; here we lock the UI
+          and tell the vendor clearly why they can't proceed. */}
+      {!windowOpen && !isWithdrawn && ["overview", "technical", "commercial"].includes(stageKey) && (
+        <div className="guide danger" style={{ alignItems: "flex-start" }}>
+          <div className="g-ic" style={{ marginTop: 2 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              {windowState === "not_started"
+                ? "Submission window hasn't opened yet"
+                : "Submission window has closed"}
+            </div>
+            <div style={{ fontSize: 12.5 }}>
+              {windowState === "not_started"
+                ? <>You can&apos;t proceed with this rate contract yet — submissions open on <span className="mono">{submissionStartFull}</span>. You can review the items and specifications now, and come back once the window opens to accept terms, respond to the technical envelope, and submit your quote.</>
+                : <>You can&apos;t proceed with this rate contract — the submission window closed on <span className="mono">{submissionEnd}</span>. Accepting terms, responding to the technical envelope, and submitting or updating a quote are all locked. Your view is read-only from here.</>}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1103,7 +1141,7 @@ export default function VendorQuotePage() {
           termsAcceptedAt={termsAcceptedAt}
           onAcceptTerms={onAcceptTerms}
           acceptingTerms={acceptingTerms}
-          readOnly={submitted && !editing}
+          readOnly={(submitted && !editing) || !windowOpen}
           submissionStart={submissionStart}
           submissionEnd={submissionEnd}
           termStart={termStart}
@@ -1128,7 +1166,7 @@ export default function VendorQuotePage() {
           onUploadEvidence={onUploadTechEvidence}
           onDeleteEvidence={onDeleteTechEvidence}
           uploadErrors={techUploadErrors}
-          readOnly={false}
+          readOnly={!windowOpen}
         />
       )}
 
@@ -1165,7 +1203,7 @@ export default function VendorQuotePage() {
           onWithdraw={openRegretModal}
           submitted={submitted}
           submittedAt={submittedAt}
-          readOnly={submitted && !editing}
+          readOnly={(submitted && !editing) || !windowOpen}
           editing={editing}
           currentVersion={currentVersion}
           windowOpen={windowOpen}
@@ -1205,6 +1243,29 @@ export default function VendorQuotePage() {
           savingDraft ||
           (stageKey === "overview" && !acceptedTerms) ||
           (stageKey === "technical" && hasTechClauses && !techSealed);
+        // Window closed (not started / ended) → no submission actions at all.
+        // Keep only Back navigation; the banner above explains why.
+        if (!windowOpen) {
+          return (
+            <div className="action-dock">
+              <div className="inner">
+                <div className="left">
+                  <span className="fs-13 text-fg-2">
+                    <span className="fw-600 text-fg">Locked.</span>{" "}
+                    {windowState === "not_started"
+                      ? <>Submissions open on <span className="mono">{submissionStartFull}</span>.</>
+                      : <>The submission window closed on <span className="mono">{submissionEnd}</span>.</>}
+                  </span>
+                </div>
+                <div className="right">
+                  {prevStage && (
+                    <button className="btn btn-secondary btn-sm" onClick={() => selectStage(prevStage)} type="button">Back</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
         return (
         <div className="action-dock">
           <div className="inner">

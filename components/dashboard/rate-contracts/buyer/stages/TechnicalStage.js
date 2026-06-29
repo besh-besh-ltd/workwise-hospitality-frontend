@@ -67,6 +67,10 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const [savingKey, setSavingKey] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
+  // Defaults ON — only evaluate vendors who also submitted a commercial quote.
+  // Tech-only vendors never reach commercial, so showing/scoring them wastes the
+  // evaluator's time and can stall the item's "done" state. Toggle off to see all.
+  const [onlyQuoted, setOnlyQuoted] = useState(true);
   const toastTimerRef = useRef(null);
 
   // Approval panel data (chain with names — buyer side) + edit history.
@@ -159,9 +163,23 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     const seen = new Map();
     for (const r of activeBlock.responses || []) {
       const vid = r.vendor_alias_key;
-      if (!seen.has(vid)) seen.set(vid, { vendor_key: vid, vendor_alias: r.vendor_alias || `Vendor ${vid}` });
+      // Keep the raw flag (true/false/undefined). Older backends omit it; we
+      // treat "undefined" as "show" so a deploy gap never hides every vendor.
+      if (!seen.has(vid)) seen.set(vid, { vendor_key: vid, vendor_alias: r.vendor_alias || `Vendor ${vid}`, has_submitted_quote: r.has_submitted_quote });
     }
-    return [...seen.values()];
+    const all = [...seen.values()];
+    return onlyQuoted ? all.filter((v) => v.has_submitted_quote !== false) : all;
+  }, [activeBlock, onlyQuoted]);
+
+  // How many responding vendors on the active item are technical-only (no
+  // commercial quote, has_submitted_quote === false) — i.e. hidden by the toggle.
+  const techOnlyCount = useMemo(() => {
+    if (!activeBlock) return 0;
+    const seen = new Map();
+    for (const r of activeBlock.responses || []) {
+      if (!seen.has(r.vendor_alias_key)) seen.set(r.vendor_alias_key, r.has_submitted_quote);
+    }
+    return [...seen.values()].filter((q) => q === false).length;
   }, [activeBlock]);
 
   const responseFor = useCallback((vendorKey, clauseId) => {
@@ -256,9 +274,11 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   }, [vendorFullyEvaluated, vendorQualified]);
   // BLIND EVAL: the set of "vendors responding" is a set of alias keys.
   const vendorsRespondingFor = useCallback((itemId) => {
-    const set = new Set((evalByItem[itemId]?.responses || []).map((r) => Number(r.vendor_alias_key)));
+    const resps = evalByItem[itemId]?.responses || [];
+    const scoped = onlyQuoted ? resps.filter((r) => r.has_submitted_quote !== false) : resps;
+    const set = new Set(scoped.map((r) => Number(r.vendor_alias_key)));
     return [...set];
-  }, [evalByItem]);
+  }, [evalByItem, onlyQuoted]);
   const itemTabState = useCallback((itemId) => {
     const vendors = vendorsRespondingFor(itemId);
     if (vendors.length === 0) return "pending";
@@ -488,7 +508,19 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
               {" · "}Max marks: <strong><span className="mono">{vendorMaxMarks(activeItem.id)}</span></strong>
               {" · "}{(activeBlock.clauses || []).length} clauses
             </div>
-            <div className="ms-right">
+            <div className="ms-right" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <label
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, color: "var(--fg-2)", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                title="Hide vendors who submitted only a technical envelope but no commercial quote — they won't reach the commercial stage, so scoring them wastes time."
+              >
+                <input type="checkbox" checked={onlyQuoted} onChange={(e) => setOnlyQuoted(e.target.checked)} />
+                <span>Only vendors with a quote</span>
+                {onlyQuoted && techOnlyCount > 0 && (
+                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-4)", background: "var(--surface-2)", borderRadius: 5, padding: "1px 6px" }}>
+                    {techOnlyCount} hidden
+                  </span>
+                )}
+              </label>
               {amendMode && canApprove && (
                 <span className="your-action" style={{ fontSize: 10, padding: "2px 9px" }}>
                   Amending · {amendCount} change{amendCount === 1 ? "" : "s"}
@@ -504,7 +536,9 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
               </div>
             ) : activeVendors.length === 0 ? (
               <div style={{ padding: 24, color: "var(--fg-3)", fontSize: 13 }}>
-                No vendor responses recorded yet for this item.
+                {onlyQuoted && techOnlyCount > 0
+                  ? <>No vendors with a submitted commercial quote yet for this item — {techOnlyCount} technical-only vendor{techOnlyCount === 1 ? "" : "s"} hidden. Turn off <strong>Only vendors with a quote</strong> to review them.</>
+                  : "No vendor responses recorded yet for this item."}
               </div>
             ) : (
               <table className="eval-table">
