@@ -349,13 +349,18 @@ export default function ManualArcEntryPage() {
         const body = res?.data || res || {};
         const arc = body.arc || {};
         const me  = body.manual_entry || {};
+        // SC-5 — the backdated date chain + S5 ended controls persisted on the draft.
+        const bd = me.backdated_dates && typeof me.backdated_dates === "object" ? me.backdated_dates : {};
         if (!arc.id || cancelled) return;
         setArcId(arc.id);
         // master
         if (me.target_stage) setStage(me.target_stage);
         setOverrideEligibility(!!me.eligibility_overridden);
         if (arc.closed_reason) setClosedReason(arc.closed_reason);
+        if (bd.closed_reason) setClosedReason(bd.closed_reason);
         if (["expired","terminated","closed_no_award"].includes(arc.status)) setEndedStatus(arc.status);
+        if (bd.ended_sub_status) setEndedStatus(bd.ended_sub_status);
+        if (bd.was_awarded != null) setAwarded(!!bd.was_awarded);
         // A
         setArcNumber(arc.arc_number || "");
         setTitle(arc.title || "");
@@ -369,15 +374,14 @@ export default function ManualArcEntryPage() {
         setCategoryId(arc.category_id || null);
         setSelectedSubCats(Array.isArray(arc.sub_category_ids) ? arc.sub_category_ids : []);
         setDepartmentId(arc.department_id || null);
-        // C — floated_at lives only on the PUBLISHED event; hydrate doesn't
-        // return it for a draft, so take the best available (explicit field →
-        // submission_start_at) so the field is not left blank on resume.
-        setCreatedAt(isoDateTime(arc.created_at));
-        setFloatedAt(isoDateTime(body.floated_at || arc.submission_start_at));
-        setSubmissionStart(isoDateTime(arc.submission_start_at));
-        setSubmissionEnd(isoDateTime(arc.submission_end_at));
-        setContractStart(isoDate(arc.contract_start_at));
-        setContractEnd(isoDate(arc.contract_end_at));
+        // C — backdated dates: prefer the values persisted on the draft (SC-5);
+        // fall back to the ARC columns / floated event for finalized ARCs.
+        setCreatedAt(isoDateTime(bd.created_at || arc.created_at));
+        setFloatedAt(isoDateTime(bd.floated_at || body.floated_at || arc.submission_start_at));
+        setSubmissionStart(isoDateTime(bd.submission_start_at || arc.submission_start_at));
+        setSubmissionEnd(isoDateTime(bd.submission_end_at || arc.submission_end_at));
+        setContractStart(isoDate(bd.contract_start_at || arc.contract_start_at));
+        setContractEnd(isoDate(bd.contract_end_at || arc.contract_end_at));
         // E — keep a stable uid per item and remember its SERVER arc_item_id so
         // quotes/awards can be hydrated against the local uid, and so a later
         // awards/quotes autosave keys correctly (FE-02: awards state is fully
@@ -437,7 +441,7 @@ export default function ManualArcEntryPage() {
           aw[uid].push({ vendor_id: a.awarded_vendor_id, allocated_qty: a.allocated_qty != null ? String(a.allocated_qty) : "" });
         }
         setAwards(aw);
-        setFinalizedAt(isoDateTime(body.comm_eval?.finalized_at));
+        setFinalizedAt(isoDateTime(bd.comm_finalized_at || body.comm_eval?.finalized_at));
         // J/K — contracts → contractDocs (generated/signed/document per vendor).
         const docs = {};
         for (const c of (body.contracts || [])) {
@@ -447,6 +451,17 @@ export default function ManualArcEntryPage() {
             document_s3_url: c.document_s3_url || undefined,
             document_hash: c.document_hash || undefined,
           };
+        }
+        // SC-5 — a resumed DRAFT has no contract rows yet; seed the per-vendor
+        // generated/signed dates from the persisted backdated_dates so the
+        // Contract / Signatures steps restore them.
+        if (Object.keys(docs).length === 0 && (bd.generated_at || bd.signed_by_vendor_at)) {
+          for (const inv of (body.invitations || [])) {
+            docs[inv.vendor_id] = {
+              generated_at: isoDateTime(bd.generated_at),
+              signed_by_vendor_at: isoDateTime(bd.signed_by_vendor_at),
+            };
+          }
         }
         setContractDocs(docs);
         // H

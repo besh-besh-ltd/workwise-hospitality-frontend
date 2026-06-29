@@ -59,16 +59,36 @@ export function buildScopePayload(s) {
   };
 }
 
+// The full backdated date chain (+ S5 ended controls) the controller persists on
+// the draft (SC-5), so Save-draft → resume restores them. Single-valued: the
+// per-vendor generated/signed dates collapse to the first contracted vendor's
+// values (one contract date chain per ARC in V1), mirroring buildFinalizePayload.
+export function buildBackdatedDates(s) {
+  const isEnded = s.stage === "ended";
+  return {
+    created_at: s.createdAt || undefined,
+    floated_at: s.floatedAt || undefined,
+    submission_start_at: s.submissionStart || undefined,
+    submission_end_at: s.submissionEnd || undefined,
+    contract_start_at: s.contractStart || undefined,
+    contract_end_at: s.contractEnd || undefined,
+    comm_finalized_at: s.finalizedAt || undefined,
+    generated_at: firstVendorDate(s, "generated_at"),
+    signed_by_vendor_at: firstVendorDate(s, "signed_by_vendor_at"),
+    ended_sub_status: isEnded ? s.endedStatus : undefined,
+    closed_reason: isEnded ? (s.closedReason || undefined) : undefined,
+    was_awarded: isEnded ? (s.endedStatus !== "closed_no_award" && s.awarded) : undefined,
+  };
+}
+
 export function buildProvenancePayload(s) {
   return {
     provenance: {
       target_stage: s.stage,
       eligibility_overridden: s.overrideEligibility,
-      // The backdated dates are NOT persisted by the provenance section writer
-      // today (known P2, SC-5) — they are sent at finalize. We still surface
-      // them here so a future provenance-section writer can pick them up without
-      // a shape change.
       created_at: s.createdAt || undefined,
+      // SC-5 — persisted on the draft so resume restores the whole date chain.
+      backdated_dates: buildBackdatedDates(s),
     },
   };
 }
@@ -234,11 +254,8 @@ export function buildDraftPayload(s, itemIdByUid) {
       closed_reason: s.stage === "ended" ? s.closedReason : undefined,
       eligibility_overridden: s.overrideEligibility,
       created_at: s.createdAt || undefined,
-      floated_at: s.floatedAt || undefined,
-      submission_start_at: s.submissionStart || undefined,
-      submission_end_at: s.submissionEnd || undefined,
-      contract_start_at: s.contractStart || undefined,
-      contract_end_at: s.contractEnd || undefined,
+      // SC-5 — persisted on the draft so Save-draft → resume restores them.
+      backdated_dates: buildBackdatedDates(s),
     },
     ...buildVendorsPayload(s),
     ...buildItemsPayload(s),

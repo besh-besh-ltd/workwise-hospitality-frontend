@@ -190,6 +190,27 @@ describe("Manual ARC Entry — payload builders (FE↔BE wire contract)", () => 
     });
   });
 
+  describe("SC-5 · provenance section persists the full backdated date chain", () => {
+    it("provenance payload carries backdated_dates with every date the controller stores", () => {
+      const p = buildSectionPayload("provenance", awardedState());
+      expect(p.backdated_dates).toBeTruthy();
+      expect(p.backdated_dates.created_at).toBe("2024-04-01T09:00");
+      expect(p.backdated_dates.floated_at).toBe("2024-04-03T09:00");
+      expect(p.backdated_dates.submission_end_at).toBe("2024-04-10T17:00");
+      expect(p.backdated_dates.contract_end_at).toBe("2025-04-14");
+      expect(p.backdated_dates.comm_finalized_at).toBe("2024-04-12T11:00");
+      // single-valued, from the first contracted vendor
+      expect(p.backdated_dates.generated_at).toBe("2024-04-13T10:00");
+      expect(p.backdated_dates.signed_by_vendor_at).toBe("2024-04-18T10:00");
+    });
+    it("S5 ended controls ride along for a closed_no_award", () => {
+      const p = buildSectionPayload("provenance", awardedState({ stage: "ended", endedStatus: "closed_no_award", closedReason: "no bid", awarded: false }));
+      expect(p.backdated_dates.ended_sub_status).toBe("closed_no_award");
+      expect(p.backdated_dates.closed_reason).toBe("no bid");
+      expect(p.backdated_dates.was_awarded).toBe(false);
+    });
+  });
+
   describe("buildSectionPayload dispatch covers every section the autosave uses", () => {
     it("returns a section-shaped body for each known section", () => {
       const st = awardedState();
