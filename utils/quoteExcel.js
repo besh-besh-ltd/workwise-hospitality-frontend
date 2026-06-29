@@ -188,9 +188,11 @@ function buildCalcSheet({
 
   /* — title / meta block — */
   put(ws, 0, 0, { v: "Vendor Quote — Pricing Calculation", s: style({ bold: true, size: 15, color: "1F2937" }) });
-  put(ws, 1, 0, { v: `RFQ / Tender No: ${rfq?.rfq_no ?? rfq?.id ?? "—"}`, s: style({ size: 10, color: "334155" }) });
-  put(ws, 1, 3, { v: `GSTIN: ${vendorGSTIN || "—"}`, s: style({ size: 10, color: "334155" }) });
-  put(ws, 2, 0, {
+  // Second row: RFQ Title + RFQ/Tender No. Third row: GSTIN + tech-eval flag.
+  put(ws, 1, 0, { v: `RFQ Title: ${rfq?.title || "—"}`, s: style({ size: 10, color: "334155" }) });
+  put(ws, 1, 3, { v: `RFQ / Tender No: ${rfq?.rfq_no ?? rfq?.id ?? "—"}`, s: style({ size: 10, color: "334155" }) });
+  put(ws, 2, 0, { v: `GSTIN: ${vendorGSTIN || "—"}`, s: style({ size: 10, color: "334155" }) });
+  put(ws, 2, 3, {
     v: `Tech-eval restrictions: ${showTechEvalRestrictions ? "ON" : "OFF"}`,
     s: style({ size: 10, color: "334155" }),
   });
@@ -458,30 +460,27 @@ function buildReferenceSheet() {
   const ws = makeSheet();
   put(ws, 0, 0, { v: "Formula Reference — how each number is computed", s: style({ bold: true, size: 14, color: "1F2937" }) });
   const rows = [
-    ["Quantity / Step", "Formula", "Backend source"],
-    ["Base", "unit_price × quantity   (line is 0 if base ≤ 0)", "pricingEngine.js:78-90"],
-    ["Base Tax", "tax_mode='percentage' → base × tax/100 ; 'absolute' → tax (flat)", "pricingEngine.js:92-93"],
-    ["Charge Amount", "amount_mode='percentage' → base × amount/100 ; 'absolute' → amount", "pricingEngine.js:45-48,103"],
+    ["Quantity / Step", "Formula"],
+    ["Base", "unit_price × quantity   (line is 0 if base ≤ 0)"],
+    ["Base Tax", "tax_mode='percentage' → base × tax/100 ; 'absolute' → tax (flat)"],
+    ["Charge Amount", "amount_mode='percentage' → base × amount/100 ; 'absolute' → amount"],
     [
       "Charge Tax (tri-state)",
       "Blank charge-tax = INHERIT base rate (only when base tax_mode is % and rate>0): amount × base_rate/100. Explicit value (incl. 0) overrides: 'percentage' → amount × tax/100 ; 'absolute' → tax. Explicit 0 = no tax.",
-      "pricingEngine.js:63-73,102-112",
     ],
-    ["Charges Total", "Σ (charge_amount + charge_tax), summed raw", "pricingEngine.js:114-115"],
-    ["LINE TOTAL", "ROUND(base + base_tax + charges_total, 2)", "pricingEngine.js:143-151"],
-    ["Grand Subtotal", "Σ line_total", "pricingEngine.js:192"],
-    ["Global Charge Amount", "amount_mode='percentage' → grand_subtotal × amount/100 ; 'absolute' → amount", "pricingEngine.js:202"],
-    ["Global Charges Total", "ROUND(Σ global amounts, 2)", "pricingEngine.js:232"],
-    ["GRAND TOTAL", "ROUND(grand_subtotal + global_charges_total, 2)", "pricingEngine.js:234,241"],
+    ["Charges Total", "Σ (charge_amount + charge_tax), summed raw"],
+    ["LINE TOTAL", "ROUND(base + base_tax + charges_total, 2)"],
+    ["Grand Subtotal", "Σ line_total"],
+    ["Global Charge Amount", "amount_mode='percentage' → grand_subtotal × amount/100 ; 'absolute' → amount"],
+    ["Global Charges Total", "ROUND(Σ global amounts, 2)"],
+    ["GRAND TOTAL", "ROUND(grand_subtotal + global_charges_total, 2)"],
     [
       "Rounding (q2)",
       "Intermediates stay raw; round to 2 decimals only at each boundary (line total, global total, grand total). Matches DB numeric(15,2).",
-      "pricingEngine.js:21-29,39-41",
     ],
     [
       "Source of figures",
       "Cached values come from the live /pricing/preview response shown on the page; formulas recompute identically if you edit inputs.",
-      "SendQuoteWizard.js, helpers.js",
     ],
   ];
   rows.forEach((row, i) => {
@@ -504,7 +503,7 @@ function buildReferenceSheet() {
       });
     });
   });
-  ws["!cols"] = [{ wch: 26 }, { wch: 78 }, { wch: 30 }];
+  ws["!cols"] = [{ wch: 26 }, { wch: 96 }];
   ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ws._maxR, c: ws._maxC } });
   return ws;
 }
