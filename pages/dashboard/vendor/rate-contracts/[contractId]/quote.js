@@ -1262,11 +1262,11 @@ export default function VendorQuotePage() {
                       type="button"
                       className="btn btn-blue"
                       onClick={onSealTechEnvelope}
-                      disabled={techBusy || evalTotal === 0 || evalAnswered < evalTotal}
-                      title={evalTotal === 0 ? "No clauses to respond to" : evalAnswered < evalTotal ? `Respond to all ${evalTotal} clauses first` : "Seal technical envelope"}
+                      disabled={techBusy || (evalTotal > 0 && evalAnswered < evalTotal)}
+                      title={evalTotal === 0 ? "No clauses to respond to — seal to continue to your quote" : evalAnswered < evalTotal ? `Respond to all ${evalTotal} clauses first` : "Seal technical envelope"}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      {techBusy ? "Sealing…" : "Seal Technical Evaluation"}
+                      {techBusy ? "Sealing…" : evalTotal === 0 ? "Seal & continue" : "Seal Technical Evaluation"}
                     </button>
                   </>
                 )
