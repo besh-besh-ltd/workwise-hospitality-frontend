@@ -116,7 +116,15 @@ export default function RateContractsList({ filterPreset = "all" }) {
                     </Link>
                   </td>
                   <td>{row.title}</td>
-                  <td><StatusBadge status={row.status} /></td>
+                  <td>
+                    <StatusBadge status={row.status} />
+                    {/* DECISION-3: "Negotiating" chip when a live negotiation round exists */}
+                    {row.negotiation_in_progress && (
+                      <span className="arc-list-neg-chip" title="A negotiation round is in progress">
+                        Negotiating
+                      </span>
+                    )}
+                  </td>
                   <td>{row.submission_end_at ? new Date(row.submission_end_at).toLocaleDateString() : "—"}</td>
                   <td>
                     {row.contract_start_at && row.contract_end_at

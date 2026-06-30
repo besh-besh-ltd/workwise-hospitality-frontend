@@ -2950,3 +2950,146 @@ a.mr-vendor-link:hover .mr-vendor-sub { text-decoration:underline; }
 .mr-vendor-arc { display:inline-flex; align-items:center; gap:8px; margin-top:10px; padding:6px 11px; border:1px solid var(--border); border-radius:8px; background:var(--surface); text-decoration:none; color:var(--fg); transition:border-color 0.12s ease, background 0.12s ease; }
 .mr-vendor-arc:hover { border-color:var(--primary); background:var(--primary-tint); }
 .mr-vendor-arc .mono { font-size:11.5px; font-weight:600; color:var(--fg); }
+
+/* DECISION-3 — Negotiation-in-progress chip on the ARC stage timeline node.
+   Breathing amber pulse mirrors the clarification 'act'/bolt chip precedent. */
+.stg-neg-chip {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(180, 83, 9, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(180, 83, 9, 0.28);
+  animation: stg-neg-pulse 2s ease-in-out infinite;
+}
+@keyframes stg-neg-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.0); }
+  50%       { box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.18); }
+}
+
+
+/* DECISION-3 — Small 'Negotiating' inline chip next to StatusBadge on the ARC list row. */
+.arc-list-neg-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.24);
+  vertical-align: middle;
+}
+
+/* ============================================================
+   ARC NEGOTIATION — Phase 2 FE additions
+   ============================================================ */
+
+/* ARC negotiation sub-panel (CommercialStage) */
+.arc-neg-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; }
+.arc-neg-panel-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.arc-neg-panel-title { font-size:14px; font-weight:700; color:var(--fg); display:flex; align-items:center; gap:8px; }
+.arc-neg-panel-count { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:var(--primary-tint); color:var(--primary); font-size:11px; font-weight:700; }
+.arc-neg-round { border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+.arc-neg-round + .arc-neg-round { margin-top:10px; }
+.arc-neg-round-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.arc-neg-round-num { font-size:13px; font-weight:700; color:var(--fg); }
+.arc-neg-round-scope { font-size:12px; color:var(--fg-3); }
+.arc-neg-round-meta { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--fg-3); flex-wrap:wrap; }
+.arc-neg-round-actions { display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+.arc-neg-round-quotes { width:100%; font-size:12.5px; border-collapse:collapse; margin-top:8px; }
+.arc-neg-round-quotes th { text-align:left; font-size:11px; font-weight:600; color:var(--fg-3); padding:4px 8px; border-bottom:1px solid var(--border); }
+.arc-neg-round-quotes td { padding:6px 8px; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--fg); }
+.arc-neg-round-quotes tr:last-child td { border-bottom:none; }
+.arc-neg-expand-btn { background:none; border:none; cursor:pointer; padding:4px 8px; font-size:12px; color:var(--primary); font-weight:500; }
+.arc-neg-expand-btn:hover { text-decoration:underline; }
+
+/* NEGOTIATED rate tag (buyer matrix cell + vendor banner) */
+.neg-rate-tag { display:inline-block; margin-left:6px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:1px 6px; border-radius:99px; background:rgba(180,83,9,0.12); color:#b45309; border:1px solid rgba(180,83,9,0.24); vertical-align:middle; }
+
+/* Vendor active-round banner (mirror buyer NegotiationBanner ACTIVE treatment) */
+.arc-neg-banner { border:1px solid rgba(180,83,9,0.30); background:var(--warn-soft,rgba(254,243,199,0.6)); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:16px; }
+.arc-neg-banner-head { margin-bottom:10px; }
+.arc-neg-banner-title { font-size:14px; font-weight:700; color:var(--fg); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.arc-neg-banner-countdown { font-size:12px; font-weight:600; color:#b45309; padding:2px 8px; border-radius:99px; background:rgba(180,83,9,0.10); border:1px solid rgba(180,83,9,0.22); }
+.arc-neg-banner-meta { font-size:12px; color:var(--fg-3); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap; }
+.arc-neg-banner-target { font-weight:700; color:#0d9488; }
+.arc-neg-banner-items { border-top:1px solid rgba(180,83,9,0.18); margin-top:10px; }
+.arc-neg-banner-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dashed var(--border); flex-wrap:wrap; }
+.arc-neg-banner-item:last-child { border-bottom:none; }
+.arc-neg-banner-item-name { font-size:13px; font-weight:600; color:var(--fg); flex:1; min-width:120px; }
+.arc-neg-banner-item-rate { font-size:12px; color:var(--fg-3); }
+.arc-neg-banner-item-hint { font-size:11.5px; color:#0d9488; font-weight:600; }
+.arc-neg-banner-input { width:120px; padding:6px 10px; border:1px solid var(--border-input,#d1d5db); border-radius:6px; font-size:13px; font-family:inherit; }
+.arc-neg-banner-input:focus { outline:none; border-color:var(--primary); }
+
+/* ARC wizard page layout */
+.arc-neg-page { padding:24px; max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.arc-neg-page-hero { display:flex; flex-direction:column; gap:4px; }
+.arc-neg-page-eyebrow { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--fg-3); }
+.arc-neg-page-title { font-size:22px; font-weight:800; color:var(--fg); }
+.arc-neg-stepper { display:flex; align-items:center; gap:0; padding:0 0 4px; }
+.arc-neg-step-item { display:flex; align-items:center; gap:8px; }
+.arc-neg-step-badge { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; border:2px solid var(--border); background:var(--surface); color:var(--fg-3); flex-shrink:0; }
+.arc-neg-step-badge.active { border-color:var(--primary); background:var(--primary); color:#fff; }
+.arc-neg-step-badge.done { border-color:var(--success); background:var(--success); color:#fff; }
+.arc-neg-step-label { font-size:13px; color:var(--fg-3); font-weight:500; }
+.arc-neg-step-label.active { color:var(--fg); font-weight:700; }
+.arc-neg-step-connector { flex:1; height:1px; background:var(--border); min-width:24px; margin:0 8px; }
+.arc-neg-step-card { border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; background:var(--surface); }
+.arc-neg-queue-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:99px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; font-weight:600; cursor:pointer; color:var(--fg-2); position:relative; }
+.arc-neg-queue-list { position:absolute; top:calc(100% + 6px); right:0; min-width:220px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:6px; box-shadow:0 4px 16px rgba(0,0,0,0.10); z-index:100; }
+.arc-neg-queue-list-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-size:12.5px; }
+.arc-neg-queue-list-item:hover { background:var(--surface-2); }
+.arc-neg-queue-item-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg); }
+.arc-neg-queue-item-meta { font-size:11px; color:var(--fg-3); }
+.arc-neg-queue-item-remove { background:none; border:none; cursor:pointer; color:var(--fg-3); padding:2px; display:grid; place-items:center; border-radius:4px; }
+.arc-neg-queue-item-remove:hover { background:var(--danger-soft); color:var(--danger); }
+.arc-neg-footer { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; z-index:200; }
+.arc-neg-footer-info { font-size:13px; color:var(--fg-3); display:flex; align-items:center; gap:10px; }
+.arc-neg-footer-actions { display:flex; align-items:center; gap:8px; }
+
+/* Step 1 — scope radio cards */
+.arc-neg-scope-card { border:2px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; cursor:pointer; display:flex; align-items:flex-start; gap:12px; transition:border-color 0.12s ease, background 0.12s ease; }
+.arc-neg-scope-card.selected { border-color:var(--primary); background:var(--primary-tint,rgba(99,102,241,0.06)); }
+.arc-neg-scope-card.disabled { opacity:0.45; cursor:not-allowed; }
+.arc-neg-scope-card:not(.disabled):not(.selected):hover { border-color:var(--border-strong); }
+.arc-neg-radio { width:16px; height:16px; border-radius:50%; border:2px solid var(--border-strong); flex-shrink:0; margin-top:2px; display:grid; place-items:center; }
+.arc-neg-radio.checked { border-color:var(--primary); background:var(--primary); }
+.arc-neg-radio.checked::after { content:''; width:6px; height:6px; border-radius:50%; background:#fff; }
+.arc-neg-item-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+.arc-neg-item-row { border:1px solid var(--border); border-radius:var(--radius); padding:10px 13px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:border-color 0.12s ease; }
+.arc-neg-item-row.selected { border-color:var(--primary); background:var(--primary-tint,rgba(99,102,241,0.06)); }
+.arc-neg-item-row.disabled { opacity:0.45; cursor:not-allowed; }
+.arc-neg-item-row:not(.disabled):not(.selected):hover { border-color:var(--border-strong); }
+.arc-neg-item-name { font-size:13.5px; font-weight:600; color:var(--fg); flex:1; }
+.arc-neg-item-meta { font-size:12px; color:var(--fg-3); }
+
+/* Step 2 — vendor list */
+.arc-neg-vendor-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+.arc-neg-vendor-row { border:1px solid var(--border); border-radius:var(--radius); padding:10px 13px; display:flex; align-items:center; gap:10px; }
+.arc-neg-vendor-row.selected { border-color:var(--primary); background:var(--primary-tint,rgba(99,102,241,0.06)); }
+.arc-neg-vendor-check { width:16px; height:16px; cursor:pointer; }
+.arc-neg-vendor-av { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.arc-neg-vendor-name { font-size:13px; font-weight:600; color:var(--fg); flex:1; }
+.arc-neg-vendor-rate { font-size:12px; color:var(--fg-3); }
+.arc-neg-target-input { width:120px; padding:5px 9px; border:1px solid var(--border-input,#d1d5db); border-radius:6px; font-size:12.5px; font-family:inherit; }
+.arc-neg-target-input:focus { outline:none; border-color:var(--primary); }
+
+/* Approve page */
+.arc-neg-approve-block { border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; }
+.arc-neg-approve-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.arc-neg-approve-title { font-size:15px; font-weight:700; color:var(--fg); }
+.arc-neg-approve-meta { font-size:12px; color:var(--fg-3); margin-top:4px; }
+.arc-neg-comment-label { font-size:12px; color:var(--fg-3); margin-bottom:6px; font-weight:500; }
+.arc-neg-comment-area { width:100%; padding:10px 12px; border:1px solid var(--border-input,#d1d5db); border-radius:8px; font-family:inherit; font-size:13px; resize:vertical; min-height:80px; }
+.arc-neg-comment-area:focus { outline:none; border-color:var(--primary); }
+

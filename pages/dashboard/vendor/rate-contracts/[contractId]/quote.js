@@ -14,6 +14,7 @@ import VendorArcStageTimeline from "@/components/dashboard/rate-contracts/vendor
 import VendorOverviewStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorOverviewStage";
 import VendorTechnicalStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorTechnicalStage";
 import VendorCommercialStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorCommercialStage";
+import VendorArcNegotiationBanner from "@/components/dashboard/rate-contracts/vendor/VendorArcNegotiationBanner";
 import useArcQuotePreview from "@/hooks/useArcQuotePreview";
 
 const fmtN = (n) => Math.round(Number(n) || 0).toLocaleString("en-IN");
@@ -960,6 +961,9 @@ export default function VendorQuotePage() {
           onSelect={selectStage}
         />
       )}
+
+      {/* NEGOTIATION BANNER — shows only when an ACTIVE round targets this vendor */}
+      <VendorArcNegotiationBanner arcId={contractId} onAfterSubmit={onRefresh} />
 
       {lockedNote && (
         <div className="guide warn" style={{ alignItems: "center" }}>

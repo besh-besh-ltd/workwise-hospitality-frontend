@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton } from "./StageShared";
+import ArcNegotiationPanel from "@/components/dashboard/rate-contracts/buyer/negotiation/ArcNegotiationPanel";
 
 const CLAR_FIELD_LABEL = {
   base_price: "Base price / unit rate",
@@ -210,6 +211,9 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         // server-side redacted: technical committee deemed this pair unfit —
         // pricing fields arrive null and must never enter any total/rank
         disqualified: !!q.technically_disqualified,
+        // Phase 2 — negotiation provenance (set by backend after vendor submits revised rate)
+        rate_source: q.rate_source || "LANDED",
+        pre_negotiation_rate: q.pre_negotiation_rate ?? null,
       });
     });
     return Array.from(map.values());
@@ -776,6 +780,17 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         </div>
       </section>
 
+      {/* NEGOTIATION SUB-PANEL */}
+      <ArcNegotiationPanel
+        arc={arc}
+        items={items}
+        vendors={vendors}
+        qualifiedMap={qualifiedMap}
+        canEvaluate={canEvaluate}
+        editable={editable}
+        onAfterChange={async () => { await reload(); await onRefresh(); }}
+      />
+
       {/* COMPARE TOOLBAR */}
       <div className="compare-toolbar">
         <div className="view-tabs">
@@ -1133,6 +1148,9 @@ function ItemRow({
                     <span className="price mono">{fmtINR(lan)}</span>
                   )}
                   {l1 && !isAwarded && <span className="l1-badge">L1</span>}
+                  {l.rate_source === "NEGOTIATED" && l.pre_negotiation_rate != null && (
+                    <span className="neg-rate-tag">NEGOTIATED · was {fmtINR(l.pre_negotiation_rate)}</span>
+                  )}
                   {rev && rev.length > 0 && (
                     <span className="rev-info" tabIndex={0} aria-label="Why this changed">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>

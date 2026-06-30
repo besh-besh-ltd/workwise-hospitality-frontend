@@ -89,9 +89,18 @@ function describe(stage) {
           frac: total ? done / total : 0.4,
         };
       }
-      // commercial · awaiting_finalize
+      // commercial · awaiting_finalize (possibly with active negotiation)
       const total = Number(c.items_total) || 0;
       const done = Number(c.items_allocated) || 0;
+      // DECISION-3: surface negotiation chip even in partial state
+      if (stage.negotiation_in_progress) {
+        return {
+          node: "partial", icon: I.pen, tone: "warn",
+          text: total ? `${done}/${total} allocated · negotiating` : "Negotiation in progress",
+          frac: total ? done / total : 0.8,
+          negotiationChip: true,
+        };
+      }
       return {
         node: "partial", icon: I.pen, tone: "warn",
         text: total ? `${done}/${total} allocated · finalize` : "Allocation underway",
@@ -111,6 +120,10 @@ function describe(stage) {
       }
       if (stage.key === "commercial") {
         if (stage.reason === "sent_back") return { node: "act", icon: I.pen, text: "Sent back · rework", tone: "act" };
+        // DECISION-3: "Negotiation in progress" amber chip when a live round exists
+        if (stage.negotiation_in_progress) {
+          return { node: "current", icon: I.pen, text: "Negotiation in progress", tone: "warn", negotiationChip: true };
+        }
         return { node: "current", icon: I.pen, text: "Allocation in progress", tone: "warn" };
       }
       if (stage.key === "awarding") {
@@ -196,6 +209,12 @@ export default function ArcStageTimeline({ stages, selectedKey, onSelect }) {
                 <span className="stg-txt">
                   <span className="stg-title">{stage.label}</span>
                   <span className={`stg-status t-${d.tone}`}>{d.text}</span>
+                  {/* DECISION-3: breathing-amber "Negotiation in progress" chip */}
+                  {d.negotiationChip && (
+                    <span className="stg-neg-chip" aria-label="Negotiation in progress">
+                      Negotiating
+                    </span>
+                  )}
                 </span>
               </button>
             </Fragment>

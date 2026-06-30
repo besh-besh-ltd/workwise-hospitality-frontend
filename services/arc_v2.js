@@ -251,3 +251,41 @@ export const uploadManualContractDoc = (id, vendorId, formData) =>
 // timestamps and lands tbl_arc.status at the target stage's persisted status.
 export const finalizeManualArc     = (id, body = { confirm: true }) =>
   axiosInstance.post(`${BASE}/manual/draft/${id}/finalize`, body);
+
+// ============================================================
+// ARC Negotiation — buyer + vendor service functions
+// ============================================================
+
+// Buyer — list all rounds for an ARC (item-level + arc-level)
+export const getArcNegotiationRounds = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds`);
+
+// Buyer — create a new round (multi-shape or legacy single-item)
+// body: { end_date, target_price?, remarks?, products: [...] }  OR
+//       { arc_item_id, vendor_ids, end_date }                   OR
+//       { is_arc_level: true, vendor_targets, end_date }
+export const createArcNegotiationRound = (arcId, body) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds`, body);
+
+// Buyer — approve / reject (engine-gated; caller must be the pending approver)
+export const approveArcNegotiationRound = (arcId, roundId, body = {}) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/approve`, body);
+export const rejectArcNegotiationRound  = (arcId, roundId, body = {}) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/reject`, body);
+
+// Buyer — close a round (ACTIVE or ENDED → COMPLETED)
+export const closeArcNegotiationRound = (arcId, roundId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/close`, {});
+
+// Buyer — per-round quote view (before/after rates from all vendors)
+export const getArcNegotiationRoundQuotes = (arcId, roundId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/quotes`);
+
+// Vendor — list rounds + item-level context for this vendor's ARC
+export const getVendorArcNegotiations = (arcId) =>
+  axiosInstance.get(`${BASE}/vendor/requests/${arcId}/negotiation`);
+
+// Vendor — submit a revised rate for one item in an ACTIVE round
+// body: { arc_item_id, rate, gst_pct?, charges? }
+export const submitVendorArcNegotiationQuote = (roundId, body) =>
+  axiosInstance.post(`${BASE}/vendor/negotiation/rounds/${roundId}/quote`, body);
