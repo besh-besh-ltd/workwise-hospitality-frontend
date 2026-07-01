@@ -44,9 +44,15 @@ const FACETS = [
 ];
 const EMPTY_FILTERS = { rfqId: [], status: [], buId: [], departmentId: [], productId: [], vendorId: [] };
 
-// Status-aware destination: a pending-approval round goes straight to its
-// approve screen; everything else opens the RFQ's Quote Comparison page.
+// Status-aware destination: ARC rows link to ARC negotiation pages;
+// RFQ rows use the existing negotiation / quote-comparison routes.
 function detailHref(row, bucket) {
+  if (row.source_type === "ARC") {
+    return bucket === "pending"
+      ? `/dashboard/buyer/rate-contracts/${row.arc_id}/negotiation/${row.round_id}/approve`
+      : `/dashboard/buyer/rate-contracts/${row.arc_id}?stage=commercial`;
+  }
+  // RFQ (unchanged):
   if (bucket === "pending") return `/dashboard/buyer/negotiation/${row.rfq_id}/approve`;
   return `/dashboard/buyer/quote-comparison?rfq=${row.rfq_id}`;
 }
@@ -166,16 +172,23 @@ function FilterSkeleton() {
   );
 }
 
+const SOURCES = [
+  { key: "all", label: "All" },
+  { key: "RFQ", label: "RFQ" },
+  { key: "ARC", label: "Rate Contracts" },
+];
+
 // ── page ────────────────────────────────────────────────────────────────────
 export default function NegotiationListPage() {
   const [tab, setTab] = useState("all");
+  const [source, setSource] = useState("all");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState("recent");
   const [page, setPage] = useState(1);
 
-  const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 });
+  const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, source_counts: { all: 0, RFQ: 0, ARC: 0 }, total: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
   const seq = useRef(0);
 
@@ -187,7 +200,7 @@ export default function NegotiationListPage() {
   useEffect(() => {
     const id = ++seq.current;
     setLoading(true);
-    getNegotiationListView({ tab, search: debounced, sort, filters, page, limit: 20 })
+    getNegotiationListView({ tab, source, search: debounced, sort, filters, page, limit: 20 })
       .then((res) => {
         if (id !== seq.current) return;
         const d = res?.data || {};
@@ -195,13 +208,14 @@ export default function NegotiationListPage() {
           rows: Array.isArray(d.rows) ? d.rows : [],
           facets: d.facets || {},
           tab_counts: d.tab_counts || {},
+          source_counts: d.source_counts || { all: 0, RFQ: 0, ARC: 0 },
           total: d.total || 0,
           limit: d.limit || 20,
         });
       })
-      .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
+      .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, source_counts: { all: 0, RFQ: 0, ARC: 0 }, total: 0, limit: 20 }); })
       .finally(() => { if (id === seq.current) setLoading(false); });
-  }, [tab, debounced, sort, filters, page]);
+  }, [tab, source, debounced, sort, filters, page]);
 
   const toggle = (group, key) => {
     setPage(1);
@@ -214,7 +228,7 @@ export default function NegotiationListPage() {
   const activeCount = useMemo(() => Object.values(filters).reduce((n, a) => n + a.length, 0), [filters]);
   const hasFacets = useMemo(() => FACETS.some((f) => (resp.facets[f.group] || []).length > 0), [resp.facets]);
 
-  const { rows, facets, tab_counts, total, limit } = resp;
+  const { rows, facets, tab_counts, source_counts, total, limit } = resp;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
@@ -224,6 +238,14 @@ export default function NegotiationListPage() {
           <h1 className="page-h1">Negotiations</h1>
           <p className="page-sub">Every negotiation round — track rounds, vendor participation and approvals.</p>
         </div>
+      </div>
+
+      <div className="tab-row" style={{ marginBottom: 4 }}>
+        {SOURCES.map((s) => (
+          <button key={s.key} type="button" className={"tab" + (source === s.key ? " active" : "")} onClick={() => { setSource(s.key); setPage(1); }}>
+            {s.label} <span className="ct">{source_counts[s.key] ?? 0}</span>
+          </button>
+        ))}
       </div>
 
       <div className="tab-row">
@@ -324,6 +346,7 @@ export default function NegotiationListPage() {
                           <div className="cc-title">
                             <span>{row.title || (row.is_tender ? "Tender" : "RFQ")}</span>
                             <span className="cc-num">#{row.rfq_no || row.rfq_id}</span>
+                            <span className="cc-num">{row.source_type === "ARC" ? "ARC" : "RFQ"}</span>
                             {row.action_required && row.action_label && <span className="needs-action-pill">{row.action_label}</span>}
                           </div>
                           <div className="cc-sub">
