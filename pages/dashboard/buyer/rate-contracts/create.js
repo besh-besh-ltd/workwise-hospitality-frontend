@@ -165,7 +165,7 @@ export default function CreateRateContractPage() {
   const [escalation, setEscalation] = useState("none");
   const [escalationCap, setEscalationCap] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
-  const [deliveryTerms, setDeliveryTerms] = useState("Within 21 days of each released PO");
+  const [deliveryTerms, setDeliveryTerms] = useState("Within 2 days of each released PO");
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
   const [samplesRequired, setSamplesRequired] = useState(false);
 
@@ -976,7 +976,7 @@ export default function CreateRateContractPage() {
             </div>
             <div className="form-grid" style={{ marginTop: 14 }}>
               <div><label className="label">Payment terms</label><input className="input" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" /></div>
-              <div><label className="label">Delivery / fulfilment terms</label><input className="input" value={deliveryTerms} onChange={(e) => setDeliveryTerms(e.target.value)} placeholder="e.g. Within 21 days of each released PO" /></div>
+              <div><label className="label">Delivery / fulfilment terms</label><input className="input" value={deliveryTerms} onChange={(e) => setDeliveryTerms(e.target.value)} placeholder="e.g. Within 2 days of each released PO" /></div>
             </div>
             <div style={{ marginTop: 14 }}>
               <label className="label">Penalty / LD clause</label>
