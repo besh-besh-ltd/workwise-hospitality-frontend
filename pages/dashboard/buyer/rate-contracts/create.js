@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import { getUnits } from "@/services/units";
+import storageInstance from "@/utils/storageInstance";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Constants & helpers
@@ -28,6 +29,15 @@ const isoOffset = (d) => {
   dt.setDate(dt.getDate() + d);
   return dt.toISOString().slice(0, 10);
 };
+
+// Auto-save — every field across all 6 steps is mirrored into localStorage
+// (debounced) so a reload (or an accidental tab close) restores exactly where
+// the buyer left off. Scoped per logged-in user + per draft (?c=<id>, or "new"
+// for a not-yet-created contract) so switching accounts/drafts on the same
+// browser can't leak or clobber another in-progress contract.
+const AUTOSAVE_VERSION = 1;
+const AUTOSAVE_DEBOUNCE_MS = 600;
+const AUTOSAVE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 // A stored timestamp → the "YYYY-MM-DDTHH:mm" a <input type="datetime-local">
 // expects. The columns are `timestamp without time zone`, so we treat the stored
@@ -120,6 +130,17 @@ export default function CreateRateContractPage() {
   // mid-flight failure resumes (re-publishes) instead of minting a duplicate.
   const draftArcRef = useRef(null);
 
+  // Auto-save — becomes true once the initial hydration path (backend resume
+  // fetch when ?c=<id> is present, or immediately otherwise) has settled, so
+  // the local-restore effect knows it's safe to run and the autosave-write
+  // effect knows it's safe to start persisting (without this gate, the
+  // wizard's blank initial state would overwrite a real saved draft the
+  // instant the page mounts).
+  const [resumeSettled, setResumeSettled] = useState(false);
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const restoredRef = useRef(false);
+  const autosaveTimerRef = useRef(null);
+
   // Loaded reference data
   const [categories, setCategories] = useState([]);
   const [subCats, setSubCats] = useState([]);
@@ -188,6 +209,110 @@ export default function CreateRateContractPage() {
     toastTimerRef.current = setTimeout(() => setToast(""), 2400);
   }
 
+  // ── Auto-save ────────────────────────────────────────────────────────
+  // Every field the buyer can fill in across steps 1–6, collected fresh on
+  // every call (mirrors the `collectState` pattern used by the manual-entry
+  // wizard) so autosave and restore always agree on the exact same shape.
+  const collectState = useCallback(() => ({
+    step, furthestStep,
+    title, internalRef, categoryId, categoryTitle, type, selectedSubCats,
+    hotelId, departmentId,
+    selectedItemIds, selectedMeta, itemSpecs, itemQtys, itemUoms,
+    submissionStart, submissionEnd, contractStart, contractEnd,
+    escalation, escalationCap, paymentTerms, deliveryTerms, penalty, samplesRequired,
+    techByItem, clausesByItem, minPassByItem, eligibility, invitedVendorIds,
+  }), [step, furthestStep,
+      title, internalRef, categoryId, categoryTitle, type, selectedSubCats,
+      hotelId, departmentId,
+      selectedItemIds, selectedMeta, itemSpecs, itemQtys, itemUoms,
+      submissionStart, submissionEnd, contractStart, contractEnd,
+      escalation, escalationCap, paymentTerms, deliveryTerms, penalty, samplesRequired,
+      techByItem, clausesByItem, minPassByItem, eligibility, invitedVendorIds]);
+
+  // Keyed per logged-in user + per draft (?c=<id>, else "new") so a shared
+  // browser or multiple accounts can't cross-contaminate saved progress.
+  const autosaveKey = useMemo(() => {
+    if (!router.isReady) return null;
+    const email = storageInstance.getStorage("current-user-email") || "anon";
+    const c = Number(router.query.c) || "new";
+    return `arc_create_autosave:${email}:${c}`;
+  }, [router.isReady, router.query.c]);
+
+  // Restore — runs exactly once, after the resume path (if any) has settled.
+  // A backend-resumed draft is hydrated first (see the effect above); any
+  // locally-saved snapshot is then overlaid on top, since it represents more
+  // recent unsaved edits the backend never received (items/vendor/tech-eval
+  // edits on a resumed draft are a documented v1 limitation — see updateDraft
+  // usage in submit()). For a brand-new contract (no ?c=) this is simply the
+  // buyer's last unsaved session.
+  useEffect(() => {
+    if (!autosaveKey || !resumeSettled || restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const raw = storageInstance.getStorage(autosaveKey);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved?.data && Date.now() - (saved.savedAt || 0) < AUTOSAVE_MAX_AGE_MS) {
+        const d = saved.data;
+        if (d.title != null) setTitle(d.title);
+        if (d.internalRef != null) setInternalRef(d.internalRef);
+        if (d.categoryId != null) setCategoryId(d.categoryId);
+        if (d.categoryTitle != null) setCategoryTitle(d.categoryTitle);
+        if (d.type != null) setType(d.type);
+        if (d.selectedSubCats != null) setSelectedSubCats(d.selectedSubCats);
+        if (d.hotelId != null) setHotelId(d.hotelId);
+        if (d.departmentId != null) setDepartmentId(d.departmentId);
+        if (d.selectedItemIds != null) setSelectedItemIds(d.selectedItemIds);
+        if (d.selectedMeta != null) setSelectedMeta(d.selectedMeta);
+        if (d.itemSpecs != null) setItemSpecs(d.itemSpecs);
+        if (d.itemQtys != null) setItemQtys(d.itemQtys);
+        if (d.itemUoms != null) setItemUoms(d.itemUoms);
+        if (d.submissionStart != null) setSubmissionStart(d.submissionStart);
+        if (d.submissionEnd != null) setSubmissionEnd(d.submissionEnd);
+        if (d.contractStart != null) setContractStart(d.contractStart);
+        if (d.contractEnd != null) setContractEnd(d.contractEnd);
+        if (d.escalation != null) setEscalation(d.escalation);
+        if (d.escalationCap != null) setEscalationCap(d.escalationCap);
+        if (d.paymentTerms != null) setPaymentTerms(d.paymentTerms);
+        if (d.deliveryTerms != null) setDeliveryTerms(d.deliveryTerms);
+        if (d.penalty != null) setPenalty(d.penalty);
+        if (d.samplesRequired != null) setSamplesRequired(d.samplesRequired);
+        if (d.techByItem != null) setTechByItem(d.techByItem);
+        if (d.clausesByItem != null) setClausesByItem(d.clausesByItem);
+        if (d.minPassByItem != null) setMinPassByItem(d.minPassByItem);
+        if (d.eligibility != null) setEligibility(d.eligibility);
+        if (d.invitedVendorIds != null) setInvitedVendorIds(d.invitedVendorIds);
+        if (d.furthestStep != null) setFurthestStep((f) => Math.max(f, d.furthestStep));
+        if (d.step != null) setStep(d.step);
+        showToast("Restored your unsaved changes");
+      }
+    } catch (_) {
+      // Corrupt/unreadable snapshot — ignore and start clean.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autosaveKey, resumeSettled]);
+
+  // Write — debounced so a burst of keystrokes collapses into one write. Only
+  // starts after the restore step above has run, so the wizard's blank
+  // initial state can never race ahead and clobber a real saved snapshot.
+  useEffect(() => {
+    if (!autosaveKey || !restoredRef.current) return;
+    setSaveState("saving");
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      try {
+        storageInstance.setStorage(autosaveKey, JSON.stringify({
+          v: AUTOSAVE_VERSION,
+          savedAt: Date.now(),
+          data: collectState(),
+        }));
+        setSaveState("saved");
+      } catch (_) {
+        setSaveState("error");
+      }
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(autosaveTimerRef.current);
+  }, [autosaveKey, collectState]);
+
   // ── Load reference data ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -216,7 +341,7 @@ export default function CreateRateContractPage() {
   useEffect(() => {
     if (!router.isReady) return;
     const c = Number(router.query.c);
-    if (!c) return;
+    if (!c) { setResumeSettled(true); return; }
     let cancelled = false;
     (async () => {
       setResuming(true);
@@ -309,7 +434,7 @@ export default function CreateRateContractPage() {
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || e?.message || "Could not load draft");
       } finally {
-        if (!cancelled) setResuming(false);
+        if (!cancelled) { setResuming(false); setResumeSettled(true); }
       }
     })();
     return () => { cancelled = true; };
@@ -432,7 +557,14 @@ export default function CreateRateContractPage() {
     if (step === 3)
       return selectedItemIds.length > 0
         && selectedItemIds.every((id) => Number(itemQtys[id]) > 0 && !!(itemUoms[id] || "").trim() && (itemSpecs[id] || "").trim().length > 0);
-    if (step === 4) return !!submissionStart && !!submissionEnd && !!contractStart && !!contractEnd;
+    if (step === 4) {
+      if (!submissionStart || !submissionEnd || !contractStart || !contractEnd) return false;
+      // Escalation cap is marked required (*) in the UI whenever escalation
+      // isn't "none" — enforce that here too instead of letting an empty/
+      // negative cap silently through.
+      if (escalation !== "none" && (escalationCap === "" || Number(escalationCap) < 0)) return false;
+      return true;
+    }
     if (step === 5) {
       if (eligibility === "invitation" && invitedVendorIds.length === 0) return false;
       // Only items with technical evaluation ON must be fully configured.
@@ -440,7 +572,7 @@ export default function CreateRateContractPage() {
     }
     return true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem]);
+  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, escalation, escalationCap, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem]);
 
   // Any step the user has already REACHED (<= furthestStep) is freely clickable
   // in either direction — back-nav never relocks it (Track C).
@@ -555,48 +687,71 @@ export default function CreateRateContractPage() {
       // instead of creating another (avoids orphaned/duplicate drafts).
       let arcId = draftArcRef.current;
       let createdItems = [];
-      if (!arcId) {
-        const res = await ArcApi.createDraft(payload);
-        const arc = res?.data?.arc || res?.data?.data?.arc;
-        arcId = arc?.id;
-        if (!arcId) throw new Error("Could not create draft");
-        draftArcRef.current = arcId;
-        createdItems = res?.data?.items || res?.data?.data?.items || [];
-      } else {
-        // Resumed draft (?c=<id> or a prior in-session create): the ARC already
-        // exists, so PATCH the scalar edits onto it before publishing rather
-        // than minting a duplicate (spec §2.4). updateDraft whitelists scalars
-        // only — item/vendor/tech-eval edits on a resumed draft are a documented
-        // v1 limitation (resume = rehydrate + scalar-edits + finish/publish).
-        await ArcApi.updateDraft(arcId, payload);
+      // Each stage below is wrapped in its own try/catch and tagged with a
+      // stage-specific title. Without this, any failure — even one that has
+      // nothing to do with publishing — surfaced as "Couldn't publish", which
+      // misdirects the user when e.g. the tech-eval save is what actually
+      // failed (a real incident: a 403 on the tech-eval call was silently
+      // dropping clauses while showing "Couldn't publish: no permission").
+      try {
+        if (!arcId) {
+          const res = await ArcApi.createDraft(payload);
+          const arc = res?.data?.arc || res?.data?.data?.arc;
+          arcId = arc?.id;
+          if (!arcId) throw new Error("Could not create draft");
+          draftArcRef.current = arcId;
+          createdItems = res?.data?.items || res?.data?.data?.items || [];
+        } else {
+          // Resumed draft (?c=<id> or a prior in-session create): the ARC already
+          // exists, so PATCH the scalar edits onto it before publishing rather
+          // than minting a duplicate (spec §2.4). updateDraft whitelists scalars
+          // only — item/vendor/tech-eval edits on a resumed draft are a documented
+          // v1 limitation (resume = rehydrate + scalar-edits + finish/publish).
+          await ArcApi.updateDraft(arcId, payload);
+        }
+      } catch (e) {
+        throw Object.assign(new Error(e?.response?.data?.message || e?.message || "Please try again."), { title: "Couldn't save the contract details." });
       }
 
       // H4 — persist the per-item technical evaluation config the wizard
       // collected (clauses + weights + min passing score) so the qualification
       // gate actually uses it. Keyed by product_variant_id → created ARC item.
       if (anyTechRequired && createdItems.length) {
-        const itemIdByVariant = {};
-        for (const it of createdItems) itemIdByVariant[it.product_variant_id] = it.id;
-        for (const vid of selectedItemIds) {
-          const arcItemId = itemIdByVariant[vid];
-          const cls = clausesByItem[vid] || [];
-          // Only set up tech eval for items with the toggle ON — a tech-OFF item
-          // gets no tech_evaluation row, so it skips qualification entirely.
-          if (!arcItemId || !itemTechOn(vid) || cls.length === 0) continue;
-          await ArcApi.setupTechEval(arcItemId, {
-            minimum_passing_score: minPassByItem[vid] ?? 65,
-            clauses: cls.map((c) => ({
-              clause_text: c.text,
-              weightage: Number(c.weight) || 0,
-              clause_type: c.type || null,
-              is_mandatory: !!c.mandatory,
-            })),
-          });
+        try {
+          const itemIdByVariant = {};
+          for (const it of createdItems) itemIdByVariant[it.product_variant_id] = it.id;
+          for (const vid of selectedItemIds) {
+            const arcItemId = itemIdByVariant[vid];
+            const cls = clausesByItem[vid] || [];
+            // Only set up tech eval for items with the toggle ON — a tech-OFF item
+            // gets no tech_evaluation row, so it skips qualification entirely.
+            if (!arcItemId || !itemTechOn(vid) || cls.length === 0) continue;
+            await ArcApi.setupTechEval(arcItemId, {
+              minimum_passing_score: minPassByItem[vid] ?? 65,
+              clauses: cls.map((c) => ({
+                clause_text: c.text,
+                weightage: Number(c.weight) || 0,
+                clause_type: c.type || null,
+                is_mandatory: !!c.mandatory,
+              })),
+            });
+          }
+        } catch (e) {
+          throw Object.assign(new Error(e?.response?.data?.message || e?.message || "The draft was saved, but its technical evaluation clauses were not — reopen this draft to retry."), { title: "Couldn't save technical evaluation." });
         }
       }
 
-      const pubRes = await ArcApi.publish(arcId);
+      let pubRes;
+      try {
+        pubRes = await ArcApi.publish(arcId);
+      } catch (e) {
+        throw Object.assign(new Error(e?.response?.data?.message || e?.message || "Please try again."), { title: "Couldn't publish." });
+      }
       draftArcRef.current = null; // fully submitted — clear the resume handle
+      // Fully submitted — the autosaved snapshot's job is done; clear it so a
+      // future visit to "Create Rate Contract" starts clean instead of
+      // resurrecting this now-published contract's inputs.
+      if (autosaveKey) storageInstance.removeStorege(autosaveKey);
       // Publish now routes through an approval gate. If the publisher is the
       // sole/ANY approver the engine auto-approves and the ARC floats in the
       // same request (floated:true); otherwise it parks pending publish approval.
@@ -613,20 +768,27 @@ export default function CreateRateContractPage() {
       }
     } catch (e) {
       // Surface the server message verbatim — the no-policy message is actionable.
-      setError(e?.response?.data?.message || e?.message || "Could not publish");
+      // e.title is set by the stage-specific catches above; fall back to a
+      // generic title for anything unexpected (e.g. a network error).
+      setError({ title: e?.title || "Couldn't submit.", detail: e?.message || "Please try again." });
     } finally { setBusy(false); }
   }
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <main className="main-body" style={{ paddingBottom: 108 }}>
-      <div>
-        {/* Resuming a saved draft → a quiet "Draft" eyebrow orients the user. */}
-        {draftArcRef.current && (
-          <span className="page-eyebrow info">Draft · resuming</span>
-        )}
-        <h1 className="page-h1">{draftArcRef.current ? "Resume Rate Contract draft" : "Create Rate Contract"}</h1>
-        <p className="page-sub">Single-BU ARC. Category drives the catalogue; tech eval is configured per item with explicit weights and a minimum passing score.</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          {/* Resuming a saved draft → a quiet "Draft" eyebrow orients the user. */}
+          {draftArcRef.current && (
+            <span className="page-eyebrow info">Draft · resuming</span>
+          )}
+          <h1 className="page-h1">{draftArcRef.current ? "Resume Rate Contract draft" : "Create Rate Contract"}</h1>
+          <p className="page-sub">Single-BU ARC. Category drives the catalogue; tech eval is configured per item with explicit weights and a minimum passing score.</p>
+        </div>
+        {/* Auto-save status — every field across all 6 steps is saved locally as
+            you type, so a reload (or navigating away and back) restores it. */}
+        <AutosaveChip state={saveState} />
       </div>
 
       {/* Resume — clean loading state while the draft hydrates. */}
@@ -1275,7 +1437,11 @@ export default function CreateRateContractPage() {
             {error && (
               <div className="guide danger" style={{ marginTop: 14 }}>
                 <div className="g-ic"><AlertIcon /></div>
-                <div><strong>Couldn&apos;t publish.</strong> {error}</div>
+                <div>
+                  {typeof error === "string"
+                    ? <><strong>Couldn&apos;t publish.</strong> {error}</>
+                    : <><strong>{error.title}</strong> {error.detail}</>}
+                </div>
               </div>
             )}
           </div>
@@ -1312,5 +1478,22 @@ export default function CreateRateContractPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+// ── Auto-save status chip ──
+function AutosaveChip({ state }) {
+  const map = {
+    idle:   { dot: "var(--fg-4)",    text: "Auto-save on" },
+    saving: { dot: "var(--primary)", text: "Saving…" },
+    saved:  { dot: "var(--success)", text: "All changes saved" },
+    error:  { dot: "var(--danger)",  text: "Save failed" },
+  };
+  const m = map[state] || map.idle;
+  return (
+    <span className="status-pill" style={{ background: "var(--surface)", color: "var(--fg-2)", borderColor: "var(--border)", flexShrink: 0 }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: m.dot }} />
+      {m.text}
+    </span>
   );
 }
