@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton } from "./StageShared";
+import { StageColumns, ActorFlowCard } from "./StageAside";
 import ArcNegotiationPanel from "@/components/dashboard/rate-contracts/buyer/negotiation/ArcNegotiationPanel";
 
 const CLAR_FIELD_LABEL = {
@@ -629,6 +630,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   const c = counts();
 
   return (
+    <StageColumns aside={<ActorFlowCard stage={stage} />}>
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: editable ? 88 : 0 }}>
       {/* status banners */}
       {isComplete && (
@@ -1055,6 +1057,7 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
         </div>
       )}
     </div>
+    </StageColumns>
   );
 }
 

@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import storageInstance from "@/utils/storageInstance";
 import { StageSkeleton } from "./StageShared";
+import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
 const vendorInitials = (name) => {
   if (!name) return "?";
@@ -229,6 +230,23 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
         .pub-mem-comment { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; font-style: italic; }
       `}</style>
 
+      <StageColumns aside={<>
+        <ActorFlowCard stage={stage} />
+        {publishSummary?.can_user_approve && publishSummary?.status === "PENDING" && (
+          <ApprovalDecisionCard
+            stepLabel={stage?.actors?.approver?.step_label}
+            approvers={stage?.actors?.approver?.people}
+            comment={decideComment}
+            setComment={setDecideComment}
+            commentError={false}
+            onApprove={() => decidePublish("approve")}
+            onReject={() => decidePublish("reject")}
+            busy={decideBusy}
+            approveLabel="Approve & publish"
+          />
+        )}
+      </>}>
+
       {/* ── PUBLISH-APPROVAL GATE (pending / rejected) ── */}
       {isPendingPublish && (
         <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--warn)" }}>
@@ -271,26 +289,6 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
               );
             })}
 
-            {/* Decision box — current approver only */}
-            {publishSummary?.can_user_approve && publishSummary?.status === "PENDING" && (
-              <div className="you-row" style={{ marginTop: 14 }}>
-                <div className="here-now">Your decision</div>
-                <textarea
-                  value={decideComment}
-                  onChange={(e) => setDecideComment(e.target.value)}
-                  placeholder="Remark for the approval trail — mandatory if you reject…"
-                  style={{ marginTop: 8, width: "100%", minHeight: 54, padding: "8px 11px", border: "1px solid var(--border-input)", borderRadius: 7, fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "white", resize: "vertical" }}
-                />
-                <div style={{ marginTop: 11, display: "flex", gap: 8 }}>
-                  <button type="button" className="btn btn-danger" disabled={decideBusy} onClick={() => decidePublish("reject")}>
-                    Reject
-                  </button>
-                  <button type="button" className="btn btn-success" disabled={decideBusy} style={{ flex: 1 }} onClick={() => decidePublish("approve")}>
-                    {decideBusy ? "Submitting…" : "Approve & publish"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </section>
       )}
@@ -670,6 +668,7 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
           </section>
         </aside>
       </div>
+      </StageColumns>
     </>
   );
 }

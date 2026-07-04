@@ -3093,3 +3093,54 @@ a.mr-vendor-link:hover .mr-vendor-sub { text-decoration:underline; }
 .arc-neg-comment-area { width:100%; padding:10px 12px; border:1px solid var(--border-input,#d1d5db); border-radius:8px; font-family:inherit; font-size:13px; resize:vertical; min-height:80px; }
 .arc-neg-comment-area:focus { outline:none; border-color:var(--primary); }
 
+/* ═══════════════════════════════════════════════════════════
+   STAGE COLUMNS — 2-col layout for buyer stages
+   ═══════════════════════════════════════════════════════════ */
+.arc-stage-cols { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:18px; align-items:flex-start; }
+.arc-stage-main { min-width:0; display:flex; flex-direction:column; gap:14px; }
+.arc-stage-aside { display:flex; flex-direction:column; gap:14px; position:sticky; top:16px; }
+@media (max-width:1080px) { .arc-stage-cols { grid-template-columns:1fr; } .arc-stage-aside { position:static; } }
+
+/* ═══════════════════════════════════════════════════════════
+   APPROVE ASIDE — highlighted approval decision card
+   ═══════════════════════════════════════════════════════════ */
+.approve-aside { background:linear-gradient(180deg,#fffdf7 0%,white 100%); border:1.5px solid rgba(180,83,9,0.32); border-radius:var(--radius-lg); padding:16px; box-shadow:0 0 0 4px rgba(180,83,9,0.06); position:relative; overflow:hidden; }
+.approve-aside::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--warn),transparent); }
+.approve-aside .aa-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.approve-aside .aa-step { font-size:11px; color:var(--fg-3); font-weight:500; }
+.approve-aside .aa-approvers { margin-bottom:10px; }
+.approve-aside .aa-comment-label { font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:600; }
+.approve-aside .aa-comment { width:100%; min-height:54px; padding:8px 11px; border-radius:7px; font-size:12.5px; font-family:inherit; outline:none; background:white; resize:vertical; margin-top:5px; }
+.approve-aside .aa-comment.has-error { border:1px solid var(--danger); box-shadow:0 0 0 3px rgba(185,28,28,0.14); }
+.approve-aside .aa-comment:not(.has-error) { border:1px solid var(--border-input); }
+.approve-aside .aa-btns { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.approve-aside .aa-children { margin-bottom:8px; }
+/* here-now accent inside the approve-aside (mirrors .approve-card .here-now) */
+.approve-aside .here-now { font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--warn); font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+.approve-aside .here-now::before { content:''; width:5px; height:5px; background:var(--warn); border-radius:50%; box-shadow:0 0 0 3px rgba(180,83,9,0.14); animation:pulse 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   ACTOR FLOW CARD — per-stage who/approves/next
+   ═══════════════════════════════════════════════════════════ */
+.actor-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.actor-card .afc-head { padding:12px 14px 8px; border-bottom:1px solid var(--border); }
+.actor-card .afc-title { font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-3); font-weight:700; }
+.actor-card .afc-body { padding:12px 14px; display:flex; flex-direction:column; gap:11px; }
+.actor-card .afc-row { display:flex; flex-direction:column; gap:3px; }
+.actor-card .afc-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:700; }
+.actor-card .afc-value { font-size:13px; color:var(--fg); font-weight:600; }
+.actor-card .afc-sub { font-size:11.5px; color:var(--fg-3); margin-top:1px; }
+.actor-card .afc-people { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+.actor-card .afc-person { display:flex; align-items:center; gap:7px; }
+.actor-card .afc-av { width:24px; height:24px; border-radius:6px; display:grid; place-items:center; font-size:9px; font-weight:700; background:var(--surface-3); color:var(--fg-2); border:1px solid var(--border); flex-shrink:0; }
+.actor-card .afc-pname { font-size:12.5px; color:var(--fg); font-weight:500; }
+.actor-card .afc-contact { margin-top:2px; padding-top:10px; border-top:1px dashed var(--border); }
+.actor-card .afc-contact-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:700; margin-bottom:5px; }
+.actor-card .afc-contact-name { font-size:13px; color:var(--fg); font-weight:600; }
+.actor-card .afc-contact-role { font-size:11px; color:var(--fg-3); margin-top:1px; }
+.actor-card .afc-contact-email { font-size:11.5px; color:var(--primary); text-decoration:none; display:block; margin-top:3px; }
+.actor-card .afc-contact-email:hover { text-decoration:underline; }
+.actor-card .afc-contact-mobile { font-size:11.5px; color:var(--fg-2); margin-top:2px; font-family:'Geist Mono',monospace; }
+.actor-card .afc-next { display:flex; align-items:center; gap:7px; }
+.actor-card .afc-next-arrow { color:var(--fg-4); }
+.actor-card .afc-state-msg { font-size:12px; color:var(--fg-3); font-style:italic; }

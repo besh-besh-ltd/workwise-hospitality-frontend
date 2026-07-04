@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission } from "./StageShared";
+import { ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
 function fmtINR(n) {
   if (n == null || Number.isNaN(Number(n))) return "—";
@@ -515,6 +516,7 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
 
         {/* RIGHT — approval progress + decision */}
         <aside className="ccm-aside">
+          <ActorFlowCard stage={stage} />
           <div className="section-card">
             <div className="section-head">
               <div className="h-left">
@@ -598,49 +600,19 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
                 </div>
               )}
 
-              {/* Decision box — ONLY for the current approver */}
               {mayAct && (
-                <div className="you-row">
-                  <div className="here-now">Your decision</div>
-                  <div style={{ marginTop: 11 }}>
-                    <label style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--fg-4)", fontWeight: 600 }}>
-                      Comment
-                      <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 99, background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid rgba(185,28,28,0.24)" }}>
-                        required to send back
-                      </span>
-                    </label>
-                    <textarea
-                      value={comment}
-                      onChange={(e) => { setComment(e.target.value); if (commentError && e.target.value.trim()) setCommentError(false); }}
-                      placeholder="e.g. 'Confirmed against FY26 budget envelope.'"
-                      style={{
-                        marginTop: 5, width: "100%", minHeight: 54, padding: "8px 11px",
-                        border: `1px solid ${commentError ? "var(--danger)" : "var(--border-input)"}`,
-                        boxShadow: commentError ? "0 0 0 3px rgba(185,28,28,0.14)" : "none",
-                        borderRadius: 7, fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "white", resize: "vertical",
-                      }}
-                    />
-                    {commentError && (
-                      <div style={{ marginTop: 5, fontSize: 11.5, color: "var(--danger)", fontWeight: 600 }}>
-                        Add a reason before sending back.
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ marginTop: 11, display: "flex", flexDirection: "column", gap: 7 }}>
-                    <button type="button" className="btn btn-success" disabled={busy} onClick={() => decide("approve")}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>{" "}
-                      {busy ? "Submitting…" : "Approve award proposals"}
-                    </button>
-                    <button type="button" className="btn btn-warn" disabled={busy} onClick={() => decide("reject")}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>{" "}
-                      Send back to commercial eval
-                    </button>
-                  </div>
-                  <div style={{ marginTop: 9, paddingTop: 9, borderTop: "1px dashed var(--border)", fontSize: 11, color: "var(--fg-3)", lineHeight: 1.5 }}>
-                    Approving the final level auto-generates one contract per awarded vendor and moves the
-                    ARC to <em>awaiting vendor acceptance</em>. Sending back re-opens commercial evaluation.
-                  </div>
-                </div>
+                <ApprovalDecisionCard
+                  stepLabel={stage?.actors?.approver?.step_label}
+                  approvers={stage?.actors?.approver?.people}
+                  comment={comment}
+                  setComment={(v) => { setComment(v); if (commentError && v.trim()) setCommentError(false); }}
+                  commentError={commentError}
+                  onApprove={() => decide("approve")}
+                  onReject={() => decide("reject")}
+                  busy={busy}
+                  approveLabel="Approve award proposals"
+                  rejectLabel="Send back"
+                />
               )}
             </div>
           </div>
@@ -705,17 +677,6 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
             </span>
           </div>
           <div className="right">
-            {mayAct && (
-              <>
-                <button className="btn btn-warn btn-sm" type="button" disabled={busy} onClick={() => decide("reject")}>
-                  Send back
-                </button>
-                <button className="btn btn-success" type="button" disabled={busy} onClick={() => decide("approve")}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>{" "}
-                  {busy ? "Submitting…" : "Approve"}
-                </button>
-              </>
-            )}
           </div>
         </div>
       </div>

@@ -104,7 +104,7 @@ export default function VendorOverviewStage({
                   style={idx > 0 ? { borderTop: "1px solid var(--border)", paddingTop: 13, marginTop: 13 } : undefined}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg grid place-items-center flex-shrink-0" style={{ background: "var(--surface-3)", color: "var(--fg-3)", border: "1px solid var(--border)" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, display: "grid", placeItems: "center", flexShrink: 0, background: "var(--surface-3)", color: "var(--fg-3)", border: "1px solid var(--border)" }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                     </div>
                     <div>
@@ -124,7 +124,7 @@ export default function VendorOverviewStage({
                       </div>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right" style={{ flexShrink: 0 }}>
                     <div style={{ fontSize: 10.5, color: "var(--fg-4)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Indicative qty</div>
                     <div className="mono" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
                       <span>{safeNum(it.committed_qty ?? it.indicative_qty ?? 0).toLocaleString("en-IN")}</span>{" "}

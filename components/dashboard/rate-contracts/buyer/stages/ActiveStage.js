@@ -32,6 +32,7 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import * as ArcApi from "@/services/arc_v2";
 import { StageReadOnlyBanner } from "./StageShared";
+import { ActorFlowCard } from "./StageAside";
 import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 
 // Translate raw tbl_arc_event_log rows into plain language with a tone.
@@ -682,6 +683,9 @@ export default function ActiveStage({ arc: arcProp, stage }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Item 3 — read-only actor/flow summary (terminal stage: shows contract-live / ended state) */}
+      <ActorFlowCard stage={stage} />
+
       {/* ═════ ENDED BANNER ═════ */}
       {isEnded && (
         <StageReadOnlyBanner>

@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton } from "./StageShared";
+import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
 const Icon = ({ sw = 2, children }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
@@ -438,7 +439,29 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const amendCount = Object.keys(amends).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: canEvaluate || canApprove ? 88 : 0 }}>
+    <StageColumns aside={<>
+      <ActorFlowCard stage={stage} />
+      {canApprove && (
+        <ApprovalDecisionCard
+          stepLabel={stage?.actors?.approver?.step_label}
+          approvers={stage?.actors?.approver?.people}
+          comment={decideComment}
+          setComment={(v) => { setDecideComment(v); if (commentError && v.trim()) setCommentError(false); }}
+          commentError={commentError}
+          onApprove={() => decide("approve")}
+          onReject={() => decide("reject")}
+          busy={decideBusy}
+          approveLabel={amendCount > 0 ? `Save ${amendCount} edit${amendCount === 1 ? "" : "s"} & approve` : "Approve evaluation"}
+        >
+          <label className="cbx" style={{ margin: "0 0 8px", display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <input type="checkbox" checked={amendMode} onChange={(e) => { setAmendMode(e.target.checked); if (!e.target.checked) setAmends({}); }} />
+            <span className="cbx-box" />
+            <span style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.45 }}>Amend marks before approving — edits recorded in edit history</span>
+          </label>
+        </ApprovalDecisionCard>
+      )}
+    </>}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: canEvaluate ? 88 : 0 }}>
       {/* status banners */}
       {isComplete && (
         <StageReadOnlyBanner>
@@ -780,42 +803,6 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
               </div>
             )}
 
-            {/* Decision box — current approver only */}
-            {canApprove && (
-              <div className="you-row" style={{ marginTop: 14 }}>
-                <div className="here-now">Your decision</div>
-                <label className="cbx" style={{ margin: "11px 0 8px" }}>
-                  <input type="checkbox" checked={amendMode} onChange={(e) => { setAmendMode(e.target.checked); if (!e.target.checked) setAmends({}); }} />
-                  <span className="cbx-box" />
-                  <span>Amend marks before approving — your edits are recorded in the edit history and the approval trail</span>
-                </label>
-                <label style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--fg-4)", fontWeight: 600 }}>
-                  Comment
-                  <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 99, background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid rgba(185,28,28,0.24)" }}>
-                    required to reject
-                  </span>
-                </label>
-                <textarea
-                  value={decideComment}
-                  onChange={(e) => { setDecideComment(e.target.value); if (commentError && e.target.value.trim()) setCommentError(false); }}
-                  placeholder="Remark for the approval trail — mandatory if you reject…"
-                  style={{
-                    marginTop: 5, width: "100%", minHeight: 54, padding: "8px 11px",
-                    border: `1px solid ${commentError ? "var(--danger)" : "var(--border-input)"}`,
-                    boxShadow: commentError ? "0 0 0 3px rgba(185,28,28,0.14)" : "none",
-                    borderRadius: 7, fontSize: 12.5, fontFamily: "inherit", outline: "none", background: "white", resize: "vertical",
-                  }}
-                />
-                <div style={{ marginTop: 11, display: "flex", gap: 8 }}>
-                  <button type="button" className="btn btn-danger" disabled={decideBusy} onClick={() => decide("reject")}>
-                    Reject
-                  </button>
-                  <button type="button" className="btn btn-success" disabled={decideBusy} style={{ flex: 1 }} onClick={() => decide("approve")}>
-                    {decideBusy ? "Submitting…" : amendCount > 0 ? `Save ${amendCount} edit${amendCount === 1 ? "" : "s"} & approve` : "Approve evaluation"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </section>
       )}
@@ -864,5 +851,6 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
         </div>
       )}
     </div>
+  </StageColumns>
   );
 }
