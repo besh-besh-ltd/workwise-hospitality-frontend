@@ -11,7 +11,8 @@
 //   - Other charges inline section upgraded: charges modal is a full overlay (portal-style).
 //   - Aside overflow fix: .q-cols/.hero-summary get responsive style guards.
 
-const fmtN = (n) => Math.round(Number(n) || 0).toLocaleString("en-IN");
+// Sr 53 — 2-decimal money display (not whole-rupee rounding); mirrors quote.js's fmtN.
+const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const safeNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -71,6 +72,10 @@ export default function VendorCommercialStage({
   // price state setter for inline charge edits
   setPrice,
   blankLine,
+  // Sr 37 — auto-save chip state (idle|dirty|saving|saved|error) + the silent
+  // on-blur save handler wired onto every field below.
+  saveState,
+  onFieldBlur,
 }) {
   return (
     <>
@@ -87,6 +92,11 @@ export default function VendorCommercialStage({
                 <div className="mini-stat"><div className="lbl">Contract term</div><div className="val"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
               </div>
             </div>
+            {!readOnly && (
+              <div className="flex flex-col items-end gap-2">
+                <SaveChip state={saveState} />
+              </div>
+            )}
           </div>
 
           {/* Phase 1 §D — aside overflow fix: explicit min-width:0 on the main column so the
@@ -136,6 +146,7 @@ export default function VendorCommercialStage({
                             className="input input-num"
                             value={l.rate}
                             onChange={e => updateLine(it.id, { rate: e.target.value })}
+                            onBlur={onFieldBlur}
                             placeholder="0.00"
                             min="0"
                             step="0.01"
@@ -145,13 +156,15 @@ export default function VendorCommercialStage({
                         </div>
                       </div>
                       <div className="vq-field">
-                        <label className="label">GST</label>
+                        {/* Sr 52 — GST is mandatory (0 is a valid explicit choice; blank is not). */}
+                        <label className="label">GST <span className="req">*</span></label>
                         <div className="input-group">
                           <input
                             type="number"
                             className="input input-num"
                             value={l.gst_pct}
                             onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
+                            onBlur={onFieldBlur}
                             placeholder="0"
                             min="0"
                             disabled={readOnly}
@@ -174,6 +187,7 @@ export default function VendorCommercialStage({
                             className="input input-num"
                             value={l.lead_time_days}
                             onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
+                            onBlur={onFieldBlur}
                             placeholder="7"
                             min="1"
                             disabled={readOnly}
@@ -230,6 +244,7 @@ export default function VendorCommercialStage({
                               className="textarea"
                               value={l.comment}
                               onChange={e => updateLine(it.id, { comment: e.target.value })}
+                              onBlur={onFieldBlur}
                               placeholder="MOQ, validity caveats, substitute proposals…"
                               maxLength={300}
                               style={{ minHeight: 64 }}
@@ -244,6 +259,7 @@ export default function VendorCommercialStage({
                                 type="text"
                                 value={l.leadNote}
                                 onChange={e => updateLine(it.id, { leadNote: e.target.value })}
+                                onBlur={onFieldBlur}
                                 placeholder="e.g. Subject to PO confirmation"
                                 disabled={readOnly}
                               />
@@ -295,6 +311,7 @@ export default function VendorCommercialStage({
                     className="input mono"
                     value={globals.gstin}
                     onChange={e => setGlobals(g => ({ ...g, gstin: e.target.value }))}
+                    onBlur={onFieldBlur}
                     placeholder="29ABCDE1234F1Z5"
                     maxLength={15}
                     style={{ maxWidth: 280 }}
@@ -307,6 +324,7 @@ export default function VendorCommercialStage({
                     className="textarea"
                     value={globals.comment}
                     onChange={e => setGlobals(g => ({ ...g, comment: e.target.value }))}
+                    onBlur={onFieldBlur}
                     placeholder="Quote-wide notes — packaging, batching, validity, etc."
                     maxLength={500}
                     disabled={readOnly}
@@ -334,6 +352,7 @@ export default function VendorCommercialStage({
                           type="text"
                           value={pt.label}
                           onChange={e => updatePaymentTerm(i, { label: e.target.value })}
+                          onBlur={onFieldBlur}
                           placeholder={i === 0 ? "e.g. Advance on PO acceptance" : "e.g. Net 30 after delivery"}
                           disabled={readOnly}
                         />
@@ -344,6 +363,7 @@ export default function VendorCommercialStage({
                             type="number"
                             value={pt.pct}
                             onChange={e => updatePaymentTerm(i, { pct: Number(e.target.value) })}
+                            onBlur={onFieldBlur}
                             min="0"
                             max="100"
                             placeholder="0"
@@ -571,6 +591,7 @@ export default function VendorCommercialStage({
                           type="text"
                           value={c.name}
                           onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], name: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                          onBlur={onFieldBlur}
                           placeholder="Charge name"
                           disabled={readOnly}
                         />
@@ -580,6 +601,7 @@ export default function VendorCommercialStage({
                             type="number"
                             value={c.amount}
                             onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amount: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                            onBlur={onFieldBlur}
                             placeholder="0"
                             disabled={readOnly}
                           />
@@ -597,6 +619,7 @@ export default function VendorCommercialStage({
                             type="number"
                             value={c.tax ?? ""}
                             onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], tax: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                            onBlur={onFieldBlur}
                             placeholder="inherit"
                             min="0"
                             disabled={readOnly}
@@ -614,6 +637,7 @@ export default function VendorCommercialStage({
                           type="text"
                           value={c.note}
                           onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], note: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                          onBlur={onFieldBlur}
                           placeholder="Note"
                           disabled={readOnly}
                         />
@@ -685,6 +709,7 @@ export default function VendorCommercialStage({
                         type="text"
                         value={c.name}
                         onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { name: e.target.value })}
+                        onBlur={onFieldBlur}
                         placeholder="Charge name"
                         disabled={readOnly}
                       />
@@ -694,6 +719,7 @@ export default function VendorCommercialStage({
                           type="number"
                           value={c.amount}
                           onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { amount: e.target.value })}
+                          onBlur={onFieldBlur}
                           placeholder="0"
                           disabled={readOnly}
                         />
@@ -710,6 +736,7 @@ export default function VendorCommercialStage({
                           type="number"
                           value={c.tax ?? ""}
                           onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { tax: e.target.value })}
+                          onBlur={onFieldBlur}
                           placeholder="inherit"
                           min="0"
                           disabled={readOnly}
@@ -727,6 +754,7 @@ export default function VendorCommercialStage({
                         type="text"
                         value={c.note}
                         onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { note: e.target.value })}
+                        onBlur={onFieldBlur}
                         placeholder="Note"
                         disabled={readOnly}
                       />
@@ -756,5 +784,25 @@ export default function VendorCommercialStage({
         </div>
       )}
     </>
+  );
+}
+
+// Sr 37 — auto-save status chip. Mirrors the buyer manual-entry.js SaveChip
+// (same states, same `.status-pill` arc_v2 token) so vendors get the same
+// silent on-blur/debounce save affordance already used elsewhere in ARC v2.
+function SaveChip({ state }) {
+  const map = {
+    idle:   { cls: "neutral", text: "Not saved" },
+    dirty:  { cls: "warn",    text: "Unsaved" },
+    saving: { cls: "info",    text: "Saving…" },
+    saved:  { cls: "success", text: "Saved" },
+    error:  { cls: "danger",  text: "Save failed" },
+  };
+  const m = map[state] || map.idle;
+  return (
+    <span className={`status-pill ${m.cls}`}>
+      <span className="dot" />
+      {m.text}
+    </span>
   );
 }

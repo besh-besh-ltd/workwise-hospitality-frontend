@@ -27,6 +27,20 @@ const fmtDate = (d) => {
   return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
+// Submission deadline (submission_end_at) is `timestamp without time zone` —
+// an IST wall-clock string. Slice it directly instead of going through
+// Date(), which would render in the viewer's local timezone.
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtDateTime = (d) => {
+  if (!d) return "—";
+  const m = String(d).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return fmtDate(d);
+  const [, y, mo, da, hh, mi] = m;
+  const h = Number(hh);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${da} ${MON_SHORT[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
+};
+
 const daysFromNow = (d) => {
   if (!d) return null;
   const dt = new Date(d);
@@ -100,6 +114,7 @@ const buildItems = ({ requests, pending, active }) => {
       item_count: r.item_count || (r.items && r.items.length) || 0,
       invited_count: r.invited_count,
       submitted_count: r.submitted_count,
+      invitation_status: r.invitation_status,
       myStatus,
     });
   });
@@ -233,6 +248,15 @@ export default function VendorRequestsPage() {
     active:     (active || []).filter((c) => c.status !== "expired").length,
   }), [items, active]);
 
+  // Sr 30(b): "new" = invitation not yet opened by this vendor
+  // (tbl_arc_invitation.status flips 'invited' → 'viewed' on first open, see
+  // arcVendorController.getRequestDetail). Badge the Received tab so unseen
+  // invitations stand out; it auto-clears once the vendor opens the request.
+  const newCount = useMemo(
+    () => items.filter((c) => c.myStatus === "open" && c.invitation_status === "invited").length,
+    [items]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((c) => {
@@ -323,7 +347,7 @@ export default function VendorRequestsPage() {
               ) : (
                 <span>
                   <strong>#{nextAction.arc_number}</strong>{nextAction.category ? <> · {nextAction.category}</> : null}
-                  {" "}· submission closes <strong>{fmtDate(nextAction.submission_end_at)}</strong>
+                  {" "}· submission closes <strong>{fmtDateTime(nextAction.submission_end_at)}</strong>
                   {daysFromNow(nextAction.submission_end_at) != null && (
                     <span>
                       {" "}· {daysFromNow(nextAction.submission_end_at) > 0
@@ -394,7 +418,12 @@ export default function VendorRequestsPage() {
         <div className="section-head">
           <div className="tab-row">
             <button className={`tab${filter === "all" ? " active" : ""}`}        onClick={() => onTab("all")}>All <span className="ct">{counts.all}</span></button>
-            <button className={`tab${filter === "open" ? " active" : ""}`}       onClick={() => onTab("open")}>Open invitations <span className="ct">{counts.open}</span></button>
+            <button className={`tab${filter === "open" ? " active" : ""}`}       onClick={() => onTab("open")}>
+              Received
+              {newCount > 0
+                ? <span className="your-action" style={{ fontSize: 10, padding: "2px 8px" }}>{newCount} new</span>
+                : <span className="ct">{counts.open}</span>}
+            </button>
             <button className={`tab${filter === "evaluating" ? " active" : ""}`} onClick={() => onTab("evaluating")}>Under evaluation <span className="ct">{counts.submitted}</span></button>
             <button className={`tab${filter === "awaiting" ? " active" : ""}`}   onClick={() => onTab("awaiting")}>Awaiting sign <span className="ct">{counts.awaiting}</span></button>
           </div>
@@ -477,13 +506,13 @@ export default function VendorRequestsPage() {
                         </div>
                         <span className="progress-label">
                           {daysToClose != null && daysToClose > 0 && (
-                            <span>Closes in <span className="mono fw-600 text-fg">{daysToClose}</span> days · {fmtDate(k.submission_end_at)}</span>
+                            <span>Closes in <span className="mono fw-600 text-fg">{daysToClose}</span> days · {fmtDateTime(k.submission_end_at)}</span>
                           )}
                           {daysToClose === 0 && (
-                            <span className="text-warn fw-600">Closes today · {fmtDate(k.submission_end_at)}</span>
+                            <span className="text-warn fw-600">Closes today · {fmtDateTime(k.submission_end_at)}</span>
                           )}
                           {daysToClose != null && daysToClose < 0 && (
-                            <span className="text-danger fw-600">Closed · {fmtDate(k.submission_end_at)}</span>
+                            <span className="text-danger fw-600">Closed · {fmtDateTime(k.submission_end_at)}</span>
                           )}
                         </span>
                       </div>

@@ -71,6 +71,20 @@ const EMPTY_FILTERS = { status: [], buId: [], categoryId: [], departmentId: [], 
 const DEFAULT_FILTERS = { ...EMPTY_FILTERS, dateFrom: currentFyRange().from, dateTo: currentFyRange().to };
 
 const fmtDate = (d) => (d ? moment(d).format("DD MMM YYYY") : "—");
+// Deadlines (bid_end_date) are `timestamp without time zone` IST wall-clock
+// strings — slice the raw value instead of letting moment/Date parse it in
+// the viewer's local timezone (that would silently mis-render for non-IST
+// viewers). Mirrors the TZ-safe fmtDateTime in [contractId]/index.js:39.
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtDateTime = (d) => {
+  if (!d) return "—";
+  const m = String(d).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return fmtDate(d);
+  const [, y, mo, da, hh, mi] = m;
+  const h = Number(hh);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${da} ${MON_SHORT[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
+};
 
 /* ─── lifecycle hover tooltip (the RFQ-specific extra) — compact + theme-aligned ─── */
 const TONE_DOT = { draft: "#71717a", active: "#16a34a", expiring: "#b45309", eval: "#b45309", committee: "#7c3aed", awaiting: "#4338ca", floated: "#2563eb", expired: "#a1a1aa" };
@@ -523,7 +537,7 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
               {row.hotel_name && <><span>{row.hotel_name}</span><span className="sep">·</span></>}
               {row.department_title && <><span>{row.department_title}</span><span className="sep">·</span></>}
               <span>Created {fmtDate(row.timestamp)}</span>
-              {row.bid_end_date && <><span className="sep">·</span><span>Closes {fmtDate(row.bid_end_date)}</span></>}
+              {row.bid_end_date && <><span className="sep">·</span><span>Closes {fmtDateTime(row.bid_end_date)}</span></>}
             </div>
             {products.length > 0 && (
               <div className="cc-tags">

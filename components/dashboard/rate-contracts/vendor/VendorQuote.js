@@ -190,7 +190,9 @@ export default function VendorQuote({ arcId }) {
           {techItems.map((it) => (
             <div key={it.arc_item_id} style={{ marginTop: 12, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>
-                Item #{it.arc_item_id}{it.minimum_passing_score != null ? ` · Min pass ${it.minimum_passing_score}%` : ""}
+                {/* Sr 51 — defensive display clamp: pre-cap rows can still hold stale
+                    values (e.g. 500) until the data-cleanup migration runs. */}
+                Item #{it.arc_item_id}{it.minimum_passing_score != null ? ` · Min pass ${Math.min(100, Number(it.minimum_passing_score) || 0)}%` : ""}
               </div>
               {(it.clauses || []).map((cl) => (
                 <div key={cl.clause_id} style={{ marginTop: 10, padding: 10, border: "1px solid #f1f5f9", borderRadius: 8, background: "#fbfdff" }}>

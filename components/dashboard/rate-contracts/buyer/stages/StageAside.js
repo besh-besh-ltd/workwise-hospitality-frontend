@@ -218,6 +218,12 @@ export function ApprovalDecisionCard({
   busy,
   approveLabel = "Approve",
   rejectLabel = "Reject",
+  // Sr 47 — overridable comment copy so a caller (e.g. the publish-approval
+  // "Request changes" re-frame in OverviewStage) can soften the wording
+  // without touching the defaults every other caller (AwardingStage,
+  // TechnicalStage) still relies on.
+  commentPlaceholder = "Remark for the approval trail — mandatory if you reject…",
+  rejectRequiredLabel = "required to reject",
   children,
 }) {
   return (
@@ -254,13 +260,13 @@ export function ApprovalDecisionCard({
       <label className="aa-comment-label">
         Comment
         <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 99, background: "var(--danger-soft)", color: "var(--danger)", border: "1px solid rgba(185,28,28,0.24)" }}>
-          required to reject
+          {rejectRequiredLabel}
         </span>
       </label>
       <textarea
         value={comment}
         onChange={(e) => { setComment(e.target.value); }}
-        placeholder="Remark for the approval trail — mandatory if you reject…"
+        placeholder={commentPlaceholder}
         className={`aa-comment${commentError ? " has-error" : ""}`}
       />
       {commentError && (

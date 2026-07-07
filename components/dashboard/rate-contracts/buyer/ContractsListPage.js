@@ -148,6 +148,21 @@ function fmtDate(d) {
   return dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Submission deadline (submission_end_at) is `timestamp without time zone` —
+// an IST wall-clock string. Slice it directly instead of going through
+// Date(), which would render in the viewer's local timezone. Mirrors the
+// TZ-safe fmtDateTime in pages/dashboard/buyer/rate-contracts/[contractId]/index.js:39.
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDateTime(d) {
+  if (!d) return null;
+  const m = String(d).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return fmtDate(d);
+  const [, y, mo, da, hh, mi] = m;
+  const h = Number(hh);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${da} ${MON_SHORT[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
+}
+
 // Backend returns json_agg arrays as native arrays (pg-promise unwraps) or
 // strings depending on driver path. Normalise.
 function asArray(v) {
@@ -561,7 +576,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
               const chipLabel = chipOverride ? chipOverride.label : BUCKET_LABEL[bucket];
               const termStart = fmtDate(row.contract_start_at);
               const termEnd = fmtDate(row.contract_end_at);
-              const subEnd = fmtDate(row.submission_end_at);
+              const subEnd = fmtDateTime(row.submission_end_at);
               const itemNames = asArray(row.item_names);
               const awardedVendorNames = asArray(row.awarded_vendor_names);
               // Paired {id,name,company} objects for the hover tooltip; fall
@@ -595,6 +610,14 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           <span className="cc-num">#{row.arc_number || row.id}</span>
                           {row.action_required && row.action_label && (
                             <span className="needs-action-pill">{row.action_label}</span>
+                          )}
+                          {/* Sr 41a — the whole card already links to the resume wizard
+                              (create?c=<id>) for a plain `draft` row, but nothing said so;
+                              a visible pill makes the edit affordance discoverable. Only
+                              the true `draft` status — pending/rejected sub-statuses stay
+                              on the read-only overview (Sr 41b, tracked separately). */}
+                          {row.status === "draft" && (
+                            <span className="needs-action-pill" title="Continue editing this draft in the create wizard">Edit draft</span>
                           )}
                         </div>
                         <div className="cc-sub">

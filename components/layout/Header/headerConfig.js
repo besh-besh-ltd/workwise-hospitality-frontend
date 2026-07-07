@@ -81,12 +81,15 @@ export const roleMenus = {
   vendor: [
     { href: "/dashboard/vendor/", label: "Dashboard", targetMenu: "nav", group: null, section: null },
 
-    // ── OPPORTUNITIES — demand to quote
-    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, group: "Opportunities", section: null },
-    { href: "/dashboard/vendor/rate-contracts/requests",               label: "Received Requests", targetMenu: "nav", group: "Opportunities", section: "Rate-Contract Bids" },
-    { href: "/dashboard/vendor/rate-contracts/requests?tab=submitted", label: "Submitted Quotes",  targetMenu: "nav", group: "Opportunities", section: "Rate-Contract Bids" },
+    // ── RFQs — demand to quote (Sr 32: split out of former "Opportunities")
+    { href: "/dashboard/vendor/inquiries-received", label: "Received Inquiries", targetMenu: "nav", requiresSubscription: true, group: "RFQs", section: null },
 
-    // ── CONTRACTS — won rate agreements
+    // ── CONTRACTS — won rate agreements (+ Sr 30(a): Received Requests /
+    // Submitted Quotes moved in here, ordered FIRST so "Received" precedes
+    // everything else in the group; keep the "Rate Contracts" section items
+    // contiguous — do not interleave "Amendments" between them.)
+    { href: "/dashboard/vendor/rate-contracts/requests",               label: "Received Requests", targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
+    { href: "/dashboard/vendor/rate-contracts/requests?tab=submitted", label: "Submitted Quotes",  targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
     { href: "/dashboard/vendor/rate-contracts",                            label: "Dashboard",          targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
     { href: "/dashboard/vendor/rate-contracts/active",                     label: "Active Contracts",   targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },
     { href: "/dashboard/vendor/rate-contracts/requests?tab=awaiting-sign", label: "Pending Acceptance", targetMenu: "nav", group: "Contracts", section: "Rate Contracts" },

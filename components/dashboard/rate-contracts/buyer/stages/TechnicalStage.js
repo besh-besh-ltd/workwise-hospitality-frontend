@@ -101,6 +101,10 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           responses: d.responses || [],
           // Server-authoritative per-vendor qualification (incl. mandatory gate).
           scores: d.scores || [],
+          // Sr 54 — commercial-ranked shortlist counts ONLY (membership +
+          // counts; never prices/rank — the server already filtered
+          // responses/scores down to the in-eval set).
+          shortlist: d.shortlist || null,
         };
       } catch (e) {
         next[it.id] = { tech_evaluation: null, clauses: [], responses: [], scores: [] };
@@ -155,6 +159,11 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   // ── matrix derivations ─────────────────────────────────────────────────
   const activeItem = useMemo(() => items.find((it) => it.id === activeItemId) || items[0] || null, [items, activeItemId]);
   const activeBlock = activeItem ? evalByItem[activeItem.id] : null;
+
+  // Sr 54 — commercial-ranked shortlist: the server already filtered
+  // responses/scores down to the in-eval set, so this is display-only
+  // (membership + counts). Whole-ARC, so it's the same across every item.
+  const shortlistInfo = activeBlock?.shortlist || null;
 
   // BLIND EVAL: vendor columns are built from the stable per-ARC alias
   // (vendor_alias_key + vendor_alias = "Vendor A/B…"), never the real
@@ -517,6 +526,24 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
               <span className={`it-state ${itemTabState(it.id)}`}></span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Sr 54 — commercial-ranked shortlist indicator + on-hold count.
+          Membership + counts ONLY (blind-preserving) — no prices, no rank,
+          no on-hold vendor identities. Server already filtered the matrix to
+          the in-eval set; this is a read-only explanation banner. */}
+      {shortlistInfo && shortlistInfo.on_hold > 0 && (
+        <div className="guide" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}><InfoIcon /></div>
+          <div>
+            <strong>Evaluating {shortlistInfo.in_evaluation} of {shortlistInfo.total_participating} participating vendors</strong>{" "}
+            by commercial ranking (lowest bidders first).{" "}
+            <span className="status-pill warn" style={{ marginLeft: 2 }}>
+              <span className="dot" />{shortlistInfo.on_hold} on hold
+            </span>{" "}
+            A held vendor is automatically brought into evaluation if one of the vendors above doesn&apos;t qualify.
+          </div>
         </div>
       )}
 

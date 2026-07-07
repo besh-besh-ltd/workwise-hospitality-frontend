@@ -288,7 +288,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 <>
                   <span className={styles.metaChip}>
                     <Calendar size={12} />
-                    <span>Bid ends {bidEndAt.format('DD MMM, YYYY')}</span>
+                    <span>Bid ends {bidEndAt.format('DD MMM, YYYY, hh:mm A')}</span>
                   </span>
                   {daysRemaining && (
                     <span className={`${styles.metaChip} ${

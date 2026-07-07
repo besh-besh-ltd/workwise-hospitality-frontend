@@ -590,7 +590,6 @@ export default function VendorContractDetailPage() {
                     <div><div className="dt-k">Payment terms</div><div className="dt-v">{paymentTerms}</div></div>
                     <div><div className="dt-k">GST</div><div className="dt-v">{Number(lines[0]?.gst_pct || 0)}% extra on all line items</div></div>
                     <div><div className="dt-k">Escalation</div><div className="dt-v">{arc?.escalation_clause_json?.type && arc.escalation_clause_json.type !== "none" ? `${arc.escalation_clause_json.type}${arc.escalation_clause_json.cap_pct ? ` · cap ${arc.escalation_clause_json.cap_pct}%` : ""}` : "None"}</div></div>
-                    <div><div className="dt-k">Eligibility</div><div className="dt-v">{arc?.eligibility_type === "invitation" ? "Invitation-only" : "Open tender"}</div></div>
                   </div>
                 </div>
 

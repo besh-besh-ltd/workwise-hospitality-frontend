@@ -64,6 +64,10 @@ export const updateDraft = (id, patch) => axiosInstance.patch(`${BASE}/${id}`, p
 export const publish    = (id) => axiosInstance.post(`${BASE}/${id}/publish`, {});
 export const withdraw   = (id) => axiosInstance.post(`${BASE}/${id}/withdraw`, {});
 export const terminate  = (id, reason) => axiosInstance.post(`${BASE}/${id}/terminate`, { reason });
+// Sr 40 — buyer "Extend submission deadline" (pre-evaluation only). Body's
+// submission_end_at is the raw datetime-local string ("YYYY-MM-DDTHH:mm") —
+// no client-side Date() conversion, same IST-naive convention as create/update.
+export const extendSubmission = (id, payload) => axiosInstance.post(`${BASE}/${id}/extend-submission`, payload);
 
 // Publish-approval gate — chain detail (latest ARC_PUBLISH instance, or null)
 // + decide (approve/reject; comment required on reject).

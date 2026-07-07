@@ -25,6 +25,10 @@ export default function VendorTechnicalStage({
   onDeleteEvidence,
   uploadErrors,
   readOnly,
+  // Sr 37 — auto-save chip state (idle|dirty|saving|saved|error) + the silent
+  // on-blur save handler wired onto every clause textarea below.
+  saveState,
+  onFieldBlur,
 }) {
   return (
         <div className="step-pane">
@@ -34,6 +38,7 @@ export default function VendorTechnicalStage({
               <div className="q-section-sub">Review each item&apos;s spec, study 3-year consumption history, and respond to technical clauses.</div>
             </div>
             <div className="flex flex-col items-end gap-2" style={{ minWidth: 240 }}>
+              {!techSealed && !readOnly && <SaveChip state={saveState} />}
               <div className="flex items-baseline justify-between w-full">
                 <span style={{ fontSize: 12, color: "var(--fg-3)", fontWeight: 500 }}>Tech eval progress</span>
                 <span className="mono" style={{ fontSize: 12, color: "var(--fg)" }}>{evalAnswered} of {evalTotal}</span>
@@ -148,7 +153,9 @@ export default function VendorTechnicalStage({
                       <span className="count">
                         {clauses.filter(c => techResponses[c.clause_id] != null && String(techResponses[c.clause_id]).trim() !== "").length} of {clauses.length} responded
                         {techBlock?.minimum_passing_score != null && (
-                          <> · min pass <span>{techBlock.minimum_passing_score}%</span></>
+                          // Sr 51 — defensive display clamp: pre-cap rows can still hold
+                          // stale values (e.g. 500) until the data-cleanup migration runs.
+                          <> · min pass <span>{Math.min(100, Number(techBlock.minimum_passing_score) || 0)}%</span></>
                         )}
                       </span>
                     </div>
@@ -176,6 +183,7 @@ export default function VendorTechnicalStage({
                                   style={{ width: "100%", minHeight: 72, fontSize: 13 }}
                                   value={resp}
                                   onChange={e => onChangeResponse(c.clause_id, e.target.value)}
+                                  onBlur={onFieldBlur}
                                   placeholder="Enter your response to this clause…"
                                   disabled={techSealed || readOnly}
                                 />
@@ -270,5 +278,25 @@ export default function VendorTechnicalStage({
             </div>
           )}
         </div>
+  );
+}
+
+// Sr 37 — auto-save status chip. Mirrors the buyer manual-entry.js SaveChip
+// (same states, same `.status-pill` arc_v2 token) so vendors get the same
+// silent on-blur/debounce save affordance already used elsewhere in ARC v2.
+function SaveChip({ state }) {
+  const map = {
+    idle:   { cls: "neutral", text: "Not saved" },
+    dirty:  { cls: "warn",    text: "Unsaved" },
+    saving: { cls: "info",    text: "Saving…" },
+    saved:  { cls: "success", text: "Saved" },
+    error:  { cls: "danger",  text: "Save failed" },
+  };
+  const m = map[state] || map.idle;
+  return (
+    <span className={`status-pill ${m.cls}`}>
+      <span className="dot" />
+      {m.text}
+    </span>
   );
 }

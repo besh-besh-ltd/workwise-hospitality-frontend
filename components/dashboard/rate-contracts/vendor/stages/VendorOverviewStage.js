@@ -62,12 +62,11 @@ export default function VendorOverviewStage({
             </div>
             <div className="q-detail-grid">
               <div className="detail-cell"><div className="k">Company</div><div className="v">Workwise Hospitality Pvt Ltd</div></div>
-              <div className="detail-cell"><div className="k">Business unit</div><div className="v"><span className="mono fw-600">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
+              <div className="detail-cell"><div className="k">Business unit</div><div className="v">{arc.hotel_name || "—"}</div></div>
               <div className="detail-cell"><div className="k">Location</div><div className="v">{arc.hotel_city || "—"}</div></div>
               <div className="detail-cell"><div className="k">Category</div><div className="v">{arc.category_title || arc.category_id || "—"}</div></div>
               <div className="detail-cell"><div className="k">Submission window</div><div className="v"><span className="mono">{submissionStart}</span> → <span className="mono">{submissionEnd}</span></div></div>
               <div className="detail-cell"><div className="k">Contract term</div><div className="v"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
-              <div className="detail-cell"><div className="k">Eligibility</div><div className="v">{arc.eligibility === "open" ? "Open" : "Invitation only"}</div></div>
               <div className="detail-cell"><div className="k">Samples</div><div className="v">{arc.samples_required ? "Required" : "Not required"}</div></div>
               <div className="detail-cell"><div className="k">Price escalation</div><div className="v">{arc.escalation_policy || "Fixed for full contract term"}</div></div>
             </div>

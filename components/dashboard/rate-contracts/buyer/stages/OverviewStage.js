@@ -44,11 +44,40 @@ const fmtDate = (iso) => {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
+// `timestamp without time zone` columns (submission_start/end_at, and the
+// submitted_at/responded_at/updated_at audit fields below) arrive as naive
+// IST wall-clock strings. Slice the raw value instead of going through
+// Date(), which would render in the VIEWER's local timezone (correct for an
+// IST viewer, silently wrong otherwise).
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtDateTime = (iso) => {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}, ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+  const m = String(iso).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return "—";
+  const [, , mo, da, hh, mi] = m;
+  return `${da} ${MON_SHORT[Number(mo) - 1]}, ${hh}:${mi}`;
+};
+// Sr 40 — "Extend deadline" picker helpers. A <input type="datetime-local">
+// wants "YYYY-MM-DDTHH:mm"; slice the raw naive string the same IST-safe way
+// as fmtDateTime (no Date() parse) so the picker starts from the true stored
+// value instead of the viewer's local rendering of it.
+const toDateTimeLocalValue = (iso) => {
+  if (!iso) return "";
+  const m = String(iso).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return "";
+  const [, y, mo, da, hh, mi] = m;
+  return `${y}-${mo}-${da}T${hh}:${mi}`;
+};
+// "Now" in IST for the picker's min= bound. Uses Intl (no moment-timezone
+// dependency on the FE) so a non-IST browser still sees the correct IST wall
+// clock as the floor — the server is the authoritative check regardless.
+const nowIstDateTimeLocal = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  const get = (t) => parts.find((p) => p.type === t)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 };
 const fmtMoney = (v) => {
   if (v == null || v === "") return "—";
@@ -81,6 +110,11 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [expanded, setExpanded] = useState({});
+
+  // Sr 40 — "Extend deadline" control state.
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendValue, setExtendValue] = useState("");
+  const [extending, setExtending] = useState(false);
 
   // Publish-approval gate state.
   const reason = stage?.reason;
@@ -121,14 +155,17 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
   }, [arc?.id, isPendingPublish, isPublishRejected]);
 
   const decidePublish = async (decision) => {
+    // Sr 47 (Cap 2, Path A) — "Request changes" reuses the existing publish
+    // reject mechanics 1:1 (same decision value, same status, same notify);
+    // only the approver-facing copy is re-framed as a send-back, not a kill.
     if (decision === "reject" && !decideComment.trim()) {
-      toast.error("Add a reason before rejecting");
+      toast.error("Add a note describing what the creator should fix");
       return;
     }
     setDecideBusy(true);
     try {
       await ArcApi.publishApprovalDecide(arc.id, { decision, comment: decideComment.trim() || undefined });
-      toast.success(decision === "approve" ? "Approved — rate contract going live" : "Publish rejected");
+      toast.success(decision === "approve" ? "Approved — rate contract going live" : "Changes requested — sent back to the creator");
       setDecideComment("");
       if (onRefresh) await onRefresh();
     } catch (err) {
@@ -157,6 +194,15 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
   const quotes = data?.quotes || [];
   const vendors = data?.vendors || {};
 
+  // Sr 47 (Cap 1) — items carrying buyer-authored technical clauses, for the
+  // read-only "Technical clauses for approval" panel on the pending-publish
+  // gate. `tech_eval` is null when technical evaluation was skipped for that
+  // item; clamp `minimum_passing_score` to ≤100 (legacy rows can exceed it).
+  const itemsWithClauses = useMemo(
+    () => items.filter((it) => it.tech_eval && Array.isArray(it.tech_eval.clauses) && it.tech_eval.clauses.length > 0),
+    [items]
+  );
+
   const quoteByVendor = useMemo(() => {
     const map = {};
     quotes.forEach((q) => { if (q.vendor_id != null) map[q.vendor_id] = q; });
@@ -172,6 +218,34 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
   const daysToClose = daysUntil(arc?.submission_end_at);
   const isFloated = arc?.status === "floated";
   const windowClosed = !!stage?.window?.closed;
+
+  // Sr 40 — "Extend deadline": pre-evaluation only (floated | submission_closed),
+  // and only for the creator or someone holding arc-comm.evaluate / arc.admin
+  // in this ARC's scope — mirrors the server-side authorization exactly.
+  const canExtend = ["floated", "submission_closed"].includes(arc?.status)
+    && (isCreator
+      || (permissions?.["arc-comm"] || []).includes("evaluate")
+      || (permissions?.["arc"] || []).includes("admin"));
+
+  const openExtend = () => {
+    setExtendValue(toDateTimeLocalValue(arc?.submission_end_at) || nowIstDateTimeLocal());
+    setExtendOpen(true);
+  };
+  const handleExtend = async () => {
+    if (!extendValue) { toast.error("Pick a new submission deadline"); return; }
+    setExtending(true);
+    try {
+      await ArcApi.extendSubmission(arc.id, { submission_end_at: extendValue });
+      toast.success("Submission deadline extended");
+      setExtendOpen(false);
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message;
+      if (msg) toast.error(typeof msg === "string" ? msg : "Could not extend the deadline");
+    } finally {
+      setExtending(false);
+    }
+  };
 
   const toggleExpand = (key) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
 
@@ -243,12 +317,16 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
             onReject={() => decidePublish("reject")}
             busy={decideBusy}
             approveLabel="Approve & publish"
+            rejectLabel="Request changes"
+            commentPlaceholder="What should the creator fix before this can go live?"
+            rejectRequiredLabel="required to request changes"
           />
         )}
       </>}>
 
       {/* ── PUBLISH-APPROVAL GATE (pending / rejected) ── */}
       {isPendingPublish && (
+        <>
         <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--warn)" }}>
           <div className="guide warn" style={{ alignItems: "center", margin: 0, borderRadius: "10px 10px 0 0" }}>
             <div className="g-ic" style={{ marginTop: 0 }}>
@@ -291,16 +369,84 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
 
           </div>
         </section>
+
+        {/* ── Sr 47 (Cap 1) — READ-ONLY technical clauses, for the approver to review before deciding ── */}
+        {itemsWithClauses.length > 0 ? (
+          <section className="section-card" style={{ marginBottom: 16 }}>
+            <div className="section-head">
+              <div className="h-left">
+                <div className="ic">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                  </svg>
+                </div>
+                <div>
+                  <h2>Technical clauses for approval</h2>
+                  <div className="h-sub">Read-only · buyer-configured evaluation criteria, for reference before you decide</div>
+                </div>
+              </div>
+              <div className="h-right">
+                <span className="pill outline">View only</span>
+              </div>
+            </div>
+            <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {itemsWithClauses.map((it) => {
+                const itemKey = it.id || it.arc_item_id;
+                const itemName = it.variant_name || it.name || `Item #${itemKey}`;
+                // Clamp legacy data than can exceed 100 (consistency w/ Group C/I).
+                const minPass = Math.min(100, Number(it.tech_eval.minimum_passing_score) || 0);
+                return (
+                  <div key={itemKey}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>{itemName}</span>
+                      <span className="status-pill neutral" style={{ fontSize: 9.5 }}>
+                        <span className="dot" />Passing mark: {minPass}%
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {it.tech_eval.clauses.map((cl, idx) => (
+                        <div key={cl.id || idx} className="clause-cell" style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 9, background: "var(--surface-2)" }}>
+                          <span className="c-num">{idx + 1}</span>
+                          <span className="c-text">{cl.clause_text}</span>
+                          <div className="c-meta">
+                            <span className="c-weight">weight <span className="mono">{cl.weightage ?? 0}</span> marks</span>
+                            {cl.clause_type && <span className="c-type">{cl.clause_type}</span>}
+                            {cl.is_mandatory && (
+                              <span className="c-type" style={{ background: "var(--danger-soft)", color: "var(--danger)", fontWeight: 700 }}>
+                                Mandatory
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <div className="guide" style={{ marginBottom: 16 }}>
+            <div className="g-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+            </div>
+            <div>Technical evaluation skipped for this contract.</div>
+          </div>
+        )}
+        </>
       )}
 
+      {/* Sr 47 (Cap 2, Path A) — same publish_rejected state, softened to read
+          as a send-back for revision rather than a hard kill. Mechanics
+          (status, note, Edit & re-publish CTA) are unchanged. */}
       {isPublishRejected && (
-        <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--danger)" }}>
-          <div className="guide danger" style={{ alignItems: "center", margin: 0, borderRadius: "10px 10px 0 0" }}>
+        <section className="section-card" style={{ marginBottom: 16, borderColor: "var(--warn)" }}>
+          <div className="guide warn" style={{ alignItems: "center", margin: 0, borderRadius: "10px 10px 0 0" }}>
             <div className="g-ic" style={{ marginTop: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
             </div>
             <div>
-              <strong>Publish was rejected.</strong> {rejectReason ? <>Reason: {rejectReason}. </> : null}Revise the rate contract and re-publish to send it for approval again.
+              <strong>Changes requested by the approver.</strong> {rejectReason ? <>Note: {rejectReason}. </> : null}Revise the rate contract and re-publish to send it back for approval.
             </div>
           </div>
           {isCreator && (
@@ -380,7 +526,7 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
                   const vendor = vendors[inv.vendor_id] || {};
                   const status = classifyInvitation(inv, quoteByVendor);
                   const q = quoteByVendor[inv.vendor_id];
-                  const vendorName = inv.vendor_name || vendor.name || `Vendor #${inv.vendor_id}`;
+                  const vendorName = inv.vendor_company?.trim() || inv.vendor_name || vendor.name || `Vendor #${inv.vendor_id}`;
                   const email = inv.vendor_email || vendor.email || null;
                   const mobile = inv.vendor_mobile || vendor.mobile || null;
                   return (
@@ -654,11 +800,21 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
             <div className="section-body" style={{ padding: "12px 16px" }}>
               <div className="kv-grid">
                 <div className="k">Created</div><div className="v">{fmtDate(arc.created_at)}</div>
-                <div className="k">Subm. opens</div><div className="v">{fmtDate(arc.submission_start_at)}</div>
+                <div className="k">Subm. opens</div><div className="v">{fmtDateTime(arc.submission_start_at)}</div>
                 <div className="k">Subm. closes</div>
                 <div className="v">
-                  <span>{fmtDate(arc.submission_end_at)}</span>
+                  <span>{fmtDateTime(arc.submission_end_at)}</span>
                   {isFloated && !windowClosed && <span className="text-warn fw-600 fs-11"> · {daysToClose}d</span>}
+                  {canExtend && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginLeft: 8, padding: "1px 8px", fontSize: 11, minHeight: 22 }}
+                      onClick={openExtend}
+                    >
+                      Extend
+                    </button>
+                  )}
                 </div>
                 <div className="k">Term starts</div><div className="v">{fmtDate(arc.contract_start_at)}</div>
                 <div className="k">Term ends</div><div className="v">{fmtDate(arc.contract_end_at)}</div>
@@ -669,6 +825,46 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
         </aside>
       </div>
       </StageColumns>
+
+      {/* Sr 40 — EXTEND SUBMISSION DEADLINE MODAL */}
+      {extendOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2050 }}
+          onClick={() => !extending && setExtendOpen(false)}
+        >
+          <div
+            className="dash-panel"
+            style={{ width: 420, maxWidth: "92vw", background: "#fff", padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="dash-panel-head" style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+              Extend submission deadline
+            </div>
+            <div style={{ padding: 16 }}>
+              <p style={{ fontSize: 12.5, color: "var(--fg-3)", margin: "0 0 12px" }}>
+                {windowClosed
+                  ? "This tender's submission window closed. Extending re-opens it — invited vendors will be notified and can quote again."
+                  : "Push the submission deadline further out. Invited vendors will be re-notified."}
+              </p>
+              <label style={{ display: "block", fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>New submission deadline</label>
+              <input
+                type="datetime-local"
+                className="input"
+                value={extendValue}
+                min={nowIstDateTimeLocal()}
+                onChange={(e) => setExtendValue(e.target.value)}
+                style={{ width: "100%", padding: 8, border: "1px solid var(--border-input)", borderRadius: 6, fontFamily: "inherit", fontSize: 13 }}
+              />
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+                <button className="btn btn-secondary btn-sm" disabled={extending} onClick={() => setExtendOpen(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={extending} onClick={handleExtend}>
+                  {extending ? "Extending..." : "Extend"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -7,11 +7,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
-import { getUnits } from "@/services/units";
+import { getUnits, addCustomUnit } from "@/services/units";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Constants & helpers
 // ──────────────────────────────────────────────────────────────────────────
+
+// Sr 22 — abbreviation → full-name map for the 18 seeded default units
+// (tbl_units has no full-name column). Custom/unknown units fall back to
+// showing their own name as the tooltip.
+const UOM_FULL = {
+  pcs: "Pieces", kg: "Kilogram", g: "Gram", tonne: "Metric tonne",
+  L: "Litre", mL: "Millilitre", m: "Metre", cm: "Centimetre", mm: "Millimetre",
+  "m²": "Square metre", "m³": "Cubic metre", pack: "Pack", set: "Set",
+  box: "Box", roll: "Roll", bottle: "Bottle", hr: "Hour", day: "Day",
+};
+const uomFull = (name) => UOM_FULL[name] || name;
+
+// Sr 9 — one-line meaning for each price-escalation type, shown under the
+// selector so buyers can choose the right basis without external guidance.
+const ESCALATION_HELP = {
+  none:   "No escalation — rates stay firm and fixed for the entire contract term.",
+  annual: "Rates rise by a fixed percentage on each contract anniversary, up to the cap.",
+  cpi:    "Rates are revised in line with movement in the agreed Consumer Price Index (CPI), up to the cap and subject to your approval.",
+  tariff: "Rates track a published tariff / benchmark rate, up to the cap and subject to your approval.",
+};
 
 const STEPS = [
   { key: "basics",    label: "Basics",         meta: "Category · type" },
@@ -73,6 +93,25 @@ function avClassFor(id) {
   return palette[Math.abs(Number(id) || 0) % palette.length];
 }
 
+// Sr 44/45/46 — shared sanitiser for the two tech-eval numeric inputs (item
+// min-pass % and clause weight "marks"). Deleting the field must leave it
+// BLANK — never coerced to 0 the way the old `Number(e.target.value) || 0`
+// handler did — so `""` passes straight through. A malformed/typed value like
+// "040" has its leading zero collapsed, and anything above 100 is clamped
+// rather than silently accepted (the backend enforces the same 1–100 range —
+// see setupTechEval in arcEvaluationController.js — as the authoritative
+// backstop for a resumed draft that jumps straight to Review/Submit).
+function sanitizePct(raw) {
+  const s = String(raw ?? "");
+  if (s === "") return "";
+  const digitsOnly = s.replace(/[^\d]/g, "");
+  if (digitsOnly === "") return "";
+  const normalised = digitsOnly.replace(/^0+(?=\d)/, "");
+  const n = Number(normalised);
+  if (!Number.isFinite(n)) return "";
+  return Math.min(100, n);
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 //  Tiny SVG icon helpers — keeps JSX readable
 // ──────────────────────────────────────────────────────────────────────────
@@ -119,6 +158,9 @@ export default function CreateRateContractPage() {
   // H8 — remember a draft already created this session so a retry after a
   // mid-flight failure resumes (re-publishes) instead of minting a duplicate.
   const draftArcRef = useRef(null);
+  // Sr 2 — keep a ref of the live step for the popstate handler (avoids stale closure).
+  const stepRef = useRef(1);
+  useEffect(() => { stepRef.current = step; }, [step]);
 
   // Loaded reference data
   const [categories, setCategories] = useState([]);
@@ -155,6 +197,14 @@ export default function CreateRateContractPage() {
   const [itemSpecs, setItemSpecs] = useState({});
   const [itemQtys, setItemQtys] = useState({});
   const [itemUoms, setItemUoms] = useState({});
+  // Sr 5 — ids whose selected-item detail (qty/UOM/spec) is minimised. Default
+  // = expanded (id absent) so a newly-selected item shows its required fields.
+  const [collapsedItemIds, setCollapsedItemIds] = useState([]);
+  const toggleCollapse = (id) =>
+    setCollapsedItemIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  // Sr 21 — which selected item's UOM select has the inline "add custom unit" row open.
+  const [addingUomFor, setAddingUomFor] = useState(null);
+  const [newUomName, setNewUomName] = useState("");
   const varSeq = useRef(0);
 
   // Step 4 — Terms
@@ -316,6 +366,25 @@ export default function CreateRateContractPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.c]);
 
+  // Sr 2 — hardware/browser Back walks back through wizard steps instead of
+  // abandoning the wizard. Prime one extra history frame, then intercept the pop:
+  // past step 1 we consume it (decrement + re-arm) and cancel the route change;
+  // at step 1 we let the navigation proceed so Back still exits the wizard.
+  useEffect(() => {
+    if (!router.isReady) return;
+    window.history.pushState(null, "");
+    router.beforePopState(() => {
+      if (stepRef.current > 1) {
+        setStep((s) => Math.max(1, s - 1));
+        window.history.pushState(null, ""); // re-arm for the next Back press
+        return false;                        // cancel the exit
+      }
+      return true;                           // step 1 → allow leaving
+    });
+    return () => { router.beforePopState(() => true); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
   // Sub-cats + variants + vendors load on category change. Departments are NOT
   // category-driven — they come from the user's mappings in the selected hotel
   // (see the hotel effect below).
@@ -360,6 +429,12 @@ export default function CreateRateContractPage() {
   // later pages APPEND ("Load more"). seq guards against out-of-order responses.
   const loadVariants = useCallback(async (page) => {
     if (!categoryId) { setVariants([]); setVariantsTotal(0); return; }
+    // Sr 23 — don't dump the whole category catalogue on mount; only fetch
+    // once the user has an active query (search text or the sub-category
+    // browse filter). The selected-items panel is unaffected — it's pinned.
+    if (!debouncedItemSearch && !itemSubCat) {
+      setVariants([]); setVariantsTotal(0); setLoadingVariants(false); return;
+    }
     const seq = ++varSeq.current;
     setLoadingVariants(true);
     try {
@@ -373,7 +448,15 @@ export default function CreateRateContractPage() {
       if (seq !== varSeq.current) return;
       const d = res?.data || {};
       const rows = Array.isArray(d.variants) ? d.variants : [];
-      setVariants((prev) => (page === 1 ? rows : [...prev, ...rows]));
+      // Sr 7 — dedupe by id (a product with >1 tbl_product_categories row for
+      // the same category yields the same variant multiple times from the
+      // backend JOIN). Runs on both the page-1 replace and the "Load more"
+      // append so a row already shown is never re-introduced.
+      setVariants((prev) => {
+        const merged = page === 1 ? rows : [...prev, ...rows];
+        const seen = new Set();
+        return merged.filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)));
+      });
       setVariantsTotal(Number(d.total) || 0);
       setItemPage(page);
     } catch (_) {
@@ -416,7 +499,11 @@ export default function CreateRateContractPage() {
     if (!cls.length) return false;
     if (itemTotalWeight(iid) !== 100) return false;
     if (cls.some((c) => !c.text)) return false;
-    if (!Number(minPassByItem[iid])) return false;
+    // Sr 13/44/45 — blank/0 is invalid, and (defensively — the input already
+    // clamps to 100) so is anything over 100. Keeps the Continue gate correct
+    // even if minPassByItem is ever seeded some other way (e.g. draft resume).
+    const mp = Number(minPassByItem[iid]);
+    if (!mp || mp < 1 || mp > 100) return false;
     return true;
   }
   // Per-item technical-eval toggle (default ON for any selected item).
@@ -455,6 +542,11 @@ export default function CreateRateContractPage() {
   // Going back only moves the cursor; it must NOT shrink furthestStep.
   function backStep() { if (step > 1) setStep((s) => s - 1); }
 
+  // Sr 8 — bring the new step's header into view on every step change
+  // (Continue, Back, stepper click, and resume). With the fixed bottom
+  // action-dock, Continue can otherwise leave the next step's header offscreen.
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
+
   // ── Item / clause / vendor mutators ────────────────────────────────
   function pickCategory(c) {
     if (categoryId === c.id) return;
@@ -469,9 +561,6 @@ export default function CreateRateContractPage() {
     if (type === t) return;
     setType(t);
     setSelectedItemIds([]);
-  }
-  function toggleSubCat(id) {
-    setSelectedSubCats((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   }
   function toggleItem(id, meta) {
     setSelectedItemIds((s) => {
@@ -488,6 +577,41 @@ export default function CreateRateContractPage() {
       if (meta) setSelectedMeta((m) => (m[id] ? m : { ...m, [id]: { id, name: meta.name, slug: meta.slug, uom: meta.uom ?? null } }));
       return [...s, id];
     });
+  }
+  // Sr 21 — add a custom unit and select it for the item that opened the
+  // inline add-row; the new unit is added to the shared `units` list so every
+  // item's select can offer it. NOTE on the response shape: axiosInstance's
+  // response interceptor already unwraps `response.data` (the backend body
+  // `{status, data}`), so a successful call here resolves with that body —
+  // same one level as `getUnits()` → `unitRes?.data` (create.js load effect) —
+  // hence `res?.data` (not `res?.data?.data`). A 409 (unit already exists) is
+  // an axios error, so it takes the reject path; the service wraps errors as
+  // `reject({ message: error })`, and the interceptor's error handler rejects
+  // with the raw axios error (not its `.data`) — so the existing row is at
+  // `err.message.response.data.data`.
+  async function saveCustomUnit(itemId) {
+    const name = newUomName.trim();
+    if (!name) return;
+    try {
+      const res = await addCustomUnit({ name });
+      const u = res?.data; // { id, name, is_default:false }
+      if (u) {
+        setUnits((prev) => prev.some((x) => x.id === u.id) ? prev : [...prev, u]);
+        setItemUoms((m) => ({ ...m, [itemId]: u.name }));
+      }
+      setAddingUomFor(null); setNewUomName("");
+    } catch (err) {
+      // 409 → unit already exists; select the returned existing row instead
+      // of surfacing a duplicate error.
+      const existing = err?.message?.response?.data?.data;
+      if (existing) {
+        setUnits((prev) => prev.some((x) => x.id === existing.id) ? prev : [...prev, existing]);
+        setItemUoms((m) => ({ ...m, [itemId]: existing.name }));
+        setAddingUomFor(null); setNewUomName("");
+      } else {
+        showToast("Could not add unit");
+      }
+    }
   }
   function toggleVendor(id) {
     setInvitedVendorIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -511,90 +635,116 @@ export default function CreateRateContractPage() {
     }));
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────
+  // ── Submit / Save draft ─────────────────────────────────────────────
+  // Shared payload builder — submit() and saveDraft() both persist the exact
+  // same wizard state; only whether publish() runs afterward differs. Kept as
+  // one function so the two flows can't drift out of sync (Sr 17).
+  function buildPayload() {
+    const items = selectedItemIds.map((id) => ({
+      product_variant_id: id,
+      spec_text:          itemSpecs[id] || "",
+      indicative_qty:     Number(itemQtys[id]) || 0,
+      uom:                itemUoms[id] || null,
+    }));
+    return {
+      title,
+      description: internalRef ? `Internal ref: ${internalRef}` : "",
+      category_id: categoryId,
+      sub_category_ids: selectedSubCats,
+      type,
+      hotel_id: hotelId,
+      department_id: departmentId,
+      // No process_id — ARC approval routes via the committee/hierarchy
+      // model, so the backend stores process_id as NULL (audit H5).
+      submission_start_at: submissionStart,
+      submission_end_at:   submissionEnd,
+      contract_start_at:   contractStart,
+      contract_end_at:     contractEnd,
+      eligibility_type:    eligibility,
+      // True if ANY item is technically evaluated → vendors must seal a
+      // technical envelope (for the items that have clauses) before quoting.
+      technical_response_required: anyTechRequired,
+      sample_required:     samplesRequired,
+      escalation_clause_json: {
+        type: escalation,
+        cap_pct: Number(escalationCap) || null,
+      },
+      payment_terms_expected: paymentTerms,
+      delivery_expected:      deliveryTerms,
+      penalty_clause:         penalty,
+      items,
+      invited_vendor_ids:     eligibility === "invitation" ? invitedVendorIds : [],
+      // The set of items that will actually get a tech-eval row (re)persisted
+      // by persistTechEval() right after this call — same gate it uses
+      // (`itemTechOn(vid) && clauses present`). updateDraft reconciles against
+      // this so an item toggled OFF (or emptied of clauses) since the last
+      // save has its stale tech-eval config torn down, instead of surviving
+      // indefinitely and still forcing vendors to seal a technical envelope.
+      tech_item_variant_ids: selectedItemIds.filter(
+        (vid) => itemTechOn(vid) && (clausesByItem[vid] || []).length > 0
+      ),
+    };
+  }
+
+  // Persist the per-item technical evaluation config the wizard collected
+  // (clauses + weights + min passing score) so the qualification gate
+  // actually uses it. Keyed by product_variant_id → ARC item id — works for
+  // BOTH a freshly-created draft's items (from createDraft's response) and a
+  // resumed draft's reconciled items (from updateDraft's response, GROUP D),
+  // since both now return the same { id, product_variant_id } shape.
+  async function persistTechEval(arcItems) {
+    if (!anyTechRequired || !arcItems.length) return;
+    const itemIdByVariant = {};
+    for (const it of arcItems) itemIdByVariant[it.product_variant_id] = it.id;
+    for (const vid of selectedItemIds) {
+      const arcItemId = itemIdByVariant[vid];
+      const cls = clausesByItem[vid] || [];
+      // Only set up tech eval for items with the toggle ON — a tech-OFF item
+      // gets no tech_evaluation row, so it skips qualification entirely.
+      if (!arcItemId || !itemTechOn(vid) || cls.length === 0) continue;
+      await ArcApi.setupTechEval(arcItemId, {
+        minimum_passing_score: minPassByItem[vid] ?? 65,
+        clauses: cls.map((c) => ({
+          clause_text: c.text,
+          weightage: Number(c.weight) || 0,
+          clause_type: c.type || null,
+          is_mandatory: !!c.mandatory,
+        })),
+      });
+    }
+  }
+
+  // Create-or-update the draft ARC (createDraft if new, updateDraft if
+  // resuming/already created this session — H8), persist tech eval, and
+  // return the arc id + the reconciled items list. Shared by submit() and
+  // saveDraft(). updateDraft now reconciles the item set + invitations too
+  // (GROUP D backend fix), so this works identically on both branches.
+  async function persistDraft(payload) {
+    let arcId = draftArcRef.current;
+    let items = [];
+    if (!arcId) {
+      const res = await ArcApi.createDraft(payload);
+      const arc = res?.data?.arc || res?.data?.data?.arc;
+      arcId = arc?.id;
+      if (!arcId) throw new Error("Could not create draft");
+      draftArcRef.current = arcId;
+      items = res?.data?.items || res?.data?.data?.items || [];
+    } else {
+      // Resumed draft (?c=<id> or a prior in-session create): the ARC already
+      // exists, so PATCH the edits onto it rather than minting a duplicate
+      // (spec §2.4). updateDraft reconciles scalars + item set + invitations.
+      const res = await ArcApi.updateDraft(arcId, payload);
+      items = res?.data?.items || res?.data?.data?.items || [];
+    }
+    await persistTechEval(items);
+    return arcId;
+  }
+
   async function submit() {
     if (busy) return; // H8 — guard against double-submit while a call is in flight
     setBusy(true); setError(null);
     try {
-      const items = selectedItemIds.map((id) => ({
-        product_variant_id: id,
-        spec_text:          itemSpecs[id] || "",
-        indicative_qty:     Number(itemQtys[id]) || 0,
-        uom:                itemUoms[id] || null,
-      }));
-      const payload = {
-        title,
-        description: internalRef ? `Internal ref: ${internalRef}` : "",
-        category_id: categoryId,
-        sub_category_ids: selectedSubCats,
-        type,
-        hotel_id: hotelId,
-        department_id: departmentId,
-        // No process_id — ARC approval routes via the committee/hierarchy
-        // model, so the backend stores process_id as NULL (audit H5).
-        submission_start_at: submissionStart,
-        submission_end_at:   submissionEnd,
-        contract_start_at:   contractStart,
-        contract_end_at:     contractEnd,
-        eligibility_type:    eligibility,
-        // True if ANY item is technically evaluated → vendors must seal a
-        // technical envelope (for the items that have clauses) before quoting.
-        technical_response_required: anyTechRequired,
-        sample_required:     samplesRequired,
-        escalation_clause_json: {
-          type: escalation,
-          cap_pct: Number(escalationCap) || null,
-        },
-        payment_terms_expected: paymentTerms,
-        delivery_expected:      deliveryTerms,
-        penalty_clause:         penalty,
-        items,
-        invited_vendor_ids:     eligibility === "invitation" ? invitedVendorIds : [],
-      };
-      // H8 — if a previous attempt already created the draft, resume it
-      // instead of creating another (avoids orphaned/duplicate drafts).
-      let arcId = draftArcRef.current;
-      let createdItems = [];
-      if (!arcId) {
-        const res = await ArcApi.createDraft(payload);
-        const arc = res?.data?.arc || res?.data?.data?.arc;
-        arcId = arc?.id;
-        if (!arcId) throw new Error("Could not create draft");
-        draftArcRef.current = arcId;
-        createdItems = res?.data?.items || res?.data?.data?.items || [];
-      } else {
-        // Resumed draft (?c=<id> or a prior in-session create): the ARC already
-        // exists, so PATCH the scalar edits onto it before publishing rather
-        // than minting a duplicate (spec §2.4). updateDraft whitelists scalars
-        // only — item/vendor/tech-eval edits on a resumed draft are a documented
-        // v1 limitation (resume = rehydrate + scalar-edits + finish/publish).
-        await ArcApi.updateDraft(arcId, payload);
-      }
-
-      // H4 — persist the per-item technical evaluation config the wizard
-      // collected (clauses + weights + min passing score) so the qualification
-      // gate actually uses it. Keyed by product_variant_id → created ARC item.
-      if (anyTechRequired && createdItems.length) {
-        const itemIdByVariant = {};
-        for (const it of createdItems) itemIdByVariant[it.product_variant_id] = it.id;
-        for (const vid of selectedItemIds) {
-          const arcItemId = itemIdByVariant[vid];
-          const cls = clausesByItem[vid] || [];
-          // Only set up tech eval for items with the toggle ON — a tech-OFF item
-          // gets no tech_evaluation row, so it skips qualification entirely.
-          if (!arcItemId || !itemTechOn(vid) || cls.length === 0) continue;
-          await ArcApi.setupTechEval(arcItemId, {
-            minimum_passing_score: minPassByItem[vid] ?? 65,
-            clauses: cls.map((c) => ({
-              clause_text: c.text,
-              weightage: Number(c.weight) || 0,
-              clause_type: c.type || null,
-              is_mandatory: !!c.mandatory,
-            })),
-          });
-        }
-      }
-
+      const arcId = await persistDraft(buildPayload());
       const pubRes = await ArcApi.publish(arcId);
       draftArcRef.current = null; // fully submitted — clear the resume handle
       // Publish now routes through an approval gate. If the publisher is the
@@ -614,6 +764,25 @@ export default function CreateRateContractPage() {
     } catch (e) {
       // Surface the server message verbatim — the no-policy message is actionable.
       setError(e?.response?.data?.message || e?.message || "Could not publish");
+    } finally { setBusy(false); }
+  }
+
+  // Sr 17 — persist the current wizard state WITHOUT publishing, then exit to
+  // the Drafts list. Shares buildPayload()/persistDraft() with submit() so the
+  // two flows can never drift; the only difference is publish() never runs and
+  // draftArcRef is left set (the draft stays open for a later resume/submit).
+  async function saveDraft() {
+    if (busy) return; // same re-entrancy guard as submit() (H8)
+    setBusy(true);
+    try {
+      await persistDraft(buildPayload());
+      showToast("Draft saved");
+      setTimeout(() => router.push("/dashboard/buyer/rate-contracts/drafts"), 900);
+    } catch (e) {
+      // Save draft is reachable from steps 2-6, but the `error` banner only
+      // renders on step 6 (Review) — toast instead so a failure is visible
+      // regardless of which step the user saved from.
+      showToast(e?.response?.data?.message || e?.message || "Could not save draft");
     } finally { setBusy(false); }
   }
 
@@ -732,22 +901,6 @@ export default function CreateRateContractPage() {
                 <div><div className="cc-name">Services</div><div className="cc-meta">Recurring services · AMC, maintenance</div></div>
               </div>
             </div>
-
-            {categoryId && subCats.length > 0 && (
-              <div style={{ marginTop: 18 }}>
-                <label className="label">Sub-categories · narrow the catalogue (optional)</label>
-                <div className="sub-chips">
-                  {subCats.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={`sub-chip ${selectedSubCats.includes(s.id) ? "selected" : ""}`}
-                      onClick={() => toggleSubCat(s.id)}
-                    >{s.title}</button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </section>
       )}
@@ -841,35 +994,68 @@ export default function CreateRateContractPage() {
                   const it = variantById(id);
                   return (
                     <div key={id} style={{ marginBottom: 8 }}>
-                      <div className="item-row selected" onClick={() => toggleItem(id)}>
-                        <div className="ir-check" />
+                      {/* Sr 5 — row click minimises/expands the detail block (does NOT
+                          remove the item); an explicit trash button removes it. */}
+                      <div
+                        className="item-row selected"
+                        onClick={() => toggleCollapse(id)}
+                        style={{ cursor: "pointer", gridTemplateColumns: "24px 1fr auto auto" }}
+                      >
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          onClick={(e) => { e.stopPropagation(); toggleCollapse(id); }}
+                          title={collapsedItemIds.includes(id) ? "Expand" : "Minimise"}
+                          style={{ transform: collapsedItemIds.includes(id) ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s ease" }}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
                         <div className="ir-meta">
                           <div className="ir-name">{it.name}</div>
                           <div className="ir-sub"><span className="mono">{it.slug}</span></div>
                         </div>
                         <div className="ir-tag">{type === "service" ? "Service" : "Product"}</div>
+                        <button type="button" className="icon-btn" title="Remove item"
+                          onClick={(e) => { e.stopPropagation(); toggleItem(id); }}>
+                          <span style={{ color: "var(--danger)" }}><TrashIcon size={13} /></span>
+                        </button>
                       </div>
+                      {!collapsedItemIds.includes(id) && (
                       <div className="item-detail">
                         <div className="form-grid cols-3">
                           <div>
                             <label className="label">Indicative quantity <span className="req">*</span></label>
                             <div className="input-group" style={{ maxWidth: 200 }}>
                               <input type="number" className="input input-num" value={itemQtys[id] ?? ""} onChange={(e) => setItemQtys((m) => ({ ...m, [id]: e.target.value }))} placeholder="0" min={0} />
-                              <div className="suffix">{itemUoms[id] || "unit"}</div>
+                              <div className="suffix" title={uomFull(itemUoms[id] || "unit")}>{itemUoms[id] || "unit"}</div>
                             </div>
                           </div>
                           <div>
                             <label className="label">Unit of measure <span className="req">*</span></label>
-                            <select className="select" style={{ maxWidth: 200 }} value={itemUoms[id] ?? ""} onChange={(e) => setItemUoms((m) => ({ ...m, [id]: e.target.value }))}>
+                            <select className="select" style={{ maxWidth: 200 }} value={itemUoms[id] ?? ""} onChange={(e) => {
+                              if (e.target.value === "__add_custom__") { setAddingUomFor(id); setNewUomName(""); return; }
+                              setItemUoms((m) => ({ ...m, [id]: e.target.value }));
+                            }}>
                               <option value="">Select unit…</option>
-                              {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                              {units.map((u) => <option key={u.id} value={u.name} title={uomFull(u.name)}>{u.name}</option>)}
+                              <option value="__add_custom__">＋ Add custom unit…</option>
                             </select>
+                            {addingUomFor === id && (
+                              <div style={{ display: "flex", gap: 6, marginTop: 8, maxWidth: 260 }}>
+                                <input className="input" style={{ flex: 1, minWidth: 0 }} autoFocus value={newUomName} onChange={(e) => setNewUomName(e.target.value)} placeholder="e.g. Carton" maxLength={50} />
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveCustomUnit(id)}>Add</button>
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setAddingUomFor(null); setNewUomName(""); }}>Cancel</button>
+                              </div>
+                            )}
                           </div>
                           <div />
                         </div>
                         <label className="label" style={{ marginTop: 11 }}>Specification <span className="req">*</span></label>
                         <textarea className="textarea" value={itemSpecs[id] ?? ""} onChange={(e) => setItemSpecs((m) => ({ ...m, [id]: e.target.value }))} placeholder="Describe the spec, grade, quality requirements…" />
                       </div>
+                      )}
                     </div>
                   );
                 })}
@@ -891,45 +1077,61 @@ export default function CreateRateContractPage() {
                   {subCats.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
                 </select>
               )}
-              <span style={{ fontSize: 12.5, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
-                <span className="mono fw-600">{variantsTotal.toLocaleString("en-IN")}</span> item{variantsTotal === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            {/* Browse list — compact, scrollable (fixed viewport, scales to thousands). */}
-            <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
-              {variants.map((it) => {
-                const picked = selectedItemIds.includes(it.id);
-                return (
-                  <div key={it.id} className={`item-row ${picked ? "selected" : ""}`} onClick={() => toggleItem(it.id, it)} style={{ cursor: "pointer" }}>
-                    <div className="ir-check" />
-                    <div className="ir-meta">
-                      <div className="ir-name">{it.name}</div>
-                      <div className="ir-sub"><span className="mono">{it.slug}</span></div>
-                    </div>
-                    <div className="ir-tag">{type === "service" ? "Service" : "Product"}</div>
-                  </div>
-                );
-              })}
-              {loadingVariants && variants.length === 0 && (
-                <div style={{ padding: 22, textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>Loading items…</div>
-              )}
-              {!loadingVariants && variants.length === 0 && (
-                <div className="empty-state" style={{ padding: "32px 20px" }}>
-                  <div className="ic"><BoxIcon size={22} /></div>
-                  <h2>No items match</h2>
-                  <p>{debouncedItemSearch || itemSubCat ? "Try a different search or sub-category." : "This category has no items in the catalogue yet."}</p>
-                </div>
+              {/* Sr 23 — count line only reads meaningfully once a query is active. */}
+              {(debouncedItemSearch || itemSubCat) && (
+                <span style={{ fontSize: 12.5, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
+                  <span className="mono fw-600">{variantsTotal.toLocaleString("en-IN")}</span> item{variantsTotal === 1 ? "" : "s"}
+                </span>
               )}
             </div>
 
-            {/* Load more (append next page). */}
-            {variants.length < variantsTotal && (
-              <div style={{ textAlign: "center", marginTop: 12 }}>
-                <button type="button" className="btn btn-secondary btn-sm" disabled={loadingVariants} onClick={() => loadVariants(itemPage + 1)}>
-                  {loadingVariants ? "Loading…" : `Load more — showing ${variants.length} of ${variantsTotal.toLocaleString("en-IN")}`}
-                </button>
+            {/* Sr 23 — no query yet → prompt instead of dumping the whole category
+                catalogue on mount. The selected-items panel above is independent and
+                keeps rendering regardless. */}
+            {!debouncedItemSearch && !itemSubCat ? (
+              <div className="empty-state" style={{ padding: "32px 20px" }}>
+                <div className="ic"><SearchIcon size={22} /></div>
+                <h2>Search the catalogue</h2>
+                <p>Start typing an item name or code to find items in {selectedCategoryTitle || "this category"}.</p>
               </div>
+            ) : (
+              <>
+                {/* Browse list — compact, scrollable (fixed viewport, scales to thousands). */}
+                <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
+                  {variants.map((it) => {
+                    const picked = selectedItemIds.includes(it.id);
+                    return (
+                      <div key={it.id} className={`item-row ${picked ? "selected" : ""}`} onClick={() => toggleItem(it.id, it)} style={{ cursor: "pointer" }}>
+                        <div className="ir-check" />
+                        <div className="ir-meta">
+                          <div className="ir-name">{it.name}</div>
+                          <div className="ir-sub"><span className="mono">{it.slug}</span></div>
+                        </div>
+                        <div className="ir-tag">{type === "service" ? "Service" : "Product"}</div>
+                      </div>
+                    );
+                  })}
+                  {loadingVariants && variants.length === 0 && (
+                    <div style={{ padding: 22, textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>Loading items…</div>
+                  )}
+                  {!loadingVariants && variants.length === 0 && (
+                    <div className="empty-state" style={{ padding: "32px 20px" }}>
+                      <div className="ic"><BoxIcon size={22} /></div>
+                      <h2>No items match</h2>
+                      <p>Try a different search or sub-category.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Load more (append next page). */}
+                {variants.length < variantsTotal && (
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={loadingVariants} onClick={() => loadVariants(itemPage + 1)}>
+                      {loadingVariants ? "Loading…" : `Load more — showing ${variants.length} of ${variantsTotal.toLocaleString("en-IN")}`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -965,6 +1167,8 @@ export default function CreateRateContractPage() {
                   <option value="cpi">CPI-linked</option>
                   <option value="tariff">Tariff-linked</option>
                 </select>
+                {/* Sr 9 — dynamic help line reflecting the currently selected escalation type */}
+                <div className="help-text">{ESCALATION_HELP[escalation]}</div>
               </div>
               <div>
                 <label className="label">Escalation cap {escalation !== "none" && <span className="req">*</span>}</label>
@@ -972,6 +1176,14 @@ export default function CreateRateContractPage() {
                   <input type="number" className="input input-num" value={escalation === "none" ? "" : escalationCap} onChange={(e) => setEscalationCap(e.target.value)} placeholder={escalation === "none" ? "Not applicable" : "4"} min={0} disabled={escalation === "none"} />
                   <div className="suffix">%</div>
                 </div>
+                {/* Sr 10 — cap help, shown only when the field is applicable (non-"none") */}
+                {escalation !== "none" && (
+                  <div className="help-text">
+                    The most the total price may rise over the full contract term — it protects you from
+                    open-ended escalation. Any revision above this ceiling is not admissible, and every
+                    revision still needs your written approval. Enter the ceiling as a percentage (e.g. 4).
+                  </div>
+                )}
               </div>
             </div>
             <div className="form-grid" style={{ marginTop: 14 }}>
@@ -1059,7 +1271,7 @@ export default function CreateRateContractPage() {
                               <>
                                 <span className="mono fw-600" style={{ color: "var(--fg)" }}>{cls.length}</span> clause{cls.length === 1 ? "" : "s"}
                                 <span style={{ color: "var(--fg-4)" }}>·</span>
-                                <span>per {itemUoms[iid] || "unit"}</span>
+                                <span title={uomFull(itemUoms[iid] || "unit")}>per {itemUoms[iid] || "unit"}</span>
                               </>
                             ) : (
                               <span style={{ color: "var(--fg-3)" }}>No technical evaluation — all vendors compete on price for this product</span>
@@ -1070,9 +1282,17 @@ export default function CreateRateContractPage() {
                           <div className="te-min-pass">
                             <span className="lbl">Min pass</span>
                             <div className="input-group" style={{ maxWidth: 110 }}>
-                              <input type="number" className="input input-num" value={minPassByItem[iid] ?? ""} onChange={(e) => setMinPassByItem((m) => ({ ...m, [iid]: Number(e.target.value) || 0 }))} min={0} max={100} placeholder="65" />
+                              <input type="number" className="input input-num" value={minPassByItem[iid] ?? ""} onChange={(e) => setMinPassByItem((m) => ({ ...m, [iid]: sanitizePct(e.target.value) }))} min={0} max={100} placeholder="65" />
                               <div className="suffix">%</div>
                             </div>
+                            {/* Sr 13 — surface WHY Continue is blocked: blank/0 (or, defensively, >100) isn't a valid passing threshold. */}
+                            {(() => {
+                              const mp = minPassByItem[iid];
+                              const invalid = mp === "" || mp === undefined || mp === null || !(Number(mp) >= 1 && Number(mp) <= 100);
+                              return invalid ? (
+                                <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Enter a passing % between 1 and 100</div>
+                              ) : null;
+                            })()}
                           </div>
                         )}
                         <div>
@@ -1110,7 +1330,7 @@ export default function CreateRateContractPage() {
                                 <option value="sample">Sample</option>
                               </select>
                               <div className="input-group">
-                                <input type="number" className="input input-num" value={cl.weight} onChange={(e) => updateClause(iid, idx, { weight: Number(e.target.value) || 0 })} min={0} max={100} placeholder="20" />
+                                <input type="number" className="input input-num" value={cl.weight ?? ""} onChange={(e) => updateClause(iid, idx, { weight: sanitizePct(e.target.value) })} min={0} max={100} placeholder="20" />
                                 <div className="suffix">marks</div>
                               </div>
                               <button className="icon-btn" type="button" onClick={() => removeClause(iid, idx)} title="Remove clause">
@@ -1295,11 +1515,19 @@ export default function CreateRateContractPage() {
             </span>
           </div>
           <div className="right">
+            {/* Sr 17 — Save draft & exit. Gated on BU being set (step ≥ 2) so
+                createDraft's required fields (title/category from step 1,
+                hotel/department from step 2) are always satisfiable. */}
+            {step > 1 && hotelId && departmentId && (
+              <button className="btn btn-ghost btn-sm" disabled={busy} onClick={saveDraft}>
+                {busy ? "Saving…" : "Save draft & exit"}
+              </button>
+            )}
             {step > 1 && (
               <button className="btn btn-ghost btn-sm" onClick={backStep}>Back</button>
             )}
             {step < 6 && (
-              <button className="btn btn-blue" disabled={!canNext} onClick={nextStep}>
+              <button className="btn btn-blue" disabled={!canNext || busy} onClick={nextStep}>
                 Continue <ArrowRightIcon />
               </button>
             )}

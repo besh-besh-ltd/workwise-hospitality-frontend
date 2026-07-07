@@ -17,15 +17,24 @@ import VendorCommercialStage from "@/components/dashboard/rate-contracts/vendor/
 import VendorArcNegotiationBanner from "@/components/dashboard/rate-contracts/vendor/VendorArcNegotiationBanner";
 import useArcQuotePreview from "@/hooks/useArcQuotePreview";
 
-const fmtN = (n) => Math.round(Number(n) || 0).toLocaleString("en-IN");
+// Sr 53 — 2-decimal money display (not whole-rupee rounding). The pricing
+// engine already keeps 2-dp end to end (pricingEngine.js q2); this formatter
+// must not re-round to an integer, or a persisted 30.68 displays as 31.
+const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const safeNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+// 2-dp rounding for the CLIENT FALLBACK math only (mirrors pricingEngine's q2).
+// Round once, at the boundary — never round each line/GST/charge separately
+// before summing (that reintroduces drift).
+const q2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 const blankLine = () => ({
   rate: "",
-  gst_pct: 5,
+  // Sr 52 — GST must default BLANK (never a silent 5%); it is now mandatory at
+  // submit (canSubmit/BE validateSubmittedLines), with an explicit 0 accepted.
+  gst_pct: "",
   gstMode: "%",
   freight: "",
   lead_time_days: "",
@@ -109,6 +118,19 @@ export default function VendorQuotePage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Sr 37 — auto-save status chips (idle | dirty | saving | saved | error), one
+  // per stage. Mirrors the buyer manual-entry.js saveState/markDirty/SaveChip
+  // pattern: on-blur silent save + a trailing debounce, no toast per save (the
+  // chip is the only affordance).
+  const [commercialSaveState, setCommercialSaveState] = useState("idle");
+  const [techSaveState, setTechSaveState] = useState("idle");
+  const commercialAutosaveTimer = useRef(null);
+  const techAutosaveTimer = useRef(null);
+  useEffect(() => () => {
+    if (commercialAutosaveTimer.current) clearTimeout(commercialAutosaveTimer.current);
+    if (techAutosaveTimer.current) clearTimeout(techAutosaveTimer.current);
+  }, []);
 
   // ── Regret / withdraw flow ──
   const [confirmRegret, setConfirmRegret] = useState(false);
@@ -228,7 +250,8 @@ export default function VendorQuotePage() {
           seed[ln.arc_item_id] = {
             ...blankLine(),
             rate: ln.rate ?? "",
-            gst_pct: ln.gst_pct ?? 5,
+            // Sr 52 — only blank when truly absent; preserve a real stored 0.
+            gst_pct: ln.gst_pct ?? "",
             gstMode: "%",
             freight: "",  // Phase 2 — no standalone freight; charges handles it
             charges: fromEngineCharges(ln.charges),
@@ -444,6 +467,7 @@ export default function VendorQuotePage() {
 
   const updateLine = (itemId, patch) => {
     setPrice(p => ({ ...p, [itemId]: { ...(p[itemId] || blankLine()), ...patch } }));
+    scheduleCommercialAutosave();
   };
 
   const addChargeOfType = (itemId, type) => {
@@ -453,6 +477,7 @@ export default function VendorQuotePage() {
       // Phase 2 — charge shape extended with per-charge tax fields.
       return { ...p, [itemId]: { ...cur, charges: [...cur.charges, { name: type, amount: "", amountMode: "%", tax: "", taxMode: "%", note: "" }] } };
     });
+    scheduleCommercialAutosave();
   };
 
   const removeCharge = (itemId, idx) => {
@@ -462,6 +487,7 @@ export default function VendorQuotePage() {
       next.splice(idx, 1);
       return { ...p, [itemId]: { ...cur, charges: next } };
     });
+    scheduleCommercialAutosave();
   };
 
   const productChargesTotal = (itemId) => {
@@ -473,13 +499,22 @@ export default function VendorQuotePage() {
   const addGlobalCharge = (type) => {
     if (!type) return;
     setGlobalCharges(prev => [...prev, { name: type, amount: "", amountMode: "₹", tax: "", taxMode: "%", note: "" }]);
+    scheduleCommercialAutosave();
   };
   const removeGlobalCharge = (idx) => {
     setGlobalCharges(prev => { const next = prev.slice(); next.splice(idx, 1); return next; });
+    scheduleCommercialAutosave();
   };
   const updateGlobalCharge = (idx, patch) => {
     setGlobalCharges(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+    scheduleCommercialAutosave();
   };
+  // Sr 37 — setPrice/setGlobals wrapped for props handed to VendorCommercialStage:
+  // the charges-modal + GSTIN/comment fields there call these setters DIRECTLY
+  // (bypassing updateLine/addPaymentTerm/etc.), so wrapping is the single point
+  // that also schedules the auto-save for those direct edits.
+  const setPriceAndMark = (updater) => { setPrice(updater); scheduleCommercialAutosave(); };
+  const setGlobalsAndMark = (updater) => { setGlobals(updater); scheduleCommercialAutosave(); };
   // Document-level (global) charges carry their tax on the engine's
   // additional_tax/_mode keys — normalizeGlobalCharge ONLY reads those (per-line
   // charges use `tax`/`tax_mode`). FE state keeps tax/taxMode for display.
@@ -529,14 +564,15 @@ export default function VendorQuotePage() {
   const lineTotal = (itemId, qty) => {
     if (enginePreview?.lines) {
       const el = enginePreview.lines.find(l => Number(l.arc_item_id) === Number(itemId));
-      if (el) return Math.round(el.total);
+      // Sr 53 — no Math.round: the engine already returns a 2-dp total.
+      if (el) return el.total;
     }
     // Client fallback (Phase 1 math; replaced by engine once preview responds).
     const l = priceLine(itemId);
     if (!l.rate) return 0;
     const subtotal = qty * safeNum(l.rate) + qty * safeNum(l.freight);
     const tax = l.gstMode === "%" ? (subtotal * safeNum(l.gst_pct)) / 100 : qty * safeNum(l.gst_pct);
-    return Math.round(subtotal + tax);
+    return q2(subtotal + tax);
   };
 
   // totals: use engine preview when available, else client fallback.
@@ -554,14 +590,15 @@ export default function VendorQuotePage() {
       });
       // #2 — global charges from engine echo (includes amounts computed by engine).
       const engineGlobals = Array.isArray(enginePreview.global_charges) ? enginePreview.global_charges : [];
-      const globalChargesTotal = Math.round(enginePreview.global_charges_total || 0);
+      // Sr 53 — precision-compounding guard: sum the engine's already-2dp values
+      // raw and format ONCE at display (fmtN); do not round each component here.
       return {
-        subtotal: Math.round(enginePreview.grand_subtotal || 0),
-        gst: Math.round(gst),
-        extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
+        subtotal: enginePreview.grand_subtotal || 0,
+        gst,
+        extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount })),
         globalCharges: engineGlobals,
-        globalChargesTotal,
-        grand: Math.round(enginePreview.grand_total || 0),
+        globalChargesTotal: enginePreview.global_charges_total || 0,
+        grand: enginePreview.grand_total || 0,
       };
     }
     // Client fallback — preserved from Phase 1 for use while preview is loading.
@@ -583,13 +620,15 @@ export default function VendorQuotePage() {
         extra += v;
       });
     });
+    // Sr 53 — 2-dp (q2), not whole-rupee Math.round, so the non-engine fallback
+    // path also keeps decimals while the engine preview is loading.
     return {
-      subtotal: Math.round(subtotal),
-      gst: Math.round(gst),
-      extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: Math.round(amount) })),
+      subtotal: q2(subtotal),
+      gst: q2(gst),
+      extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: q2(amount) })),
       globalCharges: [],
       globalChargesTotal: 0,
-      grand: Math.round(subtotal + gst + extra),
+      grand: q2(subtotal + gst + extra),
     };
   }, [items, price, enginePreview]);
 
@@ -606,8 +645,16 @@ export default function VendorQuotePage() {
     return block?.clauses || [];
   };
 
-  const onSaveTechDraft = async () => {
-    setTechBusy(true); setTechError(null);
+  // Sr 37 — `silent` (mirrors saveDraft(silent)) drives the auto-save chip
+  // instead of the top-level techError banner: a failed silent save (e.g. the
+  // submission window just closed, server 409s) must not surface a disruptive
+  // banner on every debounce/blur — the chip's "error" state is enough. The
+  // manual "Save Draft" button and onSealTechEnvelope keep calling this with
+  // no args (silent=false), so their existing banner behaviour is unchanged.
+  const onSaveTechDraft = async (silent = false) => {
+    setTechBusy(true);
+    if (!silent) setTechError(null);
+    if (silent) setTechSaveState("saving");
     try {
       const responses = [];
       for (const it of techItems) {
@@ -616,8 +663,30 @@ export default function VendorQuotePage() {
         }
       }
       await ArcApi.vendorSaveTechEnvelopeDraft({ arc_id: Number(contractId), responses });
-    } catch (e) { setTechError(e?.response?.data?.message || e?.message || "Save failed"); }
+      if (silent) setTechSaveState("saved");
+    } catch (e) {
+      if (silent) setTechSaveState("error");
+      else setTechError(e?.response?.data?.message || e?.message || "Save failed");
+    }
     finally { setTechBusy(false); }
+  };
+
+  const markTechDirty = () => setTechSaveState((s) => (s === "saving" ? s : "dirty"));
+
+  // Trailing ~800ms debounce after a clause response changes, so long typing
+  // sessions persist without needing a blur. Guard: never once sealed/closed.
+  const scheduleTechAutosave = () => {
+    markTechDirty();
+    if (!contractId || techSealed || !windowOpen) return;
+    if (techAutosaveTimer.current) clearTimeout(techAutosaveTimer.current);
+    techAutosaveTimer.current = setTimeout(() => { onSaveTechDraft(true); }, 800);
+  };
+
+  // Immediate silent save on blur of a clause textarea.
+  const onTechFieldBlur = () => {
+    if (!contractId || techSealed || !windowOpen) return;
+    if (techAutosaveTimer.current) clearTimeout(techAutosaveTimer.current);
+    onSaveTechDraft(true);
   };
 
   const onUploadTechEvidence = async (clauseId, file) => {
@@ -682,13 +751,21 @@ export default function VendorQuotePage() {
   })();
   const windowOpen = windowState === "open";
 
+  // Sr 52 — a line's GST is "set" only when it's a non-empty, finite, >=0
+  // number. Blank/null/"" is NOT a valid submission value (no silent 0
+  // default); an explicit 0 passes (0% GST is a legitimate choice).
+  const gstIsSet = (v) => v !== "" && v != null && Number.isFinite(Number(v)) && Number(v) >= 0;
+
   // canSubmit mirrors server's 409 guard — do NOT loosen.
   const canSubmit = (() => {
     if (!windowOpen) return false;
     if (!acceptedTerms) return false;
     if (hasTechClauses && !techSealed) return false;
     if (paymentTotal !== 100) return false;
-    return items.length > 0 && items.every(it => safeNum(priceLine(it.id).rate) > 0);
+    return items.length > 0 && items.every(it => {
+      const l = priceLine(it.id);
+      return safeNum(l.rate) > 0 && gstIsSet(l.gst_pct);
+    });
   })();
 
   // Advance to next allowed stage from current stageKey.
@@ -736,7 +813,11 @@ export default function VendorQuotePage() {
       return {
         arc_item_id:   it.id,
         rate:          safeNum(l.rate) || null,
-        gst_pct:       safeNum(l.gst_pct) || null,
+        // Sr 52 — blank/null → null (draft stays a true blank on round-trip);
+        // an explicit 0 must survive as 0, NOT collapse to null. The old
+        // `safeNum(l.gst_pct) || null` bug: safeNum("") === 0, and 0 || null
+        // === null, so a real 0 was silently sent as blank.
+        gst_pct:       (l.gst_pct === "" || l.gst_pct == null) ? null : safeNum(l.gst_pct),
         gst_mode:      l.gstMode === "₹" ? "absolute" : "percentage",
         charges:       engineCharges,
         lead_time_days: safeNum(l.lead_time_days) || null,
@@ -755,6 +836,40 @@ export default function VendorQuotePage() {
     } finally {
       setSavingDraft(false);
     }
+  };
+
+  const markCommercialDirty = () => setCommercialSaveState((s) => (s === "saving" ? s : "dirty"));
+
+  // Sr 37 — silent auto-save wrapper around the existing saveDraft(true). Never
+  // throws/toasts: a failed autosave (e.g. the window just closed, server
+  // 409s) only flips the chip to "error" — it must not crash the page or
+  // spam a toast on every keystroke/blur.
+  const autosaveCommercial = async () => {
+    if (!contractId || !windowOpen || (submitted && !editing)) return;
+    setCommercialSaveState("saving");
+    try {
+      await saveDraft(true);
+      setCommercialSaveState("saved");
+    } catch (_e) {
+      setCommercialSaveState("error");
+    }
+  };
+
+  // Trailing ~800ms debounce after a price/globals/charges field changes, so
+  // long typing sessions persist without needing a blur. On-blur (immediate)
+  // save is wired separately via onFieldBlur on each input.
+  const scheduleCommercialAutosave = () => {
+    markCommercialDirty();
+    if (!contractId || !windowOpen || (submitted && !editing)) return;
+    if (commercialAutosaveTimer.current) clearTimeout(commercialAutosaveTimer.current);
+    commercialAutosaveTimer.current = setTimeout(() => { autosaveCommercial(); }, 800);
+  };
+
+  // Immediate silent save on blur of a commercial-stage field.
+  const onCommercialFieldBlur = () => {
+    if (!contractId || !windowOpen || (submitted && !editing)) return;
+    if (commercialAutosaveTimer.current) clearTimeout(commercialAutosaveTimer.current);
+    autosaveCommercial();
   };
 
   const handleNextStep = async () => {
@@ -857,9 +972,9 @@ export default function VendorQuotePage() {
   };
 
   // -------------------- payment-term editors --------------------
-  const addPaymentTerm  = () => setGlobals(g => ({ ...g, paymentTerms: [...g.paymentTerms, { label: "", pct: 0 }] }));
-  const removePaymentTerm = (i) => setGlobals(g => g.paymentTerms.length === 1 ? g : ({ ...g, paymentTerms: g.paymentTerms.filter((_, idx) => idx !== i) }));
-  const updatePaymentTerm = (i, patch) => setGlobals(g => ({ ...g, paymentTerms: g.paymentTerms.map((t, idx) => idx === i ? { ...t, ...patch } : t) }));
+  const addPaymentTerm  = () => { setGlobals(g => ({ ...g, paymentTerms: [...g.paymentTerms, { label: "", pct: 0 }] })); scheduleCommercialAutosave(); };
+  const removePaymentTerm = (i) => { setGlobals(g => g.paymentTerms.length === 1 ? g : ({ ...g, paymentTerms: g.paymentTerms.filter((_, idx) => idx !== i) })); scheduleCommercialAutosave(); };
+  const updatePaymentTerm = (i, patch) => { setGlobals(g => ({ ...g, paymentTerms: g.paymentTerms.map((t, idx) => idx === i ? { ...t, ...patch } : t) })); scheduleCommercialAutosave(); };
 
   // -------------------- derived helpers --------------------
   const submissionEnd = arc?.submission_end_at ? new Date(arc.submission_end_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
@@ -910,7 +1025,7 @@ export default function VendorQuotePage() {
               <span>{arc.category_title || arc.category_id || "—"}</span>
               <span className="sep">·</span>
               <span>
-                <span className="em">{arc.hotel_code || ""}</span> {arc.hotel_name || ""}
+                <span className="em">{arc.hotel_name || "—"}</span>
               </span>
             </div>
           </div>
@@ -948,7 +1063,7 @@ export default function VendorQuotePage() {
           <div className="cell"><div className="k">Submission closes</div><div className="v"><span className="em">{submissionEnd}</span></div></div>
           <div className="cell"><div className="k">Contract term</div><div className="v"><span>{termStart}</span> → <span>{termEnd}</span></div></div>
           <div className="cell"><div className="k">Items</div><div className="v"><span className="em">{items.length}</span> line item(s)</div></div>
-          <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
+          <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_name || "—"}</span></div></div>
           <div className="cell"><div className="k">Bid sealing</div><div className="v">Encrypted until close</div></div>
         </div>
       </section>
@@ -1166,11 +1281,14 @@ export default function VendorQuotePage() {
           evalTotal={evalTotal}
           evalAnswered={evalAnswered}
           evalProgress={evalProgress}
-          onChangeResponse={(clauseId, value) => setTechResponses(prev => ({ ...prev, [clauseId]: value }))}
+          onChangeResponse={(clauseId, value) => { setTechResponses(prev => ({ ...prev, [clauseId]: value })); scheduleTechAutosave(); }}
           onUploadEvidence={onUploadTechEvidence}
           onDeleteEvidence={onDeleteTechEvidence}
           uploadErrors={techUploadErrors}
           readOnly={!windowOpen}
+          // Sr 37 — auto-save chip + silent on-blur save (debounce above handles typing pauses).
+          saveState={techSaveState}
+          onFieldBlur={onTechFieldBlur}
         />
       )}
 
@@ -1187,9 +1305,9 @@ export default function VendorQuotePage() {
           lineTotal={lineTotal}
           totals={totals}
           globals={globals}
-          setGlobals={setGlobals}
+          setGlobals={setGlobalsAndMark}
           onChangePaymentTerms={updatePaymentTerm}
-          onChangeComment={(v) => setGlobals(g => ({ ...g, comment: v }))}
+          onChangeComment={(v) => { setGlobals(g => ({ ...g, comment: v })); scheduleCommercialAutosave(); }}
           paymentTotal={paymentTotal}
           chargesOpen={chargesOpen}
           setChargesOpen={setChargesOpen}
@@ -1222,8 +1340,11 @@ export default function VendorQuotePage() {
           addPaymentTerm={addPaymentTerm}
           removePaymentTerm={removePaymentTerm}
           updatePaymentTerm={updatePaymentTerm}
-          setPrice={setPrice}
+          setPrice={setPriceAndMark}
           blankLine={blankLine}
+          // Sr 37 — auto-save chip + silent on-blur save (debounce above handles typing pauses).
+          saveState={commercialSaveState}
+          onFieldBlur={onCommercialFieldBlur}
         />
       )}
 
@@ -1294,7 +1415,7 @@ export default function VendorQuotePage() {
                   <span className="fw-600 text-fg">Your quote.</span>{" "}
                   {canSubmit
                     ? <span style={{ color: "var(--success, #22c55e)" }}>Ready to submit — all lines priced.</span>
-                    : <span>Enter rates for all items, then submit.</span>}
+                    : <span>Enter rate and GST (0 is valid) for all items, then submit.</span>}
                 </span>
               )}
             </div>

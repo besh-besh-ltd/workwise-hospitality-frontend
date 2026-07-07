@@ -33,6 +33,19 @@ function shortDate(d) {
   if (isNaN(dt.getTime())) return null;
   return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
+// Submission deadline (submission_end_at) is `timestamp without time zone` —
+// an IST wall-clock string. Slice it directly instead of going through
+// Date(), which would render in the viewer's local timezone.
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function shortDateTime(d) {
+  if (!d) return null;
+  const m = String(d).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})/);
+  if (!m) return shortDate(d);
+  const [, y, mo, da, hh, mi] = m;
+  const h = Number(hh);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${da} ${MON_SHORT[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
+}
 function timeAgo(d) {
   if (!d) return "";
   const dt = new Date(d);
@@ -211,7 +224,7 @@ export default function VendorRateContractsDashboard() {
                 <> · Countersign by <strong>{shortDate(next.awaiting_until)}</strong></>
               )}
               {next.status === "open" && next.submission_end_at && (
-                <> · Submission closes <strong>{shortDate(next.submission_end_at)}</strong></>
+                <> · Submission closes <strong>{shortDateTime(next.submission_end_at)}</strong></>
               )}
             </div>
           </div>
