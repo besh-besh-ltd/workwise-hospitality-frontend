@@ -304,25 +304,10 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
         .pub-mem-comment { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; font-style: italic; }
       `}</style>
 
-      <StageColumns aside={<>
-        <ActorFlowCard stage={stage} />
-        {publishSummary?.can_user_approve && publishSummary?.status === "PENDING" && (
-          <ApprovalDecisionCard
-            stepLabel={stage?.actors?.approver?.step_label}
-            approvers={stage?.actors?.approver?.people}
-            comment={decideComment}
-            setComment={setDecideComment}
-            commentError={false}
-            onApprove={() => decidePublish("approve")}
-            onReject={() => decidePublish("reject")}
-            busy={decideBusy}
-            approveLabel="Approve & publish"
-            rejectLabel="Request changes"
-            commentPlaceholder="What should the creator fix before this can go live?"
-            rejectRequiredLabel="required to request changes"
-          />
-        )}
-      </>}>
+      {/* Single-column shell — the "who's involved" card and approval decision now
+          live at the top of the stats rail (detail-aside) so they sit beside the
+          stage content rather than isolated in a far-right third column. */}
+      <StageColumns aside={null}>
 
       {/* ── PUBLISH-APPROVAL GATE (pending / rejected) ── */}
       {isPendingPublish && (
@@ -732,6 +717,26 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
 
         {/* RIGHT ASIDE */}
         <aside className="detail-aside" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Who's involved · what happens next — sits at the top of the rail, above
+              the stats, so it's prominent without needing a separate column. */}
+          <ActorFlowCard stage={stage} />
+          {publishSummary?.can_user_approve && publishSummary?.status === "PENDING" && (
+            <ApprovalDecisionCard
+              stepLabel={stage?.actors?.approver?.step_label}
+              approvers={stage?.actors?.approver?.people}
+              comment={decideComment}
+              setComment={setDecideComment}
+              commentError={false}
+              onApprove={() => decidePublish("approve")}
+              onReject={() => decidePublish("reject")}
+              busy={decideBusy}
+              approveLabel="Approve & publish"
+              rejectLabel="Request changes"
+              commentPlaceholder="What should the creator fix before this can go live?"
+              rejectRequiredLabel="required to request changes"
+            />
+          )}
+
           {/* STATS CARD */}
           <section className="section-card">
             <div className="section-head" style={{ padding: "11px 16px" }}>

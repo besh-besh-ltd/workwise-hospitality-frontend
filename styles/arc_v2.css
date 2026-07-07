@@ -1187,7 +1187,11 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .clause-head { padding:16px 20px; font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:600; }
 /* vendor header: qualified by .eval-table to beat `thead th { padding:0 }` */
 .eval-table thead th.ven-head { padding:18px 20px 16px; vertical-align:top; }
-.ven-head { min-width:224px; text-align:left; border-right:1px solid var(--border); vertical-align:top; }
+/* Per-vendor column floor = the comfortable 2-vendor width. With 2 vendors the
+   table:width:100% lets each column stretch to fill (the "sweet spot"); with 3+
+   vendors they hold this width and the matrix scrolls horizontally rather than
+   squeezing every cell cramped. */
+.ven-head { min-width:440px; text-align:left; border-right:1px solid var(--border); vertical-align:top; }
 .ven-head:last-child { border-right:none; }
 .ven-head .vh-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ven-head .v-av { width:26px; height:26px; border-radius:7px; display:grid; place-items:center; font-size:10px; font-weight:700; flex-shrink:0; border:1px solid var(--border); }
@@ -1214,7 +1218,7 @@ svg.spin { animation:btn-spin 0.8s linear infinite; }
 .clause-cell .c-type { font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--fg-4); font-weight:600; padding:2px 7px; border-radius:5px; background:var(--surface-3); border:1px solid var(--border); }
 
 /* score cell */
-.eval-table tbody td.score-cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px 20px; vertical-align:top; }
+.eval-table tbody td.score-cell { min-width:440px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px 20px; vertical-align:top; }
 .eval-table tbody td.score-cell:last-child { border-right:none; }
 .eval-table tbody tr:hover td { background:var(--surface-2); }
 .eval-table tbody tr:hover td.col-clause { background:var(--surface-2); }
@@ -3098,7 +3102,7 @@ a.mr-vendor-link:hover .mr-vendor-sub { text-decoration:underline; }
    ═══════════════════════════════════════════════════════════ */
 .arc-stage-cols { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:18px; align-items:flex-start; }
 .arc-stage-main { min-width:0; display:flex; flex-direction:column; gap:14px; }
-.arc-stage-aside { display:flex; flex-direction:column; gap:14px; position:sticky; top:16px; }
+.arc-stage-aside { display:flex; flex-direction:column; gap:14px; position:sticky; top:76px; padding: 0px; }
 @media (max-width:1080px) { .arc-stage-cols { grid-template-columns:1fr; } .arc-stage-aside { position:static; } }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3122,9 +3126,12 @@ a.mr-vendor-link:hover .mr-vendor-sub { text-decoration:underline; }
 /* ═══════════════════════════════════════════════════════════
    ACTOR FLOW CARD — per-stage who/approves/next
    ═══════════════════════════════════════════════════════════ */
-.actor-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
-.actor-card .afc-head { padding:12px 14px 8px; border-bottom:1px solid var(--border); }
-.actor-card .afc-title { font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-3); font-weight:700; }
+/* Highlighted for prominence — this "who acts / who approves / what's next" card
+   is the one thing a buyer should never miss on a stage, so it carries a tinted
+   header, a stronger tinted border and a soft lift above the plain summary cards. */
+.actor-card { background:var(--surface); border:1px solid rgba(37,99,235,0.30); border-radius:var(--radius-lg); overflow:hidden; box-shadow:0 8px 22px -12px rgba(37,99,235,0.28),0 1px 2px rgba(15,15,14,0.04); }
+.actor-card .afc-head { padding:12px 14px 9px; border-bottom:1px solid rgba(37,99,235,0.16); background:var(--primary-soft); }
+.actor-card .afc-title { font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--primary); font-weight:700; }
 .actor-card .afc-body { padding:12px 14px; display:flex; flex-direction:column; gap:11px; }
 .actor-card .afc-row { display:flex; flex-direction:column; gap:3px; }
 .actor-card .afc-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:700; }
