@@ -100,7 +100,12 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
   };
 
   const canClose = ["ACTIVE", "ENDED"].includes(round.effective_status) && canEvaluate;
-  const canApprove = round.effective_status === "PENDING_APPROVAL" && canEvaluate;
+  // The approve action belongs to the round's designated approver (server-computed
+  // can_user_approve from the approval instance), NOT to anyone with the
+  // arc-comm.evaluate permission — otherwise a non-approver is shown the button and
+  // the backend correctly 400s them ("not an approver for this step").
+  const canApprove = round.effective_status === "PENDING_APPROVAL" && !!round.can_user_approve;
+  const pendingForOther = round.effective_status === "PENDING_APPROVAL" && !round.can_user_approve;
 
   return (
     <div className="arc-neg-round">
@@ -135,6 +140,11 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
           >
             Review &amp; approve
           </button>
+        )}
+        {pendingForOther && (
+          <span style={{ fontSize: 12.5, color: "var(--fg-3)", display: "inline-flex", alignItems: "center" }}>
+            Pending approval by <strong style={{ marginLeft: 4 }}>{round.pending_approver || "the assigned approver"}</strong>
+          </span>
         )}
         {canClose && !showCloseConfirm && (
           <button className="btn btn-sm btn-secondary" onClick={() => setShowCloseConfirm(true)}>

@@ -135,6 +135,10 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
   }
 
   const isPendingApproval = round.effective_status === "PENDING_APPROVAL";
+  // Only the round's DESIGNATED approver may act — matches the backend engine check.
+  // A non-approver (e.g. another arc-comm evaluator) sees an info panel, not buttons
+  // that would 400 with "not an approver for this step".
+  const canUserApprove = isPendingApproval && !!round.can_user_approve;
 
   return (
     <main className="main-body" style={{ paddingBottom: 80 }}>
@@ -227,8 +231,21 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
             </div>
           )}
 
+          {/* Non-approver: pending on someone else — show who, not the buttons. */}
+          {isPendingApproval && !canUserApprove && (
+            <div className="guide warn" style={{ alignItems: "center" }}>
+              <div className="g-ic" style={{ marginTop: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              </div>
+              <div>
+                This round is pending approval by <strong>{round.pending_approver || "the assigned approver"}</strong> — you don't have the approval action for this round. Please reach out to them to move it forward.
+                {" "}<button className="btn btn-sm btn-ghost" onClick={() => router.push(returnUrl)} style={{ display: "inline" }}>Back to commercial evaluation</button>
+              </div>
+            </div>
+          )}
+
           {/* Comment box */}
-          {isPendingApproval && (
+          {canUserApprove && (
             <div>
               <div className="arc-neg-comment-label">
                 Comment <span style={{ color: "var(--fg-4)", fontWeight: 400 }}>(required when rejecting)</span>
@@ -243,8 +260,8 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
             </div>
           )}
 
-          {/* Action buttons */}
-          {isPendingApproval && (
+          {/* Action buttons — only for the designated approver */}
+          {canUserApprove && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 className="btn btn-danger btn-sm"
