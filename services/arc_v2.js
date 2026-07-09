@@ -117,8 +117,8 @@ export const saveAllocation = (arcId, { item_id, allocations }) =>
 export const finalizeCommEval = (arcId) =>
   axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/finalize`, {});
 
-export const sendBackCommEval = (arcId, reason) =>
-  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/send-back`, { reason });
+export const sendBackCommEvalToTech = (arcId, reason) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/send-back-to-tech`, { reason });
 
 // Vendor-clarification resolution (commercial evaluator) — scoped field edit.
 export const reviseClarification = (arcId, clarificationId, { value, response }) =>

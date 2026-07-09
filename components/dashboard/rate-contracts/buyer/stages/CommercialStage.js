@@ -121,7 +121,7 @@ function engineLanded(line, includeCharges) {
   return landedRate(line, includeCharges);
 }
 
-export default function CommercialStage({ arc, stage, permissions, onRefresh }) {
+export default function CommercialStage({ arc, lifecycle, stage, permissions, onRefresh }) {
   const commPerms = permissions["arc-comm"] || [];
   const isAdmin = (permissions["arc"] || []).includes("admin");
   const canRead = isAdmin || commPerms.includes("read") || commPerms.includes("evaluate");
@@ -129,6 +129,11 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
   const isComplete = stage?.state === "complete";
   const sentBack = stage?.reason === "sent_back";
   const editable = canEvaluate && !isComplete;
+  // "Send back to Technical" only makes sense when technical evaluation actually
+  // applies. If it was skipped (no clauses), there's no upstream stage to bounce
+  // to — hide the control (the server enforces the same rule).
+  const technicalApplies =
+    ((lifecycle?.stages) || []).find((s) => s.key === "technical")?.state !== "skipped";
 
   const [loading, setLoading] = useState(true);
   const [commEvaluation, setCommEvaluation] = useState(null);
@@ -575,8 +580,8 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
     if (!sendBackReason.trim()) { toast.error("Add a reason before sending back."); return; }
     setSendingBack(true);
     try {
-      await ArcApi.sendBackCommEval(arc.id, sendBackReason.trim());
-      toast.success("Commercial evaluation sent back");
+      await ArcApi.sendBackCommEvalToTech(arc.id, sendBackReason.trim());
+      toast.success("Sent back to technical evaluation");
       setSendBackOpen(false);
       setSendBackReason("");
       await reload();
@@ -1009,21 +1014,26 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dash-panel-head" style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-              Send back commercial evaluation
+              Send back to technical evaluation
             </div>
             <div style={{ padding: 16 }}>
-              <label style={{ display: "block", fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>Reason</label>
+              <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--fg-3)", lineHeight: 1.5 }}>
+                This reopens <strong>technical evaluation</strong> so the evaluator can re-score and re-approve
+                qualification. Your award allocation is kept — once technical is re-approved, commercial reopens
+                and any award to a now-disqualified vendor is flagged for re-allocation.
+              </p>
+              <label style={{ display: "block", fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>Reason for the technical evaluator</label>
               <textarea
                 value={sendBackReason}
                 onChange={(e) => setSendBackReason(e.target.value)}
                 rows={4}
                 style={{ width: "100%", padding: 8, border: "1px solid var(--border-input)", borderRadius: 6, fontFamily: "inherit", fontSize: 13 }}
-                placeholder="What needs to change before you can finalise?"
+                placeholder="What's wrong with the qualification? e.g. Vendor X was wrongly disqualified on clause 2…"
               />
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
                 <button className="btn btn-secondary btn-sm" disabled={sendingBack} onClick={() => setSendBackOpen(false)}>Cancel</button>
                 <button className="btn btn-warn btn-sm" disabled={sendingBack} onClick={handleSendBack}>
-                  {sendingBack ? "Sending..." : "Send back"}
+                  {sendingBack ? "Sending..." : "Send back to Technical"}
                 </button>
               </div>
             </div>
@@ -1045,8 +1055,14 @@ export default function CommercialStage({ arc, stage, permissions, onRefresh }) 
               {c.partial > 0 && (<><span className="text-fg-4">·</span><span className="fs-13 text-fg-2"><span className="fw-600">{c.partial}</span> partial</span></>)}
             </div>
             <div className="right">
-              {commEvaluation && (
-                <button className="btn btn-secondary btn-sm" onClick={() => setSendBackOpen(true)}>Send back</button>
+              {commEvaluation && technicalApplies && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  title="Qualification looks wrong? Bounce this back to technical evaluation to re-score."
+                  onClick={() => setSendBackOpen(true)}
+                >
+                  Send back to Technical
+                </button>
               )}
               <button className="btn btn-success" disabled={c.awarded < c.total || finalizing} onClick={handleFinalize}>
                 {finalizing ? "Finalising..." : "Finalize & send to Committee"}

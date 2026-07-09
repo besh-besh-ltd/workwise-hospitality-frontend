@@ -44,6 +44,10 @@ export default function VendorCommercialStage({
   addGlobalCharge,
   removeGlobalCharge,
   updateGlobalCharge,
+  // Backend-managed charge-name lists (per-line vs document-level), driven by
+  // getChargeNames in quote.js; fall back to a small hardcoded list.
+  lineChargeTypes,
+  globalChargeTypes,
   canSubmit,
   submitting,
   onSaveDraft,
@@ -77,6 +81,8 @@ export default function VendorCommercialStage({
   saveState,
   onFieldBlur,
 }) {
+  const LINE_CHARGE_OPTIONS = (lineChargeTypes && lineChargeTypes.length) ? lineChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
+  const GLOBAL_CHARGE_OPTIONS = (globalChargeTypes && globalChargeTypes.length) ? globalChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
   return (
     <>
         <div className="step-pane">
@@ -386,7 +392,7 @@ export default function VendorCommercialStage({
                       className="w-full text-left px-3 py-2 flex items-center gap-2"
                       onClick={addPaymentTerm}
                       type="button"
-                      style={{ borderTop: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12.5, color: "var(--primary)" }}
+                      style={{ border: "none", borderTop: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12.5, color: "var(--primary)", cursor: "pointer", appearance: "none", boxShadow: "none" }}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
                       Add another term
@@ -495,25 +501,27 @@ export default function VendorCommercialStage({
                       <div className="hero-grand-meta">Inclusive of GST &amp; all charges · INR · full contract term</div>
                       <div className="breakdown-bar">
                         <div className="bd-subtotal" style={{ width: `${(totals.subtotal / totals.grand) * 100 || 0}%` }}></div>
+                        <div className="bd-charges" style={{ width: `${((totals.extraCharges.reduce((s, c) => s + c.amount, 0) + (totals.globalChargesTotal || 0)) / totals.grand) * 100 || 0}%` }}></div>
                         <div className="bd-gst" style={{ width: `${(totals.gst / totals.grand) * 100 || 0}%` }}></div>
-                        <div className="bd-charges" style={{ width: `${(totals.extraCharges.reduce((s, c) => s + c.amount, 0) / totals.grand) * 100 || 0}%` }}></div>
                       </div>
+                      {/* Coherent breakup: goods subtotal + all charges (pre-tax) + GST
+                          (line + charge + doc-charge tax) === grand total. */}
                       <div className="breakdown-legend">
-                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-subtotal"></span> Subtotal</span><span className="val">{`₹ ${fmtN(totals.subtotal)}`}</span></div>
-                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-gst"></span> GST</span><span className="val">{`₹ ${fmtN(totals.gst)}`}</span></div>
+                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-subtotal"></span> Subtotal (goods)</span><span className="val">{`₹ ${fmtN(totals.subtotal)}`}</span></div>
                         {totals.extraCharges.map(ec => (
                           <div className="breakdown-row" key={ec.label}>
                             <span className="lbl"><span className="swatch bd-charges"></span> <span>{ec.label}</span></span>
                             <span className="val">{`₹ ${fmtN(ec.amount)}`}</span>
                           </div>
                         ))}
-                        {/* #2 — global charges legend (engine-computed, from totals.globalCharges echo) */}
+                        {/* #2 — document-level (global) charges, pre-tax (their tax is folded into GST). */}
                         {totals.globalChargesTotal > 0 && (
                           <div className="breakdown-row">
                             <span className="lbl"><span className="swatch bd-charges"></span> Doc. charges</span>
                             <span className="val">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
                           </div>
                         )}
+                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-gst"></span> GST &amp; taxes</span><span className="val">{`₹ ${fmtN(totals.gst)}`}</span></div>
                       </div>
                     </div>
                   ) : (
@@ -567,9 +575,22 @@ export default function VendorCommercialStage({
               </div>
               <div className="modal-body" style={{ padding: "16px 20px" }}>
                 <div className="flex items-center gap-2 mb-3" style={{ flexWrap: "wrap" }}>
-                  {["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"].map(t => (
-                    <button key={t} type="button" className="btn btn-sm" onClick={() => addChargeOfType(modalItem.id, t)} disabled={readOnly}>+ {t}</button>
-                  ))}
+                  <label className="label" style={{ marginBottom: 0 }}>Add charge</label>
+                  <select
+                    className="input"
+                    value=""
+                    onChange={(e) => { const v = e.target.value; if (v) { addChargeOfType(modalItem.id, v); e.target.value = ""; } }}
+                    disabled={readOnly}
+                    style={{ maxWidth: 240 }}
+                  >
+                    <option value="">Select a charge type…</option>
+                    {/* Hide already-added named charges so the same type can't be
+                        added twice; "Custom" stays available for multiple ad-hoc rows. */}
+                    {LINE_CHARGE_OPTIONS
+                      .filter(t => !(ml.charges || []).some(c => (c.name || "").trim().toLowerCase() === t.toLowerCase()))
+                      .map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="Custom">Custom…</option>
+                  </select>
                 </div>
                 {ml.charges.length === 0 && (
                   <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "12px 0" }}>Pick a charge type above to add it to this line.</div>
@@ -584,17 +605,28 @@ export default function VendorCommercialStage({
                       <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Note</span>
                       <span></span>
                     </div>
-                    {ml.charges.map((c, ci) => (
+                    {ml.charges.map((c, ci) => {
+                      // A charge picked from the catalog keeps a locked name — only
+                      // a "Custom" row (name not in the catalog) is renamable.
+                      const nameLocked = !!(c.name || "").trim()
+                        && LINE_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
+                      return (
                       <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                        {nameLocked ? (
+                          <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
+                            {c.name}
+                          </div>
+                        ) : (
                         <input
                           className="input"
                           type="text"
                           value={c.name}
                           onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], name: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
                           onBlur={onFieldBlur}
-                          placeholder="Charge name"
+                          placeholder="Custom charge name"
                           disabled={readOnly}
                         />
+                        )}
                         <div className="input-group">
                           <input
                             className="input input-num"
@@ -651,7 +683,8 @@ export default function VendorCommercialStage({
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {ml.charges.length > 0 && (
@@ -686,9 +719,20 @@ export default function VendorCommercialStage({
             </div>
             <div className="modal-body" style={{ padding: "16px 20px" }}>
               <div className="flex items-center gap-2 mb-3" style={{ flexWrap: "wrap" }}>
-                {["Logistics", "Handling", "Documentation", "Insurance", "Other"].map(t => (
-                  <button key={t} type="button" className="btn btn-sm" onClick={() => addGlobalCharge && addGlobalCharge(t)} disabled={readOnly}>+ {t}</button>
-                ))}
+                <label className="label" style={{ marginBottom: 0 }}>Add charge</label>
+                <select
+                  className="input"
+                  value=""
+                  onChange={(e) => { const v = e.target.value; if (v && addGlobalCharge) { addGlobalCharge(v); e.target.value = ""; } }}
+                  disabled={readOnly}
+                  style={{ maxWidth: 240 }}
+                >
+                  <option value="">Select a charge type…</option>
+                  {GLOBAL_CHARGE_OPTIONS
+                    .filter(t => !(globalCharges || []).some(c => (c.name || "").trim().toLowerCase() === t.toLowerCase()))
+                    .map(t => <option key={t} value={t}>{t}</option>)}
+                  <option value="Custom">Custom…</option>
+                </select>
               </div>
               {(globalCharges || []).length === 0 && (
                 <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "12px 0" }}>Pick a charge type above to add a document-level charge.</div>
@@ -702,17 +746,27 @@ export default function VendorCommercialStage({
                     <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Note</span>
                     <span></span>
                   </div>
-                  {(globalCharges || []).map((c, ci) => (
+                  {(globalCharges || []).map((c, ci) => {
+                    // Catalog charge → locked name; only a "Custom" row is renamable.
+                    const nameLocked = !!(c.name || "").trim()
+                      && GLOBAL_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
+                    return (
                     <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                      {nameLocked ? (
+                        <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
+                          {c.name}
+                        </div>
+                      ) : (
                       <input
                         className="input"
                         type="text"
                         value={c.name}
                         onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { name: e.target.value })}
                         onBlur={onFieldBlur}
-                        placeholder="Charge name"
+                        placeholder="Custom charge name"
                         disabled={readOnly}
                       />
+                      )}
                       <div className="input-group">
                         <input
                           className="input input-num"
@@ -768,7 +822,8 @@ export default function VendorCommercialStage({
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (

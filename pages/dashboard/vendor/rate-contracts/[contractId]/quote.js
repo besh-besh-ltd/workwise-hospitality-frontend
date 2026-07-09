@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
+import { getChargeNames } from "@/services/rfq";
 import VendorArcStageTimeline from "@/components/dashboard/rate-contracts/vendor/stages/VendorArcStageTimeline";
 import VendorOverviewStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorOverviewStage";
 import VendorTechnicalStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorTechnicalStage";
@@ -49,6 +50,10 @@ const blankLine = () => ({
 const toEngineMode = (m) => (m === "%" || m === "percentage") ? "percentage"
   : (m === "₹" || m === "absolute") ? "absolute"
   : "percentage";
+
+// Fallback charge types used only when the backend charge-name list is empty
+// (mirrors the RFQ send-quote wizard's hardcoded fallback).
+const DEFAULT_CHARGE_TYPES = ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
 
 export default function VendorQuotePage() {
   const router = useRouter();
@@ -472,10 +477,13 @@ export default function VendorQuotePage() {
 
   const addChargeOfType = (itemId, type) => {
     if (!type) return;
+    // "Custom" → a free-form row with an empty, editable name. A catalog pick
+    // keeps its name (locked read-only in the modal).
+    const name = type === "Custom" ? "" : type;
     setPrice(p => {
       const cur = p[itemId] || blankLine();
       // Phase 2 — charge shape extended with per-charge tax fields.
-      return { ...p, [itemId]: { ...cur, charges: [...cur.charges, { name: type, amount: "", amountMode: "%", tax: "", taxMode: "%", note: "" }] } };
+      return { ...p, [itemId]: { ...cur, charges: [...cur.charges, { name, amount: "", amountMode: "%", tax: "", taxMode: "%", note: "" }] } };
     });
     scheduleCommercialAutosave();
   };
@@ -491,14 +499,35 @@ export default function VendorQuotePage() {
   };
 
   const productChargesTotal = (itemId) => {
+    // Prefer the engine's resolved charges_total (each charge amount resolved by
+    // its %/₹ mode PLUS the charge's own tax) so the per-line "Charges" indicator
+    // reflects the real cost — not a naive sum of the raw amount fields (which
+    // ignored the % mode and the additional GST on the charge).
+    if (enginePreview?.lines) {
+      const el = enginePreview.lines.find(l => Number(l.arc_item_id) === Number(itemId));
+      if (el) return el.charges_total || 0;
+    }
+    // Client fallback (used only while the debounced preview is loading).
     const l = priceLine(itemId);
-    return (l.charges || []).reduce((s, c) => s + safeNum(c.amount), 0);
+    const it = items.find(i => Number(i.id) === Number(itemId));
+    const qty = safeNum(it?.committed_qty ?? it?.indicative_qty ?? 0);
+    const sub = qty * safeNum(l.rate);
+    let total = 0;
+    (l.charges || []).forEach(c => {
+      const amt = c.amountMode === "%" ? (sub * safeNum(c.amount)) / 100 : safeNum(c.amount);
+      let tax = 0;
+      if (c.tax === "" || c.tax == null) { if (l.gstMode === "%") tax = (amt * safeNum(l.gst_pct)) / 100; }
+      else { tax = c.taxMode === "₹" ? safeNum(c.tax) : (amt * safeNum(c.tax)) / 100; }
+      total += amt + tax;
+    });
+    return q2(total);
   };
 
   // #2 — Global charge helpers (document-level).
   const addGlobalCharge = (type) => {
     if (!type) return;
-    setGlobalCharges(prev => [...prev, { name: type, amount: "", amountMode: "₹", tax: "", taxMode: "%", note: "" }]);
+    const name = type === "Custom" ? "" : type;
+    setGlobalCharges(prev => [...prev, { name, amount: "", amountMode: "₹", tax: "", taxMode: "%", note: "" }]);
     scheduleCommercialAutosave();
   };
   const removeGlobalCharge = (idx) => {
@@ -515,6 +544,27 @@ export default function VendorQuotePage() {
   // that also schedules the auto-save for those direct edits.
   const setPriceAndMark = (updater) => { setPrice(updater); scheduleCommercialAutosave(); };
   const setGlobalsAndMark = (updater) => { setGlobals(updater); scheduleCommercialAutosave(); };
+
+  // Backend-managed charge-name list — the "other charges" pickers are driven
+  // from this (per-line vs document-level split on is_global), matching the RFQ
+  // send-quote page instead of a hardcoded list. Falls back to DEFAULT_CHARGE_TYPES.
+  const [chargeNamesList, setChargeNamesList] = useState([]);
+  useEffect(() => {
+    getChargeNames()
+      .then((res) => {
+        const data = res?.data || res || [];
+        if (Array.isArray(data) && data.length) setChargeNamesList(data);
+      })
+      .catch(() => {});
+  }, []);
+  const lineChargeTypes = useMemo(() => {
+    const names = chargeNamesList.filter((c) => !c.is_global).map((c) => c.name).filter(Boolean);
+    return names.length ? names : DEFAULT_CHARGE_TYPES;
+  }, [chargeNamesList]);
+  const globalChargeTypes = useMemo(() => {
+    const names = chargeNamesList.filter((c) => c.is_global === true).map((c) => c.name).filter(Boolean);
+    return names.length ? names : DEFAULT_CHARGE_TYPES;
+  }, [chargeNamesList]);
   // Document-level (global) charges carry their tax on the engine's
   // additional_tax/_mode keys — normalizeGlobalCharge ONLY reads those (per-line
   // charges use `tax`/`tax_mode`). FE state keeps tax/taxMode for display.
@@ -576,34 +626,45 @@ export default function VendorQuotePage() {
   };
 
   // totals: use engine preview when available, else client fallback.
+  //
+  // Coherent, reconciling breakup (combined-GST):
+  //   subtotal (goods, pre-tax) + Σ extraCharges (pre-tax) + globalChargesTotal
+  //   (pre-tax) + gst (ALL tax: line + charge + global) === grand.
+  // The engine's `grand_subtotal` is the sum of line TOTALS (already tax- and
+  // charge-inclusive), so it is NOT the goods subtotal — we use Σ line.base.
   const totals = useMemo(() => {
     if (enginePreview) {
-      // Reconstruct the legacy shape the aside summary + VendorCommercialStage expect.
-      const gst = enginePreview.lines.reduce((s, l) => s + (l.base_tax || 0), 0);
-      // Aggregate per-charge-name totals across lines for the breakdown legend.
+      const lines = enginePreview.lines || [];
+      // Goods subtotal — pre-tax line base only.
+      const goodsSubtotal = lines.reduce((s, l) => s + (l.base || 0), 0);
+      // GST = line base tax + per-charge tax (aggregated below) + global-charge tax.
+      let gst = lines.reduce((s, l) => s + (l.base_tax || 0), 0);
+      // Per-charge-name pre-tax totals for the breakdown legend; their tax → GST.
       const extras = {};
-      enginePreview.lines.forEach(l => {
+      lines.forEach(l => {
         (l.charges || []).forEach(c => {
           const key = c.name || "Charge";
-          extras[key] = (extras[key] || 0) + (c.amount || 0);
+          extras[key] = (extras[key] || 0) + (c.amount || 0); // pre-tax amount
+          gst += (c.tax || 0);
         });
       });
-      // #2 — global charges from engine echo (includes amounts computed by engine).
+      // Document-level (global) charges: pre-tax amount to its own row, tax → GST.
       const engineGlobals = Array.isArray(enginePreview.global_charges) ? enginePreview.global_charges : [];
-      // Sr 53 — precision-compounding guard: sum the engine's already-2dp values
-      // raw and format ONCE at display (fmtN); do not round each component here.
+      const globalPretax = engineGlobals.reduce((s, c) => s + (c.amount || 0), 0);
+      engineGlobals.forEach(c => { gst += (c.additional_tax || 0); });
+      // Sr 53 — sum the engine's already-2dp values raw; format ONCE at display.
       return {
-        subtotal: enginePreview.grand_subtotal || 0,
+        subtotal: goodsSubtotal,
         gst,
         extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount })),
         globalCharges: engineGlobals,
-        globalChargesTotal: enginePreview.global_charges_total || 0,
+        globalChargesTotal: globalPretax,
         grand: enginePreview.grand_total || 0,
       };
     }
-    // Client fallback — preserved from Phase 1 for use while preview is loading.
-    // Global charges are omitted from the fallback total (acceptable: labelled as approximate).
-    let subtotal = 0, gst = 0, extra = 0;
+    // Client fallback — approximate, used only while the engine preview loads.
+    // Global charges are omitted here (labelled approximate); the engine fills them in.
+    let subtotal = 0, gst = 0, chargesPretax = 0;
     const extras = {};
     items.forEach(it => {
       const l = price[it.id] || blankLine();
@@ -612,12 +673,17 @@ export default function VendorQuotePage() {
       const sub = qty * safeNum(l.rate);
       subtotal += sub;
       gst += l.gstMode === "%" ? (sub * safeNum(l.gst_pct)) / 100 : qty * safeNum(l.gst_pct);
-      extra += qty * safeNum(l.freight);
       (l.charges || []).forEach(c => {
-        const amt = safeNum(c.amount);
-        const v = c.amountMode === "%" ? (sub * amt) / 100 : amt;
-        extras[c.name] = (extras[c.name] || 0) + v;
-        extra += v;
+        const amt = c.amountMode === "%" ? (sub * safeNum(c.amount)) / 100 : safeNum(c.amount);
+        extras[c.name || "Charge"] = (extras[c.name || "Charge"] || 0) + amt;
+        chargesPretax += amt;
+        // Per-charge tax tri-state: blank → inherit base GST% (only when base is %);
+        // 0 → no tax; >0 → explicit rate in the charge's own mode.
+        if (c.tax === "" || c.tax == null) {
+          if (l.gstMode === "%") gst += (amt * safeNum(l.gst_pct)) / 100;
+        } else {
+          gst += (c.taxMode === "₹") ? safeNum(c.tax) : (amt * safeNum(c.tax)) / 100;
+        }
       });
     });
     // Sr 53 — 2-dp (q2), not whole-rupee Math.round, so the non-engine fallback
@@ -628,7 +694,7 @@ export default function VendorQuotePage() {
       extraCharges: Object.entries(extras).map(([label, amount]) => ({ label, amount: q2(amount) })),
       globalCharges: [],
       globalChargesTotal: 0,
-      grand: q2(subtotal + gst + extra),
+      grand: q2(subtotal + gst + chargesPretax),
     };
   }, [items, price, enginePreview]);
 
@@ -1181,9 +1247,29 @@ export default function VendorQuotePage() {
             }
             if (reason === "not_awarded") {
               return (
-                <div className="q-card">
-                  <div className="q-card-section" style={{ color: "var(--fg-3)", fontSize: 13 }}>
-                    The buyer has completed the award process. Your quote was not selected for this rate contract.
+                <div className="q-card" style={{ overflow: "hidden" }}>
+                  <div className="q-card-section" style={{ textAlign: "center", padding: "38px 28px" }}>
+                    <div style={{ width: 62, height: 62, borderRadius: "50%", margin: "0 auto 16px", display: "grid", placeItems: "center", background: "var(--surface-3)", border: "1px solid var(--border)", color: "var(--fg-3)" }}>
+                      <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    </div>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: "var(--fg)", margin: "0 0 8px", letterSpacing: "-0.01em" }}>
+                      Not selected for this contract
+                    </h3>
+                    <p style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
+                      The buyer has completed the award process and selected another vendor for
+                      {arcNumber ? <> <strong className="mono">#{arcNumber}</strong></> : " this rate contract"}.
+                      The decision is final for this contract.
+                    </p>
+                    <div style={{ height: 1, background: "var(--border)", margin: "22px auto", maxWidth: 340 }} />
+                    <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6, maxWidth: 480, margin: "0 auto 20px" }}>
+                      Thank you for taking the time to submit a competitive quote — it was genuinely
+                      appreciated. New rate-contract opportunities open regularly, and we&apos;d love
+                      to see you bid again.
+                    </p>
+                    <Link href="/dashboard/vendor/rate-contracts/requests" className="btn btn-blue">
+                      Explore open opportunities
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </Link>
                   </div>
                 </div>
               );
@@ -1318,6 +1404,8 @@ export default function VendorQuotePage() {
           addGlobalCharge={addGlobalCharge}
           removeGlobalCharge={removeGlobalCharge}
           updateGlobalCharge={updateGlobalCharge}
+          lineChargeTypes={lineChargeTypes}
+          globalChargeTypes={globalChargeTypes}
           canSubmit={canSubmit}
           submitting={submitting}
           onSaveDraft={() => saveDraft(false)}

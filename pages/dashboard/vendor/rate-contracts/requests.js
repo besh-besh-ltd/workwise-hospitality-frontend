@@ -41,14 +41,31 @@ const fmtDateTime = (d) => {
   return `${da} ${MON_SHORT[Number(mo) - 1]} ${y}, ${h12}:${mi} ${h >= 12 ? "PM" : "AM"}`;
 };
 
-const daysFromNow = (d) => {
+// submission_end_at / contract dates are naive IST wall-clock strings. Compare
+// them against "now in IST" using a fixed +5:30 offset (IST has no DST), so the
+// result is identical in every viewer timezone — never new Date(nakedString),
+// which parses in the viewer's local zone and skews the day. That skew (plus a
+// ceil-to-midnight) is exactly what made a window that closed yesterday at noon
+// read as "Closes today".
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const nowIstMs = () => Date.now() + IST_OFFSET_MS;
+const parseIstMs = (d) => {
   if (!d) return null;
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((dt - today) / (1000 * 60 * 60 * 24));
-  return diff;
+  const m = String(d).replace("T", " ").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ ](\d{2}):(\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, da, hh = "00", mi = "00"] = m;
+  return Date.UTC(+y, +mo - 1, +da, +hh, +mi);
+};
+// True once the submission window has passed (time-aware, IST).
+const windowClosed = (d) => {
+  const end = parseIstMs(d);
+  return end != null && nowIstMs() >= end;
+};
+// Whole calendar days until the deadline, in IST. 0 = today, >0 future, <0 past.
+const daysFromNow = (d) => {
+  const end = parseIstMs(d);
+  if (end == null) return null;
+  return Math.floor(end / 86400000) - Math.floor(nowIstMs() / 86400000);
 };
 
 // Map a backend row (from any of the three vendor endpoints) into a
@@ -88,16 +105,36 @@ const buildItems = ({ requests, pending, active }) => {
     // Skip if this arc is already represented as an awaiting-sign card.
     const dupe = out.find((x) => x.arc_id === r.id || x.arc_id === r.arc_id);
     if (dupe) return;
+    if (r.invitation_status === "declined") return;
 
-    let myStatus = "open";
-    if (r.quote_submitted_at) myStatus = "submitted";
-    if (r.status === "evaluation" || r.status === "eval" || r.status === "committee") {
-      myStatus = "evaluating";
+    const st = r.status;
+    // Concluded / handled-elsewhere statuses are never pending requests: closed
+    // contracts live on the Active page; an awarded/awaiting-acceptance ARC is a
+    // pending-acceptance card (endpoint b) or belongs to the winner only.
+    if (["closed", "completed", "expired", "contract_active", "expiring_soon",
+         "committee_approved", "awaiting_vendor_acceptance"].includes(st)) {
+      return;
     }
-    if (r.status === "closed" || r.status === "completed" || r.status === "expired"
-        || r.invitation_status === "declined"
-        || r.status === "contract_active" || r.status === "expiring_soon") {
-      return; // not pending — lives on the Active Contracts page (or is closed)
+
+    const submitted = !!r.quote_submitted_at;
+    const closed = windowClosed(r.submission_end_at);
+
+    // Derive the vendor-facing status. The key fix: never label a row "open /
+    // Your action" once the window (or evaluation) has moved on — if no quote
+    // went in, it's a missed opportunity; if one did, reflect where the buyer
+    // has taken it (technical / commercial / committee).
+    let myStatus, stageLabel = null, stageNote = null;
+    if (!submitted) {
+      myStatus = (st === "floated" && !closed) ? "open" : "missed";
+    } else if (st === "tech_eval_in_progress") {
+      myStatus = "evaluating"; stageLabel = "Technical evaluation"; stageNote = "Technical evaluation in progress";
+    } else if (st === "comm_eval_in_progress") {
+      myStatus = "evaluating"; stageLabel = "Commercial evaluation"; stageNote = "Commercial evaluation in progress";
+    } else if (st === "committee_review") {
+      myStatus = "evaluating"; stageLabel = "Committee review"; stageNote = "Under committee review";
+    } else {
+      // floated / submission_closed — quote is in, evaluation not opened yet.
+      myStatus = "submitted";
     }
 
     out.push({
@@ -116,6 +153,8 @@ const buildItems = ({ requests, pending, active }) => {
       submitted_count: r.submitted_count,
       invitation_status: r.invitation_status,
       myStatus,
+      stageLabel,
+      stageNote,
     });
   });
 
@@ -129,6 +168,7 @@ const STATUS_LABEL = {
   submitted: "Submitted",
   evaluating: "Under evaluation",
   open: "Awaiting your quote",
+  missed: "Opportunity missed",
   "not-awarded": "Not awarded",
 };
 
@@ -139,6 +179,7 @@ const BADGE_CLASS = {
   submitted: "floated",
   evaluating: "eval",
   open: "floated",
+  missed: "expired",
   "not-awarded": "expired",
 };
 
@@ -148,6 +189,7 @@ const ctaFor = (item) => {
   if (s === "open")          return { href: `/dashboard/vendor/rate-contracts/${item.arc_id}/quote`, label: "Submit quote →", cls: "btn-blue" };
   if (s === "submitted")     return { href: `/dashboard/vendor/rate-contracts/${item.arc_id}/quote`, label: "View submission", cls: "btn-secondary" };
   if (s === "evaluating")    return { href: `/dashboard/vendor/rate-contracts/${item.arc_id}/quote`, label: "View submission", cls: "btn-secondary" };
+  if (s === "missed")        return { href: `/dashboard/vendor/rate-contracts/${item.arc_id}/quote`, label: "View", cls: "btn-ghost" };
   // Active/past cards open THAT contract's detail page (item.id is the
   // tbl_arc_contract id for cards built from the active/pending endpoints).
   if (s === "active")        return { href: `/dashboard/vendor/rate-contracts/${item.id}`, label: "Open", cls: "btn-secondary" };
@@ -176,6 +218,9 @@ const StatusIcon = ({ status }) => {
   );
   if (status === "not-awarded") return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+  );
+  if (status === "missed") return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
   );
   return null;
 };
@@ -478,7 +523,7 @@ export default function VendorRequestsPage() {
                     </div>
                     <div className="cc-right">
                       <span className={`status-pill ${BADGE_CLASS[k.myStatus] || "draft"}${pulse}`}>
-                        <span className="dot"></span><span>{STATUS_LABEL[k.myStatus]}</span>
+                        <span className="dot"></span><span>{k.stageLabel || STATUS_LABEL[k.myStatus]}</span>
                       </span>
                       <span className={`btn btn-sm ${cta.cls}`}>
                         <span>{cta.label}</span>
@@ -529,7 +574,7 @@ export default function VendorRequestsPage() {
                         <span className="fs-12 text-fg-3">
                           {k.myStatus === "submitted"
                             ? <span>Quote submitted · awaiting buyer to open evaluation</span>
-                            : <span>Evaluation in progress</span>}
+                            : <span>Quote submitted · {k.stageNote || "Evaluation in progress"}</span>}
                         </span>
                       </div>
                       {(k.submitted_count != null && k.invited_count != null) && (
@@ -537,6 +582,20 @@ export default function VendorRequestsPage() {
                           <span className="fw-600 text-fg">{k.submitted_count}</span> of {k.invited_count} vendors submitted
                           {k.term_start && <> · result expected by <span className="fw-600 text-fg">{fmtDate(k.term_start)}</span></>}
                         </span>
+                      )}
+                    </div>
+                  )}
+
+                  {k.myStatus === "missed" && (
+                    <div className="cc-foot">
+                      <div className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--fg-3)" }}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span className="fs-12 text-fg-3">
+                          No quote submitted · submission closed <span className="fw-600 text-fg">{fmtDateTime(k.submission_end_at)}</span>
+                        </span>
+                      </div>
+                      {k.buyer_name && (
+                        <span className="fs-12 text-fg-3">Buyer · <span className="fw-600 text-fg">{k.buyer_name}</span></span>
                       )}
                     </div>
                   )}
