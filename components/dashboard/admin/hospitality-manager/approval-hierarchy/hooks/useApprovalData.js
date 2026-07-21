@@ -66,6 +66,9 @@ const useApprovalData = (companyId, hotelId) => {
           department_id: s.department_id ?? null,
           company_id: s.company_id ?? null,
           hotel_id: s.hotel_id ?? null,
+          // process_id: NULL = "all processes" (wildcard). Retained so the
+          // Approval Wizard can filter approver options by the policy's process.
+          process_id: s.process_id ?? null,
         }));
       }
       setUserRoleScopes(map);
@@ -151,10 +154,11 @@ const useApprovalData = (companyId, hotelId) => {
   }, []);
 
   const getUsersByRole = useCallback(
-    (roleId, departmentId) => {
+    (roleId, departmentId, processId = null) => {
       if (!roleId) return [];
       const cId = parseInt(companyId);
       const hId = parseInt(hotelId);
+      const pId = processId != null ? Number(processId) : null;
       return users.filter((user) => {
         const scopes = userRoleScopes[user.user_id] || [];
         return scopes.some((scope) => {
@@ -165,6 +169,10 @@ const useApprovalData = (companyId, hotelId) => {
           if (scope.hotel_id && scope.hotel_id !== hId) return false;
           // Department filter
           if (departmentId != null && scope.department_id !== null && scope.department_id !== departmentId) return false;
+          // Process filter: NULL process on the scope row = wildcard (matches
+          // any process). A specific scope process must equal the policy's
+          // process. When no process is selected on the policy, don't filter.
+          if (pId != null && scope.process_id != null && Number(scope.process_id) !== pId) return false;
           return true;
         });
       });
@@ -173,10 +181,27 @@ const useApprovalData = (companyId, hotelId) => {
   );
 
   const getApproverOptions = useCallback(
-    (sourceType, departmentId) => {
+    (sourceType, departmentId, processId = null) => {
+      const pId = processId != null ? Number(processId) : null;
       if (sourceType === "USER") {
-        // Master policy context: show all users (no department filtering)
-        return users.map((u) => ({
+        // Master policy context: no department filtering. When a process is
+        // selected on the policy, only surface users who fall in that process —
+        // i.e. hold at least one role scope for this company/hotel whose
+        // process_id matches (or is the NULL wildcard). No process selected →
+        // every user (backwards-compat).
+        const cId = parseInt(companyId);
+        const hId = parseInt(hotelId);
+        const inSelectedProcess = (user) => {
+          if (pId == null) return true;
+          const scopes = userRoleScopes[user.user_id] || [];
+          return scopes.some((scope) => {
+            if (scope.company_id && scope.company_id !== cId) return false;
+            if (scope.hotel_id && scope.hotel_id !== hId) return false;
+            if (scope.process_id != null && Number(scope.process_id) !== pId) return false;
+            return true;
+          });
+        };
+        return users.filter(inSelectedProcess).map((u) => ({
           value: u.user_id,
           label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
         }));
@@ -185,7 +210,7 @@ const useApprovalData = (companyId, hotelId) => {
       }
       return [];
     },
-    [users, roles]
+    [users, roles, userRoleScopes, companyId, hotelId]
   );
 
   const getUserDeptNames = useCallback(
@@ -197,7 +222,7 @@ const useApprovalData = (companyId, hotelId) => {
   );
 
   const getApproverDisplayInfo = useCallback(
-    (step, departmentId) => {
+    (step, departmentId, processId = null) => {
       if (step.approver_source_type === "USER") {
         const user = users.find((u) => u.user_id === step.approver_source_id);
         return {
@@ -209,7 +234,9 @@ const useApprovalData = (companyId, hotelId) => {
         };
       } else if (step.approver_source_type === "ROLE") {
         const role = roles.find((r) => r.id === step.approver_source_id);
-        const roleUsers = getUsersByRole(step.approver_source_id, departmentId);
+        // Preview the users this role resolves to, respecting the policy's
+        // selected process (wildcard scopes still match).
+        const roleUsers = getUsersByRole(step.approver_source_id, departmentId, processId);
         const enrichedUsers = roleUsers.map((u) => ({
           ...u,
           departmentNames: getUserDeptNames(u.user_id),

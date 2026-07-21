@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import useModulePermissions from "@/hooks/useModulePermissions";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import {
@@ -250,6 +251,8 @@ const QuoteCompare = () => {
     canRead: canReadQuoteCompare,
     canUpdate: canUpdateQuoteCompare,
     canCreate: canCreateQuoteCompare,
+    allowedProcessIds: qcAllowedProcessIds,
+    isProcessAllowed: qcIsProcessAllowed,
     loading: quoteComparePermissionsLoading,
   } = useModulePermissions({
     moduleKey: "quote-compare",
@@ -258,6 +261,15 @@ const QuoteCompare = () => {
   });
   const rawCanWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
   const canWriteQuoteCompare = rawCanWriteQuoteCompare && !isRfqClosed;
+
+  // Process-scope guard: when the user's quote-compare scope is narrowed to a
+  // subset of processes, hide pages for RFQs whose process is outside that
+  // subset. Matches the backend's PROCESS_NOT_IN_USER_SCOPE response.
+  const processOutOfScope =
+    !!currentRFQ &&
+    currentRFQ.process_id != null &&
+    Array.isArray(qcAllowedProcessIds) &&
+    !qcIsProcessAllowed(currentRFQ.process_id);
 
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
@@ -1857,7 +1869,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 // };
 
   // Access denied check - show only if user has NO permissions for EITHER section
-  const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
+  const isAccessDenied = currentRFQ && !permissionsLoading && ((!canReadNegotiation && !canReadQuoteCompare) || processOutOfScope);
 
   // Inline loading — single loader for the entire right section
   // When access is denied, stop showing the spinner so the AccessDenied banner can render
@@ -2018,8 +2030,17 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </div>
                 )}
 
-                {/* Access Denied */}
-                {!isContentLoading && isAccessDenied ? (
+                {/* Access Denied — use the process-scope banner when the
+                    reason is "user not scoped for this RFQ's process". */}
+                {!isContentLoading && isAccessDenied && processOutOfScope ? (
+                  <ProcessScopeErrorBanner
+                    error={{
+                      code: "PROCESS_NOT_IN_USER_SCOPE",
+                      message: `You don't have access to this ${getEntityLabel(currentRFQ?.is_tender)}'s process. Contact your administrator to update your access.`,
+                      data: { process_id: currentRFQ?.process_id, rfq_id: rfq },
+                    }}
+                  />
+                ) : !isContentLoading && isAccessDenied ? (
                   <AccessDeniedPage showBackButton={false} />
                 ) : !isContentLoading ? (
                 <>

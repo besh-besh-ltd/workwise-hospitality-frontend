@@ -143,7 +143,10 @@ export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null
  * for the currently-selected BU(s).
  *
  * Response shape (handled here, callers get a clean string[]):
- *   { permissions: { dashboard: ["my_drafts", "action_center", ...] } }
+ *   legacy: { permissions: { dashboard: ["my_drafts", "action_center", ...] } }
+ *   Shape A: { permissions: { dashboard: { actions: [...], scope: {...} } } }
+ * Both are tolerated — dashboard widgets aren't process-scoped, so we only
+ * need the `actions` list either way.
  */
 export const getDashboardPermissions = (hotelIds = []) =>
   new Promise(async (resolve, reject) => {
@@ -151,7 +154,8 @@ export const getDashboardPermissions = (hotelIds = []) =>
       const response = await getBulkPermissions("dashboard", hotelIds);
       const data = response?.data?.data || response?.data || {};
       const permissionsObj = data?.permissions || data || {};
-      const list = permissionsObj?.dashboard || [];
+      const entry = permissionsObj?.dashboard;
+      const list = Array.isArray(entry) ? entry : (entry?.actions || []);
       resolve(Array.isArray(list) ? list : []);
     } catch (error) {
       reject({ message: error });

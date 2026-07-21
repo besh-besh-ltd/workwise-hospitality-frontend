@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import { BsFilePdf } from "react-icons/bs";
 import { FiExternalLink } from "react-icons/fi";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 
 /**
  * Single-step PO Approve Modal
@@ -10,18 +11,27 @@ import { FiExternalLink } from "react-icons/fi";
 const ApproveModal = ({ show, onClose, onApprove, poNumber, poPdfUrl }) => {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  // Captured typed-code error from the backend (e.g. PROCESS_NOT_IN_USER_SCOPE,
+  // NO_APPROVAL_POLICY_FOR_PROCESS). Rendered via ProcessScopeErrorBanner.
+  const [scopeError, setScopeError] = useState(null);
 
   useEffect(() => {
     if (!show) {
       setComment('');
       setLoading(false);
+      setScopeError(null);
     }
   }, [show]);
 
   const handleSubmit = async () => {
     setLoading(true);
+    setScopeError(null);
     try {
       await onApprove?.(comment.trim());
+    } catch (err) {
+      const payload = err?.response?.data || err?.data || err;
+      if (payload?.code) setScopeError(payload);
+      else throw err;
     } finally {
       setLoading(false);
     }
@@ -40,6 +50,11 @@ const ApproveModal = ({ show, onClose, onApprove, poNumber, poPdfUrl }) => {
 
         {/* Divider */}
         <div style={{ height: 1, background: '#f1f5f9', margin: '0 0 18px' }} />
+
+        {/* Typed-error banner — surfaces NO_APPROVAL_POLICY_FOR_PROCESS or
+            PROCESS_NOT_IN_USER_SCOPE in the modal so the approver knows why
+            their action was rejected instead of getting a generic toast. */}
+        <ProcessScopeErrorBanner error={scopeError} onDismiss={() => setScopeError(null)} />
 
         {/* Document */}
         {poPdfUrl && (

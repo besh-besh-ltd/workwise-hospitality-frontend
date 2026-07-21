@@ -48,6 +48,7 @@ import { IoIosCloseCircleOutline } from "react-icons/io";
 import { BsArrowRepeat } from "react-icons/bs";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import useModulePermissions from "@/hooks/useModulePermissions";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 
@@ -483,6 +484,10 @@ const CreateRFQ = () => {
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [processes, setProcesses] = useState([]);
+  // Captured submit error for structured-code surfacing (process scope /
+  // missing approval policy). Renders via ProcessScopeErrorBanner above the
+  // submit footer; cleared on next successful action.
+  const [scopeError, setScopeError] = useState(null);
   // Unit dropdown source — global defaults + this user's own custom units.
   // Each row: { id, name, is_default }. Re-fetched after add / delete.
   const [units, setUnits] = useState([]);
@@ -647,10 +652,12 @@ const CreateRFQ = () => {
     canRead,
     canUpdate,
     canCreate,
+    allowedProcessIds,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: moduleKey,
     hotelIds: selectedHotelIds,
+    departmentId: rfqFormDataFromStore?.department_id || null,
     enabled: selectedHotelIds.length > 0,
   });
 
@@ -795,7 +802,13 @@ const CreateRFQ = () => {
         value: p.id,
         label: p.name,
       }));
-      setProcesses(procs);
+      // Scope filter: when the user's role grants a specific subset of
+      // processes (allowedProcessIds is an array, not null), narrow the list
+      // to those they're authorized for. null = wildcard (legacy / all-access).
+      const filtered = (Array.isArray(allowedProcessIds))
+        ? procs.filter((p) => allowedProcessIds.includes(Number(p.value)))
+        : procs;
+      setProcesses(filtered);
     } catch (error) {
       console.error("Error fetching processes:", error);
     }
@@ -1590,6 +1603,15 @@ useEffect(() => {
 
         const errorData = err?.message?.response?.data;
         const errorMessage = errorData?.message || `Failed to create ${getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please check your form and try again.`;
+
+        // Typed-code errors (NO_APPROVAL_POLICY_FOR_PROCESS / PROCESS_NOT_IN_USER_SCOPE
+        // / PROCESS_REQUIRED) — surface the banner above the submit footer with
+        // an admin-aware deep link rather than a transient toast.
+        if (errorData?.code) {
+          setScopeError(errorData);
+          toast.error(errorMessage);
+          return;
+        }
 
         if (errorData?.status === 2 && Array.isArray(errorData.details)) {
           const missingVendorIds = errorData.details.map(d => d.rfqProductId);
@@ -2588,13 +2610,23 @@ useEffect(() => {
       getVendorApproveList();
       fetchCountryCodes();
       fetchHospitalityContexts();
-      fetchProcesses();
       refreshUnits();
     } catch (error) {
       console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
       toast.error(error.message)
     }
   }, []);
+
+  // Re-fetch processes whenever the user's process scope changes (e.g. after
+  // hotel/department selection updates the permission set). When
+  // allowedProcessIds is null (wildcard / legacy) the list is unfiltered;
+  // when it's a specific array, the dropdown narrows to those processes.
+  // Using JSON.stringify keeps the dep array stable when the underlying
+  // arrays are referentially fresh but contain the same IDs.
+  useEffect(() => {
+    fetchProcesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(allowedProcessIds || [])]);
 
   // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
   // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
@@ -3359,6 +3391,13 @@ useEffect(() => {
 
             return (
               <Form className="rfq-form">
+                {/* Process-scope / missing-policy banner. Renders only when
+                    the backend has surfaced a typed error code. Clears on
+                    next successful submit attempt. */}
+                <ProcessScopeErrorBanner
+                  error={scopeError}
+                  onDismiss={() => setScopeError(null)}
+                />
                 {/* Stepper progress bar — hidden in view-only mode where the
                     user only sees the read-only review summary. */}
                 {!isViewOnlyDraft && (

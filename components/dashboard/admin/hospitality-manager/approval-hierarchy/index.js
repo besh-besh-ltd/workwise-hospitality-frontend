@@ -8,7 +8,7 @@ import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { DS, getStageEntityOrder } from "./constants";
+import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
@@ -53,6 +53,14 @@ const ApprovalHierarchyRedesigned = () => {
 
   const handleEditWorkflow = useCallback((process) => {
     if (!process?.id) return;
+    // ARC flow: process-free policies whose entity_type is an ARC stage.
+    if (process.is_arc) {
+      const arcPolicies = policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type));
+      setEditingProcess(process);
+      setEditingPolicies(arcPolicies);
+      setViewMode("wizard");
+      return;
+    }
     const entityOrder = getStageEntityOrder(process?.process_type);
     const forProcess = policies.filter(
       (p) => p.process_id === process.id && entityOrder.includes(p.entity_type)
@@ -65,7 +73,9 @@ const ApprovalHierarchyRedesigned = () => {
   const handleDeleteWorkflow = useCallback(
     async (process) => {
       if (!process?.id) return;
-      const toDelete = policies.filter((p) => p.process_id === process.id);
+      const toDelete = process.is_arc
+        ? policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type))
+        : policies.filter((p) => p.process_id === process.id);
       for (const policy of toDelete) {
         try {
           await deleteApprovalPolicy(policy.id);

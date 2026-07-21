@@ -14,12 +14,22 @@ const RESOURCE_LABELS = {
   RFQ: "RFQ Creation",
   BOQ: "BOQ (Tender Creation)",
   TE: "Technical Evaluation",
+  ARC: "ARC (Rate Contracts)",
+  "ARC-TECH": "ARC Technical Evaluation",
+  "ARC-COMM": "ARC Commercial Evaluation",
+  "ARC-COMMITTEE": "ARC Committee",
+  AWARDING: "PO Awarding",
 };
 
 const RESOURCE_DESCRIPTIONS = {
   RFQ: "Create and manage request for quotation workflows.",
   BOQ: "Prepare and manage BOQ entries for tender creation.",
   TE: "Review technical compliance and evaluation decisions.",
+  ARC: "Create, float and administer Annual Rate Contracts.",
+  "ARC-TECH": "Run technical evaluation on rate contracts.",
+  "ARC-COMM": "Run commercial evaluation and reconcile awards on rate contracts.",
+  "ARC-COMMITTEE": "Sit on the ARC committee that approves finalised awards and amendments.",
+  AWARDING: "Manage purchase-order awarding on finalised RFQs.",
 };
 
 const ACTION_LABELS = {
@@ -33,6 +43,8 @@ const ACTION_LABELS = {
   reject: "Reject",
   export: "Export",
   submit: "Submit",
+  evaluate: "Evaluate",
+  admin: "Administer",
 };
 
 const ACTION_HELP = {
@@ -46,6 +58,8 @@ const ACTION_HELP = {
   reject: "Allow users to reject workflow steps",
   export: "Allow users to export data",
   submit: "Allow users to submit records for processing",
+  evaluate: "Allow users to run evaluations (score / assess responses)",
+  admin: "Allow users full administrative control of this module",
 };
 
 const toReadableLabel = (value = "") =>
