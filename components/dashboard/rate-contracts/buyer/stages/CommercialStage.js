@@ -145,6 +145,9 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
   const [expanded, setExpanded] = useState({});
   const [includeCharges, setIncludeCharges] = useState(true);
   const [savingItem, setSavingItem] = useState(null);
+  // Session-wide split-edit input mode (OQ5 default = 'qty'): 'qty' | 'pct'.
+  // Applies to every item's split editor; not persisted server-side/localStorage.
+  const [allocMode, setAllocMode] = useState("qty");
   const autoPickBusyRef = useRef(false);
   // item_id → qualified vendor ids; items absent from the map carry no
   // technical restriction (technical was skipped for them).
@@ -514,6 +517,40 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     await postAllocation(itemId, rows, `Share set to ${pct}% — others re-balanced`);
   };
 
+  // Override one vendor's share by QUANTITY on a SPLIT item — the remaining qty
+  // re-distributes pro-rata across the other awarded vendors, so SUM(qty) always
+  // stays EXACTLY == indicative_qty (server invariant). Mirror of setShare.
+  const setShareByQty = async (vid, itemId, rawQty) => {
+    if (!editable || savingItem) return;
+    const it = itemById.get(itemId);
+    const indicative = toNum(it?.indicative_qty);
+    const { rows: current } = itemAllocations(itemId);
+    if (!it || indicative <= 0 || current.length < 2) return;
+    const mine = current.find((r) => r.vendor.vendor_id === vid);
+    if (!mine) return;
+    let qty = Math.round(Number(rawQty) * 100) / 100;
+    if (!Number.isFinite(qty) || qty < 0.01 || qty > indicative - 0.01) {
+      toast.error(`Quantity must be between 0.01 and ${Math.round((indicative - 0.01) * 100) / 100} — to give a vendor everything, remove the others.`);
+      return;
+    }
+    const othersQty = current.filter((r) => r.vendor.vendor_id !== vid).reduce((s, r) => s + r.qty, 0);
+    const remaining = indicative - qty;
+    const pctOfQ = (q) => Math.round((q / indicative) * 10000) / 100;
+    const rows = current.map((r) => {
+      if (r.vendor.vendor_id === vid) return { vendor: r.vendor, line: r.line, qty, pct: pctOfQ(qty) };
+      const share = othersQty > 0 ? r.qty / othersQty : 1 / (current.length - 1);
+      const q = Math.round(remaining * share * 100) / 100;
+      return { vendor: r.vendor, line: r.line, qty: q, pct: pctOfQ(q) };
+    });
+    // absorb rounding residue into the largest OTHER share — the edited vendor keeps
+    // exactly the qty that was typed (mirrors setShare residue handling)
+    const others = rows.filter((r) => r.vendor.vendor_id !== vid);
+    const biggest = others.reduce((a, b) => (b.qty > a.qty ? b : a), others[0]);
+    biggest.qty = Math.round((biggest.qty + (indicative - rows.reduce((s, r) => s + r.qty, 0))) * 100) / 100;
+    biggest.pct = pctOfQ(biggest.qty);
+    await postAllocation(itemId, rows, `Quantity set to ${qty} ${it.uom || ""} — others re-balanced`);
+  };
+
   // Remove a vendor from the award set; the rest re-divide equally.
   // Removing the last holder clears the item back to Pending.
   const unawardCell = async (vid, itemId) => {
@@ -668,8 +705,8 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
           </div>
           <div>
             <strong>Award</strong> a vendor to give them 100% of an item. Award more vendors on the same item
-            and the share re-divides equally — use <strong>Adjust&nbsp;%</strong> on any awarded cell to set an
-            exact share (the others re-balance automatically). Click an awarded pill&apos;s ✕ to drop that vendor.
+            and the share re-divides equally — use <strong>Adjust&nbsp;share</strong> on any awarded cell to set an
+            exact share by percentage or quantity (the others re-balance automatically). Click an awarded pill&apos;s ✕ to drop that vendor.
             The cheapest landed rate is highlighted as <strong>L1</strong>. Every item must sit at exactly
             <strong> 100%</strong>; once all items are allocated, <strong>Awarding</strong> opens as a preview and
             finalize starts the committee vote.
@@ -897,6 +934,9 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
                       awardCell={awardCell}
                       unawardCell={unawardCell}
                       setShare={setShare}
+                      setShareByQty={setShareByQty}
+                      allocMode={allocMode}
+                      setAllocMode={setAllocMode}
                       toggleExpand={() => setExpanded((s) => ({ ...s, [itemId]: !s[itemId] }))}
                       saving={savingItem === itemId || savingItem === "all"}
                       editable={editable}
@@ -1081,7 +1121,7 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
 function ItemRow({
   it, itemId, itemName, uom, indicative, isExp, status, vendors,
   lineFor, effLineFor, revisionFor, isL1, isQualified, landed, includeCharges, allocatedFor,
-  awardCell, unawardCell, setShare, toggleExpand, saving, editable, lockedByApproval,
+  awardCell, unawardCell, setShare, setShareByQty, allocMode, setAllocMode, toggleExpand, saving, editable, lockedByApproval,
 }) {
   // Inline share override — { vid, value } while one cell's % is being edited.
   const [editShare, setEditShare] = useState(null);
@@ -1216,38 +1256,79 @@ function ItemRow({
                       Award
                     </button>
                   ) : editShare?.vid === v.vendor_id ? (
+                    (() => {
+                      // OQ6 — a degenerate item (indicative <= 0) can't do amount-mode
+                      // (division by zero), so force '%' and disable the qty toggle.
+                      const qtyDisabled = indicative <= 0;
+                      const effMode = qtyDisabled ? "pct" : allocMode;
+                      const raw = Number(editShare.value);
+                      const hasVal = editShare.value !== "" && Number.isFinite(raw);
+                      // Apply is mode-branched — qty types allocated_qty directly, pct
+                      // types the share; both reduce to the SAME allocations[] payload.
+                      const applyEdit = () => {
+                        if (effMode === "qty") setShareByQty(v.vendor_id, itemId, editShare.value);
+                        else setShare(v.vendor_id, itemId, editShare.value);
+                        setEditShare(null);
+                      };
+                      // Switching units re-seeds the box from the vendor's CURRENT
+                      // allocation in the new unit — never carry a half-typed number across.
+                      const switchMode = (m) => {
+                        if (m === effMode) return;
+                        setAllocMode(m);
+                        setEditShare({ vid: v.vendor_id, value: m === "qty" ? String(allocated) : String(pctOf(allocated)) });
+                      };
+                      return (
                     <div className="awarded-actions" onClick={(e) => e.stopPropagation()}>
+                      <div className="alloc-mode-toggle" role="group" aria-label="Split input mode">
+                        <button type="button" className={effMode === "pct" ? "is-active" : ""} title="Enter a percentage share" onClick={() => switchMode("pct")}>%</button>
+                        <button type="button" className={effMode === "qty" ? "is-active" : ""} disabled={qtyDisabled} title={qtyDisabled ? "Indicative qty unavailable — percentage only" : "Enter a quantity"} onClick={() => switchMode("qty")}>Qty</button>
+                      </div>
                       <div className="share-edit">
                         <input
                           autoFocus
                           type="number"
                           min={0.01}
-                          max={99.99}
-                          step="0.5"
+                          max={effMode === "qty" ? Math.round((indicative - 0.01) * 100) / 100 : 99.99}
+                          step={effMode === "qty" ? "1" : "0.5"}
                           value={editShare.value}
                           onChange={(e) => setEditShare({ vid: v.vendor_id, value: e.target.value })}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { setShare(v.vendor_id, itemId, editShare.value); setEditShare(null); }
+                            if (e.key === "Enter") applyEdit();
                             if (e.key === "Escape") setEditShare(null);
                           }}
                         />
-                        <span className="suffix">%</span>
-                        <button type="button" className="se-ok" disabled={saving} title="Apply — others re-balance pro-rata" onClick={() => { setShare(v.vendor_id, itemId, editShare.value); setEditShare(null); }}>
+                        <span className="suffix">{effMode === "qty" ? (uom || "units") : "%"}</span>
+                        <button type="button" className="se-ok" disabled={saving} title="Apply — others re-balance pro-rata" onClick={applyEdit}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                         </button>
                         <button type="button" className="se-cancel" title="Cancel" onClick={() => setEditShare(null)}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                         </button>
                       </div>
+                      {/* live derived value in the OTHER unit — the auto-calculated
+                          companion. SUM always reconciles to indicative_qty after apply. */}
+                      {hasVal && (
+                        <div className="share-derived">
+                          {effMode === "qty"
+                            ? `≈ ${indicative > 0 ? Math.round((raw / indicative) * 10000) / 100 : 0}% of ${indicative.toLocaleString("en-IN")} ${uom || "units"}`
+                            : `≈ ${Math.round((indicative * raw / 100) * 100) / 100} of ${indicative.toLocaleString("en-IN")} ${uom || "units"}`}
+                        </div>
+                      )}
                       <button type="button" className="share-adjust" onClick={() => setEditShare(null)}>
                         Close adjustment
                       </button>
                     </div>
+                      );
+                    })()
                   ) : (
                     <div className="awarded-actions" onClick={(e) => e.stopPropagation()}>
                       <button className="cell-pill-awarded" disabled={saving} title="Remove this vendor — the rest re-divide equally" onClick={() => unawardCell(v.vendor_id, itemId)}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                        {fullAwarded ? "Awarded · 100%" : `Awarded · ${pctOf(allocated)}%`}
+                        {fullAwarded
+                          ? "Awarded · 100%"
+                          : allocMode === "qty" && indicative > 0
+                            ? `Awarded · ${allocated.toLocaleString("en-IN")} ${uom || "units"}`
+                            : `Awarded · ${pctOf(allocated)}%`}
                         <span className="pill-x" aria-hidden="true">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                         </span>
@@ -1258,9 +1339,9 @@ function ItemRow({
                           className="share-adjust"
                           disabled={saving}
                           title="Set this vendor's exact share — the others re-balance pro-rata"
-                          onClick={() => setEditShare({ vid: v.vendor_id, value: String(pctOf(allocated)) })}
+                          onClick={() => setEditShare({ vid: v.vendor_id, value: (indicative > 0 && allocMode === "qty") ? String(allocated) : String(pctOf(allocated)) })}
                         >
-                          Adjust %
+                          Adjust share
                         </button>
                       )}
                     </div>
