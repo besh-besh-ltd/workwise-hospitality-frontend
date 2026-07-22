@@ -66,6 +66,16 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   // Per-cell mandatory pass/fail verdict for mandatory clauses (true/false/null).
   const [verdicts, setVerdicts] = useState({});
   const [savingKey, setSavingKey] = useState(null);
+  // Universal (ARC-wide) technical evaluation — a SEPARATE scoring matrix,
+  // fetched once for the whole ARC (no item dimension). Kept structurally
+  // distinct from the per-item state above.
+  const [universalBlock, setUniversalBlock] = useState(null); // {tech_evaluation, clauses, responses, scores, shortlist}
+  const [uMarks, setUMarks] = useState({});     // { `${aliasKey}|${clauseId}`: n }
+  const [uRemarks, setURemarks] = useState({});
+  const [uVerdicts, setUVerdicts] = useState({});
+  const [uSavingKey, setUSavingKey] = useState(null);
+  // Approver-staged universal amends, keyed by response_id (mirrors `amends`).
+  const [universalAmends, setUniversalAmends] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
   // Defaults ON — only evaluate vendors who also submitted a commercial quote.
@@ -128,6 +138,35 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     setVerdicts(v);
   }, []);
 
+  // Universal (ARC-wide) evaluation — one fetch for the whole ARC. Same blind
+  // aliases + shortlist gate as the per-item read (applied server-side).
+  const loadUniversal = useCallback(async () => {
+    try {
+      const res = await ArcApi.getUniversalTechEval(arc.id);
+      const d = res?.data || res || {};
+      const block = {
+        tech_evaluation: d.tech_evaluation || null,
+        clauses: d.clauses || [],
+        responses: d.responses || [],
+        scores: d.scores || [],
+        shortlist: d.shortlist || null,
+      };
+      setUniversalBlock(block);
+      const m = {}, r = {}, v = {};
+      for (const resp of block.responses) {
+        const k = `${resp.vendor_alias_key}|${resp.clause_id}`;
+        if (resp.buyer_marks != null) m[k] = Number(resp.buyer_marks);
+        if (resp.buyer_remark != null) r[k] = resp.buyer_remark;
+        if (resp.mandatory_passed != null) v[k] = !!resp.mandatory_passed;
+      }
+      setUMarks(m);
+      setURemarks(r);
+      setUVerdicts(v);
+    } catch (_) {
+      setUniversalBlock(null);
+    }
+  }, [arc?.id]);
+
   useEffect(() => {
     if (!arc?.id || !canRead) { setLoading(false); return; }
     let cancelled = false;
@@ -141,6 +180,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
         setItems(list);
         setActiveItemId((prev) => prev || list[0]?.id || null);
         await loadEvals(list);
+        if (!cancelled) await loadUniversal();
         if (stage?.approval?.instance_id) {
           const ap = await ArcApi.getTechEvalApproval(arc.id).catch(() => null);
           if (!cancelled && ap) {
@@ -304,8 +344,21 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       total += vendors.length * (block.clauses || []).length;
       done += vendors.reduce((sum, vid) => sum + vendorEvaluatedCount(it.id, vid), 0);
     }
+    // Universal (ARC-wide) contribution — marks-only, mirrors the item count so
+    // the Submit gate reflects BOTH matrices.
+    if (universalBlock) {
+      const clauses = universalBlock.clauses || [];
+      const resps = onlyQuoted
+        ? (universalBlock.responses || []).filter((r) => r.has_submitted_quote !== false)
+        : (universalBlock.responses || []);
+      const vkeys = [...new Set(resps.map((r) => Number(r.vendor_alias_key)))];
+      total += vkeys.length * clauses.length;
+      for (const vk of vkeys) for (const cl of clauses) {
+        if (uMarks[`${vk}|${cl.id}`] != null) done++;
+      }
+    }
     return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
-  }, [items, evalByItem, vendorsRespondingFor, vendorEvaluatedCount]);
+  }, [items, evalByItem, vendorsRespondingFor, vendorEvaluatedCount, universalBlock, onlyQuoted, uMarks]);
 
   const qualifiedTally = useMemo(() => {
     let q = 0, dq = 0, pending = 0;
@@ -420,17 +473,26 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       return;
     }
     const amendMarks = Object.entries(amends).map(([response_id, v]) => ({ response_id: Number(response_id), ...v }));
+    // Universal (ARC-wide) amends fold into the SAME decide call as amend.universal_marks.
+    const universalAmendMarks = Object.entries(universalAmends).map(([response_id, v]) => ({ response_id: Number(response_id), ...v }));
+    const hasAmends = amendMarks.length > 0 || universalAmendMarks.length > 0;
     setDecideBusy(true);
     try {
       await ArcApi.techEvalDecide(arc.id, {
         decision,
         comment: decideComment.trim() || null,
-        ...(decision === "approve" && amendMarks.length ? { amend: { marks: amendMarks } } : {}),
+        ...(decision === "approve" && hasAmends
+          ? { amend: {
+              ...(amendMarks.length ? { marks: amendMarks } : {}),
+              ...(universalAmendMarks.length ? { universal_marks: universalAmendMarks } : {}),
+            } }
+          : {}),
       });
       showToast(decision === "approve"
-        ? (amendMarks.length ? "Marks amended & approval recorded" : "Approval recorded")
+        ? (hasAmends ? "Marks amended & approval recorded" : "Approval recorded")
         : "Evaluation rejected — sent back to the evaluators");
       setAmends({});
+      setUniversalAmends({});
       setAmendMode(false);
       setDecideComment("");
       await onRefresh({ advance: decision === "approve" });
@@ -441,11 +503,127 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     }
   };
 
+  // ── Universal (ARC-wide) derivations + handlers ────────────────────────
+  // Mirror the per-item helpers but with no item dimension (keys are
+  // `${aliasKey}|${clauseId}`); qualification honours the same mandatory gate.
+  const universalVendors = useMemo(() => {
+    if (!universalBlock) return [];
+    const seen = new Map();
+    for (const r of universalBlock.responses || []) {
+      const vid = r.vendor_alias_key;
+      if (!seen.has(vid)) seen.set(vid, { vendor_key: vid, vendor_alias: r.vendor_alias || `Vendor ${vid}`, has_submitted_quote: r.has_submitted_quote });
+    }
+    const all = [...seen.values()];
+    return onlyQuoted ? all.filter((v) => v.has_submitted_quote !== false) : all;
+  }, [universalBlock, onlyQuoted]);
+
+  const uKeyFor = (vendorKey, clauseId) => `${vendorKey}|${clauseId}`;
+  const uResponseFor = useCallback((vendorKey, clauseId) => {
+    if (!universalBlock) return null;
+    return (universalBlock.responses || []).find(
+      (r) => Number(r.vendor_alias_key) === Number(vendorKey) && Number(r.clause_id) === Number(clauseId)
+    ) || null;
+  }, [universalBlock]);
+  const uMinPass = universalBlock?.tech_evaluation?.minimum_passing_score ?? 60;
+  const uMaxMarks = (universalBlock?.clauses || []).reduce((s, cl) => s + clauseWeight(cl), 0) || 100;
+  const uServerScoreFor = useCallback((vendorKey) =>
+    (universalBlock?.scores || []).find((s) => Number(s.vendor_alias_key) === Number(vendorKey)) || null, [universalBlock]);
+  const uGetMark = useCallback((vendorKey, clauseId) => {
+    const k = uKeyFor(vendorKey, clauseId);
+    return k in uMarks ? uMarks[k] : null;
+  }, [uMarks]);
+  const uGetVerdict = useCallback((vendorKey, clauseId) => {
+    const k = uKeyFor(vendorKey, clauseId);
+    return k in uVerdicts ? uVerdicts[k] : null;
+  }, [uVerdicts]);
+  const uVendorTotal = useCallback((vendorKey) => (universalBlock?.clauses || []).reduce((sum, cl) => {
+    const m = uGetMark(vendorKey, cl.id);
+    return sum + (m == null ? 0 : Number(m));
+  }, 0), [universalBlock, uGetMark]);
+  const uVendorScore = useCallback((vendorKey) => (uMaxMarks ? Math.round((uVendorTotal(vendorKey) / uMaxMarks) * 100) : 0), [uVendorTotal, uMaxMarks]);
+  const uVendorEvaluatedCount = useCallback((vendorKey) =>
+    (universalBlock?.clauses || []).filter((cl) => uGetMark(vendorKey, cl.id) != null).length, [universalBlock, uGetMark]);
+  const uVendorFullyEvaluated = useCallback((vendorKey) => {
+    const clauses = universalBlock?.clauses || [];
+    if (uVendorEvaluatedCount(vendorKey) !== clauses.length) return false;
+    const mandatoryUnjudged = clauses.some((cl) => clauseIsMandatory(cl) && uGetVerdict(vendorKey, cl.id) == null);
+    return !mandatoryUnjudged;
+  }, [universalBlock, uVendorEvaluatedCount, uGetVerdict]);
+  const uVendorQualified = useCallback((vendorKey) => {
+    const srv = uServerScoreFor(vendorKey);
+    if (srv && typeof srv.qualifies === "boolean") return srv.qualifies;
+    const mandatoryBlocked = (universalBlock?.clauses || []).some((cl) => clauseIsMandatory(cl) && uGetVerdict(vendorKey, cl.id) !== true);
+    if (mandatoryBlocked) return false;
+    return uVendorScore(vendorKey) >= Number(uMinPass);
+  }, [uServerScoreFor, universalBlock, uGetVerdict, uVendorScore, uMinPass]);
+  const uVendorMandatoryFailed = useCallback((vendorKey) => {
+    const srv = uServerScoreFor(vendorKey);
+    if (srv && typeof srv.mandatory_failed === "boolean") return srv.mandatory_failed;
+    return (universalBlock?.clauses || []).some((cl) => clauseIsMandatory(cl) && uGetVerdict(vendorKey, cl.id) === false);
+  }, [uServerScoreFor, universalBlock, uGetVerdict]);
+  const uVendorVerdictClass = useCallback((vendorKey) => {
+    if (!uVendorFullyEvaluated(vendorKey)) return "pending";
+    return uVendorQualified(vendorKey) ? "pass" : "fail";
+  }, [uVendorFullyEvaluated, uVendorQualified]);
+
+  const persistUniversalCell = async (vendorKey, clauseId, verdictOverride = undefined) => {
+    if (!canEvaluate || isComplete || (amendMode && canApprove)) return;
+    const resp = uResponseFor(vendorKey, clauseId);
+    if (!resp?.response_id) return;
+    const k = uKeyFor(vendorKey, clauseId);
+    const marksVal = k in uMarks ? uMarks[k] : (resp.buyer_marks ?? null);
+    if (marksVal == null) return;
+    const remarkVal = k in uRemarks ? uRemarks[k] : (resp.buyer_remark ?? "");
+    const cl = (universalBlock?.clauses || []).find((c) => Number(c.id) === Number(clauseId));
+    const isMandatory = clauseIsMandatory(cl);
+    let mandatory_passed;
+    if (isMandatory) {
+      const v = verdictOverride !== undefined ? verdictOverride : (k in uVerdicts ? uVerdicts[k] : (resp.mandatory_passed ?? null));
+      if (typeof v !== "boolean") return;
+      mandatory_passed = v;
+    }
+    setUSavingKey(k);
+    try {
+      await ArcApi.scoreUniversalResponse({ response_id: resp.response_id, buyer_marks: marksVal, buyer_remark: remarkVal, ...(isMandatory ? { mandatory_passed } : {}) });
+      await loadUniversal();
+    } catch (e) { /* interceptor toast; 409 = immutable */ }
+    finally { setUSavingKey(null); }
+  };
+
+  const setUMarkLocal = (vendorKey, clauseId, val, weight) => {
+    const k = uKeyFor(vendorKey, clauseId);
+    const n = val === "" || val == null ? null : Math.max(0, Math.min(Number(weight), Math.round(Number(val))));
+    setUMarks((prev) => ({ ...prev, [k]: n }));
+    if (amendMode && canApprove) {
+      const resp = uResponseFor(vendorKey, clauseId);
+      if (resp?.response_id) setUniversalAmends((prev) => ({ ...prev, [resp.response_id]: { ...prev[resp.response_id], buyer_marks: n } }));
+    }
+  };
+  const setURemarkLocal = (vendorKey, clauseId, val) => {
+    const k = uKeyFor(vendorKey, clauseId);
+    setURemarks((prev) => ({ ...prev, [k]: val }));
+    if (amendMode && canApprove) {
+      const resp = uResponseFor(vendorKey, clauseId);
+      if (resp?.response_id) setUniversalAmends((prev) => ({ ...prev, [resp.response_id]: { ...prev[resp.response_id], buyer_remark: val } }));
+    }
+  };
+  const setUVerdictLocal = (vendorKey, clauseId, val) => {
+    const k = uKeyFor(vendorKey, clauseId);
+    setUVerdicts((prev) => ({ ...prev, [k]: val }));
+    if (amendMode && canApprove) {
+      const resp = uResponseFor(vendorKey, clauseId);
+      if (resp?.response_id) setUniversalAmends((prev) => ({ ...prev, [resp.response_id]: { ...prev[resp.response_id], mandatory_passed: val } }));
+    } else {
+      persistUniversalCell(vendorKey, clauseId, val);
+    }
+  };
+
   // ── render gates ───────────────────────────────────────────────────────
   if (!canRead) return <StageNoPermission stageLabel="Technical Evaluation" />;
   if (loading) return <StageSkeleton />;
 
-  const amendCount = Object.keys(amends).length;
+  const amendCount = Object.keys(amends).length + Object.keys(universalAmends).length;
+  const hasUniversal = !!universalBlock && (universalBlock.clauses || []).length > 0;
 
   return (
     <StageColumns aside={<>
@@ -511,6 +689,187 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           <strong>View only.</strong> You can see clauses, vendor responses and any marks given —
           scoring requires the evaluate permission.
         </StageReadOnlyBanner>
+      )}
+
+      {/* ── UNIVERSAL (ARC-WIDE) SCORING — a DISTINCT section, structurally
+          separate from the per-item matrix below and never merged into it. ── */}
+      {hasUniversal && (
+        <section className="section-card">
+          <div className="section-head">
+            <div className="h-left">
+              <div className="ic"><CheckCircleIcon /></div>
+              <div>
+                <h2>Universal (ARC-wide) clauses</h2>
+                <div className="h-sub">Scored once for the whole rate contract — a vendor who fails is excluded from every product, independent of the per-item clauses below.</div>
+              </div>
+            </div>
+          </div>
+          <div className="section-body">
+            <div className="matrix-wrap">
+              <div className="min-score-banner">
+                <div className="ms-ic"><CheckCircleIcon /></div>
+                <div>
+                  Universal · Minimum passing score: <strong>{uMinPass}%</strong>
+                  {" · "}Max marks: <strong><span className="mono">{uMaxMarks}</span></strong>
+                  {" · "}{(universalBlock.clauses || []).length} clauses
+                </div>
+              </div>
+              <div className="matrix-scroll">
+                {universalVendors.length === 0 ? (
+                  <div style={{ padding: 24, color: "var(--fg-3)", fontSize: 13 }}>
+                    No vendor responses recorded yet for the universal clauses.
+                  </div>
+                ) : (
+                  <table className="eval-table">
+                    <thead>
+                      <tr>
+                        <th className="col-clause"><div className="clause-head">Clause &amp; weight</div></th>
+                        {universalVendors.map((v) => {
+                          const verdict = uVendorVerdictClass(v.vendor_key);
+                          const fully = uVendorFullyEvaluated(v.vendor_key);
+                          const evaluated = uVendorEvaluatedCount(v.vendor_key);
+                          const total = (universalBlock.clauses || []).length;
+                          return (
+                            <th key={v.vendor_key} className="ven-head">
+                              <div className="vh-top">
+                                <div className={`v-av ${vendorAvClass(v.vendor_key)}`}>{vendorInitials(v.vendor_alias)}</div>
+                                <div className="v-code">{vendorShort(v.vendor_alias)}</div>
+                              </div>
+                              <div className="v-score-row">
+                                <span className={`v-score ${verdict}`}>{fully ? uVendorScore(v.vendor_key) : "—"}</span>
+                                <span className="v-score-max">/100</span>
+                                <span className={`v-verdict ${verdict}`}>
+                                  {fully ? (uVendorQualified(v.vendor_key) ? "Qualified" : "Not qualified") : "In progress"}
+                                </span>
+                              </div>
+                              {fully && !uVendorQualified(v.vendor_key) && uVendorMandatoryFailed(v.vendor_key) && (
+                                <div style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 999, padding: "1px 8px", display: "inline-block" }}>
+                                  Disqualified · failed mandatory clause
+                                </div>
+                              )}
+                              <div className="v-pass-line">
+                                Min <span className="mono">{uMinPass}%</span> · evaluated <span className="mono">{evaluated}/{total}</span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(universalBlock.clauses || []).map((cl, idx) => (
+                        <tr key={cl.id}>
+                          <td className="col-clause">
+                            <div className="clause-cell">
+                              <span className="c-num">{idx + 1}</span>
+                              <span className="c-text">{cl.clause_text || cl.text}</span>
+                              <div className="c-meta">
+                                <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
+                                <span className="c-type">{cl.clause_type || cl.type || "text"}</span>
+                                {clauseIsMandatory(cl) && (
+                                  <span className="c-type" style={{ background: "var(--danger-soft, #fee2e2)", color: "var(--danger, #b91c1c)", fontWeight: 700 }}>
+                                    Mandatory · gate
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {universalVendors.map((v) => {
+                            const resp = uResponseFor(v.vendor_key, cl.id);
+                            const k = uKeyFor(v.vendor_key, cl.id);
+                            const markVal = k in uMarks ? uMarks[k] : (resp?.buyer_marks ?? null);
+                            const remarkVal = k in uRemarks ? uRemarks[k] : (resp?.buyer_remark ?? "");
+                            const verdictVal = k in uVerdicts ? uVerdicts[k] : (resp?.mandatory_passed ?? null);
+                            const disq = uVendorFullyEvaluated(v.vendor_key) && !uVendorQualified(v.vendor_key);
+                            const isSaving = uSavingKey === k;
+                            const amended = resp?.response_id && universalAmends[resp.response_id];
+                            return (
+                              <td key={v.vendor_key} className={`score-cell ${disq ? "is-disq" : ""}`}>
+                                <div className="resp">
+                                  <div className="response-text" style={!resp?.vendor_response ? { color: "var(--fg-4)" } : undefined}>
+                                    <span>{resp?.vendor_response || "No response submitted"}</span>
+                                  </div>
+                                  {Array.isArray(resp?.files) && resp.files.length > 0 && (
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "4px 0 2px" }}>
+                                      {resp.files.map((f) => (
+                                        <a key={f.file_id}
+                                           href={`${process.env.NEXT_PUBLIC_API_URL || ""}${ArcApi.universalTechEvidenceUrl(f.file_id)}`}
+                                           target="_blank" rel="noreferrer"
+                                           style={{ fontSize: 11, color: "var(--accent, #1d4ed8)", background: "var(--accent-soft, #eff6ff)", border: "1px solid #bfdbfe", borderRadius: 6, padding: "2px 7px", textDecoration: "none" }}>
+                                          Evidence #{f.file_id}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="mark-block" style={amended ? { outline: "1.5px solid var(--warn)", outlineOffset: 2, borderRadius: 7 } : undefined}>
+                                    {clauseIsMandatory(cl) && (
+                                      <div style={{ marginBottom: 6 }}>
+                                        <div className="mark-label">
+                                          {editable ? (amendMode && canApprove ? "Amend verdict" : "Pass / Fail (mandatory)") : "Verdict"}
+                                        </div>
+                                        <div style={{ display: "inline-flex", gap: 6, marginTop: 3 }}>
+                                          <button type="button"
+                                            disabled={!editable || !resp?.response_id}
+                                            onClick={() => setUVerdictLocal(v.vendor_key, cl.id, true)}
+                                            style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
+                                              border: "1px solid " + (verdictVal === true ? "#047857" : "var(--border-input, #d1d5db)"),
+                                              background: verdictVal === true ? "#ecfdf5" : "white", color: verdictVal === true ? "#047857" : "var(--fg-3, #6b7280)" }}>
+                                            Pass
+                                          </button>
+                                          <button type="button"
+                                            disabled={!editable || !resp?.response_id}
+                                            onClick={() => setUVerdictLocal(v.vendor_key, cl.id, false)}
+                                            style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: editable ? "pointer" : "default",
+                                              border: "1px solid " + (verdictVal === false ? "#b91c1c" : "var(--border-input, #d1d5db)"),
+                                              background: verdictVal === false ? "#fef2f2" : "white", color: verdictVal === false ? "#b91c1c" : "var(--fg-3, #6b7280)" }}>
+                                            Fail
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="mark-label">
+                                      {editable ? (amendMode && canApprove ? "Amend marks" : "Your marks") : "Marks"}
+                                      {isSaving ? " · saving…" : ""}
+                                      {amended ? " · edited" : ""}
+                                    </div>
+                                    <div className="mark-entry">
+                                      <input
+                                        type="number"
+                                        max={clauseWeight(cl)}
+                                        min={0}
+                                        value={markVal ?? ""}
+                                        placeholder={String(clauseWeight(cl))}
+                                        className={markVal != null ? "filled" : ""}
+                                        disabled={!editable || !resp?.response_id}
+                                        onChange={(e) => setUMarkLocal(v.vendor_key, cl.id, e.target.value, clauseWeight(cl))}
+                                        onBlur={() => persistUniversalCell(v.vendor_key, cl.id)}
+                                      />
+                                      <span className="of-max">/ <span>{clauseWeight(cl)}</span></span>
+                                      <span className={`mark-hint ${markVal != null ? "done" : ""}`}>
+                                        {markVal != null ? "✓ scored" : "pending"}
+                                      </span>
+                                    </div>
+                                    <textarea
+                                      className="remark-input"
+                                      placeholder={editable ? "Optional remark" : ""}
+                                      value={remarkVal ?? ""}
+                                      disabled={!editable || !resp?.response_id}
+                                      onChange={(e) => setURemarkLocal(v.vendor_key, cl.id, e.target.value)}
+                                      onBlur={() => persistUniversalCell(v.vendor_key, cl.id)}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ITEM TABS */}

@@ -105,6 +105,22 @@ export const techEvalDecide = (arcId, body) =>
 export const submitTechEval = (arcId) =>
   axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/submit`, {});
 
+// ── Universal (ARC-wide) technical clauses — a SECOND, separate configurator ──
+// Rides the SAME ARC_TECH approval (no separate submit/approve; the shared
+// submitTechEval covers both). Storage + UI stay separate from the item family.
+export const setupUniversalTechEval = (arcId, payload) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/universal-tech-eval`, payload);
+
+export const getUniversalTechEval = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/universal-tech-eval`);
+
+export const scoreUniversalResponse = (payload) =>
+  axiosInstance.post(`${BASE}/evaluation/universal-tech-eval/score`, payload);
+
+// Evaluator-side ownership/permission-checked evidence proxy URL (no raw S3).
+export const universalTechEvidenceUrl = (fileId) =>
+  `${BASE}/evaluation/universal-tech-eval/evidence/${fileId}`;
+
 // ============================================================
 // Buyer — Commercial evaluation (with split-award reconciliation)
 // ============================================================
@@ -169,6 +185,14 @@ export const vendorSaveTechEnvelopeDraft = (payload) => axiosInstance.post(`${BA
 export const vendorUploadTechEvidence    = (clauseId, formData) => axiosFormData.post(`${BASE}/vendor/tech-envelope/clause/${clauseId}/file`, formData);
 export const vendorDeleteTechEvidence    = (fileId) => axiosInstance.delete(`${BASE}/vendor/tech-envelope/file/${fileId}`);
 export const vendorSubmitTechEnvelope    = (arcId) => axiosInstance.post(`${BASE}/vendor/tech-envelope/submit`, { arc_id: arcId });
+
+// ── Vendor — Universal (ARC-wide) technical envelope ─────────────────────
+// Universal clauses arrive inside the existing vendorGetTechClauses response as
+// a separate `universal` key (no dedicated GET); the seal rides
+// vendorSubmitTechEnvelope. Only draft/upload/delete calls are needed here.
+export const vendorSaveUniversalTechEnvelopeDraft = (payload) => axiosInstance.post(`${BASE}/vendor/universal-tech-envelope/draft`, payload);
+export const vendorUploadUniversalTechEvidence    = (clauseId, formData) => axiosFormData.post(`${BASE}/vendor/universal-tech-envelope/clause/${clauseId}/file`, formData);
+export const vendorDeleteUniversalTechEvidence    = (fileId) => axiosInstance.delete(`${BASE}/vendor/universal-tech-envelope/file/${fileId}`);
 
 // Dashboard rollups — counts, totals, spend ranks, recent call-offs, activity.
 export const vendorGetDashboard          = (params = {}) => axiosInstance.get(`${BASE}/vendor/dashboard`, { params });

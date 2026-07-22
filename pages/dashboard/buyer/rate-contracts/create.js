@@ -228,6 +228,12 @@ export default function CreateRateContractPage() {
   const [minPassByItem, setMinPassByItem] = useState({});
   const [eligibility, setEligibility] = useState("invitation");
   const [invitedVendorIds, setInvitedVendorIds] = useState([]);
+  // Universal (ARC-wide) technical clauses — a SECOND, separate configurator
+  // that applies to the WHOLE rate contract (a vendor who fails it is knocked
+  // out of the entire ARC). Independent of the per-item config above.
+  const [universalTechOn, setUniversalTechOn] = useState(false);
+  const [universalClauses, setUniversalClauses] = useState([]); // [{text, weight, type, mandatory}]
+  const [universalMinPass, setUniversalMinPass] = useState(65);
 
   // Toast
   const [toast, setToast] = useState("");
@@ -350,6 +356,30 @@ export default function CreateRateContractPage() {
         setMinPassByItem(minPass);
         setEligibility(arc.eligibility_type || "open");
         setInvitedVendorIds(invitations.map((i) => i.vendor_id));
+
+        // ── Step 5 — Universal (ARC-wide) tech config ──
+        // Hydrate the separate universal configurator via the ARC-scoped read
+        // (§7.6 alternative — no dependency on the ARC getById payload shape).
+        try {
+          const uRes = await ArcApi.getUniversalTechEval(arc.id);
+          const uData = uRes?.data || {};
+          const uClauses = uData.clauses || [];
+          if (!cancelled) {
+            if (uClauses.length > 0) {
+              setUniversalTechOn(true);
+              setUniversalMinPass(Number(uData.tech_evaluation?.minimum_passing_score) || 65);
+              setUniversalClauses(uClauses.map((cl) => ({
+                text: cl.clause_text || "",
+                weight: Number(cl.weightage) || 0,
+                type: cl.clause_type || "spec",
+                mandatory: !!cl.is_mandatory,
+              })));
+            } else {
+              setUniversalTechOn(false);
+              setUniversalClauses([]);
+            }
+          }
+        } catch (_) { /* no universal config — leave defaults (OFF) */ }
 
         // ── Unlock all stages + open the furthest-progressed one ──
         // The draft was fully created once, so every step is reachable: set the
@@ -508,8 +538,34 @@ export default function CreateRateContractPage() {
   }
   // Per-item technical-eval toggle (default ON for any selected item).
   const itemTechOn = (iid) => techByItem[iid] !== false;
-  // Any item at all being evaluated → vendors must seal a technical envelope.
-  const anyTechRequired = selectedItemIds.some(itemTechOn);
+
+  // Universal (ARC-wide) clause validators — mirror the per-item ones.
+  function universalTotalWeight() {
+    return (universalClauses || []).reduce((s, c) => s + (Number(c.weight) || 0), 0);
+  }
+  function universalWeightStatus() {
+    const t = universalTotalWeight();
+    if (t === 100) return "ok";
+    if (t > 100) return "over";
+    return "under";
+  }
+  // When universal is ON: need ≥1 clause, non-empty text, weights sum to 100,
+  // and a valid min-pass. When OFF: always valid.
+  const universalValid = (() => {
+    if (!universalTechOn) return true;
+    const cls = universalClauses || [];
+    if (!cls.length) return false;
+    if (universalTotalWeight() !== 100) return false;
+    if (cls.some((c) => !c.text)) return false;
+    const mp = Number(universalMinPass);
+    if (!mp || mp < 1 || mp > 100) return false;
+    return true;
+  })();
+
+  // Any item at all being evaluated OR universal ON → vendors must seal a
+  // technical envelope (so technical_response_required is set when only
+  // universal is configured).
+  const anyTechRequired = selectedItemIds.some(itemTechOn) || universalTechOn;
   // A tech-ON item must have valid clauses; a tech-OFF item is always fine.
   const itemTechConfigured = (iid) => !itemTechOn(iid) || itemClauseValid(iid);
 
@@ -522,12 +578,13 @@ export default function CreateRateContractPage() {
     if (step === 4) return !!submissionStart && !!submissionEnd && !!contractStart && !!contractEnd;
     if (step === 5) {
       if (eligibility === "invitation" && invitedVendorIds.length === 0) return false;
-      // Only items with technical evaluation ON must be fully configured.
-      return selectedItemIds.every(itemTechConfigured);
+      // Only items with technical evaluation ON must be fully configured, AND
+      // the universal configurator (when ON) must be valid.
+      return selectedItemIds.every(itemTechConfigured) && universalValid;
     }
     return true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem]);
+  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem, universalTechOn, universalClauses, universalMinPass]);
 
   // Any step the user has already REACHED (<= furthestStep) is freely clickable
   // in either direction — back-nav never relocks it (Track C).
@@ -634,6 +691,16 @@ export default function CreateRateContractPage() {
       [iid]: (cl[iid] || []).map((c, i) => i === idx ? { ...c, ...patch } : c),
     }));
   }
+  // Universal (ARC-wide) clause mutators — mirror addClause/removeClause/updateClause.
+  function addUniversalClause() {
+    setUniversalClauses((cl) => [...cl, { text: "", weight: 20, type: "spec", mandatory: false }]);
+  }
+  function removeUniversalClause(idx) {
+    setUniversalClauses((cl) => cl.filter((_, i) => i !== idx));
+  }
+  function updateUniversalClause(idx, patch) {
+    setUniversalClauses((cl) => cl.map((c, i) => i === idx ? { ...c, ...patch } : c));
+  }
 
   // ── Submit / Save draft ─────────────────────────────────────────────
   // Shared payload builder — submit() and saveDraft() both persist the exact
@@ -692,10 +759,10 @@ export default function CreateRateContractPage() {
   // BOTH a freshly-created draft's items (from createDraft's response) and a
   // resumed draft's reconciled items (from updateDraft's response, GROUP D),
   // since both now return the same { id, product_variant_id } shape.
-  async function persistTechEval(arcItems) {
-    if (!anyTechRequired || !arcItems.length) return;
+  async function persistTechEval(arcItems, arcId) {
+    if (!anyTechRequired) return;
     const itemIdByVariant = {};
-    for (const it of arcItems) itemIdByVariant[it.product_variant_id] = it.id;
+    for (const it of (arcItems || [])) itemIdByVariant[it.product_variant_id] = it.id;
     for (const vid of selectedItemIds) {
       const arcItemId = itemIdByVariant[vid];
       const cls = clausesByItem[vid] || [];
@@ -705,6 +772,19 @@ export default function CreateRateContractPage() {
       await ArcApi.setupTechEval(arcItemId, {
         minimum_passing_score: minPassByItem[vid] ?? 65,
         clauses: cls.map((c) => ({
+          clause_text: c.text,
+          weightage: Number(c.weight) || 0,
+          clause_type: c.type || null,
+          is_mandatory: !!c.mandatory,
+        })),
+      });
+    }
+    // Universal (ARC-wide) technical clauses — persisted at the ARC level via
+    // the ARC-scoped endpoint (separate from the per-item rows above).
+    if (arcId && universalTechOn && (universalClauses || []).length > 0) {
+      await ArcApi.setupUniversalTechEval(arcId, {
+        minimum_passing_score: universalMinPass,
+        clauses: universalClauses.map((c) => ({
           clause_text: c.text,
           weightage: Number(c.weight) || 0,
           clause_type: c.type || null,
@@ -736,7 +816,7 @@ export default function CreateRateContractPage() {
       const res = await ArcApi.updateDraft(arcId, payload);
       items = res?.data?.items || res?.data?.data?.items || [];
     }
-    await persistTechEval(items);
+    await persistTechEval(items, arcId);
     return arcId;
   }
 
@@ -1367,6 +1447,124 @@ export default function CreateRateContractPage() {
                 })}
               </div>
             </div>
+
+          {/* Universal (ARC-wide) technical clauses — SEPARATE configurator.
+              Kept visually + structurally distinct from the per-item cards. */}
+          <div className="section-card">
+            <div className="section-head">
+              <div className="h-left">
+                <div className="ic"><ChecklistIcon /></div>
+                <div>
+                  <h2>Universal technical clauses (apply to the whole rate contract)</h2>
+                  <div className="h-sub">A single clause set evaluated across the ENTIRE rate contract. A vendor who fails these is knocked out of every product — independent of the per-item clauses above.</div>
+                </div>
+              </div>
+              <div className="h-right">
+                <label className="cbx" style={{ margin: 0 }} title={universalTechOn ? "Universal technical evaluation ON" : "Universal technical evaluation OFF"}>
+                  <input type="checkbox" checked={universalTechOn} onChange={(e) => setUniversalTechOn(e.target.checked)} />
+                  <span className="cbx-box" />
+                </label>
+              </div>
+            </div>
+            {universalTechOn && (
+            <div className="section-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="guide">
+                <div className="g-ic"><InfoIcon /></div>
+                <div>
+                  <strong>ARC-wide gate.</strong>{" "}
+                  These clauses apply to the whole rate contract. Weights must total 100; a vendor scoring ≥ the <strong>minimum passing score</strong> (and passing every mandatory clause) clears universal — otherwise they are excluded from the entire contract.
+                </div>
+              </div>
+              <div className={`te-item-card ${universalValid ? "complete" : universalWeightStatus() === "over" ? "error" : ""}`}>
+                <div className="te-item-head">
+                  <div className="te-h-meta">
+                    <div className="te-h-name">
+                      <span>Universal clauses</span>
+                      <span className="te-h-num">whole rate contract</span>
+                    </div>
+                    <div className="te-h-sub">
+                      <span className="mono fw-600" style={{ color: "var(--fg)" }}>{universalClauses.length}</span> clause{universalClauses.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <div className="te-min-pass">
+                    <span className="lbl">Min pass</span>
+                    <div className="input-group" style={{ maxWidth: 110 }}>
+                      <input type="number" className="input input-num" value={universalMinPass ?? ""} onChange={(e) => setUniversalMinPass(sanitizePct(e.target.value))} min={0} max={100} placeholder="65" />
+                      <div className="suffix">%</div>
+                    </div>
+                    {(() => {
+                      const mp = universalMinPass;
+                      const invalid = mp === "" || mp === undefined || mp === null || !(Number(mp) >= 1 && Number(mp) <= 100);
+                      return invalid ? (
+                        <div style={{ color: "var(--danger)", fontSize: 11, marginTop: 4 }}>Enter a passing % between 1 and 100</div>
+                      ) : null;
+                    })()}
+                  </div>
+                  <div>
+                    {universalValid && <span className="te-status complete"><CheckIcon size={11} /> Configured</span>}
+                    {!universalValid && universalWeightStatus() === "over" && <span className="te-status error"><Icon size={11}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon> Weights over 100</span>}
+                    {!universalValid && universalWeightStatus() !== "over" && <span className="te-status warn">Needs clauses · weights = 100</span>}
+                  </div>
+                </div>
+
+                <div className="weight-bar">
+                  <span>Clause weights</span>
+                  <div className="wb-track">
+                    <div className={`wb-fill ${universalWeightStatus()}`} style={{ width: Math.min(100, universalTotalWeight()) + "%" }} />
+                  </div>
+                  <span className={`wb-val ${universalWeightStatus()}`}>{universalTotalWeight()} / 100</span>
+                  {universalWeightStatus() === "over"  && <span style={{ color: "var(--danger)",  fontWeight: 600 }}>— reduce by <span className="mono">{universalTotalWeight() - 100}</span></span>}
+                  {universalWeightStatus() === "under" && <span style={{ color: "var(--warn)",    fontWeight: 600 }}>— add <span className="mono">{100 - universalTotalWeight()}</span> more</span>}
+                  {universalWeightStatus() === "ok"    && <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Balanced</span>}
+                </div>
+
+                <div className="te-clauses">
+                  {universalClauses.map((cl, idx) => (
+                    <div key={idx}>
+                      <div className="te-clause-row">
+                        <div className="tcr-num">{String(idx + 1).padStart(2, "0")}</div>
+                        <input className="tcr-text" type="text" value={cl.text} onChange={(e) => updateUniversalClause(idx, { text: e.target.value })} placeholder="e.g. Valid ISO 9001 certification" />
+                        <select className="select" value={cl.type} onChange={(e) => updateUniversalClause(idx, { type: e.target.value })} style={{ fontSize: 12, padding: "5px 7px" }}>
+                          <option value="doc">Doc / Certification</option>
+                          <option value="spec">Technical Spec</option>
+                          <option value="commercial">Commercial</option>
+                          <option value="sample">Sample</option>
+                        </select>
+                        <div className="input-group">
+                          <input type="number" className="input input-num" value={cl.weight ?? ""} onChange={(e) => updateUniversalClause(idx, { weight: sanitizePct(e.target.value) })} min={0} max={100} placeholder="20" />
+                          <div className="suffix">marks</div>
+                        </div>
+                        <button className="icon-btn" type="button" onClick={() => removeUniversalClause(idx)} title="Remove clause">
+                          <span style={{ color: "var(--danger)" }}><TrashIcon size={13} /></span>
+                        </button>
+                        <div className="tcr-bottom">
+                          <span className={`clause-type-mini ${cl.type}`}>{cl.type}</span>
+                          {cl.mandatory && (
+                            <span className="clause-type-mini" style={{ background: "var(--danger-soft, #fee2e2)", color: "var(--danger, #b91c1c)", fontWeight: 700 }}>
+                              Mandatory · pass/fail gate
+                            </span>
+                          )}
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-3)", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!cl.mandatory}
+                              onChange={(e) => updateUniversalClause(idx, { mandatory: e.target.checked })}
+                            />
+                            Mandatory (pass/fail gate)
+                          </label>
+                          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--fg-4)" }}>Vendors must respond &amp; upload evidence</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button className="te-add-clause" type="button" onClick={() => addUniversalClause()}>
+                    <PlusIcon /> Add universal clause
+                  </button>
+                </div>
+              </div>
+            </div>
+            )}
+          </div>
 
           {/* Vendor eligibility */}
           <div className="section-card">

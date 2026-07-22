@@ -78,6 +78,14 @@ export default function VendorQuotePage() {
   const [techBusy, setTechBusy] = useState(false);
   const [techError, setTechError] = useState(null);
   const [techUploadErrors, setTechUploadErrors] = useState({});  // { [clauseId]: errorMsg }
+  // Universal (ARC-wide) technical clauses — the SEPARATE "universally
+  // configured" envelope. Parallel state to the per-item envelope above; the
+  // single seal (below) covers both.
+  const [universalClauses, setUniversalClauses] = useState([]);     // [{clause_id, clause_text, ...}]
+  const [universalMinPass, setUniversalMinPass] = useState(null);
+  const [universalResponses, setUniversalResponses] = useState({}); // { [clauseId]: vendor_response }
+  const [universalFiles, setUniversalFiles] = useState({});         // { [clauseId]: [{file_id,url,original_name}] }
+  const [universalUploadErrors, setUniversalUploadErrors] = useState({});
 
   // Phase 1 §3 — server-derived T&C gate. Seeded from quote.terms_accepted_at on
   // load; persisted via acceptTerms endpoint on accept; refreshed via onRefresh.
@@ -160,6 +168,24 @@ export default function VendorQuotePage() {
       }
       setTechResponses(r);
       setTechFiles(f);
+      // Universal (ARC-wide) block — separate from items[]. Hydrate parallel state.
+      const u = d.universal || null;
+      if (u && Array.isArray(u.clauses)) {
+        setUniversalClauses(u.clauses);
+        setUniversalMinPass(u.minimum_passing_score ?? null);
+        const ur = {}, uf = {};
+        for (const cl of u.clauses) {
+          if (cl.vendor_response != null) ur[cl.clause_id] = cl.vendor_response;
+          if (Array.isArray(cl.files)) uf[cl.clause_id] = cl.files;
+        }
+        setUniversalResponses(ur);
+        setUniversalFiles(uf);
+      } else {
+        setUniversalClauses([]);
+        setUniversalMinPass(null);
+        setUniversalResponses({});
+        setUniversalFiles({});
+      }
       return d;
     } catch (_e) {
       // 403 (not invited) is surfaced by the page guard; ignore here.
@@ -728,7 +754,18 @@ export default function VendorQuotePage() {
           responses.push({ clause_id: cl.clause_id, vendor_response: techResponses[cl.clause_id] ?? "" });
         }
       }
-      await ArcApi.vendorSaveTechEnvelopeDraft({ arc_id: Number(contractId), responses });
+      // Only POST the item draft when there ARE item clauses (backend rejects an
+      // empty responses[]) — a universal-only ARC has no item clauses.
+      if (responses.length > 0) {
+        await ArcApi.vendorSaveTechEnvelopeDraft({ arc_id: Number(contractId), responses });
+      }
+      // Also persist the universal (ARC-wide) responses when present — same seal.
+      if (universalClauses.length > 0) {
+        const uResponses = universalClauses.map((cl) => ({
+          clause_id: cl.clause_id, vendor_response: universalResponses[cl.clause_id] ?? "",
+        }));
+        await ArcApi.vendorSaveUniversalTechEnvelopeDraft({ arc_id: Number(contractId), responses: uResponses });
+      }
       if (silent) setTechSaveState("saved");
     } catch (e) {
       if (silent) setTechSaveState("error");
@@ -783,6 +820,39 @@ export default function VendorQuotePage() {
     finally { setTechBusy(false); }
   };
 
+  // ── Universal (ARC-wide) envelope handlers — parallel to the item ones,
+  // targeting the universal endpoints. Autosave rides the shared onSaveTechDraft.
+  const onChangeUniversalResponse = (clauseId, value) => {
+    setUniversalResponses((prev) => ({ ...prev, [clauseId]: value }));
+    scheduleTechAutosave();
+  };
+
+  const onUploadUniversalEvidence = async (clauseId, file) => {
+    if (!file) return;
+    setTechBusy(true);
+    setUniversalUploadErrors((p) => { const n = { ...p }; delete n[clauseId]; return n; });
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await ArcApi.vendorUploadUniversalTechEvidence(clauseId, fd);
+      const f = res?.data?.file;
+      if (f) setUniversalFiles((prev) => ({ ...prev, [clauseId]: [...(prev[clauseId] || []), f] }));
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || "Upload failed";
+      setUniversalUploadErrors((p) => ({ ...p, [clauseId]: msg }));
+    }
+    finally { setTechBusy(false); }
+  };
+
+  const onDeleteUniversalEvidence = async (clauseId, fileId) => {
+    setTechBusy(true); setTechError(null);
+    try {
+      await ArcApi.vendorDeleteUniversalTechEvidence(fileId);
+      setUniversalFiles((prev) => ({ ...prev, [clauseId]: (prev[clauseId] || []).filter((f) => f.file_id !== fileId) }));
+    } catch (e) { setTechError(e?.response?.data?.message || e?.message || "Delete failed"); }
+    finally { setTechBusy(false); }
+  };
+
   const onSealTechEnvelope = async () => {
     setTechBusy(true); setTechError(null);
     try {
@@ -796,10 +866,12 @@ export default function VendorQuotePage() {
     finally { setTechBusy(false); }
   };
 
-  const evalTotal = techItems.reduce((s, it) => s + (it.clauses || []).length, 0);
+  // Fold universal answered/total into the progress so the SINGLE seal gate
+  // reflects BOTH the per-item and the ARC-wide (universal) envelopes.
+  const evalTotal = techItems.reduce((s, it) => s + (it.clauses || []).length, 0) + universalClauses.length;
   const evalAnswered = techItems.reduce((s, it) => {
     return s + (it.clauses || []).filter(c => techResponses[c.clause_id] != null && String(techResponses[c.clause_id]).trim() !== "").length;
-  }, 0);
+  }, 0) + universalClauses.filter(c => universalResponses[c.clause_id] != null && String(universalResponses[c.clause_id]).trim() !== "").length;
   const evalProgress = evalTotal ? Math.round((evalAnswered / evalTotal) * 100) : 100;
 
   // -------------------- stage gating --------------------
@@ -1375,6 +1447,15 @@ export default function VendorQuotePage() {
           // Sr 37 — auto-save chip + silent on-blur save (debounce above handles typing pauses).
           saveState={techSaveState}
           onFieldBlur={onTechFieldBlur}
+          // Universal (ARC-wide) envelope — distinct section rendered ABOVE the items.
+          universalClauses={universalClauses}
+          universalMinPass={universalMinPass}
+          universalResponses={universalResponses}
+          universalFiles={universalFiles}
+          onChangeUniversalResponse={onChangeUniversalResponse}
+          onUploadUniversalEvidence={onUploadUniversalEvidence}
+          onDeleteUniversalEvidence={onDeleteUniversalEvidence}
+          universalUploadErrors={universalUploadErrors}
         />
       )}
 

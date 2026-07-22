@@ -29,6 +29,15 @@ export default function VendorTechnicalStage({
   // on-blur save handler wired onto every clause textarea below.
   saveState,
   onFieldBlur,
+  // Universal (ARC-wide) envelope — a DISTINCT section rendered above the items.
+  universalClauses = [],
+  universalMinPass = null,
+  universalResponses = {},
+  universalFiles = {},
+  onChangeUniversalResponse,
+  onUploadUniversalEvidence,
+  onDeleteUniversalEvidence,
+  universalUploadErrors = {},
 }) {
   return (
         <div className="step-pane">
@@ -65,6 +74,133 @@ export default function VendorTechnicalStage({
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
               <div>{techError}</div>
+            </div>
+          )}
+
+          {/* Universal (ARC-wide) clauses — a DISTINCT section, ABOVE the per-item
+              cards and clearly labelled. Reuses the same clause-row markup but is
+              driven by the universal props (kept structurally separate). */}
+          {Array.isArray(universalClauses) && universalClauses.length > 0 && (
+            <div className="product-card">
+              <div className="product-head">
+                <div>
+                  <div className="name">
+                    <span>Universally configured — applies to the whole rate contract</span>
+                  </div>
+                  <div className="spec">These clauses are evaluated across the ENTIRE rate contract. Failing them excludes you from every product — independent of the per-item clauses below.</div>
+                </div>
+              </div>
+              <div>
+                <div className="q-card-head" style={{ borderTop: "1px solid var(--border)" }}>
+                  <h3>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Universal technical evaluation
+                  </h3>
+                  <span className="count">
+                    {universalClauses.filter(c => universalResponses[c.clause_id] != null && String(universalResponses[c.clause_id]).trim() !== "").length} of {universalClauses.length} responded
+                    {universalMinPass != null && (
+                      <> · min pass <span>{Math.min(100, Number(universalMinPass) || 0)}%</span></>
+                    )}
+                  </span>
+                </div>
+                {universalClauses.map((c, cidx) => {
+                  const resp = universalResponses[c.clause_id] ?? "";
+                  const files = universalFiles[c.clause_id] || [];
+                  const answered = resp.trim().length > 0;
+                  const uploadErr = universalUploadErrors?.[c.clause_id] || null;
+                  return (
+                    <div className={"clause" + (answered ? " is-answered" : "")} key={c.clause_id}>
+                      <span className="clause-num">{String(cidx + 1).padStart(2, "0")}</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="clause-text">{c.clause_text}</div>
+                        <div className="clause-meta">
+                          {c.weightage != null && (
+                            <span className="c-weight-pill">weight <span className="mono">{c.weightage}</span> marks</span>
+                          )}
+                          {c.clause_type && <span className="pill">{c.clause_type}</span>}
+                          {c.is_mandatory && <span className="pill warn">Mandatory</span>}
+                        </div>
+                        {!techSealed ? (
+                          <div className="clause-actions" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+                            <textarea
+                              className="textarea"
+                              style={{ width: "100%", minHeight: 72, fontSize: 13 }}
+                              value={resp}
+                              onChange={e => onChangeUniversalResponse(c.clause_id, e.target.value)}
+                              onBlur={onFieldBlur}
+                              placeholder="Enter your response to this clause…"
+                              disabled={techSealed || readOnly}
+                            />
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {files.map(f => (
+                                <span key={f.file_id} className="file-chip-mini flex items-center gap-1">
+                                  <a
+                                    href={f.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle" }}
+                                    title={f.original_name || f.url}
+                                  >
+                                    {(f.original_name || f.name || f.url?.split("/").pop() || "file").slice(0, 40)}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    style={{ marginLeft: 4, color: "var(--fg-3)", background: "none", border: "none", cursor: "pointer", fontSize: 11 }}
+                                    onClick={() => onDeleteUniversalEvidence(c.clause_id, f.file_id)}
+                                    disabled={techBusy || readOnly}
+                                    title="Remove"
+                                  >✕</button>
+                                </span>
+                              ))}
+                              <label className="upload-mini" style={{ cursor: "pointer" }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                Attach evidence
+                                <input
+                                  type="file"
+                                  style={{ display: "none" }}
+                                  onChange={e => { const f = e.target.files?.[0]; if (f) onUploadUniversalEvidence(c.clause_id, f); e.target.value = ""; }}
+                                  disabled={techBusy || readOnly}
+                                />
+                              </label>
+                            </div>
+                            {uploadErr && (
+                              <div className="guide danger" style={{ alignItems: "center", marginTop: 4, padding: "6px 10px" }}>
+                                <div className="g-ic" style={{ marginTop: 0 }}>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                </div>
+                                <div style={{ fontSize: 12 }}>{uploadErr}</div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 12.5, color: "var(--fg-2)", padding: "8px 12px", background: "var(--surface-2)", borderRadius: 6 }}>
+                              {resp || <em style={{ color: "var(--fg-4)" }}>No response recorded</em>}
+                            </div>
+                            {files.length > 0 && (
+                              <div className="flex gap-2 mt-2 flex-wrap">
+                                {files.map(f => (
+                                  <a
+                                    key={f.file_id}
+                                    href={f.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="file-chip-mini"
+                                    style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}
+                                    title={f.original_name || f.url}
+                                  >
+                                    {(f.original_name || f.name || f.url?.split("/").pop() || "evidence").slice(0, 40)}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
