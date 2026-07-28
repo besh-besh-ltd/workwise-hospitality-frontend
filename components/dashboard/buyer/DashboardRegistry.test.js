@@ -13,10 +13,10 @@ import {
 } from "./DashboardRegistry";
 
 describe("DashboardRegistry — integrity", () => {
-  it("declares 26 widgets (7 cross-role + 19 persona — incl. urgent-attention)", () => {
-    expect(DASHBOARD_WIDGETS).toHaveLength(26);
+  it("declares 27 widgets (8 cross-role incl. workflow-efficiency + 19 persona)", () => {
+    expect(DASHBOARD_WIDGETS).toHaveLength(27);
     const crossRole = DASHBOARD_WIDGETS.filter((w) => w.persona === PERSONAS.CROSS_ROLE);
-    expect(crossRole).toHaveLength(7);
+    expect(crossRole).toHaveLength(8);
   });
 
   it("every entry has the required fields", () => {

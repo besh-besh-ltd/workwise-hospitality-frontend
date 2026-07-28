@@ -16,6 +16,7 @@ import VendorOverviewStage from "@/components/dashboard/rate-contracts/vendor/st
 import VendorTechnicalStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorTechnicalStage";
 import VendorCommercialStage from "@/components/dashboard/rate-contracts/vendor/stages/VendorCommercialStage";
 import VendorArcNegotiationBanner from "@/components/dashboard/rate-contracts/vendor/VendorArcNegotiationBanner";
+import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
 import useArcQuotePreview from "@/hooks/useArcQuotePreview";
 
 // Sr 53 — 2-decimal money display (not whole-rupee rounding). The pricing
@@ -44,7 +45,24 @@ const blankLine = () => ({
   leadNote: "",
   validity_notes: "",
   charges: [],  // [{ name, amount, amountMode:'%'|'₹', tax:'', taxMode:'%'|'₹', note }]
+  // MRP (tax-inclusive) quoting — per-line method + raw audit inputs.
+  pricing_method: "TRADITIONAL",
+  entered_mrp: "",
+  mrp_discount: "",
+  mrp_discount_mode: "percentage",
 });
+
+// Mirror of backend deriveMrpLine — keep in sync (same formula as
+// quoteWizard/helpers.js deriveMrpBaseFE).
+const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
+  const m = safeNum(mrp);
+  const disc = discountMode === "percentage" ? (m * safeNum(discount)) / 100 : safeNum(discount);
+  const net = Math.max(0, m - disc);
+  const g = safeNum(gst);
+  const div = 1 + g / 100;
+  const base = div > 0 ? Math.round((net / div) * 100) / 100 : net;
+  return { net, base, gst: net - base };
+};
 
 // Phase 2 — map FE display tokens to engine mode strings.
 const toEngineMode = (m) => (m === "%" || m === "percentage") ? "percentage"
@@ -110,6 +128,12 @@ export default function VendorQuotePage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [price, setPrice] = useState({});           // { [arc_item_id]: line }
+
+  // MRP (tax-inclusive) quoting — quote-wide method selection (header
+  // convenience column). Persisted per line too; the modal sets one method
+  // for every line at once.
+  const [pricingMethod, setPricingMethod] = useState("TRADITIONAL");
+  const [methodModalOpen, setMethodModalOpen] = useState(false);
 
   const [globals, setGlobals] = useState({
     gstin: "",
@@ -289,6 +313,11 @@ export default function VendorQuotePage() {
             lead_time_days: ln.lead_time_days ?? "",
             moq: ln.moq ?? "",
             validity_notes: ln.validity_notes ?? "",
+            // MRP (tax-inclusive) quoting — per-line method + raw audit inputs.
+            pricing_method: ln.pricing_method === "MRP" ? "MRP" : "TRADITIONAL",
+            entered_mrp: ln.entered_mrp ?? "",
+            mrp_discount: ln.mrp_discount ?? "",
+            mrp_discount_mode: ln.mrp_discount_mode || "percentage",
           };
         }
         // Fill blanks for items without a draft line.
@@ -309,6 +338,8 @@ export default function VendorQuotePage() {
           // #2 — hydrate global charges from persisted quote_pricing.global_charges_input.
           // fromEngineCharges already handles undefined/null → [].
           setGlobalCharges(fromEngineCharges(qt?.quote_pricing?.global_charges_input));
+          // MRP (tax-inclusive) quoting — quote-wide method (header convenience column).
+          setPricingMethod(qt?.pricing_method === "MRP" ? "MRP" : "TRADITIONAL");
         }
         if (qt?.submitted_at && !qt?.withdrawn_at) {
           setSubmitted(true);
@@ -619,14 +650,25 @@ export default function VendorQuotePage() {
         tax_mode:    toEngineMode(c.taxMode || "%"),
         ...(c.note ? { comment: c.note } : {}),
       }));
+      const isMrp = l.pricing_method === "MRP";
       return {
         arc_item_id: it.id,
         rate:        safeNum(l.rate),
         gst_pct:     safeNum(l.gst_pct),
         gst_mode:    l.gstMode || "%",
         charges:     engineCharges,
+        // MRP mode — server resolves the base from these raw audit inputs
+        // before the engine runs.
+        pricing_method: isMrp ? "MRP" : "TRADITIONAL",
+        ...(isMrp
+          ? {
+              entered_mrp: safeNum(l.entered_mrp),
+              mrp_discount: safeNum(l.mrp_discount),
+              mrp_discount_mode: l.mrp_discount_mode || "percentage",
+            }
+          : {}),
       };
-    }).filter(line => line.rate > 0); // only priced lines need preview
+    }).filter(line => line.pricing_method === "MRP" ? safeNum(line.entered_mrp) > 0 : line.rate > 0); // only priced lines need preview
     if (lines.length === 0) return null;
     return { arc_id: Number(contractId), lines, global_charges: globalChargesToEngine(globalCharges) };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -645,8 +687,13 @@ export default function VendorQuotePage() {
     }
     // Client fallback (Phase 1 math; replaced by engine once preview responds).
     const l = priceLine(itemId);
-    if (!l.rate) return 0;
-    const subtotal = qty * safeNum(l.rate) + qty * safeNum(l.freight);
+    // MRP mode — substitute the derived exclusive base for the (blank) rate
+    // field; same formula as the backend's deriveMrpLine.
+    const effectiveRate = l.pricing_method === "MRP"
+      ? deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct }).base
+      : safeNum(l.rate);
+    if (!effectiveRate) return 0;
+    const subtotal = qty * effectiveRate + qty * safeNum(l.freight);
     const tax = l.gstMode === "%" ? (subtotal * safeNum(l.gst_pct)) / 100 : qty * safeNum(l.gst_pct);
     return q2(subtotal + tax);
   };
@@ -694,9 +741,14 @@ export default function VendorQuotePage() {
     const extras = {};
     items.forEach(it => {
       const l = price[it.id] || blankLine();
-      if (!l.rate) return;
+      // MRP mode — substitute the derived exclusive base for the (blank)
+      // rate field; same formula as the backend's deriveMrpLine.
+      const effectiveRate = l.pricing_method === "MRP"
+        ? deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct }).base
+        : safeNum(l.rate);
+      if (!effectiveRate) return;
       const qty = safeNum(it.committed_qty ?? it.indicative_qty ?? 0);
-      const sub = qty * safeNum(l.rate);
+      const sub = qty * effectiveRate;
       subtotal += sub;
       gst += l.gstMode === "%" ? (sub * safeNum(l.gst_pct)) / 100 : qty * safeNum(l.gst_pct);
       (l.charges || []).forEach(c => {
@@ -902,7 +954,10 @@ export default function VendorQuotePage() {
     if (paymentTotal !== 100) return false;
     return items.length > 0 && items.every(it => {
       const l = priceLine(it.id);
-      return safeNum(l.rate) > 0 && gstIsSet(l.gst_pct);
+      // MRP mode — "priced" is entered_mrp > 0, not rate (rate stays blank
+      // on the FE; the backend derives it). Mirrors the previewDraft filter.
+      const priced = l.pricing_method === "MRP" ? safeNum(l.entered_mrp) > 0 : safeNum(l.rate) > 0;
+      return priced && gstIsSet(l.gst_pct);
     });
   })();
 
@@ -934,8 +989,12 @@ export default function VendorQuotePage() {
     payment_terms: globals.paymentTerms.map(t => `${t.label || ""}: ${safeNum(t.pct)}%`).join(" | "),
     gstin_used: globals.gstin || "",
     global_charges: globalChargesToEngine(globalCharges),
+    // MRP (tax-inclusive) quoting — quote-wide method (header convenience
+    // column); backend saveQuoteDraft reads req.body.pricing_method.
+    pricing_method: pricingMethod,
     lines: items.map(it => {
       const l = priceLine(it.id);
+      const isMrp = l.pricing_method === "MRP";
       // Phase 2 — send canonical engine charge array (not the legacy single freight number).
       // FE amountMode '%'/'₹' → engine amount_mode 'percentage'/'absolute'.
       // Per-charge tax: blank string → null (engine tri-state: inherit base tax);
@@ -950,7 +1009,11 @@ export default function VendorQuotePage() {
       }));
       return {
         arc_item_id:   it.id,
-        rate:          safeNum(l.rate) || null,
+        // MRP mode — the backend always re-derives from entered_mrp/mrp_discount
+        // before persisting, so leave rate as-is (FE-derived base, advisory).
+        rate:          isMrp
+          ? (deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct }).base || null)
+          : (safeNum(l.rate) || null),
         // Sr 52 — blank/null → null (draft stays a true blank on round-trip);
         // an explicit 0 must survive as 0, NOT collapse to null. The old
         // `safeNum(l.gst_pct) || null` bug: safeNum("") === 0, and 0 || null
@@ -961,6 +1024,15 @@ export default function VendorQuotePage() {
         lead_time_days: safeNum(l.lead_time_days) || null,
         moq:           safeNum(l.moq) || null,
         validity_notes: l.validity_notes || l.comment || "",
+        // MRP (tax-inclusive) quoting — audit inputs.
+        pricing_method: isMrp ? "MRP" : "TRADITIONAL",
+        ...(isMrp
+          ? {
+              entered_mrp: l.entered_mrp === "" ? null : safeNum(l.entered_mrp),
+              mrp_discount: l.mrp_discount === "" ? null : safeNum(l.mrp_discount),
+              mrp_discount_mode: l.mrp_discount_mode || "percentage",
+            }
+          : {}),
       };
     }),
   });
@@ -1514,6 +1586,9 @@ export default function VendorQuotePage() {
           // Sr 37 — auto-save chip + silent on-blur save (debounce above handles typing pauses).
           saveState={commercialSaveState}
           onFieldBlur={onCommercialFieldBlur}
+          // MRP (tax-inclusive) quoting — quote-wide method chip + selection modal.
+          pricingMethod={pricingMethod}
+          onOpenMethodModal={() => setMethodModalOpen(true)}
         />
       )}
 
@@ -1824,6 +1899,30 @@ export default function VendorQuotePage() {
           </div>
         </div>
       )}
+
+      <QuoteMethodModal
+        open={methodModalOpen}
+        current={pricingMethod}
+        onClose={() => setMethodModalOpen(false)}
+        onSelect={(method) => {
+          setPricingMethod(method);
+          setPrice((prev) => {
+            const next = {};
+            for (const key of Object.keys(prev)) {
+              // MRP lines are always percentage-GST (tax is extracted from within the
+              // price). Reset any absolute gstMode carried over from Traditional so it
+              // can't break the MRP round-trip; the server enforces percentage too.
+              next[key] =
+                method === "MRP"
+                  ? { ...prev[key], pricing_method: method, gstMode: "%" }
+                  : { ...prev[key], pricing_method: method };
+            }
+            return next;
+          });
+          scheduleCommercialAutosave();
+          setMethodModalOpen(false);
+        }}
+      />
     </main>
   );
 }

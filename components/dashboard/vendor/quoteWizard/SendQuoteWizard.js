@@ -37,6 +37,7 @@ import { getClarifications } from "@/services/clarification";
 import { checkBidExpired } from "@/utils/sharedFunctions";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
 import {
   RaiseClarificationModal,
   ClarificationDetailModal,
@@ -248,6 +249,10 @@ const SendQuoteWizard = () => {
 
   // step 3 — line items + commercials
   const [products, setProducts] = useState([]);
+  // MRP (tax-inclusive) quoting — quote-wide method selection. Persisted per
+  // line too, but the modal sets one method for every line at once.
+  const [pricingMethod, setPricingMethod] = useState("TRADITIONAL");
+  const [methodModalOpen, setMethodModalOpen] = useState(false);
   const [vendorGSTIN, setVendorGSTIN] = useState("");
   const [globalComment, setGlobalComment] = useState("");
   // Vendor's quote-wide attachments — sent as `term_and_condition_files`
@@ -335,21 +340,34 @@ const SendQuoteWizard = () => {
       return Number.isFinite(n) ? n : 0;
     };
     return {
-      items: products.map((p) => ({
-        unit_price: coerceAmount(p.unit_price),
-        quantity: coerceAmount(p.qty),
-        tax: coerceAmount(p.tax),
-        tax_mode: p.tax_mode || "percentage",
-        other_charges: (p.other_charges || [])
-          .filter((c) => c.name && c.name.trim())
-          .map((c) => ({
-            name: c.name,
-            amount: coerceAmount(c.amount),
-            amount_mode: c.amount_mode || "percentage",
-            tax: c.tax == null || c.tax === "" ? null : coerceAmount(c.tax),
-            tax_mode: c.tax_mode || "percentage",
-          })),
-      })),
+      items: products.map((p) => {
+        const isMrp = p.pricing_method === "MRP";
+        return {
+          unit_price: coerceAmount(p.unit_price),
+          quantity: coerceAmount(p.qty),
+          tax: coerceAmount(p.tax),
+          tax_mode: p.tax_mode || "percentage",
+          other_charges: (p.other_charges || [])
+            .filter((c) => c.name && c.name.trim())
+            .map((c) => ({
+              name: c.name,
+              amount: coerceAmount(c.amount),
+              amount_mode: c.amount_mode || "percentage",
+              tax: c.tax == null || c.tax === "" ? null : coerceAmount(c.tax),
+              tax_mode: c.tax_mode || "percentage",
+            })),
+          // MRP mode — server resolves base from these raw audit inputs
+          // before the engine runs (preview endpoint is opt-in per item).
+          pricing_method: isMrp ? "MRP" : "TRADITIONAL",
+          ...(isMrp
+            ? {
+                entered_mrp: coerceAmount(p.entered_mrp),
+                mrp_discount: coerceAmount(p.mrp_discount),
+                mrp_discount_mode: p.mrp_discount_mode || "percentage",
+              }
+            : {}),
+        };
+      }),
       global_charges: globalCharges
         .filter((c) => c.name && c.name.trim())
         .map((c) => ({
@@ -372,16 +390,28 @@ const SendQuoteWizard = () => {
   );
 
   // Sync engine-computed per-line totals back into product state so display
-  // helpers (line foot, badges) keep working off `p.total_price`.
+  // helpers (line foot, badges) keep working off `p.total_price`. Also syncs
+  // the engine's per-line base/base_tax (engine_base/engine_base_tax) so the
+  // MRP derived read-out ("Base ₹… · GST ₹… · Buyer pays ₹…") can render
+  // straight off product state without prop-drilling pricingTotals.
   useEffect(() => {
     if (!pricingTotals?.lines) return;
     setProducts((prev) => {
       let changed = false;
       const next = prev.map((p, idx) => {
-        const newTotal = pricingTotals.lines[idx]?.total ?? 0;
-        if (Number(p.total_price) === newTotal) return p;
+        const line = pricingTotals.lines[idx];
+        const newTotal = line?.total ?? 0;
+        const newBase = line?.base ?? 0;
+        const newBaseTax = line?.base_tax ?? 0;
+        if (
+          Number(p.total_price) === newTotal &&
+          Number(p.engine_base) === newBase &&
+          Number(p.engine_base_tax) === newBaseTax
+        ) {
+          return p;
+        }
         changed = true;
-        return { ...p, total_price: newTotal };
+        return { ...p, total_price: newTotal, engine_base: newBase, engine_base_tax: newBaseTax };
       });
       return changed ? next : prev;
     });
@@ -520,9 +550,16 @@ const SendQuoteWizard = () => {
   // Pricing step (step 3): at least one product priced with delivery.
   const canContinueStep3 = useMemo(() => {
     if (!products.length) return false;
-    return products.some(
-      (p) => (parseFloat(p.unit_price) || 0) > 0 && (parseInt(p.delivery_period) || 0) > 0
-    );
+    return products.some((p) => {
+      // MRP mode — "priced" is entered_mrp > 0, not unit_price (unit_price
+      // stays blank on the FE; the backend derives it). Mirrors the
+      // previewDraft / handleSubmit MRP branching below.
+      const priced =
+        p.pricing_method === "MRP"
+          ? (parseFloat(p.entered_mrp) || 0) > 0
+          : (parseFloat(p.unit_price) || 0) > 0;
+      return priced && (parseInt(p.delivery_period) || 0) > 0;
+    });
   }, [products]);
   // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
   const canContinueStep4 = useMemo(() => {
@@ -782,6 +819,10 @@ const SendQuoteWizard = () => {
 
         const built = buildInitialQuoteProducts(data);
         setProducts(built);
+        // Quote-wide pricing method (header convenience column) — seeded from
+        // the existing quote when re-visiting; a fresh quote defaults to
+        // Traditional.
+        setPricingMethod(data.quotations?.[0]?.pricing_method === "MRP" ? "MRP" : "TRADITIONAL");
 
         const hasQuote = (data.quotations || []).length > 0;
         setAlreadyQuoted(hasQuote);
@@ -1435,6 +1476,7 @@ const SendQuoteWizard = () => {
           // total_price comes from the engine via usePreviewTotals; backend
           // will recompute on save so this is purely advisory.
           const total = Number(p.total_price) || 0;
+          const isMrp = p.pricing_method === "MRP";
 
           return {
             id: p.id,
@@ -1444,6 +1486,8 @@ const SendQuoteWizard = () => {
             product_name: p.product_name,
             variant: p.variant,
             quantity: p.qty,
+            // In MRP mode this is the FE-derived base (advisory — the backend
+            // always re-derives from entered_mrp/mrp_discount before persisting).
             unit_price: parseFloat(p.unit_price) || 0,
             tax: parseFloat(p.tax) || 0,
             tax_mode: p.tax_mode || "percentage",
@@ -1464,6 +1508,16 @@ const SendQuoteWizard = () => {
                 comment: (c.comment || "").trim(),
                 is_global: false,
               })),
+            // MRP (tax-inclusive) quoting — audit inputs. Traditional/regret
+            // lines carry the method only; the raw MRP fields stay absent.
+            pricing_method: isMrp ? "MRP" : "TRADITIONAL",
+            ...(isMrp
+              ? {
+                  entered_mrp: p.entered_mrp === "" ? null : parseFloat(p.entered_mrp) || 0,
+                  mrp_discount: p.mrp_discount === "" ? null : parseFloat(p.mrp_discount) || 0,
+                  mrp_discount_mode: p.mrp_discount_mode || "percentage",
+                }
+              : {}),
           };
         });
 
@@ -1476,10 +1530,12 @@ const SendQuoteWizard = () => {
 
       // Every filled line must be complete (legacy parity): a priced line
       // needs a delivery period and vice-versa. Fully empty lines pass —
-      // they go out as skipped (unit_price 0).
-      const hasPartialLine = filteredProducts.some(
-        (p) => (p.unit_price > 0) !== (p.delivery_period > 0)
-      );
+      // they go out as skipped (unit_price 0). MRP mode — "priced" is
+      // entered_mrp > 0, not unit_price (unit_price is 0/advisory for MRP lines).
+      const hasPartialLine = filteredProducts.some((p) => {
+        const priced = p.pricing_method === "MRP" ? (p.entered_mrp || 0) > 0 : p.unit_price > 0;
+        return priced !== (p.delivery_period > 0);
+      });
       if (hasPartialLine) {
         toast.error("Base price and delivery period must be greater than zero");
         return;
@@ -1492,6 +1548,9 @@ const SendQuoteWizard = () => {
         products: filteredProducts,
         globalPaymentTerms: "",
         globalComment,
+        // MRP (tax-inclusive) quoting — quote-wide method (header convenience
+        // column); OQ2: the modal sets one method for every line.
+        pricing_method: pricingMethod,
         // Vendor's quote-wide attachments. The backend reads this key and stores
         // them in `tbl_quotes_files` (file_type='term_and_condition'), scoped to
         // this vendor's quote — separate from the buyer's RFQ files. getRfqById
@@ -1778,6 +1837,8 @@ const SendQuoteWizard = () => {
             isBidExpired={isBidExpired}
             activeNegotiationProductIds={activeNegotiationProductIds}
             negotiationQuoteSubmitted={negotiationQuoteSubmitted}
+            pricingMethod={pricingMethod}
+            onOpenMethodModal={() => setMethodModalOpen(true)}
           />
         )}
 
@@ -1922,6 +1983,27 @@ const SendQuoteWizard = () => {
           handleRegretReason={handleRegret}
         />
       )}
+
+      <QuoteMethodModal
+        open={methodModalOpen}
+        current={pricingMethod}
+        onClose={() => setMethodModalOpen(false)}
+        onSelect={(method) => {
+          markUnsaved();
+          setPricingMethod(method);
+          // MRP lines are always percentage-GST (tax is extracted from within the
+          // price). Reset any absolute tax_mode a line carried over from Traditional
+          // so it can't break the MRP round-trip; the server enforces this too.
+          setProducts((prev) =>
+            prev.map((p) =>
+              method === "MRP"
+                ? { ...p, pricing_method: method, tax_mode: "percentage" }
+                : { ...p, pricing_method: method }
+            )
+          );
+          setMethodModalOpen(false);
+        }}
+      />
 
       <RaiseClarificationModal
         show={raiseClarOpen}
@@ -3057,6 +3139,8 @@ const Step3Pricing = ({
   isBidExpired,
   activeNegotiationProductIds,
   negotiationQuoteSubmitted,
+  pricingMethod,
+  onOpenMethodModal,
 }) => {
   const hasGlobalCharges = (globalCharges || []).some(
     (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
@@ -3101,6 +3185,19 @@ const Step3Pricing = ({
             )}
           </div>
         </div>
+        {/* MRP (tax-inclusive) quoting — quote-wide method chip. Opens the
+            shared selection modal; selecting a method maps it onto every
+            product line (OQ2: quote-wide, per-line grain only for audit). */}
+        <button
+          type="button"
+          className={styles.pill}
+          style={{ cursor: isReadOnly ? "default" : "pointer", flexShrink: 0 }}
+          onClick={() => !isReadOnly && onOpenMethodModal?.()}
+          disabled={isReadOnly}
+        >
+          Method: {pricingMethod === "MRP" ? "MRP (tax-inclusive)" : "Traditional"}
+          {!isReadOnly && <span style={{ marginLeft: 6, color: "var(--fg-3, #71717a)" }}>▸ change</span>}
+        </button>
       </div>
 
       <div className={styles.cols}>
@@ -3232,39 +3329,106 @@ const Step3Pricing = ({
                   </div>
                   <div className={styles.priceGrid}>
                     <div>
-                      <label className={styles.label}>
-                        Unit price <span className={styles.req}>*</span>
-                      </label>
-                      <div className={styles.inputGroup}>
-                        <div className={styles.prefix}>₹</div>
-                        <input
-                          type="number"
-                          className={`${styles.input} ${styles.inputNum}`}
-                          value={p.unit_price ?? ""}
-                          onChange={(e) =>
-                            onUpdateProduct(idx, { unit_price: e.target.value })
-                          }
-                          placeholder="0.00"
-                          min={0}
-                          step="0.01"
-                          onWheel={(e) => e.currentTarget.blur()}
-                          disabled={locked || !isFieldNegotiable("base_price", "unit_price", "price")}
-                        />
-                      </div>
-                      {(() => {
-                        const nf = negByName("unit_price") || negByName("base_price") || negByName("price");
-                        if (!nf?.targetPrice) return null;
-                        return (
-                          <div className={styles.negHint}>
-                            <span className={styles.negHintDot} />
-                            Buyer's ask: <span className={styles.mono}>₹{fmtINR(nf.targetPrice)}</span>
+                      {p.pricing_method === "MRP" ? (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <label className={styles.label}>
+                              MRP <span className={styles.req}>*</span>
+                            </label>
+                            <div className={styles.inputGroup}>
+                              <div className={styles.prefix}>₹</div>
+                              <input
+                                type="number"
+                                className={`${styles.input} ${styles.inputNum}`}
+                                value={p.entered_mrp ?? ""}
+                                onChange={(e) =>
+                                  onUpdateProduct(idx, { entered_mrp: e.target.value })
+                                }
+                                placeholder="0.00"
+                                min={0}
+                                step="0.01"
+                                onWheel={(e) => e.currentTarget.blur()}
+                                disabled={locked}
+                              />
+                            </div>
                           </div>
-                        );
-                      })()}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <label className={styles.label}>Discount</label>
+                            <div className={styles.taxField}>
+                              <input
+                                type="number"
+                                className={styles.taxInput}
+                                value={p.mrp_discount ?? ""}
+                                onChange={(e) =>
+                                  onUpdateProduct(idx, { mrp_discount: e.target.value })
+                                }
+                                placeholder="0"
+                                min={0}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                disabled={locked}
+                              />
+                              <div className={styles.modeSeg} role="group" aria-label="Discount mode">
+                                <button
+                                  type="button"
+                                  className={p.mrp_discount_mode === "percentage" ? styles.modeSegActive : ""}
+                                  onClick={() => onUpdateProduct(idx, { mrp_discount_mode: "percentage" })}
+                                  disabled={locked}
+                                  aria-pressed={p.mrp_discount_mode === "percentage"}
+                                >
+                                  %
+                                </button>
+                                <button
+                                  type="button"
+                                  className={p.mrp_discount_mode === "absolute" ? styles.modeSegActive : ""}
+                                  onClick={() => onUpdateProduct(idx, { mrp_discount_mode: "absolute" })}
+                                  disabled={locked}
+                                  aria-pressed={p.mrp_discount_mode === "absolute"}
+                                >
+                                  ₹
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <label className={styles.label}>
+                            Unit price <span className={styles.req}>*</span>
+                          </label>
+                          <div className={styles.inputGroup}>
+                            <div className={styles.prefix}>₹</div>
+                            <input
+                              type="number"
+                              className={`${styles.input} ${styles.inputNum}`}
+                              value={p.unit_price ?? ""}
+                              onChange={(e) =>
+                                onUpdateProduct(idx, { unit_price: e.target.value })
+                              }
+                              placeholder="0.00"
+                              min={0}
+                              step="0.01"
+                              onWheel={(e) => e.currentTarget.blur()}
+                              disabled={locked || !isFieldNegotiable("base_price", "unit_price", "price")}
+                            />
+                          </div>
+                          {(() => {
+                            const nf = negByName("unit_price") || negByName("base_price") || negByName("price");
+                            if (!nf?.targetPrice) return null;
+                            return (
+                              <div className={styles.negHint}>
+                                <span className={styles.negHintDot} />
+                                Buyer's ask: <span className={styles.mono}>₹{fmtINR(nf.targetPrice)}</span>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
                     </div>
 
                     <div>
-                      <label className={styles.label}>Tax (GST)</label>
+                      <label className={styles.label}>
+                        {p.pricing_method === "MRP" ? "GST % (extracted from MRP)" : "Tax (GST)"}
+                      </label>
                       <div className={styles.taxField}>
                         <input
                           type="number"
@@ -3278,26 +3442,42 @@ const Step3Pricing = ({
                           onWheel={(e) => e.currentTarget.blur()}
                           disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
                         />
-                        <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                          <button
-                            type="button"
-                            className={p.tax_mode === "percentage" ? styles.modeSegActive : ""}
-                            onClick={() => onUpdateProduct(idx, { tax_mode: "percentage" })}
-                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                            aria-pressed={p.tax_mode === "percentage"}
-                          >
-                            %
-                          </button>
-                          <button
-                            type="button"
-                            className={p.tax_mode === "absolute" ? styles.modeSegActive : ""}
-                            onClick={() => onUpdateProduct(idx, { tax_mode: "absolute" })}
-                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                            aria-pressed={p.tax_mode === "absolute"}
-                          >
-                            ₹
-                          </button>
-                        </div>
+                        {p.pricing_method === "MRP" ? (
+                          // MRP: GST is always a percentage extracted from within the
+                          // price — no ₹ option (an absolute GST would break the MRP
+                          // round-trip; the server also forces percentage).
+                          <div className={styles.modeSeg} role="group" aria-label="Tax mode">
+                            <button
+                              type="button"
+                              className={styles.modeSegActive}
+                              disabled
+                              aria-pressed={true}
+                            >
+                              %
+                            </button>
+                          </div>
+                        ) : (
+                          <div className={styles.modeSeg} role="group" aria-label="Tax mode">
+                            <button
+                              type="button"
+                              className={p.tax_mode === "percentage" ? styles.modeSegActive : ""}
+                              onClick={() => onUpdateProduct(idx, { tax_mode: "percentage" })}
+                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
+                              aria-pressed={p.tax_mode === "percentage"}
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              className={p.tax_mode === "absolute" ? styles.modeSegActive : ""}
+                              onClick={() => onUpdateProduct(idx, { tax_mode: "absolute" })}
+                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
+                              aria-pressed={p.tax_mode === "absolute"}
+                            >
+                              ₹
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {(() => {
                         const ntx =
@@ -3386,6 +3566,12 @@ const Step3Pricing = ({
                       <BuyerAskHint value={fmtNegTarget(negByName("delivery_period"), "days")} />
                     </div>
                   </div>
+                  {p.pricing_method === "MRP" && (
+                    <div style={{ marginTop: 10, fontSize: 12, color: "var(--fg-3, #71717a)" }}>
+                      Base ₹{fmtINR(p.engine_base || 0)} · GST ₹{fmtINR(p.engine_base_tax || 0)} · Buyer pays ₹
+                      {fmtINR(p.total_price || 0)}
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}

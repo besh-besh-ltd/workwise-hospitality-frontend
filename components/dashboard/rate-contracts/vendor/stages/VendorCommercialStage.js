@@ -18,6 +18,18 @@ const safeNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// Mirror of backend deriveMrpLine — keep in sync (same formula as
+// quote.js's deriveMrpBaseFE / quoteWizard/helpers.js deriveMrpBaseFE).
+const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
+  const m = safeNum(mrp);
+  const disc = discountMode === "percentage" ? (m * safeNum(discount)) / 100 : safeNum(discount);
+  const net = Math.max(0, m - disc);
+  const g = safeNum(gst);
+  const div = 1 + g / 100;
+  const base = div > 0 ? Math.round((net / div) * 100) / 100 : net;
+  return { net, base, gst: net - base };
+};
+
 export default function VendorCommercialStage({
   arc,
   items,
@@ -80,6 +92,9 @@ export default function VendorCommercialStage({
   // on-blur save handler wired onto every field below.
   saveState,
   onFieldBlur,
+  // MRP (tax-inclusive) quoting — quote-wide method + the modal opener.
+  pricingMethod,
+  onOpenMethodModal,
 }) {
   const LINE_CHARGE_OPTIONS = (lineChargeTypes && lineChargeTypes.length) ? lineChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
   const GLOBAL_CHARGE_OPTIONS = (globalChargeTypes && globalChargeTypes.length) ? globalChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
@@ -101,6 +116,18 @@ export default function VendorCommercialStage({
             {!readOnly && (
               <div className="flex flex-col items-end gap-2">
                 <SaveChip state={saveState} />
+                {/* MRP (tax-inclusive) quoting — quote-wide method chip. Opens the
+                    shared selection modal; selecting a method maps it onto every
+                    line (OQ2: quote-wide, per-line grain only for audit). */}
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onOpenMethodModal && onOpenMethodModal()}
+                >
+                  Method: {pricingMethod === "MRP" ? "MRP (tax-inclusive)" : "Traditional"}
+                  <span style={{ marginLeft: 6, color: "var(--fg-3)" }}>▸ change</span>
+                </button>
               </div>
             )}
           </div>
@@ -144,26 +171,71 @@ export default function VendorCommercialStage({
                     {!readOnly && (
                     <div className="vq-fields">
                       <div className="vq-field">
-                        <label className="label">Unit price <span className="req">*</span></label>
-                        <div className="input-group">
-                          <div className="prefix">₹</div>
-                          <input
-                            type="number"
-                            className="input input-num"
-                            value={l.rate}
-                            onChange={e => updateLine(it.id, { rate: e.target.value })}
-                            onBlur={onFieldBlur}
-                            placeholder="0.00"
-                            min="0"
-                            step="0.01"
-                            disabled={readOnly}
-                          />
-                          <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}><span>/&nbsp;{it.uom || ""}</span></div>
-                        </div>
+                        {l.pricing_method === "MRP" ? (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <label className="label">MRP <span className="req">*</span></label>
+                              <div className="input-group">
+                                <div className="prefix">₹</div>
+                                <input
+                                  type="number"
+                                  className="input input-num"
+                                  value={l.entered_mrp}
+                                  onChange={e => updateLine(it.id, { entered_mrp: e.target.value })}
+                                  onBlur={onFieldBlur}
+                                  placeholder="0.00"
+                                  min="0"
+                                  step="0.01"
+                                  disabled={readOnly}
+                                />
+                              </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <label className="label">Discount</label>
+                              <div className="input-group">
+                                <input
+                                  type="number"
+                                  className="input input-num"
+                                  value={l.mrp_discount}
+                                  onChange={e => updateLine(it.id, { mrp_discount: e.target.value })}
+                                  onBlur={onFieldBlur}
+                                  placeholder="0"
+                                  min="0"
+                                  disabled={readOnly}
+                                />
+                                <div className="suffix" style={{ padding: 0 }}>
+                                  <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                                    <button type="button" className={l.mrp_discount_mode === "percentage" ? "is-active" : ""} onClick={() => updateLine(it.id, { mrp_discount_mode: "percentage" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                                    <button type="button" className={l.mrp_discount_mode === "absolute" ? "is-active" : ""} onClick={() => updateLine(it.id, { mrp_discount_mode: "absolute" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <label className="label">Unit price <span className="req">*</span></label>
+                            <div className="input-group">
+                              <div className="prefix">₹</div>
+                              <input
+                                type="number"
+                                className="input input-num"
+                                value={l.rate}
+                                onChange={e => updateLine(it.id, { rate: e.target.value })}
+                                onBlur={onFieldBlur}
+                                placeholder="0.00"
+                                min="0"
+                                step="0.01"
+                                disabled={readOnly}
+                              />
+                              <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}><span>/&nbsp;{it.uom || ""}</span></div>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="vq-field">
                         {/* Sr 52 — GST is mandatory (0 is a valid explicit choice; blank is not). */}
-                        <label className="label">GST <span className="req">*</span></label>
+                        <label className="label">{l.pricing_method === "MRP" ? "GST (extracted)" : "GST"} <span className="req">*</span></label>
                         <div className="input-group">
                           <input
                             type="number"
@@ -177,8 +249,17 @@ export default function VendorCommercialStage({
                           />
                           <div className="suffix" style={{ padding: 0 }}>
                             <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                              <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
-                              <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                              {l.pricing_method === "MRP" ? (
+                                // MRP: GST is always a percentage extracted from within the price —
+                                // no ₹ option (an absolute GST would break the MRP round-trip; the
+                                // server forces percentage regardless of what the client sends).
+                                <button type="button" className="is-active" style={{ borderRadius: 0 }} disabled>%</button>
+                              ) : (
+                                <>
+                                  <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                                  <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -224,6 +305,15 @@ export default function VendorCommercialStage({
                       </div>
                     </div>
                     )}
+
+                    {!readOnly && l.pricing_method === "MRP" && (() => {
+                      const derived = deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct });
+                      return (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "var(--fg-3)" }}>
+                          Base ₹{fmtN(derived.base)} · GST ₹{fmtN(derived.gst)} · Buyer pays ₹{fmtN(lineTotal(it.id, qty))}
+                        </div>
+                      );
+                    })()}
 
                     {readOnly && l.rate && (
                       <div className="vq-readback">

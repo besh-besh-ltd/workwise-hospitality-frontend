@@ -118,14 +118,40 @@ export const buildInitialQuoteProducts = (rfq) => {
       document_files: [],
       other_charges: [...migrated, ...existing],
       total_price: parseFloat(quote.total_price) || 0,
+
+      // MRP (tax-inclusive) quoting — audit inputs, seeded from the quoted
+      // line when present. Default TRADITIONAL/blank for a fresh quote.
+      pricing_method: quote.pricing_method || "TRADITIONAL",
+      entered_mrp: quote.entered_mrp ?? "",
+      mrp_discount: quote.mrp_discount ?? "",
+      mrp_discount_mode: quote.mrp_discount_mode || "percentage",
     };
   });
+};
+
+/** Mirror of backend deriveMrpLine — keep in sync. */
+export const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
+  const m = parseFloat(mrp) || 0;
+  const disc = discountMode === 'percentage' ? (m * (parseFloat(discount)||0))/100 : (parseFloat(discount)||0);
+  const net = Math.max(0, m - disc);
+  const g = parseFloat(gst) || 0;
+  const div = 1 + g/100;
+  const base = div > 0 ? Math.round((net/div)*100)/100 : net;
+  return { net, base, gst: net - base };
 };
 
 /** Compute per-product line total with cascading charge logic. */
 export const computeLineTotal = (p) => {
   const qty = parseFloat(p.qty) || 0;
-  const unit = parseFloat(p.unit_price) || 0;
+  const unit =
+    p.pricing_method === "MRP"
+      ? deriveMrpBaseFE({
+          mrp: p.entered_mrp,
+          discount: p.mrp_discount,
+          discountMode: p.mrp_discount_mode,
+          gst: p.tax,
+        }).base
+      : parseFloat(p.unit_price) || 0;
   const base = qty * unit;
   if (base <= 0) return 0;
 
@@ -174,7 +200,15 @@ export const computeTotals = (products) => {
 
   products.forEach((p) => {
     const qty = parseFloat(p.qty) || 0;
-    const unit = parseFloat(p.unit_price) || 0;
+    const unit =
+      p.pricing_method === "MRP"
+        ? deriveMrpBaseFE({
+            mrp: p.entered_mrp,
+            discount: p.mrp_discount,
+            discountMode: p.mrp_discount_mode,
+            gst: p.tax,
+          }).base
+        : parseFloat(p.unit_price) || 0;
     const base = qty * unit;
     if (base <= 0) return;
     subtotal += base;
