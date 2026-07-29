@@ -15,7 +15,7 @@ import {
   sendBUCredentials,
 } from "@/services/hospitality";
 
-import CompanySwitcher from "./hospitality-manager/CompanySwitcher";
+import CompanyListSidebar from "./hospitality-manager/CompanyListSidebar";
 import CompanyOverview from "./hospitality-manager/CompanyOverview";
 import BusinessUnitsTab from "./hospitality-manager/BusinessUnitsTab";
 import PeopleTab from "./hospitality-manager/PeopleTab";
@@ -23,6 +23,8 @@ import CompanyFormModal from "./hospitality-manager/modals/CompanyFormModal";
 import HotelFormModal from "./hospitality-manager/modals/HotelFormModal";
 import PaymentModal from "./hospitality-manager/modals/PaymentModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
+import useIsMobile from "@/hooks/useIsMobile";
 import styles from "./hospitality-manager/HospitalityManager.module.css";
 
 const dedupeHospitalityMappings = (list = []) => {
@@ -40,6 +42,8 @@ const dedupeHospitalityMappings = (list = []) => {
 
 const HospitalityManager = () => {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // --- Core Data ---
   const [companies, setCompanies] = useState([]);
@@ -454,103 +458,100 @@ const HospitalityManager = () => {
   }
 
   // --- Main Layout ---
+  const companySidebar = (
+    <CompanyListSidebar
+      companies={companies}
+      selectedCompanyId={selectedCompanyId}
+      onSelect={(id) => { setSelectedCompanyId(id); if (isMobile) setSidebarOpen(false); }}
+      onAddCompany={() => setShowCompanyModal(true)}
+      isLoading={isLoadingCompanies}
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+    />
+  );
+
   return (
     <>
-      {/* Header */}
-      <section className="buyer-common-header sc-pt-80">
-        <div className="container-fluid">
-          <div className={styles.pageHeader}>
-            <div>
-              <h1 className={styles.pageTitle}>Hospitality Network</h1>
-              <div className={styles.pageSubtitle}>Manage your companies, business units and teams</div>
-            </div>
-            <CompanySwitcher
-              companies={companies}
-              selectedCompanyId={selectedCompanyId}
-              onSelect={setSelectedCompanyId}
-              onAddCompany={() => setShowCompanyModal(true)}
-              isLoading={isLoadingCompanies}
+      <TwoPanelPage
+        title="Hospitality Network"
+        subtitle="Manage your companies, business units and teams."
+        sidebar={companySidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
+        mobileToggleLabel="Select Company"
+      >
+        {selectedCompany ? (
+          <>
+            <CompanyOverview
+              company={selectedCompany}
+              hotelCount={hotels.length}
+              userCount={companyUserMappings.length}
+              activeCount={activeHotelCount}
             />
-          </div>
-        </div>
-      </section>
 
-      {/* Content */}
-      <section className="buyer-sec-1">
-        <div className="container-fluid">
-          {selectedCompany ? (
-            <>
-              <CompanyOverview
-                company={selectedCompany}
-                hotelCount={hotels.length}
-                userCount={companyUserMappings.length}
-                activeCount={activeHotelCount}
-              />
-
-              {/* Tab Bar */}
-              <div className={styles.tabBar}>
-                <button
-                  type="button"
-                  className={`${styles.tab} ${activeTab === "hotels" ? styles.tabActive : ""}`}
-                  onClick={() => setActiveTab("hotels")}
-                >
-                  Business Units
-                  <span className={styles.tabCount}>{hotels.length}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.tab} ${activeTab === "users" ? styles.tabActive : ""}`}
-                  onClick={() => setActiveTab("users")}
-                >
-                  People
-                  <span className={styles.tabCount}>{companyUserMappings.length}</span>
-                </button>
-              </div>
-
-              {/* Tab Content */}
-              {activeTab === "hotels" && (
-                <BusinessUnitsTab
-                  hotels={hotels}
-                  getHotelUserCount={getHotelUserCount}
-                  onAddHotel={() => {
-                    setEditingHotel(null);
-                    setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
-                    setShowHotelModal(true);
-                  }}
-                  onCreateHO={handleCreateHO}
-                  onEditHotel={handleEditHotel}
-                  onSetHierarchy={handleSetHierarchy}
-                  onSendPayment={() => setShowPaymentModal(true)}
-                  onSendCredentials={handleSendCredentials}
-                  sendingCredentialsHotelId={sendingCredentialsHotelId}
-                  isLoading={isLoadingHotels}
-                  hasPendingPayments={hasPendingPayments}
-                />
-              )}
-
-              {activeTab === "users" && (
-                <PeopleTab
-                  users={filteredUserMappings}
-                  filter={userMappingFilter}
-                  onFilterChange={setUserMappingFilter}
-                  onRemoveUser={handleRemoveUserMapping}
-                  isLoading={isLoadingCompanyMappingList}
-                />
-              )}
-            </>
-          ) : (
-            <div className={styles.emptyState} style={{ paddingTop: "80px" }}>
-              <div className={styles.emptyIcon}>
-                <BsBuilding size={36} />
-              </div>
-              <h3 className={styles.emptyTitle}>Select a company</h3>
-              <p className={styles.emptyDescription}>
-                Choose a company from the dropdown above to view and manage its details.
-              </p>
+            {/* Tab Bar */}
+            <div className={styles.tabBar}>
+              <button
+                type="button"
+                className={`${styles.tab} ${activeTab === "hotels" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("hotels")}
+              >
+                Business Units
+                <span className={styles.tabCount}>{hotels.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.tab} ${activeTab === "users" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("users")}
+              >
+                People
+                <span className={styles.tabCount}>{companyUserMappings.length}</span>
+              </button>
             </div>
-          )}
-        </div>
-      </section>
+
+            {/* Tab Content */}
+            {activeTab === "hotels" && (
+              <BusinessUnitsTab
+                hotels={hotels}
+                getHotelUserCount={getHotelUserCount}
+                onAddHotel={() => {
+                  setEditingHotel(null);
+                  setHotelDocuments({ gst: null, pan: null, cancelled_cheque: null, msme: null });
+                  setShowHotelModal(true);
+                }}
+                onCreateHO={handleCreateHO}
+                onEditHotel={handleEditHotel}
+                onSetHierarchy={handleSetHierarchy}
+                onSendPayment={() => setShowPaymentModal(true)}
+                onSendCredentials={handleSendCredentials}
+                sendingCredentialsHotelId={sendingCredentialsHotelId}
+                isLoading={isLoadingHotels}
+                hasPendingPayments={hasPendingPayments}
+              />
+            )}
+
+            {activeTab === "users" && (
+              <PeopleTab
+                users={filteredUserMappings}
+                filter={userMappingFilter}
+                onFilterChange={setUserMappingFilter}
+                onRemoveUser={handleRemoveUserMapping}
+                isLoading={isLoadingCompanyMappingList}
+              />
+            )}
+          </>
+        ) : (
+          <div className={styles.emptyState} style={{ paddingTop: "80px" }}>
+            <div className={styles.emptyIcon}>
+              <BsBuilding size={36} />
+            </div>
+            <h3 className={styles.emptyTitle}>Select a company</h3>
+            <p className={styles.emptyDescription}>
+              Choose a company from the sidebar to view and manage its details.
+            </p>
+          </div>
+        )}
+      </TwoPanelPage>
 
       {/* Modals */}
       <CompanyFormModal

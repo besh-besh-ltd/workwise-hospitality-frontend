@@ -1,0 +1,176 @@
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  border: 1px solid;
+  flex-wrap: wrap;
+}
+
+/* ── Themes ── */
+.bannerActive {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.bannerWarning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.bannerExpired {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.bannerPending {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.bannerNone {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  border-style: dashed;
+}
+
+/* ── Layout ── */
+.left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Status Badge ── */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badgeActive { background: #22c55e; color: #fff; }
+.badgeWarning { background: #f59e0b; color: #fff; }
+.badgeExpired { background: #ef4444; color: #fff; }
+.badgePending { background: #3b82f6; color: #fff; }
+.badgeNone { background: #94a3b8; color: #fff; }
+
+/* ── Info ── */
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.infoMain {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.infoSub {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+/* ── Progress ── */
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 120px;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+.fillActive { background: #22c55e; }
+.fillWarning { background: #f59e0b; }
+
+.progressLabel {
+  font-size: 10px;
+  color: #94a3b8;
+  text-align: right;
+}
+
+/* ── CTA Button ── */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.ctaActive {
+  background: #fff;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  &:hover { background: #f0fdf4; }
+}
+
+.ctaWarning {
+  background: #f59e0b;
+  color: #fff;
+  &:hover { background: #d97706; }
+}
+
+.ctaExpired {
+  background: #ef4444;
+  color: #fff;
+  &:hover { background: #dc2626; }
+}
+
+.ctaPending {
+  background: #3b82f6;
+  color: #fff;
+  &:hover { background: #2563eb; }
+}
+
+.ctaPrimary {
+  background: var(--primary-color);
+  color: #fff;
+  &:hover { background: #1e4a8a; }
+}

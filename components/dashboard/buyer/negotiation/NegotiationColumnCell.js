@@ -139,7 +139,7 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
     if (vendorView) {
       const tokenParam = token !== undefined ? `&token=${token}` : '';
       router.push(
-        `/dashboard/vendor/send-quote?type=update-quote&id=${rfq_id}${tokenParam}&showTechEvalRestrictions=${isReverseAuctionActive}`
+        `/dashboard/vendor/quote?type=update-quote&id=${rfq_id}${tokenParam}&showTechEvalRestrictions=${isReverseAuctionActive}`
       );
       return;
     }

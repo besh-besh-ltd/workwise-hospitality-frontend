@@ -10,6 +10,7 @@ import { toast } from "react-toastify";
 import Select from 'react-select';
 import { formatDisplayDate, formatRFQNumber, getEntityLabel, checkBidExpired } from "@/utils/sharedFunctions";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import { Badge, Modal, Form } from "react-bootstrap";
@@ -18,39 +19,46 @@ import RfqTermsModal from "@/components/modal/RfqTermsModal";
 import EvaluationProgressTracker from "./EvaluationProgressTracker";
 import UnifiedSubmitForApproval from "./UnifiedSubmitForApproval";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
 import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, BsHouse, BsArrowRepeat, BsClipboardCheck, BsBoxArrowUpRight, BsTag, BsChatLeftText, BsList, BsChevronDown, BsLock, BsClock, BsCheckCircleFill, BsCheck2All } from "react-icons/bs";
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
+import ReadMore from "@/components/shared/ReadMore";
 
 
 
-const BuyerTechnicalEvaluation = () => {
+// `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
+// page, locked to one RFQ: the RFQ-list sidebar, the page chrome and the RFQ
+// hero are all suppressed, and the id comes from the prop instead of the URL.
+const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [rfq_id, setRfqId] = useState(router.query.rfq_id || null);
+  const [rfq_id, setRfqId] = useState((isEmbedded ? rfqIdProp : router.query.rfq_id) || null);
   const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
 
-  // Sync rfq_id from URL on initial load / browser back-forward
+  // Sync rfq_id from the URL (standalone) or the rfqId prop (embedded) on
+  // initial load / browser back-forward / parent change.
   useEffect(() => {
-    const queryRfqId = router.query.rfq_id || null;
-    if (queryRfqId && queryRfqId !== rfq_id) {
-      setRfqId(queryRfqId);
+    const next = (isEmbedded ? rfqIdProp : router.query.rfq_id) || null;
+    if (next && next !== rfq_id) {
+      setRfqId(next);
     }
-  }, [router.query.rfq_id]);
+  }, [router.query.rfq_id, rfqIdProp, isEmbedded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle sidebar RFQ click — update state + URL silently (no route events)
   const handleRfqSelect = (id) => {
     const newId = String(id);
     if (newId === String(rfq_id)) return; // Already selected
     setRfqId(newId);
-    // Update URL without triggering route events
+    // Update URL without triggering route events (standalone page only)
+    if (isEmbedded) return;
     const url = `/dashboard/buyer/technical-evaluation?rfq_id=${newId}`;
     window.history.replaceState({ ...window.history.state, url, as: url }, '', url);
   };
@@ -154,6 +162,8 @@ const BuyerTechnicalEvaluation = () => {
     canUpdate,
     canCreate,
     canApprove,
+    allowedProcessIds,
+    isProcessAllowed,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: "te",
@@ -161,6 +171,17 @@ const BuyerTechnicalEvaluation = () => {
     departmentId: currentRfq?.department_id || null,
     enabled: !!currentRfq,
   });
+
+  // Process-scope guard: even when canRead is true, a user whose te.* scope
+  // is narrowed to a subset of processes should NOT see/edit a TE for an
+  // out-of-scope RFQ. The backend already returns 403 PROCESS_NOT_IN_USER_SCOPE
+  // for direct API calls; this surface is the matching UX guard so the page
+  // doesn't briefly render real data before the backend rejects an action.
+  const processOutOfScope =
+    !!currentRfq &&
+    currentRfq.process_id != null &&
+    Array.isArray(allowedProcessIds) &&
+    !isProcessAllowed(currentRfq.process_id);
 
   // For technical evaluation, "write" access means either update OR create permission
   // BUT: a closed RFQ (status=2) is fully locked — no scoring, no submit, no approvals
@@ -182,6 +203,7 @@ const BuyerTechnicalEvaluation = () => {
 
   const filtersInitialized = useRef(false);
   useEffect(() => {
+    if (isEmbedded) return; // no RFQ-list sidebar when embedded
     // Skip the first run — mount useEffect already fetches the list
     if (!filtersInitialized.current) {
       filtersInitialized.current = true;
@@ -546,9 +568,10 @@ const BuyerTechnicalEvaluation = () => {
 
   useEffect(() => {
     getUserDetails();
+    if (isEmbedded) return; // RFQ-list sidebar + hotel filters are standalone-only
     getTechEvaluationRFQsByUser();
     fetchUserHotelMappings();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stage 1: Fetch RFQ metadata when rfq_id changes
   useEffect(() => {
@@ -560,15 +583,15 @@ const BuyerTechnicalEvaluation = () => {
   // canRead can be stale (from previous RFQ) when this fires.
   // Access denial is handled purely by isAccessDenied in the JSX.
   useEffect(() => {
-    if (rfq_id && currentRfq && !permissionsLoading && canRead && !permissionsVerified) {
+    if (rfq_id && currentRfq && !permissionsLoading && canRead && !processOutOfScope && !permissionsVerified) {
       fetchEvaluationData();
     }
-  }, [rfq_id, currentRfq, permissionsLoading, canRead, permissionsVerified]);
+  }, [rfq_id, currentRfq, permissionsLoading, canRead, processOutOfScope, permissionsVerified]);
 
   // Access Denied check - show when user has no read permission
   // Only check when an RFQ is selected and we have permission context
   const hasPermissionContext = hotelIds.length > 0 && !!currentRfq;
-  const isAccessDenied = hasPermissionContext && !permissionsLoading && !canRead;
+  const isAccessDenied = hasPermissionContext && !permissionsLoading && (!canRead || processOutOfScope);
 
   // Inline loading state — shown inside the content area, sidebar stays visible
   // When access is denied, stop the loader so the AccessDenied banner can show
@@ -600,90 +623,70 @@ const BuyerTechnicalEvaluation = () => {
     return items;
   };
 
+  const techEvalSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={rfqList}
+      loading={loading}
+      selectedRfqId={rfq_id}
+      onItemClick={handleRfqSelect}
+      linkPrefix="/dashboard/buyer/technical-evaluation"
+      linkQueryKey="rfq_id"
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — no action possible
+            if (String(item.status) === '2') return false;
+            // Bid submission window must have closed before evaluation/approval is meaningful
+            const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
+            if (!bidEnded) return false;
+            // Current user must have something to do: a product to evaluate,
+            // a rejected evaluation to redo, or a pending approval where they are the approver.
+            return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            return !item.has_pending_evaluation && !item.te_approval_rejected
+              && !item.approval_required && item.has_pending_te_approval;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={handleHotelSelectionChange}
+      showTypeFilter={true}
+      isTenderFilter={isTenderFilter}
+      onTenderFilterChange={(val) => setIsTenderFilter(val)}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
+        if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+        if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
+        if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
+        return [];
+      }}
+      pageId="technical_evaluation"
+    />
+  );
+
   const commentHasContent =
     currentRfq?.comment && currentRfq.comment.replace(/<[^>]*>/g, "").trim() !== "";
 
-  return (
-    <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Technical Evaluation</h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={styles.layoutRow}>
-
-            {/* RFQ List */}
-              {isMobile && (
-                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Technical Evaluation"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={rfqList}
-                loading={loading}
-                selectedRfqId={rfq_id}
-                onItemClick={handleRfqSelect}
-                linkPrefix="/dashboard/buyer/technical-evaluation"
-                linkQueryKey="rfq_id"
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — no action possible
-                      if (String(item.status) === '2') return false;
-                      // Bid submission window must have closed before evaluation/approval is meaningful
-                      const bidEnded = item.bid_end_date && new Date(item.bid_end_date) < new Date();
-                      if (!bidEnded) return false;
-                      // Current user must have something to do: a product to evaluate,
-                      // a rejected evaluation to redo, or a pending approval where they are the approver.
-                      return item.has_pending_evaluation || item.te_approval_rejected || item.approval_required;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      return !item.has_pending_evaluation && !item.te_approval_rejected
-                        && !item.approval_required && item.has_pending_te_approval;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={handleHotelSelectionChange}
-                showTypeFilter={true}
-                isTenderFilter={isTenderFilter}
-                onTenderFilterChange={(val) => setIsTenderFilter(val)}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  if (item.te_approval_rejected) return [{ label: 'Evaluation Rejected', variant: 'danger' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.has_pending_te_approval) return [{ label: 'In Approval', variant: 'info' }];
-                  if (item.te_completed === true) return [{ label: 'Completed', variant: 'success' }];
-                  return [];
-                }}
-                pageId="technical_evaluation"
-              />
-
-            {/* Main Container */}
-            <div className={styles.contentColumn}>
+  const evalBody = (
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Inline loader - shows inside content area while loading/verifying */}
@@ -709,7 +712,20 @@ const BuyerTechnicalEvaluation = () => {
                 )}
 
                 {/* Access Denied - show inside content area so sidebar stays visible */}
-                {!isContentLoading && isAccessDenied && (
+                {/* Access Denied. When the denial is due to process-scope
+                    (canRead true but the user's te.* scope doesn't include
+                    this RFQ's process_id), use the dedicated banner so the
+                    message names the cause. */}
+                {!isContentLoading && isAccessDenied && processOutOfScope && (
+                  <ProcessScopeErrorBanner
+                    error={{
+                      code: "PROCESS_NOT_IN_USER_SCOPE",
+                      message: `You don't have access to this ${getEntityLabel(currentRfq?.is_tender)}'s process. Contact your administrator to update your access.`,
+                      data: { process_id: currentRfq?.process_id, rfq_id },
+                    }}
+                  />
+                )}
+                {!isContentLoading && isAccessDenied && !processOutOfScope && (
                   <AccessDeniedPage
                     title="Access Denied"
                     message={`You do not have permission to view technical evaluations for this ${getEntityLabel(currentRfq?.is_tender)}. Contact your administrator to request access.`}
@@ -730,8 +746,8 @@ const BuyerTechnicalEvaluation = () => {
                   </div>
                 )}
 
-                {/* RFQ Header Card */}
-                {!isContentLoading && !isAccessDenied && currentRfq && (
+                {/* RFQ Header Card — hidden when embedded (host page shows it) */}
+                {!isEmbedded && !isContentLoading && !isAccessDenied && currentRfq && (
                   <div className={styles.rfqHeader}>
                     {/* Hero Strip */}
                     <div className={styles.rfqHero}>
@@ -951,21 +967,15 @@ const BuyerTechnicalEvaluation = () => {
                                     return (
                                       <>
                                         {specs.Size && (
-                                          <span
-                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
-                                            data-tooltip-id="spec-tooltip"
-                                            data-tooltip-content={specs.Size}
-                                          >
-                                            <strong>Size:</strong> {specs.Size}
+                                          <span className={styles.productMetaChip}>
+                                            <strong>Size:</strong>{' '}
+                                            <ReadMore content={specs.Size} maxLines={2} fontSize="0.76rem" />
                                           </span>
                                         )}
                                         {specs.Spec && (
-                                          <span
-                                            className={`${styles.productMetaChip} ${styles.productMetaChipTruncate}`}
-                                            data-tooltip-id="spec-tooltip"
-                                            data-tooltip-content={specs.Spec}
-                                          >
-                                            <strong>Spec:</strong> {specs.Spec}
+                                          <span className={styles.productMetaChip}>
+                                            <strong>Spec:</strong>{' '}
+                                            <ReadMore content={specs.Spec} maxLines={2} fontSize="0.76rem" />
                                           </span>
                                         )}
                                       </>
@@ -1063,10 +1073,24 @@ const BuyerTechnicalEvaluation = () => {
                   </>
                 </div>}
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
+  );
+
+  return (
+    <>
+      {isEmbedded ? (
+        <div className="te-embedded-body">{evalBody}</div>
+      ) : (
+        <TwoPanelPage
+          title="Technical Evaluation"
+          subtitle="Review vendor submissions against technical clauses."
+          sidebar={techEvalSidebar}
+          onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+          mobileSidebarOpen={sidebarOpen}
+          mobileToggleLabel="Select RFQ"
+        >
+          {evalBody}
+        </TwoPanelPage>
+      )}
       <Tooltip id="spec-tooltip" place="top" style={{ maxWidth: 320, fontSize: 12, borderRadius: 8, zIndex: 9999, wordBreak: 'break-word' }} />
       <RfqTermsModal
         open={showTncModal}

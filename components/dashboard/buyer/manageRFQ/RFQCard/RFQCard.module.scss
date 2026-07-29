@@ -1,37 +1,28 @@
-// RFQCard Styles - Modern click-to-expand card design
+// RFQCard — minimal, design-system aligned (mirrors ViewRFQ.module.scss tokens).
+// Tokens inlined as literals to keep the module self-contained.
 
 .rfqCard {
-  border: 1px solid #e9ecef;
-  border-left: 4px solid;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  overflow: visible;
-  transition: all 0.25s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  overflow: visible;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  color: #18181b;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #d6d6cf;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   }
 
   &.pulse {
-    animation: card-glow 2s infinite;
-  }
-
-  // Mobile: top border instead of left
-  @media (max-width: 767px) {
-    border-left: 1px solid #e9ecef;
-    border-top: 4px solid;
+    animation: card-glow 2.4s ease-in-out infinite;
   }
 }
 
 @keyframes card-glow {
-  0%, 100% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(255, 193, 7, 0.15);
-  }
-  50% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 6px rgba(255, 193, 7, 0.08);
-  }
+  0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 0 0 3px rgba(180, 83, 9, 0.10); }
+  50%      { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 0 0 5px rgba(180, 83, 9, 0.05); }
 }
 
 // ============================================
@@ -42,309 +33,214 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   white-space: nowrap;
   flex-shrink: 0;
+  border: 1px solid #ebebe6;
 
   &.rfqType {
-    background: #e8f0fe;
-    color: #1a56db;
-    border: 1px solid #c6d9f7;
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: rgba(37, 99, 235, 0.18);
   }
 
   &.tenderType {
-    background: #f3e8ff;
+    background: #f5f3ff;
     color: #7c3aed;
-    border: 1px solid #ddd0f7;
+    border-color: rgba(124, 58, 237, 0.18);
   }
+}
+
+// ============================================
+// STATUS BADGE — minimal severity-toned pill
+// ============================================
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #f4f4f1;
+  color: #3f3f46;
+  border: 1px solid #ebebe6;
+
+  &.pulseAnimation { animation: badge-pulse 2.4s ease-in-out infinite; }
+}
+
+.success { background: #ecfdf5; color: #15803d; border-color: rgba(21, 128, 61, 0.18); }
+.warn    { background: #fef7ed; color: #b45309; border-color: rgba(180, 83, 9, 0.18); }
+.info    { background: #eff6ff; color: #2563eb; border-color: rgba(37, 99, 235, 0.18); }
+.danger  { background: #fef2f2; color: #b91c1c; border-color: rgba(185, 28, 28, 0.18); }
+.neutral { background: #f4f4f1; color: #71717a; border-color: #ebebe6; }
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.22); }
+  50%      { box-shadow: 0 0 0 5px rgba(180, 83, 9, 0.08); }
 }
 
 // ============================================
 // BACKLOG WARNING BANNER
 // ============================================
 
+.backlogCard {
+  border-color: rgba(185, 28, 28, 0.30) !important;
+}
+
 .backlogBanner {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
-  border-top: 1px solid #fecaca;
-  font-size: 0.78rem;
-  color: #991b1b;
+  background: #fef2f2;
+  border-top: 1px solid rgba(185, 28, 28, 0.16);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #3f3f46;
 }
 
 .backlogIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #fef2f2;
-  border: 1.5px solid #fca5a5;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.18);
   flex-shrink: 0;
-  color: #dc2626;
+  color: #b91c1c;
 }
 
 .backlogText {
   flex: 1;
-  line-height: 1.4;
+  min-width: 0;
 
-  strong {
-    color: #7f1d1d;
-  }
-}
-
-.backlogCard {
-  border-color: #fca5a5 !important;
-  border-left-color: #dc3545 !important;
-  background: #fffbfb;
-
-  @media (max-width: 767px) {
-    border-top-color: #dc3545 !important;
-  }
+  strong { color: #18181b; font-weight: 600; }
 }
 
 // ============================================
-// COMPACT VIEW - Header (Always Visible)
+// COMPACT VIEW — header (always visible)
 // ============================================
 
 .compactView {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  gap: 16px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-
-  &:hover {
-    background-color: #fafbfc;
-  }
-
-  @media (max-width: 991px) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-}
-
-// Left Section: Status + Title + Project + Products
-.leftSection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-
-  @media (max-width: 991px) {
-    flex-wrap: wrap;
-  }
-}
-
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-
-  &.pulseAnimation {
-    animation: badge-pulse 2s infinite;
-  }
-}
-
-@keyframes badge-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 0 5px rgba(255, 193, 7, 0.1);
-  }
-}
-
-.titleBlock {
-  display: flex;
   flex-direction: column;
-  min-width: 0;
-  flex-shrink: 0;
-  max-width: 300px;
+  gap: 7px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 
-  @media (max-width: 1199px) {
-    max-width: 220px;
-  }
+  &:hover { background-color: #eff6ff; }
+}
+
+// Row 1: badges + title + meta + (right edge) lifecycle + chevron.
+// rightSection nests inside this row and is pushed to the far right via
+// margin-left:auto — so the chevron and lifecycle pill never wrap onto a
+// new visual line.
+.compactRow1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compactRow1 .title {
+  // Was flex:1 — that consumed all remaining horizontal space and pushed
+  // the right-edge content far past the title. We want the title to shrink
+  // (truncating with ellipsis) so the right-side pill/chevron sit close to
+  // the meta. Cap to its natural width with shrink, no grow.
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .title {
   font-weight: 600;
-  font-size: 0.9rem;
-  color: #212529;
+  font-size: 13.5px;
+  color: #18181b;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
 }
 
-.rfqNumber {
-  font-size: 0.75rem;
-  color: #6c757d;
-}
-
-.projectChip {
+// Lineage chip — restated in the neutral palette so it sits flush with
+// the rest of the card (the previous indigo bg/border clashed against the
+// minimal grayscale aesthetic).
+.copiedFromChip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: #f1f3f5;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  color: #495057;
+  gap: 5px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #ebebe6;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #52525b;
+  letter-spacing: -0.005em;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: 0.6rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
   svg {
-    color: #868e96;
+    color: #a1a1aa;
+    flex-shrink: 0;
   }
 
-  @media (max-width: 1199px) {
-    display: none;
+  &:hover {
+    background: #fafaf9;
+    border-color: #d6d6cf;
+    color: #18181b;
+    text-decoration: none;
+
+    svg { color: #71717a; }
   }
 }
 
+.copiedFromLabel {
+  color: #71717a;
+  font-weight: 500;
+}
 
-// Right Section: Metrics + Date + Expand
+.copiedFromNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #18181b;
+}
+
+// Right Section: Lifecycle + Expand toggle. Lives at the right edge of
+// compactRow1 — margin-left:auto pushes it past the title + meta cluster.
 .rightSection {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
+  margin-left: auto;
 
   @media (max-width: 991px) {
+    margin-left: 0;
     justify-content: space-between;
     width: 100%;
   }
 }
 
-.progressBlock {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.progressLabel {
-  font-size: 0.7rem;
-  color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
-
-  @media (max-width: 575px) {
-    display: none;
-  }
-}
-
-.progressWrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100px;
-
-  @media (max-width: 575px) {
-    width: 80px;
-  }
-}
-
-.progressBar {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background-color: #e9ecef;
-
-  :global(.progress-bar) {
-    transition: width 0.4s ease-out;
-  }
-}
-
-.progressText {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #495057;
-  white-space: nowrap;
-}
-
-.queryBadgeCompact {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px 8px;
-  font-size: 0.7rem;
-  animation: query-pulse 2s infinite;
-}
-
-@keyframes query-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.dateBlock {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dateItem {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
-  color: #495057;
-
-  svg {
-    color: #6c757d;
-  }
-}
-
-.daysLeftBadge {
-  font-size: 0.65rem;
-  padding: 3px 6px;
-  border-radius: 4px;
-}
-
-.expandToggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  color: #6c757d;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #e9ecef;
-    color: #495057;
-  }
-
-  .expanded & {
-    transform: rotate(180deg);
-  }
-}
-
-// ============================================
-// SECTION DIVIDER (between identity and vendors)
-// ============================================
-
+// Divider between identity and vendor stats inside compactRow1
 .sectionDivider {
   width: 1px;
   height: 28px;
@@ -357,10 +253,6 @@
   }
 }
 
-// ============================================
-// VENDOR CHIP (inside leftSection, after divider)
-// ============================================
-
 .vendorChip {
   display: flex;
   align-items: center;
@@ -371,11 +263,6 @@
     display: none;
   }
 }
-
-.vendorIconBlue { color: #3b82f6; flex-shrink: 0; }
-.vendorIconGreen { color: #22c55e; flex-shrink: 0; }
-.vendorIconOrange { color: #f97316; flex-shrink: 0; }
-.vendorIconRed { color: #ef4444; flex-shrink: 0; }
 
 .vendorNum {
   font-size: 0.9rem;
@@ -398,85 +285,179 @@
   flex-shrink: 0;
 }
 
+.rfqNumberInline {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+  color: #71717a;
+  background: #f4f4f1;
+  border-radius: 5px;
+  padding: 2px 7px;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.queryBadgeCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  flex-shrink: 0;
+}
+
+// Row 2: metadata chips
+.compactRow2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #52525b;
+  white-space: nowrap;
+  letter-spacing: -0.005em;
+
+  svg { color: #a1a1aa; flex-shrink: 0; }
+}
+
+.metaSep {
+  width: 1px;
+  height: 12px;
+  background: #ebebe6;
+  flex-shrink: 0;
+}
+
+// Days-left tones (rounded chips)
+.daysGreen,
+.daysYellow,
+.daysRed {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+}
+
+.daysGreen  { color: #15803d; background: #ecfdf5; border-color: rgba(21, 128, 61, 0.18); }
+.daysYellow { color: #b45309; background: #fef7ed; border-color: rgba(180, 83, 9, 0.18); }
+.daysRed    { color: #b91c1c; background: #fef2f2; border-color: rgba(185, 28, 28, 0.18); }
+
+.vendorIconBlue   { color: #2563eb !important; flex-shrink: 0; }
+.vendorIconGreen  { color: #15803d !important; flex-shrink: 0; }
+.vendorIconOrange { color: #b45309 !important; flex-shrink: 0; }
+.vendorIconRed    { color: #b91c1c !important; flex-shrink: 0; }
+
 // ============================================
-// LIFECYCLE PILL — monochrome, enterprise
+// EXPAND TOGGLE
+// ============================================
+
+.expandToggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #a1a1aa;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+
+  &:hover { background: #f4f4f1; color: #18181b; }
+
+  .expanded & { transform: rotate(180deg); }
+}
+
+// ============================================
+// LIFECYCLE PILL — minimal monochrome
 // ============================================
 
 .lifecycleWrap {
   position: relative;
   flex-shrink: 0;
 
-  @media (max-width: 1199px) {
-    display: none;
-  }
+  @media (max-width: 1199px) { display: none; }
 }
 
 .lifecyclePill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  border-radius: 6px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  gap: 7px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
   cursor: default;
   transition: all 0.15s ease;
 
-  &:hover {
-    background: #e9eef5;
-    border-color: #cbd5e1;
-  }
+  &:hover { background: #efefe9; border-color: #d6d6cf; }
 }
 
 .lcDot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   flex-shrink: 0;
-  animation: lc-pulse 2s ease-in-out infinite;
+  animation: lc-pulse 2.2s ease-in-out infinite;
 }
 
 @keyframes lc-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.7); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
 }
 
 .lcLabel {
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #3f3f46;
+  letter-spacing: -0.005em;
   white-space: nowrap;
 }
 
 .lcSep {
   width: 1px;
-  height: 14px;
-  background: #cbd5e1;
+  height: 11px;
+  background: #d6d6cf;
   flex-shrink: 0;
 }
 
-.lcProgress {
-  font-size: 0.66rem;
-  font-weight: 500;
-  color: #64748b;
-  white-space: nowrap;
+.lcActors {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #71717a;
+
+  svg { opacity: 0.7; }
 }
 
 // -- Tooltip — clean white card --
-
 .lcTooltip {
   position: absolute;
   bottom: calc(100% + 10px);
   right: 0;
-  z-index: 1000;
   width: 280px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border: 1px solid #e8e8e3;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 12px 32px -8px rgba(15, 15, 14, 0.18), 0 2px 6px rgba(15, 15, 14, 0.06);
   padding: 0;
   animation: lctt-in 0.15s ease-out;
   overflow: hidden;
+  z-index: 50;
 
   &::before {
     content: '';
@@ -495,9 +476,9 @@
     right: 24px;
     width: 10px;
     height: 10px;
-    background: #fff;
-    border-right: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-right: 1px solid #e8e8e3;
+    border-bottom: 1px solid #e8e8e3;
     transform: rotate(45deg);
   }
 
@@ -511,10 +492,9 @@
 
 @keyframes lctt-in {
   from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-// Stage info at top
 .lcTTTop {
   display: flex;
   align-items: flex-start;
@@ -538,30 +518,32 @@
 }
 
 .lcTTLabel {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.01em;
   line-height: 1.2;
 }
 
 .lcTTDesc {
-  font-size: 0.68rem;
-  color: #64748b;
-  line-height: 1.35;
+  font-size: 11.5px;
+  color: #71717a;
+  line-height: 1.4;
 }
 
-// Progress bar section
 .lcTTProgress {
   padding: 8px 16px 10px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f4f4f1;
 }
 
 .lcTTProgressLabel {
-  font-size: 0.66rem;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   font-weight: 600;
-  color: #64748b;
+  color: #a1a1aa;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 
 .lcTTBar {
@@ -572,14 +554,12 @@
 .lcTTBarSeg {
   flex: 1;
   height: 4px;
-  border-radius: 2px;
-  background: #e5e7eb;
+  border-radius: 99px;
+  background: #f4f4f1;
   transition: background 0.2s;
 }
 
-.lcTTBarDone {
-  opacity: 0.5;
-}
+.lcTTBarDone { opacity: 0.5; }
 
 .lcTTBarCur {
   opacity: 1;
@@ -587,48 +567,37 @@
   margin-top: -0.5px;
 }
 
-
-// ============================================
-// ACTION HOLDERS (inside lifecycle pill & tooltip)
-// ============================================
-
-.lcActors {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 0.66rem;
-  font-weight: 600;
-  color: #64748b;
-
-  svg { opacity: 0.6; }
-}
-
 .lcTTActors {
   padding: 10px 16px 12px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f4f4f1;
 }
 
 .lcTTActorsHeader {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.68rem;
-  font-weight: 650;
-  color: #475569;
-  margin-bottom: 5px;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 7px;
 
-  svg { color: #64748b; }
+  svg { color: #71717a; }
 }
 
 .lcTTRuleTag {
-  font-size: 0.58rem;
+  font-size: 9.5px;
   font-weight: 500;
   padding: 1px 6px;
-  border-radius: 4px;
-  background: #f0f0f0;
-  color: #6c757d;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  color: #71717a;
   white-space: nowrap;
   margin-left: auto;
+  text-transform: none;
+  letter-spacing: -0.005em;
 }
 
 .lcTTActorsList {
@@ -642,7 +611,7 @@
 .lcTTActor {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 2px 0;
   width: calc(50% - 4px);
   min-width: 0;
@@ -652,20 +621,20 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #15803d;
   flex-shrink: 0;
 }
 
 .lcTTActorName {
-  font-size: 0.68rem;
-  color: #334155;
+  font-size: 11.5px;
+  color: #3f3f46;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 // ============================================
-// EXPANDED VIEW - Details (On Click)
+// EXPANDED VIEW — details (on click)
 // ============================================
 
 .expandedView {
@@ -673,199 +642,242 @@
   overflow: hidden;
   opacity: 0;
   transition: all 0.3s ease;
-  background: #fafbfc;
+  background: #fafaf9;
   border-top: 1px solid transparent;
 
   &.visible {
-    max-height: 500px;
+    max-height: 520px;
     opacity: 1;
     padding: 16px;
-    border-top-color: #e9ecef;
+    border-top-color: #ebebe6;
   }
+}
+
+.expanded .expandedView {
+  max-height: 520px;
+  opacity: 1;
+  padding: 16px;
+  border-top-color: #ebebe6;
 }
 
 .metaRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 8px 22px;
   margin-bottom: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #ebebe6;
 }
 
 .metaItem {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
-  color: #495057;
+  font-size: 12.5px;
+  color: #52525b;
+  letter-spacing: -0.005em;
 
-  svg {
-    color: #6c757d;
-  }
+  svg { color: #a1a1aa; }
 
-  strong {
-    color: #212529;
-  }
+  strong { color: #18181b; font-weight: 600; }
 }
 
 .timelineRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
+  gap: 10px 24px;
   margin-bottom: 16px;
   padding: 12px 14px;
-  background-color: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 10px;
 }
 
 .timelineItem {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
-  color: #495057;
+  font-size: 12.5px;
+  color: #52525b;
+  letter-spacing: -0.005em;
 
-  svg {
-    color: #6c757d;
-  }
+  svg { color: #a1a1aa; }
 
   strong {
-    color: #212529;
+    color: #18181b;
+    font-weight: 600;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: -0.01em;
   }
 }
+
+// ============================================
+// ACTION BUTTONS — minimal
+// ============================================
 
 .actionsRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding-top: 4px;
+  gap: 8px;
+  padding-top: 2px;
 }
 
 .actionBtn {
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 8px;
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  transition: all 0.15s ease;
-  // Override global .btn { width: 190px } from _all.scss
-  width: auto;
-  // Baseline border so all variants (filled & outline) have identical dimensions
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 7px;
   border: 1px solid transparent;
-  // Kill the global .btn::before sliding-arrow hover effect from _all.scss
-  overflow: visible;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  font-family: inherit;
+  // Override global .btn { width: 190px } and ::before arrow from _all.scss
+  width: auto;
+  transition: all 0.15s ease;
+
   &::before {
     content: none !important;
     display: none !important;
   }
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14);
+  }
+}
 
-    &::before {
-      content: none !important;
-      display: none !important;
-      transform: none !important;
+.btnPrimary {
+  background: #1f2937;
+  color: #ffffff;
+  border-color: #1f2937;
+
+  &:hover, &:focus, &:active {
+    background: #111827 !important;
+    border-color: #111827 !important;
+    color: #ffffff !important;
+  }
+}
+
+.btnSecondary {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  color: #18181b;
+
+  &:hover, &:focus, &:active {
+    background: #f4f4f1 !important;
+    border-color: #d6d6cf !important;
+    color: #18181b !important;
+  }
+}
+
+.btnDanger {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  color: #b91c1c;
+
+  &:hover, &:focus, &:active {
+    background: #fef2f2 !important;
+    border-color: #b91c1c !important;
+    color: #b91c1c !important;
+  }
+}
+
+.actionBtnDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.actionBtnCount {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  margin-left: 2px;
+}
+
+// ============================================
+// MOBILE RESPONSIVE
+// ============================================
+
+@media (max-width: 767px) {
+  .compactView {
+    padding: 11px 13px;
+    gap: 8px;
+    position: relative;
+  }
+
+  .compactRow1 {
+    flex-wrap: wrap;
+    gap: 6px;
+
+    .title {
+      order: 10;
+      flex: 0 0 100%;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      font-size: 13px;
+      line-height: 1.35;
+      margin-top: 2px;
     }
   }
 
-  &:active {
-    transform: translateY(0);
+  .rfqNumberInline { order: 3; }
+  .queryBadgeCompact { order: 4; }
+
+  .expandToggle {
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    margin: 0;
   }
-}
 
-.viewBtn {
-  background-color: var(--primary-color, #2E5BA8);
-  color: #fff;
+  .compactRow2 { gap: 5px 10px; }
 
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: #254a8a !important;
-    color: #fff !important;
+  .metaSep { display: none; }
+
+  .expandedView.visible { padding: 12px; }
+
+  .metaRow {
+    gap: 4px 14px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
   }
-}
 
-.editBtn {
-  background-color: transparent;
-  color: var(--primary-color, #2E5BA8);
-  border-color: var(--primary-color, #2E5BA8);
-
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: var(--primary-color, #2E5BA8) !important;
-    color: #fff !important;
-    border-color: var(--primary-color, #2E5BA8) !important;
+  .metaItem {
+    font-size: 12px;
+    svg { width: 12px; height: 12px; }
   }
-}
 
-.queryBtn {
-  background-color: #6c757d;
-  color: #fff;
-
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: #5a6268 !important;
-    color: #fff !important;
+  .timelineRow {
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
   }
-}
 
-.reminderBtn {
-  background-color: #198754;
-  color: #fff;
-
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: #157347 !important;
-    color: #fff !important;
+  .timelineItem {
+    font-size: 12px;
+    svg { width: 12px; height: 12px; }
   }
-}
 
-.approveBtn {
-  background-color: #ffc107;
-  color: #664d03;
-  font-weight: 600;
+  .actionsRow { gap: 6px; }
 
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: #e0a800 !important;
-    color: #664d03 !important;
-  }
-}
-
-.deleteBtn {
-  background-color: transparent;
-  color: #dc3545;
-  border-color: #dc3545;
-
-  &:hover,
-  &:focus,
-  &:active {
-    background-color: #dc3545 !important;
-    color: #fff !important;
-    border-color: #dc3545 !important;
-  }
-}
-
-// ============================================
-// EXPANDED STATE
-// ============================================
-
-.expanded {
-  .expandedView {
-    max-height: 500px;
-    opacity: 1;
-    padding: 16px;
-    border-top-color: #e9ecef;
+  .actionBtn {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
   }
 }

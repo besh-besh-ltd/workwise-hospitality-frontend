@@ -1,12 +1,13 @@
 @use "sass:map";
 
-$primary: #2e5ba8;
-$primary-dark: #1f437f;
+// Palette aligned to the new app UI (see QuoteComparison.module.scss qc-tokens).
+$primary: #1f2937;
+$primary-dark: #111827;
 $surface: #ffffff;
-$surface-soft: #f6f9ff;
-$border: #d8e2f0;
-$text: #163256;
-$muted: #60748f;
+$surface-soft: #fafaf9;
+$border: #e8e8e3;
+$text: #18181b;
+$muted: #71717a;
 
 $status-colors: (
   active: (
@@ -240,7 +241,7 @@ $status-colors: (
 .roundEndSub {
   margin: 0;
   font-size: 12px;
-  color: #60748f;
+  color: #71717a;
 }
 
 .roundEndApprovalNote {
@@ -287,11 +288,11 @@ $status-colors: (
   background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.25);
+  box-shadow: 0 1px 3px rgba(31, 41, 55, 0.25);
 }
 
 .actionBtnPrimary:hover:not(:disabled) {
-  box-shadow: 0 2px 6px rgba(46, 91, 168, 0.35);
+  box-shadow: 0 2px 6px rgba(31, 41, 55, 0.35);
   filter: brightness(1.05);
 }
 
@@ -397,7 +398,7 @@ $status-colors: (
 
   :global(.form-control:focus) {
     border-color: #8eb1de;
-    box-shadow: 0 0 0 0.15rem rgba(46, 91, 168, 0.16);
+    box-shadow: 0 0 0 0.15rem rgba(31, 41, 55, 0.16);
   }
 
   :global(.alert) {
@@ -562,7 +563,7 @@ $status-colors: (
 .fieldInput:focus {
   outline: none;
   border-color: #8eb1de;
-  box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.14);
+  box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.14);
 }
 
 .fieldInputError,
@@ -641,7 +642,7 @@ $status-colors: (
 .createProductRowSelected {
   border-color: #bcd0ea;
   background: #f5f9ff;
-  box-shadow: 0 0 0 1px rgba(46, 91, 168, 0.16);
+  box-shadow: 0 0 0 1px rgba(31, 41, 55, 0.16);
 }
 
 .createProductRowDisabled {
@@ -658,7 +659,7 @@ $status-colors: (
 
 .createRadio {
   margin-top: 1px;
-  accent-color: #2e5ba8;
+  accent-color: #1f2937;
   width: 14px;
   height: 14px;
   flex-shrink: 0;
@@ -2658,7 +2659,7 @@ $status-colors: (
   &:focus {
     outline: none;
     border-color: #8eb1de;
-    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.12);
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.12);
   }
 }
 
@@ -2948,7 +2949,7 @@ $status-colors: (
 .negFieldCardSelected {
   background: #eef4fb;
   border-color: #b0c8e8;
-  box-shadow: 0 0 0 1px rgba(46, 91, 168, 0.14);
+  box-shadow: 0 0 0 1px rgba(31, 41, 55, 0.14);
 }
 
 .negFieldCardDisabled {
@@ -3032,7 +3033,7 @@ $status-colors: (
   &:focus {
     outline: none;
     border-color: #8eb1de;
-    box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.14);
+    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.14);
   }
 }
 
@@ -3081,7 +3082,7 @@ $status-colors: (
   &:focus {
     outline: none;
     border-color: #8eb1de;
-    box-shadow: 0 0 0 1px rgba(46, 91, 168, 0.12);
+    box-shadow: 0 0 0 1px rgba(31, 41, 55, 0.12);
   }
 
   &::placeholder {

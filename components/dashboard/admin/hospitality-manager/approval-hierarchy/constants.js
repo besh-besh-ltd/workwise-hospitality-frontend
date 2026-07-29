@@ -50,7 +50,12 @@ export const entityTypes = [
   { value: "NEGOTIATION", label: "Negotiation Approval", description: "Negotiation rounds", icon: BsChatDots, color: "#ea580c" },
   { value: "NEGOTIATION_QUOTE", label: "Negotiation Quotes Approval", description: "Vendor quote updates", icon: BsChatQuote, color: "#0891b2" },
   { value: "TECHNICAL", label: "Technical Approval", description: "Technical evaluations", icon: BsGear, color: "#64748b" },
-  { value: "ARC", label: "ARC Committee Approval", description: "ARC review & approval", icon: BsShieldCheck, color: "#db2777" },
+  { value: "ARC", label: "ARC Approval", description: "Rate contract publish & base approval", icon: BsShieldCheck, color: "#db2777" },
+  // ARC (Rate Contract) v2 per-stage entity types — process-free flow.
+  { value: "ARC_TECH", label: "ARC Technical Evaluation", description: "Rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
+  { value: "ARC_NEGOTIATION", label: "ARC Negotiation", description: "Rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
+  { value: "ARC_COMMITTEE", label: "ARC Committee Award", description: "Rate contract committee award approval", icon: BsShieldCheck, color: "#db2777" },
+  { value: "ARC_AMENDMENT", label: "ARC Amendment", description: "Rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
 ];
 
 export const approverSourceTypes = [
@@ -85,11 +90,35 @@ export const TENDER_PROCESS_STAGES = [
   { value: "ARC", label: "ARC", description: "ARC Committee Approval", shortLabel: "ARC" },
 ];
 
+// ARC (Rate Contract) route — a PROCESS-FREE flow. Unlike RFQ/Tender, ARC
+// approvals never carry a process_id (ARC entities are created with
+// process_id = NULL by design), so this flow saves policies with
+// process_id = NULL. `ARC` is the base/publish policy: arcController.publish
+// resolves entity_type 'ARC' (hard 400 if absent) and every other ARC stage
+// falls back to it when its own policy is missing — so ARC is REQUIRED, the
+// rest are optional overrides for granular approver chains.
+export const ARC_PROCESS_STAGES = [
+  { value: "ARC", label: "ARC (Publish & Base)", description: "Required — gates publishing the rate contract and is the default for every stage below.", shortLabel: "ARC", required: true },
+  { value: "ARC_TECH", label: "Technical Evaluation", description: "Approval of technical evaluation results.", shortLabel: "Tech" },
+  { value: "ARC_NEGOTIATION", label: "Negotiation", description: "Approval of negotiation rounds.", shortLabel: "Negotiation" },
+  { value: "ARC_COMMITTEE", label: "Committee Award", description: "ARC committee approval of finalised awards.", shortLabel: "Committee" },
+  { value: "ARC_AMENDMENT", label: "Amendment", description: "Approval of post-award amendments.", shortLabel: "Amendment" },
+];
+
+/** Entity types owned by the process-free ARC flow. */
+export const ARC_ENTITY_ORDER = ARC_PROCESS_STAGES.map((s) => s.value);
+/** True when an entity_type belongs to the ARC (process-free) flow. */
+export const isArcEntityType = (entityType) => ARC_ENTITY_ORDER.includes(entityType);
+
 export const PROCESS_TYPES = {
   RFQ: "RFQ",
   TENDER: "TENDER",
   ARC: "ARC",
 };
+
+// Flow type — the wizard supports process-based flows (RFQ/Tender) and the
+// process-free ARC flow.
+export const FLOW_TYPE = { PROCESS: "PROCESS", ARC: "ARC" };
 
 /** Returns the 5-stage config for the given process type. RFQ → RFQ route; TENDER/ARC → Tender route. */
 export const getStagesForProcessType = (processType) => {

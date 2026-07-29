@@ -10,7 +10,8 @@ const TechEvalVendorStatusDisplay = ({
   vendors = [],
   notEvaluatedVendors = [],
   roundNumber = 1,
-  showSummary = true
+  showSummary = true,
+  minimumPassingScore = null,
 }) => {
   if ((!vendors || vendors.length === 0) && (!notEvaluatedVendors || notEvaluatedVendors.length === 0)) {
     return null;
@@ -57,7 +58,7 @@ const TechEvalVendorStatusDisplay = ({
                 {passedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
-                    ? `${vendor.calculated_score}%`
+                    ? `${!minimumPassingScore ? 100 : vendor.calculated_score}%`
                     : '';
                   return (
                     <Badge
@@ -87,7 +88,7 @@ const TechEvalVendorStatusDisplay = ({
                 {failedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
-                    ? `${vendor.calculated_score}%`
+                    ? `${!minimumPassingScore ? 100 : vendor.calculated_score}%`
                     : '';
                   return (
                     <Badge

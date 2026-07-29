@@ -202,6 +202,9 @@ const SubscriptionPage = () => {
       <div className={styles.page}>
         <div className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Subscription</h1>
+          <p className={styles.pageSubtitle}>
+            Manage your subscription and view your plan details
+          </p>
         </div>
         <div className="hasFullLoader" style={{ minHeight: "300px", position: "relative" }}>
           <FullLoader />
@@ -217,6 +220,9 @@ const SubscriptionPage = () => {
       <div className={styles.page}>
         <div className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Subscription</h1>
+          <p className={styles.pageSubtitle}>
+            Manage your subscription and view your plan details
+          </p>
 
             {!isNone && (
               <div className={styles.tabs}>

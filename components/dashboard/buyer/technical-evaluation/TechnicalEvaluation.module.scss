@@ -445,7 +445,7 @@
 
 .productMeta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex-wrap: nowrap;
   margin-top: 6px;
@@ -458,12 +458,16 @@
   border: 1px solid #e2e8f0;
   padding: 3px 10px;
   border-radius: 6px;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 
   strong {
     color: #334155;
     font-weight: 600;
-    margin-right: 2px;
+    flex-shrink: 0;
   }
 }
 

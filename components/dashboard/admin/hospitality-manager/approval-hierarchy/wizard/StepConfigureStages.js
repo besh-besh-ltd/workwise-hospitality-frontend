@@ -5,7 +5,7 @@ import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
 import { RFQ_PROCESS_STAGES, DS, getEntityTypeConfig } from "../constants";
 import s from "./StepConfigureStages.module.scss";
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
   const handleAddStep = (si) => {
@@ -58,6 +58,17 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
     <div>
       <h4 className={s.heading}>Configure approval stages</h4>
       <p className={s.subtext}>Set approvers for each stage. Click a stage to expand and add approval levels.</p>
+      {isArc ? (
+        <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
+          ARC approvals are <strong>process-free</strong> — any eligible user in this business unit can be an approver.
+          The <strong>ARC (Publish &amp; Base)</strong> stage is required; the rest are optional and fall back to it.
+        </p>
+      ) : selectedProcess?.name && (
+        <p className={s.subtext} style={{ marginTop: -6, color: "#1e40af" }}>
+          Only users who fall in the <strong>{selectedProcess.name}</strong> process
+          {selectedProcess.process_type ? ` (${selectedProcess.process_type})` : ""} appear as approver options below.
+        </p>
+      )}
       <div className="row">
         <div className="col-12 col-lg-7">
           <div className={s.flow}>

@@ -11,12 +11,10 @@ import { getUserPaymentTerms } from "@/services/Auth";
 import {
   getPastRFQS,
   getVendorDetailsByID,
-  provideReview,
 } from "@/services/rfq";
 import { toast } from "react-toastify";
 import FullLoader from "@/components/shared/FullLoader";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
-import StarRating from "@/components/StarRating";
 import ProductCarousel from "./product-carousel";
 import moment from "moment";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
@@ -26,6 +24,8 @@ import { addSpoc } from "@/services/Auth";
 import { getCountryCodes } from "@/services/cms";
 import MediaRender from "@/components/shared/MediaRender";
 import { PiCrownSimpleFill } from "react-icons/pi";
+import { BiFile, BiLinkExternal, BiDownload } from "react-icons/bi";
+import * as XLSX from "xlsx";
 
 
 const VendorProfile = () => {
@@ -34,18 +34,10 @@ const VendorProfile = () => {
   const { id, showContact } = router.query;
   const showContactDetails = showContact === 'true';
   const [loading, setloading] = useState(false);
-  const [reviewLoading, setreviewLoading] = useState(false);
   const [vendorDetails, setVendorDetails] = useState(null);
   const [approvedProducts, setApprovedProducts] = useState(null);
   const [pastrfqloading, setpastrfqloading] = useState(false);
   const [pastRFQs, setpastRFQs] = useState([]);
-  const [reviewText, setreviewText] = useState("");
-  const [qualityOfWork, setqualityOfWork] = useState(0);
-  const [onTimeDelivery, setOnTimeDelivery] = useState(0);
-  const [trustWorthy, setTrustWorthy] = useState(0);
-  const [overallRating, setOverallRating] = useState(0);
-  const [canSubmitReview, setCanSubmitReview] = useState(true);
-  const [avgRating, setavgRating] = useState(0);
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
   const [isLoggedin, setIsLoggedIn] = useState(false);
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -155,47 +147,67 @@ useEffect(() => {
     }
   };
 
-  const handleRatingChange = (type, newRating) => {
-    switch (type) {
-      case 'qualityOfWork':
-        setqualityOfWork(newRating);
-        break;
-      case 'onTimeDelivery':
-        setOnTimeDelivery(newRating);
-        break;
-      case 'trustWorthy':
-        setTrustWorthy(newRating);
-        break;
-      case 'overallRating':
-        setOverallRating(newRating);
-        break;
-      default: console.log("Enter a Valid Option");
-    }
+  const handleDownloadVendorData = () => {
+    if (!vendorDetails) return;
+
+    const docByType = (type) =>
+      (vendorDetails?.compliance_docs || []).find((d) => d.document_type === type);
+    const panDoc = docByType("pan");
+    const gstDoc = docByType("gst");
+    const msmeDoc = docByType("msme");
+    const fssaiDoc = docByType("fssai");
+    const chequeDoc = docByType("cancelled_cheque");
+    const bank = vendorDetails?.bank_details || {};
+
+    const rows = [
+      ["Field", "Value"],
+      ["Company Name", vendorDetails?.company_name || ""],
+      ["Vendor Name", vendorDetails?.vendor_name || ""],
+      ["Email", vendorDetails?.email || ""],
+      ["Mobile", vendorDetails?.mobile || ""],
+      ["WhatsApp", vendorDetails?.whatsapp || ""],
+      ["Website", vendorDetails?.website || ""],
+      ["Established Year", vendorDetails?.established_year || ""],
+      ["Nature of Business", vendorDetails?.nature_of_business || ""],
+      ["Type of Business", vendorDetails?.type_of_business || ""],
+      ["Annual Turnover", vendorDetails?.turnover || ""],
+      ["Number of Employees", vendorDetails?.no_of_employess || ""],
+      [],
+      ["Registration & Compliance", ""],
+      ["PAN Number", panDoc?.document_number || ""],
+      ["PAN Document", panDoc?.document_url || ""],
+      ["GSTIN", vendorDetails?.gstin || ""],
+      ["GST Certificate", gstDoc?.document_url || ""],
+      ["CIN", vendorDetails?.cin || ""],
+      ["Import Export Code (IEC)", vendorDetails?.import_export_code || ""],
+      ["MSME / Udyam Number", msmeDoc?.document_number || ""],
+      ["MSME / Udyam Document", msmeDoc?.document_url || ""],
+      ["FSSAI Number", fssaiDoc?.document_number || ""],
+      ["FSSAI Document", fssaiDoc?.document_url || ""],
+      [],
+      ["Banking", ""],
+      ["Account Holder", bank.account_holder_name || ""],
+      ["Bank Name", bank.bank_name || ""],
+      ["Account Number (masked)", bank.account_number_masked || ""],
+      ["IFSC Code", bank.ifsc_code || ""],
+      ["Cancelled Cheque", chequeDoc?.document_url || ""],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 32 }, { wch: 70 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Vendor Details");
+
+    const baseName = (vendorDetails?.company_name || vendorDetails?.vendor_name || "vendor")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    XLSX.writeFile(wb, `${baseName}_vendor_details.xlsx`);
   };
 
   const handleChange = (setState) => (event) => {
     setState(event);
-  };
-
-  const submitReview = (e) => {
-    setreviewLoading(true);
-    e.preventDefault();
-    provideReview({
-      reviewed_to: id,
-      description: reviewText,
-      quality_of_work: qualityOfWork,
-      on_time_delivery: onTimeDelivery,
-      trustworthiness_reliability: trustWorthy,
-      overall_rating: overallRating
-    })
-      .then((res) => {
-        setreviewLoading(false);
-        getVendorProfile();
-        toast.success(res.message);
-      })
-      .catch((err) => {
-        setreviewLoading(false);
-      });
   };
 
   const applyBuyerProfile = () => {
@@ -203,24 +215,6 @@ useEffect(() => {
     const userTypeVal = parseInt(userProfile.user_type ?? userProfile.register_as ?? 0, 10);
     setIsBuyerUser(userTypeVal === 2);
     setcurrentUserProfile(userProfile);
-    calculateReviews();
-    if (vendorDetails) {
-      let alreadyReviewed = vendorDetails?.reviews?.some(
-        (item) => item.reviewed_by == userProfile.id
-      );
-      if (alreadyReviewed) {
-        setCanSubmitReview(false);
-      }
-    }
-  };
-
-  const calculateReviews = () => {
-    let totalRating = 0;
-    vendorDetails?.reviews?.map((item) => {
-      totalRating = totalRating + item.rating;
-    });
-    let avgRating = parseFloat(totalRating) / vendorDetails?.reviews?.length;
-    setavgRating(avgRating);
   };
 
   const handleBuyerAddSpoc = async (values, resetForm) => {
@@ -583,6 +577,12 @@ useEffect(() => {
                             {vendorDetails?.import_export_code}
                           </p>
                         )}
+                        {vendorDetails?.established_year && (
+                          <p className="mb-1">
+                            <b>Established Year</b> :{" "}
+                            {vendorDetails?.established_year}
+                          </p>
+                        )}
                         {showContactDetails && vendorDetails?.mobile && (
                           <p className="mb-1">
                             <b>Contact Number</b> : {vendorDetails?.mobile}
@@ -620,6 +620,216 @@ useEffect(() => {
                   </div>
                 </div>
                 <hr />
+
+                {/* Identity, Compliance & Banking */}
+                {isLoggedin &&
+                  ((vendorDetails?.compliance_docs &&
+                    vendorDetails.compliance_docs.length > 0) ||
+                    vendorDetails?.bank_details?.account_holder_name) && (() => {
+                    const docByType = (type) =>
+                      (vendorDetails?.compliance_docs || []).find(
+                        (d) => d.document_type === type
+                      );
+                    const panDoc = docByType("pan");
+                    const gstDoc = docByType("gst");
+                    const msmeDoc = docByType("msme");
+                    const fssaiDoc = docByType("fssai");
+                    const chequeDoc = docByType("cancelled_cheque");
+                    const bank = vendorDetails?.bank_details || {};
+
+                    const identityRows = [
+                      { label: "PAN", value: panDoc?.document_number, docUrl: panDoc?.document_url },
+                      { label: "GSTIN", value: vendorDetails?.gstin, docUrl: gstDoc?.document_url },
+                      { label: "CIN", value: vendorDetails?.cin, docUrl: null },
+                      { label: "IEC", value: vendorDetails?.import_export_code, docUrl: null },
+                      { label: "MSME / Udyam", value: msmeDoc?.document_number, docUrl: msmeDoc?.document_url },
+                      { label: "FSSAI", value: fssaiDoc?.document_number, docUrl: fssaiDoc?.document_url },
+                    ];
+
+                    const hasBank = bank?.account_holder_name || bank?.bank_name || bank?.ifsc_code || bank?.account_number_masked;
+
+                    const bankRows = [
+                      { label: "Account Holder", value: bank.account_holder_name, mono: false },
+                      { label: "Bank Name", value: bank.bank_name, mono: false },
+                      { label: "Account Number", value: bank.account_number_masked, mono: true },
+                      { label: "IFSC Code", value: bank.ifsc_code, mono: true },
+                    ];
+
+                    return (
+                      <div className="py-3">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                          <h2 className="title mb-0">Identity & Compliance</h2>
+                          <button
+                            type="button"
+                            onClick={handleDownloadVendorData}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "#f8fafc";
+                              e.currentTarget.style.borderColor = "#94a3b8";
+                              e.currentTarget.style.boxShadow = "0 1px 2px rgba(15, 23, 42, 0.06)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "white";
+                              e.currentTarget.style.borderColor = "#cbd5e1";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                            className="d-inline-flex align-items-center gap-1"
+                            style={{
+                              fontSize: "0.8125rem",
+                              color: "#475569",
+                              fontWeight: 500,
+                              padding: "5px 12px",
+                              border: "1px solid #cbd5e1",
+                              background: "white",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+                            }}
+                          >
+                            <BiDownload size={14} /> Download Data
+                          </button>
+                        </div>
+
+                        {/* Registration IDs (with inline document links) */}
+                        <div className="mb-3">
+                          <div className="text-muted text-uppercase fw-semibold mb-2"
+                               style={{ fontSize: "0.7rem", letterSpacing: "0.05em" }}>
+                            Registration IDs
+                          </div>
+                          <div className="border rounded overflow-hidden">
+                            <div className="row g-0">
+                              {identityRows.map((row, i) => {
+                                const isClickable = !!row.docUrl;
+                                const Wrap = isClickable ? "a" : "div";
+                                const wrapExtraProps = isClickable
+                                  ? {
+                                      href: row.docUrl,
+                                      target: "_blank",
+                                      rel: "noopener noreferrer",
+                                      onMouseEnter: (e) => (e.currentTarget.style.background = "#f8fafc"),
+                                      onMouseLeave: (e) => (e.currentTarget.style.background = "transparent"),
+                                    }
+                                  : {};
+                                return (
+                                  <Wrap
+                                    key={row.label}
+                                    {...wrapExtraProps}
+                                    className={`col-md-6 px-3 py-2 d-block text-decoration-none text-body ${
+                                      i < identityRows.length - (identityRows.length % 2 === 0 ? 2 : 1)
+                                        ? "border-bottom"
+                                        : ""
+                                    }`}
+                                    style={{
+                                      ...(i % 2 === 0 ? { borderRight: "1px solid #dee2e6" } : {}),
+                                      ...(isClickable
+                                        ? {
+                                            cursor: "pointer",
+                                            background: "transparent",
+                                            transition: "background 120ms ease",
+                                          }
+                                        : {}),
+                                    }}
+                                  >
+                                    <div className="d-flex justify-content-between align-items-start gap-2">
+                                      <div className="flex-grow-1 min-w-0">
+                                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                                          {row.label}
+                                        </div>
+                                        <div className="font-monospace text-break" style={{ fontSize: "0.875rem" }}>
+                                          {row.value || <span className="text-muted">—</span>}
+                                        </div>
+                                      </div>
+                                      {row.docUrl && (
+                                        <span
+                                          className="d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                          style={{
+                                            fontSize: "0.8125rem",
+                                            color: "#475569",
+                                            fontWeight: 500,
+                                          }}
+                                        >
+                                          View
+                                          <BiLinkExternal size={13} />
+                                        </span>
+                                      )}
+                                    </div>
+                                  </Wrap>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Banking */}
+                        {hasBank && (
+                          <div className="mb-2">
+                            <div className="text-muted text-uppercase fw-semibold mb-2"
+                                 style={{ fontSize: "0.7rem", letterSpacing: "0.05em" }}>
+                              Banking
+                            </div>
+                            <div className="border rounded overflow-hidden">
+                              <div className="row g-0">
+                                {bankRows.map((row, i) => (
+                                  <div
+                                    key={row.label}
+                                    className="col-md-3 px-3 py-2"
+                                    style={i < bankRows.length - 1 ? { borderRight: "1px solid #dee2e6" } : {}}
+                                  >
+                                    <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                                      {row.label}
+                                    </div>
+                                    <div
+                                      className={row.mono ? "font-monospace" : ""}
+                                      style={{ fontSize: "0.875rem" }}
+                                    >
+                                      {row.value || <span className="text-muted">—</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {chequeDoc?.document_url && (
+                                <a
+                                  href={chequeDoc.document_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                  className="d-flex align-items-center px-3 py-2 border-top text-decoration-none text-body"
+                                  style={{
+                                    cursor: "pointer",
+                                    background: "transparent",
+                                    transition: "background 120ms ease",
+                                  }}
+                                >
+                                  <div className="me-3 text-muted d-flex">
+                                    <BiFile size={18} />
+                                  </div>
+                                  <div className="flex-grow-1" style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                                    Cancelled Cheque
+                                  </div>
+                                  <span
+                                    className="d-inline-flex align-items-center gap-1 ms-2"
+                                    style={{
+                                      fontSize: "0.8125rem",
+                                      color: "#475569",
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    View
+                                    <BiLinkExternal size={13} />
+                                  </span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                {isLoggedin &&
+                  ((vendorDetails?.compliance_docs &&
+                    vendorDetails.compliance_docs.length > 0) ||
+                    vendorDetails?.bank_details?.account_holder_name) && <hr />}
 
                 {/* Certification and other documents */}
                 {vendorDetails?.vendor_info?.length > 0 && (
@@ -764,56 +974,89 @@ useEffect(() => {
                   </div>
                 )}
 
-                {/* Vendor's Products List */}
-                {vendorDetails?.product_list &&
-                  vendorDetails.product_list.length > 0 && (
-                    <div className="vendor-profile-sec-con-3 hasFullLoader">
-                      {loading && <FullLoader />}
-                      <h2 className="title">Vendor's Products</h2>
+                {/* Subscribed Categories */}
+                {vendorDetails?.subscribed_categories &&
+                  vendorDetails.subscribed_categories.length > 0 && (() => {
+                    const groups = new Map();
+                    vendorDetails.subscribed_categories.forEach((sub) => {
+                      const groupKey =
+                        sub.item_type === "subcategory" && sub.parent_title
+                          ? sub.parent_title
+                          : sub.title;
+                      if (!groups.has(groupKey)) groups.set(groupKey, []);
+                      groups.get(groupKey).push(sub);
+                    });
+                    const groupEntries = Array.from(groups.entries());
 
-                      {/* Product Carousel is ready whenever Product Image will be available uncomment this */}
-                      {/* <ProductCarousel data={vendorDetails?.product_list} /> */}
-
-                      {vendorDetails?.product_list &&
-                      vendorDetails?.product_list.length > 0 ? (
-                        <div className="row">
-                          {vendorDetails?.product_list?.map(
-                            (prodItem, index) => {
-                              return (
-                                <div
-                                  key={`prod_${index}`}
-                                  className="col-sm-6 col-md-4 col-lg-3 mb-3"
-                                >
-                                  <div className="card shadow-sm border-light h-100">
-                                    <div className="card-body">
-                                      <p className="card-title fw-semibold mb-1">
-                                        {prodItem.product_name}
-                                      </p>
-
-                                      {prodItem.product_make && (
-                                        <p className="text-muted small mb-0">
-                                          <span className="fw-semibold">
-                                            Product-Make:
-                                          </span>{" "}
-                                          {Array.isArray(prodItem.product_make)
-                                            ? prodItem.product_make.join(", ")
-                                            : prodItem.product_make}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                          )}
+                    return (
+                      <div className="vendor-profile-sec-con-3 hasFullLoader py-3">
+                        {loading && <FullLoader />}
+                        <div className="d-flex align-items-baseline justify-content-between mb-3">
+                          <h2 className="title mb-0">Subscribed Categories</h2>
                         </div>
-                      ) : (
-                        <p>No product list available.</p>
-                      )}
 
-                      <hr />
-                    </div>
-                  )}
+                        <div className="border rounded">
+                          {groupEntries.map(([groupTitle, items], idx) => (
+                            <div
+                              key={groupTitle}
+                              className={`px-3 py-2 ${
+                                idx < groupEntries.length - 1 ? "border-bottom" : ""
+                              }`}
+                            >
+                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                                  {groupTitle}
+                                </div>
+                                <div className="d-flex flex-wrap gap-2">
+                                  {items.map((sub) => {
+                                    const isActive = sub.display_status === "active";
+                                    const dateLabel = sub.end_date
+                                      ? isActive
+                                        ? `Until ${formatDisplayDate(sub.end_date)}`
+                                        : `Expired ${formatDisplayDate(sub.end_date)}`
+                                      : "";
+                                    return (
+                                      <span
+                                        key={sub.subscription_id}
+                                        className="d-inline-flex align-items-center gap-2"
+                                        style={{ fontSize: "0.75rem" }}
+                                      >
+                                        <span
+                                          aria-hidden="true"
+                                          style={{
+                                            width: 6,
+                                            height: 6,
+                                            borderRadius: "50%",
+                                            backgroundColor: isActive ? "#10b981" : "#9ca3af",
+                                            display: "inline-block",
+                                          }}
+                                        />
+                                        <span
+                                          style={{
+                                            color: isActive ? "#065f46" : "#6b7280",
+                                            fontWeight: 500,
+                                          }}
+                                        >
+                                          {sub.item_type === "subcategory"
+                                            ? sub.title
+                                            : "All sub-categories"}
+                                        </span>
+                                        {dateLabel && (
+                                          <span className="text-muted">· {dateLabel}</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <hr className="mt-4" />
+                      </div>
+                    );
+                  })()}
 
                 {/* Vendor SPOC Section */}
                 {isLoggedin && (
@@ -890,156 +1133,6 @@ useEffect(() => {
                             })}
                         </div>
                       ))}
-                  </div>
-                )}
-              </div>
-              {/* Vendor review section */}
-              <div className="vendor-profile-sec-con">
-                {/* Vendor Rating Section */}
-                {isLoggedin && (
-                  <div className="hasFullLoader">
-                    {reviewLoading && <FullLoader />}
-                    <h2 className="title">Rating & Review</h2>
-                    <div className="row">
-                      <div className="col-md-5">
-                        <p className="mb-2 fw-bold">
-                          Share Your Review with us
-                        </p>
-                        <div className="d-flex justify-content-between mx-4 mb-2">
-                          <span>Quality of Work</span>
-                          <StarRating
-                            type={"qualityOfWork"}
-                            totalStars={5}
-                            onRatingChange={handleRatingChange}
-                          />
-                        </div>
-                        <div className="d-flex justify-content-between mx-4 mb-2">
-                          <span>On Time Delivery</span>
-                          <StarRating
-                            type={"onTimeDelivery"}
-                            totalStars={5}
-                            onRatingChange={handleRatingChange}
-                          />
-                        </div>
-                        <div className="d-flex justify-content-between mx-4 mb-2">
-                          <span>Trustworthiness</span>
-                          <StarRating
-                            type={"trustWorthy"}
-                            totalStars={5}
-                            onRatingChange={handleRatingChange}
-                          />
-                        </div>
-                        <div className="d-flex justify-content-between mx-4 mb-2">
-                          <span>Overall Rating</span>
-                          <StarRating
-                            type={"overallRating"}
-                            totalStars={5}
-                            onRatingChange={handleRatingChange}
-                          />
-                        </div>
-                        <p className="mt-3 fw-bold">
-                          Share more about your experience
-                        </p>
-                        <textarea
-                          style={{ width: "100%" }}
-                          name="review"
-                          id="review"
-                          rows="5"
-                          onChange={(e) => setreviewText(e.target.value)}
-                          placeholder="Tell us something about your experience."
-                        ></textarea>
-                        <div className="d-flex justify-content-center">
-                          <button
-                            id="submit_review-rating_review_section-vendor_profile"
-                            type="button"
-                            onClick={submitReview}
-                            className="page-link btn btn-primary me-0"
-                          >
-                            {" "}
-                            Submit Now{" "}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="col-md-7">
-                        {vendorDetails?.reviews &&
-                          (vendorDetails?.reviews.length == 0 ? (
-                            <p>No Reviews yet!</p>
-                          ) : (
-                            <>
-                              <div className="d-flex justify-content-between">
-                                <span className="mb-2 fw-bold">
-                                  Vendor Reviews:{" "}
-                                </span>
-                                <div className="d-flex flex-column mb-2">
-                                  <StarRating
-                                    totalStars={5}
-                                    value={avgRating}
-                                  />
-                                  <span className="text-sm">
-                                    {avgRating.toFixed(1)} / 5 based on{" "}
-                                    {vendorDetails?.reviews?.length} reviews
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="review-container">
-                                <ul className="reviewList">
-                                  {vendorDetails?.reviews?.map(
-                                    (review, index) => {
-                                      return (
-                                        <li className="rounded-3" key={index}>
-                                          <div className="imagearea">
-                                            {!review.new_profile_image &&
-                                            !review.original_profile_image ? (
-                                              <FontAwesomeIcon icon={faUser} />
-                                            ) : (
-                                              <img
-                                                src={
-                                                  review.new_profile_image ||
-                                                  review.original_profile_image
-                                                }
-                                                alt={review.buyer}
-                                              />
-                                            )}
-                                          </div>
-                                          <div className="reviewarea">
-                                            <div className="d-flex justify-content-between">
-                                              <div className="ratingArea flex-column">
-                                                <p>
-                                                  <strong>
-                                                    {review.buyer}
-                                                  </strong>
-                                                </p>
-                                                <small>
-                                                  {review.rating}/5
-                                                  <StarRating
-                                                    totalStars={5}
-                                                    onRatingChange={null}
-                                                    value={review.rating}
-                                                  />
-                                                </small>
-                                              </div>
-                                              <small>
-                                                {moment(
-                                                  review.review_date
-                                                ).format("DD-MMM-YYYY")}
-                                              </small>
-                                            </div>
-                                            <p className="text-sm">
-                                              {review.description}
-                                            </p>
-                                          </div>
-                                        </li>
-                                      );
-                                    }
-                                  )}
-                                </ul>
-                              </div>
-                            </>
-                          ))}
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>

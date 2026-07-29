@@ -6,27 +6,45 @@ import {
   subscribeHospitalityContext,
 } from "@/utils/hospitalityContext";
 
+// Every approval entity type the engine can raise, mapped to the nav module
+// (landing href) where the user goes to act. The /counts endpoint groups by
+// entity_type across ALL of these, so wiring them here lights up the matching
+// tab. Hrefs match the buyer rail in headerConfig.js exactly.
 const ENTITY_TYPE_TO_HREF = {
+  // Sourcing
   RFQ: "/dashboard/buyer/rfq-management",
   TENDER: "/dashboard/buyer/rfq-management",
-  TECHNICAL: "/dashboard/buyer/technical-evaluation",
-  NEGOTIATION: "/dashboard/buyer/quote-compare",
-  NEGOTIATION_QUOTE: "/dashboard/buyer/quote-compare",
-  PO: "/dashboard/buyer/purchase-order",
-  ARC: "/dashboard/buyer/arc-committee",
+  TECHNICAL: "/dashboard/buyer/rfq-management",      // tech eval lives inside the RFQ lifecycle
+  NEGOTIATION: "/dashboard/buyer/negotiation",
+  NEGOTIATION_QUOTE: "/dashboard/buyer/negotiation",
+  // Contracts (ARC v2)
+  ARC_TECH: "/dashboard/buyer/rate-contracts",
+  ARC_COMMITTEE: "/dashboard/buyer/rate-contracts",
+  ARC_AMENDMENT: "/dashboard/buyer/rate-contracts",
+  // Requisition & Orders
+  MR: "/dashboard/buyer/material-requisitions",
+  PO: "/dashboard/buyer/purchase-orders",
 };
 
 const POLL_INTERVAL_MS = 5000;
 
 export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
-  const [pendingHrefs, setPendingHrefs] = useState(new Set());
+  // Map<href, count> — how many items at that nav module need the user's action.
+  const [countsByHref, setCountsByHref] = useState(() => new Map());
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef(null);
   const fetchIdRef = useRef(0);
 
   const fetchCounts = useCallback(async () => {
     if (!enabled || !storageInstance.getStorage("token")) {
-      setPendingHrefs(new Set());
+      setCountsByHref(new Map());
+      return;
+    }
+
+    // Approval counts are buyer-only — skip for vendors (user_type=3)
+    const userType = storageInstance.getStorage("current-user-type");
+    if (userType === "vendor") {
+      setCountsByHref(new Map());
       return;
     }
 
@@ -44,16 +62,16 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
       if (fetchIdRef.current !== currentFetchId) return;
 
       const counts = response?.data || [];
-      const hrefsWithPending = new Set();
+      const map = new Map();
 
       counts.forEach(({ entity_type, count }) => {
-        if (count > 0) {
-          const href = ENTITY_TYPE_TO_HREF[entity_type];
-          if (href) hrefsWithPending.add(href);
-        }
+        const n = Number(count) || 0;
+        if (n <= 0) return;
+        const href = ENTITY_TYPE_TO_HREF[entity_type];
+        if (href) map.set(href, (map.get(href) || 0) + n);
       });
 
-      setPendingHrefs(hrefsWithPending);
+      setCountsByHref(map);
     } catch (err) {
       if (fetchIdRef.current !== currentFetchId) return;
       console.error("Failed to fetch pending approval counts:", err);
@@ -95,12 +113,17 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [fetchCounts]);
 
+  // How many items at this exact nav href need my action.
+  const pendingCountFor = useCallback(
+    (href) => countsByHref.get(href) || 0,
+    [countsByHref]
+  );
   const hasPendingApproval = useCallback(
-    (href) => pendingHrefs.has(href),
-    [pendingHrefs]
+    (href) => (countsByHref.get(href) || 0) > 0,
+    [countsByHref]
   );
 
-  return { pendingHrefs, hasPendingApproval, loading, refetch: fetchCounts };
+  return { countsByHref, pendingCountFor, hasPendingApproval, loading, refetch: fetchCounts };
 };
 
 export default usePendingApprovalIndicators;

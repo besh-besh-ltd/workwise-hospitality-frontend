@@ -42,21 +42,53 @@ export const getChargeTargetKey = (fieldValue) => {
   return `target_${fieldValue}`;
 };
 
-const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [] }) => {
+const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData, onFormChange, disabled = false, dynamicChargeFields = [], defaultCharges = [], excludeKeys = [], l1Map = null, l1TaxMap = null, showTaxInput = false, includeOnlyKeys = null }) => {
 
-  // Build the full list of fields: static options + default charges from API (created_by === null)
+  // Build the full list of fields: static options + default charges from API.
+  // - `excludeKeys` hides specific options.
+  // - `includeOnlyKeys` (when provided) RESTRICTS the list to those slugs.
+  //   Used by the RFQ-level wizard mode, which surfaces only payment_terms,
+  //   global_comment, documents, and quote-level global charges (is_global).
   const allFieldOptions = React.useMemo(() => {
-    const fields = [...NEGOTIATION_FIELD_OPTIONS];
+    const excluded = new Set(excludeKeys);
+    const includeOnly = includeOnlyKeys ? new Set(includeOnlyKeys) : null;
+    const passes = (slug) =>
+      !excluded.has(slug) && (!includeOnly || includeOnly.has(slug));
+
+    const fields = NEGOTIATION_FIELD_OPTIONS.filter(f => passes(f.value));
     const existingSlugs = new Set(fields.map(f => f.value));
-    defaultCharges.filter(c => !c.is_global).forEach(charge => {
-      const slug = charge.slug || charge.name;
-      if (!existingSlugs.has(slug)) {
-        existingSlugs.add(slug);
-        fields.push(buildChargeFieldOption(charge));
-      }
-    });
+
+    // RFQ-level mode also needs `global_comment` and `documents` — they're
+    // not in the static NEGOTIATION_FIELD_OPTIONS list, so synthesize them
+    // when the caller has asked for them via `includeOnlyKeys`.
+    const synthesizeText = (slug, label) => {
+      if (!passes(slug)) return;
+      if (existingSlugs.has(slug)) return;
+      existingSlugs.add(slug);
+      fields.push({
+        value: slug,
+        label,
+        inputType: 'text',
+        placeholder: `Enter target ${label.toLowerCase()}`,
+      });
+    };
+    if (includeOnly?.has('global_comment')) synthesizeText('global_comment', 'Global Comment');
+    if (includeOnly?.has('documents')) synthesizeText('documents', 'RFQ Documents');
+
+    // In RFQ-level mode we want is_global charges; otherwise per-product only.
+    const wantGlobal = !!includeOnly;
+    defaultCharges
+      .filter(c => wantGlobal ? c.is_global : !c.is_global)
+      .forEach(charge => {
+        const slug = charge.slug || charge.name;
+        if (!passes(slug)) return;
+        if (!existingSlugs.has(slug)) {
+          existingSlugs.add(slug);
+          fields.push(buildChargeFieldOption(charge));
+        }
+      });
     return fields;
-  }, [defaultCharges]);
+  }, [defaultCharges, excludeKeys, includeOnlyKeys]);
 
   const handleCardClick = (fieldValue) => {
     if (disabled) return;
@@ -105,9 +137,30 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
             >
               <div className={styles.negFieldCardHeader}>
                 <p className={styles.negFieldCardLabel}>{field.label}</p>
-                <span className={`${styles.negFieldCardCheck} ${isSelected ? styles.negFieldCardCheckActive : ''}`}>
-                  {isSelected ? '✓' : ''}
-                </span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {l1Map && l1Map[field.value] && (
+                    <span
+                      title={`Lowest from ${l1Map[field.value].vendorName || 'vendor'}`}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        color: '#15803d',
+                        background: '#dcfce7',
+                        border: '1px solid #bbf7d0',
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      L1: {l1Map[field.value].displayText}
+                    </span>
+                  )}
+                  <span className={`${styles.negFieldCardCheck} ${isSelected ? styles.negFieldCardCheckActive : ''}`}>
+                    {isSelected ? '✓' : ''}
+                  </span>
+                </div>
               </div>
 
               {isSelected && (
@@ -152,6 +205,36 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
                       </div>
                     )}
                   </div>
+                  {showTaxInput && (field.hasMode || field.value === 'base_price') && (() => {
+                    // Tax is no longer a numeric target at the global level —
+                    // buyers raise tax demands per vendor via the card's
+                    // Demand/Negotiate flow. Here we only anchor with the
+                    // lowest quoted tax (L1).
+                    const taxL1 = l1TaxMap && l1TaxMap[field.value];
+                    if (!taxL1) return null;
+                    return (
+                      <label className={styles.negFieldInputLabel} style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span>Tax (GST)</span>
+                        <span
+                          title={`Lowest tax from ${taxL1.vendorName || 'vendor'}`}
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                            color: '#15803d',
+                            background: '#dcfce7',
+                            border: '1px solid #bbf7d0',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          L1: {taxL1.displayText}
+                        </span>
+                      </label>
+                    );
+                  })()}
                 </div>
               )}
             </div>

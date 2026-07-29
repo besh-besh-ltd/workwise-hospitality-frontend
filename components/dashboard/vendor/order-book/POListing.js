@@ -114,13 +114,6 @@ const POListing = ({
 
   return (
     <div>
-      <div className={styles.listingHeader}>
-        <h4 className={styles.listingTitle}>
-          Order Book
-          <span className={styles.listingCount}>({totalData})</span>
-        </h4>
-      </div>
-
       {/* Filter Bar */}
       <div className={styles.filterBar}>
         <div className={styles.filterGroup} style={{ flex: 1, minWidth: 0 }}>
@@ -283,8 +276,8 @@ const POListing = ({
         )}
       </div>
 
-      <div className="mt-3">
-        {poList.length > 0 && (
+      {poList.length > 0 && (
+        <div className="mt-3">
           <Pagination
             page={filters.page}
             setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
@@ -292,8 +285,8 @@ const POListing = ({
             setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
             totalData={totalData}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Raise Invoice Confirmation */}
       <ConfirmationModal

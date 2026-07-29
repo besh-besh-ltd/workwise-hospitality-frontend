@@ -14,12 +14,13 @@ import UpdateGRNModal from "./UpdateGRNModal";
 import { Badge, Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import { useSelector } from "react-redux";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsList } from "react-icons/bs";
 import styles from "./PurchaseOrder.module.scss";
 
 const PurchaseOrders = () => {
@@ -84,6 +85,8 @@ const PurchaseOrders = () => {
     canCreate,
     canApprove,
     canRegenerate: rawCanRegenerate,
+    allowedProcessIds,
+    isProcessAllowed,
     loading: permissionsLoading,
   } = useModulePermissions({
     moduleKey: "awarding",
@@ -91,6 +94,16 @@ const PurchaseOrders = () => {
     departmentId: currentRfqData?.department_id || null,
     enabled: !!currentRfqData,
   });
+
+  // Process-scope guard: a user whose awarding.* scope is narrowed to a
+  // subset of processes should not see PO details for an out-of-scope RFQ.
+  // POs inherit process_id from their parent RFQ, so the gate keys on the
+  // RFQ's process_id. Mirrors the backend's PROCESS_NOT_IN_USER_SCOPE.
+  const processOutOfScope =
+    !!currentRfqData &&
+    currentRfqData.process_id != null &&
+    Array.isArray(allowedProcessIds) &&
+    !isProcessAllowed(currentRfqData.process_id);
 
   // A closed RFQ (status=2) is fully locked — no PO edits, no approval actions
   const isRfqClosed = String(currentRfqData?.status) === '2';
@@ -377,83 +390,76 @@ const PurchaseOrders = () => {
       fetchUserHotelMappings();
     }, []);
 
+  const poSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={myRFQs}
+      loading={rfqLoading}
+      selectedRfqId={rfq}
+      linkPrefix="/dashboard/buyer/purchase-order"
+      linkQueryKey="rfq"
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — only show in All tab
+            if (String(item.status) === '2') return false;
+            if (item.po_completed === true) return false;
+            return item.has_draft_po === true || item.approval_required === true || item.has_po_rejection === true;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            if (item.po_completed === true) return false;
+            if (item.has_draft_po === true || item.approval_required === true) return false;
+            return item.has_pending_po_approval === true;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
+      showTypeFilter={false}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
+        if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
+        if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
+        if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
+        if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];
+        return [{ label: 'In Progress', variant: 'info' }];
+      }}
+      pageId="purchase_order"
+    />
+  );
+
   return (
     <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Purchase Order Management</h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={styles.layoutRow}>
-              {isMobile && (
-                <button className={styles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Purchase Orders"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={myRFQs}
-                loading={rfqLoading}
-                selectedRfqId={rfq}
-                linkPrefix="/dashboard/buyer/purchase-order"
-                linkQueryKey="rfq"
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — only show in All tab
-                      if (String(item.status) === '2') return false;
-                      if (item.po_completed === true) return false;
-                      return item.has_draft_po === true || item.approval_required === true || item.has_po_rejection === true;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      if (item.po_completed === true) return false;
-                      if (item.has_draft_po === true || item.approval_required === true) return false;
-                      return item.has_pending_po_approval === true;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={(ids) => setSelectedHotelIds(ids)}
-                showTypeFilter={false}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  if (item.po_completed) return [{ label: 'Completed', variant: 'success' }];
-                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
-                  if (item.approval_required) return [{ label: 'Approval Pending', variant: 'warning' }];
-                  if (item.has_draft_po) return [{ label: 'Draft', variant: 'neutral' }];
-                  if (item.has_pending_po_approval) return [{ label: 'In Approval', variant: 'info' }];
-                  return [{ label: 'In Progress', variant: 'info' }];
-                }}
-                pageId="purchase_order"
-              />
-            <div className={styles.contentColumn}>
+      <TwoPanelPage
+        title="Purchase Order Management"
+        subtitle="Track, approve, and manage purchase orders."
+        sidebar={poSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
+        mobileToggleLabel="Select RFQ"
+      >
               {/* Empty state - no RFQ selected */}
               {!rfq && !permissionsLoading && (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyStateIcon}>
-                    <BsFileEarmarkText size={24} />
+                    <BsFileEarmarkText size={36} />
                   </div>
                   <h4 className={styles.emptyStateTitle}>Select an RFQ to View Purchase Orders</h4>
                   <p className={styles.emptyStateDesc}>
@@ -496,7 +502,20 @@ const PurchaseOrders = () => {
               )}
 
               {/* Access Denied */}
-              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && !canRead && (
+              {/* Process out of scope — render the typed banner instead of
+                  generic AccessDenied so the message names the cause and
+                  (for admins) deep-links to approval-hierarchy. */}
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && processOutOfScope && (
+                <ProcessScopeErrorBanner
+                  error={{
+                    code: "PROCESS_NOT_IN_USER_SCOPE",
+                    message: `You don't have access to this ${currentRfqData?.is_tender === 1 ? 'tender' : 'RFQ'}'s process. Contact your administrator to update your access.`,
+                    data: { process_id: currentRfqData?.process_id, rfq_id: rfq },
+                  }}
+                />
+              )}
+
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && currentRfqData && !canRead && !processOutOfScope && (
                 <AccessDeniedPage
                   title="Access Denied"
                   message="You do not have permission to view Purchase Orders for this RFQ. Contact your administrator to request access."
@@ -505,7 +524,7 @@ const PurchaseOrders = () => {
               )}
 
               {/* Content area */}
-              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && canRead && (
+              {rfq && !rfqMetaLoading && !rfqMetaError && !permissionsLoading && canRead && !processOutOfScope && (
                 <>
 
                   {/* Closed-RFQ Lock Banner — supersedes the read-only banner. Wait for content to load. */}
@@ -610,12 +629,9 @@ const PurchaseOrders = () => {
                   )}
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      </section>
+      </TwoPanelPage>
 
-      <UpdateGRNModal 
+      <UpdateGRNModal
         show={showGRNModal} 
         onClose={() => setShowGRNModal(false)} 
         onAction={handleConfirmGRNUpdate}

@@ -4,8 +4,12 @@ import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, getStageEntityOrder } from "../constants";
+import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType } from "../constants";
 import s from "./DashboardView.module.scss";
+
+// Synthetic "process" representing the process-free ARC flow so ARC policies
+// (process_id = NULL, entity_type ARC_*) group into one editable card.
+export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "ARC (Rate Contracts)", process_type: "ARC", is_arc: true };
 
 const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
@@ -24,7 +28,11 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
       const entityOrder = getStageEntityOrder(proc.process_type);
       groups.push({ process: proc, policies: policies.filter((p) => p.process_id === proc.id && entityOrder.includes(p.entity_type)) });
     });
-    const orphans = policies.filter((p) => !p.process_id);
+    // ARC flow: process-free policies whose entity_type is an ARC stage group
+    // into one editable "ARC" card (kept separate from true orphans).
+    const arcPolicies = policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type));
+    if (arcPolicies.length > 0) groups.push({ process: ARC_FLOW_PROCESS, policies: arcPolicies, isArc: true });
+    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type));
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);
