@@ -62,6 +62,10 @@ import ReadMore from "@/components/shared/ReadMore";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
 import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
+import RfqApprovalDecisionCard, {
+  resolveRfqApprovalDecision,
+  APPROVAL_DECISION_ANCHOR_ID,
+} from "@/components/dashboard/buyer/rfq/RfqApprovalDecisionCard";
 import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
 import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
 import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
@@ -616,6 +620,49 @@ const ViewRFQ = ({
     return () => { cancelled = true; };
   }, [data?.id, data?.is_tender, router.query.id]);
 
+  // Re-pull the lifecycle after an approve/reject so the timeline, the context
+  // strip and the decision card all reflect the new state without a reload.
+  const refreshLifecycle = useCallback(async () => {
+    const rid = data?.id || router.query.id;
+    if (!rid || Number(data?.is_tender) === 1) return;
+    try {
+      const res = await getRfqLifecycle(rid);
+      setLifecycle(res?.data || null);
+    } catch {
+      /* keep the current view — the action's own toast already reported it */
+    }
+  }, [data?.id, data?.is_tender, router.query.id]);
+
+  // The one pending approval (if any) this user must decide on. Drives BOTH the
+  // decision card and the legacy right-rail fallback below, so the approver can
+  // never end up with two competing Approve controls.
+  const approvalDecision = useMemo(
+    () => resolveRfqApprovalDecision(lifecycle),
+    [lifecycle],
+  );
+
+  // Show the legacy right-rail journey when there is no horizontal timeline
+  // (tenders / lifecycle unavailable), OR as a safety net when the server says
+  // this user has an approval to make but the decision card could not resolve
+  // the instance — the rail self-fetches /rfq/lifecycle-summary/:id and owns a
+  // working Approve/Reject of its own. Never both at once.
+  const showLegacyRail =
+    !(lifecycle?.stages?.length > 0)
+    || !!(lifecycle?.action?.can_approve && !approvalDecision);
+
+  // Deep links from the "Waiting on you" queue / approval emails arrive with
+  // ?focus=approval — bring the decision card into view instead of making the
+  // approver hunt for it.
+  useEffect(() => {
+    if (router.query.focus !== "approval" || !approvalDecision) return undefined;
+    const t = setTimeout(() => {
+      document
+        .getElementById(APPROVAL_DECISION_ANCHOR_ID)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [router.query.focus, approvalDecision]);
+
   // Open the current stage by default (honour ?stage= when valid + unlocked).
   useEffect(() => {
     if (!lifecycle?.stages?.length) return;
@@ -997,6 +1044,14 @@ const ViewRFQ = ({
             selectedKey={selectedStage}
             onSelect={selectStage}
           />
+          {/* Approve / Reject — the timeline only SAYS "your approval needed";
+              this is where the approver actually acts. Rendered beside the rail
+              (not inside a stage panel) so it shows on every stage. */}
+          <RfqApprovalDecisionCard
+            lifecycle={lifecycle}
+            entityLabel={entity}
+            onDecided={refreshLifecycle}
+          />
           {/* Subtle "who's acting now / next" context — persistent across stages. */}
           <LifecycleContext lifecycle={lifecycle} />
         </div>
@@ -1021,7 +1076,7 @@ const ViewRFQ = ({
       ) : (
       <main
         className={styles.pageBody}
-        style={lifecycle?.stages?.length > 0 ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
+        style={lifecycle?.stages?.length > 0 && !showLegacyRail ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
       >
         <div className={styles.leftCol} style={{ minWidth: 0 }}>
           {/* Buyer & inquiry details */}
@@ -1283,8 +1338,13 @@ const ViewRFQ = ({
 
         {/* Right-rail vertical journey — kept for tenders / when the
             horizontal timeline isn't available; RFQs use the horizontal
-            timeline below the header instead. */}
-        {!(lifecycle?.stages?.length > 0) && (
+            timeline below the header instead.
+            It ALSO comes back as a safety net when the server says this user
+            has an approval to make but we could not resolve the instance for
+            the decision card above: the rail self-fetches
+            /rfq/lifecycle-summary/:id and carries its own working Approve /
+            Reject. It is never shown alongside the card — one control only. */}
+        {showLegacyRail && (
           <aside className={styles.rightCol}>
             <div className={styles.rightSticky}>
               {data?.id && (

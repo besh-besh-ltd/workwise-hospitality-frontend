@@ -14,7 +14,7 @@ import { useRouter } from "next/router";
 import moment from "moment";
 import {
   Filter, Search, ChevronLeft, ChevronRight, Eye, Pencil, Copy as CopyIcon,
-  FileText, Users, Plus, Trash2,
+  FileText, Users, Plus, Trash2, ShieldCheck,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getRfqListView, deleteDraft } from "@/services/rfq";
@@ -48,10 +48,17 @@ const STATUS_META = {
 };
 const metaFor = (key) => STATUS_META[key] || { label: key || "—", tone: "draft", order: 0, desc: "" };
 
+// Tab order follows the RFQ's own journey: Draft → Approval → Ongoing →
+// Approved → Closed. "Approval" holds RFQs awaiting publish approval (server
+// bucket `approval`, status 3/4). They used to sit under Drafts; the server no
+// longer files them there, so without this tab they'd only be reachable via
+// All / Pending for me. Counts render for every tab including zero — matching
+// the existing tabs, no conditional hiding.
 const TABS = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending for me" },
   { key: "drafts", label: "Drafts" },
+  { key: "approval", label: "Approval" },
   { key: "ongoing", label: "Ongoing" },
   { key: "approved", label: "Approved" },
   { key: "closed", label: "Closed" },
@@ -484,17 +491,33 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
   const meta = metaFor(row.status_key);
   const cats = Array.isArray(row.categories) ? row.categories : [];
   const products = Array.isArray(row.products) ? row.products : [];
-  const isDraft = row.bucket === "drafts";
+  // An RFQ waiting on publish approval is NOT a draft: it must open the details
+  // page (where the Approve/Reject decision card lives), never the create
+  // wizard. Two independent signals — the server's `approval` bucket and the
+  // status key — so neither field alone is load-bearing.
+  const awaitingApproval = row.bucket === "approval" || row.status_key === "RFQ_APPROVAL";
+  const isDraft = row.bucket === "drafts" && !awaitingApproval;
   const detailHref = `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${row.id}`;
   // A draft is still a work-in-progress: it opens straight back into the create
   // RFQ wizard (CreateRFQ) loaded from the saved draft; everything else opens
   // the lifecycle details page.
   const draftHref = `/dashboard/buyer/rfq-management-edit?draft_id=${row.id}`;
-  const rowHref = isDraft ? draftHref : detailHref;
   const edit = canEditRfq(row, currentUser); // same gate the detail/edit page uses
   // Is the current user one of the people who can act on this RFQ right now?
   const myId = Number(currentUser?.id);
-  const isMyAction = !!myId && (row.action_holders?.users || []).some((u) => Number(u.id) === myId);
+  const isMyAction = typeof row.is_pending_for_me === "boolean"
+    ? row.is_pending_for_me
+    : (!!myId && (row.action_holders?.users || []).some((u) => Number(u.id) === myId));
+  // Can *I* decide on this row? Prefer the server's own flag; fall back to the
+  // action-holder block (type === "approval" ⇒ the holders are the approvers)
+  // so an older payload still lights up the CTA.
+  const canApprove = typeof row.can_approve === "boolean"
+    ? row.can_approve
+    : (isMyAction && row.action_holders?.type === "approval");
+  // Land the approver directly on the decision card (ViewRFQ scrolls to it).
+  const approveHref = `${detailHref}&stage=overview&focus=approval`;
+  const showApproveCta = awaitingApproval && canApprove;
+  const rowHref = isDraft ? draftHref : (showApproveCta ? approveHref : detailHref);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const handleDelete = async () => {
@@ -563,6 +586,10 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
                 </>
               ) : (
                 <>
+                  {/* Waiting on MY approval → lead with the decision CTA. */}
+                  {showApproveCta && (
+                    <Link href={approveHref} className="btn btn-primary btn-sm" title="Review and approve" onClick={(e) => e.stopPropagation()}><ShieldCheck size={13} strokeWidth={2} /> Review &amp; approve</Link>
+                  )}
                   <Link href={detailHref} className="btn btn-secondary btn-sm" title="View" onClick={(e) => e.stopPropagation()}><Eye size={13} strokeWidth={2} /> View</Link>
                   {edit.allowed ? (
                     <Link href={`/dashboard/buyer/rfq-management-edit?id=${row.id}`} className="btn btn-secondary btn-sm" title="Edit"><Pencil size={13} strokeWidth={2} /></Link>
