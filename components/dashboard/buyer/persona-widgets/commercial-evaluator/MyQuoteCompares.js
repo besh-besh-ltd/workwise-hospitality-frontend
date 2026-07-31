@@ -41,7 +41,9 @@ const MyQuoteCompares = ({ filters }) => (
             {(data?.items || []).slice(0, 5).map((item) => (
               <Link
                 key={item.id}
-                href={`/dashboard/buyer/quote-compare?rfq_id=${item.id}`}
+                // quote-compare reads `?rfq`, not `?rfq_id` — with the wrong
+                // key it opened with no RFQ selected at all.
+                href={`/dashboard/buyer/quote-compare?rfq=${item.id}`}
                 className={styles.item}
               >
                 <div className={styles.itemMain}>

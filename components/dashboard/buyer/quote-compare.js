@@ -73,7 +73,11 @@ const QuoteCompare = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { rfq_product_id, source, tab = "product" } = router.query;
+  // `rfq_product_id` narrows the whole comparison to one product (the
+  // quote-compare endpoint applies it as a server-side filter). `focus` is the
+  // hint approval emails and the pending-approvals queue attach so we land the
+  // approver on the exact card carrying the Approve/Reject control.
+  const { rfq_product_id, focus, source, tab = "product" } = router.query;
   const [rfq, setRfq] = useState(router.query.rfq || null);
   const tabOptions = ["product", "category", "cost"];
   const safeTab = tabOptions.includes(String(tab)) ? String(tab) : "product";
@@ -387,6 +391,19 @@ const QuoteCompare = () => {
     if (initializingRef.current) return; // Skip — initialization handles the first fetch
     getRespectiveQuotes();
   }, [TA_Filter, freightFilter, normalizeFilter]);
+
+  // `rfq_product_id` is a genuine server-side filter, so treat it like the
+  // others: when it is cleared from the URL ("Show all products") the rest of
+  // the RFQ has to come back, otherwise the user is stuck on a one-product view
+  // with no way out short of a hard reload.
+  const productFilterInitialized = useRef(false);
+  useEffect(() => {
+    if (!productFilterInitialized.current) { productFilterInitialized.current = true; return; }
+    if (!rfq || !rfqMetadataReady || permissionsLoading || (!canReadNegotiation && !canReadQuoteCompare)) return;
+    if (String(dataInitializedForRfq.current) !== String(rfq)) return;
+    if (initializingRef.current) return;
+    getRespectiveQuotes();
+  }, [rfq_product_id]);
 
   // Check TE availability first, then fetch quotes with the correct TA filter in one pass
   // Negotiation data loads independently — does NOT block quotes
@@ -1849,6 +1866,26 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     );
   };
 
+  // Approval deep link: ?rfq=<rfq>&rfq_product_id=<product>&focus=approval
+  const isApprovalFocus = focus === "approval" && !!rfq_product_id;
+
+  // The Approve/Reject control for a vendor finalization only exists on the
+  // Product tab. If the link (or a stale ?tab=) would drop the approver on
+  // Category/Cost they would see nothing to act on, so switch once on arrival
+  // and then leave the tabs alone — the user stays free to browse.
+  const approvalFocusTabApplied = useRef(false);
+  useEffect(() => {
+    if (!isApprovalFocus || approvalFocusTabApplied.current) return;
+    approvalFocusTabApplied.current = true;
+    if (safeTab !== "product") handleTabChange("product");
+  }, [isApprovalFocus, safeTab]);
+
+  // Drop the single-product filter and show the whole RFQ again.
+  const clearProductFilter = () => {
+    const { rfq_product_id: _product, focus: _focus, ...rest } = router.query;
+    router.push({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+  };
+
   const hasRfqSelected = !!rfq;
   const showNegotiationZone =
     hasRfqSelected &&
@@ -2155,6 +2192,26 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         className="mt-3"
                       />
                     )}
+                    {/* The comparison is filtered to one product, which is
+                        otherwise invisible — the RFQ just looks like it has a
+                        single line. Say so, and give a way back to the rest. */}
+                    {rfq_product_id && (
+                      <div className={`alert alert-info ${revampStyles.inlineAlert} mt-3 d-flex align-items-center justify-content-between gap-2 flex-wrap`} role="status">
+                        <span>
+                          {isApprovalFocus
+                            ? "Showing only the product your approval request is for."
+                            : "Showing only one product of this RFQ."}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          id="clear_product_filter-quote_tabs-quote_compare_page"
+                          onClick={clearProductFilter}
+                        >
+                          Show all products
+                        </button>
+                      </div>
+                    )}
                     <div className={revampStyles.compareControls}>
                       {!effectiveQuoteVisibility.locked && (
                         <>
@@ -2215,6 +2272,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               availableHierarchies={availableHierarchies}
                               quoteApprovalDetails={negotiationApprovalBundle.negotiation_quote_instances}
                               vendorRejections={vendorRejections}
+                              focusProductId={rfq_product_id || null}
+                              focusReason={isApprovalFocus ? "approval" : null}
                             />
                           )}
                           {activeTab === "category" && (
