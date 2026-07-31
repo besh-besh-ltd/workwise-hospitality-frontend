@@ -447,6 +447,28 @@ $badge-tones: (
   overflow: hidden;
 }
 
+/* The product a deep link points at (?rfq_product_id=…&focus=approval).
+   Finalization is approved on a single card among many, so scrolling there is
+   not enough — the card has to say "this is the one you were sent to". */
+.productCardFocused {
+  border-color: rgba($brand-primary, 0.55);
+  box-shadow: 0 0 0 4px rgba($brand-primary, 0.14);
+  /* Keeps the card clear of the sticky shell header when scrolled to. */
+  scroll-margin-top: 96px;
+}
+
+.productFocusRibbon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba($brand-primary, 0.07);
+  color: $brand-primary-dark;
+  border-bottom: 1px solid rgba($brand-primary, 0.2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
 .productBody {
   padding: 14px;
 }

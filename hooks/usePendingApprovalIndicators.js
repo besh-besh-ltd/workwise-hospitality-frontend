@@ -16,7 +16,13 @@ const ENTITY_TYPE_TO_HREF = {
   TENDER: "/dashboard/buyer/rfq-management",
   TECHNICAL: "/dashboard/buyer/rfq-management",      // tech eval lives inside the RFQ lifecycle
   NEGOTIATION: "/dashboard/buyer/negotiation",
-  NEGOTIATION_QUOTE: "/dashboard/buyer/negotiation",
+  // Vendor finalization ("award") approvals are decided on a per-product card
+  // in Quote Compare, reached through the RFQ — NOT on the Negotiations list,
+  // whose rows open a negotiation ROUND that carries no finalization control.
+  // Badging Negotiations sent approvers to a page where the action they were
+  // asked for does not exist. Quote Compare has no rail entry of its own, so
+  // this follows TECHNICAL above and badges the RFQ module it lives under.
+  NEGOTIATION_QUOTE: "/dashboard/buyer/rfq-management",
   // Contracts (ARC v2)
   ARC_TECH: "/dashboard/buyer/rate-contracts",
   ARC_COMMITTEE: "/dashboard/buyer/rate-contracts",
