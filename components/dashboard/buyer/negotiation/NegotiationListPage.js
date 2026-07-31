@@ -54,7 +54,7 @@ function detailHref(row, bucket) {
   }
   // RFQ (unchanged):
   if (bucket === "pending") return `/dashboard/buyer/negotiation/${row.rfq_id}/approve`;
-  return `/dashboard/buyer/quote-comparison?rfq=${row.rfq_id}`;
+  return `/dashboard/buyer/negotiation/round/${row.round_id}`;
 }
 
 function fmtDate(d) {

@@ -371,3 +371,33 @@ export const getNegotiationListView = (payload = {}) => {
   });
 };
 
+/**
+ * Negotiation Command Center — the single round-detail payload behind
+ * /dashboard/buyer/negotiation/round/[roundId].
+ *
+ * `scope` decides the denominator the numbers are measured against:
+ *   'round' — only the lines that belong to THIS round row.
+ *   'cycle' — every line negotiated at this round number on the parent
+ *             RFQ/ARC (sibling rounds created in the same submission).
+ * The server returns both denominators either way; scope only selects which
+ * one the aggregates are computed over.
+ *
+ * Resolves the API body `{ status, data: {...} }` (the axios interceptor has
+ * already unwrapped `response.data`).
+ */
+export const getNegotiationRoundDetail = (round_id, { scope } = {}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const params = new URLSearchParams();
+      if (scope) params.set('scope', scope);
+      const qs = params.toString();
+      const response = await axiosInstance.get(
+        `/negotiation/rounds/${round_id}/detail${qs ? `?${qs}` : ''}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
