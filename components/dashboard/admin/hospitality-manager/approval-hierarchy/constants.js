@@ -130,3 +130,31 @@ export const getStagesForProcessType = (processType) => {
 export const getStageEntityOrder = (processType) => {
   return getStagesForProcessType(processType).map((s) => s.value);
 };
+
+/**
+ * Every entity type the wizard can configure, in a stable display order: the RFQ
+ * route, then the Tender-route stages it does not share, then the ARC flow.
+ */
+export const ALL_STAGE_ENTITY_ORDER = [...new Set([
+  ...RFQ_PROCESS_STAGES.map((s) => s.value),
+  ...TENDER_PROCESS_STAGES.map((s) => s.value),
+  ...ARC_PROCESS_STAGES.map((s) => s.value),
+])];
+
+/**
+ * Stage order for a workflow CARD: the process type's canonical route, followed
+ * by any other stage the process actually has a policy for.
+ *
+ * A process's policies are not guaranteed to stay inside its own route. In
+ * production the RFQ-typed process 2 also carries TENDER and ARC policies, and
+ * intersecting against the canonical order alone dropped them — the card read
+ * "5/5 stages" while the KPI row above it counted 7. Appending keeps the
+ * familiar route order intact and guarantees the card can never silently hide a
+ * configured policy.
+ */
+export const getCardStageOrder = (processType, policies = [], isArc = false) => {
+  const canonical = isArc ? ARC_ENTITY_ORDER : getStageEntityOrder(processType);
+  const present = new Set((policies || []).map((p) => p.entity_type));
+  const extra = ALL_STAGE_ENTITY_ORDER.filter((et) => present.has(et) && !canonical.includes(et));
+  return [...canonical, ...extra];
+};

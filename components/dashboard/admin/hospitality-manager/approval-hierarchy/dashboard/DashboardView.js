@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { BsPlus, BsDiagram3, BsLayers, BsShieldCheck } from "react-icons/bs";
+import { BsPlus, BsDiagram3, BsLayers, BsShieldCheck, BsExclamationTriangle } from "react-icons/bs";
 import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType } from "../constants";
+import { DS, isArcEntityType } from "../constants";
 import s from "./DashboardView.module.scss";
+
+/** Ids may arrive as numbers or strings depending on the endpoint. */
+const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && Number(a) === Number(b);
 
 // Synthetic "process" representing the process-free ARC flow so ARC policies
 // (process_id = NULL, entity_type ARC_*) group into one editable card.
@@ -25,8 +28,13 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
   const processGroups = useMemo(() => {
     const groups = [];
     (processes || []).forEach((proc) => {
-      const entityOrder = getStageEntityOrder(proc.process_type);
-      groups.push({ process: proc, policies: policies.filter((p) => p.process_id === proc.id && entityOrder.includes(p.entity_type)) });
+      // Every policy routed through this process, whatever its entity_type. The
+      // filter used to also intersect with getStageEntityOrder(proc.process_type),
+      // which silently discarded any stage outside the process type's canonical
+      // route — in production the RFQ-typed process 2 owns TENDER and ARC
+      // policies too, so the card showed 5 of 7 stages while the KPI row above it
+      // counted all 7. WorkflowCardV2 now appends the extra stages instead.
+      groups.push({ process: proc, policies: policies.filter((p) => sameId(p.process_id, proc.id)) });
     });
     // ARC flow: process-free policies whose entity_type is an ARC stage group
     // into one editable "ARC" card (kept separate from true orphans).
@@ -36,6 +44,22 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);
+
+  // Policies routed through a process that is not in the loaded process list.
+  // They belong to no group, so nothing above renders them — and because the KPI
+  // row counts every policy, the page would otherwise claim N workflow stages
+  // and show none of them. That is exactly how the company-id mismatch on
+  // GET /approval/processes (hospitality id sent where a buyer id was wanted)
+  // surfaced: a blank list under a "7 Workflow Stages" headline, with nothing on
+  // screen to suggest why. Surface it instead of dropping it.
+  const unmatchedPolicies = useMemo(
+    () => policies.filter((p) => p.process_id && !(processes || []).some((proc) => sameId(p.process_id, proc.id))),
+    [policies, processes]
+  );
+  const unmatchedProcessIds = useMemo(
+    () => [...new Set(unmatchedPolicies.map((p) => Number(p.process_id)))].sort((a, b) => a - b),
+    [unmatchedPolicies]
+  );
 
   const hasAnyWorkflows = policies.length > 0;
 
@@ -93,6 +117,28 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                 </div>
               ))}
             </>
+          )}
+
+          {unmatchedPolicies.length > 0 && (
+            <div className={s.diagnostic} data-testid="workflow-diagnostic">
+              <BsExclamationTriangle size={16} className={s.diagnosticIcon} />
+              <div>
+                <div className={s.diagnosticTitle}>
+                  {unmatchedPolicies.length} workflow stage{unmatchedPolicies.length !== 1 ? "s" : ""} could not be displayed
+                </div>
+                <div className={s.diagnosticBody}>
+                  {unmatchedPolicies.length !== 1 ? "They are" : "It is"} configured against process{" "}
+                  {unmatchedProcessIds.length !== 1 ? "IDs" : "ID"}{" "}
+                  <b>{unmatchedProcessIds.join(", ")}</b>, which {unmatchedProcessIds.length !== 1 ? "are" : "is"} not in
+                  this company&apos;s process list ({(processes || []).length} process
+                  {(processes || []).length !== 1 ? "es" : ""} loaded). The stages are still active — they are counted in
+                  the totals above and continue to gate approvals; only this list cannot group them.
+                </div>
+                <div className={s.diagnosticBody}>
+                  Affected stages: {[...new Set(unmatchedPolicies.map((p) => p.entity_type))].join(", ")}.
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}

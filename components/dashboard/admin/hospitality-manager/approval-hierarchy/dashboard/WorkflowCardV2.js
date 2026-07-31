@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope } from "react-icons/bs";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { DS, PROCESS_TYPE_COLORS, getStageEntityOrder, getEntityTypeConfig, ARC_ENTITY_ORDER } from "../constants";
+import { DS, PROCESS_TYPE_COLORS, getCardStageOrder, getEntityTypeConfig } from "../constants";
 import s from "./WorkflowCardV2.module.scss";
 
 const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC (Publish & Base)", ARC_TECH: "ARC Technical Evaluation", ARC_NEGOTIATION: "ARC Negotiation", ARC_COMMITTEE: "ARC Committee Award", ARC_AMENDMENT: "ARC Amendment" };
@@ -15,7 +15,10 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
 
   const processType = (process?.process_type || "RFQ").toUpperCase();
   const isArc = !!process?.is_arc || processType === "ARC";
-  const stageOrder = isArc ? ARC_ENTITY_ORDER : getStageEntityOrder(processType === "RFQ" ? "RFQ" : "TENDER");
+  // Canonical route first, then any stage this process has a policy for but its
+  // route does not name (an RFQ process carrying TENDER/ARC policies, say) — so
+  // the card's totals always reconcile with the KPI row above the list.
+  const stageOrder = getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc);
   const typeColor = PROCESS_TYPE_COLORS[processType] || DS.primary;
   const stages = stageOrder.map((et) => { const p = (policies || []).find((pol) => pol.entity_type === et); return { entity_type: et, steps: p?.steps || [] }; });
   const processName = process?.name || "Process";
