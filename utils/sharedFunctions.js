@@ -686,3 +686,45 @@ export const canEditRfq = (rfq, currentUser) => {
   }
   return { allowed: true };
 };
+
+/**
+ * Compact Indian-currency formatter — "₹0" / "₹1.2K" / "₹3.45L" / "₹1.2Cr".
+ *
+ * Lifted verbatim (behaviour-for-behaviour) out of
+ * dashboard-components/NegotiationSavings.js so the dashboard tile, the
+ * Negotiation Command Center and anything else that needs the ₹/K/L/Cr scale
+ * read from one implementation instead of a fourth copy-paste.
+ *
+ * NOTE: this is unsigned by design (the dashboard tile clamps negatives to
+ * zero before calling it). Callers that need signed output — e.g. a
+ * negotiation that made the price go UP — should format the magnitude and
+ * apply their own sign, which is what formatSignedCurrencyShort does.
+ *
+ * @param {number|string|null|undefined} value
+ * @returns {string}
+ */
+export const formatCurrencyShort = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return '₹0';
+  const trimZeros = (s) => s.replace(/\.?0+$/, '');
+  const abs = Math.abs(n);
+  if (abs >= 10000000) return `₹${trimZeros((n / 10000000).toFixed(2))}Cr`;
+  if (abs >= 100000) return `₹${trimZeros((n / 100000).toFixed(2))}L`;
+  if (abs >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
+  return `₹${Math.round(n).toLocaleString('en-IN')}`;
+};
+
+/**
+ * Signed variant used by diagnostic surfaces that must NOT clamp a price
+ * regression to zero: renders "+₹1.2K" for a saving and "−₹236" (U+2212 minus)
+ * for a price increase. Zero renders as a plain "₹0".
+ *
+ * @param {number|string|null|undefined} value  signed amount (positive = saved)
+ * @returns {string}
+ */
+export const formatSignedCurrencyShort = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return '₹0';
+  const body = formatCurrencyShort(Math.abs(n));
+  return n > 0 ? `+${body}` : `−${body}`;
+};

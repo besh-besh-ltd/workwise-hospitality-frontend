@@ -3,17 +3,8 @@ import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonHeadline, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { formatCurrencyShort as formatCurrency } from "@/utils/sharedFunctions";
 import styles from "./NegotiationSavings.module.scss";
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
 
 const NegotiationSavings = ({ filters }) => {
   const [data, setData] = useState(null);
