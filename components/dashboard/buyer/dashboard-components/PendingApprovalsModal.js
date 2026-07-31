@@ -5,10 +5,13 @@ import { getPendingApprovalsDetail } from "@/services/dashboard";
 import styles from "./PendingApprovalsModal.module.scss";
 
 // Build the deep-link for an RFQ-lifecycle approval — they all now live as
-// stage tabs on the single rfq-management-details page.
+// stage tabs on the single rfq-management-details page. `focus=approval` tells
+// ViewRFQ to scroll its Approve/Reject decision card into view, so an approver
+// arriving from this queue lands on the control instead of hunting for it (the
+// card sits beside the stage rail and renders on every stage).
 const rfqStage = (stage) => (e) => {
   const rfqId = e.metadata?.rfq_id || e.entity_id;
-  return `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqId}&stage=${stage}`;
+  return `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqId}&stage=${stage}&focus=approval`;
 };
 // Build the deep-link for an ARC (rate contract) approval — stage tabs on the
 // single rate-contracts/[id] page. arc_id is resolved server-side (an
