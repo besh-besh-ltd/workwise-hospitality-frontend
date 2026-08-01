@@ -621,6 +621,13 @@ export const updateUserAccount = (userId, accountData) => {
             if (accountData.confirmed_approval_impact === true) {
                 payload.confirmed_approval_impact = true;
             }
+            // Asserts the admin saw the real current roles/departments and
+            // deliberately emptied the list. Without it the API refuses to let
+            // an empty payload erase a non-empty set — see the full-wipe
+            // backstop in usersController.update_user_detail.
+            if (accountData.confirm_clear_all_scopes === true) {
+                payload.confirm_clear_all_scopes = true;
+            }
 
             let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);
