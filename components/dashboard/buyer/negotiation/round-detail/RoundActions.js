@@ -8,26 +8,42 @@
 
 import Link from "next/link";
 
-/** Fallback route for the actions that already have screens in this app. */
+/**
+ * Fallback route for the actions that already have screens in this app.
+ *
+ * The server sends permission GATES, not routes — `actions` is a flat object
+ * of booleans — so the model tags each enabled gate with a `route` intent and
+ * this function turns that intent into a real path. The key-regex path below
+ * is kept for payloads that send action descriptors instead.
+ */
 export function resolveActionHref(action, round) {
   if (action.href) return action.href;
-  const key = String(action.key || "").toLowerCase();
+
+  const intent =
+    action.route ||
+    (() => {
+      const key = String(action.key || "").toLowerCase();
+      if (/approve|reject|decide/.test(key)) return "approve";
+      if (/new_round|next_round|create_round/.test(key)) return "next_round";
+      if (/compare|quote|finali[sz]e/.test(key)) return "compare";
+      return null;
+    })();
+
   if (round.isArc) {
-    if (/approve|reject|decide/.test(key) && round.arcId) {
+    if (!round.arcId) return null;
+    if (intent === "approve") {
       return `/dashboard/buyer/rate-contracts/${round.arcId}/negotiation/${round.roundId}/approve`;
     }
-    if (round.arcId) return `/dashboard/buyer/rate-contracts/${round.arcId}?stage=commercial`;
-    return null;
+    return `/dashboard/buyer/rate-contracts/${round.arcId}?stage=commercial`;
   }
-  if (/approve|reject|decide/.test(key) && round.rfqId) {
-    return `/dashboard/buyer/negotiation/${round.rfqId}/approve`;
-  }
-  if (/new_round|next_round|create_round/.test(key) && round.rfqId) {
-    return `/dashboard/buyer/negotiation/${round.rfqId}/create`;
-  }
-  if (/compare|quote|finali[sz]e/.test(key) && round.rfqId) {
-    return `/dashboard/buyer/quote-comparison?rfq=${round.rfqId}`;
-  }
+
+  if (!round.rfqId) return null;
+  if (intent === "approve") return `/dashboard/buyer/negotiation/${round.rfqId}/approve`;
+  if (intent === "next_round") return `/dashboard/buyer/negotiation/${round.rfqId}/create`;
+  if (intent === "compare") return `/dashboard/buyer/quote-comparison?rfq=${round.rfqId}`;
+  // `round` intent (close the round) has no dedicated screen — the negotiation
+  // workspace on the RFQ owns it.
+  if (intent === "round") return `/dashboard/buyer/negotiation/${round.rfqId}`;
   return null;
 }
 

@@ -18,6 +18,7 @@ import {
   targetFieldLabel,
   baselineSourceCopy,
   roundDenominatorText,
+  roundDenominatorExplanation,
   formatMoney,
   formatSignedMoney,
   formatSignedPct,
@@ -339,27 +340,49 @@ describe("scope selection", () => {
   });
 });
 
-describe("roundDenominatorText — the 'Round 5 of 32' problem", () => {
-  it("renders both denominators when they disagree", () => {
+// Product definition: a round's number is its position in the WHOLE RFQ, not
+// within its product. One round = one position, however many products it
+// covers. So the denominator is every round on the parent, and the per-product
+// count is context that goes in a sentence rather than in the fraction.
+describe("roundDenominatorText", () => {
+  it("renders the position within the whole parent", () => {
     expect(
-      roundDenominatorText({ roundNumber: 5, roundsInScope: 7, roundsOnParent: 32, isArc: false })
-    ).toBe("Round 5 of 7 · 32 rounds on this RFQ");
+      roundDenominatorText({ roundNumber: 7, roundsOnParent: 138, roundsOnProducts: 4, isArc: false })
+    ).toBe("Round 7 of 138");
   });
 
-  it("collapses to one phrase when they agree", () => {
+  it("does not divide by the per-product count", () => {
+    // "Round 7 of 4" would be nonsense, and "Round 4 of 4" would hide 134 rounds.
     expect(
-      roundDenominatorText({ roundNumber: 2, roundsInScope: 3, roundsOnParent: 3, isArc: false })
-    ).toBe("Round 2 of 3");
-  });
-
-  it("says the right parent word for ARC rounds", () => {
-    expect(
-      roundDenominatorText({ roundNumber: 1, roundsInScope: 1, roundsOnParent: 4, isArc: true })
-    ).toMatch(/rounds on this rate contract/);
+      roundDenominatorText({ roundNumber: 7, roundsOnParent: 138, roundsOnProducts: 4 })
+    ).not.toMatch(/of 4$/);
   });
 
   it("degrades when the denominator is unknown", () => {
     expect(roundDenominatorText({ roundNumber: 3 })).toBe("Round 3");
+  });
+
+  it("says nothing extra when every round on the parent touched these items", () => {
+    expect(
+      roundDenominatorExplanation({ roundNumber: 2, roundsOnParent: 3, roundsOnProducts: 3 })
+    ).toBeNull();
+  });
+
+  it("explains the gap when most rounds covered other items", () => {
+    const sentence = roundDenominatorExplanation({
+      roundNumber: 7,
+      roundsOnParent: 138,
+      roundsOnProducts: 4,
+      isArc: false,
+    });
+    expect(sentence).toMatch(/numbered across the whole RFQ/);
+    expect(sentence).toMatch(/4 of those 138/);
+  });
+
+  it("says the right parent word for ARC rounds", () => {
+    expect(
+      roundDenominatorExplanation({ roundNumber: 1, roundsOnParent: 4, roundsOnProducts: 1, isArc: true })
+    ).toMatch(/rate contract/);
   });
 });
 
@@ -372,16 +395,53 @@ describe("normalizeRoundDetail — whole payload", () => {
 
   it("maps the stored uppercase status enums the column actually holds", () => {
     const s = (status) => normalizeRoundDetail({ round: { id: 1, status }, items: [] }).round;
-    expect(s("PENDING_APPROVAL").statusPresentation.label).toBe("Pending approval");
-    expect(s("ACTIVE").statusPresentation.label).toBe("Active");
+    expect(s("PENDING_APPROVAL").statusPresentation.label).toBe("Awaiting your approval");
+    expect(s("ACTIVE").statusPresentation.label).toBe("Open with vendors");
     expect(s("CANCELLED").isTerminated).toBe(true);
     expect(s("EXPIRED").isTerminated).toBe(true);
     expect(s("COMPLETED").isSettled).toBe(true);
   });
 
+  it("tells a lapsed round apart from a cancelled one", () => {
+    const s = (status) => normalizeRoundDetail({ round: { id: 1, status }, items: [] }).round;
+    // EXPIRED is written only by the approval-deadline cron; it means nobody
+    // approved the round in time, so no vendor was ever asked anything.
+    expect(s("EXPIRED").status).toBe("lapsed");
+    expect(s("EXPIRED").statusPresentation.label).toBe("Lapsed — never approved");
+    expect(s("EXPIRED").neverReachedVendors).toBe(true);
+
+    expect(s("CANCELLED").status).toBe("cancelled");
+    expect(s("CANCELLED").statusPresentation.label).toBe("Cancelled");
+    expect(s("CANCELLED").neverReachedVendors).toBe(false);
+  });
+
+  it("splits ENDED on whether anyone responded and whether a quote was approved", () => {
+    const s = (over) =>
+      normalizeRoundDetail({ round: { id: 1, status: "ENDED", ...over }, items: [] }).round;
+
+    expect(s({ response_count: 0 }).status).toBe("no_vendor_response");
+    expect(s({ response_count: 2 }).status).toBe("ready_for_decision");
+    expect(s({ response_count: 2, has_approved_quote: true }).status).toBe("concluded");
+  });
+
+  it("prefers the state the server derived over anything it could re-derive", () => {
+    // Raw column says ENDED with no responses, which would derive to
+    // "no vendor response" — but the server has more context and said
+    // concluded. The server wins; the page must not second-guess it.
+    const m = normalizeRoundDetail({
+      round: { id: 1, status: "ENDED", state: "concluded", response_count: 0 },
+      items: [],
+    });
+    expect(m.round.status).toBe("concluded");
+    expect(m.round.statusPresentation.label).toBe("Concluded");
+  });
+
   it("maps the derived neg_status enum the listing uses", () => {
     const s = (status) => normalizeRoundDetail({ round: { id: 1, status }, items: [] }).round;
-    expect(s("awaiting_decision").statusPresentation.label).toBe("Awaiting decision");
+    // Lower-case values are already-derived buckets and must not be run back
+    // through the raw-column ladder.
+    expect(s("awaiting_decision").statusPresentation.label).toBe("Ready for your decision");
+    expect(s("ready_for_decision").statusPresentation.label).toBe("Ready for your decision");
     expect(s("cancelled").isTerminated).toBe(true);
   });
 

@@ -456,17 +456,18 @@ describe("scope toggle", () => {
 });
 
 describe("honest denominators", () => {
-  it("renders both counts when the cycle and the parent disagree", async () => {
+  it("divides by every round on the parent, and says how many touched these items", async () => {
     await renderPage(
-      mkPayload({ round: { round_number: 5, total_rounds: 7, total_rounds_on_parent: 32 } })
+      mkPayload({ round: { round_number: 5, rounds_on_parent: 32, rounds_on_products: 7 } })
     );
-    expect(screen.getByTestId("banner-denominator")).toHaveTextContent(
-      "Round 5 of 7 · 32 rounds on this RFQ"
-    );
+    // The position is RFQ-wide, so the denominator is too.
+    expect(screen.getByTestId("hero-denominator")).toHaveTextContent("Round 5 of 32");
+    // The per-product count is context, in a sentence — never the divisor.
+    expect(screen.getByTestId("banner-denominator")).toHaveTextContent("7 of those 32 rounds");
   });
 });
 
-describe("cancelled and expired rounds", () => {
+describe("cancelled and lapsed rounds", () => {
   it("renders in full behind a muted hero plus an explanatory banner", async () => {
     await renderPage(
       mkPayload({
@@ -475,10 +476,28 @@ describe("cancelled and expired rounds", () => {
       })
     );
     expect(screen.getByTestId("hero-muted")).toBeInTheDocument();
-    expect(screen.getByTestId("banner-terminated")).toHaveTextContent("This round was cancelled");
+    expect(screen.getByTestId("banner-terminated")).toHaveTextContent("Cancelled");
+    expect(screen.getByTestId("banner-terminated")).toHaveTextContent(
+      "Someone cancelled this round deliberately"
+    );
     // still fully rendered — the history is the point
     expect(screen.getByTestId("lines-table")).toBeInTheDocument();
     expect(screen.getByTestId("reduction-chart")).toBeInTheDocument();
+  });
+
+  it("says a lapsed round never reached a vendor, rather than calling it expired", async () => {
+    await renderPage(
+      mkPayload({
+        round: { status: "EXPIRED", end_date: "2026-07-10 09:00:00" },
+        items: [mkLine(1, { responded: false, achieved_line_total: null })],
+      })
+    );
+    const banner = screen.getByTestId("banner-terminated");
+    expect(banner).toHaveTextContent("Lapsed — never approved");
+    expect(banner).toHaveTextContent("no vendor ever saw them");
+    // The "no vendor has responded yet" nag would be nonsense here: nobody was
+    // ever asked, so there is nothing to chase.
+    expect(screen.queryByTestId("banner-no-responses")).not.toBeInTheDocument();
   });
 });
 
@@ -495,6 +514,325 @@ describe("multi-round labelling", () => {
     expect(screen.getByTestId("stat-saved-round")).toHaveTextContent("+₹2,000");
     expect(screen.getByTestId("stat-saved-cumulative")).toHaveTextContent("Saved · all 3 rounds");
     expect(screen.getByTestId("stat-saved-cumulative")).toHaveTextContent("+₹9,000");
+  });
+});
+
+// ── the REAL backend contract ──────────────────────────────────────────────
+//
+// Everything above uses the speculative payload this UI was originally written
+// against. This block uses the shape
+// GET /negotiation/rounds/:id/detail actually returns
+// (negotiationRoundDetailController.js + negotiationModel.getRoundDetail), which
+// differs in every place the page reads identity, actions or approval from.
+
+const mkServerPayload = (over = {}) => ({
+  status: 1,
+  data: {
+    scope: "round",
+    cycle: null,
+    round: {
+      round_id: 501,
+      // The server-computed RFQ-wide position…
+      round_number: 7,
+      // …versus the stored per-product sequence, which is never rendered.
+      stored_round_number: 4,
+      status: "ENDED",
+      effective_status: "AWAITING_DECISION",
+      state: "ready_for_decision",
+      state_label: "Ready for your decision",
+      state_description:
+        "Window closed and vendors responded — choose which quotes to take forward.",
+      response_count: 1,
+      has_approved_quote: false,
+      is_open: false,
+      mode: "PER_ITEM",
+      source_type: "RFQ",
+      source_id: 512,
+      rounds_on_parent: 138,
+      rounds_on_products: 4,
+      end_date: "2026-07-20T18:00:00.000Z",
+      created_at: "2026-07-01T10:00:00.000Z",
+      closed_at: null,
+      created_by: {
+        user_id: 80011,
+        name: "Asha Menon",
+        email: "asha@example.com",
+        mobile: "9800000000",
+        designation: "Buyer",
+      },
+    },
+    parent: {
+      source_type: "RFQ",
+      rfq_id: 512,
+      rfq_no: 536299,
+      arc_id: null,
+      arc_number: null,
+      title: "Housekeeping consumables",
+      status: 1,
+      is_tender: 0,
+      hotel_id: 10101,
+      hotel_name: "Taj Palace",
+      department_id: 10201,
+      department_name: "Housekeeping",
+      company_name: "Phileein Hospitality",
+    },
+    lines: [
+      {
+        line_id: "501:100:9",
+        round_id: 501,
+        round_number: 4,
+        rfq_product_id: 100,
+        product_name: "Bath Towel",
+        vendor_id: 9,
+        vendor_name: "Goodluck Textiles",
+        quantity: 100,
+        uom: "PCS",
+        baseline_line_total: 25000,
+        baseline_unit: 250,
+        baseline_source: "prior_round",
+        target_unit: 225,
+        target_line_total: 22500,
+        has_numeric_target: true,
+        achieved_line_total: 23000,
+        achieved_unit: 230,
+        responded: true,
+        responded_at: "2026-07-18T09:00:00.000Z",
+        saved_value: 2000,
+        outcome: "target_missed",
+      },
+    ],
+    totals: {
+      currency: "INR",
+      lines_total: 1,
+      lines_responded: 1,
+      lines_with_numeric_target: 1,
+      vendors_total: 1,
+      vendors_responded: 1,
+      baseline_total: 25000,
+      achieved_total: 23000,
+      target_baseline_total: 25000,
+      target_total: 22500,
+      saved_value: 2000,
+      saved_pct: 8,
+      requested_pct: 10,
+      attainment_pct: 80,
+      target_met: false,
+    },
+    cumulative: {
+      from_round_number: 1,
+      to_round_number: 7,
+      rounds_counted: 4,
+      baseline_total: 30000,
+      achieved_total: 21000,
+      saved_value: 9000,
+      saved_pct: 30,
+      excludes_cancelled: true,
+    },
+    vendors: [
+      {
+        vendor_id: 9,
+        vendor_name: "Goodluck Textiles",
+        vendor_email: "sales@goodluck.example",
+        vendor_mobile: "9820000000",
+        lines: 1,
+        lines_responded: 1,
+        last_responded_at: "2026-07-18T09:00:00.000Z",
+        has_responded: true,
+        saved_value: 2000,
+      },
+    ],
+    history: [
+      {
+        round_id: 498,
+        round_number: 5,
+        stored_round_number: 3,
+        status: "ENDED",
+        state: "concluded",
+        state_label: "Concluded",
+        is_current: false,
+        end_date: "2026-06-20T18:00:00.000Z",
+        line_count: 1,
+        responded_count: 1,
+        saved_value: 4000,
+      },
+      {
+        round_id: 501,
+        round_number: 7,
+        stored_round_number: 4,
+        status: "ENDED",
+        state: "ready_for_decision",
+        state_label: "Ready for your decision",
+        is_current: true,
+        end_date: "2026-07-20T18:00:00.000Z",
+        line_count: 1,
+        responded_count: 1,
+        saved_value: 2000,
+      },
+    ],
+    approval: {
+      instances: [
+        {
+          instance_id: 88,
+          round_id: 501,
+          status: "PENDING",
+          current_step: 1,
+          total_steps: 2,
+          initiated_by: { user_id: 80011, name: "Asha Menon" },
+          steps: [
+            {
+              step_id: 900,
+              step_order: 1,
+              status: "PENDING",
+              approvers: [
+                { user_id: 412, name: "Balasaheb Aiwale", email: "bala@example.com", status: "PENDING" },
+                { user_id: 138, name: "Prashant Joshi", email: "pj@example.com", status: "PENDING" },
+              ],
+            },
+            { step_id: 901, step_order: 2, status: "PENDING", approvers: [] },
+          ],
+          pending_with: [
+            { user_id: 412, name: "Balasaheb Aiwale", email: "bala@example.com", status: "PENDING" },
+            { user_id: 138, name: "Prashant Joshi", email: "pj@example.com", status: "PENDING" },
+          ],
+          is_pending_for_me: true,
+        },
+      ],
+      status: "PENDING",
+      pending_with: [
+        { user_id: 412, name: "Balasaheb Aiwale", email: "bala@example.com", status: "PENDING" },
+        { user_id: 138, name: "Prashant Joshi", email: "pj@example.com", status: "PENDING" },
+      ],
+      is_pending_for_me: true,
+      vendor_approvals: { total: 1, approved: 1, rejected: 0, pending: 0 },
+    },
+    permissions: { read: true, create: true, update: true, approve: true, delete: false },
+    quote_visibility: { locked: false, timezone: "Asia/Kolkata", deadline: null, remainingMs: 0, message: null },
+    prices_hidden: false,
+    actions: {
+      can_approve: false,
+      can_reject: false,
+      can_close: true,
+      can_create_next_round: true,
+      can_view_quotes: true,
+      can_submit_quotes_for_approval: true,
+    },
+    ...over,
+  },
+});
+
+describe("the real backend payload", () => {
+  it("renders action buttons from the object-shaped `actions` map", async () => {
+    await renderPage(mkServerPayload());
+
+    // `actions` is an object of booleans. Running asArray() over it returned
+    // [] and the page rendered no buttons at all, on every round.
+    expect(screen.getByTestId("action-create_next_round")).toBeInTheDocument();
+    expect(screen.getByTestId("action-submit_quotes_for_approval")).toBeInTheDocument();
+    expect(screen.getByTestId("action-close_round")).toBeInTheDocument();
+    // Gates the server set to false must not appear.
+    expect(screen.queryByTestId("action-approve")).not.toBeInTheDocument();
+  });
+
+  it("gives every rendered action a real destination", async () => {
+    await renderPage(mkServerPayload());
+    // round.rfqId used to resolve null (it lives on `parent`), so even the
+    // unconditional fallback rendered nothing.
+    expect(screen.getByTestId("action-create_next_round")).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/negotiation/512/create"
+    );
+    expect(screen.getByTestId("action-open-parent")).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/quote-comparison?rfq=512"
+    );
+  });
+
+  it("renders approver NAMES, never [object Object]", async () => {
+    await renderPage(mkServerPayload());
+
+    const panel = screen.getByTestId("approval-panel");
+    expect(panel).toHaveTextContent("Balasaheb Aiwale");
+    expect(panel).not.toHaveTextContent("[object Object]");
+
+    const banner = screen.getByTestId("banner-approval");
+    expect(banner).toHaveTextContent("Balasaheb Aiwale");
+    expect(banner).not.toHaveTextContent("[object Object]");
+
+    expect(document.body.textContent).not.toContain("[object Object]");
+  });
+
+  it("populates the hero from the parent record, not from the round row", async () => {
+    await renderPage(mkServerPayload());
+
+    // Title came from the literal fallback string "RFQ" before this.
+    expect(screen.getByText("Housekeeping consumables")).toBeInTheDocument();
+    // The id chip is the RFQ number, not the round id.
+    expect(screen.getByText("#536299")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-hotel")).toHaveTextContent("Taj Palace");
+    expect(screen.getByTestId("hero-department")).toHaveTextContent("Housekeeping");
+    // created_by is an object.
+    expect(screen.getByTestId("hero-creator")).toHaveTextContent("Asha Menon");
+    // And the state is spelled out in words somewhere on the page.
+    expect(screen.getByTestId("hero-state-description")).toHaveTextContent(
+      "Window closed and vendors responded"
+    );
+  });
+
+  it("numbers the round across the whole RFQ", async () => {
+    await renderPage(mkServerPayload());
+    // The server sends the computed position (7th of 138 rounds on RFQ 512).
+    // The stored column says 4 — its per-product sequence — and is not rendered.
+    expect(screen.getByTestId("hero-denominator")).toHaveTextContent("Round 7 of 138");
+    expect(screen.getByTestId("hero-denominator")).not.toHaveTextContent("Round 4");
+    // How many of those 138 touched these items goes in a sentence.
+    expect(screen.getByTestId("banner-denominator")).toHaveTextContent("4 of those 138 rounds");
+  });
+
+  it("reads the cumulative roll-up from its own top-level object", async () => {
+    await renderPage(mkServerPayload());
+    const tile = screen.getByTestId("stat-saved-cumulative");
+    expect(tile).toHaveTextContent("+₹9,000");
+    expect(tile).not.toHaveTextContent("Not reported by the server");
+  });
+
+  it("fills the round-history table", async () => {
+    await renderPage(mkServerPayload());
+    const table = screen.getByTestId("round-history");
+    expect(table).toHaveTextContent("Round 5");
+    expect(table).toHaveTextContent("Concluded");
+    expect(table).toHaveTextContent("You are here");
+    expect(screen.queryByTestId("history-empty")).not.toBeInTheDocument();
+  });
+
+  it("detects the quote lock from quote_visibility and explains it", async () => {
+    await renderPage(
+      mkServerPayload({
+        prices_hidden: true,
+        totals: null,
+        cumulative: null,
+        quote_visibility: {
+          locked: true,
+          timezone: "Asia/Kolkata",
+          deadline: "2026-08-10T18:00:00.000Z",
+          message: "Vendor prices unseal after the quote deadline.",
+        },
+      })
+    );
+    expect(screen.getByTestId("banner-locked")).toHaveTextContent("Vendor prices are sealed");
+    expect(screen.getByTestId("banner-locked")).toHaveTextContent(
+      "Vendor prices unseal after the quote deadline."
+    );
+    expect(screen.getByTestId("stat-saved-round")).toHaveTextContent("Sealed");
+  });
+
+  it("counts responded LINES, not responded vendors", async () => {
+    await renderPage(
+      mkServerPayload({
+        totals: { lines_total: 6, lines_responded: 6, vendors_total: 2, vendors_responded: 2, baseline_total: 1000 },
+      })
+    );
+    // `vendors_responded` used to win the alias race and reported "2 of 6".
+    expect(screen.getByTestId("stat-responses")).toHaveTextContent("6 of 6");
   });
 });
 

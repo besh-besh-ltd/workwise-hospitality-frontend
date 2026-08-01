@@ -682,6 +682,23 @@ const ViewRFQ = ({
     );
   };
 
+  // Vendor-award approvals are decided on the comparison sheet's own per-cell
+  // controls, not on the decision card — so the card shows a banner and this is
+  // its CTA: open the Negotiation & Award stage and hand the embedded sheet a
+  // token. The sheet scrolls to the first product × vendor cell where this
+  // user's approval is pending and marks it.
+  //
+  // A monotonically increasing token rather than a boolean, so a SECOND click
+  // (after the approver has scrolled away, or after they approved one line and
+  // the next one came up) focuses again. The sheet records the token it has
+  // served, which is also what stops the post-approval refetch from yanking the
+  // viewport back.
+  const [awardFocusToken, setAwardFocusToken] = useState(0);
+  const focusAwardDecision = () => {
+    setAwardFocusToken((t) => t + 1);
+    selectStage("negotiation-award");
+  };
+
   // RFQ Copy lineage: parent (if this RFQ is a copy) + descendants.
   // Filtered server-side by accessible hotels so cross-tenant copies don't
   // leak in or out.
@@ -1046,11 +1063,15 @@ const ViewRFQ = ({
           />
           {/* Approve / Reject — the timeline only SAYS "your approval needed";
               this is where the approver actually acts. Rendered beside the rail
-              (not inside a stage panel) so it shows on every stage. */}
+              (not inside a stage panel) so it shows on every stage. Vendor
+              awards are the exception: the card renders an urgency banner whose
+              CTA lands on the comparison sheet's per-cell controls. */}
           <RfqApprovalDecisionCard
             lifecycle={lifecycle}
             entityLabel={entity}
+            rfqId={data?.id}
             onDecided={refreshLifecycle}
+            onFocusAward={focusAwardDecision}
           />
           {/* Subtle "who's acting now / next" context — persistent across stages. */}
           <LifecycleContext lifecycle={lifecycle} />
@@ -1066,7 +1087,11 @@ const ViewRFQ = ({
               <TechnicalStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "technical")} />
             )}
             {selectedStage === "negotiation-award" && (
-              <NegotiationAwardStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "negotiation-award")} />
+              <NegotiationAwardStage
+                rfq={data}
+                stage={lifecycle.stages.find((s) => s.key === "negotiation-award")}
+                focusAwardToken={awardFocusToken}
+              />
             )}
             {selectedStage === "purchase-order" && (
               <PurchaseOrderStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "purchase-order")} />

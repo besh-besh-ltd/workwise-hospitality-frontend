@@ -25,6 +25,50 @@
 //     numeric target; those lines report achieved-only and must not be scored
 //     against a target that does not exist.
 
+//
+// CONTRACT NOTE (2026-08): this module was written against a payload the
+// backend never emitted. The backend contract is the source of truth and the
+// readers below now carry the REAL field names first, with the speculative
+// aliases kept behind them so nothing that already worked regresses. The
+// specific mismatches that were fixed:
+//
+//   actions            object {can_approve: bool, …}, not an array of action
+//                      objects — asArray() returned [] so no button ever
+//                      rendered.
+//   approval.pending_with
+//                      array of {user_id,name,email,…}, not a string —
+//                      pickStr() rendered the literal "[object Object]".
+//   approval steps     live on approval.instances[i].steps, not approval.steps.
+//   parent identity    title / rfq_id / rfq_no / hotel_name / department_name
+//                      are on `parent`, not on `round`.
+//   created by         round.created_by is an OBJECT {user_id,name,…}.
+//   quote lock         top-level `quote_visibility.locked` + `prices_hidden`;
+//                      there is no `meta` key at all.
+//   totals             lines_total / lines_responded / baseline_total /
+//                      achieved_total / target_total / lines_with_numeric_target.
+//                      Note `vendors_responded` is a VENDOR count and must not
+//                      be read as the responded-LINE count.
+//   cumulative         its own top-level object, not folded into totals.
+//   history            top-level `history` array.
+
+import {
+  NEG_STATE,
+  negStatePresentation,
+  toNegState,
+  deriveNegotiationState,
+  isTerminalState,
+  neverReachedVendors,
+} from "./negotiationStates";
+
+export {
+  NEG_STATE,
+  negStatePresentation,
+  toNegState,
+  deriveNegotiationState,
+  isTerminalState,
+  neverReachedVendors,
+};
+
 // ── low-level readers ──────────────────────────────────────────────────────
 
 /** First key on `obj` that holds something meaningful (not undefined/null/""). */
@@ -505,8 +549,9 @@ export function deriveTotals(lines) {
   };
 }
 
-export function normalizeTotals(rawTotals, lines) {
+export function normalizeTotals(rawTotals, lines, rawCumulative) {
   const t = rawTotals || {};
+  const cum = rawCumulative || {};
   const derived = deriveTotals(lines);
 
   const baselineValue =
@@ -526,8 +571,9 @@ export function normalizeTotals(rawTotals, lines) {
   // Everything below is measured over the TARGETED lines only. Untargeted
   // lines would otherwise dilute the requested % toward zero and inflate
   // attainment — see the deriveTotals header.
+  // `target_baseline_total` is the server's name for the same figure.
   const targetedBaselineValue =
-    pickNum(t, ["targeted_baseline_value"]) ?? derived.targetedBaselineValue;
+    pickNum(t, ["targeted_baseline_value", "target_baseline_total"]) ?? derived.targetedBaselineValue;
   const targetedAchievedValue =
     pickNum(t, ["targeted_achieved_value"]) ?? derived.targetedAchievedValue;
   const targetedSavedValue =
@@ -557,12 +603,17 @@ export function normalizeTotals(rawTotals, lines) {
   // Never imply a target that wasn't set.
   if (targetValue == null) targetMet = null;
 
-  const lineCount = pickNum(t, ["line_count", "lines", "total_lines"]) ?? derived.lineCount;
+  const lineCount =
+    pickNum(t, ["lines_total", "line_count", "lines", "total_lines"]) ?? derived.lineCount;
+  // `lines_responded` FIRST and `vendors_responded` deliberately absent:
+  // vendors_responded is a VENDOR count and reading it here reported "2 of 6
+  // lines responded" on a round where six lines came back from two vendors.
   const respondedCount =
-    pickNum(t, ["responded_count", "responses", "responded_lines", "vendors_responded"]) ??
+    pickNum(t, ["lines_responded", "responded_count", "responses", "responded_lines"]) ??
     derived.respondedCount;
   const targetedLineCount =
-    pickNum(t, ["targeted_line_count", "lines_with_target"]) ?? derived.targetedLineCount;
+    pickNum(t, ["lines_with_numeric_target", "targeted_line_count", "lines_with_target"]) ??
+    derived.targetedLineCount;
 
   return {
     baselineValue,
@@ -580,102 +631,246 @@ export function normalizeTotals(rawTotals, lines) {
     lineCount,
     respondedCount,
     targetedLineCount,
-    cumulativeSavedValue: pickNum(t, [
-      "cumulative_saved_value",
-      "cumulative_savings",
-      "cumulative_saved",
-      "saved_value_cumulative",
-    ]),
-    cumulativeBaselineValue: pickNum(t, ["cumulative_baseline_value", "cumulative_baseline"]),
-    cumulativeSavedPct: pickNum(t, ["cumulative_saved_pct", "cumulative_pct"]),
+    vendorsTotal: pickNum(t, ["vendors_total"]),
+    vendorsResponded: pickNum(t, ["vendors_responded"]),
+    // The cumulative roll-up is its own top-level object on the payload
+    // (`cumulative`), never folded into totals — which is why the tile used to
+    // read "Not reported by the server" on every multi-round negotiation.
+    cumulativeSavedValue:
+      pickNum(cum, ["saved_value"]) ??
+      pickNum(t, [
+        "cumulative_saved_value",
+        "cumulative_savings",
+        "cumulative_saved",
+        "saved_value_cumulative",
+      ]),
+    cumulativeBaselineValue:
+      pickNum(cum, ["baseline_total"]) ??
+      pickNum(t, ["cumulative_baseline_value", "cumulative_baseline"]),
+    cumulativeAchievedValue: pickNum(cum, ["achieved_total"]),
+    cumulativeSavedPct:
+      pickNum(cum, ["saved_pct"]) ?? pickNum(t, ["cumulative_saved_pct", "cumulative_pct"]),
+    cumulativeRoundsCounted: pickNum(cum, ["rounds_counted"]),
+    cumulativeFromRound: pickNum(cum, ["from_round_number"]),
+    cumulativeToRound: pickNum(cum, ["to_round_number"]),
+    cumulativeExcludesCancelled: pickBool(cum, ["excludes_cancelled"]) === true,
   };
 }
 
 // ── round identity / status ────────────────────────────────────────────────
 
-// Keys are lower-cased before lookup, so this covers both the stored column
-// values (DRAFT / PENDING_APPROVAL / ACTIVE / ENDED / COMPLETED / CANCELLED /
-// EXPIRED / CLOSED) and the derived `neg_status` the listing uses
-// (pending_approval / active / awaiting_decision / completed / cancelled).
-export const ROUND_STATUS_PRESENTATION = {
-  draft: { label: "Draft", tone: "draft", chip: "draft", muted: false },
-  pending_approval: { label: "Pending approval", tone: "committee", chip: "committee", muted: false },
-  active: { label: "Active", tone: "active", chip: "active", muted: false },
-  awaiting_decision: { label: "Awaiting decision", tone: "awaiting", chip: "eval", muted: false },
-  completed: { label: "Completed", tone: "success", chip: "active", muted: false },
-  closed: { label: "Closed", tone: "closed", chip: "expired", muted: true },
-  ended: { label: "Ended", tone: "closed", chip: "expired", muted: true },
-  expired: { label: "Expired", tone: "expired", chip: "expired", muted: true },
-  cancelled: { label: "Cancelled", tone: "danger", chip: "rejected", muted: true },
-  rejected: { label: "Rejected", tone: "danger", chip: "rejected", muted: true },
-};
-
+// Presentation for a round's state. Delegates to the shared seven-state table
+// (./negotiationStates) so the listing and this page can never drift again.
+// Legacy raw column values and the old five-bucket `neg_status` are folded in
+// there too, so an older payload still renders a real label.
 export function roundStatusPresentation(status) {
-  const key = String(status || "").trim().toLowerCase();
-  return (
-    ROUND_STATUS_PRESENTATION[key] || {
-      label: key ? key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : "Unknown",
-      tone: "neutral",
-      chip: "draft",
-      muted: false,
-    }
-  );
+  const p = negStatePresentation(status);
+  return {
+    key: p.key,
+    label: p.label,
+    description: p.description,
+    tone: p.tone,
+    // `.arc-hero .status-chip` and `.cc-badge` do not carry the same variant
+    // set, so they get their own names rather than one that silently falls
+    // through to the default grey on one of the two.
+    chip: p.heroChip,
+    badge: p.badge,
+    pulse: p.pulse === true,
+    muted: p.key === NEG_STATE.CANCELLED || p.key === NEG_STATE.LAPSED,
+  };
 }
 
-/** Cancelled / expired rounds still render in full — historical value is the point. */
+/** Cancelled / lapsed rounds still render in full — historical value is the point. */
 export function isSettledStatus(status) {
-  const key = String(status || "").trim().toLowerCase();
-  return ["cancelled", "rejected", "expired", "closed", "ended", "completed"].includes(key);
+  return isTerminalState(status);
 }
 
+/** Terminated = ended badly. Drives the desaturated hero treatment. */
 export function isTerminatedStatus(status) {
-  const key = String(status || "").trim().toLowerCase();
-  return ["cancelled", "rejected", "expired"].includes(key);
+  const k = toNegState(status);
+  return k === NEG_STATE.CANCELLED || k === NEG_STATE.LAPSED;
 }
 
+// Server-derived action gates, in the order the buyer should meet them. The
+// backend sends `actions` as a flat OBJECT of booleans
+// (negotiationRoundDetailController.deriveActions); this table turns the ones
+// that have a screen into buttons. `route` is the intent, resolved to a real
+// href in RoundActions.resolveActionHref.
+const ACTION_CATALOGUE = [
+  { key: "approve", flag: "can_approve", label: "Review and approve", route: "approve", tone: "primary" },
+  { key: "reject", flag: "can_reject", label: "Reject this round", route: "approve" },
+  { key: "close_round", flag: "can_close", label: "Close the round", route: "round" },
+  {
+    key: "submit_quotes_for_approval",
+    flag: "can_submit_quotes_for_approval",
+    label: "Take quotes forward",
+    route: "compare",
+    tone: "primary",
+  },
+  { key: "create_next_round", flag: "can_create_next_round", label: "Start the next round", route: "next_round" },
+  { key: "view_quotes", flag: "can_view_quotes", label: "View quotes", route: "compare" },
+];
+
+/**
+ * Actions arrive as an OBJECT of booleans. The previous implementation ran
+ * asArray() over it, which returns [] for a plain object — so the page rendered
+ * zero action buttons on every round ever loaded.
+ *
+ * An ARRAY payload (a list of {key,label,href} descriptors) is still accepted,
+ * because that is what the round-detail tests and any future richer contract
+ * use. Anything unrecognised is dropped rather than guessed at.
+ */
 function normalizeActions(raw) {
-  return asArray(raw)
-    .map((a) => {
-      if (typeof a === "string") return { key: a, label: humanize(a), href: null, disabled: false };
-      const key = pickStr(a, ["key", "action", "id", "code"]);
-      if (!key) return null;
-      return {
-        key,
-        label: pickStr(a, ["label", "title", "text"]) || humanize(key),
-        href: pickStr(a, ["href", "url", "link"]),
-        disabled: pickBool(a, ["disabled", "is_disabled"]) === true,
-        reason: pickStr(a, ["reason", "disabled_reason", "hint"]),
-        tone: pickStr(a, ["tone", "variant", "style"]),
-      };
-    })
-    .filter(Boolean);
+  if (Array.isArray(raw) || typeof raw === "string") {
+    return asArray(raw)
+      .map((a) => {
+        if (typeof a === "string") return { key: a, label: humanize(a), href: null, disabled: false };
+        const key = pickStr(a, ["key", "action", "id", "code"]);
+        if (!key) return null;
+        return {
+          key,
+          label: pickStr(a, ["label", "title", "text"]) || humanize(key),
+          href: pickStr(a, ["href", "url", "link"]),
+          disabled: pickBool(a, ["disabled", "is_disabled"]) === true,
+          reason: pickStr(a, ["reason", "disabled_reason", "hint"]),
+          tone: pickStr(a, ["tone", "variant", "style"]),
+        };
+      })
+      .filter(Boolean);
+  }
+  if (!raw || typeof raw !== "object") return [];
+
+  return ACTION_CATALOGUE.filter((a) => raw[a.flag] === true).map((a) => ({
+    key: a.key,
+    label: a.label,
+    href: null,
+    route: a.route,
+    disabled: false,
+    reason: null,
+    tone: a.tone || null,
+  }));
 }
 
 function humanize(k) {
   return String(k).replace(/[_-]/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/** "Asha Menon", "Asha Menon and Ravi K", "Asha Menon +2" — never [object Object]. */
+export function formatApproverList(value, { max = 2 } = {}) {
+  if (value == null) return null;
+  if (typeof value === "string") return value.trim() || null;
+
+  const names = asArray(value)
+    .map((a) => {
+      if (typeof a === "string") return a.trim();
+      return (
+        pickStr(a, ["name", "approver_name", "user_name", "full_name"]) ||
+        pickStr(a, ["email", "approver_email"]) ||
+        (pickNum(a, ["user_id", "approver_user_id", "id"]) != null
+          ? `User #${pickNum(a, ["user_id", "approver_user_id", "id"])}`
+          : null)
+      );
+    })
+    .filter(Boolean);
+
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, max).join(", ")} +${names.length - max}`;
+}
+
+/**
+ * The approval card.
+ *
+ * Real shape: { instances: [{status, current_step, total_steps, steps: [...],
+ * pending_with: [{user_id,name,…}], is_pending_for_me}], status, pending_with,
+ * is_pending_for_me, vendor_approvals: {…} }.
+ *
+ * Steps live on the newest INSTANCE, not on the approval object, and
+ * `pending_with` is an array of people.
+ */
 function normalizeApproval(raw) {
   if (!raw || typeof raw !== "object") return null;
-  const status = pickStr(raw, ["status", "state", "approval_status"]);
-  const steps = asArray(firstDefined(raw, ["steps", "levels", "approvers", "chain"])).map((s, i) => ({
-    key: pickStr(s, ["id", "step_id", "level_id"]) || `step-${i}`,
-    label:
-      pickStr(s, ["label", "name", "approver_name", "role_name", "level_name"]) ||
-      `Level ${i + 1}`,
-    status: pickStr(s, ["status", "state"]),
-    actedAt: pickStr(s, ["acted_at", "approved_at", "updated_at"]),
-    remarks: pickStr(s, ["remarks", "comment", "note"]),
-  }));
+
+  const instances = asArray(raw.instances);
+  const current = instances.length > 0 ? instances[0] : null;
+
+  const status =
+    pickStr(raw, ["status", "state", "approval_status"]) ||
+    (current ? pickStr(current, ["status"]) : null);
+
+  // Prefer the instance's own chain; fall back to a flat `steps` for the
+  // speculative shape the tests still exercise.
+  const stepSource = current
+    ? asArray(current.steps)
+    : asArray(firstDefined(raw, ["steps", "levels", "approvers", "chain"]));
+
+  const steps = stepSource.map((s, i) => {
+    const approverNames = formatApproverList(s.approvers);
+    return {
+      key: pickStr(s, ["step_id", "id", "level_id"]) || `step-${i}`,
+      label:
+        approverNames ||
+        pickStr(s, ["label", "name", "approver_name", "role_name", "level_name"]) ||
+        `Level ${pickNum(s, ["step_order"]) ?? i + 1}`,
+      stepOrder: pickNum(s, ["step_order", "order", "sequence"]) ?? i + 1,
+      status: pickStr(s, ["status", "state"]),
+      actedAt:
+        pickStr(s, ["completed_at", "acted_at", "approved_at", "updated_at"]) ||
+        (asArray(s.approvers)
+          .map((a) => pickStr(a, ["acted_at"]))
+          .filter(Boolean)[0] ??
+          null),
+      remarks:
+        pickStr(s, ["remarks", "comment", "note"]) ||
+        (asArray(s.approvers)
+          .map((a) => pickStr(a, ["comment"]))
+          .filter(Boolean)[0] ??
+          null),
+      approvers: asArray(s.approvers).map((a) => ({
+        userId: pickNum(a, ["user_id"]),
+        name: pickStr(a, ["name"]) || pickStr(a, ["email"]) || "Approver",
+        email: pickStr(a, ["email"]),
+        mobile: pickStr(a, ["mobile"]),
+        status: pickStr(a, ["status"]),
+      })),
+    };
+  });
+
+  const pendingWith =
+    formatApproverList(firstDefined(raw, ["pending_with"])) ??
+    (current ? formatApproverList(current.pending_with) : null) ??
+    pickStr(raw, ["current_approver", "awaiting_from", "pending_with_name"]);
+
+  const vendorApprovals = raw.vendor_approvals || null;
+
   if (!status && steps.length === 0) return null;
+
   return {
     status,
     isPending: /pending|in_progress|awaiting/i.test(status || ""),
     isRejected: /reject/i.test(status || ""),
     isApproved: /approved|complete/i.test(status || ""),
-    pendingWith: pickStr(raw, ["pending_with", "current_approver", "awaiting_from", "pending_with_name"]),
-    level: pickNum(raw, ["current_level", "level", "sequence"]),
-    totalLevels: pickNum(raw, ["total_levels", "levels_count", "level_count"]),
+    isPendingForMe:
+      pickBool(raw, ["is_pending_for_me"]) === true ||
+      instances.some((i) => pickBool(i, ["is_pending_for_me"]) === true),
+    pendingWith,
+    level:
+      pickNum(raw, ["current_level", "level", "sequence"]) ??
+      (current ? pickNum(current, ["current_step"]) : null),
+    totalLevels:
+      pickNum(raw, ["total_levels", "levels_count", "level_count"]) ??
+      (current ? pickNum(current, ["total_steps"]) : null) ??
+      (steps.length || null),
+    initiatedByName: current ? pickStr(current.initiated_by || {}, ["name"]) : null,
+    vendorApprovals: vendorApprovals
+      ? {
+          total: pickNum(vendorApprovals, ["total"]) ?? 0,
+          approved: pickNum(vendorApprovals, ["approved"]) ?? 0,
+          rejected: pickNum(vendorApprovals, ["rejected"]) ?? 0,
+          pending: pickNum(vendorApprovals, ["pending"]) ?? 0,
+        }
+      : null,
     steps,
   };
 }
@@ -688,9 +883,13 @@ function normalizeVendors(raw, lines) {
       pickStr(v, ["vendor_name", "name", "organization_name", "company_name"]) || "Vendor",
     email: pickStr(v, ["email", "vendor_email", "contact_email"]),
     phone: pickStr(v, ["mobile", "phone", "contact_number", "vendor_mobile"]),
-    responded: pickBool(v, ["responded", "has_responded", "quote_received"]) === true,
-    respondedAt: pickStr(v, ["responded_at", "quoted_at", "submitted_at"]),
-    lineCount: pickNum(v, ["line_count", "lines"]),
+    responded: pickBool(v, ["has_responded", "responded", "quote_received"]) === true,
+    respondedAt: pickStr(v, ["last_responded_at", "first_responded_at", "responded_at", "quoted_at", "submitted_at"]),
+    // `lines` on the server's vendor roll-up is a COUNT, not the line array.
+    lineCount: pickNum(v, ["lines", "line_count"]),
+    linesResponded: pickNum(v, ["lines_responded"]),
+    savedValue: pickNum(v, ["saved_value"]),
+    approvalStatus: pickStr(v, ["approval_status"]),
   }));
   if (explicit.length > 0) return explicit;
 
@@ -723,7 +922,11 @@ function normalizeHistory(raw) {
     key: pickStr(r, ["round_id", "id"]) || `r-${i}`,
     roundId: pickNum(r, ["round_id", "id"]),
     roundNumber: pickNum(r, ["round_number", "round_no", "number"]),
-    status: pickStr(r, ["status", "neg_status", "round_status"]),
+    // `state` is the derived seven-state key; `status` is the raw column and
+    // only a fallback. Reading the raw one is what made the history rows
+    // disagree with the row you clicked to get here.
+    status: pickStr(r, ["state", "neg_status", "status", "round_status"]),
+    stateLabel: pickStr(r, ["state_label"]),
     savedValue: pickNum(r, ["saved_value", "savings", "saved"]),
     baselineValue: pickNum(r, ["baseline_value", "baseline_total"]),
     achievedValue: pickNum(r, ["achieved_value", "achieved_total"]),
@@ -745,74 +948,151 @@ export function normalizeRoundDetail(payload) {
   const body = payload && payload.data && !Array.isArray(payload.data) ? payload.data : payload;
   const d = body || {};
   const roundRaw = d.round || d.negotiation_round || d;
+  // Parent identity (title, RFQ number, hotel, department) lives on its OWN
+  // object — reading it off `round` is why the hero showed the literal string
+  // "RFQ", a round id where the RFQ number belongs, and blank hotel/department.
+  const parentRaw = d.parent || d.rfq || d.arc || {};
 
   const lines = asArray(
-    firstDefined(d, ["items", "lines", "products", "round_items"])
+    firstDefined(d, ["lines", "items", "products", "round_items"])
   ).map(normalizeLine);
 
-  const totals = normalizeTotals(d.totals || d.summary || d.aggregate, lines);
+  const totals = normalizeTotals(
+    d.totals || d.summary || d.aggregate,
+    lines,
+    d.cumulative || d.cumulative_totals
+  );
 
   const meta = d.meta || d.metadata || {};
+  const quoteVisibility = d.quote_visibility || d.quoteVisibility || meta.quote_visibility || meta.quoteVisibility || {};
+  const cycle = d.cycle || {};
 
-  const sourceRaw = pickStr(roundRaw, ["source", "source_type", "parent_type"]);
+  const sourceRaw =
+    pickStr(roundRaw, ["source_type", "source", "parent_type"]) ||
+    pickStr(parentRaw, ["source_type"]);
   const source = String(sourceRaw || "RFQ").toUpperCase() === "ARC" ? "ARC" : "RFQ";
 
-  const status = pickStr(roundRaw, ["status", "neg_status", "round_status"]);
+  // ── FIX 2: ONE status, derived the same way the listing derives it ────────
+  // Order: the server's derived `state` → the derived `neg_status` a listing
+  // row carries → a client-side derivation off the raw column PLUS the counts
+  // the payload also sends → the raw column alone, as a last resort.
+  const serverState = toNegState(pickStr(roundRaw, ["state", "neg_status"]));
+  const rawStatus = pickStr(roundRaw, ["status", "round_status"]);
+  const responseCount =
+    pickNum(roundRaw, ["response_count"]) ?? totals.respondedCount ?? 0;
+  // `status` is the RAW column when it is upper-case (that is how PostgreSQL
+  // holds it) and an already-derived bucket when it is lower-case. Only the
+  // raw form needs the counts to disambiguate — running the derivation over
+  // "awaiting_decision" would read it as a status with zero responses and
+  // report "Closed — no vendor response".
+  const rawIsColumnValue = !!rawStatus && rawStatus === rawStatus.toUpperCase();
+  const status =
+    serverState ||
+    (rawIsColumnValue
+      ? deriveNegotiationState({
+          status:
+            pickStr(roundRaw, ["effective_status"]) === "AWAITING_DECISION" && rawStatus === "ACTIVE"
+              ? "ENDED"
+              : rawStatus,
+          endDate: pickStr(roundRaw, ["end_date"]),
+          responseCount,
+          hasApprovedQuote: pickBool(roundRaw, ["has_approved_quote"]) === true,
+        })
+      : toNegState(rawStatus));
+  const statusPresentation = roundStatusPresentation(status);
 
-  // Both denominators. `roundsInScope` is how many rounds this cycle has;
-  // `roundsOnParent` is every round ever created on the parent RFQ/ARC. They
-  // legitimately differ (the "Round 5 of 32" case) and are rendered honestly
-  // rather than reconciled into one misleading number.
-  const roundsInScope = pickNum(roundRaw, [
-    "total_rounds_in_scope",
-    "total_rounds_for_product",
-    "rounds_in_cycle",
-    "total_rounds",
-  ]);
+  // ── FIX 3: the round number is RFQ-wide ──────────────────────────────────
+  // Product definition: "round_number means the number of the current round in
+  // the whole RFQ, not product-wise". One round = one position, however many
+  // products it covers.
+  //
+  // The NUMERATOR is computed server-side (negotiationModel.roundPositionSql)
+  // because the stored column restarts at 1 for every product — eight rounds
+  // of RFQ 512 are stored as 1, so "Round 1 of 138" rendered eight times.
+  // The DENOMINATOR is every round on the parent, which was right all along.
+  const roundNumber = pickNum(roundRaw, ["round_number", "round_no", "number"]);
   const roundsOnParent = pickNum(roundRaw, [
+    "rounds_on_parent",
     "total_rounds_on_parent",
+    "total_rounds",
     "total_rounds_on_rfq",
     "parent_total_rounds",
     "rfq_total_rounds",
-    "rounds_on_parent",
+  ]);
+  // Context, never the denominator: how many of those rounds negotiated the
+  // same items as this one.
+  const roundsOnProducts = pickNum(roundRaw, [
+    "rounds_on_products",
+    "total_rounds_for_product",
+    "rounds_in_cycle",
   ]);
 
   const wholeParentMode =
     pickBool(roundRaw, ["is_rfq_level", "is_whole_rfq", "whole_rfq", "rfq_level"]) === true ||
     /whole|rfq_level|global/i.test(pickStr(roundRaw, ["mode", "scope_mode", "round_mode"]) || "");
 
+  // `created_by` is an object {user_id, name, email, mobile, designation};
+  // the flat `created_by_name` is the speculative shape.
+  const createdBy = roundRaw.created_by && typeof roundRaw.created_by === "object" ? roundRaw.created_by : {};
+
+  const rfqId = pickNum(parentRaw, ["rfq_id"]) ?? pickNum(roundRaw, ["rfq_id", "parent_id"]);
+  const arcId = pickNum(parentRaw, ["arc_id"]) ?? pickNum(roundRaw, ["arc_id", "contract_id"]);
+
   const round = {
     roundId: pickNum(roundRaw, ["round_id", "id"]),
-    roundNumber: pickNum(roundRaw, ["round_number", "round_no", "number"]),
-    roundsInScope,
+    roundNumber,
     roundsOnParent,
+    roundsOnProducts,
+    storedRoundNumber: pickNum(roundRaw, ["stored_round_number"]),
     status,
-    statusPresentation: roundStatusPresentation(status),
+    rawStatus,
+    statusPresentation,
+    statusDescription: statusPresentation.description,
     isSettled: isSettledStatus(status),
     isTerminated: isTerminatedStatus(status),
+    neverReachedVendors: neverReachedVendors(status),
     source,
     isArc: source === "ARC",
-    rfqId: pickNum(roundRaw, ["rfq_id", "parent_id"]),
-    rfqNo: pickStr(roundRaw, ["rfq_no", "rfq_number"]),
-    arcId: pickNum(roundRaw, ["arc_id", "contract_id"]),
-    arcNo: pickStr(roundRaw, ["arc_number", "arc_no"]),
+    rfqId,
+    rfqNo: pickStr(parentRaw, ["rfq_no"]) ?? pickStr(roundRaw, ["rfq_no", "rfq_number"]),
+    arcId,
+    arcNo: pickStr(parentRaw, ["arc_number"]) ?? pickStr(roundRaw, ["arc_number", "arc_no"]),
     title:
+      pickStr(parentRaw, ["title"]) ||
       pickStr(roundRaw, ["title", "rfq_title", "arc_title", "parent_title"]) ||
-      (source === "ARC" ? "Rate contract" : "RFQ"),
-    isTender: pickBool(roundRaw, ["is_tender"]) === true,
-    hotelName: pickStr(roundRaw, ["hotel_name", "bu_name", "business_unit"]),
-    departmentTitle: pickStr(roundRaw, ["department_title", "department_name", "department"]),
+      (source === "ARC" ? "Rate contract" : "Negotiation round"),
+    parentStatus: pickStr(parentRaw, ["status"]),
+    isTender:
+      (pickNum(parentRaw, ["is_tender"]) ?? 0) === 1 ||
+      pickBool(roundRaw, ["is_tender"]) === true,
+    hotelName:
+      pickStr(parentRaw, ["hotel_name"]) ||
+      pickStr(roundRaw, ["hotel_name", "bu_name", "business_unit"]),
+    departmentTitle:
+      pickStr(parentRaw, ["department_name"]) ||
+      pickStr(roundRaw, ["department_title", "department_name", "department"]),
+    companyName: pickStr(parentRaw, ["company_name"]),
     categoryTitle: pickStr(roundRaw, ["category_title", "category_name", "category"]),
-    createdByName: pickStr(roundRaw, ["created_by_name", "creator_name", "raised_by_name"]),
+    createdByName:
+      pickStr(createdBy, ["name"]) ||
+      pickStr(roundRaw, ["created_by_name", "creator_name", "raised_by_name"]),
+    createdByEmail: pickStr(createdBy, ["email"]),
+    createdByMobile: pickStr(createdBy, ["mobile"]),
+    createdByDesignation: pickStr(createdBy, ["designation"]),
     createdAt: pickStr(roundRaw, ["created_at", "started_at", "start_date"]),
     endDate: pickStr(roundRaw, ["end_date", "deadline", "ends_at", "expires_at"]),
     closedAt: pickStr(roundRaw, ["closed_at", "ended_at", "completed_at"]),
+    approvedAt: pickStr(roundRaw, ["approved_at"]),
+    publishedAt: pickStr(roundRaw, ["published_at"]),
+    remarks: pickStr(roundRaw, ["remarks"]),
     wholeParentMode,
-    approval: normalizeApproval(roundRaw.approval || d.approval),
+    approval: normalizeApproval(d.approval || roundRaw.approval),
   };
 
-  const scopeEcho = pickStr(meta, ["scope", "active_scope"]) || pickStr(d, ["scope"]);
+  const scopeEcho =
+    pickStr(d, ["scope"]) || pickStr(meta, ["scope", "active_scope"]);
   const siblingCount =
+    pickNum(cycle, ["sibling_count"]) ??
     pickNum(meta, ["sibling_round_count", "siblings", "cycle_round_count"]) ??
     asArray(firstDefined(meta, ["sibling_round_ids", "siblings"])).length ??
     null;
@@ -830,27 +1110,30 @@ export function normalizeRoundDetail(payload) {
     ),
     history: normalizeHistory(firstDefined(d, ["history", "rounds", "round_history", "previous_rounds"])),
     actions: normalizeActions(
-      firstDefined(d, ["available_actions", "actions", "allowed_actions"])
+      firstDefined(d, ["actions", "available_actions", "allowed_actions"])
     ),
     meta: {
       scope: scopeEcho === "cycle" || scopeEcho === "round" ? scopeEcho : null,
       hasSiblings: hasSiblings === true,
       siblingCount,
-      // `locked` is what helper/quoteVisibility.js buildQuoteVisibilityMeta()
-      // actually emits; the other spellings are the wrappers around it.
+      // The lock is reported at the TOP LEVEL of the payload
+      // (`quote_visibility.locked` from helper/quoteVisibility.js, plus
+      // `prices_hidden` once the redaction has run) — not under `meta`, which
+      // the payload does not have. Missing it meant sealed rounds rendered as
+      // unexplained dashes with no banner to say why.
       quoteVisibilityLocked:
+        pickBool(quoteVisibility, ["locked"]) === true ||
+        pickBool(d, ["prices_hidden"]) === true ||
         pickBool(meta, [
           "quote_visibility_locked",
           "quotes_locked",
           "visibility_locked",
           "locked",
-        ]) === true ||
-        pickBool(meta.quoteVisibility || meta.quote_visibility, ["locked"]) === true,
-      quoteVisibilityReason: pickStr(meta, [
-        "quote_visibility_reason",
-        "locked_reason",
-        "message",
-      ]),
+        ]) === true,
+      quoteVisibilityReason:
+        pickStr(quoteVisibility, ["message"]) ||
+        pickStr(meta, ["quote_visibility_reason", "locked_reason", "message"]),
+      quoteVisibilityDeadline: pickStr(quoteVisibility, ["deadline"]),
       baselineStale:
         pickBool(meta, ["baseline_stale", "stale_baseline"]) === true ||
         lines.some((l) => l.baselineStale),
@@ -960,16 +1243,30 @@ export function relativeTo(raw, now = Date.now()) {
   return diff >= 0 ? `in ${n} ${plural}` : `${n} ${plural} ago`;
 }
 
-/** Denominator copy that never lies: "Round 5 of 7 · 32 rounds on this RFQ". */
+/**
+ * "Round 7 of 138" — this round's position in the whole RFQ / rate contract.
+ *
+ * Both halves are parent-wide, which is the definition: "how many rounds were
+ * there in this RFQ, and for each round, what was negotiated".
+ */
 export function roundDenominatorText(round) {
   if (!round) return "";
   const n = round.roundNumber;
-  const inScope = round.roundsInScope;
   const onParent = round.roundsOnParent;
+  if (n == null) return "Round —";
+  return onParent != null ? `Round ${n} of ${onParent}` : `Round ${n}`;
+}
+
+/**
+ * The follow-up sentence: of all the rounds on this record, how many actually
+ * touched the items in front of you. Null when that adds nothing.
+ */
+export function roundDenominatorExplanation(round) {
+  if (!round || round.roundsOnParent == null || round.roundsOnProducts == null) return null;
+  if (round.roundsOnProducts >= round.roundsOnParent) return null;
   const parentWord = round.isArc ? "rate contract" : "RFQ";
-  const head = n == null ? "Round —" : inScope != null ? `Round ${n} of ${inScope}` : `Round ${n}`;
-  if (onParent != null && (inScope == null || onParent !== inScope)) {
-    return `${head} · ${onParent} round${onParent === 1 ? "" : "s"} on this ${parentWord}`;
-  }
-  return head;
+  const k = round.roundsOnProducts;
+  return `Rounds are numbered across the whole ${parentWord}. ${k} of those ${round.roundsOnParent} round${
+    round.roundsOnParent === 1 ? "" : "s"
+  } negotiated the same item${k === 1 ? "" : "s"} as this one — the rest covered other items.`;
 }
