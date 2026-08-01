@@ -158,6 +158,24 @@ export default function NegotiationRoundDetailPage({ roundId }) {
   const scopeLabel = scopeLabelText(activeScope, round.roundNumber);
   const chip = round.statusPresentation;
 
+  // ── where "back" goes ──
+  // A round is one of N on its parent — 138 of them on RFQ 512 — so the useful
+  // step back is that parent's negotiation, not the module-wide list. RFQ
+  // rounds go to level 2; ARC rounds keep pointing at the rate-contract page,
+  // which already carries its own rounds list under the commercial stage.
+  // (The error state above still points at the list: when the payload failed
+  // to load there is no parent to go back to.)
+  const parentKind = round.isArc ? "Rate contract" : round.isTender ? "Tender" : "RFQ";
+  const parentNo = round.isArc ? round.arcNo || round.arcId : round.rfqNo || round.rfqId;
+  const parentCrumb = parentNo ? `${parentKind} #${parentNo}` : parentKind;
+  const parentBack = round.isArc
+    ? round.arcId
+      ? { label: "Back to this rate contract", href: `/dashboard/buyer/rate-contracts/${round.arcId}?stage=commercial` }
+      : { label: "Back to negotiations", href: "/dashboard/buyer/negotiation" }
+    : round.rfqId
+      ? { label: "Back to this RFQ's negotiation", href: `/dashboard/buyer/negotiation/${round.rfqId}` }
+      : { label: "Back to negotiations", href: "/dashboard/buyer/negotiation" };
+
   return (
     <main className="main-body" data-testid="negotiation-round-detail">
       {/* ── HERO ── muted (desaturated) for cancelled / expired rounds, but
@@ -167,14 +185,17 @@ export default function NegotiationRoundDetailPage({ roundId }) {
         style={round.isTerminated ? { filter: "saturate(0.4)", opacity: 0.94 } : undefined}
       >
         <LifecycleHero
-          eyebrow={`${round.isArc ? "Rate contract" : round.isTender ? "Tender" : "RFQ"} · Negotiation round`}
+          // The middle crumb names the parent: a round belongs to an RFQ (or a
+          // rate contract) before it belongs to the negotiation module, and the
+          // back chip now goes there rather than all the way out to the list.
+          eyebrow={`${parentCrumb} · Negotiation round`}
           title={round.title}
           status={{ label: chip.label, tone: chip.chip }}
           // The RFQ / ARC number, not the round id — that is the number a
           // vendor reads off their email when they call.
           idText={`#${round.rfqNo || round.arcNo || round.rfqId || round.arcId || round.roundId}`}
           copy={{ copied, onCopy: copyLink, label: "Copy link to this round" }}
-          back={{ label: "Back to negotiations", href: "/dashboard/buyer/negotiation" }}
+          back={parentBack}
           sub={
             <>
               {/* The state, spelled out. Nothing else on the page says in
