@@ -66,7 +66,10 @@ function NegotiationSummary({ rfqId, products }) {
   );
 }
 
-export default function NegotiationAwardStage({ rfq, stage }) {
+// `focusAwardToken` is a pass-through from ViewRFQ's award banner: a counter
+// that the embedded sheet turns into "scroll to the first product × vendor cell
+// where this user's approval is pending, and mark it". 0 = never asked.
+export default function NegotiationAwardStage({ rfq, stage, focusAwardToken = 0 }) {
   if (!rfq?.id) return <StageSkeleton />;
   const phase = stage?.phase || {};
   const products = Array.isArray(phase.products) ? phase.products : [];
@@ -75,7 +78,7 @@ export default function NegotiationAwardStage({ rfq, stage }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {products.length > 0 && <NegotiationSummary rfqId={rfq.id} products={products} />}
       <div className="rfq-stage-embed">
-        <QuoteComparison rfqId={String(rfq.id)} embedded />
+        <QuoteComparison rfqId={String(rfq.id)} embedded focusAwardToken={focusAwardToken} />
       </div>
     </div>
   );

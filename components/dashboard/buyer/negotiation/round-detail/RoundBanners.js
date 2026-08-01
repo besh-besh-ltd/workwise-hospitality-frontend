@@ -12,6 +12,7 @@ import {
   formatDateTime,
   formatMoney,
   roundDenominatorText,
+  roundDenominatorExplanation,
 } from "./roundDetailModel";
 
 function Banner({ tone, icon, children, testId }) {
@@ -28,12 +29,25 @@ export default function RoundBanners({ model, scope }) {
   const banners = [];
 
   // ── the record itself ────────────────────────────────────────────────────
-  if (round.isTerminated) {
-    const word = round.statusPresentation.label.toLowerCase();
+  // A LAPSED round and a CANCELLED round both end the negotiation, but they
+  // are not the same event and must not read the same. Lapsed means the
+  // approval deadline ran out before anyone acted, so no vendor was ever
+  // asked anything — presenting its targets as an outcome would be a lie.
+  if (round.neverReachedVendors && round.isTerminated) {
     banners.push(
       <Banner key="terminated" tone="danger" icon={<Ban size={14} />} testId="banner-terminated">
-        <strong>This round was {word}.</strong> It is rendered in full anyway — the targets that
-        were asked for and any prices that came back are the historical record of the negotiation.
+        <strong>{round.statusPresentation.label}.</strong> {round.statusPresentation.description} The
+        targets below are what would have been sent; no vendor ever saw them, so there is nothing to
+        evaluate.
+        {round.endDate ? ` The approval deadline was ${formatDateTime(round.endDate)}.` : ""}
+      </Banner>
+    );
+  } else if (round.isTerminated) {
+    banners.push(
+      <Banner key="terminated" tone="danger" icon={<Ban size={14} />} testId="banner-terminated">
+        <strong>{round.statusPresentation.label}.</strong> {round.statusPresentation.description} It
+        is rendered in full anyway — the targets that were asked for and any prices that came back
+        are the historical record of the negotiation.
         {round.closedAt ? ` Closed ${formatDateTime(round.closedAt)}.` : ""}
       </Banner>
     );
@@ -119,6 +133,7 @@ export default function RoundBanners({ model, scope }) {
     totals.respondedCount === 0 &&
     lines.length > 0 &&
     !round.isTerminated &&
+    !round.neverReachedVendors &&
     !meta.quoteVisibilityLocked
   ) {
     banners.push(
@@ -161,17 +176,14 @@ export default function RoundBanners({ model, scope }) {
     );
   }
 
-  // Both denominators disagree — say so rather than picking one.
-  if (
-    round.roundsOnParent != null &&
-    round.roundsInScope != null &&
-    round.roundsOnParent !== round.roundsInScope
-  ) {
+  // Both denominators disagree — say so rather than picking one. This is the
+  // "Round 4 of 138" case: 138 is every round on RFQ 512, but round_number is
+  // allocated per product, so the honest sequence is 4 of 4.
+  const denominatorNote = roundDenominatorExplanation(round);
+  if (denominatorNote) {
     banners.push(
       <Banner key="denominator" tone="" icon={<Info size={14} />} testId="banner-denominator">
-        <strong>{roundDenominatorText(round)}.</strong> The two counts differ because rounds are
-        numbered across the whole {round.isArc ? "rate contract" : "RFQ"} while this cycle covers
-        only the items floated together.
+        <strong>{roundDenominatorText(round)}.</strong> {denominatorNote}
         {scope === "round" ? " You are currently viewing this round only." : ""}
       </Banner>
     );

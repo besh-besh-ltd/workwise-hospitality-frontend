@@ -16,17 +16,118 @@
 // payload and the header line. Neither is trusted alone — the resolver falls
 // back across both so it keeps working if either side of the payload shifts.
 //
+// NOT every approval type gets Approve/Reject here. A vendor award
+// (NEGOTIATION_QUOTE) is one line item out of many on one RFQ, and its real
+// decision surface already exists: the per-cell Approve/Reject in the embedded
+// comparison sheet, which shows the product, the vendor, the price and lets the
+// approver decide several lines at once. Duplicating it here produced the
+// production defect this card is now fixing — four identical anonymous cards in
+// a row ("Negotiation & Award — awaiting your approval" / "You have a pending
+// approval action"), each one a different line item, so approving felt like
+// nothing happened. Awards therefore render an urgency BANNER that carries the
+// context and scrolls to the cell. Everything else keeps its buttons.
+//
 // Styling follows this directory's convention (RfqStageTimeline / StageShared):
 // global arc_v2.css primitives (.approve-aside, .aa-*, .btn) plus inline styles.
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "react-toastify";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, AlertTriangle, ArrowRight, Handshake } from "lucide-react";
 
 import { submitApprovalAction } from "@/services/approval";
 
 // Anchor id — deep links from the "Waiting on you" queue arrive with
 // ?focus=approval and scroll to this element.
 export const APPROVAL_DECISION_ANCHOR_ID = "rfq-approval-decision";
+
+// Vendor award, per RFQ product line. Decided on the comparison sheet's cells.
+export const AWARD_ENTITY_TYPE = "NEGOTIATION_QUOTE";
+// Negotiation ROUND (not an award). Decided in the Negotiations module.
+// NOTE: getLifecycleSummary never loads NEGOTIATION instances (rfqModel.js:
+// 4612-4615 loads only RFQ|TENDER, TECHNICAL, NEGOTIATION_QUOTE and PO), so this
+// branch cannot currently render on this page. It is here so that the day the
+// endpoint does load them, the card points at the module that owns them instead
+// of offering a second, wrong approve path.
+export const ROUND_ENTITY_TYPE = "NEGOTIATION";
+
+// What the approver is actually deciding. Drives both the headline and the
+// toast — the toast used to say "RFQ approved" for every type, so awarding one
+// line item announced that the whole RFQ had been approved.
+const ENTITY_NOUN = {
+  [AWARD_ENTITY_TYPE]: "Vendor award",
+  [ROUND_ENTITY_TYPE]: "Negotiation round",
+  TECHNICAL: "Technical evaluation",
+  PO: "Purchase order",
+};
+
+const money = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? `₹${n.toLocaleString("en-IN")}` : null;
+};
+
+const isPendingApprover = (a) => String(a?.status || "").toUpperCase() === "PENDING";
+
+/**
+ * Progress on an instance's CURRENT step: how many of this step's approvers have
+ * acted, and who is still holding it up.
+ *
+ * This is the number whose absence made the production card look stuck. RFQ
+ * #536264 runs an ALL rule with four approvers on step 1; every approval moved
+ * one instance forward and re-rendered a card that read exactly the same.
+ */
+function stepProgress(inst) {
+  const steps = Array.isArray(inst?.steps) ? inst.steps : [];
+  const row = steps.find((s) => Number(s.step_order) === Number(inst?.current_step)) || null;
+  const approvers = Array.isArray(row?.approvers) ? row.approvers : [];
+  if (!approvers.length) return null;
+  return {
+    done: approvers.filter((a) => !isPendingApprover(a)).length,
+    total: approvers.length,
+    waitingOn: approvers.filter(isPendingApprover).map((a) => a.user_name).filter(Boolean),
+    decisionRule: row?.decision_rule || null,
+  };
+}
+
+/**
+ * Product / vendor / ₹ context for ONE award instance.
+ *
+ * Sources, in the order they are trusted:
+ *  - `metadata` on the instance itself: product_name (enriched by
+ *    getLifecycleSummary step 3b — empty on the production rows we checked),
+ *    vendor_id, po_payload.total_value, selected_quotes[] (the negotiation
+ *    -initiated variant carries vendor_name + quoted_price inline).
+ *  - the commercial phase's own `products[]` — the very payload the Negotiation
+ *    & Award stage already renders — matched on rfq_product_id. It supplies the
+ *    human-readable product name and the finalized vendor's company.
+ * Anything still missing is simply not shown; nothing is invented.
+ */
+function describeAward(inst, stage) {
+  const meta = inst?.metadata || {};
+  const phaseProducts = Array.isArray(stage?.phase?.products) ? stage.phase.products : [];
+  const keys = [meta.rfq_product_id, inst?.entity_id, meta.product_variant_id]
+    .filter((k) => k != null)
+    .map(String);
+  const product = phaseProducts.find((p) => keys.includes(String(p?.product_id))) || null;
+  const fin = product?.finalization || null;
+  const quote = Array.isArray(meta.selected_quotes) ? meta.selected_quotes[0] : null;
+
+  return {
+    instanceId: Number(inst?.id),
+    productId: meta.rfq_product_id ?? inst?.entity_id ?? null,
+    productName: meta.product_name || product?.product_name || null,
+    vendorName: quote?.vendor_name || fin?.vendor_company || fin?.vendor_name || null,
+    vendorId: meta.vendor_id ?? quote?.vendor_id ?? null,
+    value:
+      meta?.po_payload?.total_value
+      ?? fin?.total_price
+      ?? fin?.finalized_price
+      ?? quote?.quoted_price
+      ?? null,
+    currentStep: inst?.current_step ?? null,
+    totalSteps: inst?.total_steps ?? null,
+    progress: stepProgress(inst),
+  };
+}
 
 /**
  * Resolve the live approval instance the caller has to decide on, or null.
@@ -52,29 +153,30 @@ export const APPROVAL_DECISION_ANCHOR_ID = "rfq-approval-decision";
  *   instanceId: number, stepId: number|null, currentStep: number|null,
  *   totalSteps: number|null, entityType: string|null, stageLabel: string|null,
  *   label: string|null, lapsed: boolean, approvers: Array,
+ *   progress: object|null, awardCount: number, awardItems: Array,
  * }}
  */
 export function resolveRfqApprovalDecision(lifecycle) {
   const action = lifecycle?.action || null;
   const stages = Array.isArray(lifecycle?.stages) ? lifecycle.stages : [];
 
-  let exact = null;
-  let anyPending = null;
+  // EVERY instance this user may act on — not just the first. One RFQ routinely
+  // carries several pending award approvals (one per product line), and the
+  // count is the single most useful thing the approver was never told.
+  const pending = [];
   for (const stage of stages) {
     const instances = stage?.phase?.approval_instances;
     if (!Array.isArray(instances)) continue;
     for (const inst of instances) {
       if (inst?.status !== "PENDING" || !inst?.can_user_approve) continue;
-      if (action?.instance_id != null && Number(inst.id) === Number(action.instance_id)) {
-        exact = { inst, stage };
-        break;
-      }
-      if (!anyPending) anyPending = { inst, stage };
+      pending.push({ inst, stage });
     }
-    if (exact) break;
   }
 
-  const hit = exact || anyPending;
+  const exact = action?.instance_id != null
+    ? pending.find((h) => Number(h.inst?.id) === Number(action.instance_id)) || null
+    : null;
+  const hit = exact || pending[0] || null;
   // No instance the server says this user may act on, and no top-level grant
   // either → this user is not an approver here. Render nothing.
   if (!hit && !action?.can_approve) return null;
@@ -96,9 +198,28 @@ export function resolveRfqApprovalDecision(lifecycle) {
   const lapsed =
     hit?.stage?.phase?.status === "expired" || hit?.stage?.reason === "expired_pending";
 
-  // The matched stage carries its own copy of the action block; prefer it over
-  // the top-level one, since it is the one scoped to THIS instance.
+  // The matched stage's `action` block is NOT stage-scoped, despite appearances:
+  // rfqLifecycleShaper.js:64 assigns the SAME object reference to every current
+  // stage. It is usable for a step id (the top-level action resolves one), but
+  // never for the entity type — that has to come off the instance.
   const stageAction = hit?.stage?.action || null;
+
+  // Resolve the entity type from the instance. Only fall back to the action
+  // block when there is no instance at all (the can_approve-only path), where
+  // the top-level action IS the only description of what is being decided.
+  const entityType = inst
+    ? (inst.entity_type || null)
+    : (action?.entity_type || null);
+
+  // Award context. Ordered so the instance the server pointed us at is first —
+  // that is the one the banner describes in full.
+  const awards = pending.filter((h) => h.inst?.entity_type === AWARD_ENTITY_TYPE);
+  const orderedAwards = hit
+    ? [
+        ...awards.filter((h) => Number(h.inst?.id) === Number(instanceId)),
+        ...awards.filter((h) => Number(h.inst?.id) !== Number(instanceId)),
+      ]
+    : awards;
 
   return {
     instanceId: Number(instanceId),
@@ -113,8 +234,15 @@ export function resolveRfqApprovalDecision(lifecycle) {
       ?? null,
     currentStep,
     totalSteps: inst?.total_steps ?? null,
-    entityType: inst?.entity_type || stageAction?.entity_type || action?.entity_type || null,
+    entityType,
     stageLabel: hit?.stage?.label || null,
+    // How far the CURRENT step has got, and who is still holding it.
+    progress: stepProgress(inst),
+    // Every award on this RFQ awaiting THIS user, first one described in full.
+    awardCount: awards.length,
+    awardItems: entityType === AWARD_ENTITY_TYPE
+      ? orderedAwards.map((h) => describeAward(h.inst, h.stage))
+      : [],
     // Only trust the top-level copy when the top-level grant is what got us
     // here; otherwise it describes a different (evaluator) role.
     label: action?.can_approve ? (action.label || null) : null,
@@ -131,10 +259,160 @@ const errText = (err) =>
   (typeof err?.message === "string" ? err.message : null) ||
   "Could not submit your decision. Please try again.";
 
+/* ── Urgency banner shell — shared by the award and the round branches. ──
+   Deliberately NOT a decision control: it states the scale, carries the
+   context and hands over to the surface that owns the decision. */
+function UrgencyBanner({ entityLabel, headline, children, action }) {
+  return (
+    <section
+      id={APPROVAL_DECISION_ANCHOR_ID}
+      className="approve-aside"
+      style={{ padding: 14, borderColor: "rgba(180,83,9,0.34)" }}
+      aria-label={`${entityLabel} approval — action needed`}
+    >
+      <div className="aa-head" style={{ marginBottom: 8 }}>
+        <div className="here-now">Action needed</div>
+      </div>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ flex: "1 1 380px", minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              fontSize: 13.5, fontWeight: 600, color: "var(--fg, #18181b)",
+            }}
+          >
+            <AlertTriangle size={15} strokeWidth={2} style={{ color: "var(--warn, #b45309)", flexShrink: 0 }} />
+            <span>{headline}</span>
+          </div>
+          {children}
+        </div>
+        <div style={{ flexShrink: 0 }}>{action}</div>
+      </div>
+    </section>
+  );
+}
+
+// "3 of 4 approvers done — waiting on Prashant Joshi"
+function ProgressLine({ progress, currentStep, totalSteps }) {
+  const bits = [];
+  if (progress?.total) {
+    bits.push(`${progress.done} of ${progress.total} approver${progress.total === 1 ? "" : "s"} done`);
+  }
+  if (progress?.waitingOn?.length) {
+    bits.push(`waiting on ${progress.waitingOn.join(", ")}`);
+  }
+  if (currentStep && totalSteps && Number(totalSteps) > 1) {
+    bits.push(`step ${currentStep} of ${totalSteps}`);
+  }
+  if (!bits.length) return null;
+  return (
+    <div style={{ fontSize: 11.5, color: "var(--fg-3, #71717a)", marginTop: 6 }}>
+      {bits.join(" · ")}
+    </div>
+  );
+}
+
+/* ── Vendor award (NEGOTIATION_QUOTE) ──
+   The decision lives on the comparison sheet's product × vendor cells, where
+   the approver can see the whole sheet and approve several lines at once. */
+function AwardBanner({ decision, entityLabel, onFocusAward }) {
+  const items = decision.awardItems || [];
+  const n = decision.awardCount || items.length || 1;
+  const first = items[0] || null;
+  const progress = first?.progress || decision.progress || null;
+
+  const facts = [
+    first?.productName || (first?.productId ? `Item #${first.productId}` : null),
+    first?.vendorName,
+    money(first?.value),
+  ].filter(Boolean);
+
+  const headline = n === 1
+    ? "1 vendor award on this RFQ is waiting on your approval"
+    : `${n} vendor awards on this RFQ are waiting on your approval`;
+
+  return (
+    <UrgencyBanner
+      entityLabel={entityLabel}
+      headline={headline}
+      action={
+        onFocusAward ? (
+          <button
+            type="button"
+            className="btn btn-success btn-sm"
+            onClick={onFocusAward}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            Review &amp; approve in the comparison sheet
+            <ArrowRight size={14} strokeWidth={2.2} />
+          </button>
+        ) : null
+      }
+    >
+      {facts.length > 0 && (
+        <div style={{ fontSize: 12.5, color: "var(--fg-2, #3f3f46)", marginTop: 6, fontWeight: 600 }}>
+          {facts.join(" · ")}
+          {n > 1 && (
+            <span style={{ fontWeight: 500, color: "var(--fg-3, #71717a)" }}>
+              {` — and ${n - 1} more award${n - 1 === 1 ? "" : "s"} on this RFQ`}
+            </span>
+          )}
+        </div>
+      )}
+      <ProgressLine
+        progress={progress}
+        currentStep={first?.currentStep ?? decision.currentStep}
+        totalSteps={first?.totalSteps ?? decision.totalSteps}
+      />
+      <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)", lineHeight: 1.55, marginTop: 6 }}>
+        Each award is a single product line. Approve or reject them on the
+        Negotiation &amp; Award sheet, where you can see the product, the vendor
+        and the price — and decide several lines together.
+      </div>
+    </UrgencyBanner>
+  );
+}
+
+/* ── Negotiation ROUND (NEGOTIATION) ──
+   Defensive branch: the lifecycle endpoint does not load these instances today
+   (see ROUND_ENTITY_TYPE above), so this cannot render on this page yet. */
+function RoundBanner({ decision, entityLabel, rfqId }) {
+  return (
+    <UrgencyBanner
+      entityLabel={entityLabel}
+      headline="A negotiation round on this RFQ is waiting on your approval"
+      action={
+        rfqId ? (
+          <Link
+            href={`/dashboard/buyer/negotiation/${rfqId}/approve`}
+            className="btn btn-success btn-sm"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Handshake size={14} strokeWidth={2.2} />
+            Open in Negotiations
+          </Link>
+        ) : null
+      }
+    >
+      <ProgressLine
+        progress={decision.progress}
+        currentStep={decision.currentStep}
+        totalSteps={decision.totalSteps}
+      />
+      <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)", lineHeight: 1.55, marginTop: 6 }}>
+        Rounds carry target prices and per-vendor terms, so they are approved in
+        the Negotiations module rather than here.
+      </div>
+    </UrgencyBanner>
+  );
+}
+
 export default function RfqApprovalDecisionCard({
   lifecycle,
   entityLabel = "RFQ",
+  rfqId = null,
   onDecided,
+  onFocusAward,
 }) {
   const decision = useMemo(() => resolveRfqApprovalDecision(lifecycle), [lifecycle]);
   const [comment, setComment] = useState("");
@@ -142,6 +420,36 @@ export default function RfqApprovalDecisionCard({
   const [busy, setBusy] = useState(false);
 
   if (!decision) return null;
+
+  // What is actually being decided. `entityLabel` (RFQ / Tender) only describes
+  // the RFQ-level approval; using it for everything is what made awarding one
+  // line item announce "RFQ approved".
+  const noun = ENTITY_NOUN[decision.entityType] || entityLabel;
+  // Mid-sentence form: "this purchase order" reads right, "this RFQ" must keep
+  // its capitals.
+  const nounInline = ENTITY_NOUN[decision.entityType]
+    ? ENTITY_NOUN[decision.entityType].toLowerCase()
+    : entityLabel;
+
+  // Awards and rounds are decided elsewhere — banner, never buttons.
+  if (decision.entityType === AWARD_ENTITY_TYPE) {
+    return (
+      <AwardBanner
+        decision={decision}
+        entityLabel={entityLabel}
+        onFocusAward={onFocusAward}
+      />
+    );
+  }
+  if (decision.entityType === ROUND_ENTITY_TYPE) {
+    return (
+      <RoundBanner
+        decision={decision}
+        entityLabel={entityLabel}
+        rfqId={rfqId ?? lifecycle?.rfq_id ?? null}
+      />
+    );
+  }
 
   const act = async (action) => {
     // Rejection always needs a reason — it lands in the audit trail and is the
@@ -162,7 +470,7 @@ export default function RfqApprovalDecisionCard({
         return;
       }
       toast.success(
-        action === "APPROVE" ? `${entityLabel} approved` : `${entityLabel} rejected`,
+        action === "APPROVE" ? `${noun} approved` : `${noun} rejected`,
       );
       setComment("");
       setCommentError(false);
@@ -204,9 +512,7 @@ export default function RfqApprovalDecisionCard({
             }}
           >
             <ShieldCheck size={15} strokeWidth={2} />
-            {decision.stageLabel
-              ? `${decision.stageLabel} — awaiting your approval`
-              : `${entityLabel} awaiting your approval`}
+            {`${noun} — awaiting your approval`}
             {decision.lapsed && (
               <span
                 style={{
@@ -224,7 +530,7 @@ export default function RfqApprovalDecisionCard({
             {decision.lapsed
               ? `This ${entityLabel} auto-published while the approval was still open, so your decision no longer gates publication — it closes the approval on record.`
               : decision.label
-                || `You are the current approver. Approving moves this ${entityLabel} to the next stage; rejecting sends it back with your reason.`}
+                || `You are the current approver. Approving moves this ${nounInline} to the next stage; rejecting sends it back with your reason.`}
           </div>
           {approverNames && (
             <div style={{ fontSize: 11.5, color: "var(--fg-3, #71717a)", marginTop: 7 }}>
@@ -232,6 +538,7 @@ export default function RfqApprovalDecisionCard({
               {approverNames}
             </div>
           )}
+          <ProgressLine progress={decision.progress} />
         </div>
 
         <div style={{ flex: "1 1 320px", minWidth: 0 }}>

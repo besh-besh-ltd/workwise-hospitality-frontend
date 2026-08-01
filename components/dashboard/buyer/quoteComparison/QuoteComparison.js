@@ -68,11 +68,27 @@ const fmtDate = (d) => {
 const Portal = ({ children }) =>
   typeof document !== "undefined" ? createPortal(children, document.body) : null;
 
+/* DOM ids so the RFQ workspace can scroll straight to the decision.
+   The award approval banner on rfq-management-details deliberately has no
+   Approve/Reject of its own — the decision lives on these cells — so it needs a
+   stable way to point at one. Mirrors quoteCompare/ProductComparisonTab's
+   productCardAnchorId() and ViewRFQ's APPROVAL_DECISION_ANCHOR_ID. */
+export const awardCellAnchorId = (productId, vendorId) =>
+  `qc-cell-${productId}-${vendorId}`;
+// Fallback target when no cell matches (nothing pending on this user any more,
+// or the sheet has no such product) — land on the sheet rather than nowhere.
+export const QUOTE_SHEET_ANCHOR_ID = "qc-comparison-sheet";
+
 // `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
 // page, locked to one RFQ: the Switch-RFQ control/modal are suppressed and the
 // id comes from the prop instead of the URL. Negotiation deep-links are kept
 // (the user wants the negotiation module reused).
-const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
+// `focusAwardToken` — see the award-focus effect below.
+const QuoteComparison = ({
+  rfqId: rfqIdProp,
+  embedded: isEmbedded = false,
+  focusAwardToken = 0,
+} = {}) => {
   const router = useRouter();
 
   const [rfq, setRfq] = useState((isEmbedded ? rfqIdProp : router.query.rfq) || null);
@@ -158,6 +174,11 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
   const [menu, setMenu] = useState(null); // { x, y, pid, vid }
   const [showHistory, setShowHistory] = useState(null); // { product, vendor }
   const [approvalPanel, setApprovalPanel] = useState(null); // product whose approval trail is open
+
+  // The cell the RFQ page's award banner sent us to — { pid, vid }. Purely a
+  // highlight; it never changes what is clickable.
+  const [focusedCell, setFocusedCell] = useState(null);
+  const awardFocusRef = useRef(0); // highest focusAwardToken already served
 
   const latestRfqRef = useRef(rfq ? String(rfq) : null);
   latestRfqRef.current = rfq ? String(rfq) : null;
@@ -601,6 +622,65 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
   /* ─────────────── approver decisions ─────────────── */
   // Approver acts only on pending products where it's THEIR turn (awaiting_me).
   const pendingProducts = products.filter((p) => p.state === "pending" && p.awaiting_me);
+
+  /* ─────────────── award-approval focus (from the RFQ page's banner) ───────────────
+     The RFQ workspace card carries a banner, not Approve/Reject, for vendor
+     awards — the decision belongs on the cells, where the product, the vendor
+     and the price are visible and several lines can be decided at once. The
+     banner's CTA bumps `focusAwardToken`; this brings the right cell into view.
+
+     Async load: the effect re-runs on every data change and returns early while
+     the sheet is still fetching or the cell it wants is not in the DOM yet, so
+     it self-heals the moment the view lands. No polling, no timers-until-found.
+
+     Post-approval refetch: `awardFocusRef` records the token already served, so
+     re-rendering every product after a decision cannot yank the viewport back.
+     Only a NEW click (a higher token) focuses again. */
+  const awardFocusTarget =
+    pendingProducts.find((p) => p.finalized_vendor != null)
+    || products.find((p) => p.state === "pending" && p.finalized_vendor != null)
+    || null;
+
+  useEffect(() => {
+    if (!focusAwardToken || awardFocusRef.current === focusAwardToken) return undefined;
+    if (loading || !view) return undefined; // still fetching — retry when it lands
+    // The overall-cost view has no product × vendor cells at all; switch first
+    // and let the next run of this effect find the cell.
+    if (activeView === "overall") {
+      setActiveView("product");
+      return undefined;
+    }
+    const cell = awardFocusTarget
+      ? document.getElementById(
+          awardCellAnchorId(awardFocusTarget.id, awardFocusTarget.finalized_vendor)
+        )
+      : null;
+    const node = cell || document.getElementById(QUOTE_SHEET_ANCHOR_ID);
+    if (!node) return undefined; // nothing painted yet — retry on the next render
+    awardFocusRef.current = focusAwardToken;
+    if (cell) {
+      setFocusedCell({
+        pid: String(awardFocusTarget.id),
+        vid: String(awardFocusTarget.finalized_vendor),
+      });
+    }
+    // Small delay so the matrix finishes laying out before we measure — same as
+    // the ViewRFQ approval-card deep link and the quote-compare product focus.
+    const t = setTimeout(
+      () => node.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }),
+      250
+    );
+    return () => clearTimeout(t);
+  }, [focusAwardToken, loading, view, activeView, awardFocusTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drop the highlight once that line is no longer awaiting a decision (the
+  // approver acted, or someone else did) — a refetch is the only thing that can
+  // change it, so this rides along with `products`.
+  useEffect(() => {
+    if (!focusedCell) return;
+    const p = products.find((x) => String(x.id) === focusedCell.pid);
+    if (!p || p.state !== "pending") setFocusedCell(null);
+  }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
   const approveCount = Object.keys(approveSel).length;
   const rejectCount = Object.keys(rejectSel).length;
   const decisionCount = approveCount + rejectCount;
@@ -860,9 +940,12 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
   const renderCell = (p, v) => {
     const vid = v.id;
     const q = p.quotes?.[vid];
+    // Every cell is addressable, in every state — the banner resolves its target
+    // from the data, so the id must not depend on how the cell happens to render.
+    const cellId = awardCellAnchorId(p.id, vid);
     if (!q) {
       return (
-        <td className={styles.cell} key={`${p.id}-${vid}`}>
+        <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
           <div className={styles.priceCell}>
             <span className={styles.awaiting}>Awaiting quote</span>
           </div>
@@ -872,7 +955,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
     // Locked (pre-deadline): the vendor HAS quoted, but the numbers stay hidden.
     if (quotesLocked) {
       return (
-        <td className={styles.cell} key={`${p.id}-${vid}`}>
+        <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
           <div className={`${styles.priceCell} ${styles.lockedCell}`}>
             <span className={styles.lockedBlur}>₹•,•••</span>
             <span className={styles.lockedTag}>
@@ -886,6 +969,10 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
     const sel = reselect && isSelected(p, vid);
     const finVendor = String(p.finalized_vendor) === String(vid);
     const decisionActive = role === "approver" && (approveSel[p.id] || rejectSel[p.id]);
+    const isFocusCell =
+      !!focusedCell
+      && String(focusedCell.pid) === String(p.id)
+      && String(focusedCell.vid) === String(vid);
 
     // The finalized vendor's cell (once it has an approval) opens the trail aside.
     const opensTrail =
@@ -903,11 +990,12 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
       cls.push(styles.approveSelected);
     if (role === "approver" && p.state === "pending" && finVendor && rejectSel[p.id])
       cls.push(styles.rejectSelected);
+    if (isFocusCell) cls.push(styles.cellAwardFocus);
 
     const delta = lprDelta(p, vid);
 
     return (
-      <td className={styles.cell} key={`${p.id}-${vid}`}>
+      <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
         <div
           className={cls.join(" ")}
           onClick={() => {
@@ -1109,6 +1197,14 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
             >
               <Check size={10} /> Approved <ChevronRight size={10} />
             </button>
+          )}
+
+          {/* Sent here by the RFQ page's award banner — say so, so the cell the
+              approver landed on is unmistakably the one they were pointed at. */}
+          {isFocusCell && (
+            <div className={styles.cellAwardFocusTag}>
+              <ArrowRight size={10} strokeWidth={2.4} /> Your approval
+            </div>
           )}
 
           {/* APPROVER: dual buttons on pending finalized cell — only when it's this user's turn */}
@@ -1360,7 +1456,7 @@ const QuoteComparison = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}
 
   /* ─────────────── matrix ─────────────── */
   const renderMatrix = () => (
-    <div className={styles.matrixWrap}>
+    <div className={styles.matrixWrap} id={QUOTE_SHEET_ANCHOR_ID}>
       <div className={styles.matrixScroll}>
         <table className={styles.matrix}>
           <thead>

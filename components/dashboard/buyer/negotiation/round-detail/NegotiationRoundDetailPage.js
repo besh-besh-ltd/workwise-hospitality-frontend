@@ -170,22 +170,30 @@ export default function NegotiationRoundDetailPage({ roundId }) {
           eyebrow={`${round.isArc ? "Rate contract" : round.isTender ? "Tender" : "RFQ"} · Negotiation round`}
           title={round.title}
           status={{ label: chip.label, tone: chip.chip }}
+          // The RFQ / ARC number, not the round id — that is the number a
+          // vendor reads off their email when they call.
           idText={`#${round.rfqNo || round.arcNo || round.rfqId || round.arcId || round.roundId}`}
           copy={{ copied, onCopy: copyLink, label: "Copy link to this round" }}
           back={{ label: "Back to negotiations", href: "/dashboard/buyer/negotiation" }}
           sub={
             <>
-              <span className="em">{roundDenominatorText(round)}</span>
+              {/* The state, spelled out. Nothing else on the page says in
+                  plain words what "Ready for your decision" actually means. */}
+              <span data-testid="hero-state-description">{chip.description}</span>
+              <span className="sep">·</span>
+              <span className="em" data-testid="hero-denominator">
+                {roundDenominatorText(round)}
+              </span>
               {round.hotelName && (
                 <>
                   <span className="sep">·</span>
-                  <span>{round.hotelName}</span>
+                  <span data-testid="hero-hotel">{round.hotelName}</span>
                 </>
               )}
               {round.departmentTitle && (
                 <>
                   <span className="sep">·</span>
-                  <span>{round.departmentTitle}</span>
+                  <span data-testid="hero-department">{round.departmentTitle}</span>
                 </>
               )}
               {round.categoryTitle && (
@@ -197,7 +205,7 @@ export default function NegotiationRoundDetailPage({ roundId }) {
               {round.createdByName && (
                 <>
                   <span className="sep">·</span>
-                  <span>
+                  <span data-testid="hero-creator">
                     Opened by <span className="em">{round.createdByName}</span>
                     {round.createdAt ? ` · ${formatDateTime(round.createdAt)}` : ""}
                   </span>

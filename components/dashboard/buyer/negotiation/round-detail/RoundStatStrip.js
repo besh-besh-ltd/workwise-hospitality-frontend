@@ -35,7 +35,13 @@ export default function RoundStatStrip({ round, totals, scopeLabel, locked }) {
   const saved = totals.savedValue;
   const regressed = saved != null && saved < 0;
   const hasTarget = totals.targetValue != null;
-  const multiRound = (round.roundsOnParent ?? round.roundsInScope ?? 1) > 1;
+  // The cumulative figure accumulates over the rounds that negotiated the SAME
+  // ITEMS (server: `cumulative.rounds_counted`, cancelled rounds excluded), so
+  // the tile is labelled off that count — never off the RFQ-wide total, which
+  // on RFQ 512 would have claimed "all 138 rounds" for a four-round sequence.
+  const cumulativeRounds =
+    totals.cumulativeRoundsCounted ?? round.roundsOnProducts ?? round.roundsOnParent ?? 1;
+  const multiRound = cumulativeRounds > 1 || (round.roundsOnParent ?? 1) > 1;
 
   const responded = totals.respondedCount ?? 0;
   const lineCount = totals.lineCount ?? 0;
@@ -72,13 +78,19 @@ export default function RoundStatStrip({ round, totals, scopeLabel, locked }) {
               ? formatSignedMoney(totals.cumulativeSavedValue)
               : "—"
           }
-          label={`Saved · all ${round.roundsOnParent ?? round.roundsInScope} rounds`}
+          label={
+            totals.cumulativeFromRound != null && totals.cumulativeToRound != null
+              ? `Saved · rounds ${totals.cumulativeFromRound}–${totals.cumulativeToRound}`
+              : `Saved · all ${cumulativeRounds} rounds`
+          }
           sub={
             totals.cumulativeSavedValue == null && !locked
-              ? "Not reported by the server"
+              ? "No round in this sequence has a comparable price on both sides"
               : totals.cumulativeSavedPct != null
-              ? formatSignedPct(totals.cumulativeSavedPct) + " cumulative"
-              : "Across every round on this record"
+              ? `${formatSignedPct(totals.cumulativeSavedPct)} across ${cumulativeRounds} round${
+                  cumulativeRounds === 1 ? "" : "s"
+                }`
+              : `Across ${cumulativeRounds} round${cumulativeRounds === 1 ? "" : "s"} on these items`
           }
         />
       ) : (

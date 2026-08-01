@@ -433,6 +433,22 @@
 .priceCell.approveSelected { box-shadow: inset 0 0 0 2px var(--success); background: var(--success-soft); }
 .priceCell.rejectSelected  { box-shadow: inset 0 0 0 2px var(--danger); background: var(--danger-soft); }
 
+/* Award-approval focus — the cell the RFQ page's banner sent the approver to.
+   Sits ABOVE the state rings (cellFinalized etc.) in specificity so the target
+   is unmistakable, and fades its ring after the attention has been paid. */
+.priceCell.cellAwardFocus {
+  box-shadow: inset 0 0 0 3px var(--info), 0 0 0 4px rgba(37, 99, 235, 0.16);
+  animation: qcAwardFocusPulse 1.5s ease-out 2;
+}
+@keyframes qcAwardFocusPulse {
+  0%, 100% { box-shadow: inset 0 0 0 3px var(--info), 0 0 0 4px rgba(37, 99, 235, 0.16); }
+  50%      { box-shadow: inset 0 0 0 3px var(--info), 0 0 0 9px rgba(37, 99, 235, 0.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .priceCell.cellAwardFocus { animation: none; }
+}
+.cellAwardFocusTag { margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 99px; align-self: flex-start; background: var(--info); color: white; }
+
 .cellRejectedActions { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 .cellForceBtn { width: 100%; padding: 5px 6px; font-size: 11px; font-weight: 600; border-radius: 6px; background: white; color: var(--danger); border: 1px dashed rgba(185,28,28,0.45); cursor: pointer; font-family: inherit; transition: all 0.15s ease; }
 .cellForceBtn:hover { background: var(--danger-soft); border-style: solid; }

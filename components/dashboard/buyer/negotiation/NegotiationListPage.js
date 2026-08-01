@@ -8,30 +8,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getNegotiationListView } from "@/services/negotiation";
+import {
+  NEG_STATE,
+  NEG_STATE_PRESENTATION,
+  NEG_STATE_SEQUENCE,
+  negStatePresentation,
+} from "./round-detail/negotiationStates";
 
-// ── buckets ────────────────────────────────────────────────────────────────
-function statusBucket(s) {
-  switch (s) {
-    case "pending_approval":  return "pending";
-    case "active":            return "active";
-    case "awaiting_decision": return "awaiting";
-    case "completed":         return "completed";
-    case "cancelled":         return "cancelled";
-    default:                  return "pending";
-  }
-}
-const BUCKET_LABEL = { pending: "Pending Approval", active: "Active", awaiting: "Awaiting Decision", completed: "Completed", cancelled: "Cancelled" };
-const BUCKET_TONE  = { pending: "committee", active: "active", awaiting: "awaiting", completed: "success", cancelled: "danger" };
-const BUCKET_BADGE = { pending: "committee", active: "active", awaiting: "awaiting", completed: "active", cancelled: "expired" };
-
+// ── the seven states ───────────────────────────────────────────────────────
+// Labels, descriptions and tones all come from the shared table so this list
+// and the round-detail page cannot drift apart again. The server sends the
+// derived key as `neg_status`; `negStatePresentation` folds the pre-taxonomy
+// five-bucket values in too, so an older cached response still renders.
+//
+// "Pending for me" used to sit in this row as if it were a state. It is not —
+// it is a property of whoever is looking, and a round can be "Awaiting your
+// approval" AND waiting on someone else. It is now the toggle below the tabs.
 const TABS = [
-  { key: "all",       label: "All" },
-  { key: "for_me",    label: "Pending for me" },
-  { key: "pending",   label: "Pending Approval" },
-  { key: "active",    label: "Active" },
-  { key: "awaiting",  label: "Awaiting Decision" },
-  { key: "completed", label: "Completed" },
-  { key: "cancelled", label: "Cancelled" },
+  { key: "all", label: "All" },
+  ...NEG_STATE_SEQUENCE.map((k) => ({ key: k, label: NEG_STATE_PRESENTATION[k].label })),
 ];
 
 const FACETS = [
@@ -46,14 +41,15 @@ const EMPTY_FILTERS = { rfqId: [], status: [], buId: [], departmentId: [], produ
 
 // Status-aware destination: ARC rows link to ARC negotiation pages;
 // RFQ rows use the existing negotiation / quote-comparison routes.
-function detailHref(row, bucket) {
+function detailHref(row, state) {
+  const awaitingApproval = state === NEG_STATE.AWAITING_APPROVAL;
   if (row.source_type === "ARC") {
-    return bucket === "pending"
+    return awaitingApproval
       ? `/dashboard/buyer/rate-contracts/${row.arc_id}/negotiation/${row.round_id}/approve`
       : `/dashboard/buyer/rate-contracts/${row.arc_id}?stage=commercial`;
   }
   // RFQ (unchanged):
-  if (bucket === "pending") return `/dashboard/buyer/negotiation/${row.rfq_id}/approve`;
+  if (awaitingApproval) return `/dashboard/buyer/negotiation/${row.rfq_id}/approve`;
   return `/dashboard/buyer/negotiation/round/${row.round_id}`;
 }
 
@@ -75,15 +71,56 @@ function buCodeFor(name) {
   if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
   return (parts[0][0] + parts[1][0] + (parts[2]?.[0] || "")).toUpperCase();
 }
-function BadgeIcon({ bucket }) {
+function BadgeIcon({ badge }) {
   const p = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
-  switch (bucket) {
+  switch (badge) {
     case "active":   return (<svg {...p}><path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="10" /></svg>);
     case "awaiting": return (<svg {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>);
     case "committee":return (<svg {...p}><path d="M14 9l-4 4" /><path d="M5 14l5-5" /><path d="M15 4l5 5" /><path d="M11 19l8-8" /><path d="M3 21h6" /></svg>);
     case "expired":  return (<svg {...p}><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>);
     default:         return (<svg {...p}><circle cx="12" cy="12" r="10" /></svg>);
   }
+}
+
+/**
+ * The legend. Before this, the listing carried no explanatory text anywhere —
+ * status labels with nothing saying what any of them meant. Collapsed by
+ * default so it costs nothing once you know them.
+ */
+function StateLegend() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="filter-group" data-testid="state-legend">
+      <div className="fg-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <span>What the statuses mean</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          style={{ background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 500, cursor: "pointer", padding: 0 }}
+        >
+          {open ? "Hide" : "Show"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 4 }}>
+          {NEG_STATE_SEQUENCE.map((k) => {
+            const s = NEG_STATE_PRESENTATION[k];
+            return (
+              <div key={k} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span className={`status-pill ${s.tone}`} style={{ alignSelf: "flex-start" }}>
+                  <span className="dot" />
+                  <span>{s.label}</span>
+                </span>
+                <span className="fs-11" style={{ color: "var(--fg-3, #71717a)", lineHeight: 1.45 }}>
+                  {s.description}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─── facet group (server provides {key,label,count}) ─── */
@@ -181,6 +218,12 @@ const SOURCES = [
 // ── page ────────────────────────────────────────────────────────────────────
 export default function NegotiationListPage() {
   const [tab, setTab] = useState("all");
+  // Orthogonal to `tab`: "needs my approval" is a fact about the viewer, not a
+  // state of the round, so it composes with any status tab instead of
+  // replacing it. Sent to the server as `needsMyApproval`; the legacy
+  // `tab: "for_me"` form is still sent when no status tab is chosen so the
+  // toggle keeps working against a server that has not been updated yet.
+  const [needsMyApproval, setNeedsMyApproval] = useState(false);
   const [source, setSource] = useState("all");
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState("");
@@ -200,7 +243,16 @@ export default function NegotiationListPage() {
   useEffect(() => {
     const id = ++seq.current;
     setLoading(true);
-    getNegotiationListView({ tab, source, search: debounced, sort, filters, page, limit: 20 })
+    getNegotiationListView({
+      tab: needsMyApproval && tab === "all" ? "for_me" : tab,
+      needsMyApproval,
+      source,
+      search: debounced,
+      sort,
+      filters,
+      page,
+      limit: 20,
+    })
       .then((res) => {
         if (id !== seq.current) return;
         const d = res?.data || {};
@@ -215,7 +267,7 @@ export default function NegotiationListPage() {
       })
       .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, source_counts: { all: 0, RFQ: 0, ARC: 0 }, total: 0, limit: 20 }); })
       .finally(() => { if (id === seq.current) setLoading(false); });
-  }, [tab, source, debounced, sort, filters, page]);
+  }, [tab, needsMyApproval, source, debounced, sort, filters, page]);
 
   const toggle = (group, key) => {
     setPage(1);
@@ -250,10 +302,39 @@ export default function NegotiationListPage() {
 
       <div className="tab-row">
         {TABS.map((t) => (
-          <button key={t.key} type="button" className={"tab" + (tab === t.key ? " active" : "")} onClick={() => { setTab(t.key); setPage(1); }}>
+          <button
+            key={t.key}
+            type="button"
+            className={"tab" + (tab === t.key ? " active" : "")}
+            title={t.key === "all" ? "Every negotiation round you can see." : NEG_STATE_PRESENTATION[t.key]?.description}
+            onClick={() => { setTab(t.key); setPage(1); }}
+          >
             {t.label} <span className="ct">{tab_counts[t.key] ?? 0}</span>
           </button>
         ))}
+      </div>
+
+      {/* Orthogonal to the tabs above — a round's state and whether it is
+          waiting on YOU are two different questions. */}
+      <div className="list-toolbar" style={{ marginBottom: 4 }}>
+        <label
+          className="filter-opt"
+          style={{ cursor: "pointer", margin: 0 }}
+          title="Only rounds where an approval step is currently assigned to you."
+          data-testid="needs-my-approval-toggle"
+        >
+          <input
+            type="checkbox"
+            checked={needsMyApproval}
+            onChange={() => { setNeedsMyApproval((v) => !v); setPage(1); }}
+          />
+          <span className="fo-box" />
+          <span className="fo-text">Needs my approval</span>
+          <span className="fo-count">{tab_counts.for_me ?? 0}</span>
+        </label>
+        <span className="fs-12 text-fg-3">
+          Statuses describe the round. This describes you — combine it with any tab.
+        </span>
       </div>
 
       <div className="contracts-layout">
@@ -272,6 +353,7 @@ export default function NegotiationListPage() {
                 {FACETS.map((f) => (
                   <FilterGroup key={f.group} label={f.label} group={f.group} options={facets[f.group] || []} selected={filters[f.group] || []} onToggle={toggle} />
                 ))}
+                <StateLegend />
                 {!hasFacets && <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>}
               </>
             )}
@@ -326,22 +408,35 @@ export default function NegotiationListPage() {
           ) : (
             <div className="contract-list">
               {rows.map((row) => {
-                const bucket = statusBucket(row.neg_status);
-                const tone = BUCKET_TONE[bucket];
-                const badge = BUCKET_BADGE[bucket];
+                const st = negStatePresentation(row.neg_status);
+                const state = st.key;
                 const itemNames = asArray(row.item_names);
                 const vendors = asArray(row.vendors);
-                const pulse = bucket === "pending" || bucket === "awaiting";
                 const invited = Number(row.invited_count || 0);
                 const quoted = Number(row.quotes_received || 0);
                 const sBar = invited ? Math.round((quoted / invited) * 100) : 0;
                 const endDate = fmtDate(row.end_date);
                 const closedDate = fmtDate(row.closed_at);
+                // Participation only means something while vendors were, or
+                // still are, being asked. On a lapsed round it would render a
+                // "0 of 3 vendors quoted" bar for vendors who were never told.
+                const showParticipation =
+                  invited > 0 &&
+                  (state === NEG_STATE.OPEN_WITH_VENDORS ||
+                    state === NEG_STATE.READY_FOR_DECISION ||
+                    state === NEG_STATE.NO_VENDOR_RESPONSE);
+                // "Round 7 of 138" — position and total are both RFQ-wide, per
+                // the product definition. The server computes the position
+                // (roundPositionSql) because the stored column restarts at 1
+                // per product, which had eight rounds of RFQ 512 all claiming
+                // to be "Round 1".
+                const roundsOnParent = Number(row.total_rounds || row.rounds_on_parent || 0);
+                const roundsOnProducts = Number(row.rounds_on_products || 0);
                 return (
-                  <Link key={row.round_id} href={detailHref(row, bucket)} className={`contract-card${row.action_required ? " needs-action" : ""}`}>
+                  <Link key={row.round_id} href={detailHref(row, state)} className={`contract-card${row.action_required ? " needs-action" : ""}`}>
                     <div className="cc-head">
                       <div className="cc-left">
-                        <div className={`cc-badge ${badge}`}><BadgeIcon bucket={badge} /></div>
+                        <div className={`cc-badge ${st.badge}`}><BadgeIcon badge={st.badge} /></div>
                         <div className="cc-meta">
                           <div className="cc-title">
                             <span>{row.title || (row.is_tender ? "Tender" : "RFQ")}</span>
@@ -354,7 +449,16 @@ export default function NegotiationListPage() {
                             {row.department_title && (<><span className="sep">·</span><span>{row.department_title}</span></>)}
                             {vendors.length > 0 && (<><span className="sep">·</span><span>Vendor: <span className="em">{vendors[0]?.name}</span>{vendors.length > 1 ? ` +${vendors.length - 1}` : ""}</span></>)}
                             <span className="sep">·</span>
-                            <span>Round <span className="mono fw-600">{row.round_number || 1}</span>{Number(row.total_rounds) > 1 ? ` of ${row.total_rounds}` : ""}</span>
+                            <span
+                              title={
+                                roundsOnProducts > 0 && roundsOnProducts < roundsOnParent
+                                  ? `${roundsOnProducts} of these ${roundsOnParent} rounds negotiated the same items; the rest covered other items on the same ${row.source_type === "ARC" ? "rate contract" : "RFQ"}.`
+                                  : undefined
+                              }
+                            >
+                              Round <span className="mono fw-600">{row.round_number || 1}</span>
+                              {roundsOnParent > 1 ? ` of ${roundsOnParent}` : ""}
+                            </span>
                           </div>
                           {itemNames.length > 0 && (
                             <div className="cc-tags">
@@ -365,23 +469,26 @@ export default function NegotiationListPage() {
                         </div>
                       </div>
                       <div className="cc-right">
-                        <span className={`status-pill ${tone}${pulse ? " pulse" : ""}`}><span className="dot" /><span>{BUCKET_LABEL[bucket]}</span></span>
-                        {(bucket === "active" || bucket === "awaiting") && invited > 0 && (
+                        <span className={`status-pill ${st.tone}${st.pulse ? " pulse" : ""}`} title={st.description}>
+                          <span className="dot" /><span>{st.label}</span>
+                        </span>
+                        {showParticipation && (
                           <span className="text-fg-3 fs-12"><span className="mono fw-600 text-fg">{quoted} of {invited}</span> quoted</span>
                         )}
-                        {bucket === "completed" && closedDate && (<span className="mono text-fg-3 fs-12">Closed {closedDate}</span>)}
+                        {state === NEG_STATE.CONCLUDED && closedDate && (<span className="mono text-fg-3 fs-12">Closed {closedDate}</span>)}
+                        {state === NEG_STATE.LAPSED && endDate && (<span className="mono text-fg-3 fs-12">Deadline {endDate}</span>)}
                       </div>
                     </div>
-                    {(bucket === "active" || bucket === "awaiting") && invited > 0 && (
+                    {showParticipation && (
                       <div className="cc-foot">
                         <div className="flex items-center gap-3">
                           <span className="fs-12 text-fg-3">Participation</span>
                           <div className="progress-bar">
-                            <div className={`fill ${bucket === "awaiting" ? "warn" : ""}`} style={{ width: Math.min(100, sBar) + "%" }} />
+                            <div className={`fill ${state === NEG_STATE.OPEN_WITH_VENDORS ? "" : "warn"}`} style={{ width: Math.min(100, sBar) + "%" }} />
                           </div>
                           <span className="progress-label">
                             <span className="mono">{quoted} of {invited}</span> vendors quoted
-                            {endDate && (<> · {bucket === "active" ? "ends" : "ended"} <span className="fw-600 text-fg">{endDate}</span></>)}
+                            {endDate && (<> · {state === NEG_STATE.OPEN_WITH_VENDORS ? "ends" : "ended"} <span className="fw-600 text-fg">{endDate}</span></>)}
                           </span>
                         </div>
                       </div>
