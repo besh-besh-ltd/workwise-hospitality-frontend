@@ -1359,6 +1359,29 @@
 .wfPending {
   .stepName { color: var(--fg-3); }
 }
+/* SKIPPED — a step the workflow bypassed (e.g. a level with no remaining
+   active approvers); it will never be acted on, so it reads muted rather
+   than as still-queued like .wfPending. */
+.wfSkipped {
+  .wfNode {
+    background: var(--surface-2);
+    border-color: var(--border);
+    &::after { content: ''; width: 8px; height: 1.6px; background: var(--fg-4); border-radius: 1px; }
+  }
+  .stepName { color: var(--fg-4); }
+}
+/* REMOVED — a step voided from the workflow outright (distinct from a
+   skipped-but-still-real step); dashed + struck-through so it reads as
+   "no longer part of this trail" rather than merely bypassed. */
+.wfRemoved {
+  opacity: 0.6;
+  .wfNode {
+    background: var(--surface-2);
+    border-color: var(--border);
+    border-style: dashed;
+  }
+  .stepName { color: var(--fg-4); text-decoration: line-through; }
+}
 .wfRejected {
   .wfNode {
     background: var(--danger);

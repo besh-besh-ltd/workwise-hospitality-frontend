@@ -278,7 +278,28 @@ const PODetail = ({ id }) => {
 
   const passedChecks = decisionChecks.filter((c) => c.status === "ok").length;
 
-  const doneSteps = workflow.filter((w) => w.status === "done").length;
+  // "skipped" / "removed" workflow nodes will never be acted on (the step was
+  // auto-bypassed or voided) — they belong in neither side of the "N of M
+  // done" fraction. Counting them as done would claim an action that never
+  // happened; counting them in the denominator would make a buyer think more
+  // steps are still outstanding than actually are (e.g. a SKIPPED level 4
+  // sitting in a "2 of 4 done" reads as 2 outstanding when only 1 really is).
+  const activeWorkflowSteps = workflow.filter((w) => w.status !== "skipped" && w.status !== "removed");
+  const doneSteps = activeWorkflowSteps.filter((w) => w.status === "done").length;
+
+  // The header fraction's denominator silently excludes skipped/removed steps
+  // (see above), so a row list with one of those in it (e.g. L1/L2 approved,
+  // L3 pending, L4 skipped → "2 of 3 done" above 4 visible rows) reads as
+  // arithmetic no one asked to check. Spell out the exclusion inline instead
+  // of leaving the reader to notice the row count doesn't match the fraction.
+  const skippedStepCount = workflow.filter((w) => w.status === "skipped").length;
+  const removedStepCount = workflow.filter((w) => w.status === "removed").length;
+  const workflowExcludedSuffix = [
+    skippedStepCount > 0 ? `${skippedStepCount} skipped step${skippedStepCount === 1 ? "" : "s"}` : null,
+    removedStepCount > 0 ? `${removedStepCount} removed step${removedStepCount === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   const finalizedBy = rfq.finalized_by;
   const finalizedDate = rfq.finalized_date ? fmtDateOnly(rfq.finalized_date) : null;
@@ -1149,11 +1170,14 @@ const PODetail = ({ id }) => {
                 <div className={styles.wfHead}>
                   <span>Audit trail</span>
                   <span className={styles.wfProgress}>
-                    {doneSteps} of {workflow.length} done
+                    {doneSteps} of {activeWorkflowSteps.length} done
+                    {workflowExcludedSuffix ? ` · ${workflowExcludedSuffix}` : ""}
                   </span>
                 </div>
                 {workflow.map((w, i) => {
                   const isRejected = w.status === "rejected";
+                  const isSkipped = w.status === "skipped";
+                  const isRemoved = w.status === "removed";
                   const reasonText = isRejected ? w.reason || w.policy : null;
                   return (
                     <div
@@ -1165,6 +1189,10 @@ const PODetail = ({ id }) => {
                           ? styles.wfDone
                           : w.status === "current"
                           ? styles.wfCurrent
+                          : isSkipped
+                          ? styles.wfSkipped
+                          : isRemoved
+                          ? styles.wfRemoved
                           : styles.wfPending
                       }`}
                     >
@@ -1203,6 +1231,10 @@ const PODetail = ({ id }) => {
                           ? "Done"
                           : w.status === "current"
                           ? "Awaiting"
+                          : isSkipped
+                          ? "Skipped"
+                          : isRemoved
+                          ? "Removed"
                           : ""}
                       </div>
                     </div>

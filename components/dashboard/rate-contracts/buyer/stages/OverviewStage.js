@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import storageInstance from "@/utils/storageInstance";
-import { StageSkeleton } from "./StageShared";
+import { StageSkeleton, removalReasonLabel } from "./StageShared";
 import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
 const vendorInitials = (name) => {
@@ -324,19 +324,27 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
           <div className="section-body">
             {(pubChain?.steps || []).map((step) => {
               const isCurrent = publishSummary?.status === "PENDING" && Number(step.step_order) === Number(pubChain?.current_step);
+              const isStepSkipped = step.status === "SKIPPED";
+              const isStepRemoved = step.status === "REMOVED";
+              // REMOVED approver rows are a mid-flight reconciler's soft-tombstone
+              // (role revoked while the approval was in progress) — exclude them
+              // from the live list, show them separately and muted instead.
+              const allApprovers = step.approvers || [];
+              const activeApprovers = allApprovers.filter((ap) => ap.status !== "REMOVED");
+              const removedApprovers = allApprovers.filter((ap) => ap.status === "REMOVED");
               return (
                 <div key={step.step_order}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "8px 0 2px" }}>
                     <span style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.07em", color: isCurrent ? "var(--warn)" : "var(--fg-4)", fontWeight: 700 }}>
                       Level {step.step_order}{step.decision_rule ? (step.decision_rule === "ALL" ? " · all must approve" : " · any one approves") : ""}
                     </span>
-                    <span className={`status-pill ${step.status === "APPROVED" ? "success" : step.status === "REJECTED" ? "danger" : isCurrent ? "warn" : "neutral"}`} style={{ fontSize: 9.5 }}>
+                    <span className={`status-pill ${step.status === "APPROVED" ? "success" : step.status === "REJECTED" ? "danger" : isStepSkipped || isStepRemoved ? "neutral" : isCurrent ? "warn" : "neutral"}`} style={{ fontSize: 9.5 }}>
                       <span className="dot" />
-                      {step.status === "APPROVED" ? "cleared" : step.status === "REJECTED" ? "rejected" : isCurrent ? "reviewing now" : "waiting"}
+                      {step.status === "APPROVED" ? "cleared" : step.status === "REJECTED" ? "rejected" : isStepSkipped ? "skipped" : isStepRemoved ? "removed" : isCurrent ? "reviewing now" : "waiting"}
                     </span>
                   </div>
-                  {(step.approvers || []).map((ap) => (
-                    <div key={ap.user_id} className="pub-mem-row">
+                  {activeApprovers.map((ap, ai) => (
+                    <div key={`active-${ap.user_id ?? ai}`} className="pub-mem-row">
                       <div className="pub-mem-av">{vendorInitials(ap.user_name)}</div>
                       <div className="pub-mem-meta">
                         <div className="pub-mem-name">{ap.user_name}</div>
@@ -348,6 +356,22 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
                       </span>
                     </div>
                   ))}
+                  {removedApprovers.map((ap, ai) => {
+                    const reasonLabel = ap.removal_reason ? removalReasonLabel(ap.removal_reason) : null;
+                    return (
+                      <div key={`removed-${ap.user_id ?? ai}`} className="pub-mem-row" style={{ opacity: 0.6 }}>
+                        <div className="pub-mem-av">{vendorInitials(ap.user_name)}</div>
+                        <div className="pub-mem-meta">
+                          <div className="pub-mem-name">{ap.user_name}</div>
+                          <div className="pub-mem-role">{ap.user_designation || ap.user_department || "Approver"}</div>
+                        </div>
+                        <span className="status-pill neutral" style={{ fontSize: 9.5 }}>
+                          <span className="dot" />
+                          Removed{reasonLabel ? ` · ${reasonLabel}` : ""}{ap.removed_at ? ` · ${fmtDate(ap.removed_at)}` : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

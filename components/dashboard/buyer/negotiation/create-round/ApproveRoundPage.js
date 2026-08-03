@@ -14,6 +14,7 @@ import {
 import { getChargeNames } from '@/services/rfq';
 import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
+import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './CreateRound.module.scss';
 
 // Parse bare DB timestamps as UTC (backend sends them without a suffix).
@@ -259,8 +260,13 @@ const ApproveRoundPage = () => {
         ) : (
           pendingRounds.map((round) => {
             const instance = pendingInstanceOf(round);
-            const approvers = (instance?.steps || [])
+            const allApprovers = (instance?.steps || [])
               .flatMap((s) => (s.approvers || []).map((a) => ({ ...a, step_order: s.step_order })));
+            // REMOVED rows are a mid-flight reconciler's soft-tombstone (role/scope
+            // revoked while the approval was in flight) — kept for the audit trail
+            // below, muted and separated, but never rendered as a live approver.
+            const approvers = allApprovers.filter((a) => a.status !== 'REMOVED');
+            const removedApprovers = allApprovers.filter((a) => a.status === 'REMOVED');
             return (
               <div key={round.id} className={styles.approveRoundBlock}>
                 <div className={styles.approveRoundHead}>
@@ -272,7 +278,7 @@ const ApproveRoundPage = () => {
                         {round.created_at ? ` · ${moment(parseAsUTC(round.created_at)).format('DD MMM YYYY, hh:mm A')}` : ''}
                       </span>
                     </p>
-                    {approvers.length > 0 && (
+                    {(approvers.length > 0 || removedApprovers.length > 0) && (
                       <div className={styles.approveJourney}>
                         {approvers.map((a) => (
                           <span
@@ -285,6 +291,24 @@ const ApproveRoundPage = () => {
                             {a.user_name || `User ${a.approver_user_id}`}
                           </span>
                         ))}
+                        {removedApprovers.map((a) => {
+                          const reasonLabel = a.removal_reason ? removalReasonLabel(a.removal_reason) : null;
+                          const whenLabel = a.removed_at
+                            ? moment(parseAsUTC(a.removed_at)).format('DD MMM YYYY, hh:mm A')
+                            : null;
+                          const title = [reasonLabel, whenLabel ? `Removed ${whenLabel}` : null]
+                            .filter(Boolean)
+                            .join(' · ') || 'Removed';
+                          return (
+                            <span
+                              key={`removed-${a.id}-${a.approver_user_id}`}
+                              className={`${styles.approverChip} ${styles.approverChipRemoved}`}
+                              title={title}
+                            >
+                              {a.user_name || `User ${a.approver_user_id}`} · Removed
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

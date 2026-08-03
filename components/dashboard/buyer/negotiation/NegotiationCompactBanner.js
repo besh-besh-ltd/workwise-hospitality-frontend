@@ -69,7 +69,15 @@ const NegotiationCompactBanner = ({
                     approver_user_id: a.approver_user_id || a.user_id,
                     approver_name: a.user_name,
                     approver_email: a.user_email,
-                    status: a.status
+                    status: a.status,
+                    // REMOVED rows are a mid-flight reconciler's soft-tombstone —
+                    // carry the reason/timestamp through (present on
+                    // getApprovalInstanceDetails since backend commit d64d9ae10,
+                    // 2026-04-16) so any downstream audit-trail display (e.g.
+                    // NegotiationModal, which reads this same `round.approvals`)
+                    // can label them properly.
+                    removal_reason: a.removal_reason,
+                    removed_at: a.removed_at
                   }));
                 }
               }
@@ -112,7 +120,10 @@ const NegotiationCompactBanner = ({
                   approver_user_id: a.user_id,
                   approver_name: a.user_name,
                   approver_email: a.user_email,
-                  status: a.status
+                  status: a.status,
+                  // See comment in the preloaded-bundle branch above.
+                  removal_reason: a.removal_reason,
+                  removed_at: a.removed_at
                 }));
               }
             }

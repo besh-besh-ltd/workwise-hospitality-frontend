@@ -78,7 +78,11 @@ const isPendingApprover = (a) => String(a?.status || "").toUpperCase() === "PEND
 function stepProgress(inst) {
   const steps = Array.isArray(inst?.steps) ? inst.steps : [];
   const row = steps.find((s) => Number(s.step_order) === Number(inst?.current_step)) || null;
-  const approvers = Array.isArray(row?.approvers) ? row.approvers : [];
+  const allApprovers = Array.isArray(row?.approvers) ? row.approvers : [];
+  // REMOVED rows are a mid-flight reconciler's soft-tombstone (role revoked
+  // while the approval was in progress) — they are not live approvers, so
+  // they must not inflate "N of M approvers done".
+  const approvers = allApprovers.filter((a) => String(a?.status || "").toUpperCase() !== "REMOVED");
   if (!approvers.length) return null;
   return {
     done: approvers.filter((a) => !isPendingApprover(a)).length,
@@ -247,7 +251,11 @@ export function resolveRfqApprovalDecision(lifecycle) {
     // here; otherwise it describes a different (evaluator) role.
     label: action?.can_approve ? (action.label || null) : null,
     lapsed,
-    approvers: Array.isArray(stepRow?.approvers) ? stepRow.approvers : [],
+    // Exclude REMOVED rows here too — this list only feeds the "On this
+    // step: <names>" line, which would otherwise still name someone whose
+    // access was revoked mid-flight as if they were a live approver.
+    approvers: (Array.isArray(stepRow?.approvers) ? stepRow.approvers : [])
+      .filter((a) => String(a?.status || "").toUpperCase() !== "REMOVED"),
   };
 }
 

@@ -23,6 +23,7 @@ import {
   formatSignedMoney,
   formatSignedPct,
   movementSentence,
+  formatApproverList,
   OUTCOME,
 } from "./roundDetailModel";
 
@@ -490,5 +491,93 @@ describe("normalizeRoundDetail — whole payload", () => {
     expect(m.lines).toEqual([]);
     expect(m.totals.baselineValue).toBeNull();
     expect(m.round.statusPresentation.label).toBe("Unknown");
+  });
+});
+
+// A REMOVED status is a mid-flight reconciler's soft-tombstone (role/scope
+// revoked while the approval was in flight). The backend endpoint behind this
+// page already excludes those rows server-side, so these are belt-and-braces
+// tests for the client-side guard, not proof of the only guard — they lock in
+// that `formatApproverList`/`normalizeRoundDetail` degrade safely even if a
+// REMOVED row ever does reach the client.
+describe("formatApproverList — drops REMOVED rows", () => {
+  it("never names a removed approver, alone or alongside a live one", () => {
+    expect(formatApproverList([{ name: "A", status: "REMOVED" }])).toBeNull();
+    expect(
+      formatApproverList([
+        { name: "A", status: "REMOVED" },
+        { name: "B", status: "PENDING" },
+      ])
+    ).toBe("B");
+  });
+
+  it("still joins multiple live approvers once the removed one is dropped", () => {
+    expect(
+      formatApproverList([
+        { name: "A", status: "REMOVED" },
+        { name: "B", status: "PENDING" },
+        { name: "C", status: "PENDING" },
+      ])
+    ).toBe("B and C");
+  });
+
+  it("passes through rows with no status field untouched (plain strings, legacy shapes)", () => {
+    expect(formatApproverList(["Asha Menon"])).toBe("Asha Menon");
+    expect(formatApproverList([{ name: "Asha Menon" }])).toBe("Asha Menon");
+  });
+});
+
+describe("normalizeRoundDetail — approval.pendingWith drops a REMOVED approver", () => {
+  it("excludes a REMOVED row from the current step's derived label", () => {
+    const m = normalizeRoundDetail({
+      round: { id: 1 },
+      items: [],
+      approval: {
+        instances: [
+          {
+            status: "PENDING",
+            current_step: 1,
+            steps: [
+              {
+                step_order: 1,
+                status: "PENDING",
+                approvers: [
+                  { user_id: 1, name: "Removed Person", status: "REMOVED" },
+                  { user_id: 2, name: "Live Approver", status: "PENDING" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(m.round.approval.steps[0].label).toBe("Live Approver");
+    expect(m.round.approval.steps[0].label).not.toContain("Removed Person");
+  });
+
+  it("excludes a REMOVED row from pendingWith, at both the instance and top level", () => {
+    const removedRow = { user_id: 1, name: "Removed Person", status: "REMOVED" };
+    const liveRow = { user_id: 2, name: "Live Approver", status: "PENDING" };
+
+    const mInstanceLevel = normalizeRoundDetail({
+      round: { id: 1 },
+      items: [],
+      approval: {
+        instances: [{ status: "PENDING", pending_with: [removedRow, liveRow] }],
+      },
+    });
+    expect(mInstanceLevel.round.approval.pendingWith).toBe("Live Approver");
+    expect(mInstanceLevel.round.approval.pendingWith).not.toContain("Removed Person");
+
+    const mTopLevel = normalizeRoundDetail({
+      round: { id: 1 },
+      items: [],
+      approval: {
+        instances: [{ status: "PENDING" }],
+        pending_with: [removedRow, liveRow],
+      },
+    });
+    expect(mTopLevel.round.approval.pendingWith).toBe("Live Approver");
+    expect(mTopLevel.round.approval.pendingWith).not.toContain("Removed Person");
   });
 });

@@ -2,6 +2,26 @@
 // panel, a generic content-aware stage skeleton, and the read-only banner
 // shown on completed (immutable) stages.
 
+// An approver row on an approval step carries status REMOVED when a
+// mid-flight reconciler tombstones someone whose role/scope was revoked
+// while the approval was in progress (soft-delete: the row stays, only the
+// status flips). Every stage panel must exclude these from the live/active
+// approver list (and any "N of M" count) but still show them, separately and
+// muted, with why + when. `removal_reason` / `removed_at` have been on
+// getApprovalInstanceDetails since April — but the value itself can still be
+// null for a given row, so callers should degrade to a bare "Removed" label
+// when either is unset.
+export function removalReasonLabel(reason) {
+  switch (reason) {
+    case "policy_change": return "Policy Change";
+    case "role_removed": return "Role Change";
+    case "user_deactivated": return "Account Deactivation";
+    case "dept_removed": return "Department Change";
+    case "scope_removed": return "Scope Change";
+    default: return reason || "Administrative Change";
+  }
+}
+
 export function StageNoPermission({ stageLabel }) {
   return (
     <div className="empty-state" style={{ padding: "48px 24px" }}>

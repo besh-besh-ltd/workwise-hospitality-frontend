@@ -52,7 +52,7 @@ function pillTone(status) {
   if (["APPROVED", "PASSED", "COMPLETED", "FINALIZED", "DONE", "ACCEPTED"].includes(s)) return PILL.approved;
   if (["PENDING", "IN_PROGRESS", "APPROVING", "ACTIVE", "ONGOING"].includes(s)) return PILL.pending;
   if (["REJECTED", "FAILED", "DECLINED"].includes(s)) return PILL.rejected;
-  if (["CANCELLED", "SKIPPED"].includes(s)) return PILL.cancelled;
+  if (["CANCELLED", "SKIPPED", "REMOVED"].includes(s)) return PILL.cancelled;
   return PILL.neutral;
 }
 
@@ -63,6 +63,24 @@ export function StatusPill({ status, label }) {
       {label || status || "—"}
     </span>
   );
+}
+
+// A REMOVED approver row is a mid-flight reconciler's soft-tombstone (their
+// role/scope was revoked while the approval was in progress) — the row is
+// kept for the audit trail, not deleted. `removal_reason` and `removed_at`
+// are emitted for every approver row by rfqModel.formatApprovalInstances()
+// (this branch lands them there) — but the value itself can still be null
+// for a given row, so callers should degrade to a bare label when either
+// is unset.
+export function removalReasonLabel(reason) {
+  switch (reason) {
+    case "policy_change": return "Policy Change";
+    case "role_removed": return "Role Change";
+    case "user_deactivated": return "Account Deactivation";
+    case "dept_removed": return "Department Change";
+    case "scope_removed": return "Scope Change";
+    default: return reason || "Administrative Change";
+  }
 }
 
 // Renders rfqModel.getLifecycleSummary() approval_instances: each instance →
@@ -86,23 +104,48 @@ export function ApprovalChain({ instances, title = "Approvals" }) {
               </div>
               <div style={{ padding: "4px 12px" }}>
                 {steps.map((s, si) => {
-                  const approvers = Array.isArray(s?.approvers) ? s.approvers : [];
+                  const allApprovers = Array.isArray(s?.approvers) ? s.approvers : [];
+                  // REMOVED rows are a mid-flight reconciler's soft-tombstone, not a
+                  // live approver — keep them out of the active chip row and out of
+                  // any count, but still show them (muted, separately) so the trail
+                  // isn't silently missing people either.
+                  const approvers = allApprovers.filter((a) => a?.status !== "REMOVED");
+                  const removedApprovers = allApprovers.filter((a) => a?.status === "REMOVED");
                   return (
                     <div key={si} style={{ padding: "8px 0", borderBottom: si < steps.length - 1 ? "1px dashed #f0f0ec" : "none" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: approvers.length ? 7 : 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: (approvers.length || removedApprovers.length) ? 7 : 0 }}>
                         <span style={{ fontSize: 10, color: "#a1a1aa", fontWeight: 700 }}>L{s?.step_order || si + 1}</span>
                         {s?.decision_rule ? <span style={{ fontSize: 10, color: "#c4c4c8" }}>{s.decision_rule}</span> : null}
                         <StatusPill status={s?.status} />
                       </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {approvers.map((a, ai) => (
-                          <span key={ai} title={a?.comment || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#3f3f46", background: "#f7f7f5", border: "1px solid #ececec", borderRadius: 7, padding: "3px 8px" }}>
-                            <span style={{ width: 6, height: 6, borderRadius: 999, background: pillTone(a?.status).fg, flexShrink: 0 }} />
-                            {a?.user_name || a?.user_email || "Approver"}
-                            {a?.user_designation ? <span style={{ color: "#a1a1aa" }}>· {a.user_designation}</span> : null}
-                          </span>
-                        ))}
-                      </div>
+                      {approvers.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {approvers.map((a, ai) => (
+                            <span key={`active-${a?.user_id ?? ai}`} title={a?.comment || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#3f3f46", background: "#f7f7f5", border: "1px solid #ececec", borderRadius: 7, padding: "3px 8px" }}>
+                              <span style={{ width: 6, height: 6, borderRadius: 999, background: pillTone(a?.status).fg, flexShrink: 0 }} />
+                              {a?.user_name || a?.user_email || "Approver"}
+                              {a?.user_designation ? <span style={{ color: "#a1a1aa" }}>· {a.user_designation}</span> : null}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {removedApprovers.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: approvers.length ? 6 : 0 }}>
+                          {removedApprovers.map((a, ai) => {
+                            const reasonLabel = a?.removal_reason ? removalReasonLabel(a.removal_reason) : null;
+                            const title = [reasonLabel, a?.removed_at ? `Removed ${a.removed_at}` : null].filter(Boolean).join(" · ") || "Removed";
+                            return (
+                              <span key={`removed-${a?.user_id ?? ai}`} title={title} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#a1a1aa", background: "#f4f4f5", border: "1px dashed #e4e4e7", borderRadius: 7, padding: "3px 8px" }}>
+                                <span style={{ width: 6, height: 6, borderRadius: 999, background: "#a1a1aa", flexShrink: 0 }} />
+                                <span style={{ textDecoration: "line-through" }}>{a?.user_name || a?.user_email || "Approver"}</span>
+                                <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                  Removed{reasonLabel ? ` · ${reasonLabel}` : ""}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

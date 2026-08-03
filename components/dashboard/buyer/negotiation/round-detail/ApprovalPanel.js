@@ -14,6 +14,18 @@ function stepClass(status) {
   return "";
 }
 
+// Human label for a step's raw status — SKIPPED/REMOVED must never render as
+// their literal uppercase column value (nor be mistaken for "waiting"/current).
+function stepStatusLabel(status) {
+  const s = String(status || "").toUpperCase();
+  if (s === "SKIPPED") return "Skipped";
+  if (s === "REMOVED") return "Removed";
+  if (/REJECT/.test(s)) return "Rejected";
+  if (/APPROVED|COMPLETE|DONE/.test(s)) return "Approved";
+  if (/PENDING|PROGRESS|AWAITING|CURRENT/.test(s)) return "Pending";
+  return status || "—";
+}
+
 export default function ApprovalPanel({ approval }) {
   if (!approval) {
     return (
@@ -74,7 +86,7 @@ export default function ApprovalPanel({ approval }) {
               <div className="body">
                 <div className="nm">{s.label}</div>
                 <div className="meta">
-                  {s.status || "—"}
+                  {stepStatusLabel(s.status)}
                   {s.actedAt ? ` · ${formatDateTime(s.actedAt)}` : ""}
                 </div>
                 {s.remarks && <div className="comment">{s.remarks}</div>}

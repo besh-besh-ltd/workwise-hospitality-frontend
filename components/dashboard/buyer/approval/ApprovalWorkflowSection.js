@@ -1105,6 +1105,10 @@ const ApprovalWorkflowSection = ({
                   if (isSchedulerAutoApproved && steps?.length > 0) {
                     steps.forEach(step => {
                       (step.approvers || []).forEach(approver => {
+                        // REMOVED is a mid-flight reconciler's soft-tombstone (role
+                        // revoked while the approval was in progress) — they never
+                        // had a chance to act, so exclude them from "did not act".
+                        if (approver.status === "REMOVED") return;
                         if (!instance.action_history?.some(a => a.actor?.user_id === approver.user_id && a.action === 'APPROVE')) {
                           pendingApprovers.push(approver);
                         }

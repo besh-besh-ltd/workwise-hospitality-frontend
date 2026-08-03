@@ -2494,6 +2494,13 @@ $status-colors: (
   border: 1px solid #f0c0c0;
 }
 
+.vaApproverRemoved {
+  background: #f4f4f5;
+  color: #8a8f98;
+  border: 1px dashed #d4d7dd;
+  text-decoration: line-through;
+}
+
 .vaApproverNote {
   font-size: 0.7rem;
   color: #6b7d93;
