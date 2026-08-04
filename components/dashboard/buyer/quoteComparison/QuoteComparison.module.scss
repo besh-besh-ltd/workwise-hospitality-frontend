@@ -815,6 +815,13 @@
 .ap_rejected .apDot { background: var(--danger); }
 .ap_current .apDot { background: var(--warn); }
 .ap_pending .apDot { background: var(--surface-3); border: 1px solid var(--border-strong); }
+/* SKIPPED / REMOVED nodes — a step the workflow bypassed, or an approver row
+   the mid-flight reconciler tombstoned; neither will ever be acted on, so
+   both stay muted — never more prominent than the live done/current states. */
+.ap_skipped .apDot { background: var(--surface-3); border: 1px solid var(--border-strong); color: var(--fg-4); }
+.ap_removed { opacity: 0.7; }
+.ap_removed .apDot { background: var(--surface-3); border: 1px dashed var(--border-strong); color: var(--fg-4); }
+.ap_removed .apTitle { text-decoration: line-through; }
 .apDotEmpty { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-4); }
 .apNodeBody { flex: 1; min-width: 0; padding-top: 3px; }
 .apNodeTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -824,6 +831,8 @@
 .aps_rejected { color: var(--danger); }
 .aps_current { color: var(--warn); }
 .aps_pending { color: var(--fg-4); }
+.aps_skipped { color: var(--fg-4); }
+.aps_removed { color: var(--fg-4); }
 .apWho { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
 .apAvatar { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--indigo-soft); color: var(--indigo); font-family: 'Geist Mono', monospace; }
 .apWhoName { font-size: 13px; color: var(--fg-2); font-weight: 500; }

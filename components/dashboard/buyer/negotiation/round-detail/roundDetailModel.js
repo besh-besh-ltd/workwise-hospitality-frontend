@@ -755,12 +755,28 @@ function humanize(k) {
   return String(k).replace(/[_-]/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/** Approver-like rows with a REMOVED row dropped. A REMOVED status is a
+ *  mid-flight reconciler's soft-tombstone (role/scope revoked while the
+ *  approval was in flight). The endpoint backing this page
+ *  (negotiationModel.getRoundApprovalState) already strips rows where
+ *  `removed_at != null` server-side (backend commit 2026-07-31), so this is
+ *  belt-and-braces, not the primary guard — kept in case a future response
+ *  shape (or a different caller of `formatApproverList`) ever passes a
+ *  REMOVED row through untouched. Passes through plain strings and objects
+ *  with no `status` field untouched. */
+function excludeRemoved(list) {
+  return asArray(list).filter((a) => {
+    if (typeof a === "string") return true;
+    return pickStr(a, ["status"]) !== "REMOVED";
+  });
+}
+
 /** "Asha Menon", "Asha Menon and Ravi K", "Asha Menon +2" — never [object Object]. */
 export function formatApproverList(value, { max = 2 } = {}) {
   if (value == null) return null;
   if (typeof value === "string") return value.trim() || null;
 
-  const names = asArray(value)
+  const names = excludeRemoved(value)
     .map((a) => {
       if (typeof a === "string") return a.trim();
       return (
@@ -807,6 +823,10 @@ function normalizeApproval(raw) {
 
   const steps = stepSource.map((s, i) => {
     const approverNames = formatApproverList(s.approvers);
+    // Active (non-REMOVED) approvers only — a removed approver's stale
+    // acted_at/comment from before their removal must not be picked up as
+    // the step's own record.
+    const activeStepApprovers = excludeRemoved(s.approvers);
     return {
       key: pickStr(s, ["step_id", "id", "level_id"]) || `step-${i}`,
       label:
@@ -817,13 +837,13 @@ function normalizeApproval(raw) {
       status: pickStr(s, ["status", "state"]),
       actedAt:
         pickStr(s, ["completed_at", "acted_at", "approved_at", "updated_at"]) ||
-        (asArray(s.approvers)
+        (activeStepApprovers
           .map((a) => pickStr(a, ["acted_at"]))
           .filter(Boolean)[0] ??
           null),
       remarks:
         pickStr(s, ["remarks", "comment", "note"]) ||
-        (asArray(s.approvers)
+        (activeStepApprovers
           .map((a) => pickStr(a, ["comment"]))
           .filter(Boolean)[0] ??
           null),

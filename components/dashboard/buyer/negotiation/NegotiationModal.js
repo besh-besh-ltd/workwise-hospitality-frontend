@@ -35,12 +35,28 @@ const lineEngineTotal = (info) => {
   if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
   return Number(info.total_price) || 0;
 };
+// Splits a round's `approvals` array (see enrichRoundsWithApprovals /
+// loadApprovalStatusForRounds below) into live vs. REMOVED rows, and derives
+// the approved count off the live set only. REMOVED is a mid-flight
+// reconciler's soft-tombstone (role/scope revoked while the approval was in
+// flight) — it must never inflate the "N of M approved" denominator or its
+// numerator. Exported (named, alongside the default) so this — the actual
+// production bug this file fixes — has a direct unit test without needing a
+// full component render harness.
+export function splitApprovalsByRemoval(approvals) {
+  const list = Array.isArray(approvals) ? approvals : [];
+  const activeApprovals = list.filter((a) => a?.status !== 'REMOVED');
+  const removedApprovals = list.filter((a) => a?.status === 'REMOVED');
+  const approvedCount = activeApprovals.filter((a) => a?.status === 'APPROVED').length;
+  return { activeApprovals, removedApprovals, approvedCount };
+}
 import { getChargeNames } from '@/services/rfq';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
+import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './NegotiationUI.module.scss';
 
 ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
@@ -226,7 +242,15 @@ const NegotiationModal = ({
               approver_user_id: a.approver_user_id || a.user_id,
               approver_name: a.user_name,
               approver_email: a.user_email,
-              status: a.status
+              status: a.status,
+              // REMOVED rows are a mid-flight reconciler's soft-tombstone — kept
+              // for the audit trail. removal_reason/removed_at have been on
+              // getApprovalInstanceDetails's response since backend commit
+              // d64d9ae10 (2026-04-16); read defensively anyway (optional
+              // chaining upstream, `?` fallbacks below) since `a` here is
+              // whatever this specific instance's step actually returned.
+              removal_reason: a.removal_reason,
+              removed_at: a.removed_at
             }));
           }
         }
@@ -2074,11 +2098,19 @@ const NegotiationModal = ({
                     ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
                     : (round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`));
                   const approvals = round.approvals || [];
+                  // REMOVED rows are a mid-flight reconciler's soft-tombstone (role/
+                  // scope revoked while the approval was in flight) — kept below for
+                  // the audit trail, muted and separated, but never counted as live.
+                  // (See splitApprovalsByRemoval above — this is the fix for the
+                  // production bug where the "N of M approved" line counted a
+                  // removed approver in both the numerator gate and the "of M"
+                  // denominator.)
+                  const { activeApprovals, removedApprovals, approvedCount } = splitApprovalsByRemoval(approvals);
                   const approvalInstance = approvalInstances[round.id];
                   const canApprove = approvalInstance
                     ? approvalInstance.can_user_approve === true
                     : (() => {
-                        const userApproval = approvals.find(a =>
+                        const userApproval = activeApprovals.find(a =>
                           String(a.approver_user_id) === String(currentUserId)
                         );
                         return userApproval && (
@@ -2089,7 +2121,6 @@ const NegotiationModal = ({
                       })();
                   const isCurrentApprover = !loadingApprovals && canApprove;
                   const approvalStatus = approvalInstance?.status;
-                  const approvedCount = approvals.filter(a => a.status === 'APPROVED').length;
 
                   return (
                     <div
@@ -2281,11 +2312,11 @@ const NegotiationModal = ({
                         );
                       })()}
 
-                      {approvals.length > 0 && (
+                      {(activeApprovals.length > 0 || removedApprovals.length > 0) && (
                         <div className={styles.vaApproverBand}>
                           <p className={styles.vaApproverTitle}>Round Approval Status</p>
                           <div className={styles.vaApproverList}>
-                            {approvals.map((approval, idx) => (
+                            {activeApprovals.map((approval, idx) => (
                               <span
                                 key={idx}
                                 className={`${styles.vaApproverChip} ${
@@ -2300,9 +2331,29 @@ const NegotiationModal = ({
                                  approval.status === 'REJECTED' ? '✗' : '⏳'}
                               </span>
                             ))}
+                            {removedApprovals.map((approval, idx) => {
+                              const reasonLabel = approval.removal_reason ? removalReasonLabel(approval.removal_reason) : null;
+                              const whenLabel = approval.removed_at
+                                ? moment.utc(approval.removed_at).local().format('DD-MM-YYYY hh:mm A')
+                                : null;
+                              const title = [reasonLabel, whenLabel ? `Removed ${whenLabel}` : null]
+                                .filter(Boolean)
+                                .join(' · ') || 'Removed';
+                              return (
+                                <span
+                                  key={`removed-${idx}`}
+                                  className={`${styles.vaApproverChip} ${styles.vaApproverRemoved}`}
+                                  title={title}
+                                >
+                                  {approval.approver_name || `User ${approval.approver_user_id}`}
+                                  {' '}
+                                  · Removed{reasonLabel ? ` (${reasonLabel})` : ''}
+                                </span>
+                              );
+                            })}
                           </div>
                           <p className={styles.vaApproverNote}>
-                            {approvedCount} of {approvals.length} approvers have approved this round
+                            {approvedCount} of {activeApprovals.length} approvers have approved this round
                           </p>
                         </div>
                       )}

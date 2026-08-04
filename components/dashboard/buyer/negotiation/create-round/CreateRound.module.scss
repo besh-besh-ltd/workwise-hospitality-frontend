@@ -1359,6 +1359,14 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   color: $accent-green;
 }
 
+.approverChipRemoved {
+  background: #f4f4f1;
+  border-color: $divider-strong;
+  color: $ink-soft;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
 .approveRoundActions {
   display: inline-flex;
   align-items: center;

@@ -399,3 +399,84 @@ describe("resolveRfqApprovalDecision", () => {
     expect(resolveRfqApprovalDecision(lifecycle)).toBeNull();
   });
 });
+
+describe("REMOVED approvers — mid-flight reconciler tombstones (PO 138699 / RFQ 681, instance 3628)", () => {
+  // Real production shape: levels 1-2 already APPROVED, level 3 PENDING with
+  // one live approver (added mid-flight, replacing someone) and one REMOVED
+  // approver whose role was revoked while the approval was in progress, and
+  // level 4 SKIPPED with no approvers left on it at all. This is the exact
+  // shape that shipped "Vishal Kamat — pending" at level 3 and a level 4 that
+  // read "waiting" though it was SKIPPED.
+  const REMOVED_INSTANCE = {
+    id: 3628,
+    status: "PENDING",
+    entity_type: "PO",
+    entity_id: null,
+    current_step: 3,
+    total_steps: 4,
+    can_user_approve: true,
+    user_approval_step_id: 7628,
+    metadata: null,
+    steps: [
+      {
+        step_order: 1,
+        decision_rule: "ALL",
+        status: "APPROVED",
+        approvers: [{ user_id: 21, user_name: "Varun Sahani", status: "APPROVED" }],
+      },
+      {
+        step_order: 2,
+        decision_rule: "ALL",
+        status: "APPROVED",
+        approvers: [{ user_id: 22, user_name: "Maruti Kangane", status: "APPROVED" }],
+      },
+      {
+        step_order: 3,
+        decision_rule: "ALL",
+        status: "PENDING",
+        approvers: [
+          { user_id: 22, user_name: "Maruti Kangane", status: "PENDING", added_mid_flight: true },
+          {
+            user_id: 23,
+            user_name: "Vishal Kamat",
+            status: "REMOVED",
+            removal_reason: "role_removed",
+            removed_at: "2026-08-01T07:08:31Z",
+          },
+        ],
+      },
+      { step_order: 4, decision_rule: "ALL", status: "SKIPPED", approvers: [] },
+    ],
+  };
+
+  const removedLifecycle = () => lifecycleWith({ instances: [REMOVED_INSTANCE] });
+
+  test("stepProgress excludes the REMOVED approver from the N-of-M total", () => {
+    const d = resolveRfqApprovalDecision(removedLifecycle());
+    // Only Maruti (PENDING) counts on level 3 — Vishal (REMOVED) must not
+    // inflate the total or be counted as if he had acted.
+    expect(d.progress).toEqual(expect.objectContaining({ total: 1, done: 0 }));
+  });
+
+  test("does not surface the REMOVED approver as someone the step is waiting on", () => {
+    const d = resolveRfqApprovalDecision(removedLifecycle());
+    expect(d.progress.waitingOn).toEqual(["Maruti Kangane"]);
+    expect(d.progress.waitingOn).not.toContain("Vishal Kamat");
+    // The "On this step" approver list is built from the same row — must
+    // also exclude the removed row, not just the progress numbers.
+    expect(d.approvers.map((a) => a.user_name)).toEqual(["Maruti Kangane"]);
+  });
+
+  test("renders the decision card without ever naming the removed approver", () => {
+    render(<RfqApprovalDecisionCard lifecycle={removedLifecycle()} />);
+    expect(screen.getByText(/0 of 1 approver done/i)).toBeInTheDocument();
+    expect(screen.getByText(/waiting on Maruti Kangane/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Vishal Kamat/)).not.toBeInTheDocument();
+  });
+
+  test("shows the true current step (3) — the SKIPPED level 4 is never presented as pending/current", () => {
+    render(<RfqApprovalDecisionCard lifecycle={removedLifecycle()} />);
+    expect(screen.getByText(/step 3 of 4/i)).toBeInTheDocument();
+    expect(screen.queryByText(/step 4 of 4/i)).not.toBeInTheDocument();
+  });
+});

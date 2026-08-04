@@ -19,6 +19,8 @@ import {
   GitBranch,
   Clock,
   ArrowRight,
+  MinusCircle,
+  Ban,
   Sparkles,
   FileText,
   CheckSquare,
@@ -42,6 +44,7 @@ import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
 import { approveNegotiationQuotes, rejectNegotiationQuotes, getNegotiationApprovalBundle } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 
 import styles from "./QuoteComparison.module.scss";
 import * as C from "./computeHelpers";
@@ -799,14 +802,22 @@ const QuoteComparison = ({
 
   /* ─────────────── approval drawer (audit trail) ─────────────── */
   // "Awaiting approval from Vineet I" / "… from 3 persons" + a names tooltip.
+  // The real guard against a REMOVED row showing up here lives server-side:
+  // quoteCompareViewModel.js's `personOf` builds `current_approvers` from
+  // `pend.length ? pend : approvers.filter(a => a.status !== "REMOVED")`, and
+  // `personOf` itself only emits `{name, initials, role}` — no `status` field
+  // reaches the client at all, so this `.filter` is a no-op today. Kept as
+  // belt-and-braces in case that shape ever changes to pass `status` through.
+  const activeCurrentApprovers = (p) =>
+    (p?.approval?.current_approvers || []).filter((a) => a?.status !== "REMOVED");
   const awaitingApprovalLabel = (p) => {
-    const cur = p?.approval?.current_approvers || [];
+    const cur = activeCurrentApprovers(p);
     if (cur.length === 1) return `Awaiting approval from ${cur[0].name}`;
     if (cur.length > 1) return `Awaiting approval from ${cur.length} persons`;
     return "Awaiting approval";
   };
   const awaitingApprovalNames = (p) =>
-    (p?.approval?.current_approvers || []).map((a) => a.name).filter(Boolean).join(", ") || null;
+    activeCurrentApprovers(p).map((a) => a.name).filter(Boolean).join(", ") || null;
   // Toggle: clicking the SAME open cell/badge closes it; a DIFFERENT one swaps in
   // its trail.
   const openApprovalPanel = (p) => {
@@ -2603,8 +2614,12 @@ const QuoteComparison = ({
     if (!approvalPanel) return null;
     const p = approvalPanel;
     const trail = p.approval?.trail || [];
-    // Progress counts the real approval nodes only (not the terminal "forwarded" node).
-    const realNodes = trail.filter((n) => n.kind !== "terminal");
+    // Progress counts the real approval nodes only (not the terminal "forwarded"
+    // node) — and excludes skipped/removed nodes, which will never be acted on
+    // (bypassed or voided), from both sides of the "N of M" fraction.
+    const realNodes = trail.filter(
+      (n) => n.kind !== "terminal" && n.status !== "skipped" && n.status !== "removed"
+    );
     const doneCount = realNodes.filter((n) => n.status === "done").length;
     const finVendorObj = vendorById(p.finalized_vendor);
     const statusLabel = {
@@ -2612,6 +2627,8 @@ const QuoteComparison = ({
       rejected: "REJECTED",
       current: "AWAITING",
       pending: "PENDING",
+      skipped: "SKIPPED",
+      removed: "REMOVED",
     };
     const nodeStatusLabel = (node) =>
       node.kind === "terminal"
@@ -2668,6 +2685,8 @@ const QuoteComparison = ({
                           {node.status === "rejected" && <X size={13} />}
                           {node.status === "current" && <Clock size={13} />}
                           {node.status === "pending" && <span className={styles.apDotEmpty} />}
+                          {node.status === "skipped" && <MinusCircle size={13} />}
+                          {node.status === "removed" && <Ban size={13} />}
                         </>
                       )}
                     </span>
@@ -2685,16 +2704,47 @@ const QuoteComparison = ({
                           {node.role && <span className={styles.apWhoRole}>· {node.role}</span>}
                         </div>
                       )}
-                      {/* multi-approver step: list the rest */}
-                      {Array.isArray(node.approvers) && node.approvers.length > 1 && (
-                        <div className={styles.apApprovers}>
-                          {node.approvers.map((a, ai) => (
-                            <span className={styles.apApprover} key={ai} title={a.role || undefined}>
-                              {a.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* multi-approver step: list the rest. REMOVED rows are a
+                          mid-flight reconciler's soft-tombstone (role/scope revoked
+                          while the approval was in flight) — kept for the audit
+                          trail, muted and separated, but never counted as live. */}
+                      {Array.isArray(node.approvers) && (() => {
+                        const activeApprovers = node.approvers.filter((a) => a?.status !== "REMOVED");
+                        const removedApprovers = node.approvers.filter((a) => a?.status === "REMOVED");
+                        return (
+                          <>
+                            {activeApprovers.length > 1 && (
+                              <div className={styles.apApprovers}>
+                                {activeApprovers.map((a, ai) => (
+                                  <span className={styles.apApprover} key={ai} title={a.role || undefined}>
+                                    {a.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {removedApprovers.length > 0 && (
+                              <div className={styles.apApprovers}>
+                                {removedApprovers.map((a, ai) => {
+                                  const reasonLabel = a.removal_reason ? removalReasonLabel(a.removal_reason) : null;
+                                  const title = [reasonLabel, a.removed_at ? `Removed ${fmtDateTime(a.removed_at)}` : null]
+                                    .filter(Boolean)
+                                    .join(" · ") || "Removed";
+                                  return (
+                                    <span
+                                      className={styles.apApprover}
+                                      key={`removed-${ai}`}
+                                      title={title}
+                                      style={{ textDecoration: "line-through", opacity: 0.6, borderStyle: "dashed" }}
+                                    >
+                                      {a.name} · Removed{reasonLabel ? ` (${reasonLabel})` : ""}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       {node.when && <div className={styles.apWhen}>{fmtDateTime(node.when)}</div>}
                       {node.note && <div className={styles.apNote}>{node.note}</div>}
                       {node.status === "current" && (
