@@ -14,7 +14,7 @@ import { useRouter } from "next/router";
 import moment from "moment";
 import {
   Filter, Search, ChevronLeft, ChevronRight, Eye, Pencil, Copy as CopyIcon,
-  FileText, Users, Plus, Trash2, ShieldCheck,
+  FileText, Users, Plus, Trash2, ShieldCheck, MessageSquare, ClipboardCheck,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getRfqListView, deleteDraft } from "@/services/rfq";
@@ -446,8 +446,41 @@ export default function RfqListPage() {
             </div>
           ) : rows.length === 0 ? (
             <div className="empty-state" style={{ padding: "56px 24px" }}>
-              <h2>No RFQs found</h2>
-              <p>{activeCount > 0 || debounced ? "Try clearing some filters or your search." : "Create your first RFQ to get started."}</p>
+              {/* An empty "Pending for me" used to read "Create your first RFQ
+                  to get started" — nonsense for a user with 400 RFQs and no
+                  outstanding task. */}
+              <h2>{tab === "pending" ? "You're all caught up" : "No RFQs found"}</h2>
+              <p>
+                {tab === "pending"
+                  ? "Nothing needs your approval, evaluation or response right now."
+                  : (activeCount > 0 || debounced ? "Try clearing some filters or your search." : "Create your first RFQ to get started.")}
+              </p>
+            </div>
+          ) : tab === "pending" ? (
+            // Grouped so the decisions lead and never sit visually level with
+            // the shared evaluation queue. The server already returns pending
+            // rows in this order, so groups never interleave across a page.
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {PENDING_KIND_ORDER.map((kind) => {
+                const group = rows.filter((r) => (r.pending_kind || "evaluation") === kind);
+                if (group.length === 0) return null;
+                // `total` is the count for this kind across the whole tab;
+                // `group.length` is what is actually on this page. They differ
+                // as soon as a group straddles a page boundary, so say both
+                // rather than captioning 14 cards with the number 67.
+                const total = tab_counts?.pending_breakdown?.[kind] ?? group.length;
+                const n = group.length < total ? `${group.length} of ${total}` : `${total}`;
+                return (
+                  <div key={kind} style={{ display: "contents" }}>
+                    <div className="pending-group-head">
+                      <span>{PENDING_KIND_META[kind].group}</span>
+                      <span className="n">{n}</span>
+                      <span className="rule" />
+                    </div>
+                    {group.map((r) => <RfqRow key={r.id} row={r} currentUser={currentUser} onClone={() => setCloneRfq(r)} onDeleted={() => setReloadKey((k) => k + 1)} />)}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -475,15 +508,41 @@ export default function RfqListPage() {
 }
 
 /* ─── one RFQ row (card) ─── */
-// Short, user-facing label for the action this row needs from me.
-function myActionLabel(ah) {
-  if (!ah) return "Action required";
-  if (ah.type === "approval") return "Approval needed";
-  const l = (ah.label || "").toLowerCase();
-  if (l.includes("technical")) return "Technical evaluation";
-  if (l.includes("commercial")) return "Commercial evaluation";
-  if (l.includes("po")) return "Raise PO";
-  return "Action required";
+// Each "Pending for me" kind owns a label, a tone and an icon. Previously all
+// five action labels rendered through one amber chip on a card with one amber
+// border and one amber left bar, so "you must decide this" and "you could
+// evaluate this" were two words apart and otherwise identical.
+export const PENDING_KIND_META = {
+  approval:   { group: "Awaiting your approval",   chip: "Your approval",    cls: "k-approval",   card: "na-approval",   Icon: ShieldCheck },
+  response:   { group: "Needs your response",      chip: "Needs your reply", cls: "k-response",   card: "na-response",   Icon: MessageSquare },
+  evaluation: { group: "Awaiting your evaluation", chip: "Your evaluation",  cls: "k-evaluation", card: "na-evaluation", Icon: ClipboardCheck },
+};
+
+// Precedence — must match PENDING_KIND_ORDER in the backend controller.
+export const PENDING_KIND_ORDER = ["approval", "response", "evaluation"];
+
+// Approval stage keys come from rfqLifecycleShaper.js. ViewRFQ honours ?stage=
+// when the stage is valid and unlocked, and scrolls to the decision card on
+// ?focus=approval. resolveRfqApprovalDecision walks every stage's pending
+// instances, so all four entity types resolve.
+const APPROVAL_STAGE_BY_ENTITY = {
+  RFQ: "overview",
+  TENDER: "overview",
+  TECHNICAL: "technical",
+  NEGOTIATION_QUOTE: "negotiation-award",
+  PO: "purchase-order",
+};
+
+// The server's own reason label carries counts ("2 unread vendor queries"), so
+// prefer it for response rows; the kind's generic label is the fallback.
+function pendingChipText(row) {
+  const meta = PENDING_KIND_META[row.pending_kind];
+  if (!meta) return "Action required";
+  if (row.pending_kind === "response") {
+    const primary = (row.pending_reasons || []).find((r) => r.kind === "response");
+    if (primary?.label) return primary.label;
+  }
+  return meta.chip;
 }
 
 function RfqRow({ row, onClone, onDeleted, currentUser }) {
@@ -514,9 +573,20 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
   const canApprove = typeof row.can_approve === "boolean"
     ? row.can_approve
     : (isMyAction && row.action_holders?.type === "approval");
-  // Land the approver directly on the decision card (ViewRFQ scrolls to it).
-  const approveHref = `${detailHref}&stage=overview&focus=approval`;
-  const showApproveCta = awaitingApproval && canApprove;
+  // Which of the three pending groups this row joins. The fallback keeps older
+  // payloads (no pending_kind) rendering as they did before.
+  const pendingKind = row.pending_kind || (isMyAction ? "evaluation" : null);
+  const kindMeta = pendingKind ? PENDING_KIND_META[pendingKind] : null;
+  // Reasons other than the row's primary group, shown as quiet extra chips so
+  // an evaluation row with unread queries still says so.
+  const extraReasons = (row.pending_reasons || []).filter((r) => r.kind !== pendingKind);
+  // Land the approver directly on the decision card (ViewRFQ scrolls to it),
+  // on the stage that actually holds the pending instance. Previously this was
+  // hardcoded to `overview` and only rendered for publish approvals, so
+  // technical, quotation and PO approvals showed the chip with no way to act.
+  const approveStage = APPROVAL_STAGE_BY_ENTITY[row.approval_entity_type] || "overview";
+  const approveHref = `${detailHref}&stage=${approveStage}&focus=approval`;
+  const showApproveCta = canApprove && (pendingKind === "approval" || awaitingApproval);
   const rowHref = isDraft ? draftHref : (showApproveCta ? approveHref : detailHref);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -539,7 +609,7 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
 
   return (
     <div
-      className={`contract-card is-${meta.tone}${isMyAction ? " needs-action" : ""}`}
+      className={`contract-card is-${meta.tone}${isMyAction ? ` needs-action ${kindMeta?.card || ""}` : ""}`}
       onClick={onRowClick}
       role="link"
       tabIndex={0}
@@ -553,7 +623,15 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
             <div className="cc-title">
               <Link href={rowHref} style={{ color: "inherit", textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>{row.title || `RFQ #${row.rfq_no}`}</Link>
               <span className="cc-num">#{row.rfq_no}</span>
-              {isMyAction && <span className="needs-action-pill">{myActionLabel(row.action_holders)}</span>}
+              {isMyAction && kindMeta && (
+                <span className={`needs-action-pill ${kindMeta.cls}`}>
+                  <kindMeta.Icon size={10} strokeWidth={2.5} />
+                  {pendingChipText(row)}
+                </span>
+              )}
+              {extraReasons.map((r) => (
+                <span key={r.code} className="pending-extra">{r.label}</span>
+              ))}
             </div>
             <div className="cc-sub">
               {cats.length > 0 && <><span className="em">{cats.map((c) => c.title).join(", ")}</span><span className="sep">·</span></>}
