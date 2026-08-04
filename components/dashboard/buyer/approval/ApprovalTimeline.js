@@ -909,6 +909,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                       const renderRemoved = (approver) => {
                         const removalReasonLabel = approver.removal_reason === "policy_change" ? "Policy Change"
                           : approver.removal_reason === "role_removed" ? "Role Change"
+                          : approver.removal_reason === "role_permissions_changed" ? "Role Permissions Changed"
                           : approver.removal_reason === "user_deactivated" ? "Account Deactivation"
                           : approver.removal_reason === "dept_removed" ? "Department Change"
                           : approver.removal_reason === "scope_removed" ? "Scope Change"

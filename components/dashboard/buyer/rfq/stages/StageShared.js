@@ -76,6 +76,7 @@ export function removalReasonLabel(reason) {
   switch (reason) {
     case "policy_change": return "Policy Change";
     case "role_removed": return "Role Change";
+    case "role_permissions_changed": return "Role Permissions Changed";
     case "user_deactivated": return "Account Deactivation";
     case "dept_removed": return "Department Change";
     case "scope_removed": return "Scope Change";
