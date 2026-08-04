@@ -134,6 +134,16 @@ function describeAward(inst, stage) {
 }
 
 /**
+ * A stage the RFQ moved past without waiting for its approval: the publish date
+ * arrived while the approval was still open, so the RFQ went out and the
+ * instance was left PENDING. Nothing here is awaiting anyone — the server
+ * settles it as state `ended` / reason `expired_pending`, refuses any decision
+ * on it, and clears the approver's grant.
+ */
+export const isLapsedStage = (stage) =>
+  stage?.phase?.status === "expired" || stage?.reason === "expired_pending";
+
+/**
  * Resolve the live approval instance the caller has to decide on, or null.
  *
  * TWO authorization signals, and we honour either:
@@ -143,20 +153,19 @@ function describeAward(inst, stage) {
  *     instance — computed per instance by generalModel (the caller is a PENDING
  *     approver on the instance's CURRENT step, and the instance is PENDING).
  *
- * (2) matters because (1) deliberately skips "expired" phases — an RFQ that
- * auto-published while its approval was still pending. In production that is
- * not an edge case: it is EVERY outstanding RFQ approval, so gating on (1)
- * alone would leave the queue just as unclickable as it was. The approval
- * instance is still PENDING and the action endpoint still accepts it — it
- * re-runs the same authorization (instance PENDING → current step → the
- * caller's approver row PENDING → hospitality scope) before writing anything,
- * so trusting the per-instance flag here can't grant rights the server won't.
+ * Lapsed stages are excluded from both. This card used to honour (2) on them
+ * precisely BECAUSE (1) skips them — the reasoning being that the instance was
+ * still PENDING and the endpoint still accepted the decision. Both halves of
+ * that are now false: submitApprovalAction refuses a decision once the RFQ is
+ * published, and the server clears can_user_approve for those instances. The
+ * old behaviour is what put a live Approve/Reject card in front of 43 approvers
+ * across 194 already-published RFQs — 112 of which had a purchase order issued.
  *
  * @param {object} lifecycle GET /rfq/:id/lifecycle payload
  * @returns {null | {
  *   instanceId: number, stepId: number|null, currentStep: number|null,
  *   totalSteps: number|null, entityType: string|null, stageLabel: string|null,
- *   label: string|null, lapsed: boolean, approvers: Array,
+ *   label: string|null, approvers: Array,
  *   progress: object|null, awardCount: number, awardItems: Array,
  * }}
  */
@@ -169,6 +178,13 @@ export function resolveRfqApprovalDecision(lifecycle) {
   // count is the single most useful thing the approver was never told.
   const pending = [];
   for (const stage of stages) {
+    // A lapsed stage is one the RFQ moved past without waiting: publication
+    // happened while the approval was still open, so the instance is left
+    // PENDING forever. There is no decision to make — the server refuses one
+    // (400) and the counts already hide it. What happened is reported by the
+    // Overview approval panel instead. The server also clears can_user_approve
+    // for these; this is the second lock, so a stale payload can't reopen it.
+    if (isLapsedStage(stage)) continue;
     const instances = stage?.phase?.approval_instances;
     if (!Array.isArray(instances)) continue;
     for (const inst of instances) {
@@ -195,12 +211,6 @@ export function resolveRfqApprovalDecision(lifecycle) {
   const stepRow = Array.isArray(inst?.steps)
     ? inst.steps.find((s) => Number(s.step_order) === Number(currentStep)) || null
     : null;
-
-  // The RFQ went live before this approval was completed. Worth saying out
-  // loud: the decision still closes the audit trail, it just no longer gates
-  // publication.
-  const lapsed =
-    hit?.stage?.phase?.status === "expired" || hit?.stage?.reason === "expired_pending";
 
   // The matched stage's `action` block is NOT stage-scoped, despite appearances:
   // rfqLifecycleShaper.js:64 assigns the SAME object reference to every current
@@ -250,7 +260,6 @@ export function resolveRfqApprovalDecision(lifecycle) {
     // Only trust the top-level copy when the top-level grant is what got us
     // here; otherwise it describes a different (evaluator) role.
     label: action?.can_approve ? (action.label || null) : null,
-    lapsed,
     // Exclude REMOVED rows here too — this list only feeds the "On this
     // step: <names>" line, which would otherwise still name someone whose
     // access was revoked mid-flight as if they were a live approver.
@@ -521,24 +530,10 @@ export default function RfqApprovalDecisionCard({
           >
             <ShieldCheck size={15} strokeWidth={2} />
             {`${noun} — awaiting your approval`}
-            {decision.lapsed && (
-              <span
-                style={{
-                  fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 99,
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                  background: "var(--warn-soft, #fffbeb)", color: "var(--warn, #b45309)",
-                  border: "1px solid rgba(180,83,9,0.24)",
-                }}
-              >
-                Auto-published
-              </span>
-            )}
           </div>
           <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)", lineHeight: 1.55, marginTop: 5 }}>
-            {decision.lapsed
-              ? `This ${entityLabel} auto-published while the approval was still open, so your decision no longer gates publication — it closes the approval on record.`
-              : decision.label
-                || `You are the current approver. Approving moves this ${nounInline} to the next stage; rejecting sends it back with your reason.`}
+            {decision.label
+              || `You are the current approver. Approving moves this ${nounInline} to the next stage; rejecting sends it back with your reason.`}
           </div>
           {approverNames && (
             <div style={{ fontSize: 11.5, color: "var(--fg-3, #71717a)", marginTop: 7 }}>

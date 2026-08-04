@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Handshake, CheckCircle2, Circle } from "lucide-react";
-import { StageSkeleton, StageCard } from "./StageShared";
+import { StageSkeleton, StageCard, StageNoPermission } from "./StageShared";
 
 const QuoteComparison = dynamic(
   () => import("@/components/dashboard/buyer/quoteComparison/QuoteComparison"),
@@ -70,6 +70,11 @@ function NegotiationSummary({ rfqId, products }) {
 // that the embedded sheet turns into "scroll to the first product × vendor cell
 // where this user's approval is pending, and mark it". 0 = never asked.
 export default function NegotiationAwardStage({ rfq, stage, focusAwardToken = 0 }) {
+  // The server redacts stages this user may not read (rfqLifecycleShaper:
+  // redactUnreadableStages) — phase detail is stripped before it leaves the
+  // API, and can_read=false is what says so. This panel is the visible half.
+  if (stage?.can_read === false) return <StageNoPermission stageLabel="Negotiation & Award" />;
+
   if (!rfq?.id) return <StageSkeleton />;
   const phase = stage?.phase || {};
   const products = Array.isArray(phase.products) ? phase.products : [];
