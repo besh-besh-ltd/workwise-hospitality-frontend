@@ -1,6 +1,6 @@
 // QuoteComparison — award clarity, negotiation in-row, delivery-charge toggle.
 //
-// Three client-reported problems, all defended here.
+// Five client-reported problems, all defended here.
 //
 // 1. "Difficulty in identifying the finalized vendor, the color scheme is not
 //    working here clearly." The cell said "APPROVED", never "Finalized" — and
@@ -17,6 +17,14 @@
 //    labelled "landed" rendered the pre-charge price. All three are fixed; the
 //    toggle is also hidden on the 76% of RFQs that carry no delivery charge at
 //    all, so it can never again look broken.
+//
+// 4. "Create Negotiation" was offered on rows whose award was already
+//    finalized, out for approval or approved — a round that could change
+//    nothing, offered right beside the tag saying the line was decided.
+//
+// 5. The award badge, the approval tag and the item column's own controls were
+//    spaced by per-child margins that had drifted, so they touched; and the
+//    badge shouted "FINALIZED · Vineet I." instead of reading as a sentence.
 
 jest.mock("next/router", () => ({
   __esModule: true,
@@ -63,6 +71,10 @@ import "@testing-library/jest-dom";
 
 import { getQuoteComparisonView } from "@/services/pricing";
 import QuoteComparison from "./QuoteComparison";
+// next/jest maps CSS modules to a proxy that echoes the key, so `styles.x` is
+// the literal class name the component renders — enough to assert that two
+// elements really are laid out as one row rather than two stacked blocks.
+import styles from "./QuoteComparison.module.scss";
 
 const RFQ_ID = "720";
 const SHARMA = 5512;
@@ -164,8 +176,44 @@ describe("QuoteComparison — the finalized vendor is unmistakable", () => {
 
     const badge = await screen.findByTestId("finalized-badge");
     expect(badge).toHaveTextContent(/finalized/i);
-    expect(badge).toHaveTextContent("Nitin R.");
+    // Reads as a sentence, and ends on the person — no abbreviation full stop.
+    // (This assertion previously pinned "Nitin R." — the trailing period the
+    // client asked us to drop.)
+    expect(badge).toHaveTextContent(/^Finalized by Nitin R$/);
     expect(badge.getAttribute("title")).toMatch(/Finalized by Nitin Rajenimbalkar/);
+  });
+
+  it("emphasises the name, not the word Finalized", async () => {
+    // "Finalized by" is context; the person is the fact worth scanning for.
+    await renderSheet(payload());
+
+    const badge = await screen.findByTestId("finalized-badge");
+    const who = badge.querySelector(`.${styles.finalizedWho}`);
+    expect(who).not.toBeNull();
+    expect(who).toHaveTextContent("Nitin R");
+    // The words around it are NOT inside the bold span.
+    expect(who).not.toHaveTextContent(/finalized by/i);
+  });
+
+  it("puts the award and its approval state on one row", async () => {
+    // Two facts about the same decision. They used to stack, costing a line on
+    // every awarded cell of a grid that runs to 139 rows.
+    await renderSheet(payload());
+
+    const badge = await screen.findByTestId("finalized-badge");
+    const row = badge.parentElement;
+    expect(row).toHaveClass(styles.awardRow);
+    expect(row).toHaveTextContent(/approved/i);
+    // Same row for the awaiting-approval tag too, not just the approved one.
+  });
+
+  it("puts the awaiting-approval tag on that same row", async () => {
+    await renderSheet(payload({ products: [product({ state: "pending" })] }));
+
+    const badge = await screen.findByTestId("finalized-badge");
+    const row = badge.parentElement;
+    expect(row).toHaveClass(styles.awardRow);
+    expect(row).toHaveTextContent(/awaiting approval from Prashant Joshi/i);
   });
 
   it("says FINALIZED even while the approval is still pending", async () => {
@@ -377,5 +425,93 @@ describe("QuoteComparison — negotiation on the product rows", () => {
 
     expect(screen.queryByTestId("neg-state")).toBeNull();
     expect(screen.queryByTestId("rfq-wide-ask")).toBeNull();
+  });
+});
+
+// ===========================================================================
+// 4. "Create Negotiation" was offered on every quoted row — including rows
+//    already finalized, out for approval, or approved. A round started there
+//    can change nothing, and the button sat immediately beside the tag saying
+//    so. It is now gated on the product's own state.
+
+describe("QuoteComparison — Create Negotiation only where it can still land", () => {
+  // The RFQ band carries its own page-level "Create Negotiation" (no product
+  // preselected) which is out of scope here — this is the per-product one on
+  // the item row.
+  const negotiateBtn = () =>
+    screen
+      .queryAllByRole("button", { name: /create negotiation/i })
+      .find((b) => b.classList.contains(styles.rowNegotiateBtn)) || null;
+
+  it("offers it on an open product", async () => {
+    await renderSheet(payload({
+      products: [product({ state: "open", finalized_vendor: null, finalized_by: null })],
+    }));
+
+    expect(negotiateBtn()).toBeInTheDocument();
+  });
+
+  it("hides it once the product is finalized and awaiting approval", async () => {
+    await renderSheet(payload({ products: [product({ state: "pending" })] }));
+
+    expect(negotiateBtn()).toBeNull();
+  });
+
+  it("hides it once the award is approved", async () => {
+    await renderSheet(payload({ products: [product({ state: "approved" })] }));
+
+    expect(negotiateBtn()).toBeNull();
+  });
+
+  it("keeps it on a rejected product — the buyer has to award again", async () => {
+    // A rejected award sends the line back to the buyer to re-select, which is
+    // exactly when re-negotiating the price is the right move. Same two states
+    // canReselect reopens.
+    await renderSheet(payload({
+      products: [product({ state: "rejected", reject_info: null })],
+    }));
+
+    expect(negotiateBtn()).toBeInTheDocument();
+  });
+
+  it("hides it while quotes are still locked, even on an open product", async () => {
+    await renderSheet({
+      ...payload({ products: [product({ state: "open", finalized_vendor: null, finalized_by: null })] }),
+      quotes_locked: true,
+    });
+
+    expect(negotiateBtn()).toBeNull();
+  });
+
+  it("hides it when nobody has quoted the product", async () => {
+    await renderSheet(payload({
+      products: [product({ state: "open", finalized_vendor: null, finalized_by: null, quotes: {}, quoted_count: 0 })],
+    }));
+
+    expect(negotiateBtn()).toBeNull();
+  });
+});
+
+// ===========================================================================
+// 5. The LPR line, the Create Negotiation button and the state tag are all
+//    inline-flex siblings that JSX renders with no whitespace between them, so
+//    they touched. One wrapping flex row with a single gap now owns the
+//    spacing — no per-child margin-top can drift out of step again.
+
+describe("QuoteComparison — the item column is spaced by one gap", () => {
+  it("makes the LPR, the negotiate button and the state tag siblings of one row", async () => {
+    // jsdom applies no CSS, so the honest assertion is structural: all three
+    // are direct children of the one container that carries the gap. Nothing
+    // may reach for its own margin to separate itself from the next.
+    await renderSheet(payload({
+      products: [product({ state: "rejected", reject_info: null, lpr: { rate: 900, date: "2026-06-19" } })],
+    }));
+
+    await screen.findByText("WINDOW A");
+    const btn = document.querySelector(`.${styles.rowNegotiateBtn}`);
+    const meta = btn.parentElement;
+    expect(meta).toHaveClass(styles.itemMeta);
+    expect(meta.querySelector(`:scope > .${styles.lpr}`)).not.toBeNull();
+    expect(meta.querySelector(`:scope > .${styles.itemState}`)).not.toBeNull();
   });
 });

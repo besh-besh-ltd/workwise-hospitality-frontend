@@ -69,7 +69,7 @@ import RfqApprovalDecisionCard, {
 } from "@/components/dashboard/buyer/rfq/RfqApprovalDecisionCard";
 import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
 import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
-import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
+import PurchaseOrderStage, { PO_AWAITING_ANCHOR_ID } from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
 import { StageSkeleton, LifecycleContext } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
 
@@ -657,9 +657,14 @@ const ViewRFQ = ({
   useEffect(() => {
     if (router.query.focus !== "approval" || !approvalDecision) return undefined;
     const t = setTimeout(() => {
-      document
-        .getElementById(APPROVAL_DECISION_ANCHOR_ID)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // A PO approval resolves (so `approvalDecision` is set) but renders no
+      // decision card — the decision belongs inside the PO. Fall back to the
+      // hoisted "waiting on you" PO card, which is what the approver actually
+      // needs to see; without this the deep link scrolls to nothing.
+      const target =
+        document.getElementById(APPROVAL_DECISION_ANCHOR_ID)
+        || document.getElementById(PO_AWAITING_ANCHOR_ID);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
     return () => clearTimeout(t);
   }, [router.query.focus, approvalDecision]);
