@@ -290,17 +290,24 @@
 .itemCell { padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
 .expandBtn { background: transparent; border: none; cursor: pointer; color: var(--fg-4); padding: 2px; margin-top: 1px; transition: transform 0.2s ease; flex-shrink: 0; }
 .expandBtn.isOpen { transform: rotate(90deg); }
-.itemMeta { min-width: 0; flex: 1; }
+/* One wrapping flex row with ONE gap, instead of a per-child margin-top each.
+   The LPR line, the Create Negotiation button and the state tag are all
+   inline-flex and JSX leaves no whitespace between siblings written on
+   separate lines, so they used to touch. Name / tags / negotiation block claim
+   a line of their own via flex-basis. */
+.itemMeta { min-width: 0; flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.itemMeta > .itemName,
+.itemMeta > .itemTags,
+.itemMeta > .negBlock { flex: 0 0 100%; }
 .itemName { font-size: 13.5px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
-.itemTags { margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.itemTags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .catTag { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 5px; background: var(--surface-3); color: var(--fg-3); border: 1px solid var(--border); }
 .per { font-size: 11px; color: var(--fg-4); }
-.lpr { margin-top: 7px; font-size: 11px; color: var(--info); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.lpr { font-size: 11px; color: var(--info); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .lprVal { font-family: 'Geist Mono', monospace; font-weight: 600; }
 .roundInfo { margin-top: 6px; font-size: 10.5px; color: var(--fg-4); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 /* Per-product "Create Negotiation" entry point — a compact link-style button. */
 .rowNegotiateBtn {
-  margin-top: 8px;
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 9px; font-size: 11px; font-weight: 600; font-family: inherit;
   color: var(--accent, #1f2937); background: var(--surface-3);
@@ -317,7 +324,7 @@
 .matrix tbody tr.rowPending td.colItem  { box-shadow: inset 3px 0 0 var(--warn); }
 .matrix tbody tr.rowRejected td.colItem { box-shadow: inset 3px 0 0 var(--danger); }
 
-.itemState { margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 99px; }
+.itemState { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 99px; }
 .itemState.approved { background: var(--success-soft); color: var(--success); border: 1px solid rgba(21,128,61,0.22); }
 .itemState.pending  { background: var(--warn-soft); color: var(--warn); border: 1px solid rgba(180,83,9,0.22); }
 .itemState.rejected { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(185,28,28,0.22); }
@@ -371,7 +378,7 @@
 .lockedCell .lockedBlur { font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 700; color: var(--fg-3); }
 .lockedTag { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: var(--indigo); background: var(--indigo-soft); border: 1px solid rgba(67,56,202,0.20); border-radius: 5px; padding: 1px 6px; line-height: 1.4; }
 .vAvLocked { background: var(--surface-3) !important; color: var(--fg-3) !important; display: flex; align-items: center; justify-content: center; }
-.quotedCount { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--indigo); margin-top: 2px; margin-right: 6px; }
+.quotedCount { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--indigo); }
 .lockedOverall { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 56px 20px; color: var(--fg-3); font-size: 13px; font-weight: 500; }
 .lockedOverall svg { color: var(--indigo); }
 
@@ -422,16 +429,26 @@
 .cellStateTag.approved  { background: white; color: var(--success); border: 1px solid rgba(21,128,61,0.28); }
 .cellStateTag.rejected  { background: white; color: var(--danger); border: 1px solid rgba(185,28,28,0.28); }
 
+/* The award and its approval state on ONE row — they describe the same
+   decision, and stacking them spent a line per awarded cell on a grid that
+   runs to 139 rows. Wraps, so a long finalizer name drops the state tag to the
+   next line instead of overflowing the 264px column. */
+.awardRow { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.awardRow .cellStateTag { margin-top: 0; align-self: auto; }
+
 /* The award badge. SOLID fill on purpose: .isL1 (merely cheapest) is a pale
    green TINT and .cellApproved is a soft green wash, so a fourth tinted state
    would be indistinguishable at a glance — which is precisely what was
-   reported. Only one cell per row ever carries this, so it costs no density. */
-.finalizedBar { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px; background: var(--success); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; align-self: flex-start; max-width: 100%; }
+   reported. Only one cell per row ever carries this, so it costs no density.
+   Sentence case, not uppercase: it reads as the sentence "Finalized by <name>"
+   with only the name emphasised, so the person is what the eye lands on. */
+.finalizedBar { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px; background: var(--success); color: #fff; font-size: 10.5px; font-weight: 500; letter-spacing: 0; max-width: 100%; min-width: 0; }
 .finalizedBar svg { flex-shrink: 0; }
-.finalizedWho { font-weight: 800; text-transform: none; letter-spacing: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finalizedLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finalizedWho { font-weight: 700; }
 
 /* Negotiation, moved into the comparison rows from the old separate panel. */
-.negBlock { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; align-items: flex-start; }
+.negBlock { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .negState { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-3); flex-wrap: wrap; }
 .negState .negDot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-4); flex-shrink: 0; }
 .negState.isLive { color: var(--warn); }

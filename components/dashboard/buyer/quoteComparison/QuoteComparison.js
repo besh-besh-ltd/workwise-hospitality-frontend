@@ -69,13 +69,15 @@ const fmtDate = (d) => {
   return m.isValid() ? m.format("DD MMM YYYY") : "—";
 };
 
-/* "Nitin Rajenimbalkar" → "Nitin R." — keeps the FINALIZED badge to one line on
-   a grid that runs up to 139 rows. The full name is in the title attribute. */
+/* "Nitin Rajenimbalkar" → "Nitin R" — keeps the finalized badge to one line on
+   a grid that runs up to 139 rows. The full name is in the title attribute.
+   No trailing full stop: the badge reads "Finalized by Nitin R", and a period
+   there reads as the end of a sentence rather than an abbreviation mark. */
 const shortName = (full) => {
   const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "";
   if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  return `${parts[0]} ${parts[parts.length - 1][0]}`;
 };
 
 /* Render an overlay above the app topbar (z 1030) + sidebar (z 1020).
@@ -587,6 +589,20 @@ const QuoteComparison = ({
   /* ─────────────── selection (evaluator) ─────────────── */
   const canReselect = (p) =>
     !quotesLocked && role === "buyer" && canWrite && (p.state === "open" || p.state === "rejected");
+  // Can a negotiation still change anything on this line? Only while the award
+  // is undecided. The four states (quoteCompareViewModel.deriveState):
+  //   open     → nothing finalized, or finalized with no approval yet — yes
+  //   pending  → the award is sitting with an approver — no, a fresh round
+  //              would be negotiating a price that is already out for sign-off
+  //   approved → the award stands and the PO follows — no
+  //   rejected → the approver sent it back and the buyer MUST pick again, so
+  //              bargaining first is exactly the point — yes (this is also why
+  //              canReselect reopens the same two states)
+  // Deliberately not role/permission-gated: this button only routes into the
+  // negotiation wizard, which runs its own checks, and gating it here would
+  // take the control away from users who have it today.
+  const canNegotiate = (p) =>
+    !quotesLocked && (p.state === "open" || p.state === "rejected");
   const selCount = Object.keys(selections).length;
   const openCount = products.filter((p) => p.state === "open").length;
   const selVendorCount = new Set(Object.values(selections)).size;
@@ -1231,48 +1247,59 @@ const QuoteComparison = ({
               approval state. Previously the cell said only "APPROVED" and the
               award was carried by colour alone — and a merely-cheapest L1 cell
               is ALSO green (a pale tint), which is what made the finalized
-              vendor hard to pick out. Solid fill vs tint is the distinction. */}
+              vendor hard to pick out. Solid fill vs tint is the distinction.
+
+              The award and its approval state are two facts about ONE decision,
+              so they share a row instead of stacking — the cell is narrow but
+              the grid is long, and a line per fact costs more than the width.
+              .awardRow wraps, so a long finalizer name pushes the state tag
+              under it rather than out of the cell. */}
           {finVendor && (
-            <div
-              className={styles.finalizedBar}
-              data-testid="finalized-badge"
-              title={
-                p.finalized_by?.name
-                  ? `Finalized by ${p.finalized_by.name}${p.finalized_by.at ? ` on ${fmtDateTime(p.finalized_by.at)}` : ""}`
-                  : "Finalized"
-              }
-            >
-              <Check size={11} strokeWidth={3} />
-              FINALIZED
-              {p.finalized_by?.name && (
-                <span className={styles.finalizedWho}>· {shortName(p.finalized_by.name)}</span>
+            <div className={styles.awardRow}>
+              <div
+                className={styles.finalizedBar}
+                data-testid="finalized-badge"
+                title={
+                  p.finalized_by?.name
+                    ? `Finalized by ${p.finalized_by.name}${p.finalized_by.at ? ` on ${fmtDateTime(p.finalized_by.at)}` : ""}`
+                    : "Finalized"
+                }
+              >
+                <Check size={11} strokeWidth={3} />
+                {p.finalized_by?.name ? (
+                  <span className={styles.finalizedLabel}>
+                    Finalized by <span className={styles.finalizedWho}>{shortName(p.finalized_by.name)}</span>
+                  </span>
+                ) : (
+                  <span className={styles.finalizedLabel}>Finalized</span>
+                )}
+              </div>
+
+              {/* state tags — clickable to open the approval audit-trail drawer */}
+              {p.state === "pending" && role === "buyer" && (
+                <button
+                  className={`${styles.cellStateTag} ${styles.finalized} ${styles.clickableTag}`}
+                  title={awaitingApprovalNames(p) || undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openApprovalPanel(p);
+                  }}
+                >
+                  <Clock size={10} /> {awaitingApprovalLabel(p)} <ChevronRight size={10} />
+                </button>
+              )}
+              {p.state === "approved" && (
+                <button
+                  className={`${styles.cellStateTag} ${styles.approved} ${styles.clickableTag}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openApprovalPanel(p);
+                  }}
+                >
+                  <Check size={10} /> Approved <ChevronRight size={10} />
+                </button>
               )}
             </div>
-          )}
-
-          {/* state tags — clickable to open the approval audit-trail drawer */}
-          {finVendor && p.state === "pending" && role === "buyer" && (
-            <button
-              className={`${styles.cellStateTag} ${styles.finalized} ${styles.clickableTag}`}
-              title={awaitingApprovalNames(p) || undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                openApprovalPanel(p);
-              }}
-            >
-              <Clock size={10} /> {awaitingApprovalLabel(p)} <ChevronRight size={10} />
-            </button>
-          )}
-          {finVendor && p.state === "approved" && (
-            <button
-              className={`${styles.cellStateTag} ${styles.approved} ${styles.clickableTag}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                openApprovalPanel(p);
-              }}
-            >
-              <Check size={10} /> Approved <ChevronRight size={10} />
-            </button>
           )}
 
           {/* Sent here by the RFQ page's award banner — say so, so the cell the
@@ -1477,8 +1504,12 @@ const QuoteComparison = ({
                     table on a different endpoint. */}
                 <ProductNegotiation product={p} />
                 {/* Per-product entry into the negotiation wizard — preselects
-                    this product. Shown for negotiable (quoted, unlocked) items. */}
-                {!quotesLocked && sortedVendors.some((v) => p.quotes?.[v.id]) && (
+                    this product. Shown only where a negotiation can still land:
+                    someone has quoted, quotes are unlocked, and the award is
+                    not already finalized/pending/approved (see canNegotiate).
+                    It used to sit right beside the tag saying the line was
+                    decided, offering a round that could change nothing. */}
+                {canNegotiate(p) && sortedVendors.some((v) => p.quotes?.[v.id]) && (
                   <button
                     type="button"
                     className={styles.rowNegotiateBtn}
