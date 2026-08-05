@@ -48,6 +48,7 @@ import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 
 import styles from "./QuoteComparison.module.scss";
+import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
 
@@ -66,6 +67,15 @@ const fmtDate = (d) => {
   if (d == null || d === "") return "—";
   const m = moment(d);
   return m.isValid() ? m.format("DD MMM YYYY") : "—";
+};
+
+/* "Nitin Rajenimbalkar" → "Nitin R." — keeps the FINALIZED badge to one line on
+   a grid that runs up to 139 rows. The full name is in the title attribute. */
+const shortName = (full) => {
+  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
 };
 
 /* Render an overlay above the app topbar (z 1030) + sidebar (z 1020).
@@ -538,6 +548,11 @@ const QuoteComparison = ({
   // Per-item DISPLAY total/landed exclude quote-level global charges so the
   // shown amount matches the vendor's line total and its breakdown rows.
   // (Ranking, vendor grand totals and award amounts still use cellTotal.)
+  // NOTE: the delivery toggle is NOT applied here. When it is off the server
+  // returns cells whose `total` is already reduced AND whose `other_charges`
+  // no longer contain the delivery entries, so every helper below derives the
+  // ex-delivery figure naturally. Threading a flag through each call site was
+  // tried first and silently missed nine of them.
   const cellLineTotal = (p, vid) => C.cellLineTotal(p, vid);
   const landed = (p, vid) => C.landedLinePerUnit(p, vid);
   const vendorTotal = (vid) => C.vendorTotal(vid, products);
@@ -1074,13 +1089,19 @@ const QuoteComparison = ({
             })()}
           </div>
           <div className={styles.landed}>
-            landed <span className={styles.mono}>₹{fmt(p.quotes?.[vid]?.base)}/{p.unit}</span>
+            {/* This used to read "landed" while rendering q.base — the PRE-charge
+                unit price. So the big number was always delivery-inclusive and
+                the line labelled "landed" was always delivery-exclusive:
+                exactly inverted. Now it follows the toggle and says so. */}
+            {view?.has_delivery_charges && !freightOn ? "ex-delivery" : "with charges"}{" "}
+            <span className={styles.mono}>₹{fmt(landed(p, vid))}/{p.unit}</span>
           </div>
           {delta && (
             <div className={`${styles.deltaLpr} ${delta.down ? styles.down : styles.up}`}>
               <span>{(delta.down ? "↓ " : "↑ ") + delta.pct + "% vs LPR"}</span>
             </div>
           )}
+          <VendorNegotiation product={p} vendorId={vid} />
           {q.missing && (
             <div className={styles.missing}>
               <AlertTriangle size={11} /> missing costs
@@ -1202,6 +1223,29 @@ const QuoteComparison = ({
                 >
                   Force re-select anyway
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* THE award fact, stated in words, on every awarded cell regardless of
+              approval state. Previously the cell said only "APPROVED" and the
+              award was carried by colour alone — and a merely-cheapest L1 cell
+              is ALSO green (a pale tint), which is what made the finalized
+              vendor hard to pick out. Solid fill vs tint is the distinction. */}
+          {finVendor && (
+            <div
+              className={styles.finalizedBar}
+              data-testid="finalized-badge"
+              title={
+                p.finalized_by?.name
+                  ? `Finalized by ${p.finalized_by.name}${p.finalized_by.at ? ` on ${fmtDateTime(p.finalized_by.at)}` : ""}`
+                  : "Finalized"
+              }
+            >
+              <Check size={11} strokeWidth={3} />
+              FINALIZED
+              {p.finalized_by?.name && (
+                <span className={styles.finalizedWho}>· {shortName(p.finalized_by.name)}</span>
               )}
             </div>
           )}
@@ -1427,12 +1471,11 @@ const QuoteComparison = ({
                     {p.lpr?.date && <span style={{ color: "var(--fg-4)" }}>({fmtDate(p.lpr.date)})</span>}
                   </div>
                 )}
-                {p.round?.n != null && (
-                  <div className={styles.roundInfo}>
-                    <span className={styles.rBadge}>Round {p.round.n}</span>
-                    {p.round.when && <span>Ended {fmtDateTime(p.round.when)}</span>}
-                  </div>
-                )}
+                {/* Full negotiation state for this product — state, round
+                    position, reply counts, the buyer's asks, and any RFQ-wide
+                    ask. Replaces the separate panel that used to sit above the
+                    table on a different endpoint. */}
+                <ProductNegotiation product={p} />
                 {/* Per-product entry into the negotiation wizard — preselects
                     this product. Shown for negotiable (quoted, unlocked) items. */}
                 {!quotesLocked && sortedVendors.some((v) => p.quotes?.[v.id]) && (
@@ -2248,13 +2291,18 @@ const QuoteComparison = ({
                 </button>
               </div>
             )}
-            <div
-              className={`${styles.toggle} ${freightOn ? styles.isOn : ""}`}
-              onClick={() => setFreightOn((f) => !f)}
-            >
-              <span className={styles.track} />
-              <span>{freightOn ? "Landed cost (with freight)" : "Base cost (no freight)"}</span>
-            </div>
+            {/* Hidden when nothing on this RFQ carries a delivery charge —
+                76% of production RFQs. Offering a control that visibly does
+                nothing is what got this reported as broken. */}
+            {view?.has_delivery_charges && (
+              <div
+                className={`${styles.toggle} ${freightOn ? styles.isOn : ""}`}
+                onClick={() => setFreightOn((f) => !f)}
+              >
+                <span className={styles.track} />
+                <span>Include delivery charges</span>
+              </div>
+            )}
           </div>
         </div>
 
