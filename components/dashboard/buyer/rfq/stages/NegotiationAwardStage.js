@@ -9,7 +9,7 @@
 // position, reply counts and the buyer's asks now render on the product rows
 // themselves — see quoteComparison/NegotiationRowCells.js.
 import dynamic from "next/dynamic";
-import { StageSkeleton } from "./StageShared";
+import { StageSkeleton, StageNoPermission } from "./StageShared";
 
 const QuoteComparison = dynamic(
   () => import("@/components/dashboard/buyer/quoteComparison/QuoteComparison"),
@@ -20,6 +20,11 @@ const QuoteComparison = dynamic(
 // that the embedded sheet turns into "scroll to the first product × vendor cell
 // where this user's approval is pending, and mark it". 0 = never asked.
 export default function NegotiationAwardStage({ rfq, stage, focusAwardToken = 0 }) {
+  // The server redacts stages this user may not read (rfqLifecycleShaper:
+  // redactUnreadableStages) — phase detail is stripped before it leaves the
+  // API, and can_read=false is what says so. This panel is the visible half.
+  if (stage?.can_read === false) return <StageNoPermission stageLabel="Negotiation & Award" />;
+
   if (!rfq?.id) return <StageSkeleton />;
 
   return (

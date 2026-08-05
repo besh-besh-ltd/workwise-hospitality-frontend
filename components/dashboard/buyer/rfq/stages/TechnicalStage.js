@@ -5,7 +5,7 @@
 // lifecycle header. Renders "Skipped" when no technical evaluation applies.
 import dynamic from "next/dynamic";
 import { ClipboardCheck } from "lucide-react";
-import { StageCard, StageSkeleton } from "./StageShared";
+import { StageCard, StageSkeleton, StageNoPermission } from "./StageShared";
 
 const BuyerTechnicalEvaluation = dynamic(
   () => import("@/components/dashboard/buyer/technical-evaluation"),
@@ -13,6 +13,11 @@ const BuyerTechnicalEvaluation = dynamic(
 );
 
 export default function TechnicalStage({ rfq, stage }) {
+  // The server redacts stages this user may not read (rfqLifecycleShaper:
+  // redactUnreadableStages) — phase detail is stripped before it leaves the
+  // API, and can_read=false is what says so. This panel is the visible half.
+  if (stage?.can_read === false) return <StageNoPermission stageLabel="Technical Evaluation" />;
+
   if (stage?.state === "skipped") {
     return (
       <StageCard icon={<ClipboardCheck size={15} strokeWidth={2} />} title="Technical evaluation">

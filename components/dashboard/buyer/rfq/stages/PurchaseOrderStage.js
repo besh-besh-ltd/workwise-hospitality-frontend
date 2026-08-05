@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { FileText, IndianRupee, Clock3, CircleCheck, TriangleAlert } from "lucide-react";
 import { statusLabel, inr, initialsOf, fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
-import { removalReasonLabel } from "./StageShared";
+import { removalReasonLabel, StageNoPermission } from "./StageShared";
 
 // status → tone (pill colours + left card-accent) so each PO state reads
 // distinctly: draft/grey, in-approval/amber, awaiting-vendor/blue,
@@ -155,6 +155,11 @@ function ApprovalProgress({ instances }) {
 }
 
 export default function PurchaseOrderStage({ stage }) {
+  // The server redacts stages this user may not read (rfqLifecycleShaper:
+  // redactUnreadableStages) — phase detail is stripped before it leaves the
+  // API, and can_read=false is what says so. This panel is the visible half.
+  if (stage?.can_read === false) return <StageNoPermission stageLabel="Purchase Order" />;
+
   const phase = stage?.phase || {};
   const pos = Array.isArray(phase.purchase_orders) ? phase.purchase_orders : [];
 
