@@ -36,6 +36,7 @@ import {
   Lock,
   Plus,
   ShieldAlert,
+  Download,
 } from "lucide-react";
 
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -48,6 +49,7 @@ import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/Stag
 
 import styles from "./QuoteComparison.module.scss";
 import * as C from "./computeHelpers";
+import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
 
 const { fmt, fmtLakh } = C;
 
@@ -172,6 +174,7 @@ const QuoteComparison = ({
   // vendor ordering + per-cell kebab + quote history
   const [vendorSort, setVendorSort] = useState("price"); // price | tech | track
   const [sortOpen, setSortOpen] = useState(false);
+  const [downloading, setDownloading] = useState(null);
   const [sortPos, setSortPos] = useState(null); // { x, y } screen coords for portaled menu
   const sortBtnRef = useRef(null);
   const [menu, setMenu] = useState(null); // { x, y, pid, vid }
@@ -438,6 +441,24 @@ const QuoteComparison = ({
   // number/vendor identity and shows a clear banner (counts stay visible).
   const quotesLocked = !!view?.quotes_locked;
   const bidEndDate = view?.bid_end_date || rfqInfo.deadline || null;
+
+  // Excel downloads. Built from `view` + the same computeHelpers this component
+  // renders from, so the workbook and the screen can never disagree. Generation
+  // is synchronous and can take a moment on a wide RFQ (46 products x 5 vendors
+  // is real), so yield a frame first to let the button repaint as "Preparing…".
+  const handleDownload = async (kind) => {
+    if (downloading) return;
+    setDownloading(kind);
+    try {
+      await new Promise((r) => setTimeout(r, 0));
+      if (kind === "summary") downloadSummaryWorkbook(view);
+      else downloadComparisonWorkbook(view);
+    } catch (e) {
+      showToast("Could not build the Excel file.");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   // Auto-determined view role (no manual switch):
   //   approver  → it's this user's turn to approve at least one product (awaiting_me)
@@ -2174,6 +2195,34 @@ const QuoteComparison = ({
             </button>
           </div>
           <div className={styles.toolbarRight}>
+            {/* Excel downloads. Hidden while quotes are sealed — the same rule
+                the server applies to the legacy export ("locked until the quote
+                submission deadline has passed in IST"); there is nothing to
+                export yet, and offering it would imply otherwise. */}
+            {!quotesLocked && (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  onClick={() => handleDownload("comparison")}
+                  disabled={downloading !== null}
+                  title="Every product against every vendor, with the negotiation trail"
+                >
+                  <Download size={13} />
+                  {downloading === "comparison" ? "Preparing…" : "Comparison .xlsx"}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  onClick={() => handleDownload("summary")}
+                  disabled={downloading !== null}
+                  title="One-look totals, L1, award quality and negotiation gain"
+                >
+                  <Download size={13} />
+                  {downloading === "summary" ? "Preparing…" : "Summary .xlsx"}
+                </button>
+              </>
+            )}
             {activeView !== "overall" && (
               <div className={styles.sortControl}>
                 <button
