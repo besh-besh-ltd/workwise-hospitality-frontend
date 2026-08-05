@@ -15,7 +15,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Layers, PiggyBank, Package, TrendingDown, UserCheck, Users } from "lucide-react";
+import { useRouter } from "next/router";
+import { CalendarClock, Layers, PiggyBank, TrendingDown, UserCheck, Users } from "lucide-react";
 
 import { getNegotiationListView } from "@/services/negotiation";
 import { negStatePresentation } from "../round-detail/negotiationStates";
@@ -38,6 +39,16 @@ const ROUNDS_PER_PAGE = 20;
 const LIST_HREF = "/dashboard/buyer/negotiation";
 
 const roundHref = (roundId) => `/dashboard/buyer/negotiation/round/${roundId}`;
+// RFQ negotiation has no per-round approve URL — the approve page is
+// RFQ-scoped and self-filters to the rounds this user can act on. Sending an
+// approver to the read-only round page first costs them a second navigation to
+// do the one thing they came for.
+const approveHref = (rfqId) => `/dashboard/buyer/negotiation/${rfqId}/approve`;
+// `action_required` is the authoritative per-user signal, and it is now aligned
+// server-side to the round's approval deadline — so this can never route
+// someone to an approval page with nothing on it.
+const destinationFor = (round, rfqId) =>
+  round?.action_required ? approveHref(rfqId) : roundHref(round?.round_id);
 
 /* ── gist tiles ───────────────────────────────────────────────────────────── */
 
@@ -115,7 +126,8 @@ function windowText(round) {
   return `${end.getTime() > Date.now() ? "Ends" : "Ended"} ${fmtDate(round.end_date)}`;
 }
 
-function RoundsTable({ rounds }) {
+function RoundsTable({ rounds, rfqId }) {
+  const router = useRouter();
   return (
     <div className="table-scroll">
       <table className="table" data-testid="rounds-table">
@@ -141,9 +153,28 @@ function RoundsTable({ rounds }) {
             const invited = Number(r.invited_count || 0);
             const quoted = Number(r.quotes_received || 0);
             return (
-              <tr key={r.round_id} data-testid={`round-row-${r.round_id}`}>
+              <tr
+                key={r.round_id}
+                data-testid={`round-row-${r.round_id}`}
+                // Mouse convenience only. Deliberately NO role="link" and no
+                // tabIndex: a role on a <tr> overrides its implicit `row` role
+                // and drops the row out of the table's accessibility tree. The
+                // <Link> on the round number stays the keyboard/AT affordance
+                // and already handles Enter, so the row needs no second tab
+                // stop pointing at the same place.
+                style={{ cursor: "pointer" }}
+                onClick={() => router.push(destinationFor(r, rfqId))}
+              >
                 <td className="strong">
-                  <Link href={roundHref(r.round_id)} style={{ color: "inherit", textDecoration: "none" }}>
+                  {/* Kept alongside the row handler for middle-click and
+                      open-in-new-tab; same destination either way. */}
+                  <Link
+                    href={destinationFor(r, rfqId)}
+                    style={{ color: "inherit", textDecoration: "none" }}
+                    // The row handler would otherwise fire too, pushing the
+                    // same URL twice and adding a duplicate history entry.
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     Round {r.round_number || r.stored_round_number || 1}
                   </Link>
                   {r.action_required && r.action_label && (
@@ -328,7 +359,7 @@ export default function RfqNegotiationPage({ rfqId }) {
 
       {/* ── the gist ── every question the card raised, answered before the
           reader has to open a single round. ── */}
-      <div className="stat-strip" style={{ marginTop: 14 }} data-testid="gist-strip">
+      <div className="stat-strip cols-3" style={{ marginTop: 14 }} data-testid="gist-strip">
         <SavedTile row={parent} />
 
         <Tile
@@ -337,25 +368,27 @@ export default function RfqNegotiationPage({ rfqId }) {
           icon={<Layers />}
           value={roundCount}
           label={roundCount === 1 ? "Round" : "Rounds"}
-          sub={<StateStrip stateCounts={parent.state_counts} roundCount={roundCount} showTotal={false} testId="gist-state-strip" />}
-        />
-
-        <Tile
-          testId="gist-products"
-          tone="blue"
-          icon={<Package />}
-          value={productCount}
-          label={productCount === 1 ? "Product negotiated" : "Products negotiated"}
-          sub="Not every product on the RFQ — only the ones a round touched."
-        />
-
-        <Tile
-          testId="gist-vendors"
-          tone="violet"
-          icon={<Users />}
-          value={vendorCount}
-          label={vendorCount === 1 ? "Vendor invited" : "Vendors invited"}
-          sub={`${quotesReceived} vendor ${quotesReceived === 1 ? "response" : "responses"}`}
+          sub={
+            <>
+              <StateStrip stateCounts={parent.state_counts} roundCount={roundCount} showTotal={false} testId="gist-state-strip" />
+              {/* Products and vendors used to be tiles of their own. Neither
+                  drives a decision: one had a hardcoded sentence for its
+                  sub-line, the other duplicated a figure already in the hero.
+                  They live here now, one hover away. */}
+              <span
+                data-testid="gist-rounds-detail"
+                className="fs-11 text-fg-3"
+                style={{ cursor: "help", borderBottom: "1px dotted var(--border-strong)", alignSelf: "flex-start" }}
+                title={
+                  `${productCount} ${productCount === 1 ? "product" : "products"} negotiated — not every product on the RFQ, only the ones a round touched. `
+                  + `${vendorCount} ${vendorCount === 1 ? "vendor" : "vendors"} invited · `
+                  + `${quotesReceived} vendor ${quotesReceived === 1 ? "response" : "responses"}.`
+                }
+              >
+                scope
+              </span>
+            </>
+          }
         />
 
         {mineOnPage ? (
@@ -364,7 +397,7 @@ export default function RfqNegotiationPage({ rfqId }) {
             tone="amber"
             icon={<UserCheck />}
             value={
-              <Link href={roundHref(mineOnPage.round_id)} style={{ color: "inherit" }} data-testid="needs-you-link">
+              <Link href={destinationFor(mineOnPage, rfqId)} style={{ color: "inherit" }} data-testid="needs-you-link">
                 Round {mineOnPage.round_number || mineOnPage.stored_round_number || 1}
               </Link>
             }
@@ -396,7 +429,6 @@ export default function RfqNegotiationPage({ rfqId }) {
             icon={<CalendarClock />}
             value="All clear"
             label="Needs you"
-            sub="Nothing needs you right now"
           />
         )}
       </div>
@@ -440,7 +472,7 @@ export default function RfqNegotiationPage({ rfqId }) {
               </p>
             </div>
           ) : (
-            <RoundsTable rounds={rounds} />
+            <RoundsTable rounds={rounds} rfqId={rfqId} />
           )}
         </div>
       </div>
