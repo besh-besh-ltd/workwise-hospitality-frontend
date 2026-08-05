@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { HiX, HiPencil } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
 import { getHospitalityEntities, getUserMappingsById } from "@/services/hospitality";
+import { getApprovalProcesses } from "@/services/process";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import styles from "@/components/dashboard/admin/account-management/manage-accounts/ManageAccounts.module.scss";
 
@@ -23,6 +24,12 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(propSelectedDepartment || null);
+  const [processes, setProcesses] = useState([]);
+  // Single process per scope row, matching the Business Unit / Department
+  // pattern. Multi-process access is achieved by adding multiple rows (same
+  // role, same hotel/dept, different process) — mirrors how multi-hotel works.
+  const [selectedProcess, setSelectedProcess] = useState(null); // {id, name, process_type} | null
+  const [processesLoading, setProcessesLoading] = useState(false);
 
   // null = create mode; number = index into existingRoles being edited.
   // When set, the bottom form pre-fills with that role's scope and the
@@ -30,7 +37,9 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [editingIndex, setEditingIndex] = useState(null);
   const [allAccessConfirm, setAllAccessConfirm] = useState({ open: false, scope: null });
 
-  // Expose current form state to parent so it can auto-add on save
+  // Expose current form state to parent so it can auto-add on save.
+  // Empty process = scope row with process_id = null = "all processes" (the
+  // backwards-compat wildcard).
   useEffect(() => {
     if (!pendingScopeRef) return;
     if (selectedRole && selectedCompany) {
@@ -40,12 +49,43 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
         company_id: selectedCompany.id,
         hotel_id: selectedHotel?.id || null,
         department_id: selectedDepartment?.id || null,
+        process_id: selectedProcess?.id || null,
+        process_name: selectedProcess?.name || null,
+        process_type: selectedProcess?.process_type || null,
         permissions
       };
     } else {
       pendingScopeRef.current = null;
     }
-  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, permissions, pendingScopeRef]);
+  }, [selectedRole, selectedCompany, selectedHotel, selectedDepartment, selectedProcess, permissions, pendingScopeRef]);
+
+  // Load processes for the currently-selected company. Per-company catalog
+  // (tbl_approval_processes is scoped per parent company, bridged via
+  // tbl_hospitality_companies.buyer_company_id on the backend). Honors
+  // user_type=7 (hospitality admin) so a single admin can configure scope
+  // across multiple companies.
+  useEffect(() => {
+    if (!selectedCompany?.id) {
+      setProcesses([]);
+      setSelectedProcess(null);
+      return;
+    }
+    let cancelled = false;
+    setProcessesLoading(true);
+    getApprovalProcesses({ company_id: selectedCompany.id })
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.data?.data || res?.data || [];
+        setProcesses(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setProcesses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProcessesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedCompany?.id]);
 
   /* ---------------- Effects ---------------- */
 
@@ -250,6 +290,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setSelectedCompany(null);
     setSelectedHotel(null);
     setSelectedDepartment(null);
+    setSelectedProcess(null);
     setPermissions({});
     setError(null);
   };
@@ -273,26 +314,36 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
       company_id: selectedCompany.id,
       hotel_id: selectedHotel?.id || null,
       department_id: selectedDepartment?.id || null,
+      process_id: selectedProcess?.id || null,
+      process_name: selectedProcess?.name || null,
+      process_type: selectedProcess?.process_type || null,
       permissions
     };
 
-    // Prevent exact duplicate role scope
+    // Prevent exact duplicate role scope. Tuple includes process_id so
+    // (role, company, hotel, dept, P1) and (role, company, hotel, dept, P2)
+    // are independent rows. Admins create multi-process access by adding
+    // multiple rows (one per process) — same pattern as multi-hotel today.
     const isDuplicate = (existingRoles || []).some((r, i) => {
       if (editingIndex !== null && i === editingIndex) return false;
       return r.role_id === newScope.role_id &&
         r.company_id === newScope.company_id &&
         (r.hotel_id || null) === newScope.hotel_id &&
-        (r.department_id || null) === newScope.department_id;
+        (r.department_id || null) === newScope.department_id &&
+        (r.process_id || null) === newScope.process_id;
     });
     if (isDuplicate) {
       setError("This exact role assignment already exists.");
       return;
     }
 
-    // If hotel or department is "All" (null), confirm with user
+    // If hotel, department, or process is "All" (null), confirm with user.
+    // The process confirm only fires when the company actually has processes
+    // configured — picking "all" on an empty catalog is unambiguous.
     const allHotel = !newScope.hotel_id;
     const allDept = !newScope.department_id;
-    if (allHotel || allDept) {
+    const allProcess = !newScope.process_id && processes.length > 0;
+    if (allHotel || allDept || allProcess) {
       setAllAccessConfirm({ open: true, scope: newScope });
       return;
     }
@@ -320,6 +371,19 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setSelectedCompany(matchedCompany || null);
     setSelectedHotel(matchedHotel);
     setSelectedDepartment(matchedDept);
+    // Process pre-fill: single value, matching dept/hotel selection. The
+    // process options list reloads asynchronously via the selectedCompany
+    // effect; we set the value directly so the saved process shows even
+    // before the catalog finishes loading.
+    if (role.process_id) {
+      setSelectedProcess({
+        id: role.process_id,
+        name: role.process_name || `Process #${role.process_id}`,
+        process_type: role.process_type || null,
+      });
+    } else {
+      setSelectedProcess(null);
+    }
     // Permissions will auto-load via the selectedRole effect, but seed with
     // the saved permissions immediately so there's no flash of empty state.
     setPermissions(role.permissions || {});
@@ -354,6 +418,18 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   const hasPermissions = Object.keys(permissions).length > 0;
   const isEditing = editingIndex !== null;
+
+  // ARC is process-free: a role whose permissions are ALL ARC resources
+  // (arc / arc-tech / arc-comm / arc-committee) must never be process-scoped —
+  // ARC entities carry process_id = NULL, so a process on the grant would
+  // wrongly narrow it. Hide the Process picker and force process_id = NULL.
+  const isArcResource = (r) => r === "arc" || (typeof r === "string" && r.startsWith("arc-"));
+  const permissionResources = Object.keys(permissions);
+  const isArcOnlyRole = hasPermissions && permissionResources.length > 0 && permissionResources.every(isArcResource);
+
+  useEffect(() => {
+    if (isArcOnlyRole && selectedProcess) setSelectedProcess(null);
+  }, [isArcOnlyRole, selectedProcess]);
 
   // Group existingRoles into Company → Business Unit → [roles] so the admin
   // can scan their scope hierarchy directly instead of paging through a flat
@@ -435,6 +511,17 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                                   {role.department_id && (
                                     <span className={styles.scopeRoleDeptTag}>
                                       {getDeptName(role.department_id)}
+                                    </span>
+                                  )}
+                                  {role.process_id && (
+                                    <span
+                                      className={styles.scopeRoleDeptTag}
+                                      style={{
+                                        background: role.process_type === "TENDER" ? "#fef3c7" : "#dbeafe",
+                                        color: role.process_type === "TENDER" ? "#92400e" : "#1e40af",
+                                      }}
+                                    >
+                                      {role.process_name || `Process #${role.process_id}`}
                                     </span>
                                   )}
                                   {isThisRowEditing && (
@@ -590,6 +677,52 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                   ))}
                 </select>
               </div>
+
+              {/* Process — single select, matching the Business Unit /
+                  Department dropdowns above. NULL on emit = "all processes"
+                  (mirrors how hotel_id/department_id work). Admins create
+                  multi-process access by adding multiple role rows.
+                  Hidden entirely for ARC-only roles — ARC is process-free. */}
+              {isArcOnlyRole ? (
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>Process</label>
+                  <small className={styles.formSmallHint} style={{ color: "#9d174d" }}>
+                    ARC roles are process-free — this grant applies to all rate contracts. No process needed.
+                  </small>
+                </div>
+              ) : (
+              <div className={styles.addRoleField}>
+                <label className={styles.addRoleFieldLabel}>
+                  Process
+                  <span className={styles.addRoleFieldHint}> (optional)</span>
+                </label>
+                <select
+                  className={styles.formSelect}
+                  disabled={!selectedCompany || !selectedRole || processesLoading}
+                  value={selectedProcess?.id || ""}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    const proc = processes.find((p) => p.id === id) || null;
+                    setSelectedProcess(proc);
+                    if (proc) setError(null);
+                  }}
+                >
+                  <option value="">
+                    {processesLoading ? "Loading processes..." : "All Processes"}
+                  </option>
+                  {processes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.process_type ? ` (${p.process_type})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {selectedCompany && !processesLoading && processes.length === 0 && (
+                  <small className={styles.formSmallHint}>
+                    No processes configured for this company yet. Role will apply to all processes once they're added.
+                  </small>
+                )}
+              </div>
+              )}
             </div>
 
             {/* Permissions Preview */}
@@ -656,6 +789,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
           const parts = [];
           if (!allAccessConfirm.scope.hotel_id) parts.push('all business units');
           if (!allAccessConfirm.scope.department_id) parts.push('all departments');
+          if (!allAccessConfirm.scope.process_id && processes.length > 0) parts.push('all processes');
           return `This role will have access across ${parts.join(' and ')}. Are you sure?`;
         })()}
         confirmButtonColor="warning"

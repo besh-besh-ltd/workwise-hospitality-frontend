@@ -40,6 +40,7 @@ import {
 } from "@/services/hospitality";
 import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
 import { toast } from "react-toastify";
+import { sendLog, SeverityNumber } from "@/lib/otel";
 
 import StatsBar from "./manage-accounts/StatsBar";
 import UserFilters from "./manage-accounts/UserFilters";
@@ -47,6 +48,42 @@ import UserTable from "./manage-accounts/UserTable";
 import EditAccountModal from "./manage-accounts/EditAccountModal";
 import AssignAccessModal from "./manage-accounts/AssignAccessModal";
 import styles from "./manage-accounts/ManageAccounts.module.scss";
+
+// Order matches the Promise.allSettled batch in loadEditModalData().
+const EDIT_FETCH_SOURCES = ["getUserRoleScopes", "getUserMappingsById", "getUserDepartments"];
+
+/**
+ * Report an edit-modal prefetch failure to OpenTelemetry (the app's
+ * client-side error channel — see lib/otel.js and shared/ErrorBoundary.js).
+ *
+ * These used to be swallowed by `.catch(() => [])`, which is how an admin
+ * could end up staring at an empty roles list that was really a failed
+ * request. Services reject with `{ message: <axiosError> }`, so unwrap one
+ * level to keep the HTTP status and server message.
+ */
+const reportEditLoadFailure = (raw, source, extra = {}) => {
+  try {
+    const err = raw?.message && typeof raw.message === "object" ? raw.message : raw;
+    const response = err?.response;
+    sendLog({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: "ERROR",
+      body: err?.message || `Edit account prefetch failed (${source})`,
+      attributes: {
+        "error.type": err?.name || "EditAccountPrefetchError",
+        "error.message": err?.message || String(err ?? ""),
+        "error.stack": err?.stack || "",
+        "http.response.status_code": response?.status ?? 0,
+        "http.response.body": response?.data ? JSON.stringify(response.data).slice(0, 1000) : "",
+        "browser.url": typeof window !== "undefined" ? window.location.href : "",
+        "log.source": source,
+        ...extra,
+      },
+    });
+  } catch (_) {
+    /* telemetry must never break the flow */
+  }
+};
 
 const roleOptions = [
   { value: 8, label: "Management", color: "#2E5BA8" },
@@ -68,7 +105,11 @@ const ManageAccountsPage = () => {
   const [hotelsByCompany, setHotelsByCompany] = useState({});
 
   const [editModal, setEditModal] = useState({ open: false, account: null });
-  const [editModalData, setEditModalData] = useState({ roleScopes: [], departments: [], mappings: [] });
+  // `status` gates the modal: it opens immediately (so the admin sees the
+  // account's basic details right away) but cannot be submitted until the
+  // role-scope / department / mapping fetches have actually resolved.
+  // "idle" | "loading" | "ready" | "error"
+  const [editModalData, setEditModalData] = useState({ status: "idle", roleScopes: null, departments: [], mappings: [] });
   const [showCustomRolesModal, setShowCustomRolesModal] = useState(false);
 
   // Access modal state
@@ -227,22 +268,55 @@ const ManageAccountsPage = () => {
     fetchUsers(currentFilters, pagination);
   };
 
-  const handleEditAccount = async (account) => {
-    setEditModal({ open: true, account });
-    const promises = [];
-    if (isHospitalityCompany) {
-      promises.push(
-        getUserRoleScopes(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => []),
-        getUserMappingsById(account.id).then((res) => res?.data || []).catch(() => [])
+  /* Loads everything the edit modal needs before it can be submitted.
+     These fetches populate the arrays the save payload is built from, and the
+     backend treats `roles: []` / `department_ids: []` as "delete them all". So
+     a swallowed error here used to hand the admin an empty form that wiped
+     every grant on save. Now: failures surface as an error state (never as
+     `[]`), and the modal stays unsubmittable until `status === "ready"`. */
+  const loadEditModalData = useCallback(async (account, { isHospitality }) => {
+    // Clear as well as flag: otherwise opening a second account briefly shows
+    // (and, on a failed load, keeps holding) the previous account's scopes.
+    setEditModalData({ status: "loading", roleScopes: null, departments: [], mappings: [] });
+
+    const results = await Promise.allSettled([
+      isHospitality ? getUserRoleScopes(account.id) : Promise.resolve(null),
+      isHospitality ? getUserMappingsById(account.id) : Promise.resolve(null),
+      getUserDepartments(account.id),
+    ]);
+
+    const failed = results
+      .map((r, i) => (r.status === "rejected" ? { source: EDIT_FETCH_SOURCES[i], reason: r.reason } : null))
+      .filter(Boolean);
+
+    if (failed.length > 0) {
+      failed.forEach(({ source, reason }) =>
+        reportEditLoadFailure(reason, source, { "app.user_id": String(account.id) })
       );
-    } else {
-      promises.push(Promise.resolve([]), Promise.resolve([]));
+      setEditModalData((prev) => ({ ...prev, status: "error" }));
+      return;
     }
-    promises.push(
-      getUserDepartments(account.id).then((r) => r?.data?.data || r?.data || []).catch(() => [])
-    );
-    const [roleScopes, mappings, departments] = await Promise.all(promises);
-    setEditModalData({ roleScopes, departments, mappings });
+
+    const [scopesRes, mappingsRes, deptsRes] = results.map((r) => r.value);
+    setEditModalData({
+      status: "ready",
+      // `null` (not `[]`) means "never fetched" — the modal then omits `roles`
+      // from the payload entirely rather than sending an empty list.
+      roleScopes: isHospitality ? (scopesRes?.data?.data || scopesRes?.data || []) : null,
+      mappings: isHospitality ? (mappingsRes?.data || []) : [],
+      departments: deptsRes?.data?.data || deptsRes?.data || [],
+    });
+  }, []);
+
+  const handleEditAccount = (account) => {
+    setEditModal({ open: true, account });
+    loadEditModalData(account, { isHospitality: isHospitalityCompany });
+  };
+
+  const retryEditModalData = () => {
+    if (editModal.account) {
+      loadEditModalData(editModal.account, { isHospitality: isHospitalityCompany });
+    }
   };
 
   const [approvalImpactModal, setApprovalImpactModal] = useState({ open: false, type: null, data: null, pendingAccountData: null });
@@ -294,6 +368,17 @@ const ManageAccountsPage = () => {
           data: errData.data,
           pendingAccountData: null
         });
+        return;
+      }
+      // Server-side backstop against an empty payload erasing every grant.
+      // Reaching it means the client sent a wipe it could not vouch for —
+      // reload the modal's data rather than letting the admin retry blind.
+      if (errData?.code === 'SCOPE_CLEAR_NOT_CONFIRMED' || errData?.code === 'ROLE_SCOPE_COMPANY_REQUIRED') {
+        reportEditLoadFailure(err, `updateUserAccount:${errData.code}`, {
+          "app.user_id": String(accountData?.id ?? ""),
+        });
+        toast.error(errData.message || "Failed to update user");
+        retryEditModalData();
         return;
       }
       toast.error("Failed to update user");
@@ -479,6 +564,8 @@ const ManageAccountsPage = () => {
           initialRoleScopes={editModalData.roleScopes}
           userDepartments={editModalData.departments}
           userMappings={editModalData.mappings}
+          dataStatus={editModalData.status}
+          onRetryLoad={retryEditModalData}
           onSave={handleSaveAccount}
           isSaving={savingAccount}
         />

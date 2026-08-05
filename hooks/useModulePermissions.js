@@ -13,6 +13,7 @@ import { getBulkPermissions } from "@/services/rbac";
  */
 export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = null, enabled = true }) => {
   const [permissions, setPermissions] = useState([]);
+  const [scope, setScope] = useState(null); // { hotels:{all,ids}, departments:{all,ids}, processes:{all,ids} } or null
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const fetchIdRef = useRef(0); // Tracks latest fetch to discard stale responses
@@ -60,16 +61,22 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
 
       const responseData = response?.data?.data || response?.data || {};
 
-      // Extract permissions from the new response structure
-      // Response: { permissions: { tender: ["read", "create", "update"] }, meta: {...} }
+      // Backwards-compat: legacy shape was { permissions: { tender: ["read",...] } }
+      // New shape (Shape A): { permissions: { tender: { actions: [...], scope: {...} } } }
       const permissionsObj = responseData?.permissions || responseData || {};
-      const modulePermissions = permissionsObj[moduleKey] || [];
+      const moduleEntry = permissionsObj[moduleKey];
+      const modulePermissions = Array.isArray(moduleEntry)
+        ? moduleEntry
+        : (moduleEntry?.actions || []);
+      const moduleScope = (moduleEntry && !Array.isArray(moduleEntry) && moduleEntry.scope) || null;
       setPermissions(modulePermissions);
+      setScope(moduleScope);
     } catch (err) {
       if (fetchIdRef.current !== currentFetchId) return;
       console.error(`Failed to fetch ${moduleKey} permissions:`, err);
       setError(err?.message || "Failed to fetch permissions");
       setPermissions([]);
+      setScope(null);
     } finally {
       if (fetchIdRef.current === currentFetchId) {
         setLoading(false);
@@ -105,8 +112,23 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
 
   const accessMode = getAccessMode();
 
+  // Process-scope derivation. NULL/missing scope.processes.all = true means
+  // legacy/wildcard; allowedProcessIds === null is the "no filter" signal.
+  // Specific subsets surface as an array of process IDs.
+  const processesScope = scope?.processes;
+  const allowedProcessIds = (processesScope?.all || !processesScope)
+    ? null
+    : (processesScope.ids || []);
+  const isProcessAllowed = useCallback((id) => {
+    if (allowedProcessIds === null) return true;
+    return allowedProcessIds.includes(Number(id));
+  }, [allowedProcessIds]);
+
   return {
     permissions,
+    scope,
+    allowedProcessIds,
+    isProcessAllowed,
     loading,
     error,
     canRead,

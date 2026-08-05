@@ -98,7 +98,7 @@ const ClarificationManagement = () => {
   }
 
   return (
-    <div className="clarification-management px-5 mb-4" style={{ marginTop: "80px" }}>
+    <div className="clarification-management px-2 mb-4">
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div className="d-flex align-items-center gap-3">

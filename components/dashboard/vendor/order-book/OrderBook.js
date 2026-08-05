@@ -9,11 +9,15 @@ import { getCompanyUsers } from "@/services/Auth";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import RaiseInvoiceModal from "./RaiseInvoiceModal";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
+import useIsMobile from "@/hooks/useIsMobile";
 import { BsFileEarmarkText } from "react-icons/bs";
 import styles from "@/components/dashboard/buyer/purchase-order/PurchaseOrder.module.scss";
 
 const OrderBook = () => {
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Vendors can view but not edit POs — no `edit` param is consumed here.
   const { rfq, po } = router.query;
@@ -264,110 +268,109 @@ const OrderBook = () => {
     };
   }, [rfqNo]);
 
+  const orderBookSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={myRFQs}
+      loading={rfqLoading}
+      selectedRfqId={rfq ? parseInt(rfq) : null}
+      linkPrefix="/dashboard/vendor/order-book"
+      linkQueryKey="rfq"
+      rfqNo={rfqNo}
+      onRfqNoChange={setRfqNo}
+      searchPlaceholder="Search RFQ No."
+      showTypeFilter={false}
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => item.has_acceptance_pending
+        },
+        {
+          key: 'all',
+          label: 'All',
+        }
+      ]}
+      defaultTab="action_required"
+      getItemTags={(item) => {
+        const tags = [];
+        if (item.has_acceptance_pending) {
+          tags.push({ label: 'Action Required', variant: 'warning' });
+        }
+        if (item.approval_required) {
+          tags.push({ label: 'Approval Required', variant: 'danger' });
+        }
+        return tags;
+      }}
+      pageId="vendor-order-book"
+    />
+  );
+
   return (
     <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Order Book</h3>
+      <TwoPanelPage
+        title="Order Book"
+        subtitle="View and manage your received orders."
+        sidebar={orderBookSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
+        mobileToggleLabel="Select RFQ"
+      >
+        {!rfq && (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyStateIcon}>
+              <BsFileEarmarkText size={36} />
             </div>
+            <h4 className={styles.emptyStateTitle}>Select an RFQ to View Your Orders</h4>
+            <p className={styles.emptyStateDesc}>
+              Choose an RFQ from the sidebar to view and manage your orders.
+            </p>
           </div>
-        </div>
-      </section>
+        )}
 
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={styles.layoutRow}>
-            <RFQListSidebar
-              title="Order Book"
-              rfqList={myRFQs}
-              loading={rfqLoading}
-              selectedRfqId={rfq ? parseInt(rfq) : null}
-              linkPrefix="/dashboard/vendor/order-book"
-              linkQueryKey="rfq"
-              rfqNo={rfqNo}
-              onRfqNoChange={setRfqNo}
-              searchPlaceholder="Search RFQ No."
-              showTypeFilter={false}
-              tabs={[
-                {
-                  key: 'action_required',
-                  label: 'Action Required',
-                  filter: (item) => item.has_acceptance_pending
-                },
-                {
-                  key: 'all',
-                  label: 'All',
-                }
-              ]}
-              defaultTab="action_required"
-              getItemTags={(item) => {
-                const tags = [];
-                if (item.has_acceptance_pending) {
-                  tags.push({ label: 'Action Required', variant: 'warning' });
-                }
-                if (item.approval_required) {
-                  tags.push({ label: 'Approval Required', variant: 'danger' });
-                }
-                return tags;
-              }}
-              pageId="vendor-order-book"
-            />
-            <div className={styles.contentColumn}>
-              {!rfq && (
-                <div className={styles.emptyState}>
-                  <div className={styles.emptyStateIcon}>
-                    <BsFileEarmarkText size={24} />
-                  </div>
-                  <h4 className={styles.emptyStateTitle}>Select an RFQ to View Purchase Orders</h4>
-                  <p className={styles.emptyStateDesc}>
-                    Choose an RFQ from the sidebar to view and manage its purchase orders.
-                  </p>
-                </div>
-              )}
-              {rfq && !po && poData && (
-                <POListing
-                  poList={poData}
-                  totalData={totalData}
-                  handleProgressStatus={handlePODecision}
-                  rfq_id={rfq}
-                  refetchPOList={getPOData}
-                  handleInitiatePO={handleInitiatePO}
-                  onSelect={(po_id) =>
-                    router.push(
-                      `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
-                    )
-                  }
-                  companyUsers={companyUsers}
-                  approvalLevel={approvalLevel}
-                  onAcceptPO={onAcceptPO}
-                  onRejectPO={onRejectPO}
-                />
-              )}
-              {po && poDetails && (
-                <PurchaseOrderDetails
-                  data={poDetails}
-                  handlePODecision={handlePODecision}
-                  refetchPODetails={getPODetails}
-                  handleInitiatePO={handleInitiatePO}
-                  handleBack={() => {
-                    setPODetails(null);
-                    router.push(
-                      `/dashboard/vendor/order-book/?rfq=${rfq}`,
-                      null,
-                      { shallow: true }
-                    );
-                  }}
-                  companyUsers={companyUsers}
-                  onAcceptPO={onAcceptPO}
-                  onRejectPO={onRejectPO}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+        {rfq && !po && poData && (
+          <POListing
+            poList={poData}
+            totalData={totalData}
+            handleProgressStatus={handlePODecision}
+            rfq_id={rfq}
+            refetchPOList={getPOData}
+            handleInitiatePO={handleInitiatePO}
+            onSelect={(po_id) =>
+              router.push(
+                `/dashboard/vendor/order-book/?rfq=${rfq}&po=${po_id}`
+              )
+            }
+            companyUsers={companyUsers}
+            approvalLevel={approvalLevel}
+            onAcceptPO={onAcceptPO}
+            onRejectPO={onRejectPO}
+          />
+        )}
+
+        {po && poDetails && (
+          <PurchaseOrderDetails
+            data={poDetails}
+            handlePODecision={handlePODecision}
+            refetchPODetails={getPODetails}
+            handleInitiatePO={handleInitiatePO}
+            handleBack={() => {
+              setPODetails(null);
+              router.push(
+                `/dashboard/vendor/order-book/?rfq=${rfq}`,
+                null,
+                { shallow: true }
+              );
+            }}
+            companyUsers={companyUsers}
+            onAcceptPO={onAcceptPO}
+            onRejectPO={onRejectPO}
+          />
+        )}
+      </TwoPanelPage>
 
       <RaiseInvoiceModal 
         show={showRaiseInvoiceModal} 

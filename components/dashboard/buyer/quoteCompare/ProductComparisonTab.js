@@ -1,13 +1,20 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReadMore from "@/components/shared/ReadMore";
 import LPRModal from "@/components/shared/LPRModal";
 import ProductComparisonMatrix from "@/components/dashboard/buyer/quoteCompare/tables/ProductComparisonMatrix";
 import QuoteVisibilityLockPanel from "@/components/dashboard/buyer/quoteCompare/QuoteVisibilityLockPanel";
+import NegotiationModal from "@/components/dashboard/buyer/negotiation/NegotiationModal";
+import { getNegotiationRounds } from "@/services/negotiation";
 import {
   addCommasToNumber,
   formatPrice,
 } from "@/utils/sharedFunctions";
 import styles from "./QuoteCompareRevamp.module.scss";
+
+// DOM id of a product card, so a deep link can find one card among many.
+// Mirrors the APPROVAL_DECISION_ANCHOR_ID pattern used by ViewRFQ.
+export const productCardAnchorId = (rfqProductId) =>
+  `quote-compare-product-${rfqProductId}`;
 
 const getQuantityValue = (item) => {
   return (
@@ -68,12 +75,66 @@ const ProductComparisonTab = ({
   availableHierarchies = null,
   quoteApprovalDetails = {},
   vendorRejections = [],
+  focusProductId = null,
+  focusReason = null,
 }) => {
   const comparisonContext = context || {};
   const currentRfqId = rfq || comparisonContext?.rfq;
   const contextRFQ = currentRFQ || comparisonContext?.currentRFQ;
   const negotiationMap = productNegotiationData || comparisonContext?.maps?.productNegotiationData || {};
   const visibility = quoteVisibility || comparisonContext?.quoteVisibility || null;
+
+  // Per-product negotiation history modal ("View History" moved here from the
+  // Negotiation Desk banner). One shared modal; rounds fetched per product.
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [historyRounds, setHistoryRounds] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openNegotiationHistory = async (item) => {
+    setHistoryProduct(item);
+    setHistoryRounds([]);
+    setHistoryLoading(true);
+    try {
+      // Backend matches multi-product rounds covering this product too.
+      const res = await getNegotiationRounds(currentRfqId, item.id);
+      setHistoryRounds(res?.data || []);
+    } catch (err) {
+      console.error("Failed to load negotiation history:", err);
+      setHistoryRounds([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeNegotiationHistory = () => {
+    setHistoryProduct(null);
+    setHistoryRounds([]);
+  };
+
+  // Bring a deep-linked product into view. `quotes` arrives async — this effect
+  // re-runs on every quotes change and simply does nothing until the card it
+  // wants is actually in the DOM, so it works whether the matrix was already
+  // painted or is still loading. Guarded by a ref so a later refetch (finalize,
+  // approve, filter change) never yanks the viewport back a second time.
+  const focusKey = focusProductId != null && focusProductId !== ""
+    ? String(focusProductId)
+    : null;
+  const scrolledToRef = useRef(null);
+  useEffect(() => {
+    if (!focusKey || scrolledToRef.current === focusKey) return undefined;
+    if (!quotes || quotes.length === 0) return undefined;
+
+    const card = document.getElementById(productCardAnchorId(focusKey));
+    if (!card) return undefined; // not rendered yet — retry on the next quotes change
+
+    scrolledToRef.current = focusKey;
+    // Small delay so the matrix below finishes laying out before we measure,
+    // same as the ViewRFQ approval-card deep link.
+    const timer = setTimeout(() => {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [focusKey, quotes]);
 
   if (quotesLoading) {
     return null; // Handled by the parent's informative loader
@@ -124,12 +185,27 @@ const ProductComparisonTab = ({
             }
           : undefined;
 
+        // The product a deep link (approval email / pending-approvals queue)
+        // asked for. Rejection styling still wins the border colour — an
+        // "action needed" state outranks "you were sent here".
+        const isFocused = focusKey != null && String(item.id) === focusKey;
+
         return (
           <div
-            className={styles.productCard}
+            id={productCardAnchorId(item.id)}
+            className={`${styles.productCard} ${isFocused ? styles.productCardFocused : ""}`.trim()}
             key={`qq_${index}`}
             style={cardHighlightStyle}
           >
+            {isFocused && focusReason === "approval" && (
+              <div className={styles.productFocusRibbon}>
+                <span aria-hidden="true">→</span>
+                <span>
+                  Your approval request is for this product. The Approve and
+                  Reject controls are on the card below.
+                </span>
+              </div>
+            )}
             {hasRejection && (
               <div
                 style={{
@@ -171,7 +247,17 @@ const ProductComparisonTab = ({
                   </p>
                 ) : null}
               </div>
-              <div>
+              <div className="d-flex gap-2 flex-wrap justify-content-end">
+                {!visibility?.locked && (
+                  <button
+                    id="view_negotiation_history-quote_actions-quote_compare_page"
+                    className={styles.actionBtnDark}
+                    onClick={() => openNegotiationHistory(item)}
+                    disabled={historyLoading && historyProduct?.id === item.id}
+                  >
+                    {historyLoading && historyProduct?.id === item.id ? 'Loading…' : 'Negotiation History'}
+                  </button>
+                )}
                 {!visibility?.locked && (
                   <button
                     id="view_lpr_button-quote_actions-quote_compare_page"
@@ -327,6 +413,29 @@ const ProductComparisonTab = ({
           </div>
         );
       })}
+
+      {/* Per-product negotiation history modal (relocated from the
+          Negotiation Desk banner) — scoped to one product's rounds. */}
+      {historyProduct && (
+        <NegotiationModal
+          show={!!historyProduct}
+          handleShow={() => {}}
+          onHide={closeNegotiationHistory}
+          mode="history"
+          rfq_id={currentRfqId}
+          products={quotes}
+          activeRounds={[]}
+          roundsHistory={historyRounds}
+          selectedProduct={historyProduct}
+          onProductSelect={() => {}}
+          onRefresh={() => openNegotiationHistory(historyProduct)}
+          canWrite={canWriteQuoteCompare}
+          permissionsLoading={quoteComparePermissionsLoading}
+          hospitalityCompanyId={contextRFQ?.hospitality_company_id}
+          hotelId={contextRFQ?.hotel_id}
+          departmentId={contextRFQ?.department_id}
+        />
+      )}
     </>
   );
 };

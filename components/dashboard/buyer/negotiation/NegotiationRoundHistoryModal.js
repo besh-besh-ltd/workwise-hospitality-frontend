@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Modal, Badge, Card, Collapse } from "react-bootstrap";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
+import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 
-const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
+const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id, productName }) => {
   const [expandedRounds, setExpandedRounds] = useState({});
 
   const toggleRound = (roundId) => {
@@ -52,7 +53,7 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Negotiation Round History</Modal.Title>
+        <Modal.Title>{productName ? `Negotiation Rounds — ${productName}` : "Negotiation Round History"}</Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
         {!rounds || rounds.length === 0 ? (
@@ -129,29 +130,56 @@ const NegotiationRoundHistoryModal = ({ show, onHide, rounds, rfq_id }) => {
                         </div>
                       )}
 
-                      {round.approvals && round.approvals.length > 0 && (
-                        <div className="mt-3">
-                          <strong>Approvals:</strong>
-                          <div className="mt-2">
-                            {round.approvals.map((approval) => (
-                              <div
-                                key={approval.id}
-                                className="d-flex justify-content-between align-items-center py-2 border-bottom"
-                              >
-                                <span>{approval.approver_name || 'Unknown'}</span>
-                                <Badge
-                                  bg={
-                                    approval.status === 'APPROVED' ? 'success' :
-                                    approval.status === 'REJECTED' ? 'danger' : 'warning'
-                                  }
+                      {round.approvals && round.approvals.length > 0 && (() => {
+                        // REMOVED rows are a mid-flight reconciler's soft-tombstone
+                        // (role/scope revoked while the approval was in flight) —
+                        // kept for the audit trail below, muted and separated, but
+                        // never rendered as a live approver status.
+                        const activeApprovals = round.approvals.filter(a => a.status !== 'REMOVED');
+                        const removedApprovals = round.approvals.filter(a => a.status === 'REMOVED');
+                        return (
+                          <div className="mt-3">
+                            <strong>Approvals:</strong>
+                            <div className="mt-2">
+                              {activeApprovals.map((approval) => (
+                                <div
+                                  key={approval.id}
+                                  className="d-flex justify-content-between align-items-center py-2 border-bottom"
                                 >
-                                  {approval.status}
-                                </Badge>
-                              </div>
-                            ))}
+                                  <span>{approval.approver_name || 'Unknown'}</span>
+                                  <Badge
+                                    bg={
+                                      approval.status === 'APPROVED' ? 'success' :
+                                      approval.status === 'REJECTED' ? 'danger' : 'warning'
+                                    }
+                                  >
+                                    {approval.status}
+                                  </Badge>
+                                </div>
+                              ))}
+                              {removedApprovals.map((approval, idx) => {
+                                const reasonLabel = approval.removal_reason ? removalReasonLabel(approval.removal_reason) : null;
+                                const title = [reasonLabel, approval.removed_at ? `Removed ${formatDate(approval.removed_at)}` : null]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'Removed';
+                                return (
+                                  <div
+                                    key={approval.id ?? `removed-${idx}`}
+                                    className="d-flex justify-content-between align-items-center py-2 border-bottom text-muted"
+                                    style={{ opacity: 0.65 }}
+                                    title={title}
+                                  >
+                                    <span style={{ textDecoration: 'line-through' }}>{approval.approver_name || 'Unknown'}</span>
+                                    <Badge bg="secondary">
+                                      Removed{reasonLabel ? ` (${reasonLabel})` : ''}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </Card.Body>
                   </div>
                 </Collapse>

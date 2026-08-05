@@ -1,12 +1,12 @@
-import FullLoader from "@/components/shared/FullLoader";
 import { getRFQS, getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
+import RFQListSkeleton from "./RFQListSkeleton";
 import React, { useEffect, useState } from "react";
 import RFQCard from "./RFQCard";
 import Pagination from "@/components/shared/Pagination";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
 import { toast } from "react-toastify";
 
-const ManageRFQ = ({ filterData, setFilterData }) => {
+const ManageRFQ = ({ filterData, setFilterData, onLoadingChange }) => {
   const [loading, setloading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
@@ -19,15 +19,18 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
 
   const getAllRFQs = () => {
     setloading(true);
+    onLoadingChange?.(true);
 
     getRFQS({ ...filterData })
       .then((res) => {
         setloading(false);
+        onLoadingChange?.(false);
         setmyRFQs(res.data);
         settotalRFQs(res.total_items);
       })
       .catch((err) => {
         setloading(false);
+        onLoadingChange?.(false);
         console.log(err);
       });
   };
@@ -79,16 +82,28 @@ const ManageRFQ = ({ filterData, setFilterData }) => {
   return (
     <>
       <div className="manage-rfq-con">
-        <div className="hasFullLoader mt-0">
-          {/* Card List Section */}
-          {loading && <FullLoader />}
-          {!loading && myRFQs.length == 0 && (
-            <div className="text-center py-5">
-              <p className="text-muted">You haven't created any Tender / RFQ yet!</p>
+        <div style={{ marginTop: 0 }}>
+          {loading && (
+            <RFQListSkeleton
+              count={Math.min(Math.max(filterData.limit || 10, 10), 15)}
+            />
+          )}
+          {!loading && myRFQs.length === 0 && (
+            <div style={{
+              textAlign: "center",
+              padding: "48px 20px",
+              background: "#ffffff",
+              border: "1px solid #ebebe6",
+              borderRadius: 12,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+            }}>
+              <p style={{ fontSize: 13, margin: 0, color: "#a1a1aa", fontStyle: "italic", letterSpacing: "-0.005em" }}>
+                No Tender / RFQs found for the selected filters.
+              </p>
             </div>
           )}
           {!loading && myRFQs && myRFQs.length > 0 && (
-            <div className="d-flex flex-column gap-2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {myRFQs.map((item) => (
                 <RFQCard
                   key={`rfq_card_${item.id}`}

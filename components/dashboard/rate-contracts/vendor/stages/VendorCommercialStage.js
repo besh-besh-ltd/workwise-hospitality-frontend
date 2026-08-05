@@ -1,0 +1,953 @@
+// Vendor ARC quote page — Commercial / pricing stage.
+// Presentational only. The page (quote.js) owns all state/handlers.
+// Move of existing JSX from quote.js lines 1087-1498 verbatim; indentation preserved.
+// Restructured borrowing SendQuoteWizard's card/sticky-summary layout while keeping
+// ARC's own data (price[arc_item_id], globals, lineTotal, ArcApi.vendorSubmitQuote).
+//
+// Phase 1 §D changes (this file):
+//   - Submit/Save-draft buttons REMOVED from aside hero-foot — now in quote.js action dock.
+//   - "Target was N/A per kg" help-text REMOVED.
+//   - Standalone Freight field REMOVED — freight is now a named charge in the other-charges modal.
+//   - Other charges inline section upgraded: charges modal is a full overlay (portal-style).
+//   - Aside overflow fix: .q-cols/.hero-summary get responsive style guards.
+
+// Sr 53 — 2-decimal money display (not whole-rupee rounding); mirrors quote.js's fmtN.
+const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const safeNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+// Mirror of backend deriveMrpLine — keep in sync (same formula as
+// quote.js's deriveMrpBaseFE / quoteWizard/helpers.js deriveMrpBaseFE).
+const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
+  const m = safeNum(mrp);
+  const disc = discountMode === "percentage" ? (m * safeNum(discount)) / 100 : safeNum(discount);
+  const net = Math.max(0, m - disc);
+  const g = safeNum(gst);
+  const div = 1 + g / 100;
+  const base = div > 0 ? Math.round((net / div) * 100) / 100 : net;
+  return { net, base, gst: net - base };
+};
+
+export default function VendorCommercialStage({
+  arc,
+  items,
+  price,
+  priceLine,
+  updateLine,
+  addChargeOfType,
+  removeCharge,
+  productChargesTotal,
+  lineTotal,
+  totals,
+  globals,
+  setGlobals,
+  onChangePaymentTerms,
+  onChangeComment,
+  paymentTotal,
+  chargesOpen,
+  setChargesOpen,
+  // #2 — global charges props
+  globalCharges,
+  setGlobalCharges,
+  globalChargesOpen,
+  setGlobalChargesOpen,
+  addGlobalCharge,
+  removeGlobalCharge,
+  updateGlobalCharge,
+  // Backend-managed charge-name lists (per-line vs document-level), driven by
+  // getChargeNames in quote.js; fall back to a small hardcoded list.
+  lineChargeTypes,
+  globalChargeTypes,
+  canSubmit,
+  submitting,
+  onSaveDraft,
+  onSubmit,
+  onWithdraw,
+  submitted,
+  submittedAt,
+  readOnly,
+  // Update-after-submit + version history
+  editing,
+  currentVersion,
+  windowOpen,
+  isWithdrawn,
+  onUpdateQuote,
+  onDownloadPdf,
+  downloadingPdf,
+  // derived strings
+  arcNumber,
+  termStart,
+  termEnd,
+  submissionEnd,
+  // payment term row helpers
+  addPaymentTerm,
+  removePaymentTerm,
+  updatePaymentTerm,
+  // price state setter for inline charge edits
+  setPrice,
+  blankLine,
+  // Sr 37 — auto-save chip state (idle|dirty|saving|saved|error) + the silent
+  // on-blur save handler wired onto every field below.
+  saveState,
+  onFieldBlur,
+  // MRP (tax-inclusive) quoting — quote-wide method + the modal opener.
+  pricingMethod,
+  onOpenMethodModal,
+}) {
+  const LINE_CHARGE_OPTIONS = (lineChargeTypes && lineChargeTypes.length) ? lineChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
+  const GLOBAL_CHARGE_OPTIONS = (globalChargeTypes && globalChargeTypes.length) ? globalChargeTypes : ["Freight", "Insurance", "Packaging", "TCS", "Loading", "Other"];
+  return (
+    <>
+        <div className="step-pane">
+          <div className="q-section-head">
+            <div>
+              <div className="q-section-title">Pricing &amp; commercial terms</div>
+              <div className="q-section-sub">Enter your single price per item for the full contract term. Single-BU contract — one price applies.</div>
+              <div className="mini-stats">
+                <div className="mini-stat"><div className="lbl">Items to price</div><div className="val">{items.length}</div></div>
+                <div className="div"></div>
+                <div className="mini-stat"><div className="lbl">Business unit</div><div className="val"><span className="mono">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
+                <div className="div"></div>
+                <div className="mini-stat"><div className="lbl">Contract term</div><div className="val"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
+              </div>
+            </div>
+            {!readOnly && (
+              <div className="flex flex-col items-end gap-2">
+                <SaveChip state={saveState} />
+                {/* MRP (tax-inclusive) quoting — quote-wide method chip. Opens the
+                    shared selection modal; selecting a method maps it onto every
+                    line (OQ2: quote-wide, per-line grain only for audit). */}
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onOpenMethodModal && onOpenMethodModal()}
+                >
+                  Method: {pricingMethod === "MRP" ? "MRP (tax-inclusive)" : "Traditional"}
+                  <span style={{ marginLeft: 6, color: "var(--fg-3)" }}>▸ change</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Phase 1 §D — aside overflow fix: explicit min-width:0 on the main column so the
+              grid doesn't force the aside off-screen; aside gets max-width + sticky. */}
+          <div className="q-cols" style={{ alignItems: "start" }}>
+            <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
+              <div className="vq-group-head mt-1">
+                <div className="flex items-center gap-2">
+                  <span className="vq-group-title">Line items</span>
+                  <span className="pill">{items.length} {items.length === 1 ? "item" : "items"}</span>
+                </div>
+              </div>
+
+              {items.map((it, idx) => {
+                const l = priceLine(it.id);
+                const qty = safeNum(it.committed_qty ?? it.indicative_qty ?? 0);
+                const lt = lineTotal(it.id, qty);
+                return (
+                  <div className="vq-line" key={it.id}>
+                    <div className="vq-line-head">
+                      <div className="meta">
+                        <span className="ord">{String(idx + 1).padStart(2, "0")}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="vq-line-title">{it.variant_name || it.title || `Item #${it.id}`}</div>
+                          {it.spec ? <div className="vq-line-spec">{it.spec}</div> : null}
+                          <div className={"vq-line-status" + (l.rate ? " is-priced" : "")}>
+                            <span className="dot"></span>
+                            {l.rate ? "Priced" : "Awaiting price"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="vq-qty">
+                        <div className="k">Qty required</div>
+                        <div className="n">{qty.toLocaleString("en-IN")}</div>
+                        <div className="u">{it.uom || ""}</div>
+                      </div>
+                    </div>
+
+                    {!readOnly && (
+                    <div className="vq-fields">
+                      <div className="vq-field">
+                        {l.pricing_method === "MRP" ? (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <label className="label">MRP <span className="req">*</span></label>
+                              <div className="input-group">
+                                <div className="prefix">₹</div>
+                                <input
+                                  type="number"
+                                  className="input input-num"
+                                  value={l.entered_mrp}
+                                  onChange={e => updateLine(it.id, { entered_mrp: e.target.value })}
+                                  onBlur={onFieldBlur}
+                                  placeholder="0.00"
+                                  min="0"
+                                  step="0.01"
+                                  disabled={readOnly}
+                                />
+                              </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <label className="label">Discount</label>
+                              <div className="input-group">
+                                <input
+                                  type="number"
+                                  className="input input-num"
+                                  value={l.mrp_discount}
+                                  onChange={e => updateLine(it.id, { mrp_discount: e.target.value })}
+                                  onBlur={onFieldBlur}
+                                  placeholder="0"
+                                  min="0"
+                                  disabled={readOnly}
+                                />
+                                <div className="suffix" style={{ padding: 0 }}>
+                                  <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                                    <button type="button" className={l.mrp_discount_mode === "percentage" ? "is-active" : ""} onClick={() => updateLine(it.id, { mrp_discount_mode: "percentage" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                                    <button type="button" className={l.mrp_discount_mode === "absolute" ? "is-active" : ""} onClick={() => updateLine(it.id, { mrp_discount_mode: "absolute" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <label className="label">Unit price <span className="req">*</span></label>
+                            <div className="input-group">
+                              <div className="prefix">₹</div>
+                              <input
+                                type="number"
+                                className="input input-num"
+                                value={l.rate}
+                                onChange={e => updateLine(it.id, { rate: e.target.value })}
+                                onBlur={onFieldBlur}
+                                placeholder="0.00"
+                                min="0"
+                                step="0.01"
+                                disabled={readOnly}
+                              />
+                              <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}><span>/&nbsp;{it.uom || ""}</span></div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="vq-field">
+                        {/* Sr 52 — GST is mandatory (0 is a valid explicit choice; blank is not). */}
+                        <label className="label">{l.pricing_method === "MRP" ? "GST (extracted)" : "GST"} <span className="req">*</span></label>
+                        <div className="input-group">
+                          <input
+                            type="number"
+                            className="input input-num"
+                            value={l.gst_pct}
+                            onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
+                            onBlur={onFieldBlur}
+                            placeholder="0"
+                            min="0"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ padding: 0 }}>
+                            <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                              {l.pricing_method === "MRP" ? (
+                                // MRP: GST is always a percentage extracted from within the price —
+                                // no ₹ option (an absolute GST would break the MRP round-trip; the
+                                // server forces percentage regardless of what the client sends).
+                                <button type="button" className="is-active" style={{ borderRadius: 0 }} disabled>%</button>
+                              ) : (
+                                <>
+                                  <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                                  <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Phase 1 §D — standalone Freight field removed; freight is now a
+                          named charge inside the Other charges modal below. */}
+                      <div className="vq-field">
+                        <label className="label">Lead time <span className="req">*</span></label>
+                        <div className="input-group">
+                          <input
+                            type="number"
+                            className="input input-num"
+                            value={l.lead_time_days}
+                            onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
+                            onBlur={onFieldBlur}
+                            placeholder="7"
+                            min="1"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ fontFamily: "'Geist',sans-serif", fontSize: 12 }}>days</div>
+                        </div>
+                      </div>
+                      {/* Phase 1 §D — Other charges + Freight modal (RFQ-style), quiet inline affordance */}
+                      <div className="vq-field">
+                        <label className="label">Charges <span className="label-meta">freight, GST, etc.</span></label>
+                        <button
+                          type="button"
+                          className={"vq-charges-btn" + (l.charges.length > 0 ? " has-items" : "")}
+                          onClick={() => setChargesOpen(it.id)}
+                          disabled={readOnly}
+                        >
+                          <span>
+                            {l.charges.length === 0
+                              ? "Add charges"
+                              : `${l.charges.length} charge${l.charges.length > 1 ? "s" : ""}`}
+                          </span>
+                          {l.charges.length > 0 ? (
+                            <span className="ch-amt amt">{`₹ ${fmtN(productChargesTotal(it.id))}`}</span>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    )}
+
+                    {!readOnly && l.pricing_method === "MRP" && (() => {
+                      const derived = deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct });
+                      return (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "var(--fg-3)" }}>
+                          Base ₹{fmtN(derived.base)} · GST ₹{fmtN(derived.gst)} · Buyer pays ₹{fmtN(lineTotal(it.id, qty))}
+                        </div>
+                      );
+                    })()}
+
+                    {readOnly && l.rate && (
+                      <div className="vq-readback">
+                        <div><div className="k">Unit price</div><div className="v"><span className="mono fw-600">₹{fmtN(l.rate)}</span> / {it.uom || ""}</div></div>
+                        <div><div className="k">GST</div><div className="v"><span className="mono">{l.gst_pct}{l.gstMode}</span></div></div>
+                        {safeNum(l.freight) > 0 && <div><div className="k">Freight</div><div className="v"><span className="mono">₹{fmtN(l.freight)}</span> / {it.uom || ""}</div></div>}
+                        {l.lead_time_days && <div><div className="k">Lead time</div><div className="v"><span className="mono">{l.lead_time_days}</span> days</div></div>}
+                        {l.charges.length > 0 && <div><div className="k">Charges</div><div className="v"><span className="mono">₹{fmtN(productChargesTotal(it.id))}</span></div></div>}
+                      </div>
+                    )}
+
+                    {/* Notes & attachments — quiet inline disclosure (collapsed by default).
+                        Progressive disclosure for secondary inputs; bindings unchanged. */}
+                    {!readOnly ? (
+                      <details className="vq-disclosure">
+                        <summary>
+                          <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                          Add note or attachment
+                        </summary>
+                        <div className="vq-disclosure-body">
+                          <div>
+                            <label className="label">Comment to buyer <span className="label-meta">optional</span></label>
+                            <textarea
+                              className="textarea"
+                              value={l.comment}
+                              onChange={e => updateLine(it.id, { comment: e.target.value })}
+                              onBlur={onFieldBlur}
+                              placeholder="MOQ, validity caveats, substitute proposals…"
+                              maxLength={300}
+                              style={{ minHeight: 64 }}
+                              disabled={readOnly}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            <div>
+                              <label className="label">Lead-time note</label>
+                              <input
+                                className="input"
+                                type="text"
+                                value={l.leadNote}
+                                onChange={e => updateLine(it.id, { leadNote: e.target.value })}
+                                onBlur={onFieldBlur}
+                                placeholder="e.g. Subject to PO confirmation"
+                                disabled={readOnly}
+                              />
+                            </div>
+                            <button className="upload-mini w-full justify-center" type="button" style={{ padding: 9 }} disabled={readOnly}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                              Attach supporting documents
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                    ) : (
+                      (l.comment || l.leadNote) ? (
+                        <div className="vq-readback">
+                          {l.comment && <div><div className="k">Comment to buyer</div><div className="v">{l.comment}</div></div>}
+                          {l.leadNote && <div><div className="k">Lead-time note</div><div className="v">{l.leadNote}</div></div>}
+                        </div>
+                      ) : null
+                    )}
+
+                    <div className="vq-line-foot">
+                      <div className="vq-line-calc">
+                        <span className="mono">{qty.toLocaleString("en-IN")}</span> ×{" "}
+                        <span className="mono">{l.rate ? `₹${fmtN(l.rate)}` : "—"}</span>
+                        {safeNum(l.gst_pct) > 0 && (
+                          <> + <span className="mono">{l.gstMode === "%" ? `${l.gst_pct}% GST` : `₹${l.gst_pct} tax`}</span></>
+                        )}
+                      </div>
+                      <div className="vq-line-total">
+                        <span className="k">Line total</span>
+                        <span className={"v" + (lt === 0 ? " is-zero" : "")}>{`₹ ${fmtN(lt)}`}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-2">
+                  <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}>Commercial terms</h3>
+                  <span className="pill">Applies to entire quote</span>
+                </div>
+              </div>
+
+              <div className="commercial-card">
+                <div className="q-card-section">
+                  <label className="label">GSTIN <span className="label-meta">used for invoicing</span></label>
+                  <input
+                    className="input mono"
+                    value={globals.gstin}
+                    onChange={e => setGlobals(g => ({ ...g, gstin: e.target.value }))}
+                    onBlur={onFieldBlur}
+                    placeholder="29ABCDE1234F1Z5"
+                    maxLength={15}
+                    style={{ maxWidth: 280 }}
+                    disabled={readOnly}
+                  />
+                </div>
+                <div className="q-card-section">
+                  <label className="label">Global comment <span className="label-meta">visible to buyer</span></label>
+                  <textarea
+                    className="textarea"
+                    value={globals.comment}
+                    onChange={e => setGlobals(g => ({ ...g, comment: e.target.value }))}
+                    onBlur={onFieldBlur}
+                    placeholder="Quote-wide notes — packaging, batching, validity, etc."
+                    maxLength={500}
+                    disabled={readOnly}
+                  />
+                </div>
+                <div className="q-card-section">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <label className="label" style={{ marginBottom: 0 }}>Payment terms <span className="req">*</span></label>
+                    <div className="tot-hint">
+                      <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>Must sum to 100% · currently</span>
+                      <span className={"tot-num ml-1 " + (paymentTotal === 100 ? "ok" : "err")}>{paymentTotal}%</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg" style={{ border: "1px solid var(--border)", overflow: "hidden" }}>
+                    {globals.paymentTerms.map((pt, i) => (
+                      <div
+                        key={i}
+                        className={"grid items-center gap-2 px-3 py-2" + (i === 0 ? " !border-t-0" : "")}
+                        style={{ gridTemplateColumns: "24px 1fr 130px 32px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}
+                      >
+                        <div className="mono" style={{ fontSize: 11, color: "var(--fg-4)", textAlign: "center" }}>{String(i + 1).padStart(2, "0")}</div>
+                        <input
+                          className="input"
+                          style={{ border: "none", background: "transparent", padding: "4px 6px" }}
+                          type="text"
+                          value={pt.label}
+                          onChange={e => updatePaymentTerm(i, { label: e.target.value })}
+                          onBlur={onFieldBlur}
+                          placeholder={i === 0 ? "e.g. Advance on PO acceptance" : "e.g. Net 30 after delivery"}
+                          disabled={readOnly}
+                        />
+                        <div className="input-group" style={{ border: "1px solid var(--border)" }}>
+                          <input
+                            className="input input-num"
+                            style={{ padding: "5px 10px" }}
+                            type="number"
+                            value={pt.pct}
+                            onChange={e => updatePaymentTerm(i, { pct: Number(e.target.value) })}
+                            onBlur={onFieldBlur}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ padding: "0 9px" }}>%</div>
+                        </div>
+                        <button
+                          className="icon-btn"
+                          onClick={() => removePaymentTerm(i)}
+                          type="button"
+                          disabled={globals.paymentTerms.length === 1 || readOnly}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                    {!readOnly && (
+                    <button
+                      className="w-full text-left px-3 py-2 flex items-center gap-2"
+                      onClick={addPaymentTerm}
+                      type="button"
+                      style={{ border: "none", borderTop: "1px solid var(--border)", background: "var(--surface-2)", fontSize: 12.5, color: "var(--primary)", cursor: "pointer", appearance: "none", boxShadow: "none" }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                      Add another term
+                    </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* #2 — Document-level charges section (mirrors per-line charges modal trigger) */}
+                <div className="q-card-section">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <label className="label" style={{ marginBottom: 0 }}>Document-level charges <span className="label-meta">applied to entire quote</span></label>
+                    {(globalCharges || []).length > 0 && (
+                      <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>
+                        {(globalCharges || []).length} charge{(globalCharges || []).length === 1 ? "" : "s"}
+                        {totals.globalChargesTotal > 0 ? ` · ₹ ${fmtN(totals.globalChargesTotal)}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={"vq-charges-btn" + ((globalCharges || []).length > 0 ? " has-items" : "")}
+                    onClick={() => setGlobalChargesOpen(true)}
+                    disabled={readOnly}
+                  >
+                    <span className="flex items-center gap-2">
+                      {(globalCharges || []).length === 0 ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                      )}
+                      <span>
+                        {(globalCharges || []).length === 0
+                          ? "Add document-level charges (logistics, handling, etc.)"
+                          : `${(globalCharges || []).length} document charge${(globalCharges || []).length > 1 ? "s" : ""} added`}
+                      </span>
+                    </span>
+                    {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (
+                      <span className="amt">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submitted summary when readOnly (quote already submitted) */}
+              {submitted && (
+                <div className="guide" style={{ background: "var(--success-bg, #f0fdf4)", borderColor: "var(--success, #22c55e)", alignItems: "center" }}>
+                  <div className="g-ic" style={{ marginTop: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div>
+                    <div>
+                      Quote submitted on <span className="mono">{submittedAt}</span>
+                      {currentVersion > 0 ? <> · <span className="mono fw-600">v{currentVersion}</span></> : null}. Grand total: <span className="mono fw-600">₹ {fmtN(totals.grand)}</span>.
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 4 }}>
+                      This submission is recorded for audit. {windowOpen && !isWithdrawn ? "Update it before the window closes and a new version is saved to history." : "The submission window has closed."}
+                    </div>
+                    <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+                      {onUpdateQuote && windowOpen && !isWithdrawn && !editing && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-blue"
+                          onClick={onUpdateQuote}
+                        >
+                          Update quote
+                        </button>
+                      )}
+                      {onDownloadPdf && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={onDownloadPdf}
+                          disabled={downloadingPdf}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          {downloadingPdf ? "Preparing…" : "Download PDF"}
+                        </button>
+                      )}
+                      {onWithdraw && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={onWithdraw}
+                        >
+                          Withdraw quote
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <aside style={{ minWidth: 0, maxWidth: 320, width: "100%", position: "sticky", top: 80 }}>
+              <div className="hero-summary">
+                <div className="hero-summary-inner">
+                  <div className="hero-head">
+                    <div className="h-title">Quote summary</div>
+                    <div className="h-rfq">{`#${arcNumber}`}</div>
+                  </div>
+                  {totals.grand > 0 ? (
+                    <div>
+                      <div className="hero-grand-label">Grand total · full term</div>
+                      <div className="hero-grand"><span className="cur">₹</span><span>{fmtN(totals.grand)}</span></div>
+                      <div className="hero-grand-meta">Inclusive of GST &amp; all charges · INR · full contract term</div>
+                      <div className="breakdown-bar">
+                        <div className="bd-subtotal" style={{ width: `${(totals.subtotal / totals.grand) * 100 || 0}%` }}></div>
+                        <div className="bd-charges" style={{ width: `${((totals.extraCharges.reduce((s, c) => s + c.amount, 0) + (totals.globalChargesTotal || 0)) / totals.grand) * 100 || 0}%` }}></div>
+                        <div className="bd-gst" style={{ width: `${(totals.gst / totals.grand) * 100 || 0}%` }}></div>
+                      </div>
+                      {/* Coherent breakup: goods subtotal + all charges (pre-tax) + GST
+                          (line + charge + doc-charge tax) === grand total. */}
+                      <div className="breakdown-legend">
+                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-subtotal"></span> Subtotal (goods)</span><span className="val">{`₹ ${fmtN(totals.subtotal)}`}</span></div>
+                        {totals.extraCharges.map(ec => (
+                          <div className="breakdown-row" key={ec.label}>
+                            <span className="lbl"><span className="swatch bd-charges"></span> <span>{ec.label}</span></span>
+                            <span className="val">{`₹ ${fmtN(ec.amount)}`}</span>
+                          </div>
+                        ))}
+                        {/* #2 — document-level (global) charges, pre-tax (their tax is folded into GST). */}
+                        {totals.globalChargesTotal > 0 && (
+                          <div className="breakdown-row">
+                            <span className="lbl"><span className="swatch bd-charges"></span> Doc. charges</span>
+                            <span className="val">{`₹ ${fmtN(totals.globalChargesTotal)}`}</span>
+                          </div>
+                        )}
+                        <div className="breakdown-row"><span className="lbl"><span className="swatch bd-gst"></span> GST &amp; taxes</span><span className="val">{`₹ ${fmtN(totals.gst)}`}</span></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="empty-hero">
+                      <div className="ic">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg>
+                      </div>
+                      <div className="ttl">Awaiting your prices</div>
+                      <div className="sub">Your grand total &amp; tax breakdown will appear here as you price each line item.</div>
+                    </div>
+                  )}
+                </div>
+                <div className="hero-foot">
+                  <div className="meta-row"><span className="k">Payment</span><span className="v">{globals.paymentTerms.length} term{globals.paymentTerms.length === 1 ? "" : "s"} · {paymentTotal}%</span></div>
+                  <div className="meta-row"><span className="k">BU</span><span className="v"><span>{arc.hotel_code || "—"}</span> · <span>{arc.hotel_name || ""}</span></span></div>
+                  <div className="meta-row"><span className="k">Closes</span><span className="v">{submissionEnd}</span></div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className={"completion-pill" + (canSubmit ? " is-ready" : "")}>
+                      <span className="pulse"></span>
+                      <span>{submitted ? (editing ? "Updating" : `Submitted${currentVersion > 0 ? ` · v${currentVersion}` : ""}`) : canSubmit ? "Ready to submit" : "In progress"}</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>{submitted ? `v${currentVersion > 0 ? currentVersion : 1} · submitted` : "v1 · draft"}</span>
+                  </div>
+                  {/* Phase 1 §D — Submit + Save-draft REMOVED from here; they are in the action dock (quote.js). */}
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+      {/* Phase 1 §D — Other charges modal (RFQ-style overlay). Opens when chargesOpen === it.id.
+          Freight is now a named charge row here; no standalone freight field in the price grid. */}
+      {chargesOpen != null && (() => {
+        const modalItem = items.find(i => i.id === chargesOpen);
+        if (!modalItem) return null;
+        const ml = priceLine(modalItem.id);
+        return (
+          <div
+            className="arc-modal-backdrop"
+            onClick={(e) => { if (e.target === e.currentTarget) setChargesOpen(null); }}
+          >
+            <div className="arc-modal" style={{ maxWidth: 620 }}>
+              <div className="modal-head">
+                <div>
+                  <div className="t"><h3>Other charges &amp; freight</h3></div>
+                  <div className="sub">{modalItem.variant_name || modalItem.title || `Item #${modalItem.id}`} · add freight, insurance, packaging, TCS, etc.</div>
+                </div>
+                <button className="icon-btn" onClick={() => setChargesOpen(null)} type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div className="modal-body" style={{ padding: "16px 20px" }}>
+                <div className="flex items-center gap-2 mb-3" style={{ flexWrap: "wrap" }}>
+                  <label className="label" style={{ marginBottom: 0 }}>Add charge</label>
+                  <select
+                    className="input"
+                    value=""
+                    onChange={(e) => { const v = e.target.value; if (v) { addChargeOfType(modalItem.id, v); e.target.value = ""; } }}
+                    disabled={readOnly}
+                    style={{ maxWidth: 240 }}
+                  >
+                    <option value="">Select a charge type…</option>
+                    {/* Hide already-added named charges so the same type can't be
+                        added twice; "Custom" stays available for multiple ad-hoc rows. */}
+                    {LINE_CHARGE_OPTIONS
+                      .filter(t => !(ml.charges || []).some(c => (c.name || "").trim().toLowerCase() === t.toLowerCase()))
+                      .map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="Custom">Custom…</option>
+                  </select>
+                </div>
+                {ml.charges.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "12px 0" }}>Pick a charge type above to add it to this line.</div>
+                )}
+                {ml.charges.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {/* Phase 2 — per-charge tax column added (additional tax on this charge, engine tri-state). */}
+                    <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Charge name</span>
+                      <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</span>
+                      <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tax on charge</span>
+                      <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Note</span>
+                      <span></span>
+                    </div>
+                    {ml.charges.map((c, ci) => {
+                      // A charge picked from the catalog keeps a locked name — only
+                      // a "Custom" row (name not in the catalog) is renamable.
+                      const nameLocked = !!(c.name || "").trim()
+                        && LINE_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
+                      return (
+                      <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                        {nameLocked ? (
+                          <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
+                            {c.name}
+                          </div>
+                        ) : (
+                        <input
+                          className="input"
+                          type="text"
+                          value={c.name}
+                          onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], name: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                          onBlur={onFieldBlur}
+                          placeholder="Custom charge name"
+                          disabled={readOnly}
+                        />
+                        )}
+                        <div className="input-group">
+                          <input
+                            className="input input-num"
+                            type="number"
+                            value={c.amount}
+                            onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amount: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                            onBlur={onFieldBlur}
+                            placeholder="0"
+                            disabled={readOnly}
+                          />
+                          <div className="suffix" style={{ padding: 0 }}>
+                            <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                              <button type="button" className={c.amountMode === "%" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amountMode: "%" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                              <button type="button" className={c.amountMode === "₹" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amountMode: "₹" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Phase 2 — per-charge additional tax. Blank = inherit base GST; 0 = no tax; >0 = explicit rate. */}
+                        <div className="input-group">
+                          <input
+                            className="input input-num"
+                            type="number"
+                            value={c.tax ?? ""}
+                            onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], tax: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                            onBlur={onFieldBlur}
+                            placeholder="inherit"
+                            min="0"
+                            disabled={readOnly}
+                            title="Leave blank to inherit the line's base GST; enter 0 for no tax on this charge; enter a rate for a custom charge tax."
+                          />
+                          <div className="suffix" style={{ padding: 0 }}>
+                            <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                              <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], taxMode: "%" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                              <button type="button" className={c.taxMode === "₹" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], taxMode: "₹" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                            </div>
+                          </div>
+                        </div>
+                        <input
+                          className="input"
+                          type="text"
+                          value={c.note}
+                          onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], note: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                          onBlur={onFieldBlur}
+                          placeholder="Note"
+                          disabled={readOnly}
+                        />
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          onClick={() => removeCharge(modalItem.id, ci)}
+                          title="Remove"
+                          disabled={readOnly}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                      </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {ml.charges.length > 0 && (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 10 }}>
+                    Total charges: <span className="mono">₹ {fmtN(productChargesTotal(modalItem.id))}</span>
+                  </div>
+                )}
+              </div>
+              <div className="modal-foot" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)" }}>
+                <button type="button" className="btn btn-blue" onClick={() => setChargesOpen(null)}>Done</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* #2 — Document-level charges modal (mirrors per-line charges overlay above) */}
+      {globalChargesOpen && (
+        <div
+          className="arc-modal-backdrop"
+          onClick={(e) => { if (e.target === e.currentTarget) setGlobalChargesOpen(false); }}
+        >
+          <div className="arc-modal" style={{ maxWidth: 620 }}>
+            <div className="modal-head">
+              <div>
+                <div className="t"><h3>Document-level charges</h3></div>
+                <div className="sub">Charges that apply to the entire quote (e.g. logistics, handling fee, documentation)</div>
+              </div>
+              <button className="icon-btn" onClick={() => setGlobalChargesOpen(false)} type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: "16px 20px" }}>
+              <div className="flex items-center gap-2 mb-3" style={{ flexWrap: "wrap" }}>
+                <label className="label" style={{ marginBottom: 0 }}>Add charge</label>
+                <select
+                  className="input"
+                  value=""
+                  onChange={(e) => { const v = e.target.value; if (v && addGlobalCharge) { addGlobalCharge(v); e.target.value = ""; } }}
+                  disabled={readOnly}
+                  style={{ maxWidth: 240 }}
+                >
+                  <option value="">Select a charge type…</option>
+                  {GLOBAL_CHARGE_OPTIONS
+                    .filter(t => !(globalCharges || []).some(c => (c.name || "").trim().toLowerCase() === t.toLowerCase()))
+                    .map(t => <option key={t} value={t}>{t}</option>)}
+                  <option value="Custom">Custom…</option>
+                </select>
+              </div>
+              {(globalCharges || []).length === 0 && (
+                <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "12px 0" }}>Pick a charge type above to add a document-level charge.</div>
+              )}
+              {(globalCharges || []).length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Charge name</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tax on charge</span>
+                    <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Note</span>
+                    <span></span>
+                  </div>
+                  {(globalCharges || []).map((c, ci) => {
+                    // Catalog charge → locked name; only a "Custom" row is renamable.
+                    const nameLocked = !!(c.name || "").trim()
+                      && GLOBAL_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
+                    return (
+                    <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                      {nameLocked ? (
+                        <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
+                          {c.name}
+                        </div>
+                      ) : (
+                      <input
+                        className="input"
+                        type="text"
+                        value={c.name}
+                        onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { name: e.target.value })}
+                        onBlur={onFieldBlur}
+                        placeholder="Custom charge name"
+                        disabled={readOnly}
+                      />
+                      )}
+                      <div className="input-group">
+                        <input
+                          className="input input-num"
+                          type="number"
+                          value={c.amount}
+                          onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { amount: e.target.value })}
+                          onBlur={onFieldBlur}
+                          placeholder="0"
+                          disabled={readOnly}
+                        />
+                        <div className="suffix" style={{ padding: 0 }}>
+                          <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                            <button type="button" className={c.amountMode === "%" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { amountMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                            <button type="button" className={c.amountMode === "₹" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { amountMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="input-group">
+                        <input
+                          className="input input-num"
+                          type="number"
+                          value={c.tax ?? ""}
+                          onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { tax: e.target.value })}
+                          onBlur={onFieldBlur}
+                          placeholder="inherit"
+                          min="0"
+                          disabled={readOnly}
+                          title="Leave blank to inherit the base GST; enter 0 for no tax; enter a rate for a custom charge tax."
+                        />
+                        <div className="suffix" style={{ padding: 0 }}>
+                          <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
+                            <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                            <button type="button" className={c.taxMode === "₹" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                          </div>
+                        </div>
+                      </div>
+                      <input
+                        className="input"
+                        type="text"
+                        value={c.note}
+                        onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { note: e.target.value })}
+                        onBlur={onFieldBlur}
+                        placeholder="Note"
+                        disabled={readOnly}
+                      />
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => removeGlobalCharge && removeGlobalCharge(ci)}
+                        title="Remove"
+                        disabled={readOnly}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      </button>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+              {(globalCharges || []).length > 0 && totals.globalChargesTotal > 0 && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 10 }}>
+                  Total document charges: <span className="mono">₹ {fmtN(totals.globalChargesTotal)}</span>
+                </div>
+              )}
+            </div>
+            <div className="modal-foot" style={{ padding: "12px 20px", display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)" }}>
+              <button type="button" className="btn btn-blue" onClick={() => setGlobalChargesOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// Sr 37 — auto-save status chip. Mirrors the buyer manual-entry.js SaveChip
+// (same states, same `.status-pill` arc_v2 token) so vendors get the same
+// silent on-blur/debounce save affordance already used elsewhere in ARC v2.
+function SaveChip({ state }) {
+  const map = {
+    idle:   { cls: "neutral", text: "Not saved" },
+    dirty:  { cls: "warn",    text: "Unsaved" },
+    saving: { cls: "info",    text: "Saving…" },
+    saved:  { cls: "success", text: "Saved" },
+    error:  { cls: "danger",  text: "Save failed" },
+  };
+  const m = map[state] || map.idle;
+  return (
+    <span className={`status-pill ${m.cls}`}>
+      <span className="dot" />
+      {m.text}
+    </span>
+  );
+}

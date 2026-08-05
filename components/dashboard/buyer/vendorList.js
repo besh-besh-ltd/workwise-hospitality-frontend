@@ -1,5 +1,4 @@
 import React from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
 import { formatDate } from "@/utils/sharedFunctions";
 import FullLoader from "@/components/shared/FullLoader";
 
@@ -46,20 +45,20 @@ const VendorList = ({
   };
 
   return (
-    <div className="px-2" style={{ height: "65vh" }}>
+    <div className="query-vendor-list">
       {/* Search Input */}
       <input
         id="search_username-query_list-queries_page"
         type="text"
-        className="form-control mb-3 p-2"
-        placeholder="Search by username..."
+        className="query-vendor-search"
+        placeholder="Search by vendor name..."
         value={vendorName}
         onChange={(e) => setVendorName(e.target.value)}
       />
-      
+
       {/* Select All Controls */}
       {vendors.length > 0 && !loading && (
-        <div className="d-flex align-items-center mb-3 p-2 bg-light border rounded">
+        <div className="query-select-all">
           <input
             type="checkbox"
             checked={allSelected}
@@ -67,76 +66,56 @@ const VendorList = ({
               if (input) input.indeterminate = someSelected;
             }}
             onChange={handleSelectAll}
-            className="me-2"
           />
-          <span className="me-3">
-            {allSelected ? "Deselect All" : someSelected ? "Select All" : "Select All"}
-          </span>
-          <small className="text-muted">
-            {selectedVendorIds.length} of {vendors.length} selected
-          </small>
+          <span>{allSelected ? "Deselect All" : "Select All"}</span>
+          <small>{selectedVendorIds.length} of {vendors.length}</small>
         </div>
       )}
 
       {/* Vendor List */}
-      <div className="list-group" style={{ height: "calc(100% - 120px)", overflowY: "auto" }}>
+      <div className="query-vendor-scroll">
         {loading ? (
           <div className="hasFullLoader h-100">
             <FullLoader />
           </div>
         ) : (
-          vendors.map((vendor) => (
-            <div
-              key={vendor.user_id}
-              className="p-3 pb-1 bg-light border rounded shadow-sm mb-2 d-flex justify-content-between align-items-center"
-              style={{ cursor: "pointer" }}
-              onClick={() => handleClickVendor(vendor)}
-            >
-              {/* Checkbox */}
-              <input
-                type="checkbox"
-                checked={selectedVendorIds.includes(vendor.user_id)}
-                onChange={(e) => handleCheckboxChange(e, vendor.user_id)}
-                className="me-2"
-                onClick={(e) => e.stopPropagation()}
-              />
-
-              {/* Vendor info */}
-              <div style={{ flex: 1 }}>
-                {vendor?.vendor_code && vendor.vendor_code !== vendor.display_name && (
-                  <span className="text-muted fw-semibold d-block" style={{ fontSize: "0.8rem" }}>
-                    {vendor.vendor_code}
+          vendors.map((vendor) => {
+            const isSelected = selectedVendorIds.includes(vendor.user_id);
+            return (
+              <div
+                key={vendor.user_id}
+                className={`query-vendor-item ${isSelected ? 'query-vendor-item-active' : ''}`}
+                onClick={() => handleClickVendor(vendor)}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => handleCheckboxChange(e, vendor.user_id)}
+                  className="query-vendor-checkbox"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <div className="query-vendor-info">
+                  {vendor?.vendor_code && vendor.vendor_code !== vendor.display_name && (
+                    <span className="query-vendor-code">{vendor.vendor_code}</span>
+                  )}
+                  <span className="query-vendor-name">
+                    {vendor?.display_name ?? vendor?.company_name ?? "-"}
                   </span>
-                )}
-                <h6 className="mb-2" style={{ fontSize: "1.1rem" }}>
-                  {vendor?.display_name ?? vendor?.company_name ?? "-"}
-                </h6>
-                <p
-                  className="text-muted"
-                  style={{
-                    fontSize: "0.95rem",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: "250px",
-                  }}
-                >
-                  {vendor.last_message || "Send a query..."}
-                </p>
-              </div>
-
-              <div className="text-end">
-                {vendor.unseen_count > 0 && (
-                  <span className="badge bg-primary rounded-pill mb-1">
-                    {vendor.unseen_count}
+                  <span className="query-vendor-preview">
+                    {vendor.last_message || "Send a query..."}
                   </span>
-                )}
-                <small className="text-muted d-block">
-                  {vendor.last_message_timestamp ? formatDate(vendor.last_message_timestamp) : ""}
-                </small>
+                </div>
+                <div className="query-vendor-meta">
+                  {vendor.unseen_count > 0 && (
+                    <span className="query-vendor-badge">{vendor.unseen_count}</span>
+                  )}
+                  <span className="query-vendor-time">
+                    {vendor.last_message_timestamp ? formatDate(vendor.last_message_timestamp) : ""}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

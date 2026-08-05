@@ -1,0 +1,610 @@
+/* Vendor dashboard — inner-content styles only.
+   Card chrome (radius, border, padding, header) is owned by PersonaCardShell.
+   Tokens follow the buyer dashboard:
+     primary text   #18181b
+     mid text       #52525b
+     muted text     #71717a
+     label text     #a1a1aa
+     soft sep       #f4f4f1
+     border         #ebebe6 / #eee
+     hover bg       #fafaf9
+     blue accent    #2563eb / #3b82f6
+     red            #b91c1c
+     amber          #b45309
+     green          #15803d
+*/
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.greetingBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.greeting {
+  font-size: 22px;
+  font-weight: 700;
+  color: #18181b;
+  margin: 0;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: #71717a;
+  margin: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: #d6d6cf;
+    color: #18181b;
+    background: #fafaf9;
+  }
+}
+
+.filterItem {
+  min-width: 170px;
+
+  :global(.react-select__control) {
+    min-height: 34px;
+    border: 1px solid #ebebe6;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    box-shadow: none;
+    cursor: pointer;
+    &:hover { border-color: #d6d6cf; }
+  }
+  :global(.react-select__control--is-focused) {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 1px #2563eb !important;
+  }
+  :global(.react-select__indicator-separator) { display: none; }
+  :global(.react-select__single-value) { font-size: 13px; color: #18181b; }
+  :global(.react-select__option) { font-size: 13px; padding: 8px 12px; cursor: pointer; }
+  :global(.react-select__option--is-focused) { background: #fafaf9; }
+  :global(.react-select__option--is-selected) { background: #2563eb; color: #fff; }
+  :global(.react-select__menu) {
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f0f0f0;
+    z-index: 10;
+    margin-top: 4px;
+  }
+}
+
+/* ── Opportunities tiles ── */
+.oppGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+
+  @media (max-width: 1100px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 600px)  { grid-template-columns: 1fr; }
+}
+
+/* KPI-tile look: card chrome + accent-edge stripe on top. */
+.oppItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 14px 14px;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #d6d6cf;
+  }
+  &.info::before    { background: #2563eb; }
+  &.warn::before    { background: #b45309; }
+  &.danger::before  { background: #b91c1c; }
+  &.success::before { background: #15803d; }
+
+  &:hover {
+    border-color: #d6d6cf;
+    box-shadow: 0 6px 18px -8px rgba(15, 15, 14, 0.10);
+  }
+}
+
+.oppHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.oppIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #52525b;
+  background: #f4f4f1;
+
+  &.danger  { color: #b91c1c; background: #fef2f2; }
+  &.warn    { color: #b45309; background: #fef7ed; }
+  &.info    { color: #2563eb; background: #eff6ff; }
+  &.success { color: #15803d; background: #ecfdf5; }
+}
+
+.oppLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+}
+
+.oppRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.oppValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 26px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+
+  &.danger  { color: #b91c1c; }
+  &.warn    { color: #b45309; }
+  &.info    { color: #2563eb; }
+  &.success { color: #15803d; }
+}
+
+.statusPill {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1.25;
+  white-space: nowrap;
+
+  &.danger  { background: #fef2f2; color: #b91c1c; }
+  &.warn    { background: #fef7ed; color: #b45309; }
+  &.info    { background: #eff6ff; color: #1d4ed8; }
+  &.success { background: #ecfdf5; color: #15803d; }
+}
+
+/* ── Performance funnel ── */
+.perfGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+
+  @media (max-width: 1200px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px)  { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 460px)  { grid-template-columns: 1fr; }
+}
+
+/* KPI-tile look — context tiles share one subtle deep-green accent (low
+   opacity); the highlighted REVENUE tile gets a prominent green bar + green
+   tint so it stands out as the headline figure (mirrors the buyer snapshot). */
+.perfItem {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  padding: 11px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #166534;
+    opacity: 0.5; /* subtle for context tiles; REVENUE overrides to 1 */
+  }
+
+  &:hover {
+    border-color: #d6d6cf;
+    box-shadow: 0 6px 18px -8px rgba(15, 15, 14, 0.08);
+  }
+
+  &.highlighted {
+    background: #f1fbf4;
+    border-color: rgba(21, 128, 61, 0.22);
+
+    &::before { background: #15803d; opacity: 1; }
+    .perfLabel { color: #15803d; }
+    .perfValue { color: #18181b; }
+  }
+}
+
+.perfLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #71717a;
+}
+
+.perfValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 24px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+
+/* ── Two-column insights grid ── */
+.mainContent {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 992px) { grid-template-columns: 1fr; }
+}
+
+.leftColumn,
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Charts ── */
+.chartWrap {
+  height: 220px;
+  position: relative;
+}
+
+/* ── Top products ── */
+.productList {
+  display: flex;
+  flex-direction: column;
+}
+
+.productRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #f4f4f1;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+}
+
+.productRank {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.productName {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.productCount {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.productValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+/* ── Response efficiency ── */
+.effBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.effHeadline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.effLbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.effNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.effRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.effRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #f4f4f1;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+}
+
+.effDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.success { background: #15803d; }
+  &.danger  { background: #b91c1c; }
+  &.info    { background: #2563eb; }
+  &.warn    { background: #b45309; }
+}
+
+.effRowLabel {
+  flex: 1;
+  font-size: 12.5px;
+  color: #52525b;
+  min-width: 0;
+}
+
+.effRowValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.01em;
+}
+
+.headerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+
+  &.winPill  { background: #ecfdf5; color: #15803d; border: 1px solid rgba(21, 128, 61, 0.22); }
+  &.warnPill { background: #fef7ed; color: #b45309; border: 1px solid rgba(180, 83, 9, 0.22); }
+}
+
+/* ── Win / loss bar ── */
+.winLossBar {
+  display: flex;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: #f4f4f1;
+}
+
+.winSeg,
+.lossSeg,
+.pendingSeg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  min-width: 24px;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.winSeg     { background: linear-gradient(90deg, #16a34a 0%, #15803d 100%); }
+.lossSeg    { background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%); }
+.pendingSeg { background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%); }
+
+.winLossLegend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #71717a;
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.success { background: #15803d; }
+  &.danger  { background: #b91c1c; }
+  &.warn    { background: #b45309; }
+}
+
+/* ── Recent activity ── */
+.activityList {
+  display: flex;
+  flex-direction: column;
+}
+
+.activityRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #f4f4f1;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s ease;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+
+  &:hover {
+    .actArrow { opacity: 1; transform: translateX(0); }
+  }
+}
+
+.actDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 7px;
+
+  &.info    { background: #2563eb; }
+  &.success { background: #15803d; }
+  &.purple  { background: #7c3aed; }
+  &.danger  { background: #b91c1c; }
+  &.warn    { background: #b45309; }
+}
+
+.actContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.actTitle {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+}
+
+.actSub {
+  font-size: 11.5px;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.actDate {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: #a1a1aa;
+  flex-shrink: 0;
+}
+
+.actArrow {
+  color: #a1a1aa;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.15s ease;
+}
+
+/* ── Empty state ── */
+.emptyText {
+  text-align: center;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
+}

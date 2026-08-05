@@ -38,7 +38,7 @@ const RfqManagementDetails = () => {
 
   useEffect(() => {
     if(id && id !== '') {
-      getRFQById(id).then(res => {
+      getRFQById(id, undefined, true).then(res => {
         setrfqDetails(res.data)
       }).catch((err) => {
         const status = err?.response?.status || err?.message?.response?.status;
@@ -58,7 +58,7 @@ const RfqManagementDetails = () => {
       if (response && response.status === 1) {
         toast.success(`${getEntityLabel(rfqDetails?.is_tender)} closed successfully`);
         // Refresh RFQ data to show updated status
-        const updatedRfq = await getRFQById(id);
+        const updatedRfq = await getRFQById(id, undefined, true);
         setrfqDetails(updatedRfq.data);
       } else {
         toast.error(`Failed to close ${getEntityLabel(rfqDetails?.is_tender)}`);
@@ -85,7 +85,7 @@ const RfqManagementDetails = () => {
     try {
       const response = await withdrawPublish(id);
       if (response && response.status === 1) {
-        const updatedRfq = await getRFQById(id);
+        const updatedRfq = await getRFQById(id, undefined, true);
         setrfqDetails(updatedRfq.data);
         setShowWithdrawConfirmModal(false);
         setShowWithdrawSuccessModal(true);

@@ -1,13 +1,39 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Modal from "react-modal";
 import { Formik, Form } from "formik";
-import { HiX } from "react-icons/hi";
+import { HiX, HiExclamationCircle } from "react-icons/hi";
 import { dynamicAccountEditSchema } from "@/utils/schema";
 import { getDepartments } from "@/services/rbac";
+import { sendLog, SeverityNumber } from "@/lib/otel";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import { dedupeHospitalityMappings } from "./accessUtils";
 import styles from "./ManageAccounts.module.scss";
+
+/**
+ * Report a modal prefetch failure to OpenTelemetry (lib/otel.js) instead of
+ * swallowing it. An empty option list that is really a failed request is how
+ * an admin ends up saving a form that erases data.
+ */
+const reportModalLoadFailure = (raw, source) => {
+  try {
+    const err = raw?.message && typeof raw.message === "object" ? raw.message : raw;
+    sendLog({
+      severityNumber: SeverityNumber.ERROR,
+      severityText: "ERROR",
+      body: err?.message || `Edit account modal prefetch failed (${source})`,
+      attributes: {
+        "error.type": err?.name || "EditAccountModalPrefetchError",
+        "error.message": err?.message || String(err ?? ""),
+        "http.response.status_code": err?.response?.status ?? 0,
+        "browser.url": typeof window !== "undefined" ? window.location.href : "",
+        "log.source": source,
+      },
+    });
+  } catch (_) {
+    /* telemetry must never break the flow */
+  }
+};
 
 const modalOverlayStyles = {
   overlay: {
@@ -73,28 +99,56 @@ const EditAccountModal = ({
   initialRoleScopes,
   userDepartments,
   userMappings,
+  // "idle" | "loading" | "ready" | "error" — the parent's prefetch of role
+  // scopes / departments / mappings. Saving before it reaches "ready" would
+  // submit empty arrays, which the API reads as "delete every grant".
+  dataStatus = "ready",
+  onRetryLoad,
   onSave,
   isSaving = false,
 }) => {
   const [roleScopes, setRoleScopes] = useState([]);
   const [departments, setDepartments] = useState([]);
+  // The department *options* list is fetched here; a failure must not read as
+  // "this user has no departments to pick from".
+  const [departmentsError, setDepartmentsError] = useState(false);
   const pendingScopeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setRoleScopes(initialRoleScopes || []);
-
-      getDepartments()
-        .then((res) => {
-          const depts = (res?.data?.data || res?.data || []).map((d) => ({
-            value: d.id,
-            label: d.title,
-          }));
-          setDepartments(depts);
-        })
-        .catch(() => setDepartments([]));
     }
   }, [isOpen, initialRoleScopes]);
+
+  const loadDepartmentOptions = useCallback(() => {
+    setDepartmentsError(false);
+    getDepartments()
+      .then((res) => {
+        const depts = (res?.data?.data || res?.data || []).map((d) => ({
+          value: d.id,
+          label: d.title,
+        }));
+        setDepartments(depts);
+      })
+      .catch((err) => {
+        reportModalLoadFailure(err, "getDepartments");
+        setDepartments([]);
+        setDepartmentsError(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) loadDepartmentOptions();
+  }, [isOpen, loadDepartmentOptions]);
+
+  const isLoadingData = dataStatus === "idle" || dataStatus === "loading";
+  const hasLoadError = dataStatus === "error" || departmentsError;
+  const canSubmit = !isLoadingData && !hasLoadError;
+
+  const handleRetry = () => {
+    if (departmentsError) loadDepartmentOptions();
+    if (dataStatus === "error" && onRetryLoad) onRetryLoad();
+  };
 
   if (!account) return null;
 
@@ -124,6 +178,10 @@ const EditAccountModal = ({
   };
 
   const handleSubmit = (values) => {
+    // Belt-and-braces: the submit button is disabled until the prefetch lands,
+    // but Formik can also be submitted via Enter.
+    if (!canSubmit) return;
+
     const formattedMobile = `${values.countryCode}-${values.mobile}`;
     let statusVal;
     if (typeof values.status === "object" && values.status !== null) {
@@ -172,21 +230,45 @@ const EditAccountModal = ({
       company_id: role.company_id || null,
       hotel_id: role.hotel_id || null,
       department_id: role.department_id || null,
+      process_id: role.process_id || null,
       permissions: role.permissions || {},
     }));
 
-    onSave({
+    const payload = {
       id: values.id,
       name: values.name,
       email: values.email,
       mobile: formattedMobile,
       status: statusVal,
-      roles: filteredRoles,
       department_ids: departmentIds,
       employee_type: values.employee_type?.value || null,
       employee_code: values.employee_code || null,
       payroll_company_id: values.payroll_company_id,
-    });
+    };
+
+    // Only send `roles` when the current list was actually loaded. For a
+    // non-hospitality company the selector never renders and the scopes are
+    // never fetched — sending `[]` there would tell the API to delete grants
+    // this screen never showed anyone.
+    if (Array.isArray(initialRoleScopes)) {
+      payload.roles = filteredRoles;
+    }
+
+    /* An empty list is ambiguous on the wire: it is both "the admin removed
+       the last role" and "this form never loaded". The API refuses the second
+       reading unless the client vouches for the first. We can only vouch
+       because `canSubmit` guarantees the real current state was rendered and
+       the admin emptied it themselves. */
+    const clearingRoles = Array.isArray(payload.roles)
+      && payload.roles.length === 0
+      && Array.isArray(initialRoleScopes) && initialRoleScopes.length > 0;
+    const clearingDepartments = departmentIds.length === 0
+      && Array.isArray(userDepartments) && userDepartments.length > 0;
+    if (clearingRoles || clearingDepartments) {
+      payload.confirm_clear_all_scopes = true;
+    }
+
+    onSave(payload);
   };
 
   const isAdmin = account.role === 7;
@@ -233,10 +315,36 @@ const EditAccountModal = ({
       >
         {({ errors, touched, values, setFieldValue, isValid }) => (
           <Form className={styles.modalForm}>
+            {hasLoadError && (
+              <div className={styles.modalLoadError} role="alert">
+                <HiExclamationCircle size={18} className={styles.modalLoadErrorIcon} />
+                <div className={styles.modalLoadErrorText}>
+                  <strong>Couldn&apos;t load this account&apos;s roles and departments.</strong>
+                  <span>
+                    Saving now could remove access this form never showed you, so
+                    it&apos;s disabled until the data loads.
+                  </span>
+                </div>
+                <button type="button" className={styles.modalLoadErrorRetry} onClick={handleRetry}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {isLoadingData && !hasLoadError && (
+              <div className={styles.modalLoadingBar} aria-live="polite">
+                <span className={styles.miniSpinner} aria-hidden="true" />
+                Loading roles and departments…
+              </div>
+            )}
+
+            {/* Locked while saving AND while the prefetch is unresolved —
+                otherwise an admin could edit the role list against stale or
+                empty data, only for the arriving fetch to discard the edit. */}
             <div
               className={styles.modalBody}
-              style={isSaving ? { pointerEvents: "none", opacity: 0.55, transition: "opacity 0.15s ease" } : { transition: "opacity 0.15s ease" }}
-              aria-busy={isSaving}
+              style={(isSaving || !canSubmit) ? { pointerEvents: "none", opacity: 0.55, transition: "opacity 0.15s ease" } : { transition: "opacity 0.15s ease" }}
+              aria-busy={isSaving || isLoadingData}
             >
               {/* Basic Info */}
               <div className={styles.modalSection}>
@@ -438,10 +546,17 @@ const EditAccountModal = ({
               <button
                 type="submit"
                 className={styles.submitBtn}
-                disabled={!isValid || isSaving}
+                disabled={!isValid || isSaving || !canSubmit}
+                title={
+                  hasLoadError
+                    ? "Reload this account's roles and departments before saving"
+                    : isLoadingData
+                      ? "Loading this account's roles and departments…"
+                      : undefined
+                }
               >
-                {isSaving && <span className={styles.submitBtnSpinner} aria-hidden="true" />}
-                {isSaving ? "Saving..." : "Update Account"}
+                {(isSaving || isLoadingData) && <span className={styles.submitBtnSpinner} aria-hidden="true" />}
+                {isSaving ? "Saving..." : isLoadingData ? "Loading..." : "Update Account"}
               </button>
             </div>
           </Form>

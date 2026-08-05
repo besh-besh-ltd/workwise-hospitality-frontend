@@ -611,22 +611,53 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
               return new Date(endDateStr) > now;
             }
           );
-          const productIds = new Set(activeRounds.map(r => r.rfq_product_id));
+          // Multi-product rounds list every covered product in `products[]`
+          // (rfq_product_id is NULL on the row); legacy rounds carry a single
+          // rfq_product_id. Collect the union of covered product ids.
+          const coveredIdsOf = (r) => {
+            if (Array.isArray(r.products) && r.products.length > 0) {
+              return r.products
+                .map(p => p?.rfq_product_id)
+                .filter(id => id != null);
+            }
+            return r.rfq_product_id != null ? [r.rfq_product_id] : [];
+          };
+          const productIds = new Set(activeRounds.flatMap(coveredIdsOf));
           setActiveNegotiationProductIds(productIds);
           setHasActiveNegotiationRounds(productIds.size > 0);
 
-          // Extract per-field negotiation data
+          // Extract per-field negotiation data. `tax_demand` is the buyer's
+          // free-text ask on the field's tax — it gates the vendor's tax
+          // inputs independently of the amount target.
+          const mapFields = (rawFields) => (rawFields || []).map(f => ({
+            name: f.name,
+            targetPrice: f.target || f.target_price,
+            demand: f.demand || null,
+            mode: f.mode || null,
+            taxDemand: f.tax_demand || null,
+          }));
           const fieldsByProduct = {};
           activeRounds.forEach(r => {
-            // The API filters by vendor token, so vendor_approvals should contain this vendor's entry
+            if (Array.isArray(r.products) && r.products.length > 0) {
+              // Multi round: backend strips products[].vendor_targets to this
+              // vendor, so the first vendor_targets entry is ours.
+              r.products.forEach(p => {
+                const vt = (p?.vendor_targets || [])[0];
+                if (!vt?.fields?.length) return;
+                if (p?.is_rfq_level === true) {
+                  // RFQ-level fields apply to the global section — key them
+                  // under a dedicated bucket.
+                  fieldsByProduct.__rfq_level__ = mapFields(vt.fields);
+                } else if (p?.rfq_product_id != null) {
+                  fieldsByProduct[p.rfq_product_id] = mapFields(vt.fields);
+                }
+              });
+              return;
+            }
+            // Legacy round: fields live on the vendor's approval entry.
             const myApproval = (r.vendor_approvals || [])[0];
             if (!myApproval?.negotiation_fields) return;
-            fieldsByProduct[r.rfq_product_id] = myApproval.negotiation_fields.map(f => ({
-              name: f.name,
-              targetPrice: f.target || f.target_price,
-              demand: f.demand || null,
-              mode: f.mode || null,
-            }));
+            fieldsByProduct[r.rfq_product_id] = mapFields(myApproval.negotiation_fields);
           });
           setActiveNegotiationFields(fieldsByProduct);
         } catch (error) {
@@ -655,6 +686,9 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
       const product = quoteProducts.find(p => String(p.id) === String(productId));
       if (!product) { filteredFields[productId] = fields[productId]; return; }
       filteredFields[productId] = fields[productId].filter(f => {
+        // Tax demands survive regardless of the amount target — the buyer is
+        // negotiating the field's tax even when the amount ask is moot.
+        if (f.taxDemand) return true;
         const target = parseFloat(f.targetPrice);
         if (isNaN(target)) return true; // keep non-numeric fields like payment_terms
         if (f.name === 'base_price') {
@@ -1639,16 +1673,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   return (
     <>
       {submitLoading && <Loader />}
-      <section className="quote-common-header sc-pt-80">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-md-6">
-              <h3 className="heading">Send Quotation</h3>
-            </div>
-            <div className="col-md-6"></div>
-          </div>
-        </div>
-      </section>
+      <div className="mb-4">
+        <h1 className='pageTitle'>Fill your quotation</h1>
+        <p className='pageSubtitle'>Fill in your quotation details below</p>
+      </div>
 
       {/* Table Placeholder */}
       {loading && (
@@ -1656,7 +1684,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           <div className="container-fluid">
             <div className="row">
               <div className="col-md-12">
-                <div className="quote-sec-table">
+                <div>
                   <div className="quote-sec-table-top">
                     <h3 className="title">
                       <PlaceholderLoading
@@ -1896,7 +1924,7 @@ return { deletedTerms, createdTerms, updatedTerms };
               )}
             <div className="row">
               <div className="col-md-12">
-                <div className="quote-sec-table">
+                <div>
                   <div className="quote-sec-table-top">
 
                       {/* RFQ Details Section */}
@@ -2820,14 +2848,28 @@ return { deletedTerms, createdTerms, updatedTerms };
                     const isBidExpiredForProduct = isBidExpired && !activeNegotiationProductIds.has(rfqProduct.id);
                     const isDisabled = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct || isBidExpiredForProduct;
 
-                    // Per-field negotiation check for modal charges
+                    // Per-field negotiation check for modal charges. Amount
+                    // and tax unlock independently: amount needs an amount
+                    // target, tax needs a tax demand (taxDemand note).
                     const modalNegotiatedFields = activeNegotiationFields[rfqProduct.id] || [];
+                    const findModalField = (chargeName, chargeSlug) =>
+                      modalNegotiatedFields.find(f => f.name === chargeName || f.name === chargeSlug || f.name === (chargeSlug || chargeName));
                     const isChargeNegotiable = (chargeName, chargeSlug) => {
                       if (!isBidExpired) return true;
                       if (!activeNegotiationProductIds.has(rfqProduct.id)) return false;
                       if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
-                      return modalNegotiatedFields.some(f => f.name === chargeName || f.name === chargeSlug || f.name === (chargeSlug || chargeName));
+                      const f = findModalField(chargeName, chargeSlug);
+                      return !!f && f.targetPrice != null && f.targetPrice !== '';
                     };
+                    const isChargeTaxNegotiable = (chargeName, chargeSlug) => {
+                      if (!isBidExpired) return true;
+                      if (!activeNegotiationProductIds.has(rfqProduct.id)) return false;
+                      if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                      const f = findModalField(chargeName, chargeSlug);
+                      return !!f && !!f.taxDemand;
+                    };
+                    const getChargeTaxDemand = (chargeName, chargeSlug) =>
+                      findModalField(chargeName, chargeSlug)?.taxDemand || null;
                     const getChargeTargetPrice = (chargeNameOrSlug) => {
                       const field = modalNegotiatedFields.find(f => f.name === chargeNameOrSlug);
                       return field?.targetPrice ?? null;
@@ -3037,11 +3079,15 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                             {(modalProduct.other_charges || []).map((charge) => {
                               const chargeDisabled = !isChargeNegotiable(charge.name, charge.slug);
+                              // Tax unlocks independently — only when the buyer
+                              // demanded/negotiated this charge's tax.
+                              const chargeTaxDisabled = !isChargeTaxNegotiable(charge.name, charge.slug);
+                              const chargeTaxDemand = getChargeTaxDemand(charge.slug || charge.name) || getChargeTaxDemand(charge.name, charge.slug);
                               const chargeTarget = getChargeTargetPrice(charge.slug || charge.name);
                               const chargeTargetFormatted = formatChargeTarget(charge.slug || charge.name);
                               const isNegotiatedCharge = chargeTarget != null;
                               return (
-                              <div key={charge._id} className="border rounded p-2 mb-2" style={isNegotiatedCharge ? { border: '2px solid #f0ad4e' } : {}}>
+                              <div key={charge._id} className="border rounded p-2 mb-2" style={(isNegotiatedCharge || (isBidExpired && chargeTaxDemand)) ? { border: '2px solid #f0ad4e' } : {}}>
                                 <div className="d-flex justify-content-between align-items-center mb-2">
                                   <span className="fw-semibold" style={{ fontSize: "0.85rem" }}>
                                     {charge.name}
@@ -3101,13 +3147,18 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           const next = raw === "" ? null : (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : null);
                                           handleUpdateOtherCharge(modalIndex, charge._id, "tax", next);
                                         }}
-                                        onWheel={(e) => e.target.blur()} disabled={chargeDisabled}
+                                        onWheel={(e) => e.target.blur()} disabled={chargeTaxDisabled}
                                         />
                                         <PercentageAbsoluteToggle currentMode={charge.tax_mode}
-                                        disabled={chargeDisabled}
+                                        disabled={chargeTaxDisabled}
                                         onToggle={(value) => handleUpdateOtherCharge(modalIndex, charge._id, "tax_mode", value)}
                                         />
                                         </div>
+                                        {isBidExpired && chargeTaxDemand && (
+                                        <div style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.7rem', lineHeight: 1.3, marginTop: 6, padding: '2px 6px', borderRadius: '3px', border: '1px solid #86efac' }}>
+                                        Tax asked: “{chargeTaxDemand}”
+                                        </div>
+                                        )}
                                         {(charge.tax === undefined || charge.tax === "" || charge.tax === null) && (
                                         <div style={{ color: '#856404', fontSize: '0.7rem', lineHeight: 1.3, marginTop: '4px', backgroundColor: '#fff8e1', marginTop: 6, padding: '2px 6px', borderRadius: '3px', border: '1px solid #f0ad4e' }}>
                                         Enter 0 for non-taxable charge.
@@ -3134,7 +3185,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               if (invalidCommentChargeId === charge._id) setInvalidCommentChargeId(null);
                                               handleUpdateOtherCharge(modalIndex, charge._id, "comment", e.target.value);
                                             }}
-                                            disabled={chargeDisabled}
+                                            disabled={chargeDisabled && chargeTaxDisabled}
                                           />
                                           <div style={{
                                             fontSize: '0.7rem',
@@ -3264,12 +3315,26 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                                 // Per-field negotiation check
                                 const negotiatedFields = activeNegotiationFields[item.id] || [];
+                                // Amount inputs unlock only when the buyer set an AMOUNT
+                                // target on the field; tax inputs unlock only when the
+                                // buyer raised a TAX demand (taxDemand note) — the two
+                                // are independent (a field can be tax-only).
                                 const isFieldNegotiable = (fieldName) => {
                                   if (!isBidExpired) return true;
                                   if (!activeNegotiationProductIds.has(item.id)) return false;
                                   if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
-                                  return negotiatedFields.some(f => f.name === fieldName);
+                                  return negotiatedFields.some(f =>
+                                    f.name === fieldName && f.targetPrice != null && f.targetPrice !== ''
+                                  );
                                 };
+                                const isFieldTaxNegotiable = (fieldName) => {
+                                  if (!isBidExpired) return true;
+                                  if (!activeNegotiationProductIds.has(item.id)) return false;
+                                  if (isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct) return false;
+                                  return negotiatedFields.some(f => f.name === fieldName && f.taxDemand);
+                                };
+                                const getTaxDemand = (fieldName) =>
+                                  negotiatedFields.find(f => f.name === fieldName)?.taxDemand || null;
                                 const getTargetPrice = (fieldName) => {
                                   const field = negotiatedFields.find(f => f.name === fieldName);
                                   return field?.targetPrice ?? null;
@@ -3304,12 +3369,16 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         />
                                       )}
                                       {isProductFinalized && (
-                                        <span className="badge bg-warning text-dark mt-1 d-block" style={{ fontSize: "0.7rem" }}>
+                                        <span
+                                          className={`badge mt-1 d-block ${item.finalization_status === "You are finalized" ? "bg-success" : "bg-danger"}`}
+                                          style={{ fontSize: "0.7rem" }}
+                                        >
                                           {item.finalization_status === "You are finalized" ? "You are Finalized" : "Another Vendor is Finalized"} — Quote cannot be edited
                                         </span>
                                       )}
                                       {getProductSpecValueByTitle(item?.product_specs, "Size") && (
                                         <p className="text-sm mb-1">
+                                          <strong>Product size: </strong>
                                           {getProductSpecValueByTitle(item?.product_specs, "Size")}
                                         </p>
                                       )}
@@ -3323,14 +3392,27 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         )}`}
                                       </p>
                                       {getProductSpecValueByTitle(item?.product_specs, "Spec") && (
-                                        <ReadMore
-                                          content={`- ${getProductSpecValueByTitle(
-                                            item?.product_specs,
-                                            "Spec"
-                                          )}`}
-                                          maxLines={2}
-                                          additionalClasses="text-sm"
-                                        />
+                                        <div className="text-sm mb-1">
+                                          <strong>Product specification: </strong>
+                                          <ReadMore
+                                            content={getProductSpecValueByTitle(
+                                              item?.product_specs,
+                                              "Spec"
+                                            )}
+                                            maxLines={2}
+                                            additionalClasses="text-sm"
+                                          />
+                                        </div>
+                                      )}
+                                      {item?.comment && item.comment.trim() !== "" && (
+                                        <div className="text-sm mb-1">
+                                          <strong>Comment: </strong>
+                                          <ReadMore
+                                            content={item.comment}
+                                            maxLines={2}
+                                            additionalClasses="text-sm"
+                                          />
+                                        </div>
                                       )}
                                       {isTechEvalPendingOrRejected && (
                                         <small
@@ -3385,36 +3467,55 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           </small>
                                         )}
 
-                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
-                                          <span
-                                            className="text-primary d-block text-end mt-1"
-                                            style={{ fontSize: "0.72rem", cursor: "pointer" }}
-                                            onClick={() => setChargesModalOpen(index)}
-                                          >
-                                            {isProductDisabled
-                                              ? (getChargesSummary(quoteProducts[index]).length > 0 ? "Show Charges" : "")
-                                              : (getChargesSummary(quoteProducts[index]).length > 0 ? "Edit Charges" : "+ Add Charges")
-                                            }
-                                          </span>
-                                        )}
+                                        {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (() => {
+                                          const hasCharges = getChargesSummary(quoteProducts[index]).length > 0;
+                                          const disabledNotExpiry = isProductFinalized || isTechEvalPendingOrRejected || isNegotiationSubmittedForProduct;
+                                          let label;
+                                          if (disabledNotExpiry) {
+                                            label = hasCharges ? "Show Charges" : "";
+                                          } else if (isBidExpiredForProduct) {
+                                            label = hasCharges ? "View Charges" : "View Charges";
+                                          } else {
+                                            label = hasCharges ? "Edit Charges" : "+ Add Charges";
+                                          }
+                                          if (!label) return null;
+                                          return (
+                                            <span
+                                              className="text-primary d-block text-end mt-1"
+                                              style={{ fontSize: "0.72rem", cursor: "pointer" }}
+                                              onClick={() => setChargesModalOpen(index)}
+                                            >
+                                              {label}
+                                            </span>
+                                          );
+                                        })()}
 
-                                        {/* Tax/VAT inline */}
+                                        {/* Tax/VAT inline — during negotiation this only
+                                            unlocks when the buyer raised a TAX demand on
+                                            base_price (independent of the amount target). */}
                                         {(parseFloat(quoteProducts[index]?.unit_price) > 0) && (
-                                          <div className="d-flex align-items-center gap-1 mt-2">
-                                            <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, height: "31px" }}
-                                              placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
-                                              value={quoteProducts[index].tax || ""}
-                                              onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
-                                              onWheel={(e) => e.target.blur()} disabled={!isFieldNegotiable('base_price')}
-                                            />
-                                            <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
-                                              disabled={!isFieldNegotiable('base_price')}
-                                              onToggle={(value) => {
-                                                setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
-                                                handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
-                                              }}
-                                            />
-                                          </div>
+                                          <>
+                                            <div className="d-flex align-items-center gap-1 mt-2">
+                                              <input type="number" min={0} className="form-control form-control-sm" style={{ flex: 1, minWidth: 0, height: "31px" }}
+                                                placeholder={chargesMode.tax[quoteProducts[index]?.id] === "absolute" ? "Tax (₹)" : "Tax (%)"}
+                                                value={quoteProducts[index].tax || ""}
+                                                onChange={(e) => handleUpdateData(item.id, e, item.product_id, item.variant, "tax", "", getProductSpecValueByTitle(item?.product_specs, "Quantity"))}
+                                                onWheel={(e) => e.target.blur()} disabled={!isFieldTaxNegotiable('base_price')}
+                                              />
+                                              <PercentageAbsoluteToggle currentMode={chargesMode.tax[quoteProducts[index]?.id] || "percentage"}
+                                                disabled={!isFieldTaxNegotiable('base_price')}
+                                                onToggle={(value) => {
+                                                  setChargesMode(prev => ({ ...prev, tax: { ...prev.tax, [quoteProducts[index].id]: value } }));
+                                                  handleChargeFieldUpdate(index, "tax", quoteProducts[index].tax || 0, { tax: value });
+                                                }}
+                                              />
+                                            </div>
+                                            {isBidExpired && getTaxDemand('base_price') && (
+                                              <div style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', marginTop: '2px', display: 'inline-block' }}>
+                                                Tax asked: “{getTaxDemand('base_price')}”
+                                              </div>
+                                            )}
+                                          </>
                                         )}
                                       </div>
                                     </td>

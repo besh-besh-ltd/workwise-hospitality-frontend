@@ -72,6 +72,10 @@ const ApprovalPendingBanner = ({ entityType, entityId, entityLabel = "Item", isP
     if (isSchedulerAutoApproved && steps?.length > 0) {
       steps.forEach(step => {
         (step.approvers || []).forEach(approver => {
+          // REMOVED is a mid-flight reconciler's soft-tombstone (role revoked
+          // while the approval was in progress) — they never had a chance to
+          // act, so they must not be named among "did not approve".
+          if (approver.status === "REMOVED") return;
           // In scheduler auto-approval, all approvers were force-set to APPROVED
           // They didn't actually act - check if there's no matching action_history entry
           if (!instance.action_history?.some(a => a.actor?.user_id === approver.user_id && a.action === 'APPROVE')) {

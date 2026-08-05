@@ -34,9 +34,13 @@
   --rfq-shadow-md:      0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.04);
   --rfq-focus-ring:     rgba(46, 91, 168, 0.30);
 
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 24px 24px 96px;
+  // Layout chrome is provided by the host shell (TwoPanelPage / DashboardShell):
+  // horizontal padding comes from .pageScrollSection, the top header comes from
+  // TwoPanelPage. We only keep bottom space for the sticky action bar.
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 96px;
   color: var(--rfq-gray-900);
   font-size: 14px;
   line-height: 1.5;
@@ -45,157 +49,253 @@
   *, *::before, *::after { box-sizing: border-box; }
 
   // ======================================================================
-  // Page header — "Create RFQ for [hotels]"
+  // Context strip — slim badge row above the stepper. Replaces the legacy
+  // duplicate "Create RFQ for [hotel]" H1; the page-level title is now
+  // owned by TwoPanelPage so this strip only carries fine-grained context
+  // (entity type, hotel) and, when nothing is picked yet, the hotel picker.
   // ======================================================================
   .rfq-page-header {
-    margin: 0 0 20px;
-    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    margin: 0 0 14px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: 12px;
-    &__title {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      color: var(--rfq-gray-900);
-      line-height: 1.25;
+    &__context {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 5px 10px;
+      background: var(--rfq-gray-50);
+      border: 1px solid var(--rfq-gray-200);
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--rfq-gray-700);
+      line-height: 1.2;
+    }
+    &__context-label {
+      color: var(--rfq-gray-500);
+      font-weight: 500;
+    }
+    &__context-dot {
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--rfq-gray-300);
+      flex-shrink: 0;
     }
     &__hotels {
       color: var(--rfq-primary);
+      font-weight: 600;
     }
     &__hotel-picker {
-      min-width: 280px; flex: 0 1 320px;
-      .rfq-label { display: block; margin-bottom: 4px; }
+      min-width: 280px; flex: 1 1 100%;
+      .rfq-label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--rfq-gray-600); }
     }
   }
 
   // ======================================================================
-  // Stepper card
+  // Stepper — minimal modern SaaS row (no card chrome, no overline,
+  // single brand-blue palette; the small circles + thin connector are
+  // the only visual elements).
   // ======================================================================
   .rfq-stepper-card {
-    background: #ffffff;
-    border: 1px solid var(--rfq-gray-200);
-    border-radius: var(--rfq-radius-lg);
-    padding: 16px;
-    margin-bottom: 20px;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 24px 0 14px 0;
   }
+  // Stepper row uses justify-content: space-between with auto-sized pills
+  // so the 5 circles land at evenly spaced positions (0%, 25%, 50%, 75%,
+  // 100%) edge-to-edge. A single gray rail spans behind the circles and
+  // a brand-blue progress fill grows to `--rfq-stepper-progress` percent
+  // (set inline from JSX based on currentStep), giving a clean modern
+  // stepper feel without uneven gaps.
   .rfq-stepper {
     list-style: none;
     margin: 0; padding: 0;
-    display: flex; align-items: stretch; gap: 8px;
-    flex-wrap: wrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+
+    &::before, &::after {
+      content: "";
+      position: absolute;
+      top: 12px;
+      height: 2px;
+      z-index: 0;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    // Gray rail — runs from the center of the first circle to the center
+    // of the last circle (inset by half the circle width on each side).
+    &::before {
+      left: 13px;
+      right: 13px;
+      background: var(--rfq-gray-200);
+    }
+    // Brand-blue progress fill on top of the rail.
+    &::after {
+      left: 13px;
+      width: calc((100% - 26px) * var(--rfq-stepper-progress, 0) / 100);
+      background: var(--rfq-primary);
+      transition: width .25s ease;
+    }
   }
   .rfq-stepper-mobile {
     display: none;
     margin: 0 0 12px;
-    color: var(--rfq-gray-500);
-    font-weight: 600;
+    color: var(--rfq-gray-600);
+    font-size: 12.5px;
+    font-weight: 500;
   }
 
   .rfq-step-pill {
     list-style: none;
     margin: 0;
-    flex: 1 1 120px; min-width: 120px;
+    flex: 0 0 auto;
     position: relative;
-
-    // Progress line bridging this pill to the next. Sits at the num's
-    // vertical centre; coloured grey by default and turned green on
-    // completed pills via the &--done variant below. Tucked behind the
-    // num via z-index so the circle sits cleanly on top.
-    &:not(:last-child)::after {
-      content: "";
-      position: absolute;
-      top: 23px;
-      left: calc(50% + 22px);
-      right: calc(-50% + 14px);
-      height: 2px;
-      background: var(--rfq-gray-200);
-      z-index: 0;
-      transition: background .15s;
-    }
+    // Per-pill connectors are no longer used — the parent draws the
+    // single rail + progress fill. Leave the slot present in case the
+    // class is referenced elsewhere.
+    &::after { display: none; }
 
     &__btn {
-      width: 100%;
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 6px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      padding: 0;
       border: 0;
       background: transparent;
       color: inherit;
       font: inherit;
       text-align: center;
       cursor: pointer;
-      border-radius: var(--rfq-radius);
       position: relative;
       z-index: 1;
-      // No hover background — the colored circle is the affordance.
-      &:hover { background: transparent; }
-      &:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
+      transition: opacity .15s ease;
+      &:hover:not(:disabled) .rfq-step-pill__label { color: var(--rfq-gray-900); }
+      &:focus-visible { outline: 0; }
+      &:focus-visible .rfq-step-pill__num { box-shadow: 0 0 0 3px var(--rfq-focus-ring); }
       &:disabled { cursor: default; }
     }
     .rfq-step-pill__num {
       flex: none;
-      width: 36px; height: 36px; border-radius: 9999px;
+      width: 26px; height: 26px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
       background: #ffffff;
-      color: var(--rfq-gray-500);
-      font-weight: 700; font-size: 14px;
-      border: 2px solid var(--rfq-gray-200);
-      transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
-    }
-    &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-items: center; max-width: 100%; }
-    &__overline {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
       color: var(--rfq-gray-400);
-      line-height: 1.1;
+      font-weight: 600; font-size: 12px;
+      border: 1.5px solid var(--rfq-gray-300);
+      transition: background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease;
+      // Tighter rendering for the inline check / dot glyphs.
+      svg { display: block; }
     }
+    &__text { display: flex; flex-direction: column; min-width: 0; align-items: center; max-width: 100%; }
+    // Legacy overline slot — the JSX still renders it but the modern
+    // stepper hides it to keep the row a single visual layer.
+    &__overline { display: none; }
     &__label {
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 500;
-      color: var(--rfq-gray-700);
-      line-height: 1.3;
+      color: var(--rfq-gray-500);
+      line-height: 1.25;
+      letter-spacing: -0.005em;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       max-width: 100%;
+      transition: color .15s ease;
     }
 
-    // Active (current step) — amber/yellow.
+    // Active (current step) — filled brand blue, focus ring glow.
     &.rfq-step-pill--active .rfq-step-pill__num {
-      background: #f59e0b;
-      border-color: #f59e0b;
+      background: var(--rfq-primary);
+      border-color: var(--rfq-primary);
       color: #fff;
-      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18);
+      box-shadow: 0 0 0 4px rgba(46, 91, 168, 0.14);
     }
-    &.rfq-step-pill--active .rfq-step-pill__overline { color: #b45309; }
     &.rfq-step-pill--active .rfq-step-pill__label { color: var(--rfq-gray-900); font-weight: 600; }
 
-    // Done (completed step) — green; connector to the next pill turns green too.
+    // Done (visited and behind current) — filled brand blue with check.
     &.rfq-step-pill--done .rfq-step-pill__num {
-      background: var(--rfq-emerald);
-      border-color: var(--rfq-emerald);
+      background: var(--rfq-primary);
+      border-color: var(--rfq-primary);
       color: #fff;
     }
-    &.rfq-step-pill--done .rfq-step-pill__overline { color: var(--rfq-emerald); }
     &.rfq-step-pill--done .rfq-step-pill__label { color: var(--rfq-gray-700); }
-    &.rfq-step-pill--done:not(:last-child)::after { background: var(--rfq-emerald); }
 
-    // Pending (visited but the user has stepped back behind it) — light
-    // yellow with an exclamation mark. Signals "you came from here, take
-    // another look". Connector handled by --connector-warn below.
+    // Pending (user stepped back from this) — same fill as done, plus a
+    // subtle amber indicator dot on the corner of the circle to nudge a
+    // re-visit. No yellow background; the palette stays calm.
     &.rfq-step-pill--pending .rfq-step-pill__num {
-      background: #fef3c7;          // yellow-100
-      border-color: #eab308;        // yellow-500
-      color: #854d0e;               // yellow-900
+      background: var(--rfq-primary);
+      border-color: var(--rfq-primary);
+      color: #fff;
+      position: relative;
     }
-    &.rfq-step-pill--pending .rfq-step-pill__overline { color: #a16207; }
+    &.rfq-step-pill--pending .rfq-step-pill__num::after {
+      content: "";
+      position: absolute;
+      top: -3px; right: -3px;
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #f59e0b;
+      border: 2px solid #fff;
+    }
     &.rfq-step-pill--pending .rfq-step-pill__label { color: var(--rfq-gray-700); }
 
-    // Connector after a pill turns yellow when the next pill is pending.
-    // Set on the LEFT pill (the one that owns the ::after). Placed after
-    // the --done connector rule so source order wins for done→pending.
-    &.rfq-step-pill--connector-warn:not(:last-child)::after { background: #eab308; }
+    &--locked .rfq-step-pill__btn { opacity: 0.7; }
+    &--locked .rfq-step-pill__btn:hover .rfq-step-pill__label { color: var(--rfq-gray-500); }
+  }
 
-    &--locked .rfq-step-pill__btn { opacity: 0.55; }
+  // ======================================================================
+  // Top progress bar — non-blocking indicator for in-flight actions
+  // (submit, save) once the form is hydrated. Replaces the legacy
+  // full-screen black overlay loader.
+  // ======================================================================
+  .rfq-progress-bar {
+    position: sticky;
+    top: 0;
+    height: 2px;
+    background: rgba(46, 91, 168, 0.08);
+    overflow: hidden;
+    z-index: 50;
+    margin: 0 0 6px;
+    border-radius: 999px;
+
+    &__indicator {
+      position: absolute;
+      top: 0; left: 0;
+      width: 35%;
+      height: 100%;
+      background: var(--rfq-primary);
+      border-radius: 999px;
+      animation: rfq-progress-slide 1.1s ease-in-out infinite;
+    }
+  }
+  @keyframes rfq-progress-slide {
+    0%   { left: -35%; }
+    100% { left: 100%; }
+  }
+
+  // Inline subtle loading indicator — used for in-step fetches (vendor
+  // approve list etc.). Replaces stray full-screen Loader overlays.
+  .rfq-inline-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 6px 12px;
+    background: var(--rfq-gray-50);
+    border: 1px solid var(--rfq-gray-200);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--rfq-gray-600);
+    font-weight: 500;
+
+    &__spinner {
+      width: 12px; height: 12px;
+      border: 2px solid var(--rfq-gray-200);
+      border-top-color: var(--rfq-primary);
+      border-radius: 50%;
+      animation: rfq-inline-spin 0.8s linear infinite;
+    }
+    &__text { line-height: 1; }
+  }
+  @keyframes rfq-inline-spin {
+    to { transform: rotate(360deg); }
   }
 
   // ======================================================================
@@ -766,7 +866,6 @@
     font-weight: 600;
   }
   .rfq-submit-info-banner {
-    margin: 0 0 14px;
     padding: 12px 16px;
     border-radius: var(--rfq-radius);
     background: #eff6ff;
@@ -1284,8 +1383,9 @@
     }
   }
   @media (max-width: 720px) {
-    padding: 16px 12px 96px;
-    .rfq-page-header__title { font-size: 18px; }
+    padding: 0 0 96px;
+    .rfq-page-header { gap: 8px; margin-bottom: 10px; }
+    .rfq-page-header__context { font-size: 11.5px; padding: 4px 9px; }
     .rfq-grid-2, .rfq-grid-3 { grid-template-columns: 1fr; }
     .rfq-products-toolbar { flex-direction: column; align-items: flex-start; }
     .rfq-products-row {

@@ -124,9 +124,6 @@ $transition-fast: all 0.15s ease;
 // ============================================
 .pageWrap {
   max-width: 1400px;
-  margin: 0 auto;
-  margin-top: 48px;
-  padding: 48px 24px 48px;
 }
 
 .pageHeader {
@@ -779,6 +776,67 @@ $transition-fast: all 0.15s ease;
   border-top: 1px solid $border;
   background: $bg-footer;
   flex-shrink: 0;
+}
+
+// --- Edit modal prefetch states ---
+// Shown while (or instead of) the role-scope / department fetches resolve.
+// Saving is blocked until they do — an empty form here means "delete
+// everything" to the API.
+.modalLoadingBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+  background: $bg-muted;
+  border-bottom: 1px solid $border-subtle;
+  flex-shrink: 0;
+}
+
+.modalLoadError {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 24px;
+  background: $red-bg;
+  border-bottom: 1px solid $red-border;
+  flex-shrink: 0;
+}
+
+.modalLoadErrorIcon {
+  color: $red;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.modalLoadErrorText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: $text-body;
+  line-height: 1.45;
+
+  strong { color: $text-dark; font-weight: 600; }
+}
+
+.modalLoadErrorRetry {
+  margin-left: auto;
+  align-self: center;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  border: 1.5px solid $red-border;
+  background: #fff;
+  color: $red;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: $transition;
+
+  &:hover { background: $red; border-color: $red; color: #fff; }
 }
 
 // --- Modal Bootstrap Overrides ---

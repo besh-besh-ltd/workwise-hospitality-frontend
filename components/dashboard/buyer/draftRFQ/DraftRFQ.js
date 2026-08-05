@@ -1,27 +1,37 @@
-import FullLoader from "@/components/shared/FullLoader";
 import { getDraftRFQs, deleteDraft } from "@/services/rfq";
 import React, { useEffect, useState } from "react";
 import RFQCard from "../manageRFQ/RFQCard/RFQCard";
+import RFQListSkeleton from "../manageRFQ/RFQListSkeleton";
 import Pagination from "@/components/shared/Pagination";
-import FilterSection from "@/components/shared/FilterSection";
 import { toast } from "react-toastify";
 import { getEntityLabel } from "@/utils/sharedFunctions";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
-const initialFilterData = {
+const fallbackFilterData = {
   project_id: -1,
   rfq_type: "",
   reverse_auction: "-1",
   sort: "DESC",
   rfq_no: null,
   is_tender: null,
-}
+  page: 1,
+  limit: 10,
+};
 
-const DraftRFQ = () => {
+const DraftRFQ = ({ filterData: parentFilterData, setFilterData: setParentFilterData }) => {
   const [loading, setloading] = useState(false);
-  const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(10);
-  const [filterData, setFilterData] = useState(initialFilterData);
+  // Use parent's shared filterData if provided (so the top FilterSection drives
+  // this list too), otherwise fall back to local state for backward compat.
+  const usingParentFilters = !!parentFilterData && !!setParentFilterData;
+  const [localFilterData, setLocalFilterData] = useState(fallbackFilterData);
+  const filterData = usingParentFilters ? parentFilterData : localFilterData;
+  const setFilterData = usingParentFilters ? setParentFilterData : setLocalFilterData;
+
+  const page = filterData.page || 1;
+  const limit = filterData.limit || 10;
+  const setpage = (p) => setFilterData((prev) => ({ ...prev, page: p }));
+  const setlimit = (l) => setFilterData((prev) => ({ ...prev, limit: l, page: 1 }));
+
   const [myDraftRFQs, setMyDraftRFQs] = useState([]);
   const [totalDraftRFQs, setTotalDraftRFQs] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -76,17 +86,16 @@ const DraftRFQ = () => {
 
   useEffect(() => {
     getAllDraftRFQs();
-  }, [page, filterData]);
+  }, [filterData]);
 
   return (
     <>
       <div className="manage-rfq-con">
-        <div className="details-table hasFullLoader mt-0">
-          {/* Table Filter Section */}
-          <FilterSection setFilterData={setFilterData} />
-
-          {/* Card Data Section */}
-          {loading && <FullLoader />}
+        <div className="details-table mt-0">
+          {/* Card Data Section — uses the same skeleton as other tabs for consistency */}
+          {loading && (
+            <RFQListSkeleton count={Math.min(Math.max(limit || 10, 10), 15)} />
+          )}
           {!loading && myDraftRFQs.length == 0 && (
             <p>You don't have any draft Tender / RFQs yet!</p>
           )}

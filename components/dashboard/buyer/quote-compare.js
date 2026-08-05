@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import useModulePermissions from "@/hooks/useModulePermissions";
+import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import {
@@ -46,8 +47,8 @@ import NegotiationCompactBanner from "./negotiation/NegotiationCompactBanner";
 import { getNegotiationApprovalBundle } from "@/services/negotiation";
 import { getAvailableHierarchies } from "@/services/general";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
+import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
-import { BsList } from "react-icons/bs";
 import useQuoteCompareViewModel from "@/hooks/useQuoteCompareViewModel";
 import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel";
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
@@ -72,7 +73,11 @@ const QuoteCompare = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { rfq_product_id, source, tab = "product" } = router.query;
+  // `rfq_product_id` narrows the whole comparison to one product (the
+  // quote-compare endpoint applies it as a server-side filter). `focus` is the
+  // hint approval emails and the pending-approvals queue attach so we land the
+  // approver on the exact card carrying the Approve/Reject control.
+  const { rfq_product_id, focus, source, tab = "product" } = router.query;
   const [rfq, setRfq] = useState(router.query.rfq || null);
   const tabOptions = ["product", "category", "cost"];
   const safeTab = tabOptions.includes(String(tab)) ? String(tab) : "product";
@@ -250,6 +255,8 @@ const QuoteCompare = () => {
     canRead: canReadQuoteCompare,
     canUpdate: canUpdateQuoteCompare,
     canCreate: canCreateQuoteCompare,
+    allowedProcessIds: qcAllowedProcessIds,
+    isProcessAllowed: qcIsProcessAllowed,
     loading: quoteComparePermissionsLoading,
   } = useModulePermissions({
     moduleKey: "quote-compare",
@@ -258,6 +265,15 @@ const QuoteCompare = () => {
   });
   const rawCanWriteQuoteCompare = canUpdateQuoteCompare || canCreateQuoteCompare;
   const canWriteQuoteCompare = rawCanWriteQuoteCompare && !isRfqClosed;
+
+  // Process-scope guard: when the user's quote-compare scope is narrowed to a
+  // subset of processes, hide pages for RFQs whose process is outside that
+  // subset. Matches the backend's PROCESS_NOT_IN_USER_SCOPE response.
+  const processOutOfScope =
+    !!currentRFQ &&
+    currentRFQ.process_id != null &&
+    Array.isArray(qcAllowedProcessIds) &&
+    !qcIsProcessAllowed(currentRFQ.process_id);
 
   // Combined loading state
   const permissionsLoading = negotiationPermissionsLoading || quoteComparePermissionsLoading;
@@ -375,6 +391,19 @@ const QuoteCompare = () => {
     if (initializingRef.current) return; // Skip — initialization handles the first fetch
     getRespectiveQuotes();
   }, [TA_Filter, freightFilter, normalizeFilter]);
+
+  // `rfq_product_id` is a genuine server-side filter, so treat it like the
+  // others: when it is cleared from the URL ("Show all products") the rest of
+  // the RFQ has to come back, otherwise the user is stuck on a one-product view
+  // with no way out short of a hard reload.
+  const productFilterInitialized = useRef(false);
+  useEffect(() => {
+    if (!productFilterInitialized.current) { productFilterInitialized.current = true; return; }
+    if (!rfq || !rfqMetadataReady || permissionsLoading || (!canReadNegotiation && !canReadQuoteCompare)) return;
+    if (String(dataInitializedForRfq.current) !== String(rfq)) return;
+    if (initializingRef.current) return;
+    getRespectiveQuotes();
+  }, [rfq_product_id]);
 
   // Check TE availability first, then fetch quotes with the correct TA filter in one pass
   // Negotiation data loads independently — does NOT block quotes
@@ -1695,6 +1724,24 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
             ? "Vendor finalized! Approval is required before Purchase Order can be created."
             : "Vendor finalized! Purchase Order created.";
         toast.success(res.message ?? defaultMsg);
+        // Auto-initiate summary — backend fires this when the RFQ becomes
+        // fully awarded after this finalize. Surface the batch outcome so
+        // the buyer knows POs went out (or which ones need attention).
+        const summary = res?.auto_initiate_summary;
+        if (summary) {
+          const initiatedCount = summary.initiated?.length || 0;
+          const skippedCount = summary.skipped_no_policy?.length || 0;
+          const failedCount = summary.failed?.length || 0;
+          if (initiatedCount && !skippedCount && !failedCount) {
+            toast.success(`All awards complete · ${initiatedCount} PO${initiatedCount === 1 ? '' : 's'} auto-initiated.`);
+          } else if (initiatedCount || skippedCount || failedCount) {
+            const parts = [];
+            if (initiatedCount) parts.push(`${initiatedCount} auto-initiated`);
+            if (skippedCount) parts.push(`${skippedCount} skipped: no approval policy`);
+            if (failedCount) parts.push(`${failedCount} failed`);
+            toast.info(`All awards complete · ${parts.join(' · ')}.`);
+          }
+        }
         // Optimistic in-place update: mark this product as finalized so the UI
         // reflects the change immediately. Then reconcile from the backend —
         // the row, the approval bundle (so the new NEGOTIATION_QUOTE instance
@@ -1819,6 +1866,26 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     );
   };
 
+  // Approval deep link: ?rfq=<rfq>&rfq_product_id=<product>&focus=approval
+  const isApprovalFocus = focus === "approval" && !!rfq_product_id;
+
+  // The Approve/Reject control for a vendor finalization only exists on the
+  // Product tab. If the link (or a stale ?tab=) would drop the approver on
+  // Category/Cost they would see nothing to act on, so switch once on arrival
+  // and then leave the tabs alone — the user stays free to browse.
+  const approvalFocusTabApplied = useRef(false);
+  useEffect(() => {
+    if (!isApprovalFocus || approvalFocusTabApplied.current) return;
+    approvalFocusTabApplied.current = true;
+    if (safeTab !== "product") handleTabChange("product");
+  }, [isApprovalFocus, safeTab]);
+
+  // Drop the single-product filter and show the whole RFQ again.
+  const clearProductFilter = () => {
+    const { rfq_product_id: _product, focus: _focus, ...rest } = router.query;
+    router.push({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+  };
+
   const hasRfqSelected = !!rfq;
   const showNegotiationZone =
     hasRfqSelected &&
@@ -1839,125 +1906,119 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 // };
 
   // Access denied check - show only if user has NO permissions for EITHER section
-  const isAccessDenied = currentRFQ && !permissionsLoading && !canReadNegotiation && !canReadQuoteCompare;
+  const isAccessDenied = currentRFQ && !permissionsLoading && ((!canReadNegotiation && !canReadQuoteCompare) || processOutOfScope);
 
   // Inline loading — single loader for the entire right section
   // When access is denied, stop showing the spinner so the AccessDenied banner can render
   const isContentLoading = !!rfq && !isAccessDenied && (permissionsLoading || !rfqMetadataReady || quotesLoading);
 
+  const quoteCompareSidebar = (
+    <RFQListSidebar
+      title={null}
+      embedded
+      mobileOpen={isMobile ? sidebarOpen : undefined}
+      onMobileClose={() => setSidebarOpen(false)}
+      rfqList={myRFQs}
+      loading={loading}
+      selectedRfqId={rfq}
+      onItemClick={handleRfqSelect}
+      linkPrefix="/dashboard/buyer/quote-compare"
+      linkQueryKey="rfq"
+      extraQueryParams={{ tab: activeTab }}
+      tabs={[
+        {
+          key: 'action_required',
+          label: 'Action Required',
+          filter: (item) => {
+            // Closed RFQs are read-only — only show in All tab
+            if (String(item.status) === '2') return false;
+            // PO rejected with no replacement — needs attention
+            if (item.has_po_rejection) return true;
+            // Pre-deadline RFQs should not appear as action-required yet.
+            if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
+            // User is current approver
+            if (item.approval_required) return true;
+            // Already fully done or all finalized (in approval) or partially approved
+            if (item.finalization_approval_completed === true) return false;
+            if (item.is_finalized === true) return false;
+            if (item.finalization_partially_approved === true) return false;
+            // Products still need finalization and vendors have responded
+            return parseInt(item.active_quote_count || 0) > 0;
+          },
+        },
+        {
+          key: 'in_progress',
+          label: 'In Progress',
+          filter: (item) => {
+            if (String(item.status) === '2') return false;
+            if (item.approval_required || item.finalization_approval_completed) return false;
+            return (item.is_finalized && !item.finalization_approval_completed)
+              || item.finalization_partially_approved;
+          },
+        },
+        { key: 'all', label: 'All', filter: null },
+      ]}
+      defaultTab="action_required"
+      rfqNo={rfqNo}
+      onRfqNoChange={(val) => setRfqNo(val)}
+      searchPlaceholder="Search by number..."
+      userHotelMappings={userHotelMappings}
+      selectedHotelIds={selectedHotelIds}
+      onHotelSelectionChange={handleHotelSelectionChange}
+      showTypeFilter={true}
+      isTenderFilter={isTenderFilter}
+      onTenderFilterChange={(val) => {
+        setIsTenderFilter(val);
+        setpage(1);
+      }}
+      getItemTags={(item) => {
+        if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
+        // PO cycle — pending approval supersedes a prior rejection
+        if (item.has_pending_po_approval) {
+          return item.approval_required
+            ? [{ label: 'Action Required', variant: 'warning' }]
+            : [{ label: 'In Approval', variant: 'info' }];
+        }
+        // Cycle b (finalization)
+        if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
+        if (item.has_pending_finalization_approval) {
+          return item.approval_required
+            ? [{ label: 'Action Required', variant: 'warning' }]
+            : [{ label: 'In Approval', variant: 'info' }];
+        }
+        // Cycle a (negotiation) — any newer in-flight work outranks a stale PO rejection
+        if (item.has_pending_negotiation_approval) {
+          return item.approval_required
+            ? [{ label: 'Action Required', variant: 'warning' }]
+            : [{ label: 'In Approval', variant: 'info' }];
+        }
+        if (item.has_active_negotiation_round) return [{ label: 'In Negotiation', variant: 'info' }];
+        // PO Rejected sits below cycle a/b active work so a fresh
+        // negotiation/finalization cycle takes precedence over the stale PO state
+        if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
+        if (item.finalization_approval_rejected) return [{ label: 'Rejected', variant: 'danger' }];
+        if (item.negotiation_terminated) return [{ label: 'Negotiation Terminated', variant: 'danger' }];
+        return [];
+      }}
+      showLoadMore={true}
+      hasMore={hasMoreQuotes}
+      onLoadMore={loadMoreRFQs}
+      pageId="quote_compare"
+    />
+  );
+
   return (
     <>
-      <section className="quote-common-header compare-received-quote sc-pt-80">
-        <div className="container-fluid">
-          <div className="d-flex justify-content-between align-items-center">
-            <h3 className="heading">Quote Comparison</h3>
-          </div>
-        </div>
-      </section>
-
-      <section className="quote-edit-sec-1">
-        <div className="container-fluid">
-          <div className={revampStyles.layoutRow}>
-              {isMobile && (
-                <button className={revampStyles.mobileSidebarToggle} onClick={() => setSidebarOpen(true)}>
-                  <BsList size={18} /> Select RFQ
-                </button>
-              )}
-              <RFQListSidebar
-                title="Quote Comparison"
-                mobileOpen={isMobile ? sidebarOpen : undefined}
-                onMobileClose={() => setSidebarOpen(false)}
-                rfqList={myRFQs}
-                loading={loading}
-                selectedRfqId={rfq}
-                onItemClick={handleRfqSelect}
-                linkPrefix="/dashboard/buyer/quote-compare"
-                linkQueryKey="rfq"
-                extraQueryParams={{ tab: activeTab }}
-                tabs={[
-                  {
-                    key: 'action_required',
-                    label: 'Action Required',
-                    filter: (item) => {
-                      // Closed RFQs are read-only — only show in All tab
-                      if (String(item.status) === '2') return false;
-                      // PO rejected with no replacement — needs attention
-                      if (item.has_po_rejection) return true;
-                      // Pre-deadline RFQs should not appear as action-required yet.
-                      if (item.bid_end_date && !checkBidExpired(item.bid_end_date)) return false;
-                      // User is current approver
-                      if (item.approval_required) return true;
-                      // PO rejected by vendor — needs re-finalization
-                      if (item.has_po_rejection) return true;
-                      // Already fully done or all finalized (in approval) or partially approved
-                      if (item.finalization_approval_completed === true) return false;
-                      if (item.is_finalized === true) return false;
-                      if (item.finalization_partially_approved === true) return false;
-                      // Products still need finalization and vendors have responded
-                      return parseInt(item.active_quote_count || 0) > 0;
-                    },
-                  },
-                  {
-                    key: 'in_progress',
-                    label: 'In Progress',
-                    filter: (item) => {
-                      if (String(item.status) === '2') return false;
-                      if (item.approval_required || item.finalization_approval_completed) return false;
-                      return (item.is_finalized && !item.finalization_approval_completed)
-                        || item.finalization_partially_approved;
-                    },
-                  },
-                  { key: 'all', label: 'All', filter: null },
-                ]}
-                defaultTab="action_required"
-                rfqNo={rfqNo}
-                onRfqNoChange={(val) => setRfqNo(val)}
-                searchPlaceholder="Search by number..."
-                userHotelMappings={userHotelMappings}
-                selectedHotelIds={selectedHotelIds}
-                onHotelSelectionChange={handleHotelSelectionChange}
-                showTypeFilter={true}
-                isTenderFilter={isTenderFilter}
-                onTenderFilterChange={(val) => {
-                  setIsTenderFilter(val);
-                  setpage(1);
-                }}
-                getItemTags={(item) => {
-                  if (String(item.status) === '2') return [{ label: 'Closed', variant: 'danger' }];
-                  // PO cycle — pending approval supersedes a prior rejection
-                  if (item.has_pending_po_approval) {
-                    return item.approval_required
-                      ? [{ label: 'Action Required', variant: 'warning' }]
-                      : [{ label: 'In Approval', variant: 'info' }];
-                  }
-                  // Cycle b (finalization)
-                  if (item.finalization_approval_completed) return [{ label: 'Finalized', variant: 'success' }];
-                  if (item.has_pending_finalization_approval) {
-                    return item.approval_required
-                      ? [{ label: 'Action Required', variant: 'warning' }]
-                      : [{ label: 'In Approval', variant: 'info' }];
-                  }
-                  // Cycle a (negotiation) — any newer in-flight work outranks a stale PO rejection
-                  if (item.has_pending_negotiation_approval) {
-                    return item.approval_required
-                      ? [{ label: 'Action Required', variant: 'warning' }]
-                      : [{ label: 'In Approval', variant: 'info' }];
-                  }
-                  if (item.has_active_negotiation_round) return [{ label: 'In Negotiation', variant: 'info' }];
-                  // PO Rejected sits below cycle a/b active work so a fresh
-                  // negotiation/finalization cycle takes precedence over the stale PO state
-                  if (item.has_po_rejection) return [{ label: 'PO Rejected', variant: 'danger' }];
-                  if (item.finalization_approval_rejected) return [{ label: 'Rejected', variant: 'danger' }];
-                  if (item.negotiation_terminated) return [{ label: 'Negotiation Terminated', variant: 'danger' }];
-                  return [];
-                }}
-                showLoadMore={true}
-                hasMore={hasMoreQuotes}
-                onLoadMore={loadMoreRFQs}
-                pageId="quote_compare"
-              />
-
-            <div className={revampStyles.contentColumn}>
+      {finalizeLoading && <Loader />}
+      <TwoPanelPage
+        title="Quote Comparison"
+        subtitle="Compare vendor quotes, finalize selections, and track negotiations."
+        sidebar={quoteCompareSidebar}
+        onMobileSidebarToggle={isMobile ? () => setSidebarOpen(v => !v) : undefined}
+        mobileSidebarOpen={sidebarOpen}
+        mobileToggleLabel="Select RFQ"
+      >
+            <div>
               <div className="quote-sec-table quote-sec-tab">
 
                 {/* Empty State - when no RFQ selected */}
@@ -2006,8 +2067,17 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   </div>
                 )}
 
-                {/* Access Denied */}
-                {!isContentLoading && isAccessDenied ? (
+                {/* Access Denied — use the process-scope banner when the
+                    reason is "user not scoped for this RFQ's process". */}
+                {!isContentLoading && isAccessDenied && processOutOfScope ? (
+                  <ProcessScopeErrorBanner
+                    error={{
+                      code: "PROCESS_NOT_IN_USER_SCOPE",
+                      message: `You don't have access to this ${getEntityLabel(currentRFQ?.is_tender)}'s process. Contact your administrator to update your access.`,
+                      data: { process_id: currentRFQ?.process_id, rfq_id: rfq },
+                    }}
+                  />
+                ) : !isContentLoading && isAccessDenied ? (
                   <AccessDeniedPage showBackButton={false} />
                 ) : !isContentLoading ? (
                 <>
@@ -2122,6 +2192,26 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         className="mt-3"
                       />
                     )}
+                    {/* The comparison is filtered to one product, which is
+                        otherwise invisible — the RFQ just looks like it has a
+                        single line. Say so, and give a way back to the rest. */}
+                    {rfq_product_id && (
+                      <div className={`alert alert-info ${revampStyles.inlineAlert} mt-3 d-flex align-items-center justify-content-between gap-2 flex-wrap`} role="status">
+                        <span>
+                          {isApprovalFocus
+                            ? "Showing only the product your approval request is for."
+                            : "Showing only one product of this RFQ."}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          id="clear_product_filter-quote_tabs-quote_compare_page"
+                          onClick={clearProductFilter}
+                        >
+                          Show all products
+                        </button>
+                      </div>
+                    )}
                     <div className={revampStyles.compareControls}>
                       {!effectiveQuoteVisibility.locked && (
                         <>
@@ -2182,6 +2272,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                               availableHierarchies={availableHierarchies}
                               quoteApprovalDetails={negotiationApprovalBundle.negotiation_quote_instances}
                               vendorRejections={vendorRejections}
+                              focusProductId={rfq_product_id || null}
+                              focusReason={isApprovalFocus ? "approval" : null}
                             />
                           )}
                           {activeTab === "category" && (
@@ -2225,9 +2317,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 ) : null}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
+      </TwoPanelPage>
 
       <NormalizeInfoModal
         show={showNormalizeModal}

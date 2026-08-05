@@ -35,12 +35,28 @@ const lineEngineTotal = (info) => {
   if (Number.isFinite(fromEngine) && fromEngine > 0) return fromEngine;
   return Number(info.total_price) || 0;
 };
+// Splits a round's `approvals` array (see enrichRoundsWithApprovals /
+// loadApprovalStatusForRounds below) into live vs. REMOVED rows, and derives
+// the approved count off the live set only. REMOVED is a mid-flight
+// reconciler's soft-tombstone (role/scope revoked while the approval was in
+// flight) — it must never inflate the "N of M approved" denominator or its
+// numerator. Exported (named, alongside the default) so this — the actual
+// production bug this file fixes — has a direct unit test without needing a
+// full component render harness.
+export function splitApprovalsByRemoval(approvals) {
+  const list = Array.isArray(approvals) ? approvals : [];
+  const activeApprovals = list.filter((a) => a?.status !== 'REMOVED');
+  const removedApprovals = list.filter((a) => a?.status === 'REMOVED');
+  const approvedCount = activeApprovals.filter((a) => a?.status === 'APPROVED').length;
+  return { activeApprovals, removedApprovals, approvedCount };
+}
 import { getChargeNames } from '@/services/rfq';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
+import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './NegotiationUI.module.scss';
 
 ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
@@ -109,6 +125,9 @@ const NegotiationModal = ({
   departmentId,
   preloadedApprovalBundle = null,
   preSelectedProductId = null,
+  // Scopes history mode to one product (per-product "Negotiation History"
+  // on quote-compare). Null = RFQ-wide history (legacy behavior).
+  selectedProduct = null,
 }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [formData, setFormData] = useState({
@@ -223,7 +242,15 @@ const NegotiationModal = ({
               approver_user_id: a.approver_user_id || a.user_id,
               approver_name: a.user_name,
               approver_email: a.user_email,
-              status: a.status
+              status: a.status,
+              // REMOVED rows are a mid-flight reconciler's soft-tombstone — kept
+              // for the audit trail. removal_reason/removed_at have been on
+              // getApprovalInstanceDetails's response since backend commit
+              // d64d9ae10 (2026-04-16); read defensively anyway (optional
+              // chaining upstream, `?` fallbacks below) since `a` here is
+              // whatever this specific instance's step actually returned.
+              removal_reason: a.removal_reason,
+              removed_at: a.removed_at
             }));
           }
         }
@@ -244,10 +271,12 @@ const NegotiationModal = ({
       return;
     }
 
-    // Fallback: fetch from API
+    // Fallback: fetch from API. When the modal is scoped to one product
+    // (per-product history on quote-compare), fetch only that product's
+    // rounds — the backend also matches multi-product rounds covering it.
     try {
       setLoading(true);
-      const response = await getNegotiationRounds(rfq_id);
+      const response = await getNegotiationRounds(rfq_id, selectedProduct?.id || null);
 
       let rounds = [];
       if (response) {
@@ -1058,9 +1087,14 @@ const NegotiationModal = ({
     const allRounds = mode === 'history' ? roundsHistory : [...activeRounds, ...roundsHistory];
 
     // Deduplicate rounds by ID
-    const uniqueRounds = allRounds.filter((round, index, self) =>
+    let uniqueRounds = allRounds.filter((round, index, self) =>
       index === self.findIndex(r => r.id === round.id)
     );
+
+    // Product-scoped history: count only rounds covering the selected product.
+    if (mode === 'history' && selectedProduct?.id != null) {
+      uniqueRounds = uniqueRounds.filter(r => roundCoversProduct(r, selectedProduct.id));
+    }
 
     const counts = {
       active: 0,
@@ -1721,21 +1755,42 @@ const NegotiationModal = ({
     return `${mins}m remaining`;
   };
 
+  // Does a round cover the given product? Multi-product rounds list covered
+  // products in `products[]` (rfq_product_id is NULL on the row).
+  const roundCoversProduct = (round, productId) => {
+    if (round?.rfq_product_id != null && String(round.rfq_product_id) === String(productId)) return true;
+    if (Array.isArray(round?.products)) {
+      return round.products.some(p => p?.rfq_product_id != null && String(p.rfq_product_id) === String(productId));
+    }
+    return false;
+  };
+
   const renderHistory = () => {
     // Merge activeRounds (which have enriched approval data) with roundsHistory
     const allRounds = [...activeRounds, ...roundsHistory];
-    const uniqueRounds = allRounds.filter((round, index, self) =>
+    let uniqueRounds = allRounds.filter((round, index, self) =>
       index === self.findIndex(r => r.id === round.id)
     );
 
-    // Group by product
+    // Product-scoped history: only rounds covering the selected product.
+    if (selectedProduct?.id != null) {
+      uniqueRounds = uniqueRounds.filter(r => roundCoversProduct(r, selectedProduct.id));
+    }
+
+    // Group by product. When scoped to one product, everything groups under
+    // that product (multi rounds have a NULL rfq_product_id and would
+    // otherwise split into their own bucket).
     const grouped = {};
     uniqueRounds.forEach(round => {
-      const productId = round.rfq_product_id;
+      const productId = selectedProduct?.id != null ? selectedProduct.id : round.rfq_product_id;
       if (!grouped[productId]) {
         const product = products.find(p => String(p.id) === String(productId));
         grouped[productId] = {
-          productName: round.product_name || (product ? getProductName(product) : `Product ${productId}`),
+          productName: selectedProduct?.id != null
+            ? getProductName(selectedProduct)
+            : ((Array.isArray(round.product_names) && round.product_names.length > 1)
+                ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                : (round.product_name || (product ? getProductName(product) : `Product ${productId}`))),
           productDetails: product ? getProductDetails(product) : null,
           rounds: []
         };
@@ -2039,13 +2094,23 @@ const NegotiationModal = ({
                 <p className={styles.vaSectionTitle}>Pending Approval</p>
                 {pendingRounds.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
-                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
+                  const productName = (Array.isArray(round.product_names) && round.product_names.length > 1)
+                    ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                    : (round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`));
                   const approvals = round.approvals || [];
+                  // REMOVED rows are a mid-flight reconciler's soft-tombstone (role/
+                  // scope revoked while the approval was in flight) — kept below for
+                  // the audit trail, muted and separated, but never counted as live.
+                  // (See splitApprovalsByRemoval above — this is the fix for the
+                  // production bug where the "N of M approved" line counted a
+                  // removed approver in both the numerator gate and the "of M"
+                  // denominator.)
+                  const { activeApprovals, removedApprovals, approvedCount } = splitApprovalsByRemoval(approvals);
                   const approvalInstance = approvalInstances[round.id];
                   const canApprove = approvalInstance
                     ? approvalInstance.can_user_approve === true
                     : (() => {
-                        const userApproval = approvals.find(a =>
+                        const userApproval = activeApprovals.find(a =>
                           String(a.approver_user_id) === String(currentUserId)
                         );
                         return userApproval && (
@@ -2056,7 +2121,6 @@ const NegotiationModal = ({
                       })();
                   const isCurrentApprover = !loadingApprovals && canApprove;
                   const approvalStatus = approvalInstance?.status;
-                  const approvedCount = approvals.filter(a => a.status === 'APPROVED').length;
 
                   return (
                     <div
@@ -2248,11 +2312,11 @@ const NegotiationModal = ({
                         );
                       })()}
 
-                      {approvals.length > 0 && (
+                      {(activeApprovals.length > 0 || removedApprovals.length > 0) && (
                         <div className={styles.vaApproverBand}>
                           <p className={styles.vaApproverTitle}>Round Approval Status</p>
                           <div className={styles.vaApproverList}>
-                            {approvals.map((approval, idx) => (
+                            {activeApprovals.map((approval, idx) => (
                               <span
                                 key={idx}
                                 className={`${styles.vaApproverChip} ${
@@ -2267,9 +2331,29 @@ const NegotiationModal = ({
                                  approval.status === 'REJECTED' ? '✗' : '⏳'}
                               </span>
                             ))}
+                            {removedApprovals.map((approval, idx) => {
+                              const reasonLabel = approval.removal_reason ? removalReasonLabel(approval.removal_reason) : null;
+                              const whenLabel = approval.removed_at
+                                ? moment.utc(approval.removed_at).local().format('DD-MM-YYYY hh:mm A')
+                                : null;
+                              const title = [reasonLabel, whenLabel ? `Removed ${whenLabel}` : null]
+                                .filter(Boolean)
+                                .join(' · ') || 'Removed';
+                              return (
+                                <span
+                                  key={`removed-${idx}`}
+                                  className={`${styles.vaApproverChip} ${styles.vaApproverRemoved}`}
+                                  title={title}
+                                >
+                                  {approval.approver_name || `User ${approval.approver_user_id}`}
+                                  {' '}
+                                  · Removed{reasonLabel ? ` (${reasonLabel})` : ''}
+                                </span>
+                              );
+                            })}
                           </div>
                           <p className={styles.vaApproverNote}>
-                            {approvedCount} of {approvals.length} approvers have approved this round
+                            {approvedCount} of {activeApprovals.length} approvers have approved this round
                           </p>
                         </div>
                       )}
@@ -2284,7 +2368,9 @@ const NegotiationModal = ({
                 <p className={styles.vaSectionTitle}>Active Rounds</p>
                 {activeRoundsList.map((round) => {
                   const product = products.find(p => String(p.id) === String(round.rfq_product_id));
-                  const productName = round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`);
+                  const productName = (Array.isArray(round.product_names) && round.product_names.length > 1)
+                    ? round.product_names.map(p => p?.product_name).filter(Boolean).join(', ')
+                    : (round.product_name || (product ? getProductName(product) : `Product ${round.rfq_product_id}`));
                   return (
                     <div key={round.id} className={styles.vaCard}>
                       <div className={styles.vaCardHead}>

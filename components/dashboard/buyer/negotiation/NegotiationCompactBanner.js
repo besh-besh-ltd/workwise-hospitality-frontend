@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useRouter } from 'next/router';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Plus, History, ShieldCheck } from 'lucide-react';
+import { Plus, ShieldCheck } from 'lucide-react';
 import { getAllActiveNegotiationRounds, getNegotiationRounds } from '@/services/negotiation';
 import { getEntityApprovalInstances, getApprovalInstanceDetails } from '@/services/approval';
 import NegotiationModal from './NegotiationModal';
@@ -23,6 +24,7 @@ const NegotiationCompactBanner = ({
   preloadedApprovalBundle = null,
   finalizationApprovalCompleted = false,
 }) => {
+  const router = useRouter();
   const [activeRounds, setActiveRounds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -67,7 +69,15 @@ const NegotiationCompactBanner = ({
                     approver_user_id: a.approver_user_id || a.user_id,
                     approver_name: a.user_name,
                     approver_email: a.user_email,
-                    status: a.status
+                    status: a.status,
+                    // REMOVED rows are a mid-flight reconciler's soft-tombstone —
+                    // carry the reason/timestamp through (present on
+                    // getApprovalInstanceDetails since backend commit d64d9ae10,
+                    // 2026-04-16) so any downstream audit-trail display (e.g.
+                    // NegotiationModal, which reads this same `round.approvals`)
+                    // can label them properly.
+                    removal_reason: a.removal_reason,
+                    removed_at: a.removed_at
                   }));
                 }
               }
@@ -110,7 +120,10 @@ const NegotiationCompactBanner = ({
                   approver_user_id: a.user_id,
                   approver_name: a.user_name,
                   approver_email: a.user_email,
-                  status: a.status
+                  status: a.status,
+                  // See comment in the preloaded-bundle branch above.
+                  removal_reason: a.removal_reason,
+                  removed_at: a.removed_at
                 }));
               }
             }
@@ -159,14 +172,8 @@ const NegotiationCompactBanner = ({
   };
 
   const handleCreateClick = () => {
-    setModalMode('create');
-    setShowModal(true);
-  };
-
-  const handleHistoryClick = () => {
-    setModalMode('history');
-    loadRoundsHistory();
-    setShowModal(true);
+    if (!rfq_id) return;
+    router.push(`/dashboard/buyer/negotiation/${rfq_id}/create?returnTo=${encodeURIComponent(router.asPath)}`);
   };
 
   const handleViewApproveClick = () => {
@@ -396,14 +403,8 @@ const NegotiationCompactBanner = ({
               Create Round
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleHistoryClick}
-            className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
-          >
-            <History size={14} strokeWidth={2} />
-            View History
-          </button>
+          {/* "View History" moved to the per-product header on quote-compare —
+              negotiation history is browsed per product now. */}
           {pendingApprovalsCount > 0 && (
             <button
               type="button"

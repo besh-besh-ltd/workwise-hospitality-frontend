@@ -17,6 +17,31 @@ export const getTerms = (values) => {
   });
 };
 
+// ARC-style stage lifecycle for the single-page RFQ workspace.
+// Resolves to { status, data: { rfq, stages, default_stage, permissions, ... } }.
+export const getRfqLifecycle = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/${rfqId}/lifecycle`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// Server-side faceted + paginated RFQ management listing (rate-contracts style).
+export const getRfqListView = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/list-view`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const downloadRfqTermsPdf = (rfqId) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -232,12 +257,38 @@ export const addProductToDraft = (payload) => {
       if (response && !response.data && response.rfq_id) {
         response.data = { rfq_id: response.rfq_id };
       }
-      
+
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
-  });  
+  });
+};
+
+// Bulk: add multiple products in one call. Used by the Start RFQ wizard.
+// payload: { is_tender, hotel_ids: [...], variants: [{ variant_id }, ...], rfq_id? }
+export const addProductsToDraft = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/rfq/add-products-to-draft`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// Recommended products for Start RFQ wizard.
+// payload: { hotel_ids: [...], variant_ids: [stagedVariantIds], limit? }
+export const getRecommendedProducts = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/rfq/recommended-products`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
 };
 
 export const addProductToExistingRfq = async (payload) => {
@@ -386,6 +437,19 @@ export const getVendorDetailsByID = (id, { showContact = false } = {}) => {
   });
 };
 
+// Buyer-facing engagement metrics for a vendor (RFQs participated, POs released,
+// business value, contracts awarded) — scoped server-side to the buyer.
+export const getVendorEngagement = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/vendor-profile/${id}/engagement`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getVendorRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -504,22 +568,6 @@ export const getLastPurchaseDetails = (payload) => {
         params: payload, // ✅ This is the correct way to pass query params
       });
       resolve(response.data);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
-};
-
-export const getExistingPOByVendor = (vendor_id, rfq_id) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/rfq/get-existing-po', {
-        params: {
-          vendor_id,
-          rfq_id
-        },
-      });
-      resolve(response);
     } catch (error) {
       reject({ message: error });
     }

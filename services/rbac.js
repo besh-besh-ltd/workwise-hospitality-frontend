@@ -131,5 +131,36 @@ export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null
     }
   });
 
+/**
+ * Fetch the user's dashboard widget permissions for a set of business units.
+ *
+ * Thin wrapper around `getBulkPermissions("dashboard", hotelIds)` — returns
+ * a flat array of permission names (the part after `dashboard.`) that the
+ * user has in at least one of the supplied hotels. Pass an empty array
+ * to fetch grants across all the user's accessible hotels.
+ *
+ * Used by the role-aware buyer dashboard to decide which widgets to render
+ * for the currently-selected BU(s).
+ *
+ * Response shape (handled here, callers get a clean string[]):
+ *   legacy: { permissions: { dashboard: ["my_drafts", "action_center", ...] } }
+ *   Shape A: { permissions: { dashboard: { actions: [...], scope: {...} } } }
+ * Both are tolerated — dashboard widgets aren't process-scoped, so we only
+ * need the `actions` list either way.
+ */
+export const getDashboardPermissions = (hotelIds = []) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await getBulkPermissions("dashboard", hotelIds);
+      const data = response?.data?.data || response?.data || {};
+      const permissionsObj = data?.permissions || data || {};
+      const entry = permissionsObj?.dashboard;
+      const list = Array.isArray(entry) ? entry : (entry?.actions || []);
+      resolve(Array.isArray(list) ? list : []);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
 
 

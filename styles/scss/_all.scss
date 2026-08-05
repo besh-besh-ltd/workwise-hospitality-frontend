@@ -1199,32 +1199,11 @@ body.at-top {
   overflow: hidden;
   transition: all 0.2s linear 0s;
 
-  &:before {
-    content: ">";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    top: 0;
-    left: 0px;
-    height: 100%;
-    width: 30px;
-    border-radius: 0 50% 50% 0;
-    transform: scale(0, 1);
-    transform-origin: left center;
-    transition: all 0.2s linear 0s;
-    background-color: rgba(255, 255, 255, 0.3);
-    font-size: 1.6rem;
-  }
-
-  &:hover {
-    // text-indent: 30px;
-
-    &:before {
-      transform: scale(1, 1);
-      text-indent: 0;
-    }
-  }
+  // Legacy marketing CTA chevron (the ">" wedge that scaled in from the left
+  // on hover) — removed because it leaked into every dashboard button.
+  // The buyer/admin dashboards style .btn through arc_v2.css; marketing pages
+  // get a flat hover instead of the chevron animation.
+  &:before { content: none; }
 
   &.btn-dark {
     background-color: var(--dark-color);

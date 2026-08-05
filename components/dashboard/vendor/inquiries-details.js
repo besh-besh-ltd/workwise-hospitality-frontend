@@ -8,7 +8,6 @@ import { Router, useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { closeRFQ, withdrawPublish, terminateRFQ, forcePublishRFQ, getAllClauses, getRFQById, sendQuotation, fetchVendorAgreement, getTechClearedVendorsResult, submitRFQApprovalAction, getTechEvalStatus } from "@/services/rfq";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
@@ -175,10 +174,15 @@ const RfqManagementPreview = () => {
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
 
-  // Engine-driven breakup for the vendor's previously-submitted quote. The
-  // hook hits /pricing/preview once per render of this page, which the
-  // backend computes statelessly. Falls back to an empty draft when no
-  // quote is present, so the hook is a no-op for fresh inquiries.
+  // Transitional shim: recomputes the GrandTotalBreakup for a submitted quote
+  // via /pricing/preview because the backend does not yet persist the base/
+  // tax/charges decomposition needed by the breakup. Drop this memo + the
+  // usePreviewTotals call below once the backend persists per-quote aggregates
+  // (base_amount, total_tax, total_charges, grand_total) at submit time.
+  // Quantity is sourced from the submitted line itself (p.quantity); if the
+  // payload doesn't carry it, fall back to matching the RFQ line by
+  // rfq_product_id — NOT product_id, since BOQ flows reuse product_id across
+  // multiple RFQ lines and a product_id-only match silently picks the first.
   const submittedPreviewDraft = React.useMemo(() => {
     const submitted = rfqDetails?.quotations?.[0];
     if (!submitted || submitted.is_regret !== 0) return null;
@@ -186,8 +190,11 @@ const RfqManagementPreview = () => {
     if (products.length === 0) return null;
     return {
       items: products.map((p) => {
-        const rfqProduct = rfqDetails.products?.find((rp) => rp.product_id === p.product_id);
-        const qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        let qty = parseFloat(p.quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          const rfqProduct = rfqDetails.products?.find((rp) => rp.id === p.rfq_product_id);
+          qty = parseFloat(rfqProduct?.product_specs?.find((s) => s?.title === "Quantity")?.value) || 0;
+        }
         return {
           unit_price: p.unit_price,
           quantity: qty,
@@ -1280,7 +1287,7 @@ const RfqManagementPreview = () => {
   const goToQuoteCreation = () => {
     // Changes by Agnij 2025-05-05 [Pass tech eval restriction flag to quote page]
     router.push(
-      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+      `/dashboard/vendor/quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
     );
   };
 
@@ -1288,7 +1295,7 @@ const RfqManagementPreview = () => {
     <>
       {loading && (
         <>
-          <section className="buyer-common-header sc-pt-80 ">
+          <section className="buyer-common-header sc-pt-80 mt-0">
             <div className="container-fluid">
               <h1 className="heading">
                 <PlaceholderLoading shape="rect" width={600} height={50} />
@@ -1296,8 +1303,7 @@ const RfqManagementPreview = () => {
             </div>
           </section>
 
-          <section className="buyer-rfq-det-sec-1 hasFullLoader">
-            {loading && <Loader />}
+          <section className="buyer-rfq-det-sec-1 mt-2 hasFullLoader">
             <div className="container-fluid">
               <div className="row">
                 <div className="col-md-12">
@@ -1319,7 +1325,7 @@ const RfqManagementPreview = () => {
 
                     <div className="details-table">
                       <div className="table-responsive">
-                        <table className="table table-striped ">
+                        <table className="table table-striped">
                           <thead>
                             <tr>
                               <th>Name of product</th>
@@ -1566,15 +1572,20 @@ const RfqManagementPreview = () => {
       {/* // Not loading contents */}
       {!loading && rfqDetails && rfqDetails.id && (
         <>
-          <section className="buyer-common-header sc-pt-80">
+          <section className={`${!enableBuyerView && 'buyer-common-header'} my-0`}>
             <div className="container-fluid">
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div>
-                  {!enableBuyerView && (
+                  {!enableBuyerView ? (
                     <h1 className="heading mb-0">
                       Inquiry from {rfqDetails.company_name} ({getEntityLabel(rfqDetails?.is_tender)} #
                       {rfqDetails.rfq_no})
                     </h1>
+                  ) : (
+                    <div>
+                      <h1 className='pageTitle'>RFQ Management Details</h1>
+                      <p className='pageSubtitle'>A complete overview of your RFQ details</p>
+                    </div>
                   )}
                 </div>
                 {!enableBuyerView && <div className="d-flex gap-3">
@@ -1806,7 +1817,7 @@ const RfqManagementPreview = () => {
                               return;
                             }
                             router.push(
-                              `/dashboard/vendor/send-quote?type=update-quote&id=${rfqId}${
+                              `/dashboard/vendor/quote?type=update-quote&id=${rfqId}${
                                 token !== undefined ? `&token=${token}` : ""
                               }&showTechEvalRestrictions=${isReverseAuctionActive}`
                             );
@@ -1825,7 +1836,7 @@ const RfqManagementPreview = () => {
             </div>
           </section>
 
-          <section className="buyer-rfq-det-sec-1">
+          <section className="buyer-rfq-det-sec-1 mt-2">
             <div className="container-fluid">
               <div className="row">
                 <div className="col-md-12">
@@ -2216,7 +2227,7 @@ const RfqManagementPreview = () => {
 
                 {rfqDetails?.vendor_clarification_date && (
                         <div className=" col-md-2 col-sm-6 ">
-                          <strong>Clarification Date:</strong>
+                          <strong>Clarification End Date:</strong>
                           <div>{formatDisplayDate(rfqDetails.vendor_clarification_date, { includeTime: true })}</div>
                         </div>
                       )}
@@ -2257,7 +2268,7 @@ const RfqManagementPreview = () => {
                       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
                         {rfqDetails?.title ? (
                           <>
-                            <span className="title mb-0" style={{ display: 'block', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                            <span className="title" style={{ display: 'block', lineHeight: 1.25, wordBreak: 'break-word' }}>
                               {rfqDetails.title}
                             </span>
                             <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500, display: 'inline-block', marginTop: 2 }}>
@@ -2265,7 +2276,7 @@ const RfqManagementPreview = () => {
                             </span>
                           </>
                         ) : (
-                          <span className="title mb-0">
+                          <span className="title">
                             {getEntityLabel(rfqDetails?.is_tender)} #{rfqDetails.rfq_no} details
                           </span>
                         )}
@@ -2497,7 +2508,7 @@ const RfqManagementPreview = () => {
 
                     <div className="details-table">
                       {rfqDetails?.products?.length > 0 && (
-                      <div className="table-responsive">
+                      <div className="table-responsive mb-3">
                         <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
                           <thead>
                             <tr className="text-nowrap">
@@ -2761,7 +2772,7 @@ const RfqManagementPreview = () => {
                                       && vendorQuote.is_regret === 0
                                       && Array.isArray(vendorQuote.products)
                                       && vendorQuote.products.some(
-                                        (qp) => qp.product_id === item.product_id && qp.variant === item.variant
+                                        (qp) => qp.rfq_product_id === item.id
                                       );
                                     return (
                                       <td>
@@ -2774,17 +2785,17 @@ const RfqManagementPreview = () => {
                                     );
                                   })()}
                                   {type != "buyer-view" && (() => {
-                                    // Match this product to its line in the
-                                    // engine-computed totals so we can show the
-                                    // submitted per-product total + unit price.
+                                    // Read the submitted per-line total + unit
+                                    // price straight off the persisted quote
+                                    // line. Match by rfq_product_id (the unique
+                                    // RFQ line id) — product_id alone is not
+                                    // unique in BOQ flows where the same product
+                                    // appears on multiple lines.
                                     const vendorQuote = rfqDetails?.quotations?.[0];
                                     const quoteProducts = Array.isArray(vendorQuote?.products) ? vendorQuote.products : [];
-                                    const lineIndex = quoteProducts.findIndex(
-                                      (qp) => qp.product_id === item.product_id && qp.variant === item.variant
-                                    );
-                                    const line = lineIndex >= 0 ? (submittedQuoteTotals?.lines || [])[lineIndex] : null;
-                                    const totalVal = Number(line?.total) || 0;
-                                    const unitPriceVal = lineIndex >= 0 ? Number(quoteProducts[lineIndex]?.unit_price) || 0 : 0;
+                                    const quoteLine = quoteProducts.find((qp) => qp.rfq_product_id === item.id) || null;
+                                    const totalVal = Number(quoteLine?.total_price) || 0;
+                                    const unitPriceVal = Number(quoteLine?.unit_price) || 0;
                                     return (
                                       <td>
                                         {totalVal > 0 ? (
@@ -2872,39 +2883,11 @@ const RfqManagementPreview = () => {
 
                       <form>
                         <div className="row">
-                          <div className="col-md-12">
-                            <div className="row wacomnamepp">
-
-                              {type == "buyer-view" &&
-                                rfqDetails?.project_name &&
-                                rfqDetails?.project_name != "" && (
-                                  <div className="col-md-3">
-                                    <div className="form-group mt-0 mb-2">
-                                      <label
-                                        htmlFor="project_name"
-                                        className="form-label"
-                                      >
-                                        Project Name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        id="project_name"
-                                        className="form-control"
-                                        name="project_name"
-                                        disabled
-                                        value={`${rfqDetails?.project_name}`}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                            </div>
-                          </div>
-
                           {rfqDetails && rfqDetails?.id && (
                             <div className="col-md-12">
-                              <div className="row terms-conditions">
+                              <div className="row ms-1">
                                 <div className="col-md-6">
-                                  <div className="mt-4 pt-3 border-top">
+                                  <div className="">
                                     <h4>Terms & Conditions</h4>
                                     {(!rfqDetails?.terms ||
                                       rfqDetails?.terms.length === 0) && (
@@ -3016,7 +2999,7 @@ const RfqManagementPreview = () => {
                                             {rfqDetails.quotations?.length > 0 && !rfqDetails?.quotations[0]?.is_regret && (
                                               <Link
                                                 className="mx-auto"
-                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                                   token !== undefined ? `&token=${token}` : ""
                                                 }&showTechEvalRestrictions=false`}
                                                 onClick={(e) => {
@@ -3061,7 +3044,7 @@ const RfqManagementPreview = () => {
                                               </span>
                                               <Link
                                                 className="mx-auto"
-                                                href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                                href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                                   token !== undefined ? `&token=${token}` : ""
                                                 }&showTechEvalRestrictions=${isReverseAuctionActive}`}
                                                 onClick={(e) => {
@@ -3102,7 +3085,7 @@ const RfqManagementPreview = () => {
                                           ) : quoteDisabled && !hasActiveNegotiationRounds ? (
                                           <Link
                                             className="mx-auto mt-2"
-                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId || id || ''}${
+                                            href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
                                               token !== undefined
                                                 ? `&token=${token}`
                                                 : ""
@@ -3230,7 +3213,7 @@ const RfqManagementPreview = () => {
       )}
 
       {!loading && rfqDetails && !rfqDetails.id && (
-        <section className="buyer-common-header sc-pt-80">
+        <section className="buyer-common-header sc-pt-80 mt-0">
           <div className="container-fluid">
             {<h1 className="heading">Tender / RFQ Not Available!</h1>}
           </div>

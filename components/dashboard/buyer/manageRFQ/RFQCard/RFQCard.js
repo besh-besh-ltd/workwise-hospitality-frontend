@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck, Users, Folder, FileText, Gavel, AlertTriangle, Zap, Send, UserX, Copy as CopyIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
@@ -12,6 +12,22 @@ import styles from './RFQCard.module.scss';
 
 const RFQ_TIMEZONE_OFFSET = '+05:30';
 const HAS_EXPLICIT_TIMEZONE = /([zZ]|[+-]\d{2}:?\d{2})$/;
+
+// Visual-only mapping: collapse statusConfig.key (logic lives in statusConfig.js,
+// untouched) onto the minimal severity tones used across the new theme.
+const STATUS_TONE = {
+  pending_approval: 'warn',
+  published_without_approval: 'danger',
+  ready_to_publish: 'info',
+  open: 'success',
+  closed: 'neutral',
+  finalized: 'success',
+  completed: 'success',
+  partially_completed: 'warn',
+  withdrawn: 'warn',
+  terminated: 'danger',
+  draft: 'neutral',
+};
 
 const parseBidEndDate = (value) => {
   if (!value) return null;
@@ -36,6 +52,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const isBacklog = isPendingApproval && data.is_published === 1 && data.status === 1;
   const statusConfig = isBacklog ? STATUS_CONFIG.PUBLISHED_WITHOUT_APPROVAL : isDraft ? STATUS_CONFIG.DRAFT : getStatusConfig(data, publishState);
   const StatusIcon = statusConfig.icon;
+  const statusTone = STATUS_TONE[statusConfig.key] || 'neutral';
 
   const totalVendors = data.vendors?.[0]?.total_vendors || 0;
   const quotesReceived = data.vendors?.[0]?.quote_received || 0;
@@ -65,41 +82,41 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
   const daysRemaining = getDaysRemaining();
 
   return (
-    <Card
+    <div
       className={`${styles.rfqCard} ${isExpanded ? styles.expanded : ''} ${statusConfig.pulse ? styles.pulse : ''} ${isBacklog ? styles.backlogCard : ''}`}
-      style={{ borderLeftColor: statusConfig.borderColor }}
     >
       <div className={styles.compactView} onClick={handleToggleExpand}>
-        {/* Left: Identity */}
-        <div className={styles.leftSection}>
+        {/* ── Row 1: Badges + Title + Lifecycle + Expand ── */}
+        <div className={styles.compactRow1}>
           <span className={`${styles.typeBadge} ${isTender ? styles.tenderType : styles.rfqType}`}>
             {isTender ? <Gavel size={11} /> : <FileText size={11} />}
             {isTender ? 'Tender' : 'RFQ'}
           </span>
 
           <span
-            className={`${styles.statusBadge} ${statusConfig.pulse ? styles.pulseAnimation : ''}`}
-            style={{ backgroundColor: statusConfig.badgeBackground, color: statusConfig.badgeText }}
+            className={`${styles.statusBadge} ${styles[statusTone]} ${statusConfig.pulse ? styles.pulseAnimation : ''}`}
           >
             <StatusIcon size={11} />
             <span>{statusConfig.label}</span>
           </span>
 
           {isAutoPublished && (
-            <span className={styles.statusBadge} style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
+            <span className={`${styles.statusBadge} ${styles.success}`}>
               <Zap size={11} /><span>Auto Published</span>
             </span>
           )}
 
-          <div className={styles.titleBlock}>
-            <span className={styles.title} style={!data.title && isDraft ? { color: '#8c939a', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>{data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}</span>
-            <span className={styles.rfqNumber}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
-          </div>
+          <span className={styles.title} style={!data.title && isDraft ? { color: '#a1a1aa', fontStyle: 'italic' } : undefined} title={data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}>
+            {data.title || (isDraft ? 'Untitled' : formatRFQNumber(data.rfq_no, data.is_tender))}
+          </span>
 
-          {data.project_name && (
-            <div className={styles.projectChip}>
-              <Folder size={12} /><span>{data.project_name}</span>
-            </div>
+          <span className={styles.rfqNumberInline}>{formatRFQNumber(data.rfq_no, data.is_tender)}</span>
+
+          {/* Unread Queries */}
+          {data.unseen_query_count > 0 && (
+            <span className={styles.queryBadgeCompact}>
+              <MessageCircle size={10} /><span>{data.unseen_query_count}</span>
+            </span>
           )}
 
           {!isDraft && (
@@ -138,7 +155,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               className={styles.copiedFromChip}
               title={`Open source RFQ #${data.copied_from_rfq_no}`}
             >
-              <CopyIcon size={12} />
+              <CopyIcon size={11} />
               <span className={styles.copiedFromLabel}>Copied from</span>
               <span className={styles.copiedFromNum}>#{data.copied_from_rfq_no}</span>
             </Link>
@@ -151,10 +168,13 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               </span>
             </>
           )}
-        </div>
 
-        {/* Right: Lifecycle + Date + Expand */}
-        <div className={styles.rightSection}>
+          {/* Right edge of row 1: lifecycle pill + expand chevron. Pushed
+              to the far right via margin-left:auto in compactRow1, so the
+              identity (badges + title + meta + copied-from) keeps its
+              natural left-aligned flow without wrapping the chevron to
+              a second visual line. */}
+          <div className={styles.rightSection}>
           {/* Lifecycle Pill - hidden for drafts and terminated RFQs */}
           {lifecycleConfig && !isDraft && statusConfig.key !== 'terminated' && (() => {
             const stagesFiltered = LIFECYCLE_STAGES_ORDERED.filter(k => k !== 'TECHNICAL_REJECTED');
@@ -182,7 +202,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
 
                 {showLifecycleTooltip && (
                   <div className={styles.lcTooltip}>
-                    {/* Stage info */}
                     <div className={styles.lcTTTop}>
                       <span className={styles.lcTTDot} style={{ backgroundColor: lifecycleConfig.dotColor }} />
                       <div className={styles.lcTTInfo}>
@@ -190,8 +209,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                         <span className={styles.lcTTDesc}>{lifecycleConfig.description}</span>
                       </div>
                     </div>
-
-                    {/* Progress bar */}
                     <div className={styles.lcTTProgress}>
                       <span className={styles.lcTTProgressLabel}>Progress</span>
                       <div className={styles.lcTTBar}>
@@ -202,8 +219,6 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                         })}
                       </div>
                     </div>
-
-                    {/* Action holders */}
                     {data.action_holders?.users?.length > 0 && (
                       <div className={styles.lcTTActors}>
                         <div className={styles.lcTTActorsHeader}>
@@ -231,36 +246,107 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             );
           })()}
 
-          {/* Unread Queries */}
-          {data.unseen_query_count > 0 && (
-            <Badge bg="danger" className={styles.queryBadgeCompact}>
-              <MessageCircle size={10} /><span>{data.unseen_query_count}</span>
-            </Badge>
+          <div className={styles.expandToggle}>
+            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+          </div>{/* /rightSection */}
+        </div>{/* /compactRow1 */}
+
+        {/* ── Row 2: Metadata (vendors, date, project, created) ── */}
+        <div className={styles.compactRow2}>
+          {!isDraft && (
+            <>
+              <span className={styles.metaChip}>
+                <Users size={12} className={styles.vendorIconBlue} />
+                <span>{totalVendors} Invited</span>
+              </span>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Send size={12} className={allQuotesReceived ? styles.vendorIconGreen : styles.vendorIconOrange} />
+                <span>{quotesReceived} Participated</span>
+              </span>
+              {quotesRegretted > 0 && (
+                <>
+                  <span className={styles.metaSep} />
+                  <span className={styles.metaChip}>
+                    <UserX size={12} className={styles.vendorIconRed} />
+                    <span>{quotesRegretted} Regretted</span>
+                  </span>
+                </>
+              )}
+            </>
           )}
 
-          {/* Date */}
-          <div className={styles.dateBlock}>
-            {publishState.isPrePublishState && data.tender_publish_date ? (
-              <PublishDateTimer publishDate={data.tender_publish_date} variant="badge" showLabel={true} />
-            ) : (
-              <>
-                <div className={styles.dateItem}>
+          {!isDraft && (
+            <>
+              <span className={styles.metaSep} />
+              {publishState.isPrePublishState && data.tender_publish_date ? (
+                <span className={styles.metaChip}>
+                  <PublishDateTimer publishDate={data.tender_publish_date} variant="badge" showLabel={true} />
+                </span>
+              ) : bidEndAt ? (
+                <>
+                  <span className={styles.metaChip}>
+                    <Calendar size={12} />
+                    <span>Bid ends {bidEndAt.format('DD MMM, YYYY, hh:mm A')}</span>
+                  </span>
+                  {daysRemaining && (
+                    <span className={`${styles.metaChip} ${
+                      daysRemaining.text === 'Ended' ? styles.daysRed
+                      : daysRemaining.urgent ? styles.daysYellow
+                      : styles.daysGreen
+                    }`}>
+                      {daysRemaining.text}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className={styles.metaChip}>
                   <Calendar size={12} />
-                  <span>{formattedBidEndDate}</span>
-                </div>
-                {daysRemaining && (
-                  <Badge className={styles.daysLeftBadge} style={{ backgroundColor: daysRemaining.urgent ? '#dc3545' : '#6c757d', color: '#fff' }}>
-                    {daysRemaining.text}
-                  </Badge>
-                )}
-              </>
-            )}
-          </div>
+                  <span>No deadline set</span>
+                </span>
+              )}
+            </>
+          )}
 
-          {/* Expand */}
-          <div className={styles.expandToggle}>
-            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </div>
+          {data.project_name && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Folder size={12} />
+                <span>{data.project_name}</span>
+              </span>
+            </>
+          )}
+
+          {data.contact_name && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <User size={12} />
+                <span>{data.contact_name}</span>
+              </span>
+            </>
+          )}
+
+          {data.timestamp && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={styles.metaChip}>
+                <Clock size={12} />
+                <span>{moment(data.timestamp).format('DD MMM YYYY')}</span>
+              </span>
+            </>
+          )}
+
+          {isDraft && data.status === 5 && (
+            <>
+              <span className={styles.metaSep} />
+              <span className={`${styles.statusBadge} ${styles.warn}`}>
+                Previously submitted for publishing
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -303,25 +389,19 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
             <>
               {currentUser && String(data.created_by) === String(currentUser.id) ? (
                 <>
-                  <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`}>
-                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.editBtn}`}>Edit Draft</button>
-                  </Link>
+                  <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}`} className={`${styles.actionBtn} ${styles.btnPrimary}`}>Edit Draft</Link>
                   {onDelete && (
-                    <button className={`btn btn-sm ${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => onDelete(data)}>Delete</button>
+                    <button type="button" className={`${styles.actionBtn} ${styles.btnDanger}`} onClick={() => onDelete(data)}>Delete</button>
                   )}
                 </>
               ) : (
-                <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}&view_only=true`}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>View Draft</button>
-                </Link>
+                <Link href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.id}&view_only=true`} className={`${styles.actionBtn} ${styles.btnSecondary}`}>View Draft</Link>
               )}
             </>
           ) : (
             <>
-              <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
-                  View Details
-                </button>
+              <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`} className={`${styles.actionBtn} ${styles.btnPrimary}`}>
+                View Details
               </Link>
 
               {/* Copy RFQ — opens a small modal where the user picks the
@@ -332,10 +412,11 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                   legitimately copyable. */}
               {hasEditPermission && (
                 <button
-                  className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
+                  type="button"
+                  className={`${styles.actionBtn} ${styles.btnSecondary}`}
                   onClick={() => setCopyOpen(true)}
                 >
-                  <CopyIcon size={12} style={{ marginRight: 4 }} /> Copy
+                  <CopyIcon size={12} /> Copy
                 </button>
               )}
 
@@ -344,9 +425,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                   exact reason (not the creator, bid window passed, all POs
                   finalized, RFQ closed, etc). Same logic as the details page. */}
               {editPermission.allowed && hasEditPermission ? (
-                <Link href={publishState.editUrl(data.id)}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Edit</button>
-                </Link>
+                <Link href={publishState.editUrl(data.id)} className={`${styles.actionBtn} ${styles.btnSecondary}`}>Edit</Link>
               ) : (
                 <OverlayTrigger
                   placement="top"
@@ -360,9 +439,9 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 >
                   <span className="d-inline-block">
                     <button
-                      className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.btnSecondary} ${styles.actionBtnDisabled}`}
                       disabled
-                      style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
                     >
                       Edit
                     </button>
@@ -370,18 +449,14 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
                 </OverlayTrigger>
               )}
               {!publishState.isPrePublishState && !isPendingApproval && statusConfig.key !== 'terminated' && (
-                <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>Queries{data.unseen_query_count > 0 && <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>{data.unseen_query_count}</Badge>}</button>
-                </Link>
+                <Link href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer&source=rfq-management`} className={`${styles.actionBtn} ${styles.btnSecondary}`}>Queries{data.unseen_query_count > 0 && <span className={styles.actionBtnCount}>{data.unseen_query_count}</span>}</Link>
               )}
               {!publishState.isPrePublishState && !allQuotesReceived && !data.is_finalized && publishState.isOpen && !isPendingApproval && (
-                <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
+                <button type="button" className={`${styles.actionBtn} ${styles.btnSecondary}`} onClick={() => onSendReminder?.(data)}>Send Reminder</button>
               )}
               {isPendingApproval && !isBacklog && (
-                <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`}>
-                  <button className={`btn btn-sm ${styles.actionBtn} ${styles.viewBtn}`}>
-                    View Details
-                  </button>
+                <Link href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.id}`} className={`${styles.actionBtn} ${styles.btnPrimary}`}>
+                  View Details
                 </Link>
               )}
             </>
@@ -393,7 +468,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
         onClose={() => setCopyOpen(false)}
         sourceRfq={data}
       />
-    </Card>
+    </div>
   );
 };
 
