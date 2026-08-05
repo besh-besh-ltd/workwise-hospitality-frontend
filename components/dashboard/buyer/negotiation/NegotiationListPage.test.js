@@ -226,35 +226,62 @@ describe("status labels", () => {
     expect(within(card).queryByText("Cancelled")).not.toBeInTheDocument();
   });
 
-  it("offers one tab per state, and no status tab for 'pending for me'", async () => {
+  it("renders three grouped status tabs, not eight", async () => {
+    // The eight sentence-length labels wrapped onto a second line on an
+    // ordinary laptop, and per user the median number of NON-EMPTY status tabs
+    // was 2. The seven states moved to the sidebar Status facet.
     await renderList(mkResponse([]));
-    const tabLabels = [
-      "Awaiting your approval",
-      "Open with vendors",
-      "Ready for your decision",
-      "Closed — no vendor response",
-      "Concluded",
-      "Lapsed — never approved",
-      "Cancelled",
-    ];
-    for (const label of tabLabels) {
-      expect(screen.getByRole("button", { name: new RegExp(label.replace(/[—]/g, "."), "i") })).toBeInTheDocument();
+    const statusTabs = document.querySelectorAll(".tab-row")[1];
+
+    for (const label of ["All", "Needs attention", "Closed"]) {
+      expect(within(statusTabs).getByRole("button", { name: new RegExp(`^${label}`) })).toBeInTheDocument();
     }
+    expect(within(statusTabs).queryAllByRole("button")).toHaveLength(3);
+    expect(within(statusTabs).queryByRole("button", { name: /Lapsed/i })).not.toBeInTheDocument();
+    expect(within(statusTabs).queryByRole("button", { name: /no vendor response/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /pending for me/i })).not.toBeInTheDocument();
+  });
+
+  it("pins the tab labels so they can never wrap again", async () => {
+    // jsdom does not apply the stylesheet, so assert the rule itself. Without
+    // white-space:nowrap the buttons shrink and the text wraps INSIDE them.
+    const css = require("fs").readFileSync(
+      require("path").join(process.cwd(), "styles/arc_v2.css"), "utf8");
+    expect(css).toMatch(/\.tab-row \.tab \{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.tab-row \{[^}]*flex-wrap:\s*nowrap/);
+  });
+
+  it("sends the group key when a group is selected", async () => {
+    await renderList(mkResponse([]));
+    fireEvent.click(screen.getByRole("button", { name: /^Needs attention/ }));
+    await waitFor(() => expect(lastRequest().tab).toBe("needs_attention"));
   });
 });
 
 describe("explanatory text", () => {
-  it("carries a legend describing every state", async () => {
-    await renderList(mkResponse([]));
-    const legend = screen.getByTestId("state-legend");
-    fireEvent.click(within(legend).getByText("Show"));
-
-    expect(legend).toHaveTextContent("Waiting for an internal approver before vendors are notified.");
-    expect(legend).toHaveTextContent("Window closed, no vendor replied. Nothing to evaluate.");
-    expect(legend).toHaveTextContent(
-      "The approval deadline passed before anyone approved it, so this round never reached vendors."
+  it("carries each state's meaning on the Status facet option", async () => {
+    // The collapsed legend was a second copy of the same seven labels. Now the
+    // Status facet is the one place that lists them, so it carries the
+    // descriptions too.
+    await renderList(
+      mkResponse([], {
+        facets: {
+          status: [
+            { key: "awaiting_approval", label: "Awaiting your approval", count: 2 },
+            { key: "lapsed", label: "Lapsed — never approved", count: 1 },
+          ],
+        },
+      })
     );
+    const facet = screen.getByTestId("facet-status");
+
+    expect(within(facet).getByText("Awaiting your approval").closest("label"))
+      .toHaveAttribute("title", "Waiting for an internal approver before vendors are notified.");
+    expect(within(facet).getByText("Lapsed — never approved").closest("label"))
+      .toHaveAttribute(
+        "title",
+        "The approval deadline passed before anyone approved it, so this round never reached vendors."
+      );
   });
 
   it("explains the roll-up on the pill itself", async () => {
@@ -395,8 +422,32 @@ describe("facets", () => {
     expect(within(sidebar).getByText("Vendor")).toBeInTheDocument();
     // Every row IS an RFQ now, so an RFQ facet is 124 single-count options
     // beside 124 rows; the status facet duplicates the tab strip.
+    // Every row IS an RFQ now, so an RFQ facet is 124 single-count options
+    // beside 124 rows.
     expect(within(sidebar).queryByText("RFQ")).not.toBeInTheDocument();
-    expect(within(sidebar).queryByText("Status")).not.toBeInTheDocument();
+    // Status is BACK: the tab strip carries three groups, so this is the only
+    // place the seven per-state counts exist.
+    expect(within(sidebar).getByText("Status")).toBeInTheDocument();
+    expect(within(screen.getByTestId("facet-status")).getByText("Ready for your decision")).toBeInTheDocument();
+  });
+
+  it("sends filters.status and keeps the selected group", async () => {
+    await renderList(
+      mkResponse([mkParent()], {
+        facets: { status: [{ key: "cancelled", label: "Cancelled", count: 3 }] },
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Closed/ }));
+    await waitFor(() => expect(lastRequest().tab).toBe("closed"));
+
+    fireEvent.click(within(screen.getByTestId("facet-status")).getByRole("checkbox"));
+    await waitFor(() => {
+      const req = lastRequest();
+      expect(req.filters.status).toEqual(["cancelled"]);
+      // The group survives — a group and a state are different questions.
+      expect(req.tab).toBe("closed");
+    });
   });
 });
 
@@ -414,12 +465,12 @@ describe("needs-my-approval is a filter, not a status", () => {
     fireEvent.click(within(screen.getByTestId("needs-my-approval-toggle")).getByRole("checkbox"));
     await waitFor(() => expect(lastRequest().needsMyApproval).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: /Ready for your decision/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Needs attention/ }));
     await waitFor(() => {
       const req = lastRequest();
       // Both survive — an RFQ's state and whether it is waiting on YOU are
       // different questions and must be answerable at the same time.
-      expect(req.tab).toBe("ready_for_decision");
+      expect(req.tab).toBe("needs_attention");
       expect(req.needsMyApproval).toBe(true);
     });
   });

@@ -393,6 +393,10 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .stat-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
 @media (max-width:1100px){ .stat-strip { grid-template-columns:repeat(3,1fr); } }
 @media (max-width:680px){ .stat-strip { grid-template-columns:1fr 1fr; } }
+/* Three-tile variant. .stat-strip is a hardcoded repeat(5,1fr) shared by other
+   surfaces, so this extends rather than repurposes it. */
+.stat-strip.cols-3 { grid-template-columns:repeat(3,1fr); }
+@media (max-width:880px){ .stat-strip.cols-3 { grid-template-columns:1fr; } }
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; display:flex; align-items:center; gap:13px; }
 .stat-card .s-ic { width:38px; height:38px; border-radius:10px; display:grid; place-items:center; flex-shrink:0; }
 .stat-card .s-ic svg { width:20px; height:20px; }
@@ -435,8 +439,13 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .guide.danger strong { color:var(--danger); }
 
 /* tabs */
-.tab-row { display:flex; gap:2px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; align-self:flex-start; }
-.tab-row .tab { padding:7px 14px; font-size:12.5px; font-weight:500; color:var(--fg-3); border-radius:7px; cursor:pointer; border:none; background:transparent; font-family:inherit; transition:all 0.13s ease; display:inline-flex; align-items:center; gap:6px; }
+/* nowrap + overflow-x + flex-shrink:0, together. Without white-space:nowrap the
+   buttons SHRINK and the label text wraps INSIDE each button — which is how the
+   negotiation strip ended up two lines tall on an ordinary 1440px laptop. Every
+   sibling chip in this file (.status-pill, .pill, .needs-action-pill) already
+   pins nowrap; the tab strip was the one that forgot. */
+.tab-row { display:flex; flex-wrap:nowrap; overflow-x:auto; max-width:100%; gap:2px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; align-self:flex-start; }
+.tab-row .tab { white-space:nowrap; flex-shrink:0; padding:7px 14px; font-size:12.5px; font-weight:500; color:var(--fg-3); border-radius:7px; cursor:pointer; border:none; background:transparent; font-family:inherit; transition:all 0.13s ease; display:inline-flex; align-items:center; gap:6px; }
 .tab-row .tab:hover { color:var(--fg); }
 .tab-row .tab.active { background:var(--fg); color:white; font-weight:600; }
 .tab-row .tab .ct { font-family:'Geist Mono',monospace; font-size:11px; padding:1px 6px; border-radius:99px; background:var(--surface-3); color:var(--fg-3); }
