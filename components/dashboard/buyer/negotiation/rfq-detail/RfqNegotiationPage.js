@@ -168,7 +168,13 @@ function RoundsTable({ rounds, rfqId }) {
                 <td className="strong">
                   {/* Kept alongside the row handler for middle-click and
                       open-in-new-tab; same destination either way. */}
-                  <Link href={destinationFor(r, rfqId)} style={{ color: "inherit", textDecoration: "none" }}>
+                  <Link
+                    href={destinationFor(r, rfqId)}
+                    style={{ color: "inherit", textDecoration: "none" }}
+                    // The row handler would otherwise fire too, pushing the
+                    // same URL twice and adding a duplicate history entry.
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     Round {r.round_number || r.stored_round_number || 1}
                   </Link>
                   {r.action_required && r.action_label && (
