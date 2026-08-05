@@ -95,6 +95,17 @@ const vendorsOf = (view) => (Array.isArray(view?.vendors) ? view.vendors : []);
 
 const cellOf = (p, vid) => p?.quotes?.[vid] || null;
 
+/**
+ * `product.category` is a category ID, not a name — the page resolves it
+ * against view.categories before displaying it. The export must do the same or
+ * it prints a bare number where the screen shows "SERVICES".
+ */
+const categoryNameOf = (view, p) => {
+  const cats = Array.isArray(view?.categories) ? view.categories : [];
+  const hit = cats.find((c) => String(c.id) === String(p?.category));
+  return hit ? hit.name : (p?.category ?? "");
+};
+
 /** A vendor that quoted every line can be ranked overall; a partial one cannot. */
 const overallRanks = (vendors, products) => C.vendorRanks(vendors, products);
 
@@ -201,7 +212,7 @@ function comparisonSheet(view) {
     const row = [
       num(i + 1, INT),
       txt(p.name || ""),
-      txt(p.category || ""),
+      txt(categoryNameOf(view, p)),
       txt(p.unit || ""),
       num(p.qty, INT),
       num(C.lprUnit(p)),
@@ -304,7 +315,7 @@ function lineDetailSheet(view) {
         txt(rfq.number ?? rfq.rfq_no ?? ""),
         num(i + 1, INT),
         txt(p.name || ""),
-        txt(p.category || ""),
+        txt(categoryNameOf(view, p)),
         txt(p.unit || ""),
         num(p.qty, INT),
         txt(v.name || v.short || `Vendor ${v.id}`),
@@ -321,7 +332,7 @@ function lineDetailSheet(view) {
         txt(rank ? `L${rank}` : ""),
         txt(rank === 1 ? "Yes" : q ? "No" : ""),
         num(q && l1Total > 0 && line != null ? ((line - l1Total) / l1Total) * 100 : null, PCT),
-        txt(q?.delivery ?? ""),
+        num(q?.delivery ?? null, INT),
         txt(q?.pay ?? ""),
         txt(q?.comment ?? ""),
         num(q?.docs ?? null, INT),

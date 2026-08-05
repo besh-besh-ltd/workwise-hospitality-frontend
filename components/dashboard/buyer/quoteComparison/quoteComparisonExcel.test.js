@@ -35,10 +35,10 @@ const makeView = (over = {}) => ({
     { id: 11, name: "Metro Supplies", short: "MS" },
     { id: 22, name: "Sharma Traders", short: "ST" },
   ],
-  categories: [{ id: 1, name: "Linen" }],
+  categories: [{ id: 388, name: "Linen" }],
   products: [
     {
-      id: 901, name: "Bed linen", qty: 10, unit: "set", category: "Linen",
+      id: 901, name: "Bed linen", qty: 10, unit: "set", category: 388,
       state: "approved", finalized_vendor: 11, quoted_count: 2,
       lpr: { rate: 130, landed_unit: 130, date: "2026-01-02" },
       round: { n: 2, when: "2026-05-01" },
@@ -48,7 +48,7 @@ const makeView = (over = {}) => ({
       },
     },
     {
-      id: 902, name: "Bath towels", qty: 20, unit: "pc", category: "Linen",
+      id: 902, name: "Bath towels", qty: 20, unit: "pc", category: 388,
       state: "open", finalized_vendor: null, quoted_count: 1,
       lpr: { rate: 60, landed_unit: 60, date: "2026-01-02" },
       round: { n: 1, when: "2026-04-20" },
@@ -58,7 +58,7 @@ const makeView = (over = {}) => ({
       },
     },
     {
-      id: 903, name: "Face towels", qty: 15, unit: "pc", category: "Linen",
+      id: 903, name: "Face towels", qty: 15, unit: "pc", category: 388,
       state: "open", finalized_vendor: null, quoted_count: 1,
       lpr: { rate: 40, landed_unit: 40, date: "2026-01-02" },
       round: { n: 1, when: "2026-04-20" },
@@ -146,6 +146,26 @@ describe("Comparison workbook", () => {
     const at = vals.indexOf("NO BID");
     const block = row.slice(at + 1, at + 11);
     expect(block.every((c) => !c || c.t !== "n")).toBe(true);
+  });
+
+  test("resolves the category id to its name, as the screen does", () => {
+    // `product.category` is an ID in the real payload; printing it raw puts a
+    // bare number where the page shows "Linen".
+    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+    const g = grid(wb.Sheets["Comparison"]);
+    const row = findRow(g, "Bed linen");
+    expect(rowValues(row)).toContain("Linen");
+    expect(rowValues(row)).not.toContain(388);
+  });
+
+  test("writes delivery lead time as a number so it can be sorted", () => {
+    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+    const g = grid(wb.Sheets["Line Detail"]);
+    const hdr = g[0].map((c) => (c ? c.v : null));
+    const at = hdr.indexOf("Delivery (days)");
+    const row = g.find((r) => r.some((c) => c && c.v === "Bed linen"));
+    expect(row[at].t).toBe("n");
+    expect(row[at].v).toBe(7);
   });
 
   test("marks the winner with a rank, not colour alone", () => {
@@ -281,7 +301,7 @@ describe("at production scale", () => {
       id: 100 + i, name: `Vendor ${i + 1}`, short: `V${i + 1}`,
     }));
     const products = Array.from({ length: 46 }, (_, i) => ({
-      id: 1000 + i, name: `Item ${i + 1}`, qty: 10 + i, unit: "pc", category: "Rooms",
+      id: 1000 + i, name: `Item ${i + 1}`, qty: 10 + i, unit: "pc", category: 388,
       state: "open", finalized_vendor: null, quoted_count: 5,
       lpr: { rate: 100, landed_unit: 100, date: "2026-01-02" },
       round: { n: 1, when: "2026-04-01" },
