@@ -2,8 +2,18 @@
    Quote Comparison — client-side compute helpers.
    Ported from the prototype's data.js, but every cell total is
    sourced from the BACKEND engine (quote.total) instead of being
-   recomputed on the client. The freight toggle is handled by
-   refetching getQuoteComparisonView({ freight:false }).
+   recomputed on the client.
+
+   The delivery-charge toggle is applied ENTIRELY server-side: with
+   ?freight=0 the payload's cells carry a reduced `total` AND an
+   `other_charges` array with the delivery entries removed, so every
+   helper here derives the ex-delivery figure without knowing the
+   toggle exists. Do not reintroduce a per-call-site flag — that was
+   the first attempt and it silently missed nine call sites (vendor
+   ranks, the Overall-cost tab, the savings KPI, category subtotals).
+   The comment this replaced claimed the toggle was "handled by
+   refetching", which was false in both directions: the backend flag
+   was dead AND these helpers re-added freight regardless.
    ═══════════════════════════════════════════════════════════ */
 
 export const fmt = (n) => Number(n || 0).toLocaleString("en-IN");

@@ -422,6 +422,28 @@
 .cellStateTag.approved  { background: white; color: var(--success); border: 1px solid rgba(21,128,61,0.28); }
 .cellStateTag.rejected  { background: white; color: var(--danger); border: 1px solid rgba(185,28,28,0.28); }
 
+/* The award badge. SOLID fill on purpose: .isL1 (merely cheapest) is a pale
+   green TINT and .cellApproved is a soft green wash, so a fourth tinted state
+   would be indistinguishable at a glance — which is precisely what was
+   reported. Only one cell per row ever carries this, so it costs no density. */
+.finalizedBar { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px; background: var(--success); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; align-self: flex-start; max-width: 100%; }
+.finalizedBar svg { flex-shrink: 0; }
+.finalizedWho { font-weight: 800; text-transform: none; letter-spacing: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Negotiation, moved into the comparison rows from the old separate panel. */
+.negBlock { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; align-items: flex-start; }
+.negState { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-3); flex-wrap: wrap; }
+.negState .negDot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-4); flex-shrink: 0; }
+.negState.isLive { color: var(--warn); }
+.negState.isLive .negDot { background: var(--warn); }
+.negCount { color: var(--fg-4); }
+.askRow { display: flex; flex-wrap: wrap; gap: 4px; }
+.askChip { display: inline-flex; align-items: center; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--surface-3); color: var(--fg-2); border: 1px solid var(--border); white-space: nowrap; }
+/* Dashed + muted so the repeated RFQ-wide ask never reads as a per-product one. */
+.rfqWideAsk { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: transparent; color: var(--fg-3); border: 1px dashed var(--border-strong); white-space: nowrap; align-self: flex-start; }
+.vendorRoundTag { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 10px; color: var(--fg-3); flex-wrap: wrap; }
+.askInline { color: var(--fg-4); }
+
 .cellDecisionActions { margin-top: 8px; display: flex; gap: 6px; }
 .cellDecBtn { flex: 1; padding: 6px 4px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s ease; }
 .cellDecBtn.approve { background: white; color: var(--success); border-color: rgba(21,128,61,0.4); }
