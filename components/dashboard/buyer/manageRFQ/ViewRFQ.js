@@ -62,6 +62,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
 import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
+import RfqApprovalWorkflowPanel from "@/components/dashboard/buyer/rfq/RfqApprovalWorkflowPanel";
 import RfqApprovalDecisionCard, {
   resolveRfqApprovalDecision,
   APPROVAL_DECISION_ANCHOR_ID,
@@ -1104,6 +1105,12 @@ const ViewRFQ = ({
         style={lifecycle?.stages?.length > 0 && !showLegacyRail ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
       >
         <div className={styles.leftCol} style={{ minWidth: 0 }}>
+          {/* Publish-approval record: who approved, when, with what comment,
+              who is still outstanding — and, when the RFQ published without
+              its approval, a plain statement of that. Renders for anyone who
+              can read the RFQ, not just the approver. */}
+          <RfqApprovalWorkflowPanel lifecycle={lifecycle} />
+
           {/* Buyer & inquiry details */}
           <section className={styles.card}>
             <header className={styles.cardHead}>

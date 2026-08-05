@@ -3,6 +3,13 @@
 // StageCard — a card whose header matches the Overview cards (icon-in-rounded-
 // box + bold label) so every stage's sections look consistent with ViewRFQ.
 import { useState } from "react";
+import moment from "moment";
+
+// Approval timestamps are naive UTC out of Postgres. Render them in IST, the
+// same way every other approval surface does (ApprovalTimeline, the lifecycle
+// journeys) — a bare new Date() here would silently shift them by 5h30m.
+export const fmtActedAt = (d) =>
+  d ? moment.utc(d).utcOffset("+05:30").format("DD MMM YYYY, hh:mm a") : null;
 
 // Mirrors ViewRFQ.module.scss .card / .cardHead / .cardTitleIcon exactly.
 // `collapsible` makes the header toggle the body (chevron); the `right` actions
@@ -98,8 +105,16 @@ export function ApprovalChain({ instances, title = "Approvals" }) {
           return (
             <div key={inst?.id || ii} style={{ border: "1px solid #ebebe6", borderRadius: 10, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: "#fafafa", borderBottom: "1px solid #f0f0ec" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#3f3f46" }}>
-                  {inst?.total_steps > 1 ? `Step ${inst?.current_step || 1} of ${inst.total_steps}` : "Approval"}
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#3f3f46" }}>
+                    {inst?.total_steps > 1 ? `Step ${inst?.current_step || 1} of ${inst.total_steps}` : "Approval"}
+                  </span>
+                  {(inst?.initiated_by?.name || inst?.created_at) && (
+                    <span style={{ display: "block", fontSize: 10.5, color: "#a1a1aa", marginTop: 2 }}>
+                      {inst?.initiated_by?.name ? `Raised by ${inst.initiated_by.name}` : "Raised"}
+                      {fmtActedAt(inst?.created_at) ? ` · ${fmtActedAt(inst.created_at)}` : ""}
+                    </span>
+                  )}
                 </span>
                 <StatusPill status={inst?.status} />
               </div>
@@ -120,14 +135,34 @@ export function ApprovalChain({ instances, title = "Approvals" }) {
                         <StatusPill status={s?.status} />
                       </div>
                       {approvers.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {approvers.map((a, ai) => (
-                            <span key={`active-${a?.user_id ?? ai}`} title={a?.comment || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#3f3f46", background: "#f7f7f5", border: "1px solid #ececec", borderRadius: 7, padding: "3px 8px" }}>
-                              <span style={{ width: 6, height: 6, borderRadius: 999, background: pillTone(a?.status).fg, flexShrink: 0 }} />
-                              {a?.user_name || a?.user_email || "Approver"}
-                              {a?.user_designation ? <span style={{ color: "#a1a1aa" }}>· {a.user_designation}</span> : null}
-                            </span>
-                          ))}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {approvers.map((a, ai) => {
+                            const acted = fmtActedAt(a?.acted_at);
+                            return (
+                              <div key={`active-${a?.user_id ?? ai}`} style={{ background: "#f7f7f5", border: "1px solid #ececec", borderRadius: 7, padding: "6px 9px" }}>
+                                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#3f3f46", minWidth: 0 }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: 999, background: pillTone(a?.status).fg, flexShrink: 0 }} />
+                                    {a?.user_name || a?.user_email || "Approver"}
+                                    {a?.user_designation ? <span style={{ color: "#a1a1aa" }}>· {a.user_designation}</span> : null}
+                                  </span>
+                                  {/* Who did what, and when — the question this
+                                      panel exists to answer. A PENDING row has
+                                      no acted_at, so it reads as the status
+                                      alone and stays visibly outstanding. */}
+                                  <span style={{ fontSize: 10.5, color: "#a1a1aa", whiteSpace: "nowrap" }}>
+                                    {String(a?.status || "").toUpperCase() || "—"}
+                                    {acted ? ` · ${acted}` : ""}
+                                  </span>
+                                </div>
+                                {a?.comment ? (
+                                  <div style={{ fontSize: 11, color: "#52525b", marginTop: 4, paddingLeft: 12, borderLeft: "2px solid #e4e4e7", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                    {a.comment}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                       {removedApprovers.length > 0 && (

@@ -678,6 +678,9 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .stg.n-wait .stg-node { background:var(--primary-tint); border-color:rgba(37,99,235,0.35); color:var(--primary); }
 .stg.n-act .stg-node { background:var(--warn-soft); border-color:rgba(180,83,9,0.35); color:var(--warn); animation:node-pulse-amber 1.8s ease-in-out infinite; }
 .stg.n-live .stg-node { background:var(--success-soft); border-color:rgba(5,118,66,0.30); color:var(--success); animation:node-glow-green 3.2s ease-in-out infinite; }
+/* lapsed = settled, but not cleanly: the RFQ published while its approval was
+   still open. Static (nothing is pending), red (it should not have happened). */
+.stg.n-lapsed .stg-node { background:var(--danger-soft); border-color:rgba(185,28,28,0.35); color:var(--danger); }
 
 /* partial = real progress ring (set --frac inline), soft amber arc */
 .stg.n-partial .stg-node { border:none; background:conic-gradient(rgba(180,83,9,0.55) var(--frac, 50%), var(--border) var(--frac, 50%)); color:var(--warn); }

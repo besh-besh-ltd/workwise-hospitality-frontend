@@ -53,14 +53,19 @@ jest.mock("./RFQEditHistory/RFQEditHistory", () => ({ __esModule: true, default:
 jest.mock("@/components/dashboard/buyer/rfq/stages/TechnicalStage", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage", () => ({ __esModule: true, default: () => null }));
+// Only the skeleton and the "action now / up next" strip are stubbed. The rest
+// is real: StageCard / ApprovalChain / StatusPill are what the Overview
+// approval panel is built from, and stubbing them would make its assertions
+// vacuous.
 jest.mock("@/components/dashboard/buyer/rfq/stages/StageShared", () => ({
+  ...jest.requireActual("@/components/dashboard/buyer/rfq/stages/StageShared"),
   __esModule: true,
   StageSkeleton: () => null,
   LifecycleContext: () => null,
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import { getRfqLifecycle } from "@/services/rfq";
@@ -92,47 +97,113 @@ const lockedStage = (key, label) => ({
   phase: { key, label, status: "upcoming" }, action: null,
 });
 
-// `lapsed` reproduces the shape the server actually returns for every
-// outstanding RFQ approval in production: the RFQ auto-published while the
-// approval was open, so getLifecycleSummary marks the phase `expired` and
-// clears the TOP-LEVEL grant — while the instance itself stays PENDING with
-// can_user_approve = true. Gating only on action.can_approve would leave all
-// 193 of those unapprovable.
-const lifecyclePayload = ({ canApprove, lapsed = false } = {}) => {
+const activeStage = (key, label) => ({
+  key, label, state: "active", reason: "in_progress", summary: null,
+  phase: { key, label, status: "current" }, action: null,
+});
+
+// `lapsed` reproduces what the server returns once an RFQ has published with
+// its approval still open: getLifecycleSummary marks the phase `expired`, the
+// shaper settles it as state `ended` / reason `expired_pending`, and BOTH
+// grants are cleared — the top-level one because expired phases are skipped,
+// the per-instance one because a published RFQ's approval is no longer
+// decidable (submitApprovalAction returns 400). The instance itself stays
+// PENDING; nothing closes it.
+//
+// `staleGrant` forces can_user_approve back to true on that lapsed instance —
+// a payload the fixed server never sends, used to prove the client refuses to
+// offer a decision the API would reject even if it somehow arrived.
+const lifecyclePayload = ({
+  canApprove, lapsed = false, staleGrant = false, approvedOnTime = false,
+} = {}) => {
+  const live = canApprove && !lapsed && !approvedOnTime;
   const action = {
-    required: canApprove && !lapsed,
-    can_approve: canApprove && !lapsed,
+    required: live,
+    can_approve: live,
     label: "You have a pending approval action",
-    instance_id: canApprove && !lapsed ? INSTANCE_ID : null,
+    instance_id: live ? INSTANCE_ID : null,
   };
+
+  const approvalInstance = approvedOnTime
+    ? {
+        id: INSTANCE_ID, status: "APPROVED", entity_type: "RFQ", entity_id: RFQ_ID,
+        current_step: 2, total_steps: 2,
+        can_user_approve: false, user_approval_step_id: null,
+        initiated_by: { name: "Ravi Iyer" },
+        created_at: "2026-05-05T02:54:12.000Z",
+        completed_at: "2026-05-05T02:58:00.000Z",
+        steps: [{
+          step_order: 1, decision_rule: "ANY", status: "APPROVED",
+          approvers: [{
+            user_id: 7, user_name: "Asha Menon", user_designation: "Purchase Head",
+            status: "APPROVED", acted_at: "2026-05-05T02:58:00.000Z",
+            comment: "Rates benchmarked, go ahead.",
+          }],
+        }],
+      }
+    : {
+        id: INSTANCE_ID, status: "PENDING", entity_type: "RFQ", entity_id: RFQ_ID,
+        current_step: 1, total_steps: 2,
+        can_user_approve: lapsed ? staleGrant : canApprove,
+        user_approval_step_id: STEP_ID,
+        initiated_by: { name: "Ravi Iyer" },
+        created_at: "2026-05-05T02:54:12.000Z",
+        steps: [{
+          step_order: 1, decision_rule: "ANY", status: "PENDING",
+          approvers: [{
+            user_id: 7, user_name: "Asha Menon", user_designation: "Purchase Head",
+            status: "PENDING",
+          }],
+        }],
+      };
+
+  const overview = approvedOnTime
+    ? {
+        key: "overview", label: "Overview", state: "complete", reason: "done",
+        summary: "Approved by Asha Menon", action: null,
+        phase: {
+          key: "rfq_approval", label: "RFQ Approval", status: "completed",
+          published_without_approval: false,
+          completed_at: "2026-05-05T02:58:00.000Z",
+          approval_instances: [approvalInstance],
+        },
+      }
+    : lapsed
+      ? {
+          key: "overview", label: "Overview", state: "ended", reason: "expired_pending",
+          summary: "Auto-published — approval was not completed in time", action: null,
+          phase: {
+            key: "rfq_approval", label: "RFQ Approval", status: "expired",
+            published_without_approval: true,
+            approval_instances: [approvalInstance],
+          },
+        }
+      : {
+          key: "overview", label: "Overview", state: "active", reason: "in_progress",
+          summary: null, action,
+          phase: {
+            key: "rfq_approval", label: "RFQ Approval", status: "current",
+            published_without_approval: false,
+            approval_instances: [approvalInstance],
+          },
+        };
+
+  // Once Overview settles, the live work is downstream — which is exactly why
+  // default_stage must stop pointing at Overview.
+  const settled = lapsed || approvedOnTime;
+
   return {
     rfq_id: RFQ_ID,
-    current_status: "RFQ_APPROVAL",
-    default_stage: "overview",
+    current_status: settled ? "AWAITING_QUOTES" : "RFQ_APPROVAL",
+    default_stage: settled ? "negotiation-award" : "overview",
     action,
     permissions: {},
     stages: [
-      {
-        key: "overview", label: "Overview", state: "active",
-        reason: lapsed ? "expired_pending" : "in_progress", summary: null,
-        action,
-        phase: {
-          key: "rfq_approval", label: "RFQ Approval",
-          status: lapsed ? "expired" : "current",
-          approval_instances: [{
-            id: INSTANCE_ID, status: "PENDING", entity_type: "RFQ", entity_id: RFQ_ID,
-            current_step: 1, total_steps: 2,
-            can_user_approve: canApprove,
-            user_approval_step_id: STEP_ID,
-            steps: [{
-              step_order: 1, decision_rule: "ANY", status: "PENDING",
-              approvers: [{ user_id: 7, user_name: "Asha Menon", status: "PENDING" }],
-            }],
-          }],
-        },
-      },
+      overview,
       lockedStage("technical", "Technical Evaluation"),
-      lockedStage("negotiation-award", "Negotiation & Award"),
+      settled
+        ? activeStage("negotiation-award", "Negotiation & Award")
+        : lockedStage("negotiation-award", "Negotiation & Award"),
       lockedStage("purchase-order", "Purchase Order"),
     ],
   };
@@ -144,6 +215,12 @@ const renderWithLifecycle = async (opts) => {
   const view = render(<ViewRFQ data={RFQ} isCreator={false} />);
   await waitFor(() => expect(getRfqLifecycle).toHaveBeenCalled());
   return view;
+};
+
+// The Overview approval panel lives in the Overview tab body, and a settled
+// RFQ no longer opens there — so reach it the way a user would.
+const openOverviewTab = async () => {
+  fireEvent.click(await screen.findByRole("tab", { name: /overview/i }));
 };
 
 beforeEach(() => {
@@ -169,12 +246,29 @@ describe("ViewRFQ — approve/reject decision surface", () => {
     expect(screen.queryByText(/your decision is needed/i)).not.toBeInTheDocument();
   });
 
-  test("still offers a decision when the RFQ auto-published with the approval open", async () => {
+  // THE REPORTED BUG. This assertion used to say the opposite — that a decision
+  // is "still offered" on an auto-published RFQ, with copy explaining it no
+  // longer gates publication. In production that put a live Approve/Reject in
+  // front of 43 approvers across 194 already-published RFQs (112 with a PO
+  // already issued), and approvers acted on it: two instances were decided
+  // months after their RFQ went out.
+  test("offers NO decision once the RFQ has published without its approval", async () => {
     await renderWithLifecycle({ canApprove: true, lapsed: true });
 
-    expect(await screen.findByRole("button", { name: /^approve$/i })).toBeInTheDocument();
-    // …and says so, rather than pretending the decision still gates publishing.
-    expect(screen.getByText(/no longer gates publication/i)).toBeInTheDocument();
+    expect(await screen.findByText(/lifecycle journey/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^reject$/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/your decision is needed/i)).not.toBeInTheDocument();
+    // The old explanatory copy goes with it — there is nothing to explain.
+    expect(screen.queryByText(/no longer gates publication/i)).not.toBeInTheDocument();
+  });
+
+  test("offers no decision even if the payload still carries a stale approve grant", async () => {
+    await renderWithLifecycle({ canApprove: true, lapsed: true, staleGrant: true });
+
+    expect(await screen.findByText(/lifecycle journey/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/your decision is needed/i)).not.toBeInTheDocument();
   });
 
   test("renders nothing for a lapsed approval the caller is not an approver on", async () => {
@@ -182,6 +276,65 @@ describe("ViewRFQ — approve/reject decision surface", () => {
 
     expect(await screen.findByText(/lifecycle journey/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+  });
+
+  test("a published-without-approval RFQ opens on the stage that needs work, not Overview", async () => {
+    await renderWithLifecycle({ canApprove: true, lapsed: true });
+
+    // default_stage drives the initial tab; Overview must no longer win it just
+    // because its approval never completed.
+    const negotiation = await screen.findByRole("tab", { name: /negotiation & award/i });
+    await waitFor(() => expect(negotiation).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByRole("tab", { name: /overview/i })).toHaveAttribute("aria-selected", "false");
+  });
+
+  test("the Overview rail reads 'Published without approval' and not 'Journey ended'", async () => {
+    await renderWithLifecycle({ canApprove: true, lapsed: true });
+
+    expect(await screen.findByText(/published without approval/i)).toBeInTheDocument();
+    // The RFQ carried on to negotiation — the journey did not end.
+    expect(screen.queryByText(/journey ended/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("ViewRFQ — Overview approval workflow panel", () => {
+  test("shows who approved, when, and their comment", async () => {
+    await renderWithLifecycle({ canApprove: false, approvedOnTime: true });
+    await openOverviewTab();
+
+    // Scoped to the panel: the stage rail separately (and correctly) shows
+    // "Approved by Asha Menon", so an unscoped name query is ambiguous.
+    const panel = (await screen.findByText(/publish approval/i)).closest("section");
+    expect(within(panel).getByText(/approved before publication/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/asha menon/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/rates benchmarked, go ahead\./i)).toBeInTheDocument();
+    // Who decided, what they decided, and when — on the approver's own row.
+    // 02:58 UTC is 08:28 IST; a naive Date() here would render 02:58.
+    expect(
+      within(panel).getByText(/APPROVED · 05 May 2026, 08:28 am/i)
+    ).toBeInTheDocument();
+    expect(within(panel).getByText(/raised by ravi iyer/i)).toBeInTheDocument();
+  });
+
+  test("states plainly when the RFQ published without its approval", async () => {
+    await renderWithLifecycle({ canApprove: true, lapsed: true });
+    await openOverviewTab();
+
+    expect(await screen.findByText(/publish approval/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/reached its publish date while the approval below was still open/i)
+    ).toBeInTheDocument();
+    // The outstanding approver is still named — that is the point of the record.
+    expect(screen.getByText(/asha menon/i)).toBeInTheDocument();
+  });
+
+  test("is visible to a reader who is not an approver at all", async () => {
+    await renderWithLifecycle({ canApprove: false, approvedOnTime: true });
+    await openOverviewTab();
+
+    // The decision card renders only for the approver; this record does not.
+    expect(await screen.findByText(/publish approval/i)).toBeInTheDocument();
+    expect(screen.queryByText(/your decision is needed/i)).not.toBeInTheDocument();
   });
 
   test("Approve submits the instance + step the lifecycle handed us", async () => {
