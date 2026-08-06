@@ -30,6 +30,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
+import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 // Single source of truth for reason-code → human label. Owned by the RFQ stage
@@ -119,7 +120,16 @@ const escapeHtml = (s) =>
    step died before it got to you" — are derived: the backend sends them as
    `effective_status`, and the same derivation is repeated here so an old
    payload (deploy skew) still reads correctly instead of printing "Awaiting"
-   next to six people who will never act. */
+   next to six people who will never act.
+
+   The six outcomes below are the same vocabulary as
+   components/dashboard/buyer/approval/approverState.js, which the RFQ stage
+   panel and the quote-comparison approval drawer share. This page did NOT move
+   onto it: it prefers the server's own `effective_status` when the payload
+   carries it and only falls back to deriving, and it reads the PO-details
+   payload's LOWERCASE step statuses ("done"/"skipped") rather than the stored
+   uppercase ones — folding it in would be a rewrite, not a move. Change one and
+   check the other; they describe the same approvals. */
 const APPROVER_STATE = {
   APPROVED: { label: "Approved", cls: "rsApproved" },
   REJECTED: { label: "Rejected", cls: "rsRejected" },
@@ -198,24 +208,111 @@ const RULE_LABEL = { ALL: "All must approve", ANY: "Any one approves" };
    happened — the control only hides names, never status. */
 const ROSTER_VISIBLE = 8;
 
+/* ── Who can initiate this draft ─────────────────────────────────────────────
+   The note above this block explains why Force Initiate is dead. On its own
+   that is half an answer: "you don't have permission" with no name attached
+   leaves a buyer holding a stuck purchase order and nobody to call, which is
+   what it used to say ("ask an administrator, or whoever approves purchase
+   orders here"). This names the people who actually hold the grant on THIS
+   PO's business unit, each with a way to reach them, directly under the
+   disabled control rather than in a footer or behind a modal.
+
+   It is mounted only when it is needed — a draft the viewer cannot initiate —
+   so the lookup is never requested on behalf of someone who can already press
+   the button. Every failure renders nothing at all: the note above still
+   stands on its own, and a permission hint may never be the reason a purchase
+   order page breaks. */
+const WhoCanInitiate = ({ poId }) => {
+  const { status, initiators, total } = usePoInitiators(poId);
+  const [expanded, setExpanded] = useState(false);
+
+  if (status === "failed") return null;
+
+  const visible = expanded ? initiators : initiators.slice(0, INITIATORS_VISIBLE);
+  // `total` is the server's uncapped count and is never below the number of
+  // rows in hand, so the button can promise people the response never listed
+  // (it stops at 25) and the expanded list can own up to the difference.
+  const unlisted = total - initiators.length;
+
+  return (
+    <section className={styles.initiators} aria-labelledby="po-initiators-heading">
+      <h2 className={styles.initiatorsHead} id="po-initiators-heading">
+        Who can initiate this purchase order
+      </h2>
+      {status === "loading" ? (
+        <div className={styles.initiatorsMsg}>Finding who can initiate it…</div>
+      ) : initiators.length === 0 ? (
+        /* Not a failed lookup — an answer, and a different problem: nobody in
+           this business unit holds the grant, so there is no colleague to ask
+           and the PO cannot move until an administrator changes that. Said
+           plainly, because an empty box would read as a broken block. */
+        <div className={styles.initiatorsMsg}>
+          Nobody in this business unit holds the <strong>awarding · create</strong> permission, so this
+          purchase order cannot be initiated by anyone yet. Ask your administrator to grant it.
+        </div>
+      ) : (
+        <>
+          <ul className={styles.initiatorList} id="po-initiators-list">
+            {visible.map((p, i) => (
+              <li className={styles.initiatorRow} key={p.user_id ?? `${p.name}-${i}`}>
+                <span className={`${styles.initAv} ${avatarClass(null, p.name)}`} aria-hidden="true">
+                  {initialsOf(p.name)}
+                </span>
+                <div className={styles.initMain}>
+                  <div className={styles.initName}>
+                    {p.name || "Team member"}
+                    {p.employee_code ? <span className={styles.initCode}> · {p.employee_code}</span> : null}
+                  </div>
+                  {p.role_title ? <div className={styles.initRole}>{p.role_title}</div> : null}
+                  <div className={styles.initContact}>
+                    {/* A null email or mobile is an ordinary record here, so
+                        each link exists only when there is something to link
+                        to — never an empty mailto: and never the word "null". */}
+                    {p.email ? (
+                      <a className={styles.initLink} href={mailtoHref(p.email)}>
+                        <Mail size={11} />
+                        {p.email}
+                      </a>
+                    ) : null}
+                    {p.mobile ? (
+                      <a className={styles.initLink} href={telHref(p.mobile)}>
+                        <Phone size={11} />
+                        {p.mobile}
+                      </a>
+                    ) : null}
+                    {!p.email && !p.mobile ? (
+                      <span className={styles.initNoContact}>No email or mobile on record</span>
+                    ) : null}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {expanded && unlisted > 0 ? (
+            <div className={styles.initiatorsMsg}>
+              …and {unlisted} other{unlisted === 1 ? "" : "s"} also hold this permission.
+            </div>
+          ) : null}
+          {total > INITIATORS_VISIBLE ? (
+            <button
+              type="button"
+              className={styles.initiatorsMore}
+              aria-expanded={expanded}
+              aria-controls="po-initiators-list"
+              onClick={() => setExpanded((o) => !o)}
+            >
+              {expanded ? "Show fewer" : `+${total - INITIATORS_VISIBLE} more`}
+            </button>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+};
+
 const PODetail = ({ id }) => {
   const router = useRouter();
   const userProfile = useSelector((state) => state.userProfile);
-
-  const hotelIds = useMemo(() => {
-    const mappings = userProfile?.hospitality_mappings || [];
-    return mappings.map((m) => m.hospitality_hotel_id).filter(Boolean);
-  }, [userProfile]);
-
-  const { canRead, canApprove, canUpdate, canCreate, loading: permissionsLoading } = useModulePermissions({
-    moduleKey: "awarding",
-    hotelIds,
-    departmentId: null,
-  });
-  // Matches the legacy `canWrite` gate (PurchaseOrders.js): the PO creator
-  // typically holds `create` (used to draft the PO) but not necessarily
-  // `update`. Either is sufficient to trigger the standard initiate flow.
-  const canWrite = canUpdate || canCreate;
 
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -229,6 +326,64 @@ const PODetail = ({ id }) => {
   // Reject is a two-step action: the button opens the modal, the modal's
   // confirm submits. Nothing is sent from the button click itself.
   const [rejectOpen, setRejectOpen] = useState(false);
+
+  /* ── Permission scope ────────────────────────────────────────────────────
+     Whether this user may act on THIS purchase order is a question about the
+     PO's own hotel, so that is the scope the grants are resolved against —
+     the same thing the legacy listing page does with its RFQ
+     (PurchaseOrders.js: `if (currentRfqData.hotel_id != null) return
+     [currentRfqData.hotel_id]`) and the same tuple the server evaluates
+     (purchaseOrderModel.assertPoAccess → company × hotel × department ×
+     process, sourced from the PO's parent RFQ or ARC).
+
+     This page used to ask about the viewer's `hospitality_mappings` instead,
+     which is a different question with a different answer in both
+     directions: a create grant that lives at the PO's hotel is filtered out
+     of the reply whenever the viewer's mapping snapshot doesn't cover it
+     (rbacModel.getUserPermissionsForHotels keys on `urs.company_id IN
+     (companies of the requested hotels) AND (urs.hotel_id IS NULL OR
+     urs.hotel_id IN (requested))`) — that is the missing Force Initiate
+     button — while a create grant held at some *other* hotel was being
+     counted as if it applied here.
+
+     The viewer's mappings survive only as the pre-load / no-hotel fallback:
+     a PO with no hotel at all (legacy non-hospitality PO) still has to
+     resolve to something, and until the PO arrives there is nothing else to
+     key on. */
+  const viewerHotelIds = useMemo(() => {
+    const mappings = userProfile?.hospitality_mappings || [];
+    return mappings.map((m) => m.hospitality_hotel_id).filter(Boolean);
+  }, [userProfile]);
+
+  const hotelIds = useMemo(
+    () => (po?.hotel_id != null ? [po.hotel_id] : viewerHotelIds),
+    [po?.hotel_id, viewerHotelIds]
+  );
+
+  const { canRead, canApprove, canUpdate, canCreate, loading: permissionsLoading } = useModulePermissions({
+    moduleKey: "awarding",
+    hotelIds,
+    // The server's scope predicate includes the department axis, so the gate
+    // asks about the PO's department too — a grant scoped to some other
+    // department is not a grant on this PO.
+    departmentId: po?.department_id ?? null,
+  });
+  // Same predicate as the legacy listing page (PurchaseOrders.js), deliberately:
+  // two pages offering the same action must not disagree about who may take it.
+  //
+  // It is worth being precise about who that leaves out, because the previous
+  // comment here got it backwards ("the PO creator typically holds create").
+  // Awarding a PO and initiating it are separate grants: finalising a quote
+  // needs `quote-compare.create`, initiating needs `awarding.create/update`,
+  // and in production 49 of the 53 users who can finalise hold neither of the
+  // latter — `awarding.create` rides on Commercial Approver / ARC Approver /
+  // CEO / Final Awarding, not on the negotiator and observer roles most
+  // finalisers have. So the common case is a buyer looking at a draft they
+  // themselves created and correctly being unable to move it on. Whether that
+  // is the intended workflow is a product question and is NOT settled by
+  // widening this predicate; what this page owes them meanwhile is an
+  // explanation instead of a missing button (see the hero note below).
+  const canWrite = canUpdate || canCreate;
 
   const fetchDetail = useCallback(async () => {
     if (!id) return;
@@ -340,7 +495,14 @@ const PODetail = ({ id }) => {
 
   if (permissionsLoading || loading) return <DetailSkeleton onBack={handleBack} />;
 
-  if (!canRead) {
+  /* Read gate. Only meaningful when the server did NOT hand us the PO: the
+     detail endpoint applies its own scope predicate and 404s anything the
+     caller may not read, and it accepts `rfq.read` / `boq.read` as well as
+     `awarding.read` (purchaseOrderModel.PO_SCOPE_PERMISSIONS). Blacking out a
+     PO the backend deliberately returned would make this page stricter than
+     the server and hide pages from users who legitimately hold one of the
+     other two grants. */
+  if (!po && !canRead) {
     return (
       <div className={styles.page}>
         <div className={styles.pageBody}>
@@ -569,6 +731,33 @@ const PODetail = ({ id }) => {
                 </span>
               </div>
             )}
+            {/* Why the Initiate button is dead. Awarding a PO and initiating
+                it are two different grants held by two mostly-disjoint sets of
+                people, so the person looking at their own freshly-awarded
+                draft is usually NOT the person who can move it on. Saying that
+                out loud is the whole point of this note: silence here reads as
+                a broken page. It names the permission rather than a role
+                because roles are per-tenant and this page cannot know which
+                one carries the grant here. */}
+            {po.status === "draft" && !canWrite && (
+              <>
+                <div className={styles.heroPendingNote}>
+                  <span className={styles.clockIc}>
+                    <AlertCircle size={14} />
+                  </span>
+                  <span>
+                    This purchase order is still a draft and you cannot initiate it —
+                    that needs the <strong>awarding · create</strong> permission for this
+                    business unit, which your roles do not grant.
+                  </span>
+                </div>
+                {/* …and here is who does hold it. The sentence above used to
+                    end with "ask an administrator, or whoever approves
+                    purchase orders here", which named nobody and left the PO
+                    stuck. */}
+                <WhoCanInitiate poId={id} />
+              </>
+            )}
             {isPending && !awaitingMe && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
@@ -605,12 +794,30 @@ const PODetail = ({ id }) => {
                 Download PO
               </button>
             )}
-            {po.status === "draft" && canWrite && (
+            {/* Force Initiate. A user without the grant still SEES the control,
+                disabled and captioned (see the note under the hero) — the
+                button used to be omitted outright, which told a finaliser who
+                cannot initiate their own draft nothing at all and sent them to
+                support instead of to whoever holds the permission. Most people
+                who award a PO do not hold `awarding.create`: in production 53
+                users can finalise (`quote-compare.create`) and 32 can
+                initiate, and only 4 of the finalisers are in that second set. */}
+            {po.status === "draft" && (
               <button
-                className={`${styles.btn} ${styles.btnSuccess}`}
+                /* Neutral, not green, when it cannot be pressed: `btnSuccess`
+                   only fades to 0.6 opacity when disabled, which still reads
+                   as the page's primary call to action and invites the click
+                   it will not accept. The unavailable state should look like
+                   the disabled "Download PO" beside it. */
+                className={`${styles.btn} ${canWrite ? styles.btnSuccess : styles.btnSecondary}`}
                 type="button"
-                disabled={initiating}
-                onClick={handleForceInitiate}
+                disabled={initiating || !canWrite}
+                onClick={canWrite ? handleForceInitiate : undefined}
+                title={
+                  canWrite
+                    ? undefined
+                    : "You do not have permission to initiate a purchase order for this business unit."
+                }
               >
                 <Send size={13} />
                 {initiating ? "Initiating…" : "Force Initiate"}

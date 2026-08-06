@@ -367,6 +367,32 @@ describe("QuoteComparison — negotiation on the product rows", () => {
     expect(chips[0]).toHaveTextContent(/RFQ-wide: Payment terms/i);
   });
 
+  // The RFQ-wide asks used to render as siblings of the column-direction
+  // .negBlock, one per line. They are now grouped into a wrapping row so short
+  // asks share a line. Chip text is what must survive that regrouping: a long
+  // ask wraps INSIDE its chip, so every ask stays readable in full and none is
+  // dropped, clipped or ellipsised away.
+  it("keeps every RFQ-wide ask readable in full when a round carries several", async () => {
+    const rfqAsks = [
+      { field: "tcs", label: "TCS", target: "8", mode: "percentage", demand: null, is_text: false },
+      { field: "sass", label: "Sass", target: "5000", mode: null, demand: null, is_text: false },
+      { field: "documents", label: "Documents", target: [], mode: null, demand: "This is a demand document.", is_text: true },
+      { field: "payment_terms", label: "Payment terms", target: "This is a target for your Payment Term.", mode: null, demand: null, is_text: true },
+      { field: "global_comment", label: "Global comment", target: "This is a target for Global comment", mode: null, demand: null, is_text: true },
+    ];
+    await renderSheet(payload({ products: [withNegotiation({ rfq_level_asks: rfqAsks })] }));
+
+    const chips = await screen.findAllByTestId("rfq-wide-ask");
+    expect(chips).toHaveLength(rfqAsks.length);
+    expect(chips.map((c) => c.textContent)).toEqual([
+      "RFQ-wide: TCS 8%",
+      "RFQ-wide: Sass ₹5,000",
+      "RFQ-wide: Documents: This is a demand document.",
+      "RFQ-wide: Payment terms: This is a target for your Payment Term.",
+      "RFQ-wide: Global comment: This is a target for Global comment",
+    ]);
+  });
+
   it("marks which vendors replied in the round and which have not", async () => {
     await renderSheet(payload({
       products: [product({
