@@ -206,18 +206,30 @@ export default function VendorOverviewStage({
               </div>
             </div>
           ) : (
+            /* Same contractual gate as the RFQ quote wizard, so the same rule:
+               a real <input type="checkbox">, never a decorative span. The
+               technical and commercial stages are locked until this is ticked,
+               so a mouse-only control locks a keyboard vendor out of quoting
+               entirely (WCAG 2.1.1 / 4.1.2). The input is visually hidden
+               behind `.box` in arc_v2.css but stays focusable. */
             <label
               className={"check" + (acceptedTerms ? " is-checked" : "") + ((readOnly || acceptingTerms) ? " is-disabled" : "")}
-              onClick={(e) => {
-                if (readOnly || acceptedTerms || acceptingTerms) return;
-                e.preventDefault();
-                onAcceptTerms();
-              }}
             >
-              <span className="box"></span>
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                disabled={readOnly || acceptingTerms}
+                aria-labelledby="arc-accept-terms-title"
+                aria-describedby="arc-accept-terms-desc"
+                onChange={() => {
+                  if (readOnly || acceptedTerms || acceptingTerms) return;
+                  onAcceptTerms();
+                }}
+              />
+              <span className="box" aria-hidden="true"></span>
               <div className="check-body">
-                <div className="check-title">I have read and accept the rate-contract terms &amp; conditions above.</div>
-                <div className="check-desc">
+                <div className="check-title" id="arc-accept-terms-title">I have read and accept the rate-contract terms &amp; conditions above.</div>
+                <div className="check-desc" id="arc-accept-terms-desc">
                   By checking this, you confirm that any quote you submit will follow these terms for the full contract term{" "}
                   <span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span>.
                 </div>

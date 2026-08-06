@@ -930,7 +930,12 @@ const ViewRFQ = ({
           actions={
             <>
               <Link
-                href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
+                // The query page resolves `rfq_id` as the INTERNAL RFQ id (the
+                // same value `?id=` carries into this page), not the display
+                // `rfq_no`. Passing rfq_no rendered "Queries for RFQ#undefined"
+                // with an empty vendor list, so vendor clarifications raised
+                // against the RFQ were unreachable from this workspace.
+                href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer`}
                 className="btn btn-sm"
                 id="queries_button-rfq_header-view_rfq_page"
               >

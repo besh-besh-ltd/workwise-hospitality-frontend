@@ -405,3 +405,53 @@ describe("ViewRFQ — Overview approval workflow panel", () => {
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P0 REGRESSION GUARD — header "Queries" deep link.
+//
+// The header link was built from `data.rfq_no` (the DISPLAY number) while the
+// query page resolves `rfq_id` as the INTERNAL id. Live on id=363/rfq_no=535917
+// that produced "Queries for RFQ#undefined" with an empty vendor list, so every
+// vendor question raised against the RFQ was invisible from this workspace —
+// the buyer's only in-app route to vendor clarifications.
+//
+// The fixture below deliberately gives `id` and `rfq_no` DIFFERENT values. A
+// fixture where they match cannot fail, which is why the original suite (id
+// 536299 / rfq_no "536299") sailed straight past this bug.
+describe("ViewRFQ header — Queries link target", () => {
+  const DISTINCT = {
+    ...RFQ,
+    id: 363,           // internal id — what `?id=` carries and the query page wants
+    rfq_no: "535917",  // display number — what the buyer reads on screen
+  };
+
+  const renderHeader = async (rfq = DISTINCT) => {
+    getRfqLifecycle.mockResolvedValue({
+      status: 1,
+      data: { ...lifecyclePayload({ canApprove: false }), rfq_id: rfq.id },
+    });
+    const view = render(<ViewRFQ data={rfq} isCreator={false} />);
+    await waitFor(() => expect(getRfqLifecycle).toHaveBeenCalled());
+    return view;
+  };
+
+  test("points at the internal RFQ id, not the display rfq_no", async () => {
+    await renderHeader();
+
+    const queries = await screen.findByRole("link", { name: /queries/i });
+    expect(queries).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/query?rfq_id=363&role=buyer",
+    );
+    // The display number must never reach the query page as `rfq_id`.
+    expect(queries.getAttribute("href")).not.toContain("535917");
+  });
+
+  test("the header still shows the display number to the buyer", async () => {
+    // Guards the other direction: fixing the link must not swap the
+    // human-facing RFQ number for the internal id anywhere in the hero.
+    await renderHeader();
+
+    expect(await screen.findByText(/#535917/)).toBeInTheDocument();
+  });
+});

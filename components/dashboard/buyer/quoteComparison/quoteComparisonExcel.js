@@ -51,6 +51,19 @@ const WIN_BG = "DCFCE7";
 const NOTE_FG = "64748B";
 
 const NO_BID = "NO BID";
+// A vendor held out of a line by the technical gate has no priced cell, but
+// they are NOT a non-bidder — labelling them "NO BID" in a sheet that gets
+// forwarded and archived misstates their participation permanently.
+const TECH_FAILED = "DISQUALIFIED (TECHNICAL)";
+const TECH_PENDING = "QUOTED — TECH EVAL PENDING";
+
+/** Why a vendor has no priced cell on this line, as a sheet-safe status word. */
+const bidStatusOf = (p, vid) => {
+  if (cellOf(p, vid)) return "Quoted";
+  const absence = C.cellAbsence(p, vid);
+  if (!absence) return NO_BID;
+  return absence.status === "TECH_FAILED" ? TECH_FAILED : TECH_PENDING;
+};
 
 const border = () => ({
   top: { style: "thin", color: { rgb: "E2E8F0" } },
@@ -222,8 +235,10 @@ function comparisonSheet(view) {
     vendors.forEach((v) => {
       const q = cellOf(p, v.id);
       if (!q) {
-        // NO BID, not zero — a zero would sort as the winner.
-        row.push(txt(NO_BID, { font: { color: { rgb: NOTE_FG } } }));
+        // No number, not zero — a zero would sort as the winner. The word says
+        // WHICH kind of blank it is: a silent vendor and one our own technical
+        // gate disqualified are not the same finding.
+        row.push(txt(bidStatusOf(p, v.id), { font: { color: { rgb: NOTE_FG } } }));
         for (let k = 1; k < VENDOR_COLS.length; k += 1) row.push(txt(""));
         return;
       }
@@ -319,7 +334,7 @@ function lineDetailSheet(view) {
         txt(p.unit || ""),
         num(p.qty, INT),
         txt(v.name || v.short || `Vendor ${v.id}`),
-        txt(q ? "Quoted" : NO_BID),
+        txt(bidStatusOf(p, v.id)),
         num(q ? q.base : null),
         num(q ? C.cellSubtotal(p, v.id) : null),
         num(q ? q.freight : null),
@@ -507,7 +522,8 @@ export function buildSummaryWorkbook(view) {
     metric("Vendors invited", num(invited, INT)),
     metric("Vendors responded", num(responded, INT)),
     metric("Participation rate", num(invited ? (responded / invited) * 100 : null, PCT)),
-    metric("Quote coverage", num(coveragePct, PCT), "Quoted cells ÷ (line items × vendors)"),
+    metric("Quote coverage", num(coveragePct, PCT),
+      "Comparable cells ÷ (line items × vendors). A line a vendor quoted but was technically disqualified on is not comparable and is not counted."),
     metric("Lines with 3+ quotes", num(linesWithThree, INT), "Standard adequacy-of-competition check"),
     [txt("")],
 
@@ -595,4 +611,4 @@ export function downloadSummaryWorkbook(view) {
   save(buildSummaryWorkbook(view), `RFQ_${fileBase(view)}_summary.xlsx`);
 }
 
-export const __test__ = { safeSheetName, NO_BID, MONEY, PCT };
+export const __test__ = { safeSheetName, NO_BID, TECH_FAILED, TECH_PENDING, bidStatusOf, MONEY, PCT };
