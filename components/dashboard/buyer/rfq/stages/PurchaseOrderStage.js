@@ -15,6 +15,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { FileText, IndianRupee, Clock3, CircleCheck, TriangleAlert, ArrowRight, ChevronDown } from "lucide-react";
 import { statusLabel, inr, initialsOf, fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
+import {
+  effectiveApproverStatus,
+  levelPill,
+  namePreview,
+  ruleLabel,
+  tallyStep,
+} from "@/components/dashboard/buyer/approval/approverState";
 import { removalReasonLabel, StageNoPermission } from "./StageShared";
 
 // Anchor for ?focus=approval deep links. The page-level decision card renders
@@ -68,104 +75,13 @@ const instanceForPo = (instances, po) => {
   return mine.length ? mine[mine.length - 1] : null;
 };
 
-// A stored approver row only ever holds PENDING / APPROVED / REJECTED /
-// REMOVED — nothing closes out the people who never got to act. So when an ANY
-// level clears on one approval, the other six stay literally PENDING forever,
-// and a level that was rejected or cancelled leaves everyone downstream of the
-// decision PENDING too. Rendering those rows as "pending" says "we are still
-// waiting on them" about a level that is finished, which is simply false.
-//
-// The display state is therefore the approver's status read TOGETHER WITH the
-// level's: the same rules the PO details payload's `effective_status` applies,
-// derived here because the RFQ lifecycle payload
-// (rfqModel.formatApprovalInstances) does not carry that field.
-//
-// These six outcomes are the SHARED VOCABULARY for an approver row —
-// REMOVED / APPROVED / REJECTED / NOT_REQUIRED / NOT_REACHED / PENDING — and
-// every surface that renders one (this tab, the PO details page,
-// poDashboardModel.effectiveStatusOf) must resolve a given row to the same one
-// of them. Keep the three in step if any side changes.
-const effectiveApproverStatus = (approver, stepStatus, decisionRule) => {
-  const st = String(approver?.status || "").toUpperCase();
-  if (st === "REMOVED") return "REMOVED";
-  if (st === "APPROVED") return "APPROVED";
-  if (st === "REJECTED") return "REJECTED";
-  // SKIPPED is permitted by the approver-status CHECK constraint but does not
-  // occur in the data today. It records a row that was closed out WITHOUT ever
-  // being asked to act, which is precisely what "Not required" says — so it is
-  // mapped here deliberately and by name, not left to fall through to the
-  // PENDING default. "Awaiting" would be the one reading it cannot have.
-  if (st === "SKIPPED") return "NOT_REQUIRED";
-  const lvl = String(stepStatus || "").toUpperCase();
-  if (lvl === "REJECTED" || lvl === "CANCELLED") return "NOT_REACHED";
-  // An ALL level cannot legitimately close with someone still outstanding, so a
-  // PENDING row under APPROVED/ALL is a data anomaly. Calling it "not required"
-  // would assert something we cannot justify; keep the raw value instead. This
-  // matches poDashboardModel.effectiveStatusOf exactly — the two surfaces show
-  // the same approval and must not disagree about it.
-  if (lvl === "APPROVED") {
-    return String(decisionRule || "").toUpperCase() === "ALL" ? "PENDING" : "NOT_REQUIRED";
-  }
-  // A LEVEL the mid-flight reconciler skipped or removed never asked anyone on
-  // it either — same reading as a cleared ANY level, same as effectiveStatusOf.
-  if (lvl === "SKIPPED" || lvl === "REMOVED") return "NOT_REQUIRED";
-  return "PENDING";                                            // genuinely outstanding
-};
-
-// Two aggregates, never one. A REMOVED approver row is a mid-flight
-// reconciler's soft-tombstone (their role/scope was revoked while the approval
-// was open) — it stays visible for the audit trail but must never be counted in
-// an "N of M", never be named as someone we are waiting on, and never be the
-// single name a level shows. `removed` is reported entirely separately.
-const tallyStep = (step) => {
-  const all = Array.isArray(step?.approvers) ? step.approvers : [];
-  const rows = all.map((ap) => ({ ap, eff: effectiveApproverStatus(ap, step?.status, step?.decision_rule) }));
-  const of = (...effs) => rows.filter((r) => effs.includes(r.eff));
-  const removed = of("REMOVED");
-  const active = rows.filter((r) => r.eff !== "REMOVED");
-  const acted = of("APPROVED", "REJECTED")
-    // Oldest decision first — the level reads as the order it actually happened.
-    .sort((a, b) => String(a.ap?.acted_at || "").localeCompare(String(b.ap?.acted_at || "")));
-  return {
-    active, removed, acted,
-    // Server order is meaningful (contract), so these groups keep it.
-    outstanding: of("PENDING"),
-    notRequired: of("NOT_REQUIRED"),
-    notReached: of("NOT_REACHED"),
-    approved: of("APPROVED").length,
-    rejected: of("REJECTED").length,
-    // ACTIVE approvers only, so approved + rejected + outstanding +
-    // notRequired + notReached === total — the server's own invariant, and the
-    // reason `removed` is reported entirely separately.
-    total: active.length,
-  };
-};
-
-const ruleLabel = (rule) => (rule === "ALL" ? "all must approve" : rule === "ANY" ? "any one approves" : null);
-
-// "SOME_NEW_STATE" → "Some new state". Only ever used as chip TEXT, never in a
-// className — an unmatched enum value must not be able to reach the stylesheet.
-const humanizeStatus = (s) => {
-  const raw = String(s || "").replace(/_/g, " ").trim().toLowerCase();
-  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Unknown";
-};
-
-// Level chip. Every stored step status has an explicit case (APPROVED /
-// PENDING / REJECTED / CANCELLED), plus SKIPPED / REMOVED for the mid-flight
-// reconciler's own step states, plus a neutral, honestly-labelled default so a
-// status this build has never heard of can't silently render as "waiting".
-const levelPill = (stepStatus, isCurrent) => {
-  switch (String(stepStatus || "").toUpperCase()) {
-    case "APPROVED":  return { cls: "success", text: "Cleared" };
-    case "REJECTED":  return { cls: "danger",  text: "Rejected" };
-    case "CANCELLED": return { cls: "neutral", text: "Cancelled" };
-    case "SKIPPED":   return { cls: "neutral", text: "Skipped" };
-    case "REMOVED":   return { cls: "neutral", text: "Removed" };
-    case "PENDING":
-    case "":          return isCurrent ? { cls: "warn pulse", text: "Reviewing now" } : { cls: "neutral", text: "Waiting" };
-    default:          return { cls: "neutral", text: humanizeStatus(stepStatus) };
-  }
-};
+// `effectiveApproverStatus`, `tallyStep`, `ruleLabel`, `levelPill` and
+// `namePreview` used to live here. They now live in
+// buyer/approval/approverState.js, unchanged, because the quote-comparison
+// tab's approval drawer had to answer the same questions about the same
+// approval engine and a fourth copy of these rules was not going to stay in
+// step with the other three. See that file for what each outcome means and for
+// the copies that deliberately did NOT move.
 
 // PO statuses that mean the document has left the building. Membership is
 // rfqModel's PO_WITH_VENDOR_STATUSES verbatim, so the local fallback below and
@@ -370,14 +286,6 @@ function poFacts(po, instances) {
   // that could pick differently.
   return { approval, awaitingMe, stageLabel, actors, initiatedBy, inst };
 }
-
-// "Asha, Ravi +3" — a roster preview that stays one line at any level size.
-const namePreview = (names, max = 2) => {
-  const shown = names.filter(Boolean).slice(0, max);
-  if (!shown.length) return null;
-  const extra = names.filter(Boolean).length - shown.length;
-  return `${shown.join(", ")}${extra > 0 ? ` +${extra}` : ""}`;
-};
 
 // ── Approval progress aside ──────────────────────────────────────────────
 

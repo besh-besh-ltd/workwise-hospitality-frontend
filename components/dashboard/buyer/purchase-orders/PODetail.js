@@ -119,7 +119,16 @@ const escapeHtml = (s) =>
    step died before it got to you" — are derived: the backend sends them as
    `effective_status`, and the same derivation is repeated here so an old
    payload (deploy skew) still reads correctly instead of printing "Awaiting"
-   next to six people who will never act. */
+   next to six people who will never act.
+
+   The six outcomes below are the same vocabulary as
+   components/dashboard/buyer/approval/approverState.js, which the RFQ stage
+   panel and the quote-comparison approval drawer share. This page did NOT move
+   onto it: it prefers the server's own `effective_status` when the payload
+   carries it and only falls back to deriving, and it reads the PO-details
+   payload's LOWERCASE step statuses ("done"/"skipped") rather than the stored
+   uppercase ones — folding it in would be a rewrite, not a move. Change one and
+   check the other; they describe the same approvals. */
 const APPROVER_STATE = {
   APPROVED: { label: "Approved", cls: "rsApproved" },
   REJECTED: { label: "Rejected", cls: "rsRejected" },
