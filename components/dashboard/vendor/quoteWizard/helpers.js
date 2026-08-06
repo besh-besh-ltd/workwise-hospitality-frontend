@@ -129,30 +129,52 @@ export const buildInitialQuoteProducts = (rfq) => {
   });
 };
 
-/** Mirror of backend deriveMrpLine — keep in sync. */
+/** Mirror of backend deriveMrpLine — keep in sync.
+ *
+ *  `net` (MRP less discount) is the AUTHORITATIVE figure: it is what the vendor
+ *  is offering, and `net × qty` is what the buyer must be shown.
+ *
+ *  `base` is the reverse-calculated tax-exclusive rate at FULL precision. It is
+ *  deliberately not rounded — for most GST rates it is a repeating decimal
+ *  (400/1.18 = 338.9830508…), and quantising it before multiplying by quantity
+ *  loses up to half a paisa per unit, an error that scales with quantity.
+ *  Use `base2dp` wherever a unit rate is displayed or sent as a 2dp value. */
 export const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
   const m = parseFloat(mrp) || 0;
   const disc = discountMode === 'percentage' ? (m * (parseFloat(discount)||0))/100 : (parseFloat(discount)||0);
   const net = Math.max(0, m - disc);
   const g = parseFloat(gst) || 0;
   const div = 1 + g/100;
-  const base = div > 0 ? Math.round((net/div)*100)/100 : net;
-  return { net, base, gst: net - base };
+  const base = div > 0 ? net/div : net;
+  return { net, base, base2dp: Math.round(base*100)/100, gst: net - base };
 };
 
-/** Compute per-product line total with cascading charge logic. */
+/** True when this line was priced by entering an MRP + discount. */
+const isMrpProduct = (p) =>
+  p?.pricing_method === "MRP" && (parseFloat(p?.entered_mrp) || 0) > 0;
+
+/** The GST-inclusive amount offered for ONE unit of an MRP line. */
+const mrpNetInclusiveUnit = (p) =>
+  deriveMrpBaseFE({
+    mrp: p.entered_mrp,
+    discount: p.mrp_discount,
+    discountMode: p.mrp_discount_mode,
+    gst: p.tax,
+  }).net;
+
+/** Compute per-product line total with cascading charge logic.
+ *
+ *  MRP lines are priced from the tax-INCLUSIVE amount (net × qty) rather than
+ *  from a rounded exclusive rate, so the total reproduces "MRP less discount ×
+ *  qty" exactly. Traditional lines are unchanged. */
 export const computeLineTotal = (p) => {
   const qty = parseFloat(p.qty) || 0;
-  const unit =
-    p.pricing_method === "MRP"
-      ? deriveMrpBaseFE({
-          mrp: p.entered_mrp,
-          discount: p.mrp_discount,
-          discountMode: p.mrp_discount_mode,
-          gst: p.tax,
-        }).base
-      : parseFloat(p.unit_price) || 0;
-  const base = qty * unit;
+  const mrpLine = isMrpProduct(p);
+  const netInclusiveLine = mrpLine ? mrpNetInclusiveUnit(p) * qty : 0;
+  const gstRate = parseFloat(p.tax) || 0;
+  const unit = mrpLine ? 0 : parseFloat(p.unit_price) || 0;
+  // Exclusive base for the line: derived from the inclusive total on MRP lines.
+  const base = mrpLine ? netInclusiveLine / (1 + gstRate / 100) : qty * unit;
   if (base <= 0) return 0;
 
   const baseTaxRate = parseFloat(p.tax) || 0;
@@ -182,9 +204,16 @@ export const computeLineTotal = (p) => {
     chargesTax += cTax;
   });
 
-  // Base tax (on product subtotal only — per-charge tax handled above)
-  const baseTax =
-    p.tax_mode === "percentage" ? (base * baseTaxRate) / 100 : baseTaxRate;
+  // Base tax (on product subtotal only — per-charge tax handled above).
+  // On an MRP line the tax is the RESIDUAL of the inclusive amount, so
+  // base + baseTax is exactly what the vendor offered — the true split of a
+  // repeating decimal cannot be represented at 2dp, and rounding both halves
+  // independently can leave them failing to sum back to that amount.
+  const baseTax = mrpLine
+    ? netInclusiveLine - base
+    : p.tax_mode === "percentage"
+      ? (base * baseTaxRate) / 100
+      : baseTaxRate;
 
   return base + chargesAmount + baseTax + chargesTax;
 };
@@ -200,22 +229,24 @@ export const computeTotals = (products) => {
 
   products.forEach((p) => {
     const qty = parseFloat(p.qty) || 0;
-    const unit =
-      p.pricing_method === "MRP"
-        ? deriveMrpBaseFE({
-            mrp: p.entered_mrp,
-            discount: p.mrp_discount,
-            discountMode: p.mrp_discount_mode,
-            gst: p.tax,
-          }).base
-        : parseFloat(p.unit_price) || 0;
-    const base = qty * unit;
+    const mrpLine = isMrpProduct(p);
+    const baseTaxRate = parseFloat(p.tax) || 0;
+    const netInclusiveLine = mrpLine ? mrpNetInclusiveUnit(p) * qty : 0;
+    const unit = mrpLine ? 0 : parseFloat(p.unit_price) || 0;
+    // MRP lines split the inclusive amount into base + tax; the two parts sum
+    // back to the amount offered, so the hero's Subtotal + GST rows always
+    // reconcile with the grand total.
+    const base = mrpLine
+      ? netInclusiveLine / (1 + baseTaxRate / 100)
+      : qty * unit;
     if (base <= 0) return;
     subtotal += base;
 
-    const baseTaxRate = parseFloat(p.tax) || 0;
-    const baseTax =
-      p.tax_mode === "percentage" ? (base * baseTaxRate) / 100 : baseTaxRate;
+    const baseTax = mrpLine
+      ? netInclusiveLine - base
+      : p.tax_mode === "percentage"
+        ? (base * baseTaxRate) / 100
+        : baseTaxRate;
     baseTaxTotal += baseTax;
 
     (p.other_charges || []).forEach((c) => {

@@ -80,6 +80,42 @@ const shortName = (full) => {
   return `${parts[0]} ${parts[parts.length - 1][0]}`;
 };
 
+/* ─────────────── why one finalization was refused ───────────────
+   /rfq/finalize refuses individual products with a specific, already
+   well-written reason — an open negotiation round, a technically disqualified
+   vendor, and whatever the endpoint learns to refuse next. The sheet must
+   quote the server rather than invent copy of its own, so nothing here
+   pattern-matches on a known reason: the message is passed through verbatim
+   whatever it says.
+
+   The shapes are unusually deep because `services/rfq.finalizeQuotation`
+   rejects with `{ message: <the whole axios error> }` — so the payload sits at
+   `err.message.response.data.message`. The plain axios shape is accepted too,
+   so a future tidy-up of that service cannot silently re-hide the reason. */
+const AXIOS_NOISE = /^(request failed with status code|timeout of|xhr error)/i;
+
+const FINALIZE_NO_REASON =
+  "The server refused this finalization but did not give a reason. Refresh the sheet and try again — if it keeps failing, send this product and vendor to support.";
+
+const FINALIZE_NO_PAYLOAD =
+  "This vendor's quote is missing the identifiers needed to award it. Refresh the sheet and select the vendor again.";
+
+const finalizeFailureReason = (err) => {
+  // Every place a server-authored sentence is known to travel, most specific
+  // first. Flat, not a `??` chain: a wrapper's own useless `.message` must not
+  // stop the search before the real payload underneath it is reached.
+  const bodies = [err?.message?.response?.data, err?.response?.data, err?.data, err?.message, err];
+  const candidates = [];
+  bodies.forEach((b) => {
+    if (b && typeof b === "object") candidates.push(b.message, b.error);
+  });
+  if (typeof err === "string") candidates.push(err);
+  const usable = candidates.find(
+    (m) => typeof m === "string" && m.trim() && !AXIOS_NOISE.test(m.trim())
+  );
+  return usable ? usable.trim() : FINALIZE_NO_REASON;
+};
+
 /* Render an overlay above the app topbar (z 1030) + sidebar (z 1020).
    Portaled to document.body so it escapes the page's stacking context. */
 const Portal = ({ children }) =>
@@ -178,6 +214,10 @@ const QuoteComparison = ({
   const [approveReasons, setApproveReasons] = useState({});
   const [showFinalize, setShowFinalize] = useState(false);
   const [finalizeComment, setFinalizeComment] = useState(""); // mandatory finalize note
+  // Per-item outcome of the last bulk finalize — { ok: [...], failed: [...] },
+  // each entry naming the product, the vendor it was awarded to and, on a
+  // failure, the server's reason. Null until a run leaves something unawarded.
+  const [finalizeResult, setFinalizeResult] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [tip, setTip] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
@@ -415,6 +455,7 @@ const QuoteComparison = ({
     setExpanded({});
     setCollapsedCats({});
     setShowFinalize(false);
+    setFinalizeResult(null);
     setShowConfirm(false);
     setMenu(null);
     setShowHistory(null);
@@ -889,6 +930,13 @@ const QuoteComparison = ({
   }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ─────────────── finalize ─────────────── */
+  // Opening the sheet is always a fresh attempt, so the previous run's outcome
+  // is cleared first — otherwise the sheet would reopen on its own result view.
+  const openFinalize = () => {
+    setFinalizeResult(null);
+    setShowFinalize(true);
+  };
+
   // All finalize identifiers come from the view contract now (cell.finalize +
   // product + rfq block) — no second API call.
   const buildFinalizePayload = (productId, vendorId) => {
@@ -921,6 +969,11 @@ const QuoteComparison = ({
     };
   };
 
+  // A bulk award is N independent POSTs, so it is partial by nature and the
+  // server refuses individual lines for reasons only it knows. This used to
+  // collapse all of that into "1 finalization failed." — leaving the buyer
+  // part-awarded with no idea which product, which vendor, or why, and no way
+  // back except guessing. Every outcome is now kept per item, named, and shown.
   const confirmFinalize = async () => {
     const entries = Object.entries(selections);
     if (!entries.length) return;
@@ -929,29 +982,65 @@ const QuoteComparison = ({
       return;
     }
     setActionLoading(true);
-    let ok = 0;
-    let fail = 0;
+    setFinalizeResult(null);
+    const ok = [];
+    const failed = [];
     for (const [pid, vid] of entries) {
+      // Resolved BEFORE the awards land: the refetch below replaces every
+      // product object, and a finalized line stops being selectable, so the
+      // names have to be captured while the selection still describes them.
+      const product = productById(pid);
+      const vendor = vendorById(vid);
+      const item = {
+        productId: String(pid),
+        vendorId: String(vid),
+        product: product?.name || `Product ${pid}`,
+        vendor: vendor?.name || `Vendor ${vid}`,
+        vendorShort: vendor?.short || null,
+        total: C.cellLineTotal(product, vid) || 0,
+      };
       const payload = buildFinalizePayload(pid, vid);
       if (!payload) {
-        fail++;
+        failed.push({ ...item, reason: FINALIZE_NO_PAYLOAD });
         continue;
       }
       try {
         // eslint-disable-next-line no-await-in-loop
-        await finalizeQuotation(payload);
-        ok++;
+        const res = await finalizeQuotation(payload);
+        // A refusal the API chose to send with a 2xx is still a refusal —
+        // `status: 2` is this backend's failure marker on any status code.
+        if (res && Number(res.status) === 2) {
+          failed.push({ ...item, reason: finalizeFailureReason(res) });
+        } else {
+          ok.push(item);
+        }
       } catch (e) {
-        fail++;
+        failed.push({ ...item, reason: finalizeFailureReason(e) });
       }
     }
     setActionLoading(false);
-    setShowFinalize(false);
-    setSelections({});
-    setFinalizeComment("");
+    // Refused lines stay selected and the comment stays typed, so the buyer can
+    // act on the reason and retry without rebuilding the whole selection. The
+    // awarded ones drop out — they are no longer selectable anyway.
+    const stillSelected = {};
+    failed.forEach((f) => {
+      if (selections[f.productId] != null) stillSelected[f.productId] = String(selections[f.productId]);
+    });
+    setSelections(stillSelected);
+    if (failed.length) {
+      // Keep the sheet open on a result view instead of dismissing it — a
+      // partial award is exactly when the buyer must not be shown a number and
+      // sent away.
+      setFinalizeResult({ ok, failed });
+    } else {
+      setFinalizeComment("");
+      setShowFinalize(false);
+      setFinalizeResult(null);
+    }
     await fetchView({ silent: true });
-    if (ok) showToast(`${ok} product${ok > 1 ? "s" : ""} finalized → sent to approval`);
-    if (fail) toast.error(`${fail} finalization${fail > 1 ? "s" : ""} failed.`);
+    if (ok.length && !failed.length) {
+      showToast(`${ok.length} product${ok.length > 1 ? "s" : ""} finalized → sent to approval`);
+    }
   };
 
   /* ─────────────── approve / reject ─────────────── */
@@ -1260,7 +1349,7 @@ const QuoteComparison = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelections({ [p.id]: String(vid) });
-                  setShowFinalize(true);
+                  openFinalize();
                 }}
               >
                 <Award size={11} /> Finalise
@@ -2426,6 +2515,41 @@ const QuoteComparison = ({
           </div>
         )}
 
+        {/* What the last award run refused, still on screen after the result
+            sheet is dismissed. A partial award is unfinished business: the
+            buyer needs the product, the vendor and the reason in front of them
+            while they look at the grid, not in a toast that has evaporated.
+            Hidden while the sheet itself is up so the two never duplicate. */}
+        {!showFinalize && finalizeResult?.failed?.length > 0 && (
+          <div className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner}`}>
+            <div className={styles.ic}>
+              <AlertTriangle size={13} />
+            </div>
+            <div>
+              <strong>
+                {finalizeResult.ok.length > 0
+                  ? `Partly finalized — ${finalizeResult.ok.length} awarded, ${finalizeResult.failed.length} refused.`
+                  : `Nothing was finalized — ${finalizeResult.failed.length} refused.`}
+              </strong>
+              <ul className={styles.frBannerList}>
+                {finalizeResult.failed.map((f) => (
+                  <li key={`banner-${f.productId}-${f.vendorId}`}>
+                    <strong>{f.product}</strong> — was being finalized for {f.vendor}: {f.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={styles.right}>
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                onClick={() => setFinalizeResult(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeView !== "overall" ? renderMatrix() : renderOverall()}
 
         {/* Action dock — last child of the page content so its sticky position
@@ -2536,7 +2660,7 @@ const QuoteComparison = ({
                 </button>
                 <button
                   className={`${styles.btn} ${styles.btnSuccess} ${styles.btnSm}`}
-                  onClick={() => selCount && setShowFinalize(true)}
+                  onClick={() => selCount && openFinalize()}
                   disabled={selCount === 0}
                 >
                   <Award size={13} />{" "}
@@ -2569,28 +2693,115 @@ const QuoteComparison = ({
     );
   };
 
+  /* ─────────────── finalize outcome (per item, never a bare count) ───────────────
+     One row per attempted award: the product, the vendor it was being awarded
+     to, and — when the server refused — the reason it gave, verbatim. The same
+     rows serve the modal's result view and the banner that outlives it. */
+  const renderFinalizeOutcomeRow = (item, kind) => (
+    <li
+      className={`${styles.decisionItem} ${kind === "ok" ? styles.approve : styles.reject}`}
+      key={`${kind}-${item.productId}-${item.vendorId}`}
+    >
+      <span className={`${styles.diIcon} ${kind === "ok" ? styles.approve : styles.reject}`}>
+        {kind === "ok" ? <Check size={12} /> : <AlertTriangle size={12} />}
+      </span>
+      <div className={styles.diMain}>
+        <div className={styles.diProduct}>{item.product}</div>
+        <div className={styles.diVendor}>
+          {item.vendorShort && <span className={styles.av}>{item.vendorShort}</span>}
+          <span>
+            {kind === "ok" ? "Awarded to " : "Was being finalized for "}
+            {item.vendor}
+          </span>
+        </div>
+        {kind === "ok" ? (
+          <div className={styles.frNote}>Sent for approval.</div>
+        ) : (
+          <div className={styles.frReason}>{item.reason}</div>
+        )}
+      </div>
+      {item.total > 0 && (
+        <div className={styles.diRight}>
+          <div className={styles.diAmt}>₹{fmt(item.total)}</div>
+        </div>
+      )}
+    </li>
+  );
+
+  const renderFinalizeResult = () => {
+    const { ok, failed } = finalizeResult;
+    return (
+      <div className={styles.finalizeResult}>
+        <div className={styles.frLead}>
+          {ok.length > 0
+            ? `${ok.length} of ${ok.length + failed.length} products were finalized. The rest were refused and are still open — nothing about them has changed.`
+            : `Nothing was finalized. The server refused ${failed.length === 1 ? "the award" : "every award"} below; the products are still open.`}
+        </div>
+
+        <div className={styles.chainLabel}>
+          Not finalized · {failed.length}
+        </div>
+        <ul className={styles.frList}>{failed.map((f) => renderFinalizeOutcomeRow(f, "fail"))}</ul>
+
+        {ok.length > 0 && (
+          <>
+            <div className={styles.chainLabel}>Finalized · {ok.length}</div>
+            <ul className={styles.frList}>{ok.map((o) => renderFinalizeOutcomeRow(o, "ok"))}</ul>
+          </>
+        )}
+      </div>
+    );
+  };
+
   /* ─────────────── modals ─────────────── */
   const renderFinalizeModal = () =>
     showFinalize && (
       <Portal>
       <div className={styles.overlayRoot} onClick={(e) => e.target === e.currentTarget && setShowFinalize(false)}>
-        <div className={styles.modal}>
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={finalizeResult ? "Finalize result" : "Finalise vendor selection"}
+        >
           <div className={styles.modalHead}>
             <div className={styles.modalHeadT}>
-              <div className={styles.modalHeadIc}>
-                <Award size={15} />
+              <div
+                className={`${styles.modalHeadIc} ${finalizeResult ? styles.modalHeadIcWarn : ""}`}
+              >
+                {finalizeResult ? <AlertTriangle size={15} /> : <Award size={15} />}
               </div>
               <div>
-                <h3>Finalise vendor selection</h3>
+                <h3>
+                  {finalizeResult
+                    ? finalizeResult.ok.length > 0
+                      ? "Partly finalized"
+                      : "Nothing was finalized"
+                    : "Finalise vendor selection"}
+                </h3>
                 <div className={styles.sub}>
                   RFQ #{rfqInfo.number} · {rfqInfo.title}
                 </div>
               </div>
             </div>
-            <button className={styles.iconBtn} onClick={() => setShowFinalize(false)}>
+            <button className={styles.iconBtn} onClick={() => setShowFinalize(false)} aria-label="Close">
               <X size={16} />
             </button>
           </div>
+          {finalizeResult ? (
+            <>
+              <div className={styles.modalBody}>{renderFinalizeResult()}</div>
+              <div className={styles.modalFoot}>
+                <button
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={() => setShowFinalize(false)}
+                >
+                  Back to the sheet
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
           <div className={styles.modalBody}>
             <div className={styles.finalizeSummary}>
               <div className={styles.label}>Finalising</div>
@@ -2670,6 +2881,8 @@ const QuoteComparison = ({
               <FileText size={14} /> {actionLoading ? "Finalising…" : "Confirm & create PO draft"}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
       </Portal>

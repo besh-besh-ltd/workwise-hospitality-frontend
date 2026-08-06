@@ -6,7 +6,9 @@
 //     Line items                    0 priced · 3 skipped
 //     01 KEYBOARD   Not priced — will be marked as regret for this line  SKIPPED
 //
-// …directly beside a correct GRAND TOTAL of ₹1,99,249.73.
+// …directly beside a GRAND TOTAL of ₹1,99,249.73. (That total was itself a few
+// paise short of the ₹1,99,250.00 the vendor had offered — a separate
+// MRP rounding defect, fixed later; see helpers.mrpRounding.test.js.)
 //
 // Root cause: two definitions of "priced" that drifted. The submit-payload
 // validator branched on pricing_method; the review screen and the pricing-step

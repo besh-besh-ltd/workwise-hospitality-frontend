@@ -54,14 +54,20 @@ const blankLine = () => ({
 
 // Mirror of backend deriveMrpLine — keep in sync (same formula as
 // quoteWizard/helpers.js deriveMrpBaseFE).
+//
+// `base` is NOT rounded here: for most GST rates it is a repeating decimal
+// (400/1.18 = 338.9830508…), and quantising it before a caller multiplies by
+// quantity loses up to half a paisa per unit — an error that scales with
+// quantity and stops the total matching the MRP the vendor entered. Use
+// `base2dp` where a unit RATE is displayed or sent as a 2dp value.
 const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
   const m = safeNum(mrp);
   const disc = discountMode === "percentage" ? (m * safeNum(discount)) / 100 : safeNum(discount);
   const net = Math.max(0, m - disc);
   const g = safeNum(gst);
   const div = 1 + g / 100;
-  const base = div > 0 ? Math.round((net / div) * 100) / 100 : net;
-  return { net, base, gst: net - base };
+  const base = div > 0 ? net / div : net;
+  return { net, base, base2dp: Math.round(base * 100) / 100, gst: net - base };
 };
 
 // Phase 2 — map FE display tokens to engine mode strings.
@@ -1012,7 +1018,7 @@ export default function VendorQuotePage() {
         // MRP mode — the backend always re-derives from entered_mrp/mrp_discount
         // before persisting, so leave rate as-is (FE-derived base, advisory).
         rate:          isMrp
-          ? (deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct }).base || null)
+          ? (deriveMrpBaseFE({ mrp: l.entered_mrp, discount: l.mrp_discount, discountMode: l.mrp_discount_mode, gst: l.gst_pct }).base2dp || null)
           : (safeNum(l.rate) || null),
         // Sr 52 — blank/null → null (draft stays a true blank on round-trip);
         // an explicit 0 must survive as 0, NOT collapse to null. The old
