@@ -19,8 +19,6 @@ import {
   GitBranch,
   Clock,
   ArrowRight,
-  MinusCircle,
-  Ban,
   Sparkles,
   FileText,
   CheckSquare,
@@ -45,9 +43,10 @@ import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
 import { approveNegotiationQuotes, rejectNegotiationQuotes, getNegotiationApprovalBundle } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
-import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 
 import styles from "./QuoteComparison.module.scss";
+import ApprovalTrailDrawer from "./ApprovalTrail";
+import StageActorBanner from "./StageActorBanner";
 import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
@@ -2481,6 +2480,16 @@ const QuoteComparison = ({
           </div>
         </div>
 
+        {/* Who must act now. ABOVE the mode hint on purpose: the hint explains a
+            procedure ("select, then finalize"), and a procedure is only worth
+            reading once you know whether the decision is yours to make. So the
+            column reads who owns this → what you do about it → the grid. It
+            also sits above BOTH hints, whose render conditions are mutually
+            exclusive (buyer vs approver mode) — below either one and the band
+            would move up and down the page depending on who is looking at it.
+            Renders nothing at all when the payload carries no live actor. */}
+        <StageActorBanner stageActors={view?.stage_actors} />
+
         {/* mode hint */}
         {role === "buyer" && !quotesLocked && (
           <div className={`${styles.infoBanner} ${styles.violet}`}>
@@ -3006,156 +3015,26 @@ const QuoteComparison = ({
     );
 
   /* ─────────────── approval audit-trail drawer (right side) ─────────────── */
+  // The drawer's contents live in ApprovalTrail.js: a level-by-level panel that
+  // has to hold per-level open state across the refetch below, which a function
+  // re-declared on every render of this 3,500-line component cannot do. The
+  // Portal, the toggle and the Escape wiring stay here.
   const renderApprovalDrawer = () => {
     if (!approvalPanel) return null;
     const p = approvalPanel;
-    const trail = p.approval?.trail || [];
-    // Progress counts the real approval nodes only (not the terminal "forwarded"
-    // node) — and excludes skipped/removed nodes, which will never be acted on
-    // (bypassed or voided), from both sides of the "N of M" fraction.
-    const realNodes = trail.filter(
-      (n) => n.kind !== "terminal" && n.status !== "skipped" && n.status !== "removed"
-    );
-    const doneCount = realNodes.filter((n) => n.status === "done").length;
-    const finVendorObj = vendorById(p.finalized_vendor);
-    const statusLabel = {
-      done: "DONE",
-      rejected: "REJECTED",
-      current: "AWAITING",
-      pending: "PENDING",
-      skipped: "SKIPPED",
-      removed: "REMOVED",
-    };
-    const nodeStatusLabel = (node) =>
-      node.kind === "terminal"
-        ? node.status === "done"
-          ? "COMPLETE"
-          : "NEXT"
-        : statusLabel[node.status];
     return (
       <Portal>
-        <aside className={styles.apDrawer} role="dialog" aria-label="Approval audit trail">
-          <div className={styles.apHead}>
-            <div className={styles.apHeadT}>
-              <div className={`${styles.modalHeadIc} ${styles.modalHeadIcInfo}`}>
-                <GitBranch size={15} />
-              </div>
-              <div>
-                <h3>Approval trail</h3>
-                <div className={styles.sub}>
-                  <strong style={{ color: "var(--fg)" }}>{p.name}</strong>
-                  {finVendorObj && <> · awarded to {finVendorObj.name}</>}
-                </div>
-              </div>
-            </div>
-            <button className={styles.iconBtn} onClick={() => setApprovalPanel(null)} aria-label="Close">
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className={styles.apBody}>
-            <div className={styles.apProgress}>
-              <span className={styles.apProgressLbl}>Audit trail</span>
-              <span className={styles.apProgressVal}>
-                {doneCount} of {realNodes.length} done
-              </span>
-            </div>
-
-            {trail.length === 0 ? (
-              <div className={styles.apEmpty}>No approval activity yet for this item.</div>
-            ) : (
-              <ol className={styles.apTrail}>
-                {trail.map((node, i) => (
-                  <li
-                    className={`${styles.apNode} ${styles[`ap_${node.status}`]} ${
-                      node.kind === "terminal" ? styles.apTerminal : ""
-                    } ${i === trail.length - 1 ? styles.apLast : ""}`}
-                    key={node.key || i}
-                  >
-                    <span className={styles.apDot}>
-                      {node.kind === "terminal" ? (
-                        node.status === "done" ? <Check size={13} /> : <ArrowRight size={13} />
-                      ) : (
-                        <>
-                          {node.status === "done" && <Check size={13} />}
-                          {node.status === "rejected" && <X size={13} />}
-                          {node.status === "current" && <Clock size={13} />}
-                          {node.status === "pending" && <span className={styles.apDotEmpty} />}
-                          {node.status === "skipped" && <MinusCircle size={13} />}
-                          {node.status === "removed" && <Ban size={13} />}
-                        </>
-                      )}
-                    </span>
-                    <div className={styles.apNodeBody}>
-                      <div className={styles.apNodeTop}>
-                        <span className={styles.apTitle}>{node.title}</span>
-                        <span className={`${styles.apStatus} ${styles[`aps_${node.status}`]}`}>
-                          {nodeStatusLabel(node)}
-                        </span>
-                      </div>
-                      {node.by && (
-                        <div className={styles.apWho}>
-                          <span className={styles.apAvatar}>{node.initials || "?"}</span>
-                          <span className={styles.apWhoName}>{node.by}</span>
-                          {node.role && <span className={styles.apWhoRole}>· {node.role}</span>}
-                        </div>
-                      )}
-                      {/* multi-approver step: list the rest. REMOVED rows are a
-                          mid-flight reconciler's soft-tombstone (role/scope revoked
-                          while the approval was in flight) — kept for the audit
-                          trail, muted and separated, but never counted as live. */}
-                      {Array.isArray(node.approvers) && (() => {
-                        const activeApprovers = node.approvers.filter((a) => a?.status !== "REMOVED");
-                        const removedApprovers = node.approvers.filter((a) => a?.status === "REMOVED");
-                        return (
-                          <>
-                            {activeApprovers.length > 1 && (
-                              <div className={styles.apApprovers}>
-                                {activeApprovers.map((a, ai) => (
-                                  <span className={styles.apApprover} key={ai} title={a.role || undefined}>
-                                    {a.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {removedApprovers.length > 0 && (
-                              <div className={styles.apApprovers}>
-                                {removedApprovers.map((a, ai) => {
-                                  const reasonLabel = a.removal_reason ? removalReasonLabel(a.removal_reason) : null;
-                                  const title = [reasonLabel, a.removed_at ? `Removed ${fmtDateTime(a.removed_at)}` : null]
-                                    .filter(Boolean)
-                                    .join(" · ") || "Removed";
-                                  return (
-                                    <span
-                                      className={styles.apApprover}
-                                      key={`removed-${ai}`}
-                                      title={title}
-                                      style={{ textDecoration: "line-through", opacity: 0.6, borderStyle: "dashed" }}
-                                    >
-                                      {a.name} · Removed{reasonLabel ? ` (${reasonLabel})` : ""}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                      {node.when && <div className={styles.apWhen}>{fmtDateTime(node.when)}</div>}
-                      {node.note && <div className={styles.apNote}>{node.note}</div>}
-                      {node.status === "current" && (
-                        <div className={styles.apCurrentNote}>Currently with this approver.</div>
-                      )}
-                      {node.reason && (
-                        <div className={styles.apReason}>Reason: “{node.reason}”</div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </aside>
+        {/* Keyed by product: switching to another item's trail is a different
+            approval, so its levels re-derive their open state from scratch. The
+            refetch effect above swaps in a fresh object with the SAME id, which
+            deliberately does NOT remount — an approval that advances while the
+            drawer is open must not throw away what the reader had expanded. */}
+        <ApprovalTrailDrawer
+          key={p.id}
+          product={p}
+          vendorName={vendorById(p.finalized_vendor)?.name || null}
+          onClose={() => setApprovalPanel(null)}
+        />
       </Portal>
     );
   };

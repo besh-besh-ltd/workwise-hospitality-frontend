@@ -18,15 +18,30 @@
 // seven approvers of whom one (Vineet I) has approved.
 
 import React from "react";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import PurchaseOrderStage, { PO_AWAITING_ANCHOR_ID } from "./PurchaseOrderStage";
+import { getPOInitiators } from "@/services/po";
 
 jest.mock("next/router", () => ({
   __esModule: true,
   useRouter: () => ({ asPath: "/dashboard/buyer/rfq-management-details?id=235", query: {}, push: jest.fn() }),
 }));
+
+// A draft PO on the tab asks the server who is allowed to initiate it
+// (GET /po/:id/initiators). The default here is a request that never settles —
+// which is precisely what "still loading" looks like, and what every test that
+// isn't about that block should see: nothing.
+jest.mock("@/services/po", () => ({
+  __esModule: true,
+  getPOInitiators: jest.fn(() => new Promise(() => {})),
+}));
+
+beforeEach(() => {
+  getPOInitiators.mockReset();
+  getPOInitiators.mockImplementation(() => new Promise(() => {}));
+});
 
 const ap = (user_id, user_name, status, extra = {}) => ({
   user_id, user_name, user_email: `${user_id}@example.com`,
@@ -710,6 +725,127 @@ describe("PurchaseOrderStage — one approval panel per PO, each naming its PO",
     const card = list(container).getByRole("link", { name: /108194/ });
     expect(card.textContent).not.toMatch(/\bLevel\b|approved\b/);
     expect(card.querySelector(".vp-bar")).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// A draft nobody on this screen can initiate.
+//
+// The PO page hangs its explanation on a disabled "Force Initiate" button;
+// this tab has no such control, so the same answer — WHO holds
+// `awarding.create` on this business unit — goes at the head of the PO column,
+// above the cards (a card is one big <Link>, and a mailto: inside a link is not
+// markup). Nothing about the block may cost the tab anything when the lookup
+// fails, and nothing may appear for a reader who can initiate the draft
+// themselves.
+// ─────────────────────────────────────────────────────────────────────────
+describe("PurchaseOrderStage — who can initiate a stuck draft", () => {
+  const INITIATORS = [
+    { user_id: 12, name: "Vineet I", employee_code: "EMP003", email: "vineet@example.com", mobile: "9820011223", role_title: "Commercial Negotiator N1" },
+    { user_id: 13, name: "Kushal Shah", employee_code: "EMP014", email: "kushal@example.com", mobile: "9820044556", role_title: "Final Awarding Authority" },
+  ];
+  const answer = (over = {}) => ({ can_initiate: false, initiators: INITIATORS, total: INITIATORS.length, ...over });
+  const draft = (over = {}) => po29({ id: 12, po_number: "108209", status: "draft", ...over });
+  // Drains the in-flight lookup — a full macrotask, so a resolution AND a
+  // rejection have both landed — and lets an absence mean an absence rather
+  // than a promise that hadn't settled yet.
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+  test("a viewer who cannot initiate the draft gets names, roles and a way to call them", async () => {
+    getPOInitiators.mockResolvedValue(answer());
+    renderStage([draft()], null);
+
+    expect(await screen.findByText("Vineet I")).toBeInTheDocument();
+    expect(screen.getByText("Commercial Negotiator N1")).toBeInTheDocument();
+    expect(screen.getByText("EMP003")).toBeInTheDocument();
+    expect(screen.getByText(/you cannot initiate it/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /vineet@example\.com/ })).toHaveAttribute("href", "mailto:vineet@example.com");
+    expect(screen.getByRole("link", { name: /9820011223/ })).toHaveAttribute("href", "tel:9820011223");
+    expect(screen.getByRole("link", { name: /kushal@example\.com/ })).toHaveAttribute("href", "mailto:kushal@example.com");
+  });
+
+  test("two stuck drafts are counted in the sentence, and asked about once", async () => {
+    getPOInitiators.mockResolvedValue(answer());
+    renderStage([draft(), draft({ id: 13, po_number: "108210" })], null);
+
+    expect(await screen.findByText(/2 draft purchase orders/i)).toBeInTheDocument();
+    expect(screen.getByText(/you cannot initiate them/i)).toBeInTheDocument();
+  });
+
+  test("a viewer who CAN initiate it sees no such block", async () => {
+    getPOInitiators.mockResolvedValue(answer({ can_initiate: true }));
+    const { container } = renderStage([draft()], null);
+
+    await settle();
+    expect(screen.queryByText("Vineet I")).not.toBeInTheDocument();
+    expect(screen.queryByText(/who cannot initiate|cannot initiate it/i)).not.toBeInTheDocument();
+    // ...and the tab itself is untouched.
+    expect(list(container).getByRole("link", { name: /108209/ })).toBeInTheDocument();
+  });
+
+  test("a tab with no draft purchase order asks nobody anything", async () => {
+    // The lookup exists to explain a dead control. There is no dead control
+    // here, so there is no request — this is the gate, not an optimisation.
+    renderStage([po29({ status: "approved" })], null);
+
+    await settle();
+    expect(getPOInitiators).not.toHaveBeenCalled();
+  });
+
+  test("an empty list says nobody here holds the permission, not an empty box", async () => {
+    getPOInitiators.mockResolvedValue(answer({ initiators: [], total: 0 }));
+    renderStage([draft()], null);
+
+    expect(await screen.findByText(/nobody in this business unit holds it/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask your administrator to grant it/i)).toBeInTheDocument();
+  });
+
+  test("a failed lookup costs the tab nothing", async () => {
+    getPOInitiators.mockRejectedValue(new Error("404"));
+    const { container } = renderStage([draft()], null);
+
+    await settle();
+    expect(screen.queryByText(/awarding · create/)).not.toBeInTheDocument();
+    // The whole reason this degrades silently: the tab still renders.
+    expect(list(container).getByRole("link", { name: /108209/ })).toBeInTheDocument();
+    expect(cardFor(container, "108209").getByText("Draft — not yet initiated")).toBeInTheDocument();
+  });
+
+  test("more holders than the block lists fold behind '+N more', and it owns up to the cap", async () => {
+    const six = Array.from({ length: 6 }).map((_, i) => ({
+      user_id: 100 + i, name: `Initiator ${i + 1}`, employee_code: `EMP1${i}`,
+      email: `init${i}@example.com`, mobile: null, role_title: "Commercial Approver",
+    }));
+    getPOInitiators.mockResolvedValue({ can_initiate: false, initiators: six, total: 30 });
+    renderStage([draft()], null);
+
+    // Four inline, the rest behind the affordance — 26 of the 30 are not shown.
+    expect(await screen.findByText("Initiator 1")).toBeInTheDocument();
+    expect(screen.getByText("Initiator 4")).toBeInTheDocument();
+    expect(screen.queryByText("Initiator 5")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "+26 more" }));
+
+    expect(screen.getByText("Initiator 6")).toBeInTheDocument();
+    // The server capped its reply at 25 and said 30 exist; the other 24 are
+    // named as a count rather than quietly dropped.
+    expect(screen.getByText(/and 24 others also hold this permission/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+  });
+
+  test("a holder with no email and no mobile produces no broken links", async () => {
+    getPOInitiators.mockResolvedValue({
+      can_initiate: false, total: 1,
+      initiators: [{ user_id: 12, name: "Vineet I", employee_code: null, email: null, mobile: null, role_title: "CEO" }],
+    });
+    renderStage([draft()], null);
+
+    expect(await screen.findByText("Vineet I")).toBeInTheDocument();
+    expect(screen.getByText(/no contact on record/i)).toBeInTheDocument();
+    const contactLinks = screen.queryAllByRole("link")
+      .filter((a) => /^(mailto|tel):/.test(a.getAttribute("href") || ""));
+    expect(contactLinks).toHaveLength(0);
+    expect(screen.queryByText(/null/)).not.toBeInTheDocument();
   });
 });
 

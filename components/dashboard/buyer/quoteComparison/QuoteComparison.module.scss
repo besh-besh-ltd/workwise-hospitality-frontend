@@ -331,9 +331,22 @@
 .itemState.hasTip { cursor: help; transition: all 0.15s ease; }
 .itemState.hasTip:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
-.matrix tbody td.cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; vertical-align: top; position: relative; width: 264px; min-width: 264px; }
+/* `height: 1px` is the classic "make a div fill a table cell" trick: it makes
+   the cell's height definite so the child's percentage has something to resolve
+   against, while staying only a floor so the row still sizes to its tallest
+   cell. It is NOT reliable on its own — where the percentage resolves against
+   the *specified* 1px rather than the row's *used* height, the child collapses
+   to 1px and the tint renders as a thin strip with the content overflowing it.
+   So the height below is belt-and-braces, and the order matters:
+     min-height: 100%  -> stretches to the row wherever the trick works
+     height: max-content -> a guaranteed floor at the content's own height,
+                            so the tint can never collapse to a strip.
+   Whichever resolves larger wins, and neither can produce an empty cell. */
+.matrix tbody td.cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; vertical-align: top; position: relative; width: 264px; min-width: 264px; height: 1px; }
 .matrix tbody td.cell:last-child { border-right: none; }
-.priceCell { padding: 14px; cursor: default; transition: background 0.15s ease; height: 100%; position: relative; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+/* justify-content stays flex-start: the cell fills the row, the content does
+   not re-centre inside it. */
+.priceCell { padding: 14px; cursor: default; transition: background 0.15s ease; min-height: 100%; height: max-content; position: relative; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
 .priceCell:hover { background: var(--surface-2); }
 .priceCell.isL1 { background: var(--success-tint); }
 .priceCell.isL1:hover { background: #eaf7ef; }
@@ -460,8 +473,15 @@
 .negCount { color: var(--fg-4); }
 .askRow { display: flex; flex-wrap: wrap; gap: 4px; }
 .askChip { display: inline-flex; align-items: center; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--surface-3); color: var(--fg-2); border: 1px solid var(--border); white-space: nowrap; }
-/* Dashed + muted so the repeated RFQ-wide ask never reads as a per-product one. */
-.rfqWideAsk { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: transparent; color: var(--fg-3); border: 1px dashed var(--border-strong); white-space: nowrap; align-self: flex-start; }
+/* Dashed + muted so the repeated RFQ-wide ask never reads as a per-product one.
+   Text wraps INSIDE the chip rather than being clipped: the ask label is the
+   buyer's own wording ("Payment terms: net 45 after GRN") and truncating it
+   would hide the instruction. Short chips still sit side by side because the
+   chip's max-content width decides where .askRow breaks the line; only a chip
+   too wide for the column takes a line of its own and wraps within it.
+   align-self keeps a one-line chip from stretching to a wrapped neighbour. */
+.rfqWideAsk { display: inline-flex; align-items: flex-start; gap: 5px; font-size: 10px; line-height: 1.45; padding: 2px 7px; border-radius: 99px; background: transparent; color: var(--fg-3); border: 1px dashed var(--border-strong); white-space: normal; max-width: 100%; align-self: flex-start; }
+.rfqWideAsk svg { flex-shrink: 0; margin-top: 2px; }
 .vendorRoundTag { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 10px; color: var(--fg-3); flex-wrap: wrap; }
 .askInline { color: var(--fg-4); }
 
@@ -858,53 +878,85 @@
 .apHeadT { display: flex; gap: 11px; min-width: 0; }
 .apHead h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; color: var(--fg); margin: 0; }
 .apHead .sub { margin-top: 2px; font-size: 12px; color: var(--fg-3); }
+/* The drawer takes focus when it opens (it is portaled to the end of <body>,
+   so a keyboard user would otherwise have to tab the whole page to reach it).
+   Programmatic focus must not paint a stray outline over the card — but a
+   keyboard user still gets the page's ring, added to the drawer's own shadow
+   rather than replacing it. */
+.apDrawer:focus { outline: none; }
+.apDrawer:focus-visible { outline: none; box-shadow: 0 24px 60px -20px rgba(15,15,14,0.32), 0 8px 22px -14px rgba(15,15,14,0.18), var(--ring); }
 .apBody { flex: 1; overflow-y: auto; padding: 18px; }
-.apProgress { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.apProgressLbl { font-size: 14px; font-weight: 700; color: var(--fg); }
-.apProgressVal { font-size: 12.5px; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
 .apEmpty { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--fg-3); background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 10px; }
-.apTrail { list-style: none; margin: 0; padding: 0; position: relative; }
-.apNode { position: relative; display: flex; gap: 14px; padding-bottom: 20px; }
-.apNode::before { content: ''; position: absolute; left: 15px; top: 32px; bottom: -2px; width: 2px; background: var(--border-strong); }
-.apNode.apLast::before { display: none; }
-.apDot { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; z-index: 2; display: grid; place-items: center; color: white; }
-.ap_done .apDot { background: var(--success); }
-.ap_rejected .apDot { background: var(--danger); }
-.ap_current .apDot { background: var(--warn); }
-.ap_pending .apDot { background: var(--surface-3); border: 1px solid var(--border-strong); }
-/* SKIPPED / REMOVED nodes — a step the workflow bypassed, or an approver row
-   the mid-flight reconciler tombstoned; neither will ever be acted on, so
-   both stay muted — never more prominent than the live done/current states. */
-.ap_skipped .apDot { background: var(--surface-3); border: 1px solid var(--border-strong); color: var(--fg-4); }
-.ap_removed { opacity: 0.7; }
-.ap_removed .apDot { background: var(--surface-3); border: 1px dashed var(--border-strong); color: var(--fg-4); }
-.ap_removed .apTitle { text-decoration: line-through; }
-.apDotEmpty { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-4); }
-.apNodeBody { flex: 1; min-width: 0; padding-top: 3px; }
-.apNodeTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.apTitle { font-size: 14px; font-weight: 700; color: var(--fg); }
-.apStatus { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
-.aps_done { color: var(--success); }
-.aps_rejected { color: var(--danger); }
-.aps_current { color: var(--warn); }
-.aps_pending { color: var(--fg-4); }
-.aps_skipped { color: var(--fg-4); }
-.aps_removed { color: var(--fg-4); }
-.apWho { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+
+/* One line that answers "how far along, and who has it now?" */
+.apSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.apSummaryCount { font-size: 13px; font-weight: 600; color: var(--fg); }
+.apSummaryNow { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg-3); }
+.apSummaryLive { color: var(--warn); font-weight: 600; }
+
+.apTrail { display: flex; flex-direction: column; gap: 8px; }
+
+/* "Sent for approval" / "Approval complete" — events, not levels: nothing to
+   expand, no roster, so they stay visually lighter than a level card. */
+.apMilestone { display: flex; align-items: center; gap: 10px; padding: 1px 2px; }
+.apMilestoneLast { padding-bottom: 2px; }
+.apMilestoneDot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; border: 1px solid; }
+.apMilestoneMeta { display: flex; flex-direction: column; min-width: 0; }
+.apMilestoneTitle { font-size: 12.5px; font-weight: 600; color: var(--fg-2); }
+.apMilestoneSub { font-size: 11px; color: var(--fg-3); line-height: 1.4; }
+
+/* ── one level ──
+   The live level is marked with a tint and a FULL border. Deliberately not a
+   left accent bar: this stylesheet already carries one of those, and a second
+   would make "which edge is thick" the way the page encodes meaning. */
+.apLevel { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.apLevelCurrent { background: var(--warn-soft); border: 1px solid rgba(180,83,9,0.26); }
+.apLevelBtn { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 4px; width: 100%; padding: 9px 11px; text-align: left; background: transparent; border: none; border-radius: 10px; color: inherit; font: inherit; cursor: pointer; }
+.apLevelBtn:focus-visible { outline: none; box-shadow: var(--ring); }
+.apLevelTitle { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.apLevelNo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--fg-2); }
+.apLevelCurrent .apLevelNo { color: var(--warn); }
+.apLevelRule { font-size: 11px; color: var(--fg-3); }
+.apLevelRight { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* Spans both columns: at 400px the drawer has ~340px of level to work with, so
+   the summary gets the full width and wraps rather than fighting the pill. */
+.apLevelMeta { grid-column: 1 / -1; font-size: 11.5px; color: var(--fg-3); line-height: 1.45; }
+.apChev { color: var(--fg-4); transition: transform 0.15s ease; }
+.apChevOpen { transform: rotate(180deg); }
+.apLevelBody { padding: 0 11px 10px; }
+
+/* Group headings inside a level. Outstanding first, tombstones last. */
+.apGroup { margin: 10px 0 1px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-3); }
+.apGroupWarn { color: var(--warn); }
+
+/* ── one approver ── */
+.apRow { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .apAvatar { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 10px; font-weight: 700; background: var(--indigo-soft); color: var(--indigo); font-family: 'Geist Mono', monospace; }
-.apWhoName { font-size: 13px; color: var(--fg-2); font-weight: 500; }
-.apWhoRole { font-size: 11.5px; color: var(--fg-4); }
-.apApprovers { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
-.apApprover { font-size: 11px; font-weight: 600; color: var(--fg-3); background: var(--surface-3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
+.apRowMeta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.apRowName { font-size: 12.5px; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apRowRole { font-size: 10.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apRowRight { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.apRowRight .apWhen { margin-top: 0; font-size: 10.5px; color: var(--fg-3); }
+/* Muted by a solid colour, never by opacity: grey text at 60% opacity is grey
+   text nobody can read, and the removed row still has to be legible enough to
+   audit. */
+.apRowMuted .apRowName { color: var(--fg-3); font-weight: 400; }
+.apRowRemoved .apRowName { color: var(--fg-3); font-weight: 400; }
+.apRowRemoved .apAvatar { background: var(--surface-3); color: var(--fg-3); }
+.apStruck { text-decoration: line-through; }
+
+/* Status chip — levels and approver rows share one, so the same outcome cannot
+   be drawn two ways on one screen. The four tones are a closed set. */
+.apState { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; border: 1px solid; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.apToneSuccess { background: var(--success-soft); color: var(--success); border-color: rgba(21,128,61,0.24); }
+.apToneDanger { background: var(--danger-soft); color: var(--danger); border-color: rgba(185,28,28,0.22); }
+/* Deeper than --warn-soft on purpose: the live level's CARD is already
+   --warn-soft, and a chip the same colour as the thing behind it is not a chip. */
+.apToneWarn { background: rgba(180,83,9,0.10); color: var(--warn); border-color: rgba(180,83,9,0.28); }
+.apToneNeutral { background: var(--surface-3); color: var(--fg-3); border-color: var(--border); }
+
 .apWhen { margin-top: 6px; font-size: 11.5px; color: var(--fg-4); font-family: 'Geist Mono', monospace; }
-.apCurrentNote { margin-top: 6px; font-size: 12px; color: var(--warn); font-weight: 500; }
-.apReason { margin-top: 8px; font-size: 12.5px; color: var(--danger); background: var(--danger-soft); border: 1px solid rgba(185,28,28,0.18); border-radius: 8px; padding: 7px 10px; line-height: 1.45; }
-.apNote { margin-top: 4px; font-size: 12.5px; color: var(--fg-3); line-height: 1.45; }
-/* terminal "forwarded / complete" node — softer dot, dashed connector */
-.apTerminal .apDot { background: var(--surface-3); color: var(--fg-3); border: 1px dashed var(--border-strong); }
-.apTerminal.ap_done .apDot { background: var(--success-soft); color: var(--success); border: 1px solid rgba(21,128,61,0.30); }
-.apTerminal .apTitle { font-weight: 600; color: var(--fg-2); }
-.apNode.apTerminal::before { background: repeating-linear-gradient(to bottom, var(--border-strong) 0 4px, transparent 4px 8px); }
+.apReason { margin-top: 10px; font-size: 12.5px; color: var(--danger); background: var(--danger-soft); border: 1px solid rgba(185,28,28,0.18); border-radius: 8px; padding: 7px 10px; line-height: 1.45; }
 
 /* clickable state-tag badges (open the approval drawer) */
 .clickableTag { cursor: pointer; border: none; font-family: inherit; }
@@ -967,3 +1019,86 @@
 
 /* Award-all tooltip wrapper */
 .awardWrap { position: relative; display: inline-flex; }
+
+/* ═══════════════════════════════════════════════════════════
+   "Who must act now" band — StageActorBanner.js
+   Sits directly above the mode hint, so the page reads
+   who owns this → what you do about it → the grid.
+   ═══════════════════════════════════════════════════════════ */
+/* Emphasis is a tinted fill plus a FULL 1px border, never a left accent bar:
+   a one-sided rule reads as a quote block, moves the text off the page's
+   vertical rhythm, and this stylesheet is already carrying one of those. The
+   pair of surfaces below is the same one the approval panel's live level uses
+   (.apLevel / .apLevelCurrent), so "this needs someone" looks identical
+   wherever the page says it. */
+.saBand {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  color: var(--fg-2);
+}
+.saBandMine { background: var(--warn-soft); border-color: rgba(180,83,9,0.26); }
+
+.saIc {
+  width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg-3);
+}
+.saBandMine .saIc { color: var(--warn); border-color: rgba(180,83,9,0.26); }
+
+.saMain { flex: 1; min-width: 0; }
+/* Title, stage pill and the meta sentence share one baseline-aligned row —
+   see the comment at the top of StageActorBanner's saHead. The meta takes a
+   generous flex-basis so it drops to a row of its own (and then spans the
+   full width) rather than being squeezed into a two-word column. */
+.saHead { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 9px; row-gap: 1px; }
+.saTitle {
+  margin: 0; font-size: 13.5px; font-weight: 700; color: var(--fg);
+  letter-spacing: -0.012em;
+}
+/* Colour is the SECOND signal here — the heading it tints already says
+   "You are to take action" in words, and the viewer's own chip is tagged. */
+.saBandMine .saTitle { color: var(--warn); }
+.saStage {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--fg-3); background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+}
+.saBandMine .saStage { background: rgba(180,83,9,0.10); color: var(--warn); border-color: rgba(180,83,9,0.28); }
+
+.saMeta { flex: 1 1 260px; margin: 0; font-size: 11.5px; color: var(--fg-3); line-height: 1.45; }
+
+/* Every actor, wrapped — never scrolled and never previewed. A roster this
+   band cannot fit on one line takes two; it does not take a "+4". The chip is
+   sized off its 18px avatar, so a row of them costs one line of text, not two:
+   the name and the role sit on a shared baseline INSIDE the chip rather than
+   stacking, which is what keeps a seven-person roster to a single row. */
+.saPeople { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px 6px; }
+.saPerson {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+  padding: 2px 3px 2px 3px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.saPersonMine { background: rgba(180,83,9,0.07); border-color: rgba(180,83,9,0.30); }
+.saAvatar {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 9px; font-weight: 700;
+  background: var(--indigo-soft); color: var(--indigo);
+}
+.saPersonMine .saAvatar { background: rgba(180,83,9,0.14); color: var(--warn); }
+.saPersonMeta { display: flex; align-items: baseline; gap: 6px; min-width: 0; line-height: 1.3; }
+.saName { font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.saRole { font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saYou {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--warn); background: rgba(180,83,9,0.12); border: 1px solid rgba(180,83,9,0.28);
+  border-radius: 999px; padding: 1px 7px; white-space: nowrap; flex-shrink: 0;
+}
+
+.saNext {
+  margin: 7px 0 0; padding-top: 6px; border-top: 1px dashed var(--border);
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 11.5px; color: var(--fg-3); line-height: 1.45;
+}
+.saNext strong { color: var(--fg-2); font-weight: 600; }
+.saNext svg { flex-shrink: 0; margin-top: 2px; color: var(--fg-4); }

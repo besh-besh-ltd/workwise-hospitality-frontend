@@ -13,8 +13,16 @@
 // ringed in amber, and labelled "Waiting on you". Everything else stays calm.
 import { useState } from "react";
 import Link from "next/link";
-import { FileText, IndianRupee, Clock3, CircleCheck, TriangleAlert, ArrowRight, ChevronDown } from "lucide-react";
+import { FileText, IndianRupee, Clock3, CircleCheck, TriangleAlert, ArrowRight, ChevronDown, Users, Mail, Phone } from "lucide-react";
 import { statusLabel, inr, initialsOf, fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
+import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
+import {
+  effectiveApproverStatus,
+  levelPill,
+  namePreview,
+  ruleLabel,
+  tallyStep,
+} from "@/components/dashboard/buyer/approval/approverState";
 import { removalReasonLabel, StageNoPermission } from "./StageShared";
 
 // Anchor for ?focus=approval deep links. The page-level decision card renders
@@ -68,104 +76,13 @@ const instanceForPo = (instances, po) => {
   return mine.length ? mine[mine.length - 1] : null;
 };
 
-// A stored approver row only ever holds PENDING / APPROVED / REJECTED /
-// REMOVED — nothing closes out the people who never got to act. So when an ANY
-// level clears on one approval, the other six stay literally PENDING forever,
-// and a level that was rejected or cancelled leaves everyone downstream of the
-// decision PENDING too. Rendering those rows as "pending" says "we are still
-// waiting on them" about a level that is finished, which is simply false.
-//
-// The display state is therefore the approver's status read TOGETHER WITH the
-// level's: the same rules the PO details payload's `effective_status` applies,
-// derived here because the RFQ lifecycle payload
-// (rfqModel.formatApprovalInstances) does not carry that field.
-//
-// These six outcomes are the SHARED VOCABULARY for an approver row —
-// REMOVED / APPROVED / REJECTED / NOT_REQUIRED / NOT_REACHED / PENDING — and
-// every surface that renders one (this tab, the PO details page,
-// poDashboardModel.effectiveStatusOf) must resolve a given row to the same one
-// of them. Keep the three in step if any side changes.
-const effectiveApproverStatus = (approver, stepStatus, decisionRule) => {
-  const st = String(approver?.status || "").toUpperCase();
-  if (st === "REMOVED") return "REMOVED";
-  if (st === "APPROVED") return "APPROVED";
-  if (st === "REJECTED") return "REJECTED";
-  // SKIPPED is permitted by the approver-status CHECK constraint but does not
-  // occur in the data today. It records a row that was closed out WITHOUT ever
-  // being asked to act, which is precisely what "Not required" says — so it is
-  // mapped here deliberately and by name, not left to fall through to the
-  // PENDING default. "Awaiting" would be the one reading it cannot have.
-  if (st === "SKIPPED") return "NOT_REQUIRED";
-  const lvl = String(stepStatus || "").toUpperCase();
-  if (lvl === "REJECTED" || lvl === "CANCELLED") return "NOT_REACHED";
-  // An ALL level cannot legitimately close with someone still outstanding, so a
-  // PENDING row under APPROVED/ALL is a data anomaly. Calling it "not required"
-  // would assert something we cannot justify; keep the raw value instead. This
-  // matches poDashboardModel.effectiveStatusOf exactly — the two surfaces show
-  // the same approval and must not disagree about it.
-  if (lvl === "APPROVED") {
-    return String(decisionRule || "").toUpperCase() === "ALL" ? "PENDING" : "NOT_REQUIRED";
-  }
-  // A LEVEL the mid-flight reconciler skipped or removed never asked anyone on
-  // it either — same reading as a cleared ANY level, same as effectiveStatusOf.
-  if (lvl === "SKIPPED" || lvl === "REMOVED") return "NOT_REQUIRED";
-  return "PENDING";                                            // genuinely outstanding
-};
-
-// Two aggregates, never one. A REMOVED approver row is a mid-flight
-// reconciler's soft-tombstone (their role/scope was revoked while the approval
-// was open) — it stays visible for the audit trail but must never be counted in
-// an "N of M", never be named as someone we are waiting on, and never be the
-// single name a level shows. `removed` is reported entirely separately.
-const tallyStep = (step) => {
-  const all = Array.isArray(step?.approvers) ? step.approvers : [];
-  const rows = all.map((ap) => ({ ap, eff: effectiveApproverStatus(ap, step?.status, step?.decision_rule) }));
-  const of = (...effs) => rows.filter((r) => effs.includes(r.eff));
-  const removed = of("REMOVED");
-  const active = rows.filter((r) => r.eff !== "REMOVED");
-  const acted = of("APPROVED", "REJECTED")
-    // Oldest decision first — the level reads as the order it actually happened.
-    .sort((a, b) => String(a.ap?.acted_at || "").localeCompare(String(b.ap?.acted_at || "")));
-  return {
-    active, removed, acted,
-    // Server order is meaningful (contract), so these groups keep it.
-    outstanding: of("PENDING"),
-    notRequired: of("NOT_REQUIRED"),
-    notReached: of("NOT_REACHED"),
-    approved: of("APPROVED").length,
-    rejected: of("REJECTED").length,
-    // ACTIVE approvers only, so approved + rejected + outstanding +
-    // notRequired + notReached === total — the server's own invariant, and the
-    // reason `removed` is reported entirely separately.
-    total: active.length,
-  };
-};
-
-const ruleLabel = (rule) => (rule === "ALL" ? "all must approve" : rule === "ANY" ? "any one approves" : null);
-
-// "SOME_NEW_STATE" → "Some new state". Only ever used as chip TEXT, never in a
-// className — an unmatched enum value must not be able to reach the stylesheet.
-const humanizeStatus = (s) => {
-  const raw = String(s || "").replace(/_/g, " ").trim().toLowerCase();
-  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Unknown";
-};
-
-// Level chip. Every stored step status has an explicit case (APPROVED /
-// PENDING / REJECTED / CANCELLED), plus SKIPPED / REMOVED for the mid-flight
-// reconciler's own step states, plus a neutral, honestly-labelled default so a
-// status this build has never heard of can't silently render as "waiting".
-const levelPill = (stepStatus, isCurrent) => {
-  switch (String(stepStatus || "").toUpperCase()) {
-    case "APPROVED":  return { cls: "success", text: "Cleared" };
-    case "REJECTED":  return { cls: "danger",  text: "Rejected" };
-    case "CANCELLED": return { cls: "neutral", text: "Cancelled" };
-    case "SKIPPED":   return { cls: "neutral", text: "Skipped" };
-    case "REMOVED":   return { cls: "neutral", text: "Removed" };
-    case "PENDING":
-    case "":          return isCurrent ? { cls: "warn pulse", text: "Reviewing now" } : { cls: "neutral", text: "Waiting" };
-    default:          return { cls: "neutral", text: humanizeStatus(stepStatus) };
-  }
-};
+// `effectiveApproverStatus`, `tallyStep`, `ruleLabel`, `levelPill` and
+// `namePreview` used to live here. They now live in
+// buyer/approval/approverState.js, unchanged, because the quote-comparison
+// tab's approval drawer had to answer the same questions about the same
+// approval engine and a fourth copy of these rules was not going to stay in
+// step with the other three. See that file for what each outcome means and for
+// the copies that deliberately did NOT move.
 
 // PO statuses that mean the document has left the building. Membership is
 // rfqModel's PO_WITH_VENDOR_STATUSES verbatim, so the local fallback below and
@@ -370,14 +287,6 @@ function poFacts(po, instances) {
   // that could pick differently.
   return { approval, awaitingMe, stageLabel, actors, initiatedBy, inst };
 }
-
-// "Asha, Ravi +3" — a roster preview that stays one line at any level size.
-const namePreview = (names, max = 2) => {
-  const shown = names.filter(Boolean).slice(0, max);
-  if (!shown.length) return null;
-  const extra = names.filter(Boolean).length - shown.length;
-  return `${shown.join(", ")}${extra > 0 ? ` +${extra}` : ""}`;
-};
 
 // ── Approval progress aside ──────────────────────────────────────────────
 
@@ -644,6 +553,110 @@ function ApprovalProgress({ po, inst, named }) {
   );
 }
 
+// ── Who can initiate a stuck draft ───────────────────────────────────────
+//
+// The PO page shows a disabled "Force Initiate" button and a note saying the
+// viewer lacks `awarding.create` on that PO's business unit. This tab carries
+// no such control, so its equivalent moment is a card reading "Draft — not yet
+// initiated" to someone who can do nothing about it. The same answer belongs
+// here, at the head of the PO column rather than buried beside the cards: the
+// people who DO hold the grant, each with a way to reach them. The card itself
+// is one big <Link>, and a link inside a link is not markup — so this sits
+// above the list, where its own links work.
+//
+// Unlike the PO page this tab cannot resolve the viewer's grants locally —
+// nothing in the lifecycle payload says whether THIS reader may initiate — so
+// the server's own `can_initiate` is the gate, and nothing renders until it
+// answers. A reader who can initiate sees nothing at all, and never a block
+// that appears and then vanishes underneath them.
+//
+// Every PO on an RFQ inherits that RFQ's business unit, so one lookup answers
+// for every draft on the tab; it is made against the first of them.
+function WhoCanInitiate({ poId, draftCount }) {
+  const { status, initiators, total, canInitiate } = usePoInitiators(poId);
+  const [expanded, setExpanded] = useState(false);
+
+  // Still loading, the lookup failed (including the 404 an out-of-scope caller
+  // gets), or the reader can initiate it themselves: nothing to add, and a
+  // failed lookup must never cost this tab anything.
+  if (status !== "ready" || canInitiate !== false) return null;
+
+  const drafts = draftCount === 1 ? "a draft purchase order" : `${draftCount} draft purchase orders`;
+  const them = draftCount === 1 ? "it" : "them";
+  const visible = expanded ? initiators : initiators.slice(0, INITIATORS_VISIBLE);
+  // `total` is the uncapped count and never below the rows in hand, so the
+  // button can promise people the capped response never listed.
+  const unlisted = total - initiators.length;
+  const listId = `po-initiators-${poId}`;
+  const linkStyle = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--primary)", textDecoration: "none", whiteSpace: "nowrap" };
+
+  return (
+    <div className="guide" style={{ alignItems: "flex-start", marginBottom: 12 }}>
+      <div className="g-ic"><Users size={14} strokeWidth={2} /></div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div>
+          This RFQ has {drafts} still waiting to be initiated, and <strong>you cannot initiate {them}</strong> —
+          that needs the <strong>awarding · create</strong> permission for this business unit.
+        </div>
+        {initiators.length === 0 ? (
+          /* Not a failed lookup — an answer, and a different problem: there is
+             no colleague to ask, so the draft cannot move until an
+             administrator grants the permission to someone. */
+          <div style={{ marginTop: 6 }}>
+            Nobody in this business unit holds it, so {them} cannot be initiated by anyone yet. Ask your
+            administrator to grant it.
+          </div>
+        ) : (
+          <>
+            <ul id={listId} style={{ listStyle: "none", margin: "9px 0 0", padding: 0 }}>
+              {visible.map((p, i) => (
+                <li className="mem-row" key={p.user_id ?? `${p.name}-${i}`}>
+                  <div className="mr-av" aria-hidden="true">{initialsOf(p.name)}</div>
+                  <div className="mr-meta">
+                    <div className="mr-name">
+                      {p.name || "Team member"}
+                      {p.employee_code ? (
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>
+                          {p.employee_code}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mr-role">{p.role_title || "Purchase order initiator"}</div>
+                  </div>
+                  {/* A null email or mobile is an ordinary record here, so each
+                      link exists only when there is something to link to —
+                      never an empty mailto: and never the word "null". */}
+                  <div className="mr-status" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                    {p.email ? <a href={mailtoHref(p.email)} style={linkStyle}><Mail size={11} />{p.email}</a> : null}
+                    {p.mobile ? <a href={telHref(p.mobile)} style={linkStyle}><Phone size={11} />{p.mobile}</a> : null}
+                    {!p.email && !p.mobile ? <span style={{ fontSize: 10.5, color: "var(--fg-4)" }}>No contact on record</span> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {expanded && unlisted > 0 ? (
+              <div style={{ marginTop: 7, fontSize: 11.5, color: "var(--fg-3)" }}>
+                …and {unlisted} other{unlisted === 1 ? "" : "s"} also hold this permission.
+              </div>
+            ) : null}
+            {total > INITIATORS_VISIBLE ? (
+              <button
+                type="button"
+                onClick={() => setExpanded((o) => !o)}
+                aria-expanded={expanded}
+                aria-controls={listId}
+                style={{ marginTop: 8, background: "none", border: "none", padding: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                {expanded ? "Show fewer" : `+${total - INITIATORS_VISIBLE} more`}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── PO card ──────────────────────────────────────────────────────────────
 
 // One PO, told as: what it is → where it is → who has it → what it's worth.
@@ -863,6 +876,10 @@ export default function PurchaseOrderStage({ stage }) {
   // three cards still has to say which of the three it belongs to.
   const approvalPanels = ordered.filter((d) => d.facts.inst);
 
+  // Drafts nobody has moved on yet. They all belong to this RFQ, hence to one
+  // business unit, so one lookup covers the lot (see WhoCanInitiate).
+  const drafts = pos.filter((p) => p?.status === "draft" && p?.id != null);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <section className="stat-strip">
@@ -893,6 +910,9 @@ export default function PurchaseOrderStage({ stage }) {
               <>{total} purchase order{total === 1 ? "" : "s"} raised from this RFQ. Click any to open it in the PO dashboard.</>
             )}
           </div>
+          {drafts.length > 0 ? (
+            <WhoCanInitiate poId={drafts[0].id} draftCount={drafts.length} />
+          ) : null}
           <div className="prop-list">
             {ordered.map((d, idx) => (
               <PoCard
