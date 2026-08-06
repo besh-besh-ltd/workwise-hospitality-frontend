@@ -684,6 +684,20 @@
 .rejectReason { width: 100%; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: 8px; font-family: inherit; font-size: 12.5px; resize: vertical; min-height: 64px; }
 .rejectReason:focus-visible { outline: none; box-shadow: var(--ring); }
 
+/* Finalize outcome — the per-item result of a bulk award. Reuses .decisionItem
+   so a result row reads like the confirm row it answers; only the two things
+   that differ are new: rows are lists (a result is a record, not a control),
+   and a server reason is prose that wraps, so rows align to the top. */
+.finalizeResult .frLead { font-size: 12.5px; line-height: 1.55; color: var(--fg-2); }
+.frList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.frList .decisionItem { align-items: flex-start; }
+.frReason { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--danger); }
+.frNote { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--fg-3); }
+.finalizeFailBanner { align-items: flex-start; }
+.finalizeFailBanner .ic { margin-top: 1px; }
+.frBannerList { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.frBannerList li { font-size: 12.5px; line-height: 1.5; color: var(--fg-2); }
+
 /* Toast */
 .toast { @include qc-tokens; position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--fg); color: white; padding: 11px 18px; border-radius: 10px; font-size: 12.5px; z-index: 2002; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px; }
 .toast .tIc { color: #86efac; }

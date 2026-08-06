@@ -244,12 +244,17 @@ const isLinePriced = (p) =>
  *  computeLineTotal, so the strings agree with the totals. */
 const lineUnitBase = (p) =>
   p?.pricing_method === "MRP"
-    ? deriveMrpBaseFE({
+    ? // base2dp, not base: this is a displayed unit RATE, so it wants the
+      // rounded figure. The line total is computed from the tax-inclusive
+      // amount instead (see helpers' computeLineTotal), which is why
+      // qty × this rate can differ from the line total by a few paise on an
+      // MRP line — the inclusive amount is what the vendor actually offered.
+      deriveMrpBaseFE({
         mrp: p?.entered_mrp,
         discount: p?.mrp_discount,
         discountMode: p?.mrp_discount_mode,
         gst: p?.tax,
-      }).base
+      }).base2dp
     : parseFloat(p?.unit_price) || 0;
 
 /** "MRP ₹1,300.00 less 15%" — the provenance of an MRP line's base rate. */
