@@ -16,6 +16,34 @@
 //   • is_me absent + two different users sharing one display name — the case a
 //     name comparison gets wrong, and the reason this file compares user_id
 //   • next present / next null
+//   • the compacted heading block — the band was squeezed from four stacked
+//     rows to two, and the thing to guard is that it lost HEIGHT and not
+//     information: stage, role, personal sentence, decision rule and all seven
+//     names still have to be readable
+//
+// There is deliberately NO test here for a "this person has finished" state.
+// It cannot be derived from what this page holds, in either of the two shapes
+// `stage_actors` takes:
+//
+//   • role_label "Commercial Evaluators" (and every other evaluator roster) is
+//     resolved from PERMISSIONS — everyone holding quote-compare read+create on
+//     the hotel. Nothing is assigned to those people individually, so there is
+//     no per-person requirement to have discharged. `finalized_by` is the only
+//     per-user trace on the payload and it is a pooled-task trace: finalizing
+//     product A does not discharge B, and finalizing nothing does not make you
+//     outstanding.
+//
+//   • role_label "Pending Approvers" is resolved from the approval engine, and
+//     that query already filters to approvers whose row is PENDING on a live
+//     step. Anyone finished is absent from the roster rather than present-and-
+//     green, so the state would be unreachable when computed correctly — and
+//     the one way to make it fire is to read a name's absence from
+//     `products[].approval.trail` as "done", which is wrong whenever a
+//     superseded-but-still-PENDING instance holds them (the page only ever
+//     receives the LATEST instance per product).
+//
+// A wrong "this person is finished" is worse than no colour, so the band ships
+// without one until the server sends a per-actor flag.
 //
 // Assertions go through roles and visible text. Nothing here reads a class
 // name: the whole point of the band is what it SAYS.
@@ -296,5 +324,39 @@ describe("QuoteComparison — who must act now", () => {
     expect(plain).toBeInTheDocument();
     expect(plain).not.toHaveTextContent(/Next:/);
     expect(plain).not.toHaveTextContent("Purchase Order");
+  });
+
+  it("keeps the stage, role, personal line, rule and every name after the heading block was compacted", async () => {
+    // The band sat above the grid at 142px — the same 142px whether it named
+    // seven people or one — so the heading, the stage pill, the sentence that
+    // places the roster and the ANY/ALL rule were folded onto one row and the
+    // rule was brought up from its own line below the roster. Compaction is
+    // only allowed to cost height. Every fact that was legible before must
+    // still be legible, which is what this pins: the next person to squeeze
+    // this band has to keep all five of these.
+    const mine = SEVEN.map((a) => (a.user_id === 401 ? { ...a, is_me: true } : a));
+    await renderSheet(payload(stageActors({ actors: mine, decision_rule: "ANY" })));
+
+    const region = band();
+    expect(within(region).getByText("Negotiation & Award")).toBeInTheDocument();
+    expect(region).toHaveTextContent("Commercial Evaluators");
+    expect(region).toHaveTextContent("This is waiting on you and 6 others.");
+    // The rule moved OFF its own line and onto the heading row. Wherever it
+    // renders, it has to render: it is the difference between "you alone can
+    // unblock this" and "your approval is one of seven still owed".
+    expect(region).toHaveTextContent("Any one of them can act — the first decision moves it forward.");
+
+    // …and the roster the compaction made room for still names everybody, in
+    // full. This is the line that must never be traded for height.
+    for (const a of SEVEN) {
+      expect(within(region).getByText(a.name)).toBeInTheDocument();
+    }
+    expect(within(region).getAllByRole("listitem")).toHaveLength(7);
+    expect(region).not.toHaveTextContent(/\+\s*\d/);
+    expect(region).not.toHaveTextContent(/…|\.\.\./);
+    // The per-actor role survived the squeeze too — it is what tells two people
+    // who share a display name apart, as the twins case above depends on.
+    expect(within(region).getByText("Purchase Head")).toBeInTheDocument();
+    expect(within(region).getAllByText("You")).toHaveLength(1);
   });
 });

@@ -205,17 +205,25 @@ export default function StageActorBanner({ stageActors, idPrefix = "qc-stage-act
         {mine ? <UserCheck size={14} /> : <Users size={14} />}
       </span>
       <div className={styles.saMain}>
+        {/* Heading, stage and the sentence that places the roster sit on ONE
+            line. They are three parts of a single statement — who must act,
+            where in the RFQ, and under what rule — and the thing the reader
+            actually opened this page for is the grid underneath, so they are
+            not worth three stacked rows. They wrap onto their own rows only
+            when the column is genuinely too narrow to hold them.
+
+            Role first, then the personal statement, then the rule: the role is
+            what places the names, and a sentence reads badly with a label
+            bolted onto its tail. */}
         <div className={styles.saHead}>
           <h2 id={titleId} className={styles.saTitle}>
             {heading}
           </h2>
           {stageLabel ? <span className={styles.saStage}>{stageLabel}</span> : null}
+          {(roleLabel || lede || rule) && (
+            <p className={styles.saMeta}>{joinDot(roleLabel, lede, rule)}</p>
+          )}
         </div>
-        {/* Role first, then the personal statement: the role is what places the
-            names, and a sentence reads badly with a label bolted onto its tail. */}
-        {(roleLabel || lede) && (
-          <p className={styles.saMeta}>{joinDot(roleLabel, lede)}</p>
-        )}
         {/* Every one of them, always. No preview, no "+N": the truncation is the
             thing this band was asked to remove. */}
         <ul className={styles.saPeople}>
@@ -227,7 +235,6 @@ export default function StageActorBanner({ stageActors, idPrefix = "qc-stage-act
             />
           ))}
         </ul>
-        {rule ? <p className={styles.saRule}>{rule}</p> : null}
         {nextActors.length > 0 && (
           <p className={styles.saNext}>
             <ArrowRight size={12} strokeWidth={2.4} aria-hidden="true" />
