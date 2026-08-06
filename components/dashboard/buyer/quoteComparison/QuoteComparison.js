@@ -46,6 +46,7 @@ import { formatRFQNumber } from "@/utils/sharedFunctions";
 
 import styles from "./QuoteComparison.module.scss";
 import ApprovalTrailDrawer from "./ApprovalTrail";
+import StageActorBanner from "./StageActorBanner";
 import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
@@ -2478,6 +2479,16 @@ const QuoteComparison = ({
             )}
           </div>
         </div>
+
+        {/* Who must act now. ABOVE the mode hint on purpose: the hint explains a
+            procedure ("select, then finalize"), and a procedure is only worth
+            reading once you know whether the decision is yours to make. So the
+            column reads who owns this → what you do about it → the grid. It
+            also sits above BOTH hints, whose render conditions are mutually
+            exclusive (buyer vs approver mode) — below either one and the band
+            would move up and down the page depending on who is looking at it.
+            Renders nothing at all when the payload carries no live actor. */}
+        <StageActorBanner stageActors={view?.stage_actors} />
 
         {/* mode hint */}
         {role === "buyer" && !quotesLocked && (

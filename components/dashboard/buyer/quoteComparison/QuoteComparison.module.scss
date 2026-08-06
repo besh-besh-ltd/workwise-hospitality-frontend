@@ -999,3 +999,80 @@
 
 /* Award-all tooltip wrapper */
 .awardWrap { position: relative; display: inline-flex; }
+
+/* ═══════════════════════════════════════════════════════════
+   "Who must act now" band — StageActorBanner.js
+   Sits directly above the mode hint, so the page reads
+   who owns this → what you do about it → the grid.
+   ═══════════════════════════════════════════════════════════ */
+/* Emphasis is a tinted fill plus a FULL 1px border, never a left accent bar:
+   a one-sided rule reads as a quote block, moves the text off the page's
+   vertical rhythm, and this stylesheet is already carrying one of those. The
+   pair of surfaces below is the same one the approval panel's live level uses
+   (.apLevel / .apLevelCurrent), so "this needs someone" looks identical
+   wherever the page says it. */
+.saBand {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 13px 16px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  color: var(--fg-2);
+}
+.saBandMine { background: var(--warn-soft); border-color: rgba(180,83,9,0.26); }
+
+.saIc {
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg-3);
+}
+.saBandMine .saIc { color: var(--warn); border-color: rgba(180,83,9,0.26); }
+
+.saMain { flex: 1; min-width: 0; }
+.saHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.saTitle {
+  margin: 0; font-size: 13.5px; font-weight: 700; color: var(--fg);
+  letter-spacing: -0.012em;
+}
+/* Colour is the SECOND signal here — the heading it tints already says
+   "You are to take action" in words, and the viewer's own chip is tagged. */
+.saBandMine .saTitle { color: var(--warn); }
+.saStage {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--fg-3); background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+}
+.saBandMine .saStage { background: rgba(180,83,9,0.10); color: var(--warn); border-color: rgba(180,83,9,0.28); }
+
+.saMeta { margin: 3px 0 0; font-size: 11.5px; color: var(--fg-3); line-height: 1.45; }
+.saRule { margin: 8px 0 0; font-size: 11.5px; color: var(--fg-3); line-height: 1.45; }
+
+/* Every actor, wrapped — never scrolled and never previewed. A roster this
+   band cannot fit on one line takes two; it does not take a "+4". */
+.saPeople { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+.saPerson {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  padding: 4px 10px 4px 4px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.saPersonMine { background: rgba(180,83,9,0.07); border-color: rgba(180,83,9,0.30); }
+.saAvatar {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 9.5px; font-weight: 700;
+  background: var(--indigo-soft); color: var(--indigo);
+}
+.saPersonMine .saAvatar { background: rgba(180,83,9,0.14); color: var(--warn); }
+.saPersonMeta { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.saName { font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.saRole { font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saYou {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--warn); background: rgba(180,83,9,0.12); border: 1px solid rgba(180,83,9,0.28);
+  border-radius: 999px; padding: 1px 7px; white-space: nowrap; flex-shrink: 0;
+}
+
+.saNext {
+  margin: 9px 0 0; padding-top: 8px; border-top: 1px dashed var(--border);
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 11.5px; color: var(--fg-3); line-height: 1.45;
+}
+.saNext strong { color: var(--fg-2); font-weight: 600; }
+.saNext svg { flex-shrink: 0; margin-top: 3px; color: var(--fg-4); }
