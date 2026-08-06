@@ -89,13 +89,21 @@ export function ProductNegotiation({ product }) {
       {/* Repeated on every product row by design — an RFQ-level round targets
           payment terms / documents / global charges across the whole RFQ, so
           there is no single product row that owns it. Dashed outline + globe
-          so it never reads as a product-specific ask. */}
-      {n.rfq_level_asks?.map((a) => (
-        <div key={a.field} className={styles.rfqWideAsk} data-testid="rfq-wide-ask">
-          <Globe size={10} strokeWidth={2.2} />
-          <span>RFQ-wide: {askText(a)}</span>
+          so it never reads as a product-specific ask.
+
+          Grouped into one wrapping row (not siblings of the column-direction
+          .negBlock) so short asks share a line. A round with five RFQ-level
+          targets used to spend five lines of the narrow product column. */}
+      {n.rfq_level_asks?.length > 0 && (
+        <div className={styles.askRow}>
+          {n.rfq_level_asks.map((a) => (
+            <div key={a.field} className={styles.rfqWideAsk} data-testid="rfq-wide-ask">
+              <Globe size={10} strokeWidth={2.2} />
+              <span>RFQ-wide: {askText(a)}</span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

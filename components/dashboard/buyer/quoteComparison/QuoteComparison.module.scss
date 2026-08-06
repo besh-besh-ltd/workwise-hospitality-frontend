@@ -331,9 +331,17 @@
 .itemState.hasTip { cursor: help; transition: all 0.15s ease; }
 .itemState.hasTip:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
-.matrix tbody td.cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; vertical-align: top; position: relative; width: 264px; min-width: 264px; }
+/* `height: 1px` is not a real height — a table cell's height is indefinite by
+   default, so the .priceCell child's `height: 100%` had nothing to resolve
+   against and fell back to its content height. The row still takes its height
+   from the tallest cell (1px is only a floor); what changes is that the used
+   cell height becomes definite, so the quote cell now fills the row instead of
+   ending partway and leaving its tint stopping mid-row. */
+.matrix tbody td.cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; vertical-align: top; position: relative; width: 264px; min-width: 264px; height: 1px; }
 .matrix tbody td.cell:last-child { border-right: none; }
-.priceCell { padding: 14px; cursor: default; transition: background 0.15s ease; height: 100%; position: relative; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+/* justify-content stays flex-start: the cell fills the row, the content does
+   not re-centre inside it. */
+.priceCell { padding: 14px; cursor: default; transition: background 0.15s ease; height: 100%; position: relative; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
 .priceCell:hover { background: var(--surface-2); }
 .priceCell.isL1 { background: var(--success-tint); }
 .priceCell.isL1:hover { background: #eaf7ef; }
@@ -460,8 +468,15 @@
 .negCount { color: var(--fg-4); }
 .askRow { display: flex; flex-wrap: wrap; gap: 4px; }
 .askChip { display: inline-flex; align-items: center; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--surface-3); color: var(--fg-2); border: 1px solid var(--border); white-space: nowrap; }
-/* Dashed + muted so the repeated RFQ-wide ask never reads as a per-product one. */
-.rfqWideAsk { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: transparent; color: var(--fg-3); border: 1px dashed var(--border-strong); white-space: nowrap; align-self: flex-start; }
+/* Dashed + muted so the repeated RFQ-wide ask never reads as a per-product one.
+   Text wraps INSIDE the chip rather than being clipped: the ask label is the
+   buyer's own wording ("Payment terms: net 45 after GRN") and truncating it
+   would hide the instruction. Short chips still sit side by side because the
+   chip's max-content width decides where .askRow breaks the line; only a chip
+   too wide for the column takes a line of its own and wraps within it.
+   align-self keeps a one-line chip from stretching to a wrapped neighbour. */
+.rfqWideAsk { display: inline-flex; align-items: flex-start; gap: 5px; font-size: 10px; line-height: 1.45; padding: 2px 7px; border-radius: 99px; background: transparent; color: var(--fg-3); border: 1px dashed var(--border-strong); white-space: normal; max-width: 100%; align-self: flex-start; }
+.rfqWideAsk svg { flex-shrink: 0; margin-top: 2px; }
 .vendorRoundTag { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 10px; color: var(--fg-3); flex-wrap: wrap; }
 .askInline { color: var(--fg-4); }
 
