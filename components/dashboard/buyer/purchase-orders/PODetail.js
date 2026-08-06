@@ -30,6 +30,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
+import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 // Single source of truth for reason-code → human label. Owned by the RFQ stage
@@ -206,6 +207,108 @@ const RULE_LABEL = { ALL: "All must approve", ANY: "Any one approves" };
    stays visible either way, so a collapsed 20-person level still says what
    happened — the control only hides names, never status. */
 const ROSTER_VISIBLE = 8;
+
+/* ── Who can initiate this draft ─────────────────────────────────────────────
+   The note above this block explains why Force Initiate is dead. On its own
+   that is half an answer: "you don't have permission" with no name attached
+   leaves a buyer holding a stuck purchase order and nobody to call, which is
+   what it used to say ("ask an administrator, or whoever approves purchase
+   orders here"). This names the people who actually hold the grant on THIS
+   PO's business unit, each with a way to reach them, directly under the
+   disabled control rather than in a footer or behind a modal.
+
+   It is mounted only when it is needed — a draft the viewer cannot initiate —
+   so the lookup is never requested on behalf of someone who can already press
+   the button. Every failure renders nothing at all: the note above still
+   stands on its own, and a permission hint may never be the reason a purchase
+   order page breaks. */
+const WhoCanInitiate = ({ poId }) => {
+  const { status, initiators, total } = usePoInitiators(poId);
+  const [expanded, setExpanded] = useState(false);
+
+  if (status === "failed") return null;
+
+  const visible = expanded ? initiators : initiators.slice(0, INITIATORS_VISIBLE);
+  // `total` is the server's uncapped count and is never below the number of
+  // rows in hand, so the button can promise people the response never listed
+  // (it stops at 25) and the expanded list can own up to the difference.
+  const unlisted = total - initiators.length;
+
+  return (
+    <section className={styles.initiators} aria-labelledby="po-initiators-heading">
+      <h2 className={styles.initiatorsHead} id="po-initiators-heading">
+        Who can initiate this purchase order
+      </h2>
+      {status === "loading" ? (
+        <div className={styles.initiatorsMsg}>Finding who can initiate it…</div>
+      ) : initiators.length === 0 ? (
+        /* Not a failed lookup — an answer, and a different problem: nobody in
+           this business unit holds the grant, so there is no colleague to ask
+           and the PO cannot move until an administrator changes that. Said
+           plainly, because an empty box would read as a broken block. */
+        <div className={styles.initiatorsMsg}>
+          Nobody in this business unit holds the <strong>awarding · create</strong> permission, so this
+          purchase order cannot be initiated by anyone yet. Ask your administrator to grant it.
+        </div>
+      ) : (
+        <>
+          <ul className={styles.initiatorList} id="po-initiators-list">
+            {visible.map((p, i) => (
+              <li className={styles.initiatorRow} key={p.user_id ?? `${p.name}-${i}`}>
+                <span className={`${styles.initAv} ${avatarClass(null, p.name)}`} aria-hidden="true">
+                  {initialsOf(p.name)}
+                </span>
+                <div className={styles.initMain}>
+                  <div className={styles.initName}>
+                    {p.name || "Team member"}
+                    {p.employee_code ? <span className={styles.initCode}> · {p.employee_code}</span> : null}
+                  </div>
+                  {p.role_title ? <div className={styles.initRole}>{p.role_title}</div> : null}
+                  <div className={styles.initContact}>
+                    {/* A null email or mobile is an ordinary record here, so
+                        each link exists only when there is something to link
+                        to — never an empty mailto: and never the word "null". */}
+                    {p.email ? (
+                      <a className={styles.initLink} href={mailtoHref(p.email)}>
+                        <Mail size={11} />
+                        {p.email}
+                      </a>
+                    ) : null}
+                    {p.mobile ? (
+                      <a className={styles.initLink} href={telHref(p.mobile)}>
+                        <Phone size={11} />
+                        {p.mobile}
+                      </a>
+                    ) : null}
+                    {!p.email && !p.mobile ? (
+                      <span className={styles.initNoContact}>No email or mobile on record</span>
+                    ) : null}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {expanded && unlisted > 0 ? (
+            <div className={styles.initiatorsMsg}>
+              …and {unlisted} other{unlisted === 1 ? "" : "s"} also hold this permission.
+            </div>
+          ) : null}
+          {total > INITIATORS_VISIBLE ? (
+            <button
+              type="button"
+              className={styles.initiatorsMore}
+              aria-expanded={expanded}
+              aria-controls="po-initiators-list"
+              onClick={() => setExpanded((o) => !o)}
+            >
+              {expanded ? "Show fewer" : `+${total - INITIATORS_VISIBLE} more`}
+            </button>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+};
 
 const PODetail = ({ id }) => {
   const router = useRouter();
@@ -637,17 +740,23 @@ const PODetail = ({ id }) => {
                 because roles are per-tenant and this page cannot know which
                 one carries the grant here. */}
             {po.status === "draft" && !canWrite && (
-              <div className={styles.heroPendingNote}>
-                <span className={styles.clockIc}>
-                  <AlertCircle size={14} />
-                </span>
-                <span>
-                  This purchase order is still a draft and you cannot initiate it —
-                  that needs the <strong>awarding · create</strong> permission for this
-                  business unit, which your roles do not grant. Ask an administrator, or
-                  whoever approves purchase orders here, to initiate it.
-                </span>
-              </div>
+              <>
+                <div className={styles.heroPendingNote}>
+                  <span className={styles.clockIc}>
+                    <AlertCircle size={14} />
+                  </span>
+                  <span>
+                    This purchase order is still a draft and you cannot initiate it —
+                    that needs the <strong>awarding · create</strong> permission for this
+                    business unit, which your roles do not grant.
+                  </span>
+                </div>
+                {/* …and here is who does hold it. The sentence above used to
+                    end with "ask an administrator, or whoever approves
+                    purchase orders here", which named nobody and left the PO
+                    stuck. */}
+                <WhoCanInitiate poId={id} />
+              </>
             )}
             {isPending && !awaitingMe && (
               <div className={styles.heroPendingNote}>

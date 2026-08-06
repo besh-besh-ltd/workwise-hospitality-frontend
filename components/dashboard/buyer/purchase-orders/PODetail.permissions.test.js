@@ -78,6 +78,10 @@ jest.mock("@/services/po", () => ({
   getPODetailFull: jest.fn(),
   handlePOApproval: jest.fn(() => Promise.resolve({})),
   handlePOInitialization: jest.fn(() => Promise.resolve({ message: "Purchase order has been initiated" })),
+  // GET /po/:id/initiators — who holds the grant this viewer is missing.
+  // Default: a request that never settles, i.e. the loading state, which is
+  // what every test that isn't about that block should see.
+  getPOInitiators: jest.fn(() => new Promise(() => {})),
 }));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
@@ -85,10 +89,10 @@ jest.mock("@/services/pricing", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
-import { getPODetailFull, handlePOInitialization } from "@/services/po";
+import { getPODetailFull, handlePOInitialization, getPOInitiators } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import PODetail from "./PODetail";
 
@@ -132,6 +136,7 @@ const forceInitiate = () => screen.queryByRole("button", { name: /force initiate
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getPOInitiators.mockImplementation(() => new Promise(() => {}));
   state.grants = {};
   state.mappings = [];
 });
@@ -249,6 +254,132 @@ describe("Force Initiate — when the user may not initiate", () => {
 
     expect(forceInitiate()).toBeEnabled();
     expect(screen.queryByText(/awarding · create/)).not.toBeInTheDocument();
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   "You don't have permission" is half an answer.
+   The note under the dead Force Initiate button used to end with "ask an
+   administrator, or whoever approves purchase orders here" — which names
+   nobody, so the buyer holding the stuck draft had no one to call. It now
+   names the people who hold `awarding.create` on this PO's business unit,
+   with a mailto: and a tel: each.
+   ───────────────────────────────────────────────────────────────────────── */
+describe("Who can initiate this draft", () => {
+  const INITIATORS = [
+    { user_id: 12, name: "Vineet I", employee_code: "EMP003", email: "vineet@example.com", mobile: "9820011223", role_title: "Commercial Negotiator N1" },
+    // Stored with the spacing a human typed into their profile.
+    { user_id: 13, name: "Kushal Shah", employee_code: "EMP014", email: "kushal@example.com", mobile: "+91 98200 44556", role_title: "Final Awarding Authority" },
+  ];
+  const answer = (over = {}) => ({ can_initiate: false, initiators: INITIATORS, total: INITIATORS.length, ...over });
+  // Drains the in-flight lookup — a full macrotask, so a resolution AND a
+  // rejection have both landed — and lets an absence mean an absence rather
+  // than a promise that hadn't settled yet.
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+  it("names them, with their role and working mail / phone links", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+    getPOInitiators.mockResolvedValue(answer());
+
+    await mount();
+
+    expect(await screen.findByText("Vineet I")).toBeInTheDocument();
+    expect(screen.getByText("Commercial Negotiator N1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /who can initiate this purchase order/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /vineet@example\.com/ })).toHaveAttribute("href", "mailto:vineet@example.com");
+    expect(screen.getByRole("link", { name: /9820011223/ })).toHaveAttribute("href", "tel:9820011223");
+    expect(screen.getByRole("link", { name: /kushal@example\.com/ })).toHaveAttribute("href", "mailto:kushal@example.com");
+    // The number is shown as it was typed, but dialled as a number.
+    expect(screen.getByRole("link", { name: /\+91 98200 44556/ })).toHaveAttribute("href", "tel:+919820044556");
+    // The vague sentence it replaced is gone for good.
+    expect(screen.queryByText(/whoever approves purchase orders here/i)).not.toBeInTheDocument();
+  });
+
+  it("is not shown — and never even asked for — when the viewer can initiate", async () => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+    getPOInitiators.mockResolvedValue(answer());
+
+    await mount();
+    await settle();
+
+    expect(forceInitiate()).toBeEnabled();
+    expect(screen.queryByRole("heading", { name: /who can initiate/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Vineet I")).not.toBeInTheDocument();
+    // The lookup exists to explain a dead control; this one is live.
+    expect(getPOInitiators).not.toHaveBeenCalled();
+  });
+
+  it("is not asked for on a PO that is no longer a draft", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+
+    await mount({ status: "pending_approval", status_label: "Pending Approval" });
+    await settle();
+
+    expect(getPOInitiators).not.toHaveBeenCalled();
+  });
+
+  it("says nobody here holds the permission rather than showing an empty box", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+    getPOInitiators.mockResolvedValue(answer({ initiators: [], total: 0 }));
+
+    await mount();
+
+    expect(await screen.findByText(/nobody in this business unit holds the/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask your administrator to grant it/i)).toBeInTheDocument();
+  });
+
+  it("degrades silently when the lookup fails — the page still renders", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+    getPOInitiators.mockRejectedValue(new Error("Request failed with status code 404"));
+
+    await mount();
+    await settle();
+
+    expect(screen.queryByRole("heading", { name: /who can initiate/i })).not.toBeInTheDocument();
+    // Everything that explains the dead button is still on screen.
+    expect(screen.getByText(/awarding · create/)).toBeInTheDocument();
+    expect(forceInitiate()).toBeDisabled();
+    expect(screen.getByText("Items & pricing")).toBeInTheDocument();
+  });
+
+  it("folds the rest behind '+N more' and owns up to the server's cap", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+    const six = Array.from({ length: 6 }).map((_, i) => ({
+      user_id: 100 + i, name: `Initiator ${i + 1}`, employee_code: `EMP1${i}`,
+      email: `init${i}@example.com`, mobile: null, role_title: "Commercial Approver",
+    }));
+    getPOInitiators.mockResolvedValue({ can_initiate: false, initiators: six, total: 30 });
+
+    await mount();
+
+    // Four inline; 26 of the 30 are not on screen.
+    expect(await screen.findByText("Initiator 1")).toBeInTheDocument();
+    expect(screen.getByText("Initiator 4")).toBeInTheDocument();
+    expect(screen.queryByText("Initiator 5")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "+26 more" }));
+
+    expect(screen.getByText("Initiator 6")).toBeInTheDocument();
+    // The reply stopped at 25 of the 30; the other 24 are counted, not dropped.
+    expect(screen.getByText(/and 24 others also hold this permission/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+  });
+
+  it("renders no link at all for a person with no email and no mobile", async () => {
+    state.grants = { [PO_HOTEL]: ["read"] };
+    getPOInitiators.mockResolvedValue({
+      can_initiate: false, total: 1,
+      initiators: [{ user_id: 12, name: "Vineet I", employee_code: null, email: null, mobile: null, role_title: "CEO" }],
+    });
+
+    await mount();
+
+    expect(await screen.findByText("Vineet I")).toBeInTheDocument();
+    expect(screen.getByText(/no email or mobile on record/i)).toBeInTheDocument();
+    const contactLinks = screen.queryAllByRole("link")
+      .filter((a) => /^(mailto|tel):/.test(a.getAttribute("href") || ""));
+    expect(contactLinks).toHaveLength(0);
+    expect(screen.queryByText(/null/)).not.toBeInTheDocument();
   });
 });
 

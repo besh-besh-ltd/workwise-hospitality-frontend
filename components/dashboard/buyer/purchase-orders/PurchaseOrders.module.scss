@@ -834,6 +834,79 @@
   }
   strong { color: var(--fg-2); font-weight: 600; }
 }
+
+/* ───────────── Who can initiate this draft ─────────────
+   The people named directly under .heroPendingNote, beside the disabled Force
+   Initiate control. Same neutral card as the note above it — one explanation in
+   two parts, not a second alert — and deliberately no coloured accent bar. */
+.initiators {
+  margin-top: 8px;
+  padding: 11px 14px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.initiatorsHead {
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-4);
+}
+.initiatorsMsg { font-size: 12px; color: var(--fg-3); line-height: 1.5; }
+.initiatorList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.initiatorRow {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 6px 0;
+  & + .initiatorRow { border-top: 1px solid var(--border); }
+}
+.initAv {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.initMain { min-width: 0; }
+.initName { font-size: 12.5px; font-weight: 600; color: var(--fg-2); line-height: 1.35; overflow-wrap: anywhere; }
+.initCode { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 500; color: var(--fg-4); }
+.initRole { font-size: 11px; color: var(--fg-3); line-height: 1.35; overflow-wrap: anywhere; }
+.initContact { margin-top: 3px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 14px; }
+.initLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  &:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+}
+.initNoContact { font-size: 11px; color: var(--fg-4); }
+.initiatorsMore {
+  margin-top: 7px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  &:hover { color: var(--accent-hover); }
+}
 .heroActions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
 /* ───────────── Decision grid ───────────── */
