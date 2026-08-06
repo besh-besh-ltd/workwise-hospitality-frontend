@@ -515,6 +515,11 @@ const QuoteComparison = ({
 
   const coverage = (vid) => C.vendorCoverage(vid, products);
   const isFull = (vid) => C.isFullCoverage(vid, products);
+  // Lines the vendor replied on but was held out of by the technical gate, and
+  // the honest reply count (comparable + disqualified). `coverage` alone
+  // reported a disqualified vendor as if they had stayed silent.
+  const disqualified = (vid) => C.vendorDisqualified(vid, products);
+  const responded = (vid) => C.vendorResponded(vid, products);
 
   const displayRows = useMemo(() => {
     const rows = [];
@@ -1007,6 +1012,44 @@ const QuoteComparison = ({
     // from the data, so the id must not depend on how the cell happens to render.
     const cellId = awardCellAnchorId(p.id, vid);
     if (!q) {
+      // An empty cell has two very different meanings and used to have one
+      // label. A vendor who quoted this line and was then failed by OUR
+      // technical evaluation is dropped from the priced payload on purpose —
+      // they must stay non-comparable and non-awardable — but calling that
+      // "Awaiting quote" told the buyer the vendor never bothered to reply, on
+      // the very screen where future invitations get decided. The price stays
+      // suppressed; only the reason is restored.
+      const absence = C.cellAbsence(p, vid);
+      if (absence) {
+        const failed = absence.status === "TECH_FAILED";
+        const scored =
+          absence.tech_score != null && absence.min_score != null
+            ? `scored ${absence.tech_score} against a minimum of ${absence.min_score}`
+            : null;
+        // Two lines, both load-bearing: the state, then the fact the cell used
+        // to hide — that this vendor DID respond.
+        const note = failed
+          ? `Quoted — ${scored || "failed technical evaluation"}`
+          : "Quoted — awaiting technical verdict";
+        return (
+          <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
+            <div className={styles.priceCell}>
+              <span
+                className={styles.disqualified}
+                title={
+                  failed
+                    ? `Quoted this item, then failed the technical evaluation${scored ? ` (${scored})` : ""}. The price is withheld: a disqualified vendor cannot be compared or awarded.`
+                    : "Quoted this item. Its technical evaluation is not complete, so the price stays sealed."
+                }
+              >
+                <ShieldAlert size={11} />
+                {failed ? "Technically disqualified" : "Technical evaluation pending"}
+              </span>
+              <span className={styles.disqualifiedNote}>{note}</span>
+            </div>
+          </td>
+        );
+      }
       return (
         <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
           <div className={styles.priceCell}>
@@ -1615,7 +1658,14 @@ const QuoteComparison = ({
                             </span>
                           )}
                           {!full && (
-                            <span className={`${styles.vRank} ${styles.partial}`}>
+                            <span
+                              className={`${styles.vRank} ${styles.partial}`}
+                              title={
+                                disqualified(v.id) > 0
+                                  ? `${coverage(v.id)} of ${products.length} items comparable — ${disqualified(v.id)} quoted but technically disqualified`
+                                  : `${coverage(v.id)} of ${products.length} items quoted`
+                              }
+                            >
                               {coverage(v.id)}/{products.length}
                             </span>
                           )}
@@ -1635,7 +1685,12 @@ const QuoteComparison = ({
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>
                         ) : (
                           <div className={styles.vPartial}>
-                            Partial — {coverage(v.id)} of {products.length} items quoted
+                            {/* A vendor disqualified on a line DID quote it. Counting
+                                that line as un-quoted read as "unresponsive vendor" on
+                                the screen where re-invitation gets decided. */}
+                            {disqualified(v.id) > 0
+                              ? `${responded(v.id)} of ${products.length} items quoted · ${disqualified(v.id)} technically disqualified`
+                              : `Partial — ${coverage(v.id)} of ${products.length} items quoted`}
                           </div>
                         )}
                         <div className={styles.vMeta}>

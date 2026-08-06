@@ -356,6 +356,10 @@
 .deltaLpr.down { color: var(--success); }
 .missing { margin-top: 4px; font-size: 10.5px; color: var(--warn); font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
 .awaiting { font-size: 12px; color: var(--fg-4); font-style: italic; }
+/* Empty cell that is NOT a non-response: the vendor quoted and was held out by
+   the technical gate. Reads as a state, not as silence. */
+.disqualified { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--danger); }
+.disqualifiedNote { display: block; margin-top: 2px; font-size: 10.5px; color: var(--fg-3); }
 
 /* vendor track-record strip (per product×vendor cell) */
 .trackStrip { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-top: 6px; border-top: 1px dashed var(--border); }
