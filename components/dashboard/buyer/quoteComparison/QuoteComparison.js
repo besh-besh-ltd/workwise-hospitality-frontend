@@ -36,6 +36,7 @@ import {
   Lock,
   Plus,
   ShieldAlert,
+  Download,
 } from "lucide-react";
 
 import useModulePermissions from "@/hooks/useModulePermissions";
@@ -47,7 +48,9 @@ import { formatRFQNumber } from "@/utils/sharedFunctions";
 import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 
 import styles from "./QuoteComparison.module.scss";
+import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
+import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
 
 const { fmt, fmtLakh } = C;
 
@@ -64,6 +67,53 @@ const fmtDate = (d) => {
   if (d == null || d === "") return "—";
   const m = moment(d);
   return m.isValid() ? m.format("DD MMM YYYY") : "—";
+};
+
+/* "Nitin Rajenimbalkar" → "Nitin R" — keeps the finalized badge to one line on
+   a grid that runs up to 139 rows. The full name is in the title attribute.
+   No trailing full stop: the badge reads "Finalized by Nitin R", and a period
+   there reads as the end of a sentence rather than an abbreviation mark. */
+const shortName = (full) => {
+  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]}`;
+};
+
+/* ─────────────── why one finalization was refused ───────────────
+   /rfq/finalize refuses individual products with a specific, already
+   well-written reason — an open negotiation round, a technically disqualified
+   vendor, and whatever the endpoint learns to refuse next. The sheet must
+   quote the server rather than invent copy of its own, so nothing here
+   pattern-matches on a known reason: the message is passed through verbatim
+   whatever it says.
+
+   The shapes are unusually deep because `services/rfq.finalizeQuotation`
+   rejects with `{ message: <the whole axios error> }` — so the payload sits at
+   `err.message.response.data.message`. The plain axios shape is accepted too,
+   so a future tidy-up of that service cannot silently re-hide the reason. */
+const AXIOS_NOISE = /^(request failed with status code|timeout of|xhr error)/i;
+
+const FINALIZE_NO_REASON =
+  "The server refused this finalization but did not give a reason. Refresh the sheet and try again — if it keeps failing, send this product and vendor to support.";
+
+const FINALIZE_NO_PAYLOAD =
+  "This vendor's quote is missing the identifiers needed to award it. Refresh the sheet and select the vendor again.";
+
+const finalizeFailureReason = (err) => {
+  // Every place a server-authored sentence is known to travel, most specific
+  // first. Flat, not a `??` chain: a wrapper's own useless `.message` must not
+  // stop the search before the real payload underneath it is reached.
+  const bodies = [err?.message?.response?.data, err?.response?.data, err?.data, err?.message, err];
+  const candidates = [];
+  bodies.forEach((b) => {
+    if (b && typeof b === "object") candidates.push(b.message, b.error);
+  });
+  if (typeof err === "string") candidates.push(err);
+  const usable = candidates.find(
+    (m) => typeof m === "string" && m.trim() && !AXIOS_NOISE.test(m.trim())
+  );
+  return usable ? usable.trim() : FINALIZE_NO_REASON;
 };
 
 /* Render an overlay above the app topbar (z 1030) + sidebar (z 1020).
@@ -164,6 +214,10 @@ const QuoteComparison = ({
   const [approveReasons, setApproveReasons] = useState({});
   const [showFinalize, setShowFinalize] = useState(false);
   const [finalizeComment, setFinalizeComment] = useState(""); // mandatory finalize note
+  // Per-item outcome of the last bulk finalize — { ok: [...], failed: [...] },
+  // each entry naming the product, the vendor it was awarded to and, on a
+  // failure, the server's reason. Null until a run leaves something unawarded.
+  const [finalizeResult, setFinalizeResult] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [tip, setTip] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
@@ -172,6 +226,7 @@ const QuoteComparison = ({
   // vendor ordering + per-cell kebab + quote history
   const [vendorSort, setVendorSort] = useState("price"); // price | tech | track
   const [sortOpen, setSortOpen] = useState(false);
+  const [downloading, setDownloading] = useState(null);
   const [sortPos, setSortPos] = useState(null); // { x, y } screen coords for portaled menu
   const sortBtnRef = useRef(null);
   const [menu, setMenu] = useState(null); // { x, y, pid, vid }
@@ -400,6 +455,7 @@ const QuoteComparison = ({
     setExpanded({});
     setCollapsedCats({});
     setShowFinalize(false);
+    setFinalizeResult(null);
     setShowConfirm(false);
     setMenu(null);
     setShowHistory(null);
@@ -438,6 +494,24 @@ const QuoteComparison = ({
   // number/vendor identity and shows a clear banner (counts stay visible).
   const quotesLocked = !!view?.quotes_locked;
   const bidEndDate = view?.bid_end_date || rfqInfo.deadline || null;
+
+  // Excel downloads. Built from `view` + the same computeHelpers this component
+  // renders from, so the workbook and the screen can never disagree. Generation
+  // is synchronous and can take a moment on a wide RFQ (46 products x 5 vendors
+  // is real), so yield a frame first to let the button repaint as "Preparing…".
+  const handleDownload = async (kind) => {
+    if (downloading) return;
+    setDownloading(kind);
+    try {
+      await new Promise((r) => setTimeout(r, 0));
+      if (kind === "summary") downloadSummaryWorkbook(view);
+      else downloadComparisonWorkbook(view);
+    } catch (e) {
+      showToast("Could not build the Excel file.");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   // Auto-determined view role (no manual switch):
   //   approver  → it's this user's turn to approve at least one product (awaiting_me)
@@ -482,6 +556,11 @@ const QuoteComparison = ({
 
   const coverage = (vid) => C.vendorCoverage(vid, products);
   const isFull = (vid) => C.isFullCoverage(vid, products);
+  // Lines the vendor replied on but was held out of by the technical gate, and
+  // the honest reply count (comparable + disqualified). `coverage` alone
+  // reported a disqualified vendor as if they had stayed silent.
+  const disqualified = (vid) => C.vendorDisqualified(vid, products);
+  const responded = (vid) => C.vendorResponded(vid, products);
 
   const displayRows = useMemo(() => {
     const rows = [];
@@ -517,6 +596,11 @@ const QuoteComparison = ({
   // Per-item DISPLAY total/landed exclude quote-level global charges so the
   // shown amount matches the vendor's line total and its breakdown rows.
   // (Ranking, vendor grand totals and award amounts still use cellTotal.)
+  // NOTE: the delivery toggle is NOT applied here. When it is off the server
+  // returns cells whose `total` is already reduced AND whose `other_charges`
+  // no longer contain the delivery entries, so every helper below derives the
+  // ex-delivery figure naturally. Threading a flag through each call site was
+  // tried first and silently missed nine of them.
   const cellLineTotal = (p, vid) => C.cellLineTotal(p, vid);
   const landed = (p, vid) => C.landedLinePerUnit(p, vid);
   const vendorTotal = (vid) => C.vendorTotal(vid, products);
@@ -551,6 +635,20 @@ const QuoteComparison = ({
   /* ─────────────── selection (evaluator) ─────────────── */
   const canReselect = (p) =>
     !quotesLocked && role === "buyer" && canWrite && (p.state === "open" || p.state === "rejected");
+  // Can a negotiation still change anything on this line? Only while the award
+  // is undecided. The four states (quoteCompareViewModel.deriveState):
+  //   open     → nothing finalized, or finalized with no approval yet — yes
+  //   pending  → the award is sitting with an approver — no, a fresh round
+  //              would be negotiating a price that is already out for sign-off
+  //   approved → the award stands and the PO follows — no
+  //   rejected → the approver sent it back and the buyer MUST pick again, so
+  //              bargaining first is exactly the point — yes (this is also why
+  //              canReselect reopens the same two states)
+  // Deliberately not role/permission-gated: this button only routes into the
+  // negotiation wizard, which runs its own checks, and gating it here would
+  // take the control away from users who have it today.
+  const canNegotiate = (p) =>
+    !quotesLocked && (p.state === "open" || p.state === "rejected");
   const selCount = Object.keys(selections).length;
   const openCount = products.filter((p) => p.state === "open").length;
   const selVendorCount = new Set(Object.values(selections)).size;
@@ -832,6 +930,13 @@ const QuoteComparison = ({
   }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ─────────────── finalize ─────────────── */
+  // Opening the sheet is always a fresh attempt, so the previous run's outcome
+  // is cleared first — otherwise the sheet would reopen on its own result view.
+  const openFinalize = () => {
+    setFinalizeResult(null);
+    setShowFinalize(true);
+  };
+
   // All finalize identifiers come from the view contract now (cell.finalize +
   // product + rfq block) — no second API call.
   const buildFinalizePayload = (productId, vendorId) => {
@@ -864,6 +969,11 @@ const QuoteComparison = ({
     };
   };
 
+  // A bulk award is N independent POSTs, so it is partial by nature and the
+  // server refuses individual lines for reasons only it knows. This used to
+  // collapse all of that into "1 finalization failed." — leaving the buyer
+  // part-awarded with no idea which product, which vendor, or why, and no way
+  // back except guessing. Every outcome is now kept per item, named, and shown.
   const confirmFinalize = async () => {
     const entries = Object.entries(selections);
     if (!entries.length) return;
@@ -872,29 +982,65 @@ const QuoteComparison = ({
       return;
     }
     setActionLoading(true);
-    let ok = 0;
-    let fail = 0;
+    setFinalizeResult(null);
+    const ok = [];
+    const failed = [];
     for (const [pid, vid] of entries) {
+      // Resolved BEFORE the awards land: the refetch below replaces every
+      // product object, and a finalized line stops being selectable, so the
+      // names have to be captured while the selection still describes them.
+      const product = productById(pid);
+      const vendor = vendorById(vid);
+      const item = {
+        productId: String(pid),
+        vendorId: String(vid),
+        product: product?.name || `Product ${pid}`,
+        vendor: vendor?.name || `Vendor ${vid}`,
+        vendorShort: vendor?.short || null,
+        total: C.cellLineTotal(product, vid) || 0,
+      };
       const payload = buildFinalizePayload(pid, vid);
       if (!payload) {
-        fail++;
+        failed.push({ ...item, reason: FINALIZE_NO_PAYLOAD });
         continue;
       }
       try {
         // eslint-disable-next-line no-await-in-loop
-        await finalizeQuotation(payload);
-        ok++;
+        const res = await finalizeQuotation(payload);
+        // A refusal the API chose to send with a 2xx is still a refusal —
+        // `status: 2` is this backend's failure marker on any status code.
+        if (res && Number(res.status) === 2) {
+          failed.push({ ...item, reason: finalizeFailureReason(res) });
+        } else {
+          ok.push(item);
+        }
       } catch (e) {
-        fail++;
+        failed.push({ ...item, reason: finalizeFailureReason(e) });
       }
     }
     setActionLoading(false);
-    setShowFinalize(false);
-    setSelections({});
-    setFinalizeComment("");
+    // Refused lines stay selected and the comment stays typed, so the buyer can
+    // act on the reason and retry without rebuilding the whole selection. The
+    // awarded ones drop out — they are no longer selectable anyway.
+    const stillSelected = {};
+    failed.forEach((f) => {
+      if (selections[f.productId] != null) stillSelected[f.productId] = String(selections[f.productId]);
+    });
+    setSelections(stillSelected);
+    if (failed.length) {
+      // Keep the sheet open on a result view instead of dismissing it — a
+      // partial award is exactly when the buyer must not be shown a number and
+      // sent away.
+      setFinalizeResult({ ok, failed });
+    } else {
+      setFinalizeComment("");
+      setShowFinalize(false);
+      setFinalizeResult(null);
+    }
     await fetchView({ silent: true });
-    if (ok) showToast(`${ok} product${ok > 1 ? "s" : ""} finalized → sent to approval`);
-    if (fail) toast.error(`${fail} finalization${fail > 1 ? "s" : ""} failed.`);
+    if (ok.length && !failed.length) {
+      showToast(`${ok.length} product${ok.length > 1 ? "s" : ""} finalized → sent to approval`);
+    }
   };
 
   /* ─────────────── approve / reject ─────────────── */
@@ -955,6 +1101,44 @@ const QuoteComparison = ({
     // from the data, so the id must not depend on how the cell happens to render.
     const cellId = awardCellAnchorId(p.id, vid);
     if (!q) {
+      // An empty cell has two very different meanings and used to have one
+      // label. A vendor who quoted this line and was then failed by OUR
+      // technical evaluation is dropped from the priced payload on purpose —
+      // they must stay non-comparable and non-awardable — but calling that
+      // "Awaiting quote" told the buyer the vendor never bothered to reply, on
+      // the very screen where future invitations get decided. The price stays
+      // suppressed; only the reason is restored.
+      const absence = C.cellAbsence(p, vid);
+      if (absence) {
+        const failed = absence.status === "TECH_FAILED";
+        const scored =
+          absence.tech_score != null && absence.min_score != null
+            ? `scored ${absence.tech_score} against a minimum of ${absence.min_score}`
+            : null;
+        // Two lines, both load-bearing: the state, then the fact the cell used
+        // to hide — that this vendor DID respond.
+        const note = failed
+          ? `Quoted — ${scored || "failed technical evaluation"}`
+          : "Quoted — awaiting technical verdict";
+        return (
+          <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
+            <div className={styles.priceCell}>
+              <span
+                className={styles.disqualified}
+                title={
+                  failed
+                    ? `Quoted this item, then failed the technical evaluation${scored ? ` (${scored})` : ""}. The price is withheld: a disqualified vendor cannot be compared or awarded.`
+                    : "Quoted this item. Its technical evaluation is not complete, so the price stays sealed."
+                }
+              >
+                <ShieldAlert size={11} />
+                {failed ? "Technically disqualified" : "Technical evaluation pending"}
+              </span>
+              <span className={styles.disqualifiedNote}>{note}</span>
+            </div>
+          </td>
+        );
+      }
       return (
         <td className={styles.cell} id={cellId} key={`${p.id}-${vid}`}>
           <div className={styles.priceCell}>
@@ -1053,13 +1237,19 @@ const QuoteComparison = ({
             })()}
           </div>
           <div className={styles.landed}>
-            landed <span className={styles.mono}>₹{fmt(p.quotes?.[vid]?.base)}/{p.unit}</span>
+            {/* This used to read "landed" while rendering q.base — the PRE-charge
+                unit price. So the big number was always delivery-inclusive and
+                the line labelled "landed" was always delivery-exclusive:
+                exactly inverted. Now it follows the toggle and says so. */}
+            {view?.has_delivery_charges && !freightOn ? "ex-delivery" : "with charges"}{" "}
+            <span className={styles.mono}>₹{fmt(landed(p, vid))}/{p.unit}</span>
           </div>
           {delta && (
             <div className={`${styles.deltaLpr} ${delta.down ? styles.down : styles.up}`}>
               <span>{(delta.down ? "↓ " : "↑ ") + delta.pct + "% vs LPR"}</span>
             </div>
           )}
+          <VendorNegotiation product={p} vendorId={vid} />
           {q.missing && (
             <div className={styles.missing}>
               <AlertTriangle size={11} /> missing costs
@@ -1159,7 +1349,7 @@ const QuoteComparison = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelections({ [p.id]: String(vid) });
-                  setShowFinalize(true);
+                  openFinalize();
                 }}
               >
                 <Award size={11} /> Finalise
@@ -1185,29 +1375,63 @@ const QuoteComparison = ({
             </div>
           )}
 
-          {/* state tags — clickable to open the approval audit-trail drawer */}
-          {finVendor && p.state === "pending" && role === "buyer" && (
-            <button
-              className={`${styles.cellStateTag} ${styles.finalized} ${styles.clickableTag}`}
-              title={awaitingApprovalNames(p) || undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                openApprovalPanel(p);
-              }}
-            >
-              <Clock size={10} /> {awaitingApprovalLabel(p)} <ChevronRight size={10} />
-            </button>
-          )}
-          {finVendor && p.state === "approved" && (
-            <button
-              className={`${styles.cellStateTag} ${styles.approved} ${styles.clickableTag}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                openApprovalPanel(p);
-              }}
-            >
-              <Check size={10} /> Approved <ChevronRight size={10} />
-            </button>
+          {/* THE award fact, stated in words, on every awarded cell regardless of
+              approval state. Previously the cell said only "APPROVED" and the
+              award was carried by colour alone — and a merely-cheapest L1 cell
+              is ALSO green (a pale tint), which is what made the finalized
+              vendor hard to pick out. Solid fill vs tint is the distinction.
+
+              The award and its approval state are two facts about ONE decision,
+              so they share a row instead of stacking — the cell is narrow but
+              the grid is long, and a line per fact costs more than the width.
+              .awardRow wraps, so a long finalizer name pushes the state tag
+              under it rather than out of the cell. */}
+          {finVendor && (
+            <div className={styles.awardRow}>
+              <div
+                className={styles.finalizedBar}
+                data-testid="finalized-badge"
+                title={
+                  p.finalized_by?.name
+                    ? `Finalized by ${p.finalized_by.name}${p.finalized_by.at ? ` on ${fmtDateTime(p.finalized_by.at)}` : ""}`
+                    : "Finalized"
+                }
+              >
+                <Check size={11} strokeWidth={3} />
+                {p.finalized_by?.name ? (
+                  <span className={styles.finalizedLabel}>
+                    Finalized by <span className={styles.finalizedWho}>{shortName(p.finalized_by.name)}</span>
+                  </span>
+                ) : (
+                  <span className={styles.finalizedLabel}>Finalized</span>
+                )}
+              </div>
+
+              {/* state tags — clickable to open the approval audit-trail drawer */}
+              {p.state === "pending" && role === "buyer" && (
+                <button
+                  className={`${styles.cellStateTag} ${styles.finalized} ${styles.clickableTag}`}
+                  title={awaitingApprovalNames(p) || undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openApprovalPanel(p);
+                  }}
+                >
+                  <Clock size={10} /> {awaitingApprovalLabel(p)} <ChevronRight size={10} />
+                </button>
+              )}
+              {p.state === "approved" && (
+                <button
+                  className={`${styles.cellStateTag} ${styles.approved} ${styles.clickableTag}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openApprovalPanel(p);
+                  }}
+                >
+                  <Check size={10} /> Approved <ChevronRight size={10} />
+                </button>
+              )}
+            </div>
           )}
 
           {/* Sent here by the RFQ page's award banner — say so, so the cell the
@@ -1406,15 +1630,18 @@ const QuoteComparison = ({
                     {p.lpr?.date && <span style={{ color: "var(--fg-4)" }}>({fmtDate(p.lpr.date)})</span>}
                   </div>
                 )}
-                {p.round?.n != null && (
-                  <div className={styles.roundInfo}>
-                    <span className={styles.rBadge}>Round {p.round.n}</span>
-                    {p.round.when && <span>Ended {fmtDateTime(p.round.when)}</span>}
-                  </div>
-                )}
+                {/* Full negotiation state for this product — state, round
+                    position, reply counts, the buyer's asks, and any RFQ-wide
+                    ask. Replaces the separate panel that used to sit above the
+                    table on a different endpoint. */}
+                <ProductNegotiation product={p} />
                 {/* Per-product entry into the negotiation wizard — preselects
-                    this product. Shown for negotiable (quoted, unlocked) items. */}
-                {!quotesLocked && sortedVendors.some((v) => p.quotes?.[v.id]) && (
+                    this product. Shown only where a negotiation can still land:
+                    someone has quoted, quotes are unlocked, and the award is
+                    not already finalized/pending/approved (see canNegotiate).
+                    It used to sit right beside the tag saying the line was
+                    decided, offering a round that could change nothing. */}
+                {canNegotiate(p) && sortedVendors.some((v) => p.quotes?.[v.id]) && (
                   <button
                     type="button"
                     className={styles.rowNegotiateBtn}
@@ -1520,7 +1747,14 @@ const QuoteComparison = ({
                             </span>
                           )}
                           {!full && (
-                            <span className={`${styles.vRank} ${styles.partial}`}>
+                            <span
+                              className={`${styles.vRank} ${styles.partial}`}
+                              title={
+                                disqualified(v.id) > 0
+                                  ? `${coverage(v.id)} of ${products.length} items comparable — ${disqualified(v.id)} quoted but technically disqualified`
+                                  : `${coverage(v.id)} of ${products.length} items quoted`
+                              }
+                            >
                               {coverage(v.id)}/{products.length}
                             </span>
                           )}
@@ -1540,7 +1774,12 @@ const QuoteComparison = ({
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>
                         ) : (
                           <div className={styles.vPartial}>
-                            Partial — {coverage(v.id)} of {products.length} items quoted
+                            {/* A vendor disqualified on a line DID quote it. Counting
+                                that line as un-quoted read as "unresponsive vendor" on
+                                the screen where re-invitation gets decided. */}
+                            {disqualified(v.id) > 0
+                              ? `${responded(v.id)} of ${products.length} items quoted · ${disqualified(v.id)} technically disqualified`
+                              : `Partial — ${coverage(v.id)} of ${products.length} items quoted`}
                           </div>
                         )}
                         <div className={styles.vMeta}>
@@ -2174,6 +2413,34 @@ const QuoteComparison = ({
             </button>
           </div>
           <div className={styles.toolbarRight}>
+            {/* Excel downloads. Hidden while quotes are sealed — the same rule
+                the server applies to the legacy export ("locked until the quote
+                submission deadline has passed in IST"); there is nothing to
+                export yet, and offering it would imply otherwise. */}
+            {!quotesLocked && (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  onClick={() => handleDownload("comparison")}
+                  disabled={downloading !== null}
+                  title="Every product against every vendor, with the negotiation trail"
+                >
+                  <Download size={13} />
+                  {downloading === "comparison" ? "Preparing…" : "Comparison .xlsx"}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                  onClick={() => handleDownload("summary")}
+                  disabled={downloading !== null}
+                  title="One-look totals, L1, award quality and negotiation gain"
+                >
+                  <Download size={13} />
+                  {downloading === "summary" ? "Preparing…" : "Summary .xlsx"}
+                </button>
+              </>
+            )}
             {activeView !== "overall" && (
               <div className={styles.sortControl}>
                 <button
@@ -2199,13 +2466,18 @@ const QuoteComparison = ({
                 </button>
               </div>
             )}
-            <div
-              className={`${styles.toggle} ${freightOn ? styles.isOn : ""}`}
-              onClick={() => setFreightOn((f) => !f)}
-            >
-              <span className={styles.track} />
-              <span>{freightOn ? "Landed cost (with freight)" : "Base cost (no freight)"}</span>
-            </div>
+            {/* Hidden when nothing on this RFQ carries a delivery charge —
+                76% of production RFQs. Offering a control that visibly does
+                nothing is what got this reported as broken. */}
+            {view?.has_delivery_charges && (
+              <div
+                className={`${styles.toggle} ${freightOn ? styles.isOn : ""}`}
+                onClick={() => setFreightOn((f) => !f)}
+              >
+                <span className={styles.track} />
+                <span>Include delivery charges</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2239,6 +2511,41 @@ const QuoteComparison = ({
               <span className={`${styles.pill} ${styles.warn}`}>
                 {pendingProducts.length} awaiting you
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* What the last award run refused, still on screen after the result
+            sheet is dismissed. A partial award is unfinished business: the
+            buyer needs the product, the vendor and the reason in front of them
+            while they look at the grid, not in a toast that has evaporated.
+            Hidden while the sheet itself is up so the two never duplicate. */}
+        {!showFinalize && finalizeResult?.failed?.length > 0 && (
+          <div className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner}`}>
+            <div className={styles.ic}>
+              <AlertTriangle size={13} />
+            </div>
+            <div>
+              <strong>
+                {finalizeResult.ok.length > 0
+                  ? `Partly finalized — ${finalizeResult.ok.length} awarded, ${finalizeResult.failed.length} refused.`
+                  : `Nothing was finalized — ${finalizeResult.failed.length} refused.`}
+              </strong>
+              <ul className={styles.frBannerList}>
+                {finalizeResult.failed.map((f) => (
+                  <li key={`banner-${f.productId}-${f.vendorId}`}>
+                    <strong>{f.product}</strong> — was being finalized for {f.vendor}: {f.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={styles.right}>
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                onClick={() => setFinalizeResult(null)}
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         )}
@@ -2353,7 +2660,7 @@ const QuoteComparison = ({
                 </button>
                 <button
                   className={`${styles.btn} ${styles.btnSuccess} ${styles.btnSm}`}
-                  onClick={() => selCount && setShowFinalize(true)}
+                  onClick={() => selCount && openFinalize()}
                   disabled={selCount === 0}
                 >
                   <Award size={13} />{" "}
@@ -2386,28 +2693,115 @@ const QuoteComparison = ({
     );
   };
 
+  /* ─────────────── finalize outcome (per item, never a bare count) ───────────────
+     One row per attempted award: the product, the vendor it was being awarded
+     to, and — when the server refused — the reason it gave, verbatim. The same
+     rows serve the modal's result view and the banner that outlives it. */
+  const renderFinalizeOutcomeRow = (item, kind) => (
+    <li
+      className={`${styles.decisionItem} ${kind === "ok" ? styles.approve : styles.reject}`}
+      key={`${kind}-${item.productId}-${item.vendorId}`}
+    >
+      <span className={`${styles.diIcon} ${kind === "ok" ? styles.approve : styles.reject}`}>
+        {kind === "ok" ? <Check size={12} /> : <AlertTriangle size={12} />}
+      </span>
+      <div className={styles.diMain}>
+        <div className={styles.diProduct}>{item.product}</div>
+        <div className={styles.diVendor}>
+          {item.vendorShort && <span className={styles.av}>{item.vendorShort}</span>}
+          <span>
+            {kind === "ok" ? "Awarded to " : "Was being finalized for "}
+            {item.vendor}
+          </span>
+        </div>
+        {kind === "ok" ? (
+          <div className={styles.frNote}>Sent for approval.</div>
+        ) : (
+          <div className={styles.frReason}>{item.reason}</div>
+        )}
+      </div>
+      {item.total > 0 && (
+        <div className={styles.diRight}>
+          <div className={styles.diAmt}>₹{fmt(item.total)}</div>
+        </div>
+      )}
+    </li>
+  );
+
+  const renderFinalizeResult = () => {
+    const { ok, failed } = finalizeResult;
+    return (
+      <div className={styles.finalizeResult}>
+        <div className={styles.frLead}>
+          {ok.length > 0
+            ? `${ok.length} of ${ok.length + failed.length} products were finalized. The rest were refused and are still open — nothing about them has changed.`
+            : `Nothing was finalized. The server refused ${failed.length === 1 ? "the award" : "every award"} below; the products are still open.`}
+        </div>
+
+        <div className={styles.chainLabel}>
+          Not finalized · {failed.length}
+        </div>
+        <ul className={styles.frList}>{failed.map((f) => renderFinalizeOutcomeRow(f, "fail"))}</ul>
+
+        {ok.length > 0 && (
+          <>
+            <div className={styles.chainLabel}>Finalized · {ok.length}</div>
+            <ul className={styles.frList}>{ok.map((o) => renderFinalizeOutcomeRow(o, "ok"))}</ul>
+          </>
+        )}
+      </div>
+    );
+  };
+
   /* ─────────────── modals ─────────────── */
   const renderFinalizeModal = () =>
     showFinalize && (
       <Portal>
       <div className={styles.overlayRoot} onClick={(e) => e.target === e.currentTarget && setShowFinalize(false)}>
-        <div className={styles.modal}>
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={finalizeResult ? "Finalize result" : "Finalise vendor selection"}
+        >
           <div className={styles.modalHead}>
             <div className={styles.modalHeadT}>
-              <div className={styles.modalHeadIc}>
-                <Award size={15} />
+              <div
+                className={`${styles.modalHeadIc} ${finalizeResult ? styles.modalHeadIcWarn : ""}`}
+              >
+                {finalizeResult ? <AlertTriangle size={15} /> : <Award size={15} />}
               </div>
               <div>
-                <h3>Finalise vendor selection</h3>
+                <h3>
+                  {finalizeResult
+                    ? finalizeResult.ok.length > 0
+                      ? "Partly finalized"
+                      : "Nothing was finalized"
+                    : "Finalise vendor selection"}
+                </h3>
                 <div className={styles.sub}>
                   RFQ #{rfqInfo.number} · {rfqInfo.title}
                 </div>
               </div>
             </div>
-            <button className={styles.iconBtn} onClick={() => setShowFinalize(false)}>
+            <button className={styles.iconBtn} onClick={() => setShowFinalize(false)} aria-label="Close">
               <X size={16} />
             </button>
           </div>
+          {finalizeResult ? (
+            <>
+              <div className={styles.modalBody}>{renderFinalizeResult()}</div>
+              <div className={styles.modalFoot}>
+                <button
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={() => setShowFinalize(false)}
+                >
+                  Back to the sheet
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
           <div className={styles.modalBody}>
             <div className={styles.finalizeSummary}>
               <div className={styles.label}>Finalising</div>
@@ -2487,6 +2881,8 @@ const QuoteComparison = ({
               <FileText size={14} /> {actionLoading ? "Finalising…" : "Confirm & create PO draft"}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
       </Portal>

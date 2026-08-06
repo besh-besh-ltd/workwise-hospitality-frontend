@@ -114,6 +114,9 @@ const viewPayload = () => ({
     product(8803, "WINDOW C", "pending", true, SHARMA),
   ],
   approval_chain: [],
+  // The toggle only renders when the RFQ actually carries a delivery charge;
+  // this suite clicks it purely to force a refetch.
+  has_delivery_charges: true,
 });
 
 // No line is waiting on this user — the sheet still has to do something sane.
@@ -202,7 +205,7 @@ describe("award focus — landing the approver on their cell", () => {
     // A refetch replaces every product object — exactly what happens after an
     // approve/reject. The token has not changed, so nothing should move.
     getQuoteComparisonView.mockResolvedValue(viewPayload());
-    fireEvent.click(screen.getByText(/landed cost \(with freight\)/i));
+    fireEvent.click(screen.getByText(/include delivery charges/i));
 
     await waitFor(() => expect(getQuoteComparisonView).toHaveBeenCalledTimes(2));
     await screen.findByText("WINDOW B");

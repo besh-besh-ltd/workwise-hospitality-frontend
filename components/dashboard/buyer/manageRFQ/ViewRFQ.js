@@ -62,13 +62,14 @@ import ReadMore from "@/components/shared/ReadMore";
 import RFQLifecycleJourneyV2 from "./RFQLifecycleJourneyV2";
 import ViewRFQSkeleton from "./ViewRFQSkeleton";
 import RfqStageTimeline from "@/components/dashboard/buyer/rfq/RfqStageTimeline";
+import RfqApprovalWorkflowPanel from "@/components/dashboard/buyer/rfq/RfqApprovalWorkflowPanel";
 import RfqApprovalDecisionCard, {
   resolveRfqApprovalDecision,
   APPROVAL_DECISION_ANCHOR_ID,
 } from "@/components/dashboard/buyer/rfq/RfqApprovalDecisionCard";
 import TechnicalStage from "@/components/dashboard/buyer/rfq/stages/TechnicalStage";
 import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/NegotiationAwardStage";
-import PurchaseOrderStage from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
+import PurchaseOrderStage, { PO_AWAITING_ANCHOR_ID } from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
 import { StageSkeleton, LifecycleContext } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
 
@@ -656,9 +657,14 @@ const ViewRFQ = ({
   useEffect(() => {
     if (router.query.focus !== "approval" || !approvalDecision) return undefined;
     const t = setTimeout(() => {
-      document
-        .getElementById(APPROVAL_DECISION_ANCHOR_ID)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // A PO approval resolves (so `approvalDecision` is set) but renders no
+      // decision card — the decision belongs inside the PO. Fall back to the
+      // hoisted "waiting on you" PO card, which is what the approver actually
+      // needs to see; without this the deep link scrolls to nothing.
+      const target =
+        document.getElementById(APPROVAL_DECISION_ANCHOR_ID)
+        || document.getElementById(PO_AWAITING_ANCHOR_ID);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
     return () => clearTimeout(t);
   }, [router.query.focus, approvalDecision]);
@@ -924,7 +930,12 @@ const ViewRFQ = ({
           actions={
             <>
               <Link
-                href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
+                // The query page resolves `rfq_id` as the INTERNAL RFQ id (the
+                // same value `?id=` carries into this page), not the display
+                // `rfq_no`. Passing rfq_no rendered "Queries for RFQ#undefined"
+                // with an empty vendor list, so vendor clarifications raised
+                // against the RFQ were unreachable from this workspace.
+                href={`/dashboard/buyer/query?rfq_id=${data.id}&role=buyer`}
                 className="btn btn-sm"
                 id="queries_button-rfq_header-view_rfq_page"
               >
@@ -1104,6 +1115,12 @@ const ViewRFQ = ({
         style={lifecycle?.stages?.length > 0 && !showLegacyRail ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
       >
         <div className={styles.leftCol} style={{ minWidth: 0 }}>
+          {/* Publish-approval record: who approved, when, with what comment,
+              who is still outstanding — and, when the RFQ published without
+              its approval, a plain statement of that. Renders for anyone who
+              can read the RFQ, not just the approver. */}
+          <RfqApprovalWorkflowPanel lifecycle={lifecycle} />
+
           {/* Buyer & inquiry details */}
           <section className={styles.card}>
             <header className={styles.cardHead}>

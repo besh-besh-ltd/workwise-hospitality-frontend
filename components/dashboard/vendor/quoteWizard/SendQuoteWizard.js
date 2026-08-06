@@ -4,7 +4,7 @@
    /dashboard/vendor/send-quote experience.
    ──────────────────────────────────────────────────────────── */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -47,6 +47,7 @@ import ClauseChatDrawer from "./ClauseChatDrawer";
 import styles from "./SendQuoteWizard.module.scss";
 import {
   buildInitialQuoteProducts,
+  deriveMrpBaseFE,
   diffPaymentTerms,
   fmtINR,
   fmtShortDate,
@@ -213,6 +214,59 @@ const API_TO_RESPONSE = (raw) => {
 // checksum. (The previous pattern only matched 14 chars, rejecting valid IDs.)
 const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const isValidGstin = (v) => !v || GSTIN_PATTERN.test(String(v).trim().toUpperCase());
+
+/* ────────────────────────────────────────────────────────────────
+   "Has this line been priced?" — ONE definition, used everywhere.
+
+   A Traditional line is priced on `unit_price`. An MRP (tax-inclusive) line
+   is priced on `entered_mrp`: `unit_price` is the DERIVED base, it is left
+   blank in client state, and the backend re-derives it on save. So testing
+   `unit_price > 0` reports a fully-priced MRP line as unpriced.
+
+   That drift shipped: the submit-payload validator was MRP-aware while the
+   review screen and the pricing-step status pill were not, so a vendor who
+   priced three MRP lines was told on the final confirmation screen that all
+   three were "Not priced — will be marked as regret", next to a correct
+   grand total. Every priced/skipped decision must call THIS, so the two can
+   never disagree again.
+
+   Accepts both shapes it is asked about: in-component product state (strings,
+   `entered_mrp: ""`) and outgoing payload rows (numbers, `entered_mrp: null`).
+   ──────────────────────────────────────────────────────────────── */
+const isLinePriced = (p) =>
+  ((p?.pricing_method === "MRP"
+    ? parseFloat(p?.entered_mrp)
+    : parseFloat(p?.unit_price)) || 0) > 0;
+
+/** Per-unit base rate — the number every "qty × ₹rate" string on this page
+ *  means. Traditional lines quote it directly; MRP lines derive it from
+ *  MRP − discount with GST stripped out. Same branch as helpers'
+ *  computeLineTotal, so the strings agree with the totals. */
+const lineUnitBase = (p) =>
+  p?.pricing_method === "MRP"
+    ? // base2dp, not base: this is a displayed unit RATE, so it wants the
+      // rounded figure. The line total is computed from the tax-inclusive
+      // amount instead (see helpers' computeLineTotal), which is why
+      // qty × this rate can differ from the line total by a few paise on an
+      // MRP line — the inclusive amount is what the vendor actually offered.
+      deriveMrpBaseFE({
+        mrp: p?.entered_mrp,
+        discount: p?.mrp_discount,
+        discountMode: p?.mrp_discount_mode,
+        gst: p?.tax,
+      }).base2dp
+    : parseFloat(p?.unit_price) || 0;
+
+/** "MRP ₹1,300.00 less 15%" — the provenance of an MRP line's base rate. */
+const mrpProvenance = (p) => {
+  const mrp = parseFloat(p?.entered_mrp) || 0;
+  if (mrp <= 0) return "";
+  const disc = parseFloat(p?.mrp_discount) || 0;
+  if (disc <= 0) return `MRP ₹${fmtINR(mrp)}`;
+  const shown =
+    p?.mrp_discount_mode === "absolute" ? `₹${fmtINR(disc)}` : `${disc}%`;
+  return `MRP ₹${fmtINR(mrp)} less ${shown}`;
+};
 
 const PAY_TYPE_OPTIONS = [
   { value: "advance", label: "Advance" },
@@ -550,16 +604,9 @@ const SendQuoteWizard = () => {
   // Pricing step (step 3): at least one product priced with delivery.
   const canContinueStep3 = useMemo(() => {
     if (!products.length) return false;
-    return products.some((p) => {
-      // MRP mode — "priced" is entered_mrp > 0, not unit_price (unit_price
-      // stays blank on the FE; the backend derives it). Mirrors the
-      // previewDraft / handleSubmit MRP branching below.
-      const priced =
-        p.pricing_method === "MRP"
-          ? (parseFloat(p.entered_mrp) || 0) > 0
-          : (parseFloat(p.unit_price) || 0) > 0;
-      return priced && (parseInt(p.delivery_period) || 0) > 0;
-    });
+    return products.some(
+      (p) => isLinePriced(p) && (parseInt(p.delivery_period) || 0) > 0
+    );
   }, [products]);
   // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
   const canContinueStep4 = useMemo(() => {
@@ -1530,12 +1577,10 @@ const SendQuoteWizard = () => {
 
       // Every filled line must be complete (legacy parity): a priced line
       // needs a delivery period and vice-versa. Fully empty lines pass —
-      // they go out as skipped (unit_price 0). MRP mode — "priced" is
-      // entered_mrp > 0, not unit_price (unit_price is 0/advisory for MRP lines).
-      const hasPartialLine = filteredProducts.some((p) => {
-        const priced = p.pricing_method === "MRP" ? (p.entered_mrp || 0) > 0 : p.unit_price > 0;
-        return priced !== (p.delivery_period > 0);
-      });
+      // they go out as skipped (unit_price 0).
+      const hasPartialLine = filteredProducts.some(
+        (p) => isLinePriced(p) !== (p.delivery_period > 0)
+      );
       if (hasPartialLine) {
         toast.error("Base price and delivery period must be greater than zero");
         return;
@@ -2218,6 +2263,11 @@ const Stepper = ({ steps, currentStep, canVisit, onStep }) => {
 const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted, missedInquiry }) => {
   const terms = rfq?.terms || [];
   const additionalRaw = rfq?.comment || "";
+  // Ids wire the real checkbox to its visible title (accessible name) and to
+  // the explanatory line below it (accessible description).
+  const acceptId = useId();
+  const acceptTitleId = `${acceptId}-title`;
+  const acceptDescId = `${acceptId}-desc`;
 
   return (
     <div className={styles.stepPane}>
@@ -2398,20 +2448,33 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted,
         )}
       </div>
 
+      {/* Contractual acceptance gate — step 1 can't be left until it's ticked,
+          so it MUST be a real <input type="checkbox">: keyboard operation,
+          focus, and the announced checked state all come from the control
+          itself. The input is visually hidden (never display:none, which
+          would drop it out of the tab order) behind the styled `.checkBox`
+          span, which mirrors `:checked` and `:focus-visible`. */}
       <label
         className={`${styles.check} ${accepted ? styles.checked : ""} ${missedInquiry ? styles.checkDisabled : ""}`}
-        onClick={(e) => {
-          e.preventDefault();
-          if (missedInquiry) return;
-          onToggleAccept();
-        }}
       >
-        <span className={styles.checkBox} />
+        <input
+          type="checkbox"
+          className={styles.checkInput}
+          checked={accepted}
+          disabled={missedInquiry}
+          aria-labelledby={acceptTitleId}
+          aria-describedby={acceptDescId}
+          onChange={() => {
+            if (missedInquiry) return;
+            onToggleAccept();
+          }}
+        />
+        <span className={styles.checkBox} aria-hidden="true" />
         <div className={styles.checkBody}>
-          <div className={styles.checkTitle}>
+          <div className={styles.checkTitle} id={acceptTitleId}>
             I have read and accept the terms &amp; conditions above.
           </div>
-          <div className={styles.checkDesc}>
+          <div className={styles.checkDesc} id={acceptDescId}>
             {missedInquiry
               ? "The bid window has closed — you can't accept the terms or submit a quote for this inquiry anymore."
               : "By checking this, you confirm that any quote you submit will follow these terms. You can review them again before submitting."}
@@ -3289,7 +3352,7 @@ const Step3Pricing = ({
                             {((p.other_charges || []).filter((c) => c.name).length || 0) > 1 ? "s" : ""}
                           </span>
                         )}
-                        {(parseFloat(p.unit_price) || 0) > 0 ? (
+                        {isLinePriced(p) ? (
                           <span className={`${styles.pill} ${styles.success}`}>
                             <span className={styles.pdot} style={{ background: "var(--success)" }} />
                             Priced
@@ -3683,7 +3746,9 @@ const Step3Pricing = ({
                     <span style={{ fontSize: 11.5, color: "var(--fg-4)" }}>
                       <span className={styles.mono}>{p.qty}</span> ×{" "}
                       <span className={styles.mono}>
-                        {p.unit_price ? `₹${fmtINR(p.unit_price)}` : "—"}
+                        {/* MRP lines carry no unit_price — show the derived base
+                            rather than a dash on a fully-priced line. */}
+                        {lineUnitBase(p) > 0 ? `₹${fmtINR(lineUnitBase(p))}` : "—"}
                       </span>
                       {p.tax > 0 && (
                         <>
@@ -4125,8 +4190,10 @@ const Step5Review = ({
   warnings,
   canSubmit,
 }) => {
-  const priced = products.filter((p) => (parseFloat(p.unit_price) || 0) > 0);
-  const skipped = products.filter((p) => !((parseFloat(p.unit_price) || 0) > 0));
+  // MRP-aware — see isLinePriced. Testing unit_price here is what told vendors
+  // their priced MRP lines would be "marked as regret".
+  const priced = products.filter(isLinePriced);
+  const skipped = products.filter((p) => !isLinePriced(p));
   const activeGlobalCharges = (globalCharges || []).filter(
     (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
   );
@@ -4177,12 +4244,15 @@ const Step5Review = ({
             <div className={styles.reviewCardBody}>
               {products.map((p, idx) => {
                 const qty = Number(p.qty) || 0;
-                const unit = parseFloat(p.unit_price) || 0;
+                // Per-unit base: quoted directly on Traditional lines, derived
+                // from MRP − discount on MRP ones.
+                const unit = lineUnitBase(p);
                 // Prefer the engine-computed total (includes per-line charges + tax)
                 // and fall back to qty × unit only if it hasn't synced yet.
                 const lineTotal = Number(p.total_price) > 0 ? Number(p.total_price) : unit * qty;
                 const chargesCount = (p.other_charges || p.charges || []).filter((c) => c.name).length;
-                const isSkipped = !(unit > 0);
+                const isSkipped = !isLinePriced(p);
+                const provenance = p.pricing_method === "MRP" ? mrpProvenance(p) : "";
                 return (
                   <div key={p.id} className={`${styles.reviewLine} ${isSkipped ? styles.reviewLineSkipped : ""}`}>
                     <div className={styles.reviewLineNum}>{String(idx + 1).padStart(2, "0")}</div>
@@ -4193,6 +4263,7 @@ const Step5Review = ({
                       ) : (
                         <div className={styles.reviewLineMath}>
                           {qty} {p.unit || ""} × ₹ {fmtINR(unit)}
+                          {provenance ? ` · ${provenance}` : ""}
                           {p.tax > 0 ? ` + ${p.tax}% tax` : ""}
                           {p.delivery_period ? ` · ${p.delivery_period}d delivery` : ""}
                           {chargesCount > 0 ? ` · ${chargesCount} extra charge${chargesCount > 1 ? "s" : ""}` : ""}
@@ -4471,7 +4542,15 @@ const validateCharge = (ch, i) => {
 // amount (a percentage of the line base, or an absolute ₹ value) plus its GST.
 // A null/blank tax inherits the product's base rate.
 const computeChargeBreakdown = (ch, product) => {
-  const base = (parseFloat(product?.qty) || 0) * (parseFloat(product?.unit_price) || 0);
+  // MRP lines have no client-side unit_price, so qty × unit_price is 0 and a
+  // percentage charge previewed as ₹0.00 on a fully-priced line. The engine's
+  // per-line base is the truthful figure there. Traditional lines keep the
+  // local arithmetic so the preview tracks typing without waiting on the
+  // debounced preview call.
+  const base =
+    product?.pricing_method === "MRP"
+      ? parseFloat(product?.engine_base) || 0
+      : (parseFloat(product?.qty) || 0) * (parseFloat(product?.unit_price) || 0);
   const amount =
     ch.amount_mode === "percentage"
       ? (base * (parseFloat(ch.amount) || 0)) / 100

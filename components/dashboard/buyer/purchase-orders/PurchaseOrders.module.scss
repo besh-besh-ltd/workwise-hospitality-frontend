@@ -908,6 +908,15 @@
   .breakdownLabel { padding-left: 28px !important; font-style: italic; }
   .subBreakdownLabel { padding-left: 44px !important; color: var(--fg-3); }
   .taxNote { font-size: 10.5px; color: var(--fg-3); font-weight: 400; white-space: nowrap; }
+  /* "avg" qualifier on the footer's weighted-average cells — deliberately
+     quieter than the number so the column still scans, but always present so a
+     weighted average can never be read as a column total. */
+  .aggNote { font-family: 'Geist', sans-serif; font-size: 10px; font-weight: 500; color: var(--fg-4); text-transform: uppercase; letter-spacing: 0.05em; margin-left: 3px; }
+  /* Same quiet treatment as .aggNote, but this one is a caveat rather than a
+     qualifier: it marks a quantity sum whose lines are measured in different
+     units, so the number above it is a raw count and the rate cell beside it is
+     deliberately empty. Kept on one line so it can never wrap into the number. */
+  .aggMixed { font-family: 'Geist', sans-serif; font-size: 10px; font-weight: 500; color: var(--fg-4); text-transform: uppercase; letter-spacing: 0.05em; margin-left: 3px; white-space: nowrap; }
   .breakdownMeta { text-align: right; font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
   .breakdownAmt { font-weight: 600; font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
   .sectionHeadRow td { font-weight: 600; color: var(--fg); font-size: 12.5px; background: var(--surface-2); border-top: 2px solid var(--border); padding: 10px 14px; }
@@ -1342,7 +1351,109 @@
     font-family: 'Geist Mono', monospace;
     white-space: nowrap;
   }
-  .rightStat { font-size: 10.5px; color: var(--fg-4); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .rightStat { font-size: 10.5px; color: var(--fg-4); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; white-space: nowrap; }
+
+  /* ── Approver roster ──────────────────────────────────────────────────
+     Every approver on an approval level, in a 270px-ish aside column. Rows
+     are avatar / name+detail / status+time, so the status column stays
+     readable no matter how long a name runs. */
+  .roster { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 7px; }
+  .rosterHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .rosterSummary { font-size: 10.5px; font-weight: 600; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
+  .ruleBadge {
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fg-3);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1.5px 6px;
+    white-space: nowrap;
+  }
+  .rosterFlags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+  .rosterRow {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    gap: 7px;
+    align-items: flex-start;
+    padding: 4px 0;
+    & + .rosterRow { border-top: 1px solid var(--surface-3); }
+  }
+  .rAv {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .rMain { min-width: 0; }
+  .rName { font-size: 11.5px; font-weight: 600; color: var(--fg-2); line-height: 1.35; overflow-wrap: anywhere; }
+  .rMeta { font-size: 10px; color: var(--fg-4); line-height: 1.35; overflow-wrap: anywhere; }
+  .rDetail { font-size: 10px; color: var(--fg-3); line-height: 1.4; margin-top: 1px; overflow-wrap: anywhere; }
+  .rComment { font-size: 10.5px; color: var(--fg-3); font-style: italic; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
+  .rFlag {
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+  .rSide { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .rStatus {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    border-radius: 4px;
+    padding: 1.5px 5px;
+  }
+  .rWhen { font-size: 9.5px; color: var(--fg-4); font-family: 'Geist Mono', monospace; white-space: nowrap; }
+  .rsApproved    { color: var(--success); background: var(--success-soft); }
+  .rsRejected    { color: var(--danger);  background: var(--danger-soft); }
+  /* Still owes an action — the only warm/live state in the list. */
+  .rsPending     { color: var(--warn);    background: var(--warn-soft); }
+  /* Never had to act; the step cleared without them. Neutral, NOT warm —
+     reading these six people as "pending" is the bug this fixes. */
+  .rsNotRequired { color: var(--fg-3);    background: var(--neutral-soft); }
+  .rsNotReached  { color: var(--fg-3);    background: var(--neutral-soft); }
+  .rsRemoved     { color: var(--fg-4);    background: var(--surface-3); border: 1px dashed var(--border-strong); }
+  /* A removed approver is a tombstone: muted and struck through so it can
+     never be mistaken for a live row, and it is excluded from every count. */
+  .rRemovedRow {
+    opacity: 0.62;
+    .rName { text-decoration: line-through; font-weight: 500; }
+  }
+  .rosterMore {
+    margin-top: 5px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    &:hover { color: var(--accent-hover); }
+  }
 }
 .wfDone {
   .wfNode { background: var(--success); border-color: var(--success);
@@ -1381,6 +1492,18 @@
     border-style: dashed;
   }
   .stepName { color: var(--fg-4); text-decoration: line-through; }
+}
+/* CANCELLED — the whole approval instance was cancelled, so this step died
+   where it stood. The backend used to fold this into node status "pending",
+   which made a dead step read as still waiting on someone. */
+.wfCancelled {
+  .wfNode {
+    background: var(--surface-2);
+    border-color: var(--border-strong);
+    &::after { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--fg-4); }
+  }
+  .stepName { color: var(--fg-4); }
+  .rightStat { color: var(--fg-4); }
 }
 .wfRejected {
   .wfNode {

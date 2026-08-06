@@ -44,6 +44,15 @@ function describe(stage) {
     case "skipped":
       return { node: "skipped", icon: I.skip, tone: "neutral", text: "Skipped · not applicable" };
     case "ended":
+      // The approval phase ended because the RFQ published without it. It is
+      // over — nothing is awaiting anyone — but it did not end cleanly, so it
+      // reads red rather than the neutral slate of an ordinary closed stage.
+      // Short by design: the server summary ("Auto-published — approval was
+      // not completed in time") is longer than this rail line can carry, and
+      // the full account lives in the Overview approval panel.
+      if (stage.reason === "expired_pending") {
+        return { node: "lapsed", icon: I.bolt, tone: "danger", text: "Published without approval" };
+      }
       return { node: "ended", icon: I.skip, tone: "slate", text: stage.summary || "Closed" };
     case "locked":
       return { node: "locked", icon: I.lock, tone: "dim", text: "Not reached" };
@@ -55,9 +64,10 @@ function describe(stage) {
           text: yourApproval ? "Your approval needed" : "Action needed",
         };
       }
+      // expired_pending no longer reaches here — the server settles that phase
+      // as "ended" and it is handled above.
       const text = stage.summary
-        || (stage.reason === "expired_pending" ? "Awaiting approval"
-          : stage.key === "overview" ? "Collecting quotes"
+        || (stage.key === "overview" ? "Collecting quotes"
           : stage.key === "technical" ? "Evaluation in progress"
           : stage.key === "negotiation-award" ? "Negotiation in progress"
           : "In progress");
@@ -69,7 +79,11 @@ function describe(stage) {
 export default function RfqStageTimeline({ stages, selectedKey, onSelect }) {
   const described = stages.map((s) => ({ stage: s, d: describe(s) }));
   const journeyDone = stages.every((s) => SETTLED.includes(s.state));
-  const journeyEnded = stages.some((s) => s.state === "ended");
+  // "Journey ended" means the RFQ itself stopped — closed or withdrawn. A
+  // lapsed approval phase is also "ended", but the RFQ carried on: it published
+  // and moved to technical / commercial / PO. Counting it here would brand every
+  // auto-published RFQ a dead journey.
+  const journeyEnded = stages.some((s) => s.state === "ended" && s.reason !== "expired_pending");
 
   // Where the user stands: the LAST in-motion stage (matches default_stage).
   let hereIdx = -1;
