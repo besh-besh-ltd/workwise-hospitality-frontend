@@ -1,4 +1,6 @@
-import HotelVendor from './hotel-vendor';
+import LandingPage from '@/components/landing/LandingPage';
 
-export default HotelVendor;
+export default function Home() {
+  return <LandingPage />;
+}
 
