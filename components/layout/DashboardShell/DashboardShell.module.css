@@ -1641,6 +1641,29 @@
   pointer-events: none;
 }
 
+/* Numeric badge for notifications that have not yet been in front of the user.
+   The dot above now means the quieter "nothing new, but some are still
+   unopened". */
+.notifBadgeCount {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 0 2px #fafaf9;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* the notif dropdown — wider than the profile popover */
 .notifPopover {
   position: absolute;
@@ -1759,8 +1782,14 @@
   transition: background 0.12s ease;
 }
 .notifItem:hover { background: #fafaf9; }
-.notifItem.notifUnread { background: #f8fafc; }
-.notifItem.notifUnread:hover { background: #f3f6fa; }
+/* Unread used to be a #f8fafc wash — 2% off white, with the same title weight
+   as a read row, so the two states were practically indistinguishable. The
+   left rail carries the signal now; the tint only reinforces it. */
+.notifItem.notifUnread {
+  background: #f5f8ff;
+  box-shadow: inset 2px 0 0 #2563eb;
+}
+.notifItem.notifUnread:hover { background: #eef4ff; }
 .notifItem + .notifItem { border-top: 1px solid #f4f4f1; }
 /* tiny unread indicator (left of avatar) */
 .notifItem .notifUnreadDot {

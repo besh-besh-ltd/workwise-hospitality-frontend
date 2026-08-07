@@ -63,6 +63,23 @@ export const getUnreadCount = () => {
 	});
 };
 
+// Called when the bell is opened: everything outstanding counts as seen-in-tray
+// so the badge clears, while the unread highlight stays until an item is opened.
+// Pass `ids` to deliver only a subset.
+export const markNotificationsDelivered = (ids = null) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			const response = await axiosInstance.post(
+				`/users/notifications/mark-delivered`,
+				ids ? { ids } : {}
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const markNotificationRead = (id) => {
 	return new Promise(async (resolve, reject) => {
 		try {
