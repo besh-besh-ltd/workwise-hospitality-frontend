@@ -532,6 +532,7 @@
 
 /* Acknowledge checkbox */
 .check {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -549,6 +550,43 @@
   background: white;
   box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.06);
 }
+
+/* The real control. Visually hidden but NOT removed from the accessibility
+   tree or the tab order — `display:none` / `visibility:hidden` / `width:0`
+   would make it unfocusable, which is exactly the bug this replaced. The
+   `.checkBox` span next to it is pure decoration and mirrors its state. */
+.checkInput {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.checkInput:checked + .checkBox {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.checkInput:checked + .checkBox::after {
+  content: '';
+  width: 9px; height: 5px;
+  border-left: 1.8px solid white;
+  border-bottom: 1.8px solid white;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+/* Visible focus indicator — the control is keyboard-operable, so keyboard
+   users must be able to see where they are. */
+.checkInput:focus-visible + .checkBox {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.check:has(.checkInput:focus-visible) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.18);
+}
+
 .checkBox {
   flex-shrink: 0;
   width: 18px; height: 18px;

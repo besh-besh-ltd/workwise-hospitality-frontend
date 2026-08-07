@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getNegotiationListView } from "@/services/negotiation";
 import {
   NEG_STATE_PRESENTATION,
-  NEG_STATE_SEQUENCE,
+  NEG_STATE_GROUPS,
 } from "./round-detail/negotiationStates";
 import ParentCard from "./list/ParentCard";
 
@@ -36,73 +36,39 @@ import ParentCard from "./list/ParentCard";
 // "Pending for me" used to sit in this row as if it were a state. It is not —
 // it is a property of whoever is looking, and an RFQ can be "Awaiting your
 // approval" AND waiting on someone else. It is now the toggle below the tabs.
+// Three tabs, not eight. The seven state labels are sentence-length and the
+// strip wrapped onto a second line on an ordinary laptop; per user the median
+// number of NON-EMPTY status tabs was 2. The seven states are still filterable
+// individually — they moved to the Status facet in the sidebar, where the
+// per-state counts live alongside every other facet.
 const TABS = [
   { key: "all", label: "All" },
-  ...NEG_STATE_SEQUENCE.map((k) => ({ key: k, label: NEG_STATE_PRESENTATION[k].label })),
+  ...NEG_STATE_GROUPS.map((g) => ({ key: g.key, label: g.label })),
 ];
 
 // The RFQ facet is gone: at this grain every row IS an RFQ, so it offered 124
-// single-count options next to 124 rows. The status facet is gone too — the
-// tab strip above already partitions the same field.
+// single-count options next to 124 rows.
+//
+// Status is BACK as a facet. It was removed when the tab strip partitioned the
+// same field state-by-state; now that the strip carries three groups, this is
+// the only place the seven per-state counts exist. The server has always
+// emitted facets.status and always honoured filters.status — only the UI went
+// away.
 const FACETS = [
+  { group: "status", label: "Status" },
   { group: "buId", label: "Business unit" },
   { group: "departmentId", label: "Department" },
   { group: "productId", label: "Product" },
   { group: "vendorId", label: "Vendor" },
 ];
-const EMPTY_FILTERS = { buId: [], departmentId: [], productId: [], vendorId: [] };
-
-/**
- * The legend. Before this, the listing carried no explanatory text anywhere —
- * status labels with nothing saying what any of them meant. Collapsed by
- * default so it costs nothing once you know them.
- */
-function StateLegend() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="filter-group" data-testid="state-legend">
-      <div className="fg-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <span>What the statuses mean</span>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          style={{ background: "none", border: "none", color: "var(--primary, #2563eb)", fontSize: 12, fontWeight: 500, cursor: "pointer", padding: 0 }}
-        >
-          {open ? "Hide" : "Show"}
-        </button>
-      </div>
-      {open && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 4 }}>
-          <div className="fs-11" style={{ color: "var(--fg-3, #71717a)", lineHeight: 1.45 }}>
-            An RFQ shows the status of the round that needs attention soonest.
-          </div>
-          {NEG_STATE_SEQUENCE.map((k) => {
-            const s = NEG_STATE_PRESENTATION[k];
-            return (
-              <div key={k} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span className={`status-pill ${s.tone}`} style={{ alignSelf: "flex-start" }}>
-                  <span className="dot" />
-                  <span>{s.label}</span>
-                </span>
-                <span className="fs-11" style={{ color: "var(--fg-3, #71717a)", lineHeight: 1.45 }}>
-                  {s.description}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
+const EMPTY_FILTERS = { status: [], buId: [], departmentId: [], productId: [], vendorId: [] };
 /* ─── facet group (server provides {key,label,count}) ─── */
 const FACET_COLLAPSED = 5;
 // Facets with more than this many options get a debounced in-group search box
 // (Vendor / Product), so long lists stay navigable.
 const FACET_SEARCHABLE = 8;
 
-function FilterGroup({ label, group, options, selected, onToggle }) {
+function FilterGroup({ label, group, options, selected, onToggle, optionTitle }) {
   const [expanded, setExpanded] = useState(false);
   // In-group option search. `q` updates on every keystroke (controlled input);
   // `query` is the debounced value that actually filters the options.
@@ -123,7 +89,7 @@ function FilterGroup({ label, group, options, selected, onToggle }) {
   const shown = collapsed ? matches.slice(0, FACET_COLLAPSED) : matches;
   const extra = matches.length - FACET_COLLAPSED;
   return (
-    <div className="filter-group">
+    <div className="filter-group" data-testid={`facet-${group}`}>
       <div className="fg-label">{label}</div>
       {searchable && (
         <div className="search-input" style={{ width: "100%", margin: "2px 0 8px" }}>
@@ -140,7 +106,7 @@ function FilterGroup({ label, group, options, selected, onToggle }) {
         {shown.map((opt) => {
           const on = selected.includes(String(opt.key));
           return (
-            <label key={opt.key} className="filter-opt" title={opt.label || opt.key}>
+            <label key={opt.key} className="filter-opt" title={(optionTitle && optionTitle(opt)) || opt.label || opt.key}>
               <input type="checkbox" checked={on} onChange={() => onToggle(group, String(opt.key))} />
               <span className="fo-box" />
               <span className="fo-text">{opt.label || opt.key}</span>
@@ -295,7 +261,9 @@ export default function NegotiationListPage() {
             title={
               t.key === "all"
                 ? "Every RFQ in negotiation you can see."
-                : `${NEG_STATE_PRESENTATION[t.key]?.description} An RFQ appears under the state of its most urgent round.`
+                : `${(NEG_STATE_GROUPS.find((g) => g.key === t.key)?.members || new Set())
+                      .size ? [...NEG_STATE_GROUPS.find((g) => g.key === t.key).members]
+                        .map((k) => NEG_STATE_PRESENTATION[k].label).join(" · ") : ""}. An RFQ appears under the state of its most urgent round.`
             }
             onClick={() => { setTab(t.key); setPage(1); }}
           >
@@ -341,9 +309,21 @@ export default function NegotiationListPage() {
             ) : (
               <>
                 {FACETS.map((f) => (
-                  <FilterGroup key={f.group} label={f.label} group={f.group} options={facets[f.group] || []} selected={filters[f.group] || []} onToggle={toggle} />
+                  <FilterGroup
+                    key={f.group}
+                    label={f.label}
+                    group={f.group}
+                    options={facets[f.group] || []}
+                    selected={filters[f.group] || []}
+                    onToggle={toggle}
+                    // The status options carry each state's own description, so
+                    // the explanatory copy the legend used to hold is still one
+                    // hover away instead of being a second collapsed panel.
+                    optionTitle={f.group === "status"
+                      ? (opt) => NEG_STATE_PRESENTATION[opt.key]?.description
+                      : undefined}
+                  />
                 ))}
-                <StateLegend />
                 {!hasFacets && <div style={{ fontSize: 12.5, color: "#a1a1aa", padding: "10px 2px" }}>No filters available.</div>}
               </>
             )}

@@ -20,14 +20,20 @@ const safeNum = (v) => {
 
 // Mirror of backend deriveMrpLine — keep in sync (same formula as
 // quote.js's deriveMrpBaseFE / quoteWizard/helpers.js deriveMrpBaseFE).
+//
+// `base` is NOT rounded here: for most GST rates it is a repeating decimal
+// (400/1.18 = 338.9830508…), and quantising it before a caller multiplies by
+// quantity loses up to half a paisa per unit — an error that scales with
+// quantity and stops the total matching the MRP the vendor entered. Use
+// `base2dp` where a unit RATE is displayed.
 const deriveMrpBaseFE = ({ mrp, discount, discountMode, gst }) => {
   const m = safeNum(mrp);
   const disc = discountMode === "percentage" ? (m * safeNum(discount)) / 100 : safeNum(discount);
   const net = Math.max(0, m - disc);
   const g = safeNum(gst);
   const div = 1 + g / 100;
-  const base = div > 0 ? Math.round((net / div) * 100) / 100 : net;
-  return { net, base, gst: net - base };
+  const base = div > 0 ? net / div : net;
+  return { net, base, base2dp: Math.round(base * 100) / 100, gst: net - base };
 };
 
 export default function VendorCommercialStage({

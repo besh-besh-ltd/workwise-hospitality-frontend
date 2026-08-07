@@ -25,7 +25,18 @@
 // a row ("Negotiation & Award — awaiting your approval" / "You have a pending
 // approval action"), each one a different line item, so approving felt like
 // nothing happened. Awards therefore render an urgency BANNER that carries the
-// context and scrolls to the cell. Everything else keeps its buttons.
+// context and scrolls to the cell.
+//
+// A PURCHASE ORDER (PO) is the same problem with money on it. Approving one
+// from this card meant committing ₹ to a vendor without ever seeing the line
+// items, quantities, rates, taxes, milestones or the approval trail — none of
+// which this card carries and all of which are on the PO details page. POs
+// therefore render the same banner, pointing at
+// /dashboard/buyer/purchase-orders/{po_id}, so the tab says "go inside the PO"
+// instead of offering a blind Approve.
+//
+// RFQ, tender and technical approvals keep their buttons: what they decide is
+// the page the approver is already reading.
 //
 // Styling follows this directory's convention (RfqStageTimeline / StageShared):
 // global arc_v2.css primitives (.approve-aside, .aa-*, .btn) plus inline styles.
@@ -49,6 +60,8 @@ export const AWARD_ENTITY_TYPE = "NEGOTIATION_QUOTE";
 // endpoint does load them, the card points at the module that owns them instead
 // of offering a second, wrong approve path.
 export const ROUND_ENTITY_TYPE = "NEGOTIATION";
+// Purchase order. Decided on the PO details page, where the money is visible.
+export const PO_ENTITY_TYPE = "PO";
 
 // What the approver is actually deciding. Drives both the headline and the
 // toast — the toast used to say "RFQ approved" for every type, so awarding one
@@ -134,6 +147,87 @@ function describeAward(inst, stage) {
 }
 
 /**
+ * Step progress from the server's OWN counts, for a payload that carries the PO
+ * row's `approval` block but no steps[] on the instance.
+ *
+ * `approval` is one of the fields the lifecycle endpoint is gaining alongside
+ * this change; the two repos deploy separately, so it is absent on an older
+ * backend — in which case there is simply no fraction to show and stepProgress
+ * (the primary source) has already had its turn.
+ */
+function approvalCounts(approval) {
+  const total = Number(approval?.total_count);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const done = Number(approval?.approved_count);
+  return {
+    done: Number.isFinite(done) ? done : 0,
+    total,
+    waitingOn: [],
+    decisionRule: approval?.decision_rule || null,
+  };
+}
+
+/**
+ * PO number / vendor / ₹ context for ONE purchase-order approval instance.
+ *
+ * Sources, in the order they are trusted:
+ *  - the instance's `entity_id` — for a PO approval that IS the purchase order
+ *    id, and it is the only field the hand-off strictly needs.
+ *  - the purchase_order phase's own `purchase_orders[]` — the very array the PO
+ *    stage panel renders — matched on that id. It supplies po_number, the
+ *    vendor company and the ₹ total.
+ * `initiated_by` and `approval` on those rows are newer additions; both are read
+ * through `??` so the banner keeps rendering against a backend that has not
+ * shipped them yet. Anything missing is simply not shown; nothing is invented.
+ */
+function describePO(inst, stage, stages) {
+  const meta = inst?.metadata || {};
+  const poId = inst?.entity_id ?? meta.po_id ?? null;
+
+  // In production the list is on the stage this instance was found on (the PO
+  // approval is loaded on the purchase_order phase). Scanning the other stages
+  // costs nothing and survives a re-shaped lifecycle.
+  const rows =
+    (Array.isArray(stage?.phase?.purchase_orders) ? stage.phase.purchase_orders : null)
+    ?? (Array.isArray(stages) ? stages : [])
+      .map((s) => (Array.isArray(s?.phase?.purchase_orders) ? s.phase.purchase_orders : null))
+      .find(Boolean)
+    ?? [];
+
+  let row = poId != null
+    ? rows.find((p) => String(p?.id) === String(poId)) || null
+    : null;
+  // No id to match on, but exactly one PO on the RFQ → that PO is unambiguously
+  // the one being approved. Two or more and we name none of them rather than
+  // guess which, and the CTA falls back to the PO dashboard.
+  if (!row && poId == null && rows.length === 1) row = rows[0];
+
+  return {
+    instanceId: Number(inst?.id),
+    poId: poId ?? row?.id ?? null,
+    poNumber: row?.po_number ?? null,
+    vendorName: row?.vendor_company ?? row?.vendor_name ?? null,
+    value: row?.total_amount ?? meta?.po_payload?.total_value ?? null,
+    raisedBy: row?.initiated_by?.name ?? null,
+    currentStep: inst?.current_step ?? null,
+    totalSteps: inst?.total_steps ?? null,
+    // The instance's steps[] is the primary source — it also names who the step
+    // is waiting on. The PO row's counts only stand in when it is absent.
+    progress: stepProgress(inst) || approvalCounts(row?.approval),
+  };
+}
+
+/**
+ * A stage the RFQ moved past without waiting for its approval: the publish date
+ * arrived while the approval was still open, so the RFQ went out and the
+ * instance was left PENDING. Nothing here is awaiting anyone — the server
+ * settles it as state `ended` / reason `expired_pending`, refuses any decision
+ * on it, and clears the approver's grant.
+ */
+export const isLapsedStage = (stage) =>
+  stage?.phase?.status === "expired" || stage?.reason === "expired_pending";
+
+/**
  * Resolve the live approval instance the caller has to decide on, or null.
  *
  * TWO authorization signals, and we honour either:
@@ -143,21 +237,21 @@ function describeAward(inst, stage) {
  *     instance — computed per instance by generalModel (the caller is a PENDING
  *     approver on the instance's CURRENT step, and the instance is PENDING).
  *
- * (2) matters because (1) deliberately skips "expired" phases — an RFQ that
- * auto-published while its approval was still pending. In production that is
- * not an edge case: it is EVERY outstanding RFQ approval, so gating on (1)
- * alone would leave the queue just as unclickable as it was. The approval
- * instance is still PENDING and the action endpoint still accepts it — it
- * re-runs the same authorization (instance PENDING → current step → the
- * caller's approver row PENDING → hospitality scope) before writing anything,
- * so trusting the per-instance flag here can't grant rights the server won't.
+ * Lapsed stages are excluded from both. This card used to honour (2) on them
+ * precisely BECAUSE (1) skips them — the reasoning being that the instance was
+ * still PENDING and the endpoint still accepted the decision. Both halves of
+ * that are now false: submitApprovalAction refuses a decision once the RFQ is
+ * published, and the server clears can_user_approve for those instances. The
+ * old behaviour is what put a live Approve/Reject card in front of 43 approvers
+ * across 194 already-published RFQs — 112 of which had a purchase order issued.
  *
  * @param {object} lifecycle GET /rfq/:id/lifecycle payload
  * @returns {null | {
  *   instanceId: number, stepId: number|null, currentStep: number|null,
  *   totalSteps: number|null, entityType: string|null, stageLabel: string|null,
- *   label: string|null, lapsed: boolean, approvers: Array,
+ *   label: string|null, approvers: Array,
  *   progress: object|null, awardCount: number, awardItems: Array,
+ *   poCount: number, poItems: Array,
  * }}
  */
 export function resolveRfqApprovalDecision(lifecycle) {
@@ -169,6 +263,13 @@ export function resolveRfqApprovalDecision(lifecycle) {
   // count is the single most useful thing the approver was never told.
   const pending = [];
   for (const stage of stages) {
+    // A lapsed stage is one the RFQ moved past without waiting: publication
+    // happened while the approval was still open, so the instance is left
+    // PENDING forever. There is no decision to make — the server refuses one
+    // (400) and the counts already hide it. What happened is reported by the
+    // Overview approval panel instead. The server also clears can_user_approve
+    // for these; this is the second lock, so a stale payload can't reopen it.
+    if (isLapsedStage(stage)) continue;
     const instances = stage?.phase?.approval_instances;
     if (!Array.isArray(instances)) continue;
     for (const inst of instances) {
@@ -196,12 +297,6 @@ export function resolveRfqApprovalDecision(lifecycle) {
     ? inst.steps.find((s) => Number(s.step_order) === Number(currentStep)) || null
     : null;
 
-  // The RFQ went live before this approval was completed. Worth saying out
-  // loud: the decision still closes the audit trail, it just no longer gates
-  // publication.
-  const lapsed =
-    hit?.stage?.phase?.status === "expired" || hit?.stage?.reason === "expired_pending";
-
   // The matched stage's `action` block is NOT stage-scoped, despite appearances:
   // rfqLifecycleShaper.js:64 assigns the SAME object reference to every current
   // stage. It is usable for a step id (the top-level action resolves one), but
@@ -225,6 +320,16 @@ export function resolveRfqApprovalDecision(lifecycle) {
       ]
     : awards;
 
+  // PO context, ordered the same way. One RFQ can carry several purchase
+  // orders (one per finalized vendor), so several can await the same approver.
+  const pos = pending.filter((h) => h.inst?.entity_type === PO_ENTITY_TYPE);
+  const orderedPos = hit
+    ? [
+        ...pos.filter((h) => Number(h.inst?.id) === Number(instanceId)),
+        ...pos.filter((h) => Number(h.inst?.id) !== Number(instanceId)),
+      ]
+    : pos;
+
   return {
     instanceId: Number(instanceId),
     // The caller's own row on the current step. Optional on the endpoint (the
@@ -247,10 +352,15 @@ export function resolveRfqApprovalDecision(lifecycle) {
     awardItems: entityType === AWARD_ENTITY_TYPE
       ? orderedAwards.map((h) => describeAward(h.inst, h.stage))
       : [],
+    // Every PO on this RFQ awaiting THIS user, the pointed-at one described
+    // in full — that is the one the banner links into.
+    poCount: pos.length,
+    poItems: entityType === PO_ENTITY_TYPE
+      ? orderedPos.map((h) => describePO(h.inst, h.stage, stages))
+      : [],
     // Only trust the top-level copy when the top-level grant is what got us
     // here; otherwise it describes a different (evaluator) role.
     label: action?.can_approve ? (action.label || null) : null,
-    lapsed,
     // Exclude REMOVED rows here too — this list only feeds the "On this
     // step: <names>" line, which would otherwise still name someone whose
     // access was revoked mid-flight as if they were a live approver.
@@ -381,6 +491,80 @@ function AwardBanner({ decision, entityLabel, onFocusAward }) {
   );
 }
 
+/* ── Purchase order (PO) ──
+   The one thing an approver must not do is approve a PO from a card that does
+   not show the PO. The line items, quantities, rates, taxes, the vendor's terms
+   and the approval trail all live on the details page, and that is where the
+   Approve / Reject controls belong. This banner names the PO well enough to
+   recognise it — number, vendor, ₹, who raised it, how far the level has got —
+   and hands over. */
+function PoBanner({ decision, entityLabel }) {
+  const items = decision.poItems || [];
+  const n = decision.poCount || items.length || 1;
+  const first = items[0] || null;
+  const progress = first?.progress || decision.progress || null;
+
+  // The PO id is the instance's entity_id, so this normally resolves. When it
+  // does not (no entity_id and more than one PO on the RFQ) the dashboard is
+  // still a truthful destination — it lists every PO on the account.
+  const hasPo = first?.poId != null;
+  const href = hasPo
+    ? `/dashboard/buyer/purchase-orders/${first.poId}`
+    : "/dashboard/buyer/purchase-orders";
+
+  const facts = [
+    // The number is in the headline unless the headline is carrying the count.
+    n > 1 ? first?.poNumber : null,
+    first?.vendorName,
+    money(first?.value),
+    first?.raisedBy ? `Raised by ${first.raisedBy}` : null,
+  ].filter(Boolean);
+
+  const headline = n > 1
+    ? `${n} purchase orders on this RFQ are waiting on your approval`
+    : first?.poNumber
+      ? `Purchase order ${first.poNumber} is waiting on your approval`
+      : "A purchase order on this RFQ is waiting on your approval";
+
+  return (
+    <UrgencyBanner
+      entityLabel={entityLabel}
+      headline={headline}
+      action={
+        <Link
+          href={href}
+          className="btn btn-success btn-sm"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          {hasPo ? "Review & approve in the purchase order" : "Open the PO dashboard"}
+          <ArrowRight size={14} strokeWidth={2.2} />
+        </Link>
+      }
+    >
+      {facts.length > 0 && (
+        <div style={{ fontSize: 12.5, color: "var(--fg-2, #3f3f46)", marginTop: 6, fontWeight: 600 }}>
+          {facts.join(" · ")}
+          {n > 1 && (
+            <span style={{ fontWeight: 500, color: "var(--fg-3, #71717a)" }}>
+              {` — and ${n - 1} more purchase order${n - 1 === 1 ? "" : "s"} on this RFQ`}
+            </span>
+          )}
+        </div>
+      )}
+      <ProgressLine
+        progress={progress}
+        currentStep={first?.currentStep ?? decision.currentStep}
+        totalSteps={first?.totalSteps ?? decision.totalSteps}
+      />
+      <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)", lineHeight: 1.55, marginTop: 6 }}>
+        A purchase order commits money to a vendor. Approve or reject it inside
+        the PO, where the line items, quantities, rates and taxes sit next to the
+        decision — along with the full approval trail.
+      </div>
+    </UrgencyBanner>
+  );
+}
+
 /* ── Negotiation ROUND (NEGOTIATION) ──
    Defensive branch: the lifecycle endpoint does not load these instances today
    (see ROUND_ENTITY_TYPE above), so this cannot render on this page yet. */
@@ -439,7 +623,9 @@ export default function RfqApprovalDecisionCard({
     ? ENTITY_NOUN[decision.entityType].toLowerCase()
     : entityLabel;
 
-  // Awards and rounds are decided elsewhere — banner, never buttons.
+  // Awards, purchase orders and rounds are decided elsewhere — banner, never
+  // buttons. Each one carries context this card cannot show, and deciding
+  // without it is what made these approvals unauditable.
   if (decision.entityType === AWARD_ENTITY_TYPE) {
     return (
       <AwardBanner
@@ -448,6 +634,17 @@ export default function RfqApprovalDecisionCard({
         onFocusAward={onFocusAward}
       />
     );
+  }
+  if (decision.entityType === PO_ENTITY_TYPE) {
+    // A PO approval surfaces NOTHING here. It gets no Approve/Reject — deciding
+    // a PO without the line items, rates and taxes in front of you is not a
+    // decision — and no banner either: RfqStageTimeline already marks the
+    // Purchase Order stage as needing this user's action, and the stage panel
+    // itself hoists and highlights the PO card that is waiting on them. A third
+    // announcement of the same fact above the tab is redundant, so it is not
+    // rendered. PoBanner is kept below, unused, because the copy and the
+    // hand-off it encodes are what we would want back if this is revisited.
+    return null;
   }
   if (decision.entityType === ROUND_ENTITY_TYPE) {
     return (
@@ -521,24 +718,10 @@ export default function RfqApprovalDecisionCard({
           >
             <ShieldCheck size={15} strokeWidth={2} />
             {`${noun} — awaiting your approval`}
-            {decision.lapsed && (
-              <span
-                style={{
-                  fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 99,
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                  background: "var(--warn-soft, #fffbeb)", color: "var(--warn, #b45309)",
-                  border: "1px solid rgba(180,83,9,0.24)",
-                }}
-              >
-                Auto-published
-              </span>
-            )}
           </div>
           <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)", lineHeight: 1.55, marginTop: 5 }}>
-            {decision.lapsed
-              ? `This ${entityLabel} auto-published while the approval was still open, so your decision no longer gates publication — it closes the approval on record.`
-              : decision.label
-                || `You are the current approver. Approving moves this ${nounInline} to the next stage; rejecting sends it back with your reason.`}
+            {decision.label
+              || `You are the current approver. Approving moves this ${nounInline} to the next stage; rejecting sends it back with your reason.`}
           </div>
           {approverNames && (
             <div style={{ fontSize: 11.5, color: "var(--fg-3, #71717a)", marginTop: 7 }}>

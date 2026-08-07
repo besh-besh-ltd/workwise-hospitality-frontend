@@ -26,6 +26,18 @@ export const handlePOInitialization = async (po_id) => {
   return res;
 };
 
+// GET /po/:po_id/initiators → { can_initiate, initiators[], total }
+// The people who hold `awarding.create` / `.update` on THIS PO's own business
+// unit — i.e. who a viewer who cannot initiate a stuck draft should call. The
+// list excludes the viewer and is capped server-side at 25 (`total` is the true
+// uncapped count); out-of-scope callers get a 404, which every caller must treat
+// as "show nothing", never as a page error. The interceptor unwraps the
+// envelope, so `res.data` is the payload above.
+export const getPOInitiators = async (po_id) => {
+  const res = await axiosInstance.get(`/po/${po_id}/initiators`);
+  return res.data;
+};
+
 // Merge N draft POs of the same vendor on the same RFQ into one.
 // `po_ids` is the full set (including keep_po_id); backend rejects mixed
 // vendors / statuses / RFQs / tenants.

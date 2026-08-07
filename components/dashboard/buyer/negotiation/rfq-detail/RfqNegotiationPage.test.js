@@ -7,6 +7,21 @@
 // Both calls go to the SAME endpoint at two grains, so the stub answers on
 // `groupBy` — which also proves the page asks for the right grain twice.
 
+// The rounds table navigates on a whole-row click, so the router has to be
+// mounted. `pushMock` is asserted directly by the routing tests below.
+const pushMock = jest.fn();
+jest.mock("next/router", () => ({
+  __esModule: true,
+  useRouter: () => ({
+    query: { rfqId: "512" },
+    asPath: "/dashboard/buyer/negotiation/512",
+    pathname: "/dashboard/buyer/negotiation/[rfqId]",
+    push: (...a) => pushMock(...a),
+    replace: jest.fn(),
+    isReady: true,
+  }),
+}));
+
 jest.mock("@/services/negotiation", () => ({
   __esModule: true,
   getNegotiationListView: jest.fn(),
@@ -218,11 +233,26 @@ describe("gist tiles", () => {
     expect(strip).toHaveTextContent(/2\s*lapsed/i);
   });
 
-  it("counts the products actually negotiated and the vendors invited", async () => {
+  it("renders three tiles, not five", async () => {
+    // Products and vendors were tiles of their own: one had a hardcoded
+    // sentence for its sub-line, the other duplicated a figure already in the
+    // hero. Neither drove a decision.
     await renderPage({ rounds: [roundRow(12)] });
-    expect(screen.getByTestId("gist-products")).toHaveTextContent("2");
-    expect(screen.getByTestId("gist-vendors")).toHaveTextContent("2");
-    expect(screen.getByTestId("gist-vendors")).toHaveTextContent(/7 vendor responses/i);
+    expect(screen.getByTestId("gist-saved")).toBeInTheDocument();
+    expect(screen.getByTestId("gist-rounds")).toBeInTheDocument();
+    expect(screen.getByTestId("gist-needs-you")).toBeInTheDocument();
+    expect(screen.queryByTestId("gist-products")).toBeNull();
+    expect(screen.queryByTestId("gist-vendors")).toBeNull();
+  });
+
+  it("keeps the products and vendors figures one hover away", async () => {
+    await renderPage({ rounds: [roundRow(12)] });
+    const detail = within(screen.getByTestId("gist-rounds")).getByTestId("gist-rounds-detail");
+    const title = detail.getAttribute("title");
+    expect(title).toMatch(/2 products negotiated/i);
+    expect(title).toMatch(/only the ones a round touched/i);
+    expect(title).toMatch(/2 vendors invited/i);
+    expect(title).toMatch(/7 vendor responses/i);
   });
 
   it("deep-links to the round that is waiting on this user", async () => {
@@ -234,19 +264,59 @@ describe("gist tiles", () => {
       ],
     });
     const link = screen.getByTestId("needs-you-link");
-    expect(link).toHaveAttribute("href", "/dashboard/buyer/negotiation/round/9012");
+    // A round awaiting THIS user's approval goes to the approval page — the
+    // round page is read-only and would cost a second navigation.
+    expect(link).toHaveAttribute("href", "/dashboard/buyer/negotiation/512/approve");
     expect(screen.getByTestId("gist-needs-you")).toHaveTextContent("Round 12");
   });
 
-  it("says so plainly when nothing is waiting on this user", async () => {
+  it("says so in one line when nothing is waiting on this user", async () => {
     await renderPage({ rounds: [roundRow(12)] });
-    expect(screen.getByTestId("gist-needs-you")).toHaveTextContent(/Nothing needs you right now/i);
+    const tile = screen.getByTestId("gist-needs-you");
+    expect(tile).toHaveTextContent(/all clear/i);
+    // Three lines to say nothing was two lines too many.
+    expect(tile).not.toHaveTextContent(/nothing needs you right now/i);
   });
 });
 
 // ── the rounds table ───────────────────────────────────────────────────────
 
 describe("rounds table", () => {
+  it("navigates when the row is clicked anywhere, not just the round number", async () => {
+    await renderPage({ rounds: [roundRow(12)] });
+    pushMock.mockClear();
+
+    const row = screen.getByTestId("round-row-9012");
+    expect(row).toHaveStyle({ cursor: "pointer" });
+    // Click a cell that is NOT the round-number link — that is the whole point.
+    fireEvent.click(row.querySelectorAll("td")[3]);
+
+    expect(pushMock).toHaveBeenCalledWith("/dashboard/buyer/negotiation/round/9012");
+  });
+
+  it("routes a round awaiting MY approval to the approval page", async () => {
+    await renderPage({
+      rounds: [roundRow(12, { action_required: true, action_label: "Approval needed", neg_status: "awaiting_approval" })],
+    });
+    pushMock.mockClear();
+
+    const row = screen.getByTestId("round-row-9012");
+    expect(within(row).getByRole("link", { name: /Round 12/ }))
+      .toHaveAttribute("href", "/dashboard/buyer/negotiation/512/approve");
+
+    fireEvent.click(row);
+    expect(pushMock).toHaveBeenCalledWith("/dashboard/buyer/negotiation/512/approve");
+  });
+
+  it("keeps the row a table row for assistive tech", async () => {
+    // role="link" on a <tr> overrides its implicit `row` role and drops it out
+    // of the table's accessibility tree entirely.
+    await renderPage({ rounds: [roundRow(12)] });
+    const row = screen.getByTestId("round-row-9012");
+    expect(row).not.toHaveAttribute("role");
+    expect(within(screen.getByTestId("rounds-table")).getAllByRole("row").length).toBeGreaterThan(1);
+  });
+
   it("renders rounds as table rows, each linking to the round itself", async () => {
     await renderPage({ rounds: [roundRow(12), roundRow(11), roundRow(10)] });
 

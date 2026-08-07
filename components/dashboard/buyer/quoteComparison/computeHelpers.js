@@ -2,8 +2,18 @@
    Quote Comparison — client-side compute helpers.
    Ported from the prototype's data.js, but every cell total is
    sourced from the BACKEND engine (quote.total) instead of being
-   recomputed on the client. The freight toggle is handled by
-   refetching getQuoteComparisonView({ freight:false }).
+   recomputed on the client.
+
+   The delivery-charge toggle is applied ENTIRELY server-side: with
+   ?freight=0 the payload's cells carry a reduced `total` AND an
+   `other_charges` array with the delivery entries removed, so every
+   helper here derives the ex-delivery figure without knowing the
+   toggle exists. Do not reintroduce a per-call-site flag — that was
+   the first attempt and it silently missed nine call sites (vendor
+   ranks, the Overall-cost tab, the savings KPI, category subtotals).
+   The comment this replaced claimed the toggle was "handled by
+   refetching", which was false in both directions: the backend flag
+   was dead AND these helpers re-added freight regardless.
    ═══════════════════════════════════════════════════════════ */
 
 export const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -193,9 +203,32 @@ export const vendorTotalBreakdown = (vendorId, products) => {
   return { lines, globals, total: lines + globals };
 };
 
-// coverage: how many of all products a vendor quoted (non-null cell)
+// Why a vendor's cell on this product is empty, or null when the vendor simply
+// did not respond. The backend only fills `quotes_absence` for vendors who DID
+// submit a quote for the line but were held out by the technical gate, so a
+// null here is a genuine non-response — the one case allowed to read
+// "Awaiting quote". See quoteCompareViewModel.fetchTechBlockedQuoters.
+//   { status: 'TECH_FAILED' | 'TECH_PENDING', tech_score, min_score }
+export const cellAbsence = (product, vendorId) =>
+  product?.quotes_absence?.[String(vendorId)] || null;
+
+// coverage: how many of all products a vendor has a COMPARABLE cell on.
+// Deliberately excludes technically-disqualified lines: this feeds
+// isFullCoverage -> vendorRanks, and a grand total missing a disqualified line
+// is not apples-to-apples with a complete one. Use vendorResponded for the
+// "did they bother to reply" question.
 export const vendorCoverage = (vendorId, products) =>
   products.filter((p) => p.quotes?.[vendorId]).length;
+
+// How many lines the vendor was held out of by the technical gate.
+export const vendorDisqualified = (vendorId, products) =>
+  (products || []).filter((p) => cellAbsence(p, vendorId)).length;
+
+// How many lines the vendor actually RESPONDED on — comparable cells plus the
+// ones the technical gate emptied. This is the honest numerator for "N of M
+// items quoted"; vendorCoverage counted a disqualified vendor as silent.
+export const vendorResponded = (vendorId, products) =>
+  vendorCoverage(vendorId, products) + vendorDisqualified(vendorId, products);
 
 export const isFullCoverage = (vendorId, products) =>
   products.length > 0 && vendorCoverage(vendorId, products) === products.length;

@@ -212,3 +212,35 @@ export function neverReachedVendors(value) {
   const k = toNegState(value);
   return k === NEG_STATE.LAPSED || k === NEG_STATE.AWAITING_APPROVAL;
 }
+
+/**
+ * Tab groups for the listing strip.
+ *
+ * Eight sentence-length status tabs wrapped onto a second line, and per user
+ * the median number of NON-EMPTY status tabs is 2 (max 5). Membership mirrors
+ * the server's NEG_PARENT_ACTION_STATES and is DERIVED from isTerminalState,
+ * so there is no third hand-written copy of the split to drift.
+ *
+ * awaiting_approval and open_with_vendors read as 0 parents in production right
+ * now, and are deliberately INSIDE needs_attention rather than dropped: they
+ * are short-lived (median dwell 133 min and 258 min respectively) and they are
+ * the only two states that ever need a human.
+ */
+export const NEG_STATE_GROUPS = [
+  {
+    key: "needs_attention",
+    label: "Needs attention",
+    members: new Set(NEG_STATE_SEQUENCE.filter((k) => !isTerminalState(k))),
+  },
+  {
+    key: "closed",
+    label: "Closed",
+    members: new Set(NEG_STATE_SEQUENCE.filter((k) => isTerminalState(k))),
+  },
+];
+
+/** Which group a state belongs to, or null for an unrecognised value. */
+export function groupOfState(value) {
+  const k = toNegState(value);
+  return NEG_STATE_GROUPS.find((g) => g.members.has(k))?.key || null;
+}
