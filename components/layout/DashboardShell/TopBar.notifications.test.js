@@ -20,6 +20,14 @@ jest.mock("@/services/Notifications", () => ({
   markAllNotificationsRead: jest.fn(() => Promise.resolve({ status: 1 })),
   markNotificationRead: jest.fn(() => Promise.resolve({ status: 1 })),
   markNotificationsDelivered: jest.fn(() => Promise.resolve({ status: 1 })),
+  dismissNotification: jest.fn(() => Promise.resolve({ status: 1 })),
+  markNotificationUnread: jest.fn(() => Promise.resolve({ status: 1 })),
+}));
+// The stream is an enhancement over the poll; the poll is what these tests
+// exercise, so keep the socket out of jsdom entirely.
+jest.mock("@/hooks/useNotificationStream", () => ({
+  __esModule: true,
+  default: jest.fn(),
 }));
 jest.mock("@/utils/pushSubscription", () => ({
   __esModule: true,
@@ -62,6 +70,8 @@ import {
   listNotifications,
   markNotificationRead,
   markNotificationsDelivered,
+  dismissNotification,
+  markNotificationUnread,
 } from "@/services/Notifications";
 
 const NOTIFS = [
@@ -120,13 +130,22 @@ describe("the badge", () => {
     expect(await screen.findByText("3")).toBeInTheDocument();
   });
 
-  it("caps at 99+ so a long backlog cannot break the layout", async () => {
+  it("caps at 9+ — past a handful the exact number changes nothing", async () => {
     getUnreadCount.mockResolvedValue({
       status: 1,
       data: { count: 250, undelivered: 250, unread: 250 },
     });
     renderBar();
-    expect(await screen.findByText("99+")).toBeInTheDocument();
+    expect(await screen.findByText("9+")).toBeInTheDocument();
+  });
+
+  it("shows the exact count up to 9", async () => {
+    getUnreadCount.mockResolvedValue({
+      status: 1,
+      data: { count: 9, undelivered: 9, unread: 9 },
+    });
+    renderBar();
+    expect(await screen.findByText("9")).toBeInTheDocument();
   });
 
   it("names the count for screen readers", async () => {
@@ -138,6 +157,16 @@ describe("the badge", () => {
 
   it("shows nothing at all when there is nothing outstanding", async () => {
     getUnreadCount.mockResolvedValue({ status: 1, data: { count: 0, undelivered: 0, unread: 0 } });
+    renderBar();
+    const bell = await screen.findByRole("button", { name: /^Notifications$/i });
+    expect(bell.querySelector("span")).toBeNull();
+  });
+
+  it("shows no residual dot once the tray has been opened", async () => {
+    // Nothing new, but items remain unopened. A leftover dot for things the
+    // user has already looked at is a permanent nag, which is how a badge stops
+    // meaning anything.
+    getUnreadCount.mockResolvedValue({ status: 1, data: { count: 0, undelivered: 0, unread: 6 } });
     renderBar();
     const bell = await screen.findByRole("button", { name: /^Notifications$/i });
     expect(bell.querySelector("span")).toBeNull();
@@ -231,5 +260,131 @@ describe("clicking a notification", () => {
     });
 
     await waitFor(() => expect(getUnreadCount).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("row actions", () => {
+  it("dismisses an item and removes it from the list", async () => {
+    renderBar();
+    await openBell();
+
+    const btn = screen.getAllByRole("button", { name: /Dismiss notification/i })[0];
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(dismissNotification).toHaveBeenCalledWith(1);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Action required: Approve Rate Contract Publication/i)
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it("does not navigate when dismissing", async () => {
+    // The action sits inside the clickable row, so without stopPropagation the
+    // dismiss would also open whatever the row points at.
+    renderBar();
+    await openBell();
+
+    const btn = screen.getAllByRole("button", { name: /Dismiss notification/i })[0];
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("restores the row when the dismiss fails", async () => {
+    dismissNotification.mockRejectedValueOnce(new Error("boom"));
+    renderBar();
+    await openBell();
+
+    const btn = screen.getAllByRole("button", { name: /Dismiss notification/i })[0];
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(
+      await screen.findByText(/Action required: Approve Rate Contract Publication/i)
+    ).toBeInTheDocument();
+  });
+
+  it("puts a read item back to unread", async () => {
+    renderBar();
+    await openBell();
+
+    const btn = await screen.findByRole("button", { name: /Mark as unread/i });
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(markNotificationUnread).toHaveBeenCalledWith(2);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("marks an unread item read without navigating", async () => {
+    renderBar();
+    await openBell();
+
+    const btn = await screen.findByRole("button", { name: /^Mark as read$/i });
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(markNotificationRead).toHaveBeenCalledWith(1);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("keyboard", () => {
+  it("closes on Escape and returns focus to the bell", async () => {
+    renderBar();
+    const bell = await openBell();
+
+    expect(await screen.findByRole("dialog", { name: /Notifications/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /Notifications/i })).not.toBeInTheDocument()
+    );
+    expect(document.activeElement).toBe(bell);
+  });
+
+  it("walks the rows with the arrow keys", async () => {
+    renderBar();
+    await openBell();
+
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "ArrowDown" });
+    });
+    const rows = document.querySelectorAll("[data-notif-row]");
+    expect(document.activeElement).toBe(rows[0]);
+
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "ArrowDown" });
+    });
+    expect(document.activeElement).toBe(rows[1]);
+
+    // Wraps, so you cannot get stuck at the end of the list.
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "ArrowDown" });
+    });
+    expect(document.activeElement).toBe(rows[0]);
+  });
+
+  it("opens the focused row with Enter", async () => {
+    renderBar();
+    await openBell();
+
+    const rows = document.querySelectorAll("[data-notif-row]");
+    await act(async () => {
+      fireEvent.keyDown(rows[0], { key: "Enter" });
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/rate-contracts/12?stage=overview");
   });
 });
