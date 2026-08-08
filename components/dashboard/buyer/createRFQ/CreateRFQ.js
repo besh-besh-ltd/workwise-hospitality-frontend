@@ -51,6 +51,8 @@ import useModulePermissions from "@/hooks/useModulePermissions";
 import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
+import { isQuantityValid, isUnitValid } from "@/utils/productCompleteness";
+import { specDeltaKey } from "@/utils/rfqSpecDelta";
 
 
 const myVendorOptions = [
@@ -1389,7 +1391,7 @@ useEffect(() => {
       if (!product) continue;
       const productLabel = product.name || `product #${product.product_id}`;
       // Spec values: prefer live edits in updatableData, fall back to stored spec[]
-      const editedSpecs = updatableData?.products?.updatable?.specs?.[product.id] || {};
+      const editedSpecs = updatableData?.products?.updatable?.specs?.[specDeltaKey(product)] || {};
       const storedSpecs = Array.isArray(product.spec) ? product.spec : [];
       const readSpec = (title) => {
         if (Object.prototype.hasOwnProperty.call(editedSpecs, title)) return editedSpecs[title];
@@ -1715,7 +1717,10 @@ useEffect(() => {
     };
 
     // 1) updatableData (Item writes here)
-    const specsUp = updatableData?.products?.updatable?.specs?.[product.id];
+    // Same key handleSpecChange writes under — an unsaved product has no
+    // product.id, and reading by it here would make the Review step forget
+    // the quantity the buyer just typed.
+    const specsUp = updatableData?.products?.updatable?.specs?.[specDeltaKey(product)];
     if (specsUp) {
       // try several key variants
       const candidates = [fieldName, fieldName.toLowerCase(), fieldName.charAt(0).toUpperCase() + fieldName.slice(1)];
@@ -1750,8 +1755,17 @@ useEffect(() => {
     return undefined;
   };
 
+  // "Empty" for quantity and unit means what the SERVER means, not merely
+  // "the box has characters in it". The old rule here passed anything
+  // non-blank, so '0', '-5' and 'abc' looked filled in on the Review step and
+  // were then rejected on submit — the client ticket. Quantity and unit go
+  // through the shared predicate that mirrors rfqModel.checkRFQCompletion;
+  // any other spec field keeps the plain emptiness check.
   const isSpecFieldEmpty = (product, fieldName) => {
     const v = getSpecFieldValue(product, fieldName);
+    const field = String(fieldName).toLowerCase();
+    if (field === "quantity") return !isQuantityValid(v);
+    if (field === "unit") return !isUnitValid(v);
     return v === undefined || v === null || v === "" || v === "NAN" || v === "NA" || v === "N/A";
   };
 
@@ -2225,6 +2239,14 @@ useEffect(() => {
   };
 
   const handleSpecChange = (product, change) => {
+    // Keyed via specDeltaKey, not product.id directly: a product added in this
+    // session has no server row yet, so product.id is undefined and EVERY such
+    // product filed under the key "undefined". Two new products shared one
+    // bucket and the first one's quantity never reached the request — the
+    // buyer then saw it on Review (still in Redux) and was told on submit that
+    // it was missing. The server resolves each entry by the product_id +
+    // variant carried inside the value, so a per-product key is all it needs.
+    const key = specDeltaKey(product);
     setUpdatableData((prev) => ({
       ...prev,
       products: {
@@ -2233,8 +2255,8 @@ useEffect(() => {
           ...prev.products.updatable,
           specs: {
             ...(prev.products.updatable?.specs ?? {}),
-            [product.id]: {
-              ...(prev.products.updatable?.specs?.[product.id] ?? {
+            [key]: {
+              ...(prev.products.updatable?.specs?.[key] ?? {
                 product_id: product.product_id,
                 variant: product.variant,
               }),
