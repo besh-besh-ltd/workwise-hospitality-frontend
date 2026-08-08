@@ -1,253 +1,261 @@
 import React from 'react';
-import { FiPlay, FiZap } from 'react-icons/fi';
-import Reveal from './Reveal';
-import CountUpValue from './CountUpValue';
-import { NAVY_DARK, NAVY, NAVY_SOFT, GOLD } from './theme';
+import Image from 'next/image';
+import { FiArrowRight, FiLock } from 'react-icons/fi';
+import RateCard from './RateCard';
+import {
+  PAPER,
+  INK,
+  INK_2,
+  RULE,
+  GOLD,
+  GOLD_DEEP,
+  GREEN,
+  SERIF,
+  SANS,
+  MONO,
+  TYPE,
+  MAXW,
+  GUTTER,
+  BP,
+} from './theme';
 
 const HeroSection = ({ content, onBookDemo }) => {
-  const hasVideo = Boolean(content.watchVideo.videoUrl);
+  const media = content.media || {};
+  const hasMedia = Boolean(media.src);
 
   return (
     <section id="lh-hero" className="lh-hero">
       <div className="lh-hero-inner">
-        <div className="lh-hero-main">
-          <Reveal className="lh-hero-copy">
-            <h1 className="lh-hero-title">{content.title}</h1>
-            <p className="lh-hero-desc">{content.description}</p>
+        <div className="lh-hero-copy">
+          <span className="lh-hero-eyebrow">{content.eyebrow}</span>
 
-            <div className="lh-hero-cta">
-              <button type="button" className="lh-hero-btn-primary" onClick={onBookDemo}>
-                {content.bookDemoLabel}
-              </button>
-            </div>
+          <h1 className="lh-hero-title">
+            {content.title}
+            <br />
+            <em>{content.titleAccent}</em>
+          </h1>
 
-            <div className="lh-hero-usp">
-              <span className="lh-hero-usp-icon">
-                <FiZap size={18} />
-              </span>
-              <div>
-                <div className="lh-hero-usp-heading">{content.usp.heading}</div>
-                <div className="lh-hero-usp-desc">{content.usp.description}</div>
-              </div>
-            </div>
-          </Reveal>
+          <p className="lh-hero-desc">{content.description}</p>
 
-          <Reveal className="lh-hero-video" delay={150}>
-            <div className="lh-hero-video-frame">
-              {hasVideo ? (
-                <iframe
-                  src={content.watchVideo.videoUrl}
-                  title="Workwise product video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <div className="lh-hero-video-placeholder">
-                  <span className="lh-hero-video-play">
-                    <FiPlay size={22} />
-                  </span>
-                  <span>Video coming soon</span>
-                </div>
-              )}
-            </div>
-          </Reveal>
+          <div className="lh-hero-cta">
+            <button type="button" className="lh-hero-btn" onClick={onBookDemo}>
+              {content.bookDemoLabel}
+            </button>
+            <a href={content.secondaryHref} className="lh-hero-link">
+              {content.secondaryLabel}
+              <FiArrowRight size={15} />
+            </a>
+          </div>
+
+          <div className="lh-hero-usp">
+            <span className="lh-hero-usp-head">{content.usp.heading}</span>
+            <p className="lh-hero-usp-desc">{content.usp.description}</p>
+          </div>
         </div>
 
-        <Reveal as="div" className="lh-hero-stats" delay={280}>
-          {content.stats.map((stat) => (
-            <div key={stat.label} className="lh-hero-stat-card">
-              <div className="lh-hero-stat-value">
-                <CountUpValue value={stat.value} />
-              </div>
-              <div className="lh-hero-stat-label">{stat.label}</div>
-            </div>
-          ))}
-        </Reveal>
+        <div className="lh-hero-visual">
+          {hasMedia && media.type === 'video' && (
+            <video
+              className="lh-hero-media"
+              src={media.src}
+              poster={media.poster || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          )}
+
+          {hasMedia && media.type === 'image' && (
+            <Image
+              className="lh-hero-media"
+              src={media.src}
+              alt={media.alt || ''}
+              width={720}
+              height={480}
+              priority
+            />
+          )}
+
+          {!hasMedia && <RateCard caption={media.caption} />}
+
+          <div className="lh-hero-chip">
+            <FiLock size={13} />
+            <span>Negotiated rate · locked across every property</span>
+          </div>
+        </div>
       </div>
 
       <style jsx>{`
         .lh-hero {
-          background: linear-gradient(135deg, ${NAVY_DARK} 0%, ${NAVY} 55%, ${NAVY_SOFT} 100%);
-          padding: 64px 20px;
-          min-height: calc(100vh - 65px);
-          display: flex;
-          align-items: center;
-          box-sizing: border-box;
+          background: ${PAPER};
+          padding: clamp(56px, 8vw, 104px) ${GUTTER} clamp(64px, 8vw, 112px);
+          /* Radial warmth rather than a flat fill, so the paper has depth. */
+          background-image: radial-gradient(
+            120% 80% at 78% 12%,
+            rgba(201, 162, 39, 0.05) 0%,
+            rgba(255, 255, 255, 0) 62%
+          );
         }
         .lh-hero-inner {
-          max-width: 1280px;
-          width: 100%;
+          max-width: ${MAXW};
           margin: 0 auto;
-          display: flex;
-          flex-direction: column;
-          gap: 48px;
-        }
-        .lh-hero-main {
-          display: flex;
+          display: grid;
+          /* Asymmetric by intent: the copy owns more of the measure. */
+          grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+          gap: clamp(40px, 6vw, 88px);
           align-items: center;
-          gap: 48px;
         }
-        :global(.lh-hero-video) {
-          flex: 1;
-          min-width: 0;
-        }
-        .lh-hero-video-frame {
-          position: relative;
-          width: 100%;
-          padding-top: 66%;
-          border-radius: 20px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        .lh-hero-video-frame iframe {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          border: none;
-        }
-        .lh-hero-video-placeholder {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          color: rgba(255, 255, 255, 0.85);
-          font-size: 0.9rem;
-        }
-        .lh-hero-video-play {
-          width: 60px;
-          height: 60px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.16);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        :global(.lh-hero-copy) {
-          flex: 1.1;
-          min-width: 0;
+        .lh-hero-eyebrow {
+          display: inline-block;
+          font-family: ${MONO};
+          font-size: ${TYPE.eyebrow};
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: ${GOLD_DEEP};
+          padding-bottom: 14px;
+          border-bottom: 1px solid ${RULE};
+          margin-bottom: clamp(24px, 3vw, 36px);
         }
         .lh-hero-title {
-          color: #fff;
-          font-weight: 800;
-          font-size: clamp(2.2rem, 5vw, 3.4rem);
-          line-height: 1.15;
-          margin-bottom: 18px;
+          font-family: ${SERIF};
+          font-weight: 400;
+          font-size: ${TYPE.display};
+          line-height: 1.02;
+          letter-spacing: -0.022em;
+          color: ${INK};
+          margin: 0 0 clamp(20px, 2.4vw, 30px);
+        }
+        .lh-hero-title em {
+          font-style: italic;
+          color: ${GOLD_DEEP};
         }
         .lh-hero-desc {
-          color: rgba(255, 255, 255, 0.9);
-          font-size: clamp(1rem, 1.6vw, 1.15rem);
-          line-height: 1.6;
-          margin-bottom: 28px;
-          max-width: 560px;
+          font-family: ${SANS};
+          font-size: ${TYPE.body};
+          line-height: 1.65;
+          color: ${INK_2};
+          max-width: 46ch;
+          margin: 0 0 clamp(28px, 3.4vw, 40px);
         }
         .lh-hero-cta {
           display: flex;
+          align-items: center;
           flex-wrap: wrap;
-          gap: 16px;
-          margin-bottom: 32px;
+          gap: 28px;
+          margin-bottom: clamp(36px, 4.5vw, 56px);
         }
-        .lh-hero-btn-primary {
+        .lh-hero-btn {
+          font-family: ${SANS};
           background: ${GOLD};
-          color: ${NAVY_DARK};
+          color: ${INK};
           border: none;
-          border-radius: 999px;
-          padding: 14px 30px;
-          font-weight: 700;
-          font-size: 1rem;
+          border-radius: 2px;
+          padding: 15px 32px;
+          font-weight: 500;
+          font-size: 0.95rem;
+          letter-spacing: 0.01em;
           cursor: pointer;
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+          transition: background 0.25s ease, transform 0.25s ease;
+        }
+        .lh-hero-btn:hover {
+          background: ${GOLD_DEEP};
+          transform: translateY(-1px);
+        }
+        .lh-hero-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: ${SANS};
+          font-size: 0.92rem;
+          color: ${INK};
+          text-decoration: none;
+          padding-bottom: 3px;
+          border-bottom: 1px solid ${INK};
+          transition: color 0.25s ease, border-color 0.25s ease, gap 0.25s ease;
+        }
+        .lh-hero-link:hover {
+          color: ${GOLD_DEEP};
+          border-color: ${GOLD_DEEP};
+          gap: 12px;
         }
         .lh-hero-usp {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 16px;
-          padding: 16px 20px;
-          max-width: 520px;
-          backdrop-filter: blur(6px);
+          border-left: 2px solid ${GOLD};
+          padding-left: 20px;
+          max-width: 44ch;
         }
-        .lh-hero-usp-icon {
-          flex-shrink: 0;
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: ${GOLD}26;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: ${GOLD};
-        }
-        .lh-hero-usp-heading {
-          color: #fff;
-          font-weight: 700;
-          font-size: 0.95rem;
-          margin-bottom: 4px;
+        .lh-hero-usp-head {
+          display: block;
+          font-family: ${SANS};
+          font-size: 0.78rem;
+          font-weight: 500;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: ${INK};
+          margin-bottom: 8px;
         }
         .lh-hero-usp-desc {
-          color: rgba(255, 255, 255, 0.85);
-          font-size: 0.85rem;
-          line-height: 1.4;
+          font-family: ${SANS};
+          font-size: 0.9rem;
+          line-height: 1.6;
+          color: ${INK_2};
+          margin: 0;
         }
-        :global(.lh-hero-stats) {
-          display: flex;
-          gap: 16px;
-          max-width: 640px;
+        .lh-hero-visual {
+          position: relative;
         }
-        .lh-hero-stat-card {
-          flex: 1;
-          min-width: 0;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid ${GOLD}3d;
-          border-radius: 14px;
-          padding: 14px 12px;
-          text-align: center;
-          backdrop-filter: blur(6px);
+        .lh-hero-visual :global(.lh-hero-media) {
+          width: 100%;
+          height: auto;
+          display: block;
+          border: 1px solid ${RULE};
         }
-        .lh-hero-stat-value {
-          color: #fff;
-          font-weight: 800;
-          font-size: 1.3rem;
-          white-space: nowrap;
-          margin-bottom: 2px;
+        /* The grid-breaking element: overhangs the visual's lower-left corner. */
+        .lh-hero-chip {
+          position: absolute;
+          left: clamp(-40px, -3vw, -16px);
+          bottom: clamp(-18px, -2vw, -12px);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: ${INK};
+          color: ${PAPER};
+          font-family: ${SANS};
+          font-size: 0.72rem;
+          letter-spacing: 0.04em;
+          padding: 10px 16px;
+          max-width: calc(100% - 24px);
         }
-        .lh-hero-stat-label {
-          color: rgba(255, 255, 255, 0.85);
-          font-size: 0.75rem;
+        .lh-hero-chip :global(svg) {
+          color: ${GREEN};
+          flex-shrink: 0;
         }
 
-        @media (max-width: 991px) {
-          .lh-hero-main {
-            flex-direction: column-reverse;
-            align-items: stretch;
-            gap: 36px;
+        @media (max-width: ${BP.lg}) {
+          .lh-hero-inner {
+            grid-template-columns: 1fr;
+            gap: 56px;
           }
-          :global(.lh-hero-stats) {
-            max-width: none;
+          .lh-hero-chip {
+            left: 0;
           }
         }
-        @media (max-width: 576px) {
-          .lh-hero {
-            padding: 40px 16px 48px;
-          }
-          .lh-hero-inner {
-            gap: 32px;
-          }
+        @media (max-width: ${BP.sm}) {
           .lh-hero-cta {
             flex-direction: column;
+            align-items: stretch;
+            gap: 18px;
           }
-          .lh-hero-btn-primary {
+          .lh-hero-btn {
             width: 100%;
-            justify-content: center;
           }
-          :global(.lh-hero-stats) {
-            flex-direction: column;
+          .lh-hero-link {
+            align-self: flex-start;
+          }
+          .lh-hero-chip {
+            position: static;
+            margin-top: 20px;
+            max-width: 100%;
           }
         }
       `}</style>

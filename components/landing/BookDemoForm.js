@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
-import { NAVY, GOLD } from './theme';
+import { contactUsFormService } from '@/services/contact';
+import {
+  executeRecaptcha,
+  isRecaptchaConfigured,
+  loadRecaptchaScript,
+  unloadRecaptchaScript,
+} from '@/utils/recaptcha';
+import { PAPER, INK, INK_3, RULE, GOLD, GOLD_DEEP, TERRACOTTA, SANS, BP } from './theme';
+
+const RECAPTCHA_ACTION = 'book_demo_form';
 
 const validationSchema = yup.object().shape({
   fullName: yup
@@ -21,16 +30,56 @@ const validationSchema = yup.object().shape({
 });
 
 const BookDemoForm = ({ content, onClose }) => {
-  const handleSubmit = (values, { resetForm, setSubmitting }) => {
-    // UI-only stub for now — no backend endpoint exists yet for this field set
-    // (company name / interest). Wire a real service call here later.
-    // eslint-disable-next-line no-console
-    console.log('Book demo form submitted (stub):', values);
-    toast.success("Thanks! We'll get back to you shortly.", { position: 'top-center' });
-    setSubmitting(false);
-    resetForm();
-    if (onClose) {
-      setTimeout(onClose, 600);
+  useEffect(() => {
+    if (!isRecaptchaConfigured) return undefined;
+    loadRecaptchaScript().catch(() => {});
+    return () => unloadRecaptchaScript();
+  }, []);
+
+  // Posts to /cms/contact-us — the same endpoint the site's contact form has
+  // used in production. Chosen over /cms/register-interest, which exists in
+  // services/contact.js but has never had a single caller, so its payload
+  // contract is unverified.
+  //
+  // This form previously console.log'd and discarded every submission.
+  const handleSubmit = async (values, { resetForm, setSubmitting }) => {
+    try {
+      let recaptchaToken;
+      if (isRecaptchaConfigured) {
+        // Best-effort: a reCAPTCHA failure must not cost us the lead.
+        recaptchaToken = await executeRecaptcha(RECAPTCHA_ACTION).catch(() => undefined);
+      }
+
+      const comment = [
+        `Company: ${values.companyName}`,
+        `Interested in: ${values.interest}`,
+        values.message ? `Message: ${values.message}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const response = await contactUsFormService({
+        name: values.fullName,
+        email: values.email,
+        phone: `${values.countryCode}${values.phone}`,
+        subject: `Demo request — ${values.interest}`,
+        comment,
+        submitted_from: 'landing_book_demo',
+        ...(recaptchaToken ? { recaptchaToken } : {}),
+      });
+
+      toast.success(response?.message || "Thanks! We'll be in touch shortly.", {
+        position: 'top-center',
+      });
+      resetForm();
+      if (onClose) setTimeout(onClose, 600);
+    } catch (error) {
+      const raw = error?.message?.response?.data?.message || error?.response?.data?.message || error?.message;
+      toast.error(typeof raw === 'string' ? raw : 'Could not send your request. Please try again.', {
+        position: 'top-center',
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -52,12 +101,12 @@ const BookDemoForm = ({ content, onClose }) => {
         <Form className="lh-demo-form">
           <div className="lh-demo-row">
             <div className="lh-demo-field">
-              <label htmlFor="fullName">Full Name *</label>
+              <label htmlFor="fullName">Full name</label>
               <Field id="fullName" name="fullName" type="text" placeholder="Ex. Manoj Kumar" />
               {touched.fullName && errors.fullName && <span className="lh-demo-error">{errors.fullName}</span>}
             </div>
             <div className="lh-demo-field">
-              <label htmlFor="email">Email Address *</label>
+              <label htmlFor="email">Work email</label>
               <Field id="email" name="email" type="email" placeholder="example@company.com" />
               {touched.email && errors.email && <span className="lh-demo-error">{errors.email}</span>}
             </div>
@@ -65,9 +114,9 @@ const BookDemoForm = ({ content, onClose }) => {
 
           <div className="lh-demo-row">
             <div className="lh-demo-field">
-              <label htmlFor="phone">Phone Number *</label>
+              <label htmlFor="phone">Phone number</label>
               <div className="lh-demo-phone">
-                <Field as="select" name="countryCode" className="lh-demo-code">
+                <Field as="select" name="countryCode" className="lh-demo-code" aria-label="Country code">
                   {content.countryCodes.map((c) => (
                     <option key={c.code} value={c.code}>
                       {c.label}
@@ -79,8 +128,8 @@ const BookDemoForm = ({ content, onClose }) => {
               {touched.phone && errors.phone && <span className="lh-demo-error">{errors.phone}</span>}
             </div>
             <div className="lh-demo-field">
-              <label htmlFor="companyName">Company Name *</label>
-              <Field id="companyName" name="companyName" type="text" placeholder="Your Company Name" />
+              <label htmlFor="companyName">Company</label>
+              <Field id="companyName" name="companyName" type="text" placeholder="Your company name" />
               {touched.companyName && errors.companyName && (
                 <span className="lh-demo-error">{errors.companyName}</span>
               )}
@@ -88,7 +137,7 @@ const BookDemoForm = ({ content, onClose }) => {
           </div>
 
           <div className="lh-demo-field">
-            <label htmlFor="interest">I&apos;m interested in *</label>
+            <label htmlFor="interest">I&apos;m interested in</label>
             <Field as="select" id="interest" name="interest">
               <option value="">Select your interest</option>
               {content.interestOptions.map((option) => (
@@ -101,42 +150,45 @@ const BookDemoForm = ({ content, onClose }) => {
           </div>
 
           <div className="lh-demo-field">
-            <label htmlFor="message">Message</label>
+            <label htmlFor="message">Anything specific? (optional)</label>
             <Field
               as="textarea"
               id="message"
               name="message"
-              rows={4}
-              placeholder="Tell us more about your requirements..."
+              rows={3}
+              placeholder="Tell us about your properties and what you buy most."
             />
           </div>
 
-          <button type="submit" className="lh-demo-submit lh-demo-submit-spaced" disabled={isSubmitting}>
-            {content.submitLabel}
+          <button type="submit" className="lh-demo-submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Sending…' : content.submitLabel}
           </button>
 
           <style jsx>{`
             .lh-demo-form {
               display: flex;
               flex-direction: column;
-              gap: 26px;
+              gap: 20px;
             }
             .lh-demo-row {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 26px;
+              gap: 20px;
             }
             .lh-demo-field {
               display: flex;
               flex-direction: column;
-              gap: 4px;
+              gap: 6px;
             }
             .lh-demo-field label {
               display: block;
               margin: 0;
-              font-weight: 600;
-              font-size: 0.85rem;
-              color: var(--dark-color);
+              font-family: ${SANS};
+              font-size: 0.72rem;
+              font-weight: 500;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+              color: ${INK_3};
             }
             .lh-demo-field :global(input),
             .lh-demo-field :global(select),
@@ -144,13 +196,22 @@ const BookDemoForm = ({ content, onClose }) => {
               display: block;
               margin: 0;
               box-sizing: border-box;
-              border: 1px solid var(--border-color, #d3d3d3);
-              border-radius: 10px;
-              padding: 11px 14px;
+              background: ${PAPER};
+              border: 1px solid ${RULE};
+              border-radius: 2px;
+              padding: 12px 14px;
+              font-family: ${SANS};
               font-size: 0.92rem;
+              color: ${INK};
               width: 100%;
-              font-family: inherit;
               line-height: 1.4;
+              transition: border-color 0.2s ease;
+            }
+            .lh-demo-field :global(input:focus),
+            .lh-demo-field :global(select:focus),
+            .lh-demo-field :global(textarea:focus) {
+              outline: none;
+              border-color: ${GOLD_DEEP};
             }
             .lh-demo-field :global(textarea) {
               resize: vertical;
@@ -161,10 +222,10 @@ const BookDemoForm = ({ content, onClose }) => {
               gap: 8px;
             }
             .lh-demo-phone :global(select.lh-demo-code) {
-              flex: 0 0 110px;
-              width: 110px;
+              flex: 0 0 108px;
+              width: 108px;
               min-width: 0;
-              padding-left: 8px;
+              padding-left: 10px;
               padding-right: 4px;
             }
             .lh-demo-phone :global(input) {
@@ -173,31 +234,39 @@ const BookDemoForm = ({ content, onClose }) => {
               width: auto;
             }
             .lh-demo-error {
-              color: var(--red-color);
-              font-size: 0.78rem;
+              font-family: ${SANS};
+              color: ${TERRACOTTA};
+              font-size: 0.76rem;
             }
             .lh-demo-submit {
+              font-family: ${SANS};
               background: ${GOLD};
-              color: ${NAVY};
+              color: ${INK};
               border: none;
-              border-radius: 999px;
-              padding: 13px 28px;
-              font-weight: 700;
-              font-size: 0.95rem;
+              border-radius: 2px;
+              padding: 14px 32px;
+              font-weight: 500;
+              font-size: 0.94rem;
               cursor: pointer;
               align-self: flex-start;
+              margin-top: 4px;
+              transition: background 0.25s ease;
+            }
+            .lh-demo-submit:hover:not(:disabled) {
+              background: ${GOLD_DEEP};
             }
             .lh-demo-submit:disabled {
-              opacity: 0.7;
+              opacity: 0.6;
               cursor: not-allowed;
             }
-            .lh-demo-submit-spaced {
-              margin-top: 10px;
-            }
 
-            @media (max-width: 576px) {
+            @media (max-width: ${BP.sm}) {
               .lh-demo-row {
                 grid-template-columns: 1fr;
+              }
+              .lh-demo-submit {
+                width: 100%;
+                align-self: stretch;
               }
             }
           `}</style>

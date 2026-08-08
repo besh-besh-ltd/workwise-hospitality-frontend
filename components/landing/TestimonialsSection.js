@@ -1,142 +1,110 @@
 import React from 'react';
-import Slider from 'react-slick';
-import { TestimonialCard } from '@/components/ui/TestimonialCard';
+import Section from './Section';
+import SectionHead from './SectionHead';
 import Reveal from './Reveal';
-import useMediaQuery from './useMediaQuery';
-import { NAVY } from './theme';
+import { INK, INK_3, RULE, GOLD, GOLD_DEEP, SERIF, SANS, BP } from './theme';
 
+/**
+ * An editorial pull quote rather than a card in a carousel.
+ *
+ * The previous build ran react-slick as an infinite marquee, then short-
+ * circuited to a static Bootstrap `ui/TestimonialCard` because there is only
+ * one quote — carrying a clashing #FBB928 accent onto the page for nothing.
+ *
+ * Scales up on its own: one quote reads as a statement, several read as a set.
+ */
 const TestimonialsSection = ({ content }) => {
-  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const items = content.items || [];
+  if (!items.length) return null;
 
-  const headingMarkup = (
-    <>
-      <span className="lh-eyebrow">{content.eyebrow}</span>
-      <h2 className="lh-heading">{content.heading}</h2>
-    </>
-  );
-
-  // With a single testimonial the marquee would just clone the same card across
-  // every visible slot, so render it as one static centred card instead.
-  const isSingle = content.items.length === 1;
-
-  const sliderSettings = {
-    dots: false,
-    arrows: false,
-    infinite: true,
-    speed: 6000,
-    slidesToShow: Math.min(3, content.items.length),
-    slidesToScroll: 1,
-    autoplay: !prefersReducedMotion,
-    autoplaySpeed: 0,
-    cssEase: 'linear',
-    pauseOnHover: true,
-    swipeToSlide: true,
-    responsive: [
-      { breakpoint: 991, settings: { slidesToShow: Math.min(2, content.items.length) } },
-      { breakpoint: 576, settings: { slidesToShow: 1 } },
-    ],
-  };
+  const isSingle = items.length === 1;
 
   return (
-    <section id="lh-testimonials" className="lh-section">
-      <div className="lh-section-inner">
-        <Reveal className="lh-section-head">{headingMarkup}</Reveal>
+    <Section id="lh-testimonials" tone="paper">
+      <SectionHead number={content.number} eyebrow={content.eyebrow} heading={content.heading} />
 
-        {isSingle ? (
-          <div className="lh-testimonial-single">
-            {content.items.map((item) => (
-              <div key={item.author} className="lh-testimonial-slide">
-                <TestimonialCard
-                  quote={item.quote}
-                  authorName={item.author}
-                  authorTitle={item.position}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="lh-testimonial-marquee">
-            <Slider {...sliderSettings}>
-              {content.items.map((item) => (
-                <div key={item.author} className="lh-testimonial-slide">
-                  <TestimonialCard
-                    quote={item.quote}
-                    authorName={item.author}
-                    authorTitle={item.position}
-                  />
-                </div>
-              ))}
-            </Slider>
-          </div>
-        )}
+      <div className={`lh-quote-wrap ${isSingle ? 'lh-quote-solo' : ''}`}>
+        {items.map((item, index) => (
+          <Reveal as="figure" key={item.author} className="lh-quote" delay={index * 120}>
+            <span className="lh-quote-mark" aria-hidden="true">
+              &ldquo;
+            </span>
+
+            <blockquote className="lh-quote-text">{item.quote}</blockquote>
+
+            <figcaption className="lh-quote-by">
+              <span className="lh-quote-author">{item.author}</span>
+              <span className="lh-quote-role">
+                {item.position}
+                {item.company ? ` · ${item.company}` : ''}
+              </span>
+            </figcaption>
+          </Reveal>
+        ))}
       </div>
 
       <style jsx>{`
-        .lh-section {
-          padding: 72px 20px;
-          background: #ffffff;
-          overflow: hidden;
+        .lh-quote-wrap {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: clamp(32px, 5vw, 64px);
         }
-        .lh-section-inner {
-          max-width: 1200px;
-          margin: 0 auto;
+        .lh-quote-solo {
+          grid-template-columns: 1fr;
+          max-width: 62ch;
         }
-        :global(.lh-section-head) {
-          text-align: center;
-          max-width: 680px;
-          margin: 0 auto 44px;
-        }
-        .lh-eyebrow {
-          display: inline-block;
-          color: ${NAVY};
-          font-weight: 700;
-          font-size: 0.8rem;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom: 10px;
-        }
-        .lh-heading {
-          font-weight: 800;
-          font-size: clamp(1.6rem, 3.5vw, 2.3rem);
-          color: var(--dark-color);
+        :global(.lh-quote) {
           margin: 0;
         }
-        .lh-testimonial-marquee :global(.slick-list) {
-          margin: 0 -12px;
-          overflow: visible;
+        .lh-quote-mark {
+          display: block;
+          font-family: ${SERIF};
+          font-size: 4rem;
+          line-height: 0.6;
+          color: ${GOLD_DEEP};
+          margin-bottom: 20px;
         }
-        .lh-testimonial-marquee :global(.slick-track) {
-          display: flex;
-          align-items: stretch;
-        }
-        .lh-testimonial-marquee :global(.slick-slide) {
-          height: auto;
-          display: flex;
-        }
-        .lh-testimonial-marquee :global(.slick-slide) > div {
-          display: flex;
-          width: 100%;
-        }
-        .lh-testimonial-slide {
-          padding: 0 12px;
-          width: 100%;
-        }
-        .lh-testimonial-single {
-          display: flex;
-          justify-content: center;
-        }
-        .lh-testimonial-single .lh-testimonial-slide {
-          max-width: 620px;
+        .lh-quote-text {
+          font-family: ${SERIF};
+          font-weight: 400;
+          font-size: clamp(1.35rem, 2.6vw, 2.1rem);
+          line-height: 1.32;
+          letter-spacing: -0.012em;
+          color: ${INK};
+          margin: 0 0 32px;
+          border: none;
           padding: 0;
         }
+        .lh-quote-solo .lh-quote-text {
+          font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+        }
+        .lh-quote-by {
+          padding-top: 20px;
+          border-top: 1px solid ${RULE};
+        }
+        .lh-quote-author {
+          display: block;
+          font-family: ${SANS};
+          font-size: 0.95rem;
+          font-weight: 500;
+          color: ${INK};
+          margin-bottom: 4px;
+        }
+        .lh-quote-role {
+          display: block;
+          font-family: ${SANS};
+          font-size: 0.85rem;
+          line-height: 1.5;
+          color: ${INK_3};
+        }
 
-        @media (max-width: 576px) {
-          .lh-section {
-            padding: 48px 16px;
+        @media (max-width: ${BP.lg}) {
+          .lh-quote-wrap {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
-    </section>
+    </Section>
   );
 };
 

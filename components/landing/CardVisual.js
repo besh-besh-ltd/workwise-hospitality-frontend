@@ -1,5 +1,5 @@
 import React from 'react';
-import { NAVY, GOLD, RED_MARK, GREEN_MARK } from './theme';
+import { INK, GOLD, GOLD_DEEP, TERRACOTTA, GREEN, PAPER } from './theme';
 
 // Vendor B is objectively cheapest (green), but the order still goes to the
 // long-standing favourite (C) at a worse rate — the whole point of the card.
@@ -74,7 +74,7 @@ const AnnotationRing = ({ order }) => (
   </svg>
 );
 
-const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey }) => {
+const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) => {
   const badgeContent = iconElement || null;
 
   // Ring reveal order runs left-to-right across the sheets.
@@ -120,21 +120,21 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           <span className="lh-cv-chip lh-cv-chip-1">
             <i className="lh-cv-chip-dot" />
             <span className="lh-cv-chip-body">
-              <span className="lh-cv-chip-unit">Business Unit A</span>
+              <span className="lh-cv-chip-unit">Property A</span>
               <span className="lh-cv-chip-rate">{'₹'}42/kg</span>
             </span>
           </span>
           <span className="lh-cv-chip lh-cv-chip-2">
             <i className="lh-cv-chip-dot" />
             <span className="lh-cv-chip-body">
-              <span className="lh-cv-chip-unit">Business Unit B</span>
+              <span className="lh-cv-chip-unit">Property B</span>
               <span className="lh-cv-chip-rate">{'₹'}58/kg</span>
             </span>
           </span>
           <span className="lh-cv-chip lh-cv-chip-3">
             <i className="lh-cv-chip-dot" />
             <span className="lh-cv-chip-body">
-              <span className="lh-cv-chip-unit">Business Unit C</span>
+              <span className="lh-cv-chip-unit">Property C</span>
               <span className="lh-cv-chip-rate">{'₹'}35/kg</span>
             </span>
           </span>
@@ -232,7 +232,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
             <path d="M 150,110 C 150,152 249,170 249,196" />
           </svg>
 
-          {['Business Unit A', 'Business Unit B', 'Business Unit C'].map((unit, index) => (
+          {['Property A', 'Property B', 'Property C'].map((unit, index) => (
             <div key={unit} className={`lh-cv-one-unit lh-cv-one-unit-${index + 1}`}>
               <span className="lh-cv-one-unit-name">{unit}</span>
               <span className="lh-cv-one-unit-rate">
@@ -317,7 +317,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           width: 120px;
           height: 120px;
           border-radius: 50%;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           box-shadow: 0 14px 28px -14px ${color}66;
           color: ${color};
@@ -330,7 +330,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         .lh-cv-q-sheet {
           position: absolute;
           width: 31%;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           border-radius: 10px;
           box-shadow: 0 16px 28px -16px ${color}55;
@@ -424,7 +424,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         }
         .lh-cv-q-val :global(.lh-cv-ring path) {
           fill: none;
-          stroke: ${RED_MARK};
+          stroke: ${TERRACOTTA};
           stroke-width: 1.6;
           stroke-linecap: round;
           stroke-dasharray: 100;
@@ -488,7 +488,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           gap: 8px;
           padding: 8px 13px 8px 10px;
           border-radius: 12px;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}2a;
           box-shadow: 0 10px 20px -12px ${color}66;
           color: ${color};
@@ -567,7 +567,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         }
         .lh-cv-pick-line path {
           fill: none;
-          stroke: ${RED_MARK};
+          stroke: ${TERRACOTTA};
           stroke-width: 1.5;
           stroke-dasharray: 4 5;
           opacity: 0.55;
@@ -582,7 +582,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           align-items: center;
           gap: 7px;
           padding: 13px 8px 12px;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           border-radius: 12px;
           box-shadow: 0 14px 26px -16px ${color}55;
@@ -601,7 +601,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           height: 34px;
           border-radius: 50%;
           background: ${GOLD}22;
-          color: ${GOLD};
+          color: ${GOLD_DEEP};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -617,7 +617,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           padding: 3px 8px;
           border-radius: 999px;
           background: ${GOLD}22;
-          color: ${GOLD};
+          color: ${GOLD_DEEP};
           font-size: 0.48rem;
           font-weight: 800;
           text-align: center;
@@ -625,16 +625,16 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         }
         /* Best-priced vendor reads green, then visibly dims as the award lands elsewhere. */
         .lh-cv-pick-card-best {
-          border-color: ${GREEN_MARK}55;
+          border-color: ${GREEN}55;
           animation: lh-cv-best-ignored 4s ease-in-out infinite;
         }
         .lh-cv-pick-card-best .lh-cv-pick-avatar,
         .lh-cv-pick-card-best .lh-cv-pick-tag {
-          background: ${GREEN_MARK}1f;
-          color: ${GREEN_MARK};
+          background: ${GREEN}1f;
+          color: ${GREEN};
         }
         .lh-cv-pick-card-best .lh-cv-pick-price {
-          color: ${GREEN_MARK};
+          color: ${GREEN};
         }
         @keyframes lh-cv-best-ignored {
           0%,
@@ -651,7 +651,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           }
         }
         .lh-cv-pick-card-chosen {
-          border-color: ${RED_MARK}44;
+          border-color: ${TERRACOTTA}44;
         }
         .lh-cv-pick-awarded {
           position: absolute;
@@ -659,12 +659,12 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           right: 6px;
           padding: 3px 9px;
           border-radius: 999px;
-          background: ${RED_MARK};
-          color: #ffffff;
+          background: ${TERRACOTTA};
+          color: ${PAPER};
           font-size: 0.48rem;
           font-weight: 800;
           white-space: nowrap;
-          box-shadow: 0 6px 12px -4px ${RED_MARK}99;
+          box-shadow: 0 6px 12px -4px ${TERRACOTTA}99;
           transform: scale(0) rotate(-8deg);
           animation: lh-cv-awarded-in 4s ease-in-out infinite;
         }
@@ -690,7 +690,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         .lh-cv-chart-card {
           position: absolute;
           inset: 8%;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           border-radius: 16px;
           box-shadow: 0 18px 32px -18px ${color}55;
@@ -800,7 +800,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           white-space: nowrap;
         }
         .lh-cv-rate-value-best {
-          color: ${GOLD};
+          color: ${GOLD_DEEP};
         }
         .lh-cv-rate-gap {
           font-size: 0.5rem;
@@ -810,7 +810,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           white-space: nowrap;
         }
         .lh-cv-rate-gap-best {
-          color: ${GOLD};
+          color: ${GOLD_DEEP};
         }
         .lh-cv-rate-foot {
           display: flex;
@@ -828,7 +828,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           color: ${color};
         }
 
-        /* --- check: one locked product rate, mirrored by every business unit --- */
+        /* --- check: one locked product rate, mirrored by every property --- */
         .lh-cv-one-product {
           position: absolute;
           top: 12%;
@@ -839,7 +839,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           align-items: center;
           gap: 5px;
           padding: 13px 12px;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${GOLD}55;
           border-radius: 14px;
           box-shadow: 0 16px 30px -18px ${color}66;
@@ -860,7 +860,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           padding: 3px 10px;
           border-radius: 999px;
           background: ${GOLD};
-          color: #ffffff;
+          color: ${INK};
           font-size: 0.46rem;
           font-weight: 800;
           letter-spacing: 0.03em;
@@ -889,7 +889,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           align-items: center;
           gap: 5px;
           padding: 10px 6px;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           border-radius: 10px;
           box-shadow: 0 12px 22px -16px ${color}55;
@@ -916,8 +916,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           }
           26%,
           52% {
-            border-color: ${GREEN_MARK}66;
-            box-shadow: 0 12px 22px -12px ${GREEN_MARK}66;
+            border-color: ${GREEN}66;
+            box-shadow: 0 12px 22px -12px ${GREEN}66;
           }
           70%,
           100% {
@@ -947,8 +947,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           width: 14px;
           height: 14px;
           border-radius: 50%;
-          background: ${GREEN_MARK}22;
-          color: ${GREEN_MARK};
+          background: ${GREEN}22;
+          color: ${GREEN};
           font-size: 0.5rem;
           font-style: normal;
           font-weight: 800;
@@ -990,7 +990,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           flex-direction: column;
           gap: 8px;
           padding: 14px 16px;
-          background: #ffffff;
+          background: ${PAPER};
           border: 1px solid ${color}22;
           border-radius: 16px;
           box-shadow: 0 18px 32px -18px ${color}55;
@@ -1031,7 +1031,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           border-radius: 6px;
         }
         .lh-cv-vm-row-best {
-          background: ${GREEN_MARK}14;
+          background: ${GREEN}14;
         }
         /* Name sits under an opaque redaction bar that wipes across on loop. */
         .lh-cv-vm-name {
@@ -1053,8 +1053,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           align-items: center;
           padding-left: 7px;
           border-radius: 4px;
-          background: ${NAVY};
-          color: #ffffff;
+          background: ${INK};
+          color: ${PAPER};
           font-size: 0.5rem;
           font-weight: 800;
           letter-spacing: 0.04em;
@@ -1092,7 +1092,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
           white-space: nowrap;
         }
         .lh-cv-vm-row-best .lh-cv-vm-price {
-          color: ${GREEN_MARK};
+          color: ${GREEN};
         }
         .lh-cv-vm-grade {
           font-size: 0.52rem;
@@ -1104,7 +1104,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = NAVY, activeKey })
         .lh-cv-vm-flag {
           font-size: 0.46rem;
           font-weight: 800;
-          color: ${GREEN_MARK};
+          color: ${GREEN};
           text-align: right;
           white-space: nowrap;
         }
