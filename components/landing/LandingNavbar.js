@@ -1,38 +1,41 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FiMenu, FiX } from 'react-icons/fi';
-import { NAVY, GOLD } from './theme';
+import { PAPER, INK, INK_2, RULE, GOLD, GOLD_DEEP, SANS, MAXW, GUTTER, BP } from './theme';
 
 const LandingNavbar = ({ content, logo, onBookDemo }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isPastHero, setIsPastHero] = useState(false);
-  const headerRef = useRef(null);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  // Flip the bar to its navy treatment once the hero has scrolled fully behind
-  // it. The negative top rootMargin pulls the observation line down to the
-  // navbar's own bottom edge, so the switch lands exactly as the hero clears it.
+  // The bar sits on paper the whole way down; scrolling only earns it a
+  // hairline and a blur. The previous build swapped to navy and rendered the
+  // white logo on a white bar, which left the logo invisible on first paint.
   useEffect(() => {
-    const heroEl = document.getElementById('lh-hero');
-    const headerEl = headerRef.current;
-    if (!heroEl || !headerEl) return undefined;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        setIsScrolled(window.scrollY > 8);
+        frame = 0;
+      });
+    };
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsPastHero(!entry.isIntersecting),
-      { rootMargin: `-${headerEl.offsetHeight}px 0px 0px 0px`, threshold: 0 }
-    );
-    observer.observe(heroEl);
-
-    return () => observer.disconnect();
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header ref={headerRef} className={`lh-nav-header ${isPastHero ? 'lh-nav-header-dark' : ''}`}>
+    <header className={`lh-nav ${isScrolled ? 'lh-nav-stuck' : ''}`}>
       <div className="lh-nav-inner">
         <a href="#lh-hero" className="lh-nav-logo" onClick={closeMenu}>
-          <Image src={logo.logoLight} alt={logo.logoAlt} width={140} height={32} priority />
+          <Image src={logo.logo} alt={logo.logoAlt} width={132} height={30} priority />
         </a>
 
         <nav className={`lh-nav-links ${isOpen ? 'lh-nav-links-open' : ''}`}>
@@ -41,13 +44,14 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
               {item.label}
             </a>
           ))}
+
           <div className="lh-nav-actions">
             <Link href={content.loginHref} className="lh-nav-login" onClick={closeMenu}>
               {content.loginLabel}
             </Link>
             <button
               type="button"
-              className="lh-nav-demo-btn"
+              className="lh-nav-demo"
               onClick={() => {
                 closeMenu();
                 onBookDemo();
@@ -62,32 +66,36 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
           type="button"
           className="lh-nav-toggle"
           aria-label="Toggle navigation menu"
+          aria-expanded={isOpen}
           onClick={() => setIsOpen((prev) => !prev)}
         >
-          {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+          {isOpen ? <FiX size={22} /> : <FiMenu size={22} />}
         </button>
       </div>
 
       <style jsx>{`
-        .lh-nav-header {
+        .lh-nav {
           position: sticky;
           top: 0;
           z-index: 1000;
-          background: #ffffff;
-          box-shadow: 0 1px 12px rgba(0, 0, 0, 0.06);
-          transition: background 0.3s ease, box-shadow 0.3s ease;
+          background: ${PAPER};
+          border-bottom: 1px solid transparent;
+          transition: border-color 0.3s ease, background 0.3s ease;
         }
-        .lh-nav-header-dark {
-          background: ${NAVY};
-          box-shadow: 0 1px 16px rgba(0, 0, 0, 0.25);
+        .lh-nav-stuck {
+          border-bottom-color: ${RULE};
+          background: rgba(255, 255, 255, 0.86);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         .lh-nav-inner {
-          max-width: 1600px;
+          max-width: ${MAXW};
           margin: 0 auto;
-          padding: 14px 40px;
+          padding: 18px ${GUTTER};
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 24px;
         }
         .lh-nav-logo {
           display: inline-flex;
@@ -100,86 +108,66 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
         .lh-nav-links {
           display: flex;
           align-items: center;
-          gap: 28px;
+          gap: 32px;
         }
         .lh-nav-link {
-          color: var(--dark-color);
-          font-weight: 500;
-          font-size: 0.95rem;
+          font-family: ${SANS};
+          font-size: 0.88rem;
+          color: ${INK_2};
           text-decoration: none;
           white-space: nowrap;
-          transition: color 0.3s ease;
+          padding-bottom: 2px;
+          border-bottom: 1px solid transparent;
+          transition: color 0.25s ease, border-color 0.25s ease;
         }
         .lh-nav-link:hover {
-          color: ${NAVY};
-        }
-        .lh-nav-header-dark .lh-nav-link {
-          color: #ffffff;
-        }
-        .lh-nav-header-dark .lh-nav-link:hover {
-          color: ${GOLD};
+          color: ${INK};
+          border-bottom-color: ${GOLD_DEEP};
         }
         .lh-nav-actions {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 22px;
           margin-left: 8px;
         }
-        /* Login is a next/link child component, so styled-jsx can't inject its
-           scope hash onto the rendered <a> — these must be :global() to match. */
-        .lh-nav-header :global(.lh-nav-login) {
-          color: var(--dark-color);
-          font-weight: 600;
-          font-size: 0.95rem;
+        /* next/link renders its own <a>, which styled-jsx cannot scope-hash. */
+        .lh-nav :global(.lh-nav-login) {
+          font-family: ${SANS};
+          font-size: 0.88rem;
+          color: ${INK_2};
           text-decoration: none;
           white-space: nowrap;
-          transition: color 0.3s ease;
+          transition: color 0.25s ease;
         }
-        .lh-nav-header :global(.lh-nav-login:hover) {
-          color: ${NAVY};
+        .lh-nav :global(.lh-nav-login:hover) {
+          color: ${GOLD_DEEP};
         }
-        .lh-nav-header-dark :global(.lh-nav-login) {
-          color: #ffffff;
-        }
-        .lh-nav-header-dark :global(.lh-nav-login:hover) {
-          color: ${GOLD};
-        }
-        .lh-nav-demo-btn {
+        .lh-nav-demo {
+          font-family: ${SANS};
           background: ${GOLD};
-          color: ${NAVY};
+          color: ${INK};
           border: none;
-          border-radius: 999px;
-          padding: 10px 22px;
-          font-weight: 700;
-          font-size: 0.9rem;
+          border-radius: 2px;
+          padding: 11px 22px;
+          font-weight: 500;
+          font-size: 0.86rem;
           white-space: nowrap;
           cursor: pointer;
-          transition: opacity 0.2s ease, background 0.3s ease, color 0.3s ease;
+          transition: background 0.25s ease;
         }
-        .lh-nav-demo-btn:hover {
-          opacity: 0.9;
-        }
-        .lh-nav-header-dark .lh-nav-demo-btn {
-          background: #ffffff;
-          color: ${NAVY};
+        .lh-nav-demo:hover {
+          background: ${GOLD_DEEP};
         }
         .lh-nav-toggle {
           display: none;
           background: none;
           border: none;
-          color: var(--dark-color);
+          color: ${INK};
           padding: 4px;
           cursor: pointer;
-          transition: color 0.3s ease;
-        }
-        .lh-nav-header-dark .lh-nav-toggle {
-          color: #ffffff;
         }
 
-        @media (max-width: 991px) {
-          .lh-nav-inner {
-            padding: 14px 20px;
-          }
+        @media (max-width: ${BP.lg}) {
           .lh-nav-toggle {
             display: inline-flex;
           }
@@ -188,46 +176,40 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
             top: 100%;
             left: 0;
             right: 0;
-            background: #ffffff;
+            background: ${PAPER};
+            border-bottom: 1px solid ${RULE};
             flex-direction: column;
             align-items: flex-start;
-            gap: 4px;
-            padding: 8px 20px 20px;
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+            gap: 0;
+            padding: 0 ${GUTTER};
             max-height: 0;
             overflow: hidden;
             opacity: 0;
-            transition: max-height 0.25s ease, opacity 0.2s ease;
+            transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease;
           }
           .lh-nav-links-open {
-            max-height: 480px;
+            max-height: 420px;
             opacity: 1;
-          }
-          .lh-nav-header-dark .lh-nav-links {
-            background: ${NAVY};
+            padding: 8px ${GUTTER} 24px;
           }
           .lh-nav-link {
             width: 100%;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--light-grey-color, #f3f3f3);
+            padding: 14px 0;
+            border-bottom: 1px solid ${RULE};
           }
-          .lh-nav-header-dark .lh-nav-link {
-            border-bottom-color: rgba(255, 255, 255, 0.14);
+          .lh-nav-link:hover {
+            border-bottom-color: ${RULE};
           }
           .lh-nav-actions {
             width: 100%;
             flex-direction: column;
             align-items: stretch;
-            gap: 10px;
-            margin-left: 0;
-            margin-top: 10px;
+            gap: 14px;
+            margin: 18px 0 0;
           }
-          .lh-nav-header :global(.lh-nav-login) {
-            padding: 8px 0;
-          }
-          .lh-nav-demo-btn {
+          .lh-nav-demo {
             width: 100%;
-            padding: 12px 22px;
+            padding: 13px 22px;
           }
         }
       `}</style>
