@@ -29,6 +29,14 @@ const UNIT_PLACEHOLDERS = new Set(['NA', 'N/A', 'NIL', 'NONE', 'NULL', '-', '--'
 // error on a purchase order rather than a validation message.
 const NUMERIC = /^\+?(\d+(\.\d*)?|\.\d+)$/;
 
+/**
+ * Smallest quantity anyone can order. The edit path on the server has enforced
+ * this floor for a long time; every path now shares it, so the client agrees
+ * with both submit routes. Mirrors MIN_QUANTITY in the server's
+ * app/util/productCompleteness.js.
+ */
+export const MIN_QUANTITY = 0.1;
+
 const asText = (value) => {
   if (value === null || value === undefined) return '';
   return String(value).trim();
@@ -37,7 +45,7 @@ const asText = (value) => {
 export const isQuantityValid = (value) => {
   const text = asText(value);
   if (!NUMERIC.test(text)) return false;
-  return Number.parseFloat(text) > 0;
+  return Number.parseFloat(text) >= MIN_QUANTITY;
 };
 
 export const isUnitValid = (value) => {

@@ -19,6 +19,15 @@ describe('isQuantityValid', () => {
     (value) => expect(isQuantityValid(value)).toBe(false)
   );
 
+  it('enforces the 0.1 floor the edit path has always applied', () => {
+    // Both submit routes now share this. No production row sits between 0 and
+    // 0.1, so nothing that used to save stops saving.
+    expect(isQuantityValid('0.1')).toBe(true);
+    expect(isQuantityValid('.1')).toBe(true);
+    expect(isQuantityValid('0.05')).toBe(false);
+    expect(isQuantityValid('0.09999')).toBe(false);
+  });
+
   it("rejects '1,000' rather than silently reading it as 1", () => {
     // parseFloat('1,000') === 1. Accepting this would put 1 on the purchase
     // order when the buyer meant 1000, which is worse than a validation error.
