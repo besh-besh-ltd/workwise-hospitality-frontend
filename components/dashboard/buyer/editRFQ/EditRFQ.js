@@ -40,6 +40,7 @@ import useModulePermissions from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import FormikField from "@/components/shared/FormikField";
+import { findIncompleteProducts, describeIncomplete } from "@/utils/productCompleteness";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -869,17 +870,21 @@ const EditRFQ = () => {
       // Validate that every product (including newly added ones) has a
       // Quantity + Unit. The deletable filter is gone — products are spliced
       // out of rfqData on remove now.
-      const invalidProduct = (rfqData.products || []).some((product) => {
-        const specs = product.product_specs || [];
-        const qty = specs.find((s) => s.title === 'Quantity')?.value;
-        const unit = specs.find((s) => s.title === 'Unit')?.value;
-        if (!qty || isNaN(parseFloat(qty)) || parseFloat(qty) <= 0) return true;
-        if (!unit || String(unit).trim() === '') return true;
-        return false;
-      });
+      //
+      // This used its own inline rule, which disagreed with the server in both
+      // directions: parseFloat accepted '10abc' as 10, and the spec lookup was
+      // case-sensitive so a lowercase 'quantity' row read as absent. Both now
+      // go through the shared predicate that mirrors the server's SQL, so the
+      // buyer cannot be told everything is fine here and rejected on submit.
+      const incompleteProducts = findIncompleteProducts(rfqData.products);
 
-      if (invalidProduct) {
-        toast.error('Some products are missing a valid Quantity or Unit. Please fix them and try again.');
+      if (incompleteProducts.length > 0) {
+        // Name them. "Some products" left the buyer hunting through the list.
+        toast.error(
+          `Quantity and unit are required for every product. Please check: ${describeIncomplete(
+            incompleteProducts
+          )}.`
+        );
         return;
       }
 
