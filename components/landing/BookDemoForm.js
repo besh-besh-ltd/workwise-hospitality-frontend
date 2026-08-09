@@ -241,7 +241,7 @@ const BookDemoForm = ({ content, onClose }) => {
             .lh-demo-submit {
               font-family: ${SANS};
               background: ${GOLD};
-              color: ${INK};
+              color: ${PAPER};
               border: none;
               border-radius: 2px;
               padding: 14px 32px;

@@ -1,15 +1,18 @@
 import React from 'react';
-import { INK, GOLD, GOLD_DEEP, TERRACOTTA, GREEN, PAPER } from './theme';
+import { GOLD, DOC, DOC_INK, DOC_GOLD, DOC_GREEN, DOC_RED } from './theme';
 
 // Vendor B is objectively cheapest (green), but the order still goes to the
 // long-standing favourite (C) at a worse rate — the whole point of the card.
-// Real vendor names get redacted mid-loop; price and grade never change, so the
-// cheapest bid wins on merit rather than on whose name is attached to it.
+// Masking happens at TECHNICAL evaluation, which is clause-based scoring run
+// before any quote is opened — so this panel deliberately shows no prices at
+// all. Names redact mid-loop; the clause marks and score never change.
 const MASKED_BIDS = [
-  { vendor: 'Sharma Traders', price: '₹1,842', grade: 'Grade A' },
-  { vendor: 'Vikram Agro', price: '₹1,798', grade: 'Grade A', best: true },
-  { vendor: 'Deccan Supply', price: '₹1,905', grade: 'Grade B' },
+  { vendor: 'Sharma Traders', clauses: ['pass', 'pass', 'fail'], score: '72' },
+  { vendor: 'Vikram Agro', clauses: ['pass', 'pass', 'pass'], score: '91', best: true },
+  { vendor: 'Deccan Supply', clauses: ['pass', 'fail', 'pass'], score: '64' },
 ];
+
+const CLAUSE_COLS = ['Spec', 'Certs', 'Lead'];
 
 const VENDOR_PICKS = [
   { slot: 'a', letter: 'A', price: '₹42/kg', label: 'Moderate Pricing' },
@@ -74,7 +77,7 @@ const AnnotationRing = ({ order }) => (
   </svg>
 );
 
-const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) => {
+const CardVisual = ({ variant = 'clock', iconElement, color = DOC_INK, activeKey }) => {
   const badgeContent = iconElement || null;
 
   // Ring reveal order runs left-to-right across the sheets.
@@ -248,8 +251,17 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         <div className="lh-cv-scene">
           <div className="lh-cv-vm-card">
             <div className="lh-cv-vm-head">
-              <span className="lh-cv-vm-eyebrow">Blind Evaluation</span>
+              <span className="lh-cv-vm-eyebrow">Technical Evaluation</span>
               <span className="lh-cv-vm-sku">Cooking Oil, 15L Tin</span>
+            </div>
+
+            <div className="lh-cv-vm-row lh-cv-vm-cols">
+              <span />
+              {CLAUSE_COLS.map((col) => (
+                <span key={col}>{col}</span>
+              ))}
+              <span>Score</span>
+              <span />
             </div>
 
             <div className="lh-cv-vm-rows">
@@ -264,14 +276,18 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
                     <span className="lh-cv-vm-name-text">{bid.vendor}</span>
                     <span className="lh-cv-vm-cover">Vendor {index + 1}</span>
                   </span>
-                  <span className="lh-cv-vm-price">{bid.price}</span>
-                  <span className="lh-cv-vm-grade">{bid.grade}</span>
-                  <span className="lh-cv-vm-flag">{bid.best ? 'Best' : ''}</span>
+                  {bid.clauses.map((state, i) => (
+                    <span key={CLAUSE_COLS[i]} className={`lh-cv-vm-clause lh-cv-vm-${state}`}>
+                      {state === 'pass' ? '✓' : '✕'}
+                    </span>
+                  ))}
+                  <span className="lh-cv-vm-score">{bid.score}</span>
+                  <span className="lh-cv-vm-flag">{bid.best ? 'Qualified' : ''}</span>
                 </div>
               ))}
             </div>
 
-            <div className="lh-cv-vm-foot">Names hidden · scored on price &amp; spec only</div>
+            <div className="lh-cv-vm-foot">Commercials sealed until scoring is signed off</div>
           </div>
         </div>
       )}
@@ -317,7 +333,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           width: 120px;
           height: 120px;
           border-radius: 50%;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           box-shadow: 0 14px 28px -14px ${color}66;
           color: ${color};
@@ -330,7 +346,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         .lh-cv-q-sheet {
           position: absolute;
           width: 31%;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           border-radius: 10px;
           box-shadow: 0 16px 28px -16px ${color}55;
@@ -424,7 +440,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         }
         .lh-cv-q-val :global(.lh-cv-ring path) {
           fill: none;
-          stroke: ${TERRACOTTA};
+          stroke: ${DOC_RED};
           stroke-width: 1.6;
           stroke-linecap: round;
           stroke-dasharray: 100;
@@ -488,7 +504,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           gap: 8px;
           padding: 8px 13px 8px 10px;
           border-radius: 12px;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}2a;
           box-shadow: 0 10px 20px -12px ${color}66;
           color: ${color};
@@ -567,7 +583,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         }
         .lh-cv-pick-line path {
           fill: none;
-          stroke: ${TERRACOTTA};
+          stroke: ${DOC_RED};
           stroke-width: 1.5;
           stroke-dasharray: 4 5;
           opacity: 0.55;
@@ -582,7 +598,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           align-items: center;
           gap: 7px;
           padding: 13px 8px 12px;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           border-radius: 12px;
           box-shadow: 0 14px 26px -16px ${color}55;
@@ -601,7 +617,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           height: 34px;
           border-radius: 50%;
           background: ${GOLD}22;
-          color: ${GOLD_DEEP};
+          color: ${DOC_GOLD};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -617,7 +633,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           padding: 3px 8px;
           border-radius: 999px;
           background: ${GOLD}22;
-          color: ${GOLD_DEEP};
+          color: ${DOC_GOLD};
           font-size: 0.48rem;
           font-weight: 800;
           text-align: center;
@@ -625,16 +641,16 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         }
         /* Best-priced vendor reads green, then visibly dims as the award lands elsewhere. */
         .lh-cv-pick-card-best {
-          border-color: ${GREEN}55;
+          border-color: ${DOC_GREEN}55;
           animation: lh-cv-best-ignored 4s ease-in-out infinite;
         }
         .lh-cv-pick-card-best .lh-cv-pick-avatar,
         .lh-cv-pick-card-best .lh-cv-pick-tag {
-          background: ${GREEN}1f;
-          color: ${GREEN};
+          background: ${DOC_GREEN}1f;
+          color: ${DOC_GREEN};
         }
         .lh-cv-pick-card-best .lh-cv-pick-price {
-          color: ${GREEN};
+          color: ${DOC_GREEN};
         }
         @keyframes lh-cv-best-ignored {
           0%,
@@ -651,7 +667,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           }
         }
         .lh-cv-pick-card-chosen {
-          border-color: ${TERRACOTTA}44;
+          border-color: ${DOC_RED}44;
         }
         .lh-cv-pick-awarded {
           position: absolute;
@@ -659,12 +675,12 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           right: 6px;
           padding: 3px 9px;
           border-radius: 999px;
-          background: ${TERRACOTTA};
-          color: ${PAPER};
+          background: ${DOC_RED};
+          color: ${DOC};
           font-size: 0.48rem;
           font-weight: 800;
           white-space: nowrap;
-          box-shadow: 0 6px 12px -4px ${TERRACOTTA}99;
+          box-shadow: 0 6px 12px -4px ${DOC_RED}99;
           transform: scale(0) rotate(-8deg);
           animation: lh-cv-awarded-in 4s ease-in-out infinite;
         }
@@ -690,7 +706,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         .lh-cv-chart-card {
           position: absolute;
           inset: 8%;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           border-radius: 16px;
           box-shadow: 0 18px 32px -18px ${color}55;
@@ -800,7 +816,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           white-space: nowrap;
         }
         .lh-cv-rate-value-best {
-          color: ${GOLD_DEEP};
+          color: ${DOC_GOLD};
         }
         .lh-cv-rate-gap {
           font-size: 0.5rem;
@@ -810,7 +826,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           white-space: nowrap;
         }
         .lh-cv-rate-gap-best {
-          color: ${GOLD_DEEP};
+          color: ${DOC_GOLD};
         }
         .lh-cv-rate-foot {
           display: flex;
@@ -839,7 +855,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           align-items: center;
           gap: 5px;
           padding: 13px 12px;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${GOLD}55;
           border-radius: 14px;
           box-shadow: 0 16px 30px -18px ${color}66;
@@ -860,7 +876,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           padding: 3px 10px;
           border-radius: 999px;
           background: ${GOLD};
-          color: ${INK};
+          color: ${DOC_INK};
           font-size: 0.46rem;
           font-weight: 800;
           letter-spacing: 0.03em;
@@ -889,7 +905,7 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           align-items: center;
           gap: 5px;
           padding: 10px 6px;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           border-radius: 10px;
           box-shadow: 0 12px 22px -16px ${color}55;
@@ -916,8 +932,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           }
           26%,
           52% {
-            border-color: ${GREEN}66;
-            box-shadow: 0 12px 22px -12px ${GREEN}66;
+            border-color: ${DOC_GREEN}66;
+            box-shadow: 0 12px 22px -12px ${DOC_GREEN}66;
           }
           70%,
           100% {
@@ -947,8 +963,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           width: 14px;
           height: 14px;
           border-radius: 50%;
-          background: ${GREEN}22;
-          color: ${GREEN};
+          background: ${DOC_GREEN}22;
+          color: ${DOC_GREEN};
           font-size: 0.5rem;
           font-style: normal;
           font-weight: 800;
@@ -985,12 +1001,12 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         /* --- shield: vendor names redacted, price & grade stay fully readable --- */
         .lh-cv-vm-card {
           position: absolute;
-          inset: 16% 8%;
+          inset: 11% 8%;
           display: flex;
           flex-direction: column;
           gap: 8px;
           padding: 14px 16px;
-          background: ${PAPER};
+          background: ${DOC};
           border: 1px solid ${color}22;
           border-radius: 16px;
           box-shadow: 0 18px 32px -18px ${color}55;
@@ -1023,15 +1039,28 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
         }
         .lh-cv-vm-row {
           display: grid;
-          grid-template-columns: 1fr 50px 46px 28px;
+          grid-template-columns: 1fr 26px 26px 26px 32px 54px;
           align-items: center;
           gap: 6px;
           padding: 5px 6px;
           margin: 0 -6px;
           border-radius: 6px;
         }
+        /* Column header shares the row grid so the clause marks line up. */
+        .lh-cv-vm-cols {
+          padding-bottom: 2px;
+          font-size: 0.42rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: ${color}66;
+          text-align: center;
+        }
+        .lh-cv-vm-cols span:last-child {
+          text-align: right;
+        }
         .lh-cv-vm-row-best {
-          background: ${GREEN}14;
+          background: ${DOC_GREEN}14;
         }
         /* Name sits under an opaque redaction bar that wipes across on loop. */
         .lh-cv-vm-name {
@@ -1053,8 +1082,8 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
           align-items: center;
           padding-left: 7px;
           border-radius: 4px;
-          background: ${INK};
-          color: ${PAPER};
+          background: ${DOC_INK};
+          color: ${DOC};
           font-size: 0.5rem;
           font-weight: 800;
           letter-spacing: 0.04em;
@@ -1084,27 +1113,31 @@ const CardVisual = ({ variant = 'clock', iconElement, color = INK, activeKey }) 
             clip-path: inset(0 100% 0 0);
           }
         }
-        .lh-cv-vm-price {
-          font-size: 0.6rem;
+        .lh-cv-vm-clause {
+          font-size: 0.56rem;
+          font-weight: 800;
+          text-align: center;
+        }
+        .lh-cv-vm-pass {
+          color: ${DOC_GREEN};
+        }
+        .lh-cv-vm-fail {
+          color: ${DOC_RED};
+        }
+        .lh-cv-vm-score {
+          font-size: 0.62rem;
           font-weight: 800;
           color: ${color};
           text-align: right;
-          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
         }
-        .lh-cv-vm-row-best .lh-cv-vm-price {
-          color: ${GREEN};
-        }
-        .lh-cv-vm-grade {
-          font-size: 0.52rem;
-          font-weight: 600;
-          color: ${color}88;
-          text-align: right;
-          white-space: nowrap;
+        .lh-cv-vm-row-best .lh-cv-vm-score {
+          color: ${DOC_GREEN};
         }
         .lh-cv-vm-flag {
           font-size: 0.46rem;
           font-weight: 800;
-          color: ${GREEN};
+          color: ${DOC_GREEN};
           text-align: right;
           white-space: nowrap;
         }

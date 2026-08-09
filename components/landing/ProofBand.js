@@ -39,7 +39,8 @@ const ProofBand = ({ content }) => (
         margin: 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        /* Driven by the stat count so the band stays full-width if it changes. */
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 1px;
         background: ${RULE};
         border-top: 1px solid ${RULE};

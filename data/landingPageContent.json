@@ -32,7 +32,7 @@
     "secondaryHref": "#lh-journey",
     "usp": {
       "heading": "AI-powered, hospitality-only",
-      "description": "From RFQ to PO in one place. AI shortlists the right vendors, compares every quote line by line, and holds one negotiated rate across all your properties."
+      "description": "From RFQ to PO in one place. AI compares every quote line by line and holds one negotiated rate across all your properties."
     },
     "media": {
       "type": "none",
@@ -99,7 +99,7 @@
       {
         "icon": "shield",
         "title": "Vendor masking",
-        "description": "Vendor identities stay hidden during evaluation, so quotes compete on price and specification alone — not on who you know."
+        "description": "Identities stay hidden through technical evaluation, so bids are scored on specification and clause compliance alone. Commercials stay sealed until that scoring is signed off."
       }
     ]
   },
@@ -112,7 +112,7 @@
       {
         "step": 1,
         "title": "Raise an RFQ or tender",
-        "description": "Matching vendors are shortlisted automatically. Publish for quotes straight away, or schedule it for a later date."
+        "description": "Build it from your item master in minutes. Publish to your suppliers straight away, or schedule it for a later date."
       },
       {
         "step": 2,
@@ -135,7 +135,7 @@
       {
         "icon": "trending-up",
         "title": "Lower procurement cost",
-        "description": "Competitive quotes and structured negotiation rounds consistently take 6-9% off what you were paying before."
+        "description": "Putting every quote in open competition on price and specification consistently takes 6-9% off what you were paying before."
       },
       {
         "icon": "clock",
@@ -144,8 +144,8 @@
       },
       {
         "icon": "users",
-        "title": "Verified vendor network",
-        "description": "Tap a network of 12,500+ verified suppliers, or bring your own — both work exactly the same way on the platform."
+        "title": "Negotiation built into the flow",
+        "description": "Run structured negotiation rounds with target prices against every shortlisted quote, so the saving is captured before the PO is raised."
       },
       {
         "icon": "shield",
@@ -160,7 +160,7 @@
       {
         "icon": "check",
         "title": "Dedicated support",
-        "description": "Onboarding, vendor discovery and day-to-day help from a team that knows hospitality procurement."
+        "description": "Onboarding, rollout across properties and day-to-day help from a team that knows hospitality procurement."
       }
     ]
   },
@@ -189,7 +189,6 @@
         "heading": "Platform",
         "links": [
           { "label": "Products", "href": "/products" },
-          { "label": "Vendors", "href": "/vendors" },
           { "label": "Log in", "href": "/hotel-vendor" }
         ]
       },
