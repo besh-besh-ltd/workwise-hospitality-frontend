@@ -1641,6 +1641,29 @@
   pointer-events: none;
 }
 
+/* Numeric badge for notifications that have not yet been in front of the user.
+   The dot above now means the quieter "nothing new, but some are still
+   unopened". */
+.notifBadgeCount {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 0 2px #fafaf9;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* the notif dropdown — wider than the profile popover */
 .notifPopover {
   position: absolute;
@@ -1759,8 +1782,15 @@
   transition: background 0.12s ease;
 }
 .notifItem:hover { background: #fafaf9; }
-.notifItem.notifUnread { background: #f8fafc; }
-.notifItem.notifUnread:hover { background: #f3f6fa; }
+/* Unopened used to be a #f8fafc wash — 2% off white, with the same title weight
+   as an opened row, so the two states were practically indistinguishable. Three
+   signals now carry it: the blue rail, the blue-tinted ground, and the title
+   weight below. Any one alone is missable at a glance. */
+.notifItem.notifUnread {
+  background: #eff5ff;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+.notifItem.notifUnread:hover { background: #e4edff; }
 .notifItem + .notifItem { border-top: 1px solid #f4f4f1; }
 /* tiny unread indicator (left of avatar) */
 .notifItem .notifUnreadDot {
@@ -1774,12 +1804,70 @@
 }
 .notifItem.notifUnread .notifUnreadDot { opacity: 1; }
 .notifBody { flex: 1; min-width: 0; }
+/* Opened rows recede: lighter weight and a softer ink. Both states used to be
+   600/#18181b, so the list read as one undifferentiated block. */
 .notifItemTitle {
   font-size: 13px;
-  font-weight: 600;
-  color: #18181b;
+  font-weight: 500;
+  color: #52525b;
   letter-spacing: -0.01em;
   line-height: 1.35;
+}
+.notifItem.notifUnread .notifItemTitle {
+  font-weight: 650;
+  color: #0f172a;
+}
+
+/* Per-row actions. Hidden until the row is hovered or something inside it has
+   focus, so the list stays quiet — but reachable by keyboard, which a
+   hover-only affordance would not be. */
+.notifRowActions {
+  display: flex;
+  gap: 2px;
+  align-self: flex-start;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.notifItem:hover .notifRowActions,
+.notifItem:focus-within .notifRowActions {
+  opacity: 1;
+}
+.notifRowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  padding: 0;
+}
+.notifRowAction:hover { background: #e4e4e7; color: #18181b; }
+.notifRowAction:focus-visible {
+  opacity: 1;
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+.notifItem:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+/* Announcements for screen readers — visually gone, still in the a11y tree. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .notifMsg {
   margin-top: 3px;

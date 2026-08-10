@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen, Bell, BellOff } from "lucide-react";
+import { Menu, Building2, ChevronDown, Key, LogOut, User, PanelLeftOpen, Bell, BellOff, Check, CircleDot, X } from "lucide-react";
 import { roleMenus } from "@/components/layout/Header/headerConfig";
 import { toast } from "react-toastify";
 import storageInstance from "@/utils/storageInstance";
@@ -13,7 +13,12 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationsDelivered,
+  dismissNotification,
+  markNotificationUnread,
 } from "@/services/Notifications";
+import { navigateToNotification } from "@/utils/notificationNavigation";
+import useNotificationStream from "@/hooks/useNotificationStream";
 import VendorSubscriptionPill from "./VendorSubscriptionPill";
 import styles from "./DashboardShell.module.css";
 
@@ -52,14 +57,22 @@ const TopBar = ({
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
-  // Notifications
+  // Notifications.
+  // Two counters, deliberately: `notifCount` is how many the user has not yet
+  // had in front of them (the badge), `notifUnread` is how many remain unopened
+  // (the row highlight). Opening the bell zeroes the first and leaves the second.
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [notifUnread, setNotifUnread] = useState(0);
   const [notifItems, setNotifItems] = useState([]);
+  // Screen readers get told when something arrives; a badge that changes
+  // silently is invisible to anyone not watching that corner of the screen.
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifPermission, setNotifPermission] = useState("default"); // 'granted' | 'denied' | 'default' | 'unsupported'
   const [notifEnabling, setNotifEnabling] = useState(false);
   const notifRef = useRef(null);
+  const notifBtnRef = useRef(null);
 
   const isLoggedIn = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -70,8 +83,11 @@ const TopBar = ({
     if (!isLoggedIn()) return;
     try {
       const resp = await getUnreadCount();
-      const c = resp && resp.data && resp.data.count;
-      setNotifCount(Number(c) || 0);
+      const d = (resp && resp.data) || {};
+      // `undelivered` is the new field; fall back to `count` so a frontend
+      // deployed ahead of the backend still shows something sensible.
+      setNotifCount(Number(d.undelivered ?? d.count) || 0);
+      setNotifUnread(Number(d.unread ?? d.count) || 0);
     } catch (_) {}
   }, [isLoggedIn]);
 
@@ -104,6 +120,57 @@ const TopBar = ({
     };
   }, [refreshNotifCount, isLoggedIn]);
 
+  // Live delivery, layered over the poll above rather than replacing it. The
+  // socket is only a signal: we refetch instead of trusting the payload, so a
+  // duplicated or out-of-order frame cannot corrupt what is on screen.
+  const onLiveNotification = useCallback(() => {
+    refreshNotifCount();
+    if (notifOpen) loadNotifList();
+    setLiveAnnouncement("New notification received");
+  }, [refreshNotifCount, loadNotifList, notifOpen]);
+
+  useNotificationStream(onLiveNotification, { enabled: isLoggedIn() });
+
+  // Clicking an OS push toast is an unambiguous "read". The service worker
+  // cannot call the API (no access to the bearer token), so it hands the id
+  // back here — by postMessage into an open tab, or via ?notif_read= when the
+  // click cold-started the app.
+  useEffect(() => {
+    if (!isLoggedIn()) return undefined;
+
+    const markFromPush = (id) => {
+      if (!id) return;
+      markNotificationRead(id)
+        .catch(() => {})
+        .finally(refreshNotifCount);
+    };
+
+    const onSwMessage = (event) => {
+      if (event?.data?.type === "notification-read") markFromPush(event.data.id);
+    };
+
+    if (typeof navigator !== "undefined" && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener("message", onSwMessage);
+    }
+
+    const fromUrl = router.query?.notif_read;
+    if (fromUrl) {
+      markFromPush(fromUrl);
+      // Strip it so a refresh or a shared link does not carry a stale id.
+      const { notif_read, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, {
+        shallow: true,
+      });
+    }
+
+    return () => {
+      if (typeof navigator !== "undefined" && navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener("message", onSwMessage);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query?.notif_read, isLoggedIn, refreshNotifCount]);
+
   useEffect(() => {
     if (!profileOpen) return;
     const handler = (e) => {
@@ -124,6 +191,39 @@ const TopBar = ({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
+  // Keyboard support for the tray. It was mouse-only: no way to close it without
+  // clicking away, and no way to walk the list — so anyone driving by keyboard
+  // had to tab through every row's actions to reach the bottom.
+  useEffect(() => {
+    if (!notifOpen) return undefined;
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setNotifOpen(false);
+        notifBtnRef.current?.focus();
+        return;
+      }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+
+      const rows = Array.from(
+        notifRef.current?.querySelectorAll("[data-notif-row]") || []
+      );
+      if (rows.length === 0) return;
+      e.preventDefault();
+
+      const current = rows.indexOf(document.activeElement);
+      const next =
+        e.key === "ArrowDown"
+          ? (current + 1) % rows.length
+          : (current <= 0 ? rows.length : current) - 1;
+      rows[next]?.focus();
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [notifOpen]);
 
   useEffect(() => {
@@ -180,37 +280,74 @@ const TopBar = ({
     if (next) {
       loadNotifList();
       refreshNotifPermission();
+      // Opening the tray is the moment the user has had a chance to see what is
+      // waiting, so the badge clears here. The items stay unread — that is what
+      // "mark all read" is for, and conflating the two is why the badge used to
+      // never go out.
+      if (notifCount > 0) {
+        setNotifCount(0);
+        markNotificationsDelivered().catch(() => refreshNotifCount());
+      }
     }
   };
 
   const handleNotifItemClick = async (n) => {
     if (!n.is_read) {
       setNotifItems((curr) => curr.map((x) => (x.id === n.id ? { ...x, is_read: 1 } : x)));
-      setNotifCount((c) => Math.max(0, c - 1));
-      markNotificationRead(n.id).catch(() => {});
+      setNotifUnread((c) => Math.max(0, c - 1));
+      // A rejected write used to be swallowed, leaving the row looking read
+      // until the next poll silently undid it. Reconcile against the server.
+      markNotificationRead(n.id).catch(() => refreshNotifCount());
     }
     setNotifOpen(false);
-    if (n.action_url) {
-      try {
-        const url = new URL(n.action_url, window.location.origin);
-        if (url.origin === window.location.origin) {
-          router.push(url.pathname + url.search + url.hash);
-        } else {
-          window.location.href = n.action_url;
-        }
-      } catch (_) {
-        router.push(n.action_url);
-      }
-    }
+    navigateToNotification(router, n.action_url);
   };
 
   const handleNotifMarkAllRead = async () => {
-    if (notifCount === 0) return;
+    if (notifUnread === 0) return;
     setNotifCount(0);
+    setNotifUnread(0);
     setNotifItems((curr) => curr.map((x) => ({ ...x, is_read: 1 })));
     try {
       await markAllNotificationsRead();
     } catch (_) {
+      toast.error("Could not mark all as read. Please try again.");
+      refreshNotifCount();
+    }
+  };
+
+  // Row actions. Both are optimistic and both reconcile against the server on
+  // failure — a silently swallowed rejection leaves the panel showing something
+  // that is not true, which is exactly the kind of thing that makes people stop
+  // believing it.
+  const handleNotifDismiss = async (e, n) => {
+    e.stopPropagation();
+    const previous = notifItems;
+    setNotifItems((curr) => curr.filter((x) => x.id !== n.id));
+    if (!n.is_read) setNotifUnread((c) => Math.max(0, c - 1));
+    try {
+      await dismissNotification(n.id);
+    } catch (_) {
+      setNotifItems(previous);
+      toast.error("Could not dismiss that notification.");
+      refreshNotifCount();
+    }
+  };
+
+  const handleNotifToggleRead = async (e, n) => {
+    e.stopPropagation();
+    const nextRead = n.is_read ? 0 : 1;
+    setNotifItems((curr) =>
+      curr.map((x) => (x.id === n.id ? { ...x, is_read: nextRead } : x))
+    );
+    setNotifUnread((c) => Math.max(0, nextRead ? c - 1 : c + 1));
+    try {
+      await (nextRead ? markNotificationRead(n.id) : markNotificationUnread(n.id));
+    } catch (_) {
+      setNotifItems((curr) =>
+        curr.map((x) => (x.id === n.id ? { ...x, is_read: n.is_read } : x))
+      );
+      toast.error("Could not update that notification.");
       refreshNotifCount();
     }
   };
@@ -291,34 +428,47 @@ const TopBar = ({
           <div style={{ position: "relative" }} ref={notifRef}>
             <button
               type="button"
+              ref={notifBtnRef}
               className={styles.notifBtn}
               onClick={toggleNotif}
-              aria-label={`Notifications${notifCount > 0 ? ` — ${notifCount} unread` : ""}`}
+              aria-label={
+                notifCount > 0 ? `Notifications — ${notifCount} new` : "Notifications"
+              }
+              aria-haspopup="dialog"
+              aria-expanded={notifOpen}
             >
               <Bell size={19} strokeWidth={1.5} />
-              {/* Tiny indicator dot — count is shown in the dropdown so this
-                  stays calm. aria-label on the button carries the actual count
-                  for screen readers. */}
+              {/* Count only, capped at 9+ — past a handful the exact number
+                  stops changing what you do about it, and a wide pill unbalances
+                  the topbar. Nothing renders once the tray has been opened: a
+                  residual dot for already-seen items is a permanent nag, which
+                  is how a badge stops meaning anything. */}
               {notifCount > 0 && (
-                <span className={styles.notifBadge} aria-hidden="true" />
+                <span className={styles.notifBadgeCount} aria-hidden="true">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
               )}
             </button>
+
+            <span className={styles.srOnly} role="status" aria-live="polite">
+              {liveAnnouncement}
+            </span>
 
             {notifOpen && (
               <div className={styles.notifPopover} role="dialog" aria-label="Notifications">
                 <div className={styles.notifHead}>
                   <span className={styles.notifTitleRow}>
                     <span className={styles.notifTitle}>Notifications</span>
-                    {notifCount > 0 && (
+                    {notifUnread > 0 && (
                       <span className={styles.notifCountChip}>
-                        {notifCount > 99 ? "99+" : notifCount} new
+                        {notifUnread > 99 ? "99+" : notifUnread} unread
                       </span>
                     )}
                   </span>
                   <button
                     type="button"
                     onClick={handleNotifMarkAllRead}
-                    disabled={notifCount === 0}
+                    disabled={notifUnread === 0}
                     className={styles.notifMarkAll}
                   >
                     Mark all read
@@ -376,19 +526,56 @@ const TopBar = ({
 
                   {!notifLoading &&
                     notifItems.map((n) => (
-                      <button
+                      <div
                         key={n.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
+                        data-notif-row
                         onClick={() => handleNotifItemClick(n)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleNotifItemClick(n);
+                          }
+                        }}
                         className={`${styles.notifItem} ${!n.is_read ? styles.notifUnread : ""}`}
+                        aria-label={`${n.is_read ? "" : "Unread. "}${n.title}`}
                       >
                         <span className={styles.notifUnreadDot} aria-hidden />
                         <div className={styles.notifBody}>
                           <div className={styles.notifItemTitle}>{n.title}</div>
                           {n.message && <div className={styles.notifMsg}>{n.message}</div>}
-                          <div className={styles.notifTime}>{formatNotifTime(n.created_at)}</div>
+                          {/* Relative time reads well but hides the fact. The
+                              exact timestamp is one hover away — it matters when
+                              you are reconstructing who was told what and when. */}
+                          <div
+                            className={styles.notifTime}
+                            title={n.created_at ? new Date(n.created_at).toLocaleString() : ""}
+                          >
+                            {formatNotifTime(n.created_at)}
+                          </div>
                         </div>
-                      </button>
+                        <span className={styles.notifRowActions}>
+                          <button
+                            type="button"
+                            className={styles.notifRowAction}
+                            onClick={(e) => handleNotifToggleRead(e, n)}
+                            title={n.is_read ? "Mark as unread" : "Mark as read"}
+                            aria-label={n.is_read ? "Mark as unread" : "Mark as read"}
+                          >
+                            {n.is_read ? <CircleDot size={14} /> : <Check size={14} />}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.notifRowAction}
+                            onClick={(e) => handleNotifDismiss(e, n)}
+                            title="Dismiss"
+                            aria-label="Dismiss notification"
+                          >
+                            <X size={14} />
+                          </button>
+                        </span>
+                      </div>
                     ))}
                 </div>
 

@@ -1,0 +1,235 @@
+{
+  "_note": "Placeholders to fill before launch: logoWall.logos (needs 6-12 real hospitality customers), hero.media.src + poster (product screenshot or transcoded video, see _assets), proofBand.footnote (substantiate the 6-9% claim), testimonials.items (only one real quote today).",
+  "_assets": "public/videos/hero_video.mp4 is 31MB and must be transcoded to <3MB H.264 + WebM with a poster frame before being used here. public/assets/images/companylogo/ contains only industrial PSU logos and must NOT be used on this page.",
+  "meta": {
+    "siteName": "Workwise",
+    "logo": "/assets/images/logo-workwise-gold.png",
+    "logoLight": "/assets/images/logo-workwise-white.png",
+    "logoAlt": "Workwise"
+  },
+  "seo": {
+    "title": "Workwise — Procurement built exclusively for hospitality",
+    "description": "Workwise runs RFQs, tenders, negotiations and purchase orders across every property on one platform, so hospitality groups know they paid the right price every time."
+  },
+  "nav": {
+    "items": [
+      { "label": "The problem", "href": "#lh-problem" },
+      { "label": "The platform", "href": "#lh-solution" },
+      { "label": "How it works", "href": "#lh-journey" },
+      { "label": "Proof", "href": "#lh-testimonials" }
+    ],
+    "loginHref": "/hotel-vendor",
+    "loginLabel": "Log in",
+    "demoLabel": "Book a demo"
+  },
+  "hero": {
+    "eyebrow": "Procurement se Profit",
+    "title": "Every rupee,",
+    "titleAccent": "accounted for.",
+    "description": "Workwise runs RFQs, tenders and negotiations across every property on one platform — so you know you paid the right price, every single time.",
+    "bookDemoLabel": "Book a demo",
+    "secondaryLabel": "See how it works",
+    "secondaryHref": "#lh-journey",
+    "usp": {
+      "heading": "AI-powered, hospitality-only",
+      "description": "From RFQ to PO in one place. AI compares every quote line by line and holds one negotiated rate across all your properties."
+    },
+    "media": {
+      "type": "none",
+      "src": "",
+      "poster": "",
+      "alt": "Workwise price comparison across properties",
+      "caption": "Live rate comparison · Refined Sunflower Oil, 15L"
+    }
+  },
+  "logoWall": {
+    "eyebrow": "Trusted by procurement teams at",
+    "logos": [
+      { "name": "The Orchid Hotels", "src": "" },
+      { "name": "Kamat Group", "src": "" }
+    ]
+  },
+  "proofBand": {
+    "stats": [
+      { "value": "6-9%", "label": "Average cost reduction" },
+      { "value": "75%", "label": "Less time to award" },
+      { "value": "1", "label": "Rate per item, every property" }
+    ],
+    "footnote": "Figures from Workwise customer deployments. Ask for the full breakdown on your demo call."
+  },
+  "problem": {
+    "number": "01",
+    "eyebrow": "The problem",
+    "heading": "Hospitality teams are still doing this the hard way",
+    "subheading": "Manual comparison, disconnected properties and quiet vendor bias are costing you money on every order.",
+    "points": [
+      {
+        "icon": "clock",
+        "title": "Comparing quotes takes days",
+        "description": "Copy-pasting numbers out of PDFs and email threads into spreadsheets is slow and manual, and the best rate is easy to miss when it is buried in the line items."
+      },
+      {
+        "icon": "alert",
+        "title": "The same item, two different rates",
+        "description": "Two properties in the same group unknowingly pay different prices for identical stock, because nobody has visibility across the whole estate."
+      },
+      {
+        "icon": "users",
+        "title": "Relationships decide the award",
+        "description": "Long-standing vendor relationships quietly influence who wins, so the sharpest price does not always take the order."
+      }
+    ]
+  },
+  "solution": {
+    "number": "02",
+    "eyebrow": "The platform",
+    "heading": "One system, from requisition to final payment",
+    "subheading": "Purpose-built so you always know the right price — everywhere, from everyone.",
+    "points": [
+      {
+        "icon": "chart",
+        "title": "AI price comparison, line by line",
+        "description": "Every quote is normalised the moment it lands and plotted side by side, so the best rate across vendors is obvious in seconds rather than spreadsheets."
+      },
+      {
+        "icon": "check",
+        "title": "One item, one rate, every property",
+        "description": "The same item carries the same negotiated rate across your entire group, so no property overpays for something another one already sourced cheaper."
+      },
+      {
+        "icon": "shield",
+        "title": "Vendor masking",
+        "description": "Identities stay hidden through technical evaluation, so bids are scored on specification and clause compliance alone. Commercials stay sealed until that scoring is signed off."
+      }
+    ]
+  },
+  "journey": {
+    "number": "03",
+    "eyebrow": "How it works",
+    "heading": "Three steps, end to end",
+    "subheading": "From raising a requirement to paying the vendor, with every quote, round and approval tracked along the way.",
+    "steps": [
+      {
+        "step": 1,
+        "title": "Raise an RFQ or tender",
+        "description": "Build it from your item master in minutes. Publish to your suppliers straight away, or schedule it for a later date."
+      },
+      {
+        "step": 2,
+        "title": "Compare and negotiate",
+        "description": "Negotiate on any field — unit price, packaging, freight, taxes, documents — across as many rounds as you need."
+      },
+      {
+        "step": 3,
+        "title": "Issue the PO, track to payment",
+        "description": "Convert the winning quote into a purchase order, route it through your property's approval chain, and follow it through GRN to payment."
+      }
+    ]
+  },
+  "whatYouGet": {
+    "number": "04",
+    "eyebrow": "For buyers",
+    "heading": "What your procurement team gets",
+    "subheading": "Everything needed to buy better across every property, without adding headcount.",
+    "benefits": [
+      {
+        "icon": "trending-up",
+        "title": "Lower procurement cost",
+        "description": "Putting every quote in open competition on price and specification consistently takes 6-9% off what you were paying before."
+      },
+      {
+        "icon": "clock",
+        "title": "Faster turnaround",
+        "description": "Quote collection and comparison that used to take days now happens in hours, so operations stop waiting on procurement."
+      },
+      {
+        "icon": "users",
+        "title": "Negotiation built into the flow",
+        "description": "Run structured negotiation rounds with target prices against every shortlisted quote, so the saving is captured before the PO is raised."
+      },
+      {
+        "icon": "shield",
+        "title": "Visibility and control",
+        "description": "See the live status of every RFQ, tender, negotiation and PO across all your properties from a single dashboard."
+      },
+      {
+        "icon": "file",
+        "title": "A clean audit trail",
+        "description": "Every quote, revision, approval and comment is timestamped and stored, so audits stop being a scramble."
+      },
+      {
+        "icon": "check",
+        "title": "Dedicated support",
+        "description": "Onboarding, rollout across properties and day-to-day help from a team that knows hospitality procurement."
+      }
+    ]
+  },
+  "testimonials": {
+    "number": "05",
+    "eyebrow": "Proof",
+    "heading": "What our customers say",
+    "items": [
+      {
+        "quote": "WorkWise gave us one rate across every property and complete transparency in vendor evaluation. Our procurement is now faster, cleaner and far easier to control.",
+        "author": "Nitin Rajenimbalkar",
+        "position": "DGM — Procurement",
+        "company": "The Orchid Hotels, Kamat Group"
+      }
+    ]
+  },
+  "closingCta": {
+    "heading": "See it run on your own numbers.",
+    "description": "Bring a live RFQ or tender to the call. We will run it through Workwise using your properties and your vendors, in thirty minutes.",
+    "buttonLabel": "Book a demo"
+  },
+  "footer": {
+    "tagline": "AI-powered procurement, crafted exclusively for hospitality.",
+    "columns": [
+      {
+        "heading": "Platform",
+        "links": [
+          { "label": "Products", "href": "/products" },
+          { "label": "Log in", "href": "/hotel-vendor" }
+        ]
+      },
+      {
+        "heading": "Company",
+        "links": [
+          { "label": "Contact us", "href": "mailto:hello@letsworkwise.com" },
+          { "label": "Sitemap", "href": "/sitemap" }
+        ]
+      }
+    ],
+    "contact": {
+      "email": "hello@letsworkwise.com"
+    },
+    "copyrightName": "Workwise"
+  },
+  "bookDemoModal": {
+    "title": "Book a demo",
+    "sidePanel": {
+      "items": [
+        { "icon": "clock", "title": "Thirty minutes", "text": "We keep it focused on your workflow" },
+        { "icon": "file", "title": "Bring an RFQ or tender", "text": "We will run it through Workwise live, using your own properties and vendors" },
+        { "icon": "users", "title": "The right people", "text": "Procurement, hotel GMs and finance can all join the same session" }
+      ],
+      "writeLabel": "Prefer to write?",
+      "email": "hello@letsworkwise.com"
+    },
+    "interestOptions": [
+      "Product demo",
+      "General enquiry",
+      "Partnership",
+      "Support",
+      "Other"
+    ],
+    "countryCodes": [
+      { "code": "+91", "iso": "IN", "label": "IN (+91)" },
+      { "code": "+1", "iso": "US", "label": "US (+1)" },
+      { "code": "+971", "iso": "AE", "label": "AE (+971)" },
+      { "code": "+44", "iso": "GB", "label": "UK (+44)" }
+    ],
+    "defaultCountryCode": "+91",
+    "submitLabel": "Request a demo"
+  }
+}

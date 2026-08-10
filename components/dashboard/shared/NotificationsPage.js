@@ -10,7 +10,9 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationsDelivered,
 } from "@/services/Notifications";
+import { navigateToNotification } from "@/utils/notificationNavigation";
 import styles from "./NotificationsPage.module.scss";
 
 const PAGE_SIZE = 20;
@@ -86,6 +88,10 @@ const NotificationsPage = () => {
 
   useEffect(() => {
     fetchPage(1);
+    // Landing on the full inbox is at least as strong a signal as opening the
+    // bell, so it delivers too. Without this the topbar badge stayed lit while
+    // the user was looking straight at the list it was counting.
+    markNotificationsDelivered().catch(() => {});
   }, [fetchPage]);
 
   const handleItemClick = useCallback(
@@ -96,18 +102,7 @@ const NotificationsPage = () => {
         );
         markNotificationRead(n.id).catch(() => {});
       }
-      if (n.action_url) {
-        try {
-          const url = new URL(n.action_url, window.location.origin);
-          if (url.origin === window.location.origin) {
-            router.push(url.pathname + url.search + url.hash);
-          } else {
-            window.location.href = n.action_url;
-          }
-        } catch (_) {
-          router.push(n.action_url);
-        }
-      }
+      navigateToNotification(router, n.action_url);
     },
     [router]
   );
