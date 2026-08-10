@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { INK, PAPER, GOLD, SANS, MAXW, GUTTER, BP } from './theme';
+import { INK, PAPER_DEEP, GOLD, SANS, MAXW, GUTTER, BP } from './theme';
 
 const LandingFooter = ({ content, logo }) => {
   const year = new Date().getFullYear();
@@ -58,7 +58,7 @@ const LandingFooter = ({ content, logo }) => {
 
       <style jsx>{`
         .lh-footer {
-          background: ${INK};
+          background: ${PAPER_DEEP};
           padding: clamp(64px, 8vw, 96px) ${GUTTER} 32px;
         }
         .lh-footer-inner {
@@ -92,7 +92,7 @@ const LandingFooter = ({ content, logo }) => {
         }
         .lh-footer-contact-item {
           font-family: ${SANS};
-          color: ${PAPER};
+          color: ${INK};
           font-size: 0.9rem;
           text-decoration: none;
           width: fit-content;
@@ -133,7 +133,7 @@ const LandingFooter = ({ content, logo }) => {
           transition: color 0.25s ease;
         }
         .lh-footer-col-links :global(a:hover) {
-          color: ${PAPER};
+          color: ${INK};
         }
         .lh-footer-bottom {
           padding-top: 24px;

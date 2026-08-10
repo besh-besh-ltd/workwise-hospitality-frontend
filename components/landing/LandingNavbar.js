@@ -35,7 +35,7 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
     <header className={`lh-nav ${isScrolled ? 'lh-nav-stuck' : ''}`}>
       <div className="lh-nav-inner">
         <a href="#lh-hero" className="lh-nav-logo" onClick={closeMenu}>
-          <Image src={logo.logo} alt={logo.logoAlt} width={132} height={30} priority />
+          <Image src={logo.logoLight} alt={logo.logoAlt} width={132} height={30} priority />
         </a>
 
         <nav className={`lh-nav-links ${isOpen ? 'lh-nav-links-open' : ''}`}>
@@ -84,7 +84,7 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
         }
         .lh-nav-stuck {
           border-bottom-color: ${RULE};
-          background: rgba(255, 255, 255, 0.86);
+          background: rgba(11, 31, 58, 0.88);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
         }
@@ -145,7 +145,7 @@ const LandingNavbar = ({ content, logo, onBookDemo }) => {
         .lh-nav-demo {
           font-family: ${SANS};
           background: ${GOLD};
-          color: ${INK};
+          color: ${PAPER};
           border: none;
           border-radius: 2px;
           padding: 11px 22px;

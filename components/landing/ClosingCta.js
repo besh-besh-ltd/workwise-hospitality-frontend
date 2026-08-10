@@ -1,6 +1,6 @@
 import React from 'react';
 import Reveal from './Reveal';
-import { PAPER, INK, GOLD, GOLD_DEEP, SERIF, SANS, TYPE, MAXW, GUTTER, BP } from './theme';
+import { PAPER, PAPER_DEEP, INK, GOLD, GOLD_DEEP, SERIF, SANS, TYPE, MAXW, GUTTER, BP } from './theme';
 
 /**
  * The second conversion path. The first build ran the testimonial straight
@@ -19,10 +19,10 @@ const ClosingCta = ({ content, onBookDemo }) => (
 
     <style jsx>{`
       .lh-cta {
-        background: ${INK};
+        background: ${PAPER_DEEP};
         background-image: radial-gradient(
           90% 120% at 50% 108%,
-          rgba(201, 162, 39, 0.5) 0%,
+          rgba(201, 162, 39, 0.16) 0%,
           rgba(11, 31, 58, 0) 68%
         );
         padding: clamp(80px, 11vw, 148px) ${GUTTER};
@@ -41,7 +41,7 @@ const ClosingCta = ({ content, onBookDemo }) => (
         font-size: clamp(2.25rem, 5vw, 3.75rem);
         line-height: 1.04;
         letter-spacing: -0.02em;
-        color: ${PAPER};
+        color: ${INK};
         margin: 0;
         max-width: 18ch;
       }
@@ -56,7 +56,7 @@ const ClosingCta = ({ content, onBookDemo }) => (
       .lh-cta-btn {
         font-family: ${SANS};
         background: ${GOLD};
-        color: ${INK};
+        color: ${PAPER};
         border: none;
         border-radius: 2px;
         padding: 16px 38px;

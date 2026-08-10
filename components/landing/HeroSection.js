@@ -9,7 +9,6 @@ import {
   RULE,
   GOLD,
   GOLD_DEEP,
-  GREEN,
   SERIF,
   SANS,
   MONO,
@@ -94,7 +93,7 @@ const HeroSection = ({ content, onBookDemo }) => {
           background-image: radial-gradient(
             120% 80% at 78% 12%,
             rgba(201, 162, 39, 0.05) 0%,
-            rgba(255, 255, 255, 0) 62%
+            rgba(11, 31, 58, 0) 62%
           );
         }
         .lh-hero-inner {
@@ -148,7 +147,7 @@ const HeroSection = ({ content, onBookDemo }) => {
         .lh-hero-btn {
           font-family: ${SANS};
           background: ${GOLD};
-          color: ${INK};
+          color: ${PAPER};
           border: none;
           border-radius: 2px;
           padding: 15px 32px;
@@ -218,7 +217,7 @@ const HeroSection = ({ content, onBookDemo }) => {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          background: ${INK};
+          background: ${GOLD};
           color: ${PAPER};
           font-family: ${SANS};
           font-size: 0.72rem;
@@ -227,7 +226,7 @@ const HeroSection = ({ content, onBookDemo }) => {
           max-width: calc(100% - 24px);
         }
         .lh-hero-chip :global(svg) {
-          color: ${GREEN};
+          color: ${PAPER};
           flex-shrink: 0;
         }
 

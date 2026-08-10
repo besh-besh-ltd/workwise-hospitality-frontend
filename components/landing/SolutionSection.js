@@ -4,7 +4,7 @@ import Section from './Section';
 import SectionHead from './SectionHead';
 import Reveal from './Reveal';
 import CardVisual from './CardVisual';
-import { PAPER, INK, INK_2, RULE, GOLD, GOLD_DEEP, SERIF, SANS, MONO, BP } from './theme';
+import { INK, INK_2, RULE, GOLD, GOLD_DEEP, DOC, DOC_INK, SERIF, SANS, MONO, BP } from './theme';
 
 // Fully-formed element per branch — see the Turbopack note in ProblemSection.
 const renderIcon = (key, size) => {
@@ -40,7 +40,7 @@ const SolutionSection = ({ content }) => (
             <CardVisual
               variant={point.icon}
               iconElement={renderIcon(point.icon, 56)}
-              color={INK}
+              color={DOC_INK}
               activeKey={point.icon}
             />
           </div>
@@ -98,8 +98,10 @@ const SolutionSection = ({ content }) => (
         margin: 0;
         max-width: 46ch;
       }
+      /* Light panel on the navy field: the illustrations inside are printed
+         sheets and screens, so the frame reads as paper, like the brochure. */
       .lh-sol-visual {
-        background: ${PAPER};
+        background: ${DOC};
         border: 1px solid ${RULE};
         padding: clamp(18px, 2.5vw, 28px);
         min-height: clamp(300px, 34vw, 420px);

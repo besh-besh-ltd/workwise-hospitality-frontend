@@ -48,10 +48,18 @@ const LandingPage = () => {
         /* Scoped to .lh-page so the dashboard keeps its own Geist/arc_v2 stack.
            arc_v2.css loads last in _app.js and sets body { font-family: Geist },
            so the landing page has to restate its own base here. */
+        /* arc_v2.css paints a light body; on a navy page that shows through on
+           overscroll. :has() outranks its bare body rule and unmounts with
+           the landing page, so the dashboard is untouched. */
+        html:has(.lh-page),
+        body:has(.lh-page) {
+          background: ${PAPER};
+        }
         .lh-page {
           background: ${PAPER};
           color: ${INK};
           font-family: ${SANS};
+          min-height: 100vh;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
