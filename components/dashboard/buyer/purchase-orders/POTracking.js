@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
@@ -8,24 +8,18 @@ import {
   Truck,
   AlertTriangle,
   IndianRupee,
-  Check,
   Download,
-  Monitor,
   Search,
   ChevronDown,
   ExternalLink,
-  MoreHorizontal,
-  FileText,
-  MessageCircle,
-  Filter,
-  Calendar,
   CheckCheck,
   Info,
 } from "lucide-react";
-import { getPOTracking, handleMarkDispatched } from "@/services/po";
+import { getPOTracking, handleMarkDispatched, downloadPOTrackingExcel } from "@/services/po";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import { formatToINRShort, formatDisplayDate } from "@/utils/sharedFunctions";
+import { VendorFilter, DateFilter, EMPTY_DATE_FILTER, rangeOf } from "./FilterMenus";
 import styles from "./POTracking.module.scss";
 
 const PO_BASE = "/dashboard/buyer/purchase-orders";
@@ -71,11 +65,29 @@ const POTracking = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [vendorId, setVendorId] = useState(null);
+  const [dateFilter, setDateFilter] = useState(EMPTY_DATE_FILTER);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState({});
 
   const [data, setData] = useState(null); // full response body
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const fetchSeq = useRef(0);
+
+  // One filter object drives the table AND the Export, so the downloaded file
+  // is always exactly the table on screen.
+  const dateRange = rangeOf(dateFilter);
+  const queryParams = useMemo(
+    () => ({
+      tab: activeTab,
+      search,
+      vendor_id: vendorId || undefined,
+      date_from: dateRange.from || undefined,
+      date_to: dateRange.to || undefined,
+    }),
+    [activeTab, search, vendorId, dateRange.from, dateRange.to]
+  );
 
   // hotelIds derived from redux userProfile.hospitality_mappings (same pattern as PurchaseOrders.js)
   const hotelIds = useMemo(() => {
@@ -101,22 +113,45 @@ const POTracking = () => {
 
   const fetchTracking = useCallback(async () => {
     if (!canRead) return;
+    // Sequence guard: a filter change fires a second request (the page reset),
+    // and if the earlier UNFILTERED response lands last the table appears not
+    // to have filtered at all.
+    const id = ++fetchSeq.current;
     setLoading(true);
     try {
-      const res = await getPOTracking({ tab: activeTab, search, page, limit: PAGE_LIMIT });
+      const res = await getPOTracking({ ...queryParams, page, limit: PAGE_LIMIT });
+      if (id !== fetchSeq.current) return;
       setData(res || null);
     } catch (err) {
+      if (id !== fetchSeq.current) return;
       console.error("Failed to load PO tracking", err);
       toast.error(err?.message || "Unable to load PO tracking");
       setData(null);
     } finally {
-      setLoading(false);
+      if (id === fetchSeq.current) setLoading(false);
     }
-  }, [canRead, activeTab, search, page]);
+  }, [canRead, queryParams, page]);
 
   useEffect(() => {
     if (!permissionsLoading && canRead) fetchTracking();
   }, [permissionsLoading, canRead, fetchTracking]);
+
+  // A vendor/date change must land the user on page 1; otherwise a narrowed
+  // result set renders as an empty table and reads as "the filter is broken".
+  useEffect(() => {
+    setPage(1);
+  }, [vendorId, dateRange.from, dateRange.to]);
+
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await downloadPOTrackingExcel(queryParams);
+    } catch (err) {
+      toast.error(err?.message || "Could not export PO tracking");
+    } finally {
+      setExporting(false);
+    }
+  }, [queryParams]);
 
   const rows = data?.data || [];
   const tabCounts = data?.tab_counts || {};
@@ -207,12 +242,17 @@ const POTracking = () => {
                 Dispatch, GRN, invoice, and payment milestones across every approved PO.
               </p>
             </div>
+            {/* "Site-rep GRN" sat here and did nothing — there is no cross-PO
+                site-rep surface to open (representatives are added per PO on
+                the PO detail page), so it is removed rather than stubbed. */}
             <div className={styles.headerActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Download size={13} /> Export
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Monitor size={13} /> Site-rep GRN
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                type="button"
+                onClick={onExport}
+                disabled={exporting}
+              >
+                <Download size={13} /> {exporting ? "Exporting…" : "Export"}
               </button>
             </div>
           </div>
@@ -327,12 +367,13 @@ const POTracking = () => {
               </div>
             </div>
             <div className={styles.hRight}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Filter size={12} /> Vendor
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Calendar size={12} /> Date
-              </button>
+              <VendorFilter
+                styles={styles}
+                vendors={data?.vendors || []}
+                value={vendorId}
+                onChange={setVendorId}
+              />
+              <DateFilter styles={styles} value={dateFilter} onChange={setDateFilter} />
             </div>
           </div>
 
@@ -503,14 +544,6 @@ const POTracking = () => {
                             >
                               <ExternalLink size={14} />
                             </button>
-                            <button
-                              className={styles.iconBtn}
-                              type="button"
-                              title="More"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal size={14} />
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -536,35 +569,15 @@ const POTracking = () => {
                                 </div>
                               ))}
                             </div>
+                            {/* Only actions that actually do something live here.
+                                "Record GRN", "Upload invoice", "Mark paid" and
+                                "Message vendor" rendered with an empty
+                                stopPropagation handler — they advertised
+                                capabilities the app does not have from this
+                                page. Removed; "Open PO" is the real path to
+                                everything a user can do to one order. */}
                             <div className={styles.timelineActions}>
                               <div className={styles.timelineActionsLeft}>
-                                {canUpdate && p.grn_status !== "done" && (
-                                  <button
-                                    className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Check size={12} /> Record GRN
-                                  </button>
-                                )}
-                                {canUpdate && p.grn_status === "done" && p.invoice_status !== "done" && (
-                                  <button
-                                    className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <FileText size={12} /> Upload invoice
-                                  </button>
-                                )}
-                                {canUpdate && p.invoice_status === "done" && p.payment_status !== "done" && (
-                                  <button
-                                    className={`${styles.btn} ${styles.btnSuccess} ${styles.btnSm}`}
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <IndianRupee size={12} /> Mark paid
-                                  </button>
-                                )}
                                 {canUpdate && p.current_stage === "ack" && (
                                   <button
                                     className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
@@ -577,9 +590,9 @@ const POTracking = () => {
                                 <button
                                   className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
                                   type="button"
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => onOpenPO(p.id, e)}
                                 >
-                                  <MessageCircle size={12} /> Message vendor
+                                  <ExternalLink size={12} /> Open PO
                                 </button>
                               </div>
                               <div className={styles.nextMilestone}>
@@ -639,13 +652,14 @@ const POTracking = () => {
           <div className={styles.helperIc}>
             <Info size={14} />
           </div>
+          {/* The explanation is accurate and worth keeping; the "Configure"
+              button beside it was not wired to anything, and site
+              representatives are configured per PO on the PO detail page. */}
           <div className={styles.helperText}>
             <strong>Site-rep GRN flow.</strong> Field personnel can record goods receipt without
             portal access — auto-generated, rate-limited links are sent on dispatch confirmation.
+            Add a site representative from the purchase order&rsquo;s detail page.
           </div>
-          <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-            Configure
-          </button>
         </div>
       </main>
     </div>

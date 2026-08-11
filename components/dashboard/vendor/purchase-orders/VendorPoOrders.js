@@ -4,8 +4,9 @@
 // filter bar, table header/rows, and pagination. Filtering/faceting/pagination is
 // SERVER-side and authoritative (POST /po/vendor/list-view) — the same pattern as
 // RfqListPage.js: debounced search (~400ms), refetch on tab/filter/search/page.
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { toast } from "react-toastify";
 import {
   Download,
   AlignJustify,
@@ -15,7 +16,7 @@ import {
   FileText,
   ChevronDown,
 } from "lucide-react";
-import { getVendorPoListView } from "@/services/po";
+import { getVendorPoListView, downloadVendorPoExcel } from "@/services/po";
 import styles, { inr, fmtDateTime, relAgo, Sk } from "@/components/dashboard/buyer/purchase-orders/shared";
 
 const PO_ROUTE = "/dashboard/vendor/purchase-orders";
@@ -87,8 +88,16 @@ const VendorPoOrders = () => {
 
   const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: PAGE_LIMIT });
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const seq = useRef(0);
   const typeRef = useRef(null);
+
+  // The exact body the list view is being fetched with, minus paging — the
+  // Export must be the whole filtered set, not the page on screen.
+  const queryBody = useMemo(
+    () => ({ tab, search: debounced, filters: { type: typeFilter || undefined } }),
+    [tab, debounced, typeFilter],
+  );
 
   // Debounce the search box (~400ms) and reset to page 1 on a new query.
   useEffect(() => {
@@ -113,13 +122,7 @@ const VendorPoOrders = () => {
   useEffect(() => {
     const id = ++seq.current;
     setLoading(true);
-    getVendorPoListView({
-      tab,
-      search: debounced,
-      filters: { type: typeFilter || undefined },
-      page,
-      limit: PAGE_LIMIT,
-    })
+    getVendorPoListView({ ...queryBody, page, limit: PAGE_LIMIT })
       .then((res) => {
         if (id !== seq.current) return;
         const d = res?.data || {};
@@ -137,7 +140,20 @@ const VendorPoOrders = () => {
       .finally(() => {
         if (id === seq.current) setLoading(false);
       });
-  }, [tab, debounced, typeFilter, page]);
+  }, [queryBody, page]);
+
+  // Export is scoped server-side to the calling vendor, so this can only ever
+  // produce the caller's own orders.
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await downloadVendorPoExcel(queryBody);
+    } catch (e) {
+      toast.error(e?.message || "Could not export your orders");
+    } finally {
+      setExporting(false);
+    }
+  }, [queryBody]);
 
   const goToDetail = (id) => router.push(`${PO_ROUTE}/${id}`);
 
@@ -168,9 +184,14 @@ const VendorPoOrders = () => {
               </p>
             </div>
             <div className={styles.headerActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                type="button"
+                onClick={onExport}
+                disabled={exporting}
+              >
                 <Download size={13} />
-                Export
+                {exporting ? "Exporting…" : "Export"}
               </button>
             </div>
           </div>

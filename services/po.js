@@ -194,5 +194,60 @@ export const getPOAnalytics = async (params) => {
 
 export const getVendorPoDashboard = () => axiosInstance.get(`/po/vendor/dashboard`);
 export const getVendorPoListView  = (body) => axiosInstance.post(`/po/vendor/list-view`, body);
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Excel exports.
+
+   The server builds the workbook from the caller's own scoped query, so these
+   helpers only pass the filters the page is currently showing — they never
+   send rows, ids or a company/hotel id. Whatever the user can see is what
+   lands in the file, and nothing else.
+
+   The response interceptor unwraps `response.data`, which for
+   responseType:"blob" IS the Blob, so `res` here is already the file. The
+   filename is composed client-side rather than read off Content-Disposition:
+   that header is not exposed to cross-origin XHR by default and the value
+   would silently degrade to the endpoint path.
+   ───────────────────────────────────────────────────────────────────────── */
+
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+// Turns a Blob into a save dialog. Kept here (not in a component) so every PO
+// surface downloads the same way.
+const saveBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoking immediately can cancel the download in Safari; one tick is enough.
+  setTimeout(() => window.URL.revokeObjectURL(url), 0);
+};
+
+// GET /po/export — buyer "All purchase orders", honouring status/search/vendor/date.
+export const downloadPOListExcel = async (params) => {
+  const blob = await axiosInstance.get(`/po/export`, { params, responseType: "blob" });
+  saveBlob(blob, `purchase-orders_${stamp()}.xlsx`);
+};
+
+// GET /po/tracking/export — buyer PO tracking, honouring tab/search/vendor/date.
+export const downloadPOTrackingExcel = async (params) => {
+  const blob = await axiosInstance.get(`/po/tracking/export`, { params, responseType: "blob" });
+  saveBlob(blob, `po-tracking_${stamp()}.xlsx`);
+};
+
+// GET /po/analytics/export — one sheet per chart for the selected period.
+export const downloadPOAnalyticsExcel = async (params) => {
+  const blob = await axiosInstance.get(`/po/analytics/export`, { params, responseType: "blob" });
+  saveBlob(blob, `po-analytics_${stamp()}.xlsx`);
+};
+
+// POST /po/vendor/export — the vendor's own order book (same body as list-view).
+export const downloadVendorPoExcel = async (body) => {
+  const blob = await axiosInstance.post(`/po/vendor/export`, body, { responseType: "blob" });
+  saveBlob(blob, `my-purchase-orders_${stamp()}.xlsx`);
+};
 export const getVendorPoDetail    = (poId) => axiosInstance.get(`/po/vendor/detail/${poId}`);
 export const getVendorPoPdf        = (poId) => axiosInstance.get(`/po/vendor/detail/${poId}/pdf`);
