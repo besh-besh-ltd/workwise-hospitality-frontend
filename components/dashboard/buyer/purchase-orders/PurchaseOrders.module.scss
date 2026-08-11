@@ -1202,12 +1202,38 @@
   .over { color: var(--danger); font-weight: 600; font-size: 11px; }
 }
 
-/* ───────────── Documents ───────────── */
-.docsList {
-  padding: 12px 20px 16px;
+/* ───────────── Documents ─────────────
+   One card, one band per document class. The rule between bands is what makes
+   the grouping legible at a glance — an approver should see "PO / RFQ / vendor
+   / technical" without reading a single filename. */
+.docGroup {
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--border);
+  &:first-of-type { border-top: none; }
+}
+.docGroupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.docGroupCount {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--fg-4);
+  font-family: 'Geist Mono', monospace;
+}
+.docGroupGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
+}
+.docSectionLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
 }
 .docItem {
   display: flex;
@@ -1698,77 +1724,9 @@
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* ───────────── Doc aside cards (Buyer / Vendor documents) ───────────── */
-.docsSticky {
-  position: sticky;
-  top: 76px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  z-index: 1;
-}
-.docAsideCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.docAsideHead {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg);
-  letter-spacing: -0.005em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  svg { flex-shrink: 0; color: var(--fg-3); }
-}
-.docSection {
-  padding: 10px 16px 12px;
-  border-top: 1px solid var(--border);
-  &:first-of-type { border-top: none; }
-}
-.docSectionLabel {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--fg-3);
-  margin-bottom: 8px;
-}
-.docFileRow {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 0;
-  min-width: 0;
-  svg { flex-shrink: 0; color: var(--fg-3); }
-}
-.docTypeBadge {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--fg-2);
-  letter-spacing: 0.02em;
-}
-.docFileName {
-  font-size: 12px;
-  color: var(--fg-2);
-  text-decoration: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
-  &:hover { color: var(--accent); text-decoration: underline; }
-}
+/* The Buyer / Vendor document aside cards that used to live here are gone —
+   documents are grouped into the one card in the main column (see .docGroup).
+   Their styles went with them. */
 
 /* ───────────── Skeleton shimmer ───────────── */
 .sk {

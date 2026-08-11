@@ -585,8 +585,13 @@ const PODetail = ({ id }) => {
   const activity = Array.isArray(po.activity) ? po.activity : [];
   const decisionChecks = Array.isArray(po.decision_checks) ? po.decision_checks : [];
 
-  const rfqDocs = po.rfq_docs || null;
-  const vendorDocs = po.vendor_docs || null;
+  // Every attachment on this PO, already grouped by provenance server-side (PO
+  // documents / RFQ / vendor quote / technical evaluation). This page used to
+  // show the PO documents here and the RFQ + quote + tech files in two cards at
+  // the very bottom of the aside, where approvers never scrolled — they were
+  // rejecting POs over paperwork that was on the page the whole time.
+  const docGroups = Array.isArray(po.document_groups) ? po.document_groups : [];
+  const docGroupFileCount = docGroups.reduce((n, g) => n + (g.files || []).length, 0);
 
   const freightInsurance = (Number(pricing.freight) || 0) + (Number(pricing.insurance) || 0);
 
@@ -1530,8 +1535,14 @@ const PODetail = ({ id }) => {
             </section>
           )}
 
-          {/* Documents */}
-          {docs.length > 0 && (
+          {/* Documents — the single place attachments live on this page.
+              One card, one heading per document class, ordered for a decision:
+              the artefact being approved, then what was asked for, then what
+              the vendor offered, then the evidence it was judged on. The
+              server decides the grouping (see document_groups) because the
+              provenance of a file is knowable only where it was read; a
+              filename here cannot tell an RFQ spec from a vendor's. */}
+          {docGroups.length > 0 && (
             <section className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
@@ -1539,31 +1550,45 @@ const PODetail = ({ id }) => {
                     <FileText size={13} />
                   </div>
                   <h2>Documents &amp; attachments</h2>
-                  <span className={styles.pill}>{docs.length} files</span>
+                  <span className={styles.pill}>
+                    {docGroupFileCount} {docGroupFileCount === 1 ? "file" : "files"}
+                  </span>
                 </div>
               </div>
-              <div className={styles.docsList}>
-                {docs.map((doc, i) => (
-                  <a
-                    key={i}
-                    href={doc.url || "#"}
-                    target={doc.url ? "_blank" : undefined}
-                    rel="noreferrer"
-                    className={`${styles.docItem} ${styles[doc.type] || ""}`}
-                  >
-                    <div className={styles.fileIc}>
-                      <FileText size={14} />
-                    </div>
-                    <div className={styles.meta}>
-                      <div className={styles.name}>{doc.name}</div>
-                      <div className={styles.sub}>
-                        {[doc.kind, doc.size].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                    <Download size={14} className={styles.dl} />
-                  </a>
-                ))}
-              </div>
+              {docGroups.map((group) => (
+                <div key={group.key} className={styles.docGroup}>
+                  <div className={styles.docGroupHead}>
+                    <span className={styles.docSectionLabel}>{group.title}</span>
+                    <span className={styles.docGroupCount}>{(group.files || []).length}</span>
+                  </div>
+                  <div className={styles.docGroupGrid}>
+                    {(group.files || []).map((f, i) => {
+                      const name = f.name || fileDisplayName(f.url);
+                      return (
+                        <a
+                          key={i}
+                          href={f.url || "#"}
+                          target={f.url ? "_blank" : undefined}
+                          rel="noreferrer"
+                          className={`${styles.docItem} ${styles[fileKind(name)] || ""}`}
+                          title={name}
+                        >
+                          <div className={styles.fileIc}>
+                            <FileText size={14} />
+                          </div>
+                          <div className={styles.meta}>
+                            <div className={styles.name}>{name}</div>
+                            <div className={styles.sub}>
+                              {[f.label, f.product].filter(Boolean).join(" · ")}
+                            </div>
+                          </div>
+                          <Download size={14} className={styles.dl} />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </section>
           )}
 
@@ -1786,24 +1811,10 @@ const PODetail = ({ id }) => {
               </div>
             )}
 
-            {/* Buyer + Vendor documents — sticky wrapper so both cards stay pinned */}
-            {((rfqDocs && (rfqDocs.rfq_level.length > 0 || rfqDocs.products.length > 0)) ||
-              (vendorDocs && (vendorDocs.quote_level.length > 0 || vendorDocs.products.length > 0))) && (
-              <div className={styles.docsSticky}>
-                {rfqDocs && (rfqDocs.rfq_level.length > 0 || rfqDocs.products.length > 0) && (
-                  <DocAsideCard title="Buyer documents" sections={[
-                    rfqDocs.rfq_level.length > 0 && { label: "RFQ level", files: rfqDocs.rfq_level },
-                    ...rfqDocs.products.map((p) => ({ label: p.name, files: p.files })),
-                  ].filter(Boolean)} />
-                )}
-                {vendorDocs && (vendorDocs.quote_level.length > 0 || vendorDocs.products.length > 0) && (
-                  <DocAsideCard title="Vendor documents" sections={[
-                    vendorDocs.quote_level.length > 0 && { label: "Quote level", files: vendorDocs.quote_level },
-                    ...vendorDocs.products.map((p) => ({ label: p.name, files: p.files })),
-                  ].filter(Boolean)} />
-                )}
-              </div>
-            )}
+            {/* Documents used to end up here, in a pair of cards below the
+                activity feed — off the bottom of the aside, missed by the very
+                approvers who needed them. They now live in one grouped card in
+                the main column. Do not add a document surface back here. */}
           </div>
         </div>
       </main>
@@ -1979,44 +1990,28 @@ const ApproverRoster = ({ approvers, stepStatus, rule, addedMidFlight, removedMi
   );
 };
 
+// Fallback only — the server sends a display name with every file. Kept for
+// rows that predate that field, or a storage row with a url and nothing else.
 const fileDisplayName = (url) => {
   try {
     const seg = new URL(url).pathname.split("/").pop();
     const name = decodeURIComponent(seg);
-    return name.length > 40 ? name.slice(0, 37) + "…" : name || "File";
+    return name || "File";
   } catch {
     return "File";
   }
 };
 
-const DocAsideCard = ({ title, sections }) => (
-  <div className={styles.docAsideCard}>
-    <div className={styles.docAsideHead}>
-      <FileText size={13} />
-      {title}
-    </div>
-    {sections.map((sec, si) => (
-      <div key={si} className={styles.docSection}>
-        <div className={styles.docSectionLabel}>{sec.label}</div>
-        {sec.files.map((f, fi) => (
-          <div key={fi} className={styles.docFileRow}>
-            <Download size={11} />
-            {f.label && <span className={styles.docTypeBadge}>{f.label}</span>}
-            <a
-              href={f.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.docFileName}
-              title={fileDisplayName(f.url)}
-            >
-              {fileDisplayName(f.url)}
-            </a>
-          </div>
-        ))}
-      </div>
-    ))}
-  </div>
-);
+// Icon tint only. The extension is a safe thing to read off a filename — it
+// says how to render the row, never which group the file belongs to (that is
+// the server's call, and arrives as document_groups).
+const fileKind = (name) => {
+  const ext = String(name || "").split(".").pop().toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (ext === "xls" || ext === "xlsx" || ext === "csv") return "xls";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "img";
+  return "";
+};
 
 const VRow = ({ icon, label, value }) => (
   <div className={styles.row}>
