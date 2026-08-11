@@ -51,6 +51,7 @@
   --ring-info:     0 0 0 3px rgba(37, 99, 235, 0.18);
   --ring-success:  0 0 0 3px rgba(21, 128, 61, 0.18);
   --ring-danger:   0 0 0 3px rgba(185, 28, 28, 0.18);
+  --ring-warn:     0 0 0 3px rgba(180, 83, 9, 0.18);
 
   background: var(--bg);
   background-image: radial-gradient(circle at 1px 1px, rgba(15, 15, 14, 0.035) 1px, transparent 0);
@@ -250,6 +251,14 @@
 .btnSuccess { background: var(--success); color: white;
   &:hover:not(:disabled) { background: #166534; }
   &:focus-visible { box-shadow: var(--ring-success); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+// Force Initiate. Amber rather than green: the action is legitimate but
+// incomplete — it freezes a PO that does not carry every product on its RFQ —
+// so it must not wear the same colour as the safe, complete Initiate beside it.
+.btnWarnStrong { background: var(--warn); color: white;
+  &:hover:not(:disabled) { background: #92400e; }
+  &:focus-visible { box-shadow: var(--ring-warn); }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .btnDangerStrong { background: var(--danger); color: white;
