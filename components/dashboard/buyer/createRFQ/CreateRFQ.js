@@ -1406,7 +1406,8 @@ useEffect(() => {
         }
       }
       // Per-product comment: prefer live edit, fall back to stored value
-      const editedComment = updatableData?.products?.updatable?.comment?.[product.id];
+      const editedComment =
+        updatableData?.products?.updatable?.comment?.[specDeltaKey(product)]?.comment;
       const commentVal = (editedComment !== undefined ? editedComment : product.comment) || "";
       if (typeof commentVal === "string" && commentVal.length > PRODUCT_LIMITS.comment) {
         return fail(1, `Comment for "${productLabel}" exceeds ${PRODUCT_LIMITS.comment} characters (currently ${commentVal.length}).`);
@@ -2278,10 +2279,13 @@ useEffect(() => {
           ...prev.products.updatable,
           files: {
             ...(prev.products.updatable?.files ?? {}),
-            [product.id]: {
-              ...(prev.products.updatable?.files?.[product.id] ?? {
-                product_id: product.product_id,
-                variant: product.variant,
+            // specDeltaKey, not product.id: a product added in this session has
+            // no server id, so every one of them would file under the literal
+            // string "undefined" and share a single bucket.
+            [specDeltaKey(product)]: {
+              ...(prev.products.updatable?.files?.[specDeltaKey(product)] ?? {
+                product_id: product.product_id ?? product.product_variant_id,
+                variant: product.variant ?? 0,
               }),
               [change.type]: change?.value.length > 0 ? change.value : "rm",
             },
@@ -2305,10 +2309,10 @@ useEffect(() => {
           ...prev.products.updatable,
           comment: {
             ...(prev.products.updatable?.comment ?? {}),
-            [product.id]: {
-              ...(prev.products.updatable?.comment?.[product.id] ?? {
-                product_id: product.product_id,
-                variant: product.variant,
+            [specDeltaKey(product)]: {
+              ...(prev.products.updatable?.comment?.[specDeltaKey(product)] ?? {
+                product_id: product.product_id ?? product.product_variant_id,
+                variant: product.variant ?? 0,
               }),
               comment: change.value,
             },
@@ -2328,13 +2332,13 @@ useEffect(() => {
           ...prev.products.updatable,
           techEval: {
             ...(prev.products.updatable?.techEval ?? {}),
-            [product.id]: {
-              ...(prev.products.updatable?.techEval?.[product.id] ?? {
-                product_id: product.product_id,
-                variant: product.variant,
+            [specDeltaKey(product)]: {
+              ...(prev.products.updatable?.techEval?.[specDeltaKey(product)] ?? {
+                product_id: product.product_id ?? product.product_variant_id,
+                variant: product.variant ?? 0,
               }),
               techEval: [
-                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
+                ...(prev.products.updatable?.techEval?.[specDeltaKey(product)]?.techEval ??
                   []),
                 change.action,
               ],
@@ -2553,6 +2557,12 @@ useEffect(() => {
     const updatedSourceVendorIds = updatedSourceVendors.map(v => v.user_id);
 
     for (const rfqProduct of rfqProducts) {
+      // A product added in this session has no server id yet. Reading
+      // `.id.toString()` off it threw and took the whole sync down; and there
+      // is nothing to sync anyway, since its vendor list only exists once the
+      // row does (otherRfqProductId is fetched against below, so a synthetic
+      // key would not work here the way it does for the edit buffers).
+      if (rfqProduct.id === undefined || rfqProduct.id === null) continue;
       if (
         rfqProduct.product_id === productId &&
         rfqProduct.id.toString() !== sourceRfqProductId
