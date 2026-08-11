@@ -402,6 +402,66 @@ describe("approval trail — a shut level still answers for itself", () => {
   });
 });
 
+// The drawer's one instant format, as the milestone line has always written it:
+// "11 Jun 2026 · 10:00 AM". Matched as a shape rather than a literal so these
+// stay true in any timezone the suite runs under.
+const DATE_AND_TIME = /\d{2} [A-Z][a-z]{2} \d{4} · \d{2}:\d{2} (AM|PM)/;
+
+describe("approval trail — when, not just what day", () => {
+  // The reader opens this drawer mid-approval to answer "when exactly did this
+  // person clear it?" — against a bid deadline, or against the other approvals
+  // on the same level. Approver rows and the level summary used to print the
+  // date alone, so several approvals on one busy day were indistinguishable
+  // while the milestone line two rows above them carried the full instant.
+
+  it("stamps an approver who acted with the time of day, not just the date", async () => {
+    await openDrawer(LIVE_TRAIL);
+    const body = bodyOf(levelBtn(2));
+
+    // Vineet One cleared L2 at 09:00 on 12 Jun.
+    expect(within(body).getByText("12 Jun 2026 · 09:00 AM")).toBeInTheDocument();
+    expect(within(body).queryByText("12 Jun 2026")).not.toBeInTheDocument();
+  });
+
+  it("tells two approvals on the same date apart", async () => {
+    // Instance 37: Asha cleared L2 at 09:00 and Prashant rejected it at 10:00,
+    // the same morning. On a date-only stamp both rows read "12 Jun 2026" and
+    // the order of events is gone.
+    await openDrawer(TRAIL_37, { state: "rejected" });
+    const body = bodyOf(levelBtn(2));
+
+    expect(within(body).getByText("12 Jun 2026 · 09:00 AM")).toBeInTheDocument();
+    expect(within(body).getByText("12 Jun 2026 · 10:00 AM")).toBeInTheDocument();
+  });
+
+  it("says when a settled level cleared, to the minute", async () => {
+    await openDrawer(LIVE_TRAIL);
+
+    expect(levelBtn(1)).toHaveTextContent("cleared 11 Jun 2026 · 10:00 AM");
+  });
+
+  it("stamps a tombstone with the time it was removed", async () => {
+    // Instance 234's two removals are five minutes apart — which of the two
+    // reconciler passes voided which approver is only readable with the time.
+    await openDrawer(TRAIL_234);
+    const body = bodyOf(levelBtn(1));
+
+    expect(within(body).getByText("12 Jun 2026 · 08:00 AM")).toBeInTheDocument();
+    expect(within(body).getByText("12 Jun 2026 · 08:05 AM")).toBeInTheDocument();
+  });
+
+  it("writes an approver's instant in the same format as the 'Sent for approval' line", async () => {
+    // One format on one panel: the milestone line at the top is the reference
+    // the client already reads correctly, and the rows below it must not
+    // describe the same kind of fact a second way.
+    const drawer = await openDrawer(LIVE_TRAIL);
+    const milestone = within(drawer).getByText("Sent for approval").parentElement;
+
+    expect(milestone.textContent).toMatch(DATE_AND_TIME);
+    expect(within(bodyOf(levelBtn(2))).getAllByText(DATE_AND_TIME).length).toBeGreaterThan(0);
+  });
+});
+
 describe("approval trail — the summary", () => {
   it("counts levels, and does not count 'Sent for approval' as one of them", async () => {
     await openDrawer(LIVE_TRAIL);

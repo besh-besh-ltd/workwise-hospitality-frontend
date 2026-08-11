@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import {
   Download,
-  BarChart2,
   FileText,
   Clock,
   Check,
@@ -11,14 +11,12 @@ import {
   AlignJustify,
   Search,
   Eye,
-  MoreHorizontal,
-  Filter,
-  Calendar,
   UserCheck,
 } from "lucide-react";
-import { getPOKpis, getPODashboardList, getPOAwaiting } from "@/services/po";
+import { getPOKpis, getPODashboardList, getPOAwaiting, downloadPOListExcel } from "@/services/po";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import { VendorFilter, DateFilter, EMPTY_DATE_FILTER, rangeOf } from "./FilterMenus";
 import styles, {
   avatarClass,
   initialsOf,
@@ -63,14 +61,33 @@ const PODashboard = () => {
   const [awaiting, setAwaiting] = useState([]);
   const [list, setList] = useState([]);
   const [statusCounts, setStatusCounts] = useState({});
+  const [vendorFacets, setVendorFacets] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [vendorId, setVendorId] = useState(null);
+  const [dateFilter, setDateFilter] = useState(EMPTY_DATE_FILTER);
   const [page, setPage] = useState(1);
+  const fetchSeq = useRef(0);
+
+  // The filters the server is currently applying. Shared verbatim by the list
+  // fetch and the Export call, so the file is always the table.
+  const dateRange = rangeOf(dateFilter);
+  const queryParams = useMemo(
+    () => ({
+      status: activeTab,
+      search: debouncedSearch || undefined,
+      vendor_id: vendorId || undefined,
+      date_from: dateRange.from || undefined,
+      date_to: dateRange.to || undefined,
+    }),
+    [activeTab, debouncedSearch, vendorId, dateRange.from, dateRange.to]
+  );
 
   // Debounce the search box.
   useEffect(() => {
@@ -102,33 +119,55 @@ const PODashboard = () => {
   }, []);
 
   const fetchList = useCallback(async () => {
+    // Applying a filter fires a second request (the page reset). Without a
+    // sequence guard the slower of the two wins, and the user sees the
+    // UNFILTERED table come back — indistinguishable from a filter that does
+    // nothing, which is the bug being fixed here.
+    const id = ++fetchSeq.current;
     setListLoading(true);
     try {
       const res = await getPODashboardList({
-        status: activeTab,
-        search: debouncedSearch || undefined,
+        ...queryParams,
         page,
         limit: PAGE_LIMIT,
         sort: "DESC",
       });
+      if (id !== fetchSeq.current) return;
       setList(Array.isArray(res?.data) ? res.data : []);
       setStatusCounts(res?.status_counts || {});
+      // Facet-invariant: the vendor list is scoped but not filtered, so the
+      // dropdown does not shrink out from under the user as they narrow.
+      if (Array.isArray(res?.vendors)) setVendorFacets(res.vendors);
       setTotalItems(res?.total_items ?? 0);
     } catch (e) {
-      setList([]);
+      if (id === fetchSeq.current) setList([]);
     } finally {
-      setListLoading(false);
+      if (id === fetchSeq.current) setListLoading(false);
     }
-  }, [activeTab, debouncedSearch, page]);
+  }, [queryParams, page]);
 
   useEffect(() => {
     fetchList();
   }, [fetchList]);
 
-  // Reset to page 1 whenever the tab or search changes.
+  // Reset to page 1 whenever any filter changes — staying on page 7 of a
+  // now-2-page result is the classic "the filter did nothing" report.
   useEffect(() => {
     setPage(1);
-  }, [activeTab, debouncedSearch]);
+  }, [queryParams]);
+
+  // Export what the user is looking at. The server re-runs the same scoped
+  // query, so this can never widen the row set.
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await downloadPOListExcel({ ...queryParams, sort: "DESC" });
+    } catch (e) {
+      toast.error(e?.message || "Could not export purchase orders");
+    } finally {
+      setExporting(false);
+    }
+  }, [queryParams]);
 
   const goToDetail = (id) => router.push(`${PO_ROUTE}/${id}`);
 
@@ -171,14 +210,19 @@ const PODashboard = () => {
                 Approve, monitor, and track every PO across all RFQs from one place.
               </p>
             </div>
+            {/* "Reports" used to sit beside Export and did nothing at all.
+                There is no reports surface to send it to, so it is gone rather
+                than stubbed — a button that opens a "coming soon" toast is
+                still a broken button. */}
             <div className={styles.headerActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                type="button"
+                onClick={onExport}
+                disabled={exporting}
+              >
                 <Download size={13} />
-                Export
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <BarChart2 size={13} />
-                Reports
+                {exporting ? "Exporting…" : "Export"}
               </button>
             </div>
           </div>
@@ -375,14 +419,13 @@ const PODashboard = () => {
               </div>
             </div>
             <div className={styles.right}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Filter size={12} />
-                Vendor
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Calendar size={12} />
-                Date
-              </button>
+              <VendorFilter
+                styles={styles}
+                vendors={vendorFacets}
+                value={vendorId}
+                onChange={setVendorId}
+              />
+              <DateFilter styles={styles} value={dateFilter} onChange={setDateFilter} />
             </div>
           </div>
 
@@ -500,9 +543,6 @@ const PODashboard = () => {
                             }}
                           >
                             <Eye size={14} />
-                          </button>
-                          <button className={styles.iconBtn} title="More" type="button" onClick={(e) => e.stopPropagation()}>
-                            <MoreHorizontal size={14} />
                           </button>
                         </div>
                       </td>

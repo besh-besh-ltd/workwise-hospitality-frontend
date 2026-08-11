@@ -9,10 +9,8 @@ import {
   TrendingUp,
   Users,
   Download,
-  FileText,
-  ChevronRight,
 } from "lucide-react";
-import { getPOAnalytics } from "@/services/po";
+import { getPOAnalytics, downloadPOAnalyticsExcel } from "@/services/po";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import styles from "./POAnalytics.module.scss";
@@ -55,6 +53,7 @@ const POAnalytics = () => {
   const [period, setPeriod] = useState("this-month");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const hotelIds = useMemo(() => {
     const mappings = userProfile?.hospitality_mappings || [];
@@ -86,6 +85,20 @@ const POAnalytics = () => {
   useEffect(() => {
     if (!permissionsLoading && canRead) fetchAnalytics();
   }, [permissionsLoading, canRead, fetchAnalytics]);
+
+  // Export the period on screen. The server rebuilds the same scoped analytics
+  // it just rendered — one sheet per chart, so the numbers stay re-pivotable
+  // instead of arriving as a picture of a chart.
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await downloadPOAnalyticsExcel({ period });
+    } catch (err) {
+      toast.error(err?.message || "Could not export the analytics report");
+    } finally {
+      setExporting(false);
+    }
+  }, [period]);
 
   const showSkeleton = permissionsLoading || (loading && !data);
 
@@ -163,12 +176,16 @@ const POAnalytics = () => {
                 Spend velocity, vendor performance, approval bottlenecks, and savings — at a glance.
               </p>
             </div>
+            {/* "Custom report" was a dead sibling of Export — there is no
+                report builder behind it, so it is removed rather than stubbed. */}
             <div className={styles.headerActions}>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <Download size={13} /> Export report
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} type="button">
-                <FileText size={13} /> Custom report
+              <button
+                className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+                type="button"
+                onClick={onExport}
+                disabled={exporting || showSkeleton}
+              >
+                <Download size={13} /> {exporting ? "Exporting…" : "Export report"}
               </button>
             </div>
           </div>
@@ -529,7 +546,6 @@ const POAnalytics = () => {
                       <th className={styles.num}>Orders</th>
                       <th className={styles.num}>Spend</th>
                       <th>On-time delivery</th>
-                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -573,11 +589,6 @@ const POAnalytics = () => {
                           ) : (
                             <span style={{ color: "var(--fg-4)", fontSize: 12 }}>—</span>
                           )}
-                        </td>
-                        <td>
-                          <button className={styles.iconBtn} type="button">
-                            <ChevronRight size={13} />
-                          </button>
                         </td>
                       </tr>
                     ))}
