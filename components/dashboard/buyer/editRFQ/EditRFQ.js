@@ -41,7 +41,6 @@ import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import FormikField from "@/components/shared/FormikField";
 import { findIncompleteProducts, describeIncomplete } from "@/utils/productCompleteness";
-import { specDeltaKey } from "@/utils/rfqSpecDelta";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -596,9 +595,9 @@ const EditRFQ = () => {
           ...prev.products.updatable,
           specs: {
             ...(prev.products.updatable?.specs ?? {}),
-            [specDeltaKey(product)]: {
-              ...(prev.products.updatable?.specs?.[specDeltaKey(product)] ?? {
-                product_id: product.product_id ?? product.product_variant_id,
+            [product.id]: {
+              ...(prev.products.updatable?.specs?.[product.id] ?? {
+                product_id: product.product_id,
                 variant: product.variant,
               }),
               [change.title]: change.value,
@@ -629,9 +628,9 @@ const EditRFQ = () => {
           ...prev.products.updatable,
           files: {
             ...(prev.products.updatable?.files ?? {}),
-            [specDeltaKey(product)]: {
-              ...(prev.products.updatable?.files?.[specDeltaKey(product)] ?? {
-                product_id: product.product_id ?? product.product_variant_id,
+            [product.id]: {
+              ...(prev.products.updatable?.files?.[product.id] ?? {
+                product_id: product.product_id,
                 variant: product.variant,
               }),
               [change.type]: change?.value.length > 0 ? change.value : "rm",
@@ -662,9 +661,9 @@ const EditRFQ = () => {
           ...prev.products.updatable,
           comment: {
             ...(prev.products.updatable?.comment ?? {}),
-            [specDeltaKey(product)]: {
-              ...(prev.products.updatable?.comment?.[specDeltaKey(product)] ?? {
-                product_id: product.product_id ?? product.product_variant_id,
+            [product.id]: {
+              ...(prev.products.updatable?.comment?.[product.id] ?? {
+                product_id: product.product_id,
                 variant: product.variant,
               }),
               comment: change.value,
@@ -684,13 +683,13 @@ const EditRFQ = () => {
           ...prev.products.updatable,
           techEval: {
             ...(prev.products.updatable?.techEval ?? {}),
-            [specDeltaKey(product)]: {
-              ...(prev.products.updatable?.techEval?.[specDeltaKey(product)] ?? {
-                product_id: product.product_id ?? product.product_variant_id,
+            [product.id]: {
+              ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                product_id: product.product_id,
                 variant: product.variant,
               }),
               techEval: [
-                ...(prev.products.updatable?.techEval?.[specDeltaKey(product)]?.techEval ??
+                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
                   []),
                 change.action,
               ],
@@ -710,10 +709,8 @@ const EditRFQ = () => {
   };
 
   const handleSyncApplyToOtherVariants = async () => {
-    // Keyed via specDeltaKey, not product.id: a product added in this session
-    // has no server id yet, and reading `.id.toString()` off it threw outright.
-    if (!selectedProduct?.product) return;
-    const sourceRfqProductId = specDeltaKey(selectedProduct.product);
+    const sourceRfqProductId = selectedProduct.product.id?.toString();
+    if (!sourceRfqProductId) return;
 
     const sourceVendorData = updatableData.vendors?.[sourceRfqProductId];
 
@@ -734,18 +731,16 @@ const EditRFQ = () => {
     const updatedSourceVendorIds = updatedSourceVendors.map(v => v.user_id);
 
     for (const rfqProduct of rfqData.products) {
-      const otherRfqProductId = specDeltaKey(rfqProduct);
       if (
         rfqProduct.product_id === productId &&
-        otherRfqProductId !== sourceRfqProductId
+        rfqProduct.id.toString() !== sourceRfqProductId
       ) {
+        const otherRfqProductId = rfqProduct.id.toString();
 
         // Ensure current vendors of target loaded
-        let currentVendors = rfqData.products?.find(
-          (product) => specDeltaKey(product) === otherRfqProductId
-        )?.vendor_details;
+        let currentVendors = rfqData.products?.find(product => product.id == otherRfqProductId)?.vendor_details;
 
-        const currentVendorIds = (currentVendors ?? []).map(v => v.user_id);
+        const currentVendorIds = currentVendors.map(v => v.user_id);
 
         // Vendors that should be added to sync
         const syncAddable = updatedSourceVendorIds.filter(
@@ -1857,9 +1852,9 @@ const EditRFQ = () => {
                               ...(prev.products.updatable),
                               specs: {
                                 ...(prev.products.updatable?.specs ?? {}),
-                                [specDeltaKey(product)]: {
-                                  ...(prev.products.updatable?.specs?.[specDeltaKey(product)] ?? {
-                                    product_id: product.product_id ?? product.product_variant_id,
+                                [product.id]: {
+                                  ...(prev.products.updatable?.specs?.[product.id] ?? {
+                                    product_id: product.product_id,
                                     variant: product.variant,
                                   }),
                                   [change.title]: change.value,
@@ -1889,9 +1884,9 @@ const EditRFQ = () => {
                               ...prev.products.updatable,
                               files: {
                                 ...(prev.products.updatable?.files ?? {}),
-                                [specDeltaKey(product)]: {
-                                  ...(prev.products.updatable?.files?.[specDeltaKey(product)] ?? {
-                                    product_id: product.product_id ?? product.product_variant_id,
+                                [product.id]: {
+                                  ...(prev.products.updatable?.files?.[product.id] ?? {
+                                    product_id: product.product_id,
                                     variant: product.variant,
                                   }),
                                   [change.type]: change?.value.length > 0 ? change.value : 'rm',
@@ -1921,9 +1916,9 @@ const EditRFQ = () => {
                               ...prev.products.updatable,
                               comment: {
                                 ...(prev.products.updatable?.comment ?? {}),
-                                [specDeltaKey(product)]: {
-                                  ...(prev.products.updatable?.comment?.[specDeltaKey(product)] ?? {
-                                    product_id: product.product_id ?? product.product_variant_id,
+                                [product.id]: {
+                                  ...(prev.products.updatable?.comment?.[product.id] ?? {
+                                    product_id: product.product_id,
                                     variant: product.variant,
                                   }),
                                   comment: change.value,
@@ -1942,12 +1937,12 @@ const EditRFQ = () => {
                               ...prev.products.updatable,
                               techEval: {
                                 ...(prev.products.updatable?.techEval ?? {}),
-                                [specDeltaKey(product)]: {
-                                  ...(prev.products.updatable?.techEval?.[specDeltaKey(product)] ?? {
-                                    product_id: product.product_id ?? product.product_variant_id,
+                                [product.id]: {
+                                  ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                                    product_id: product.product_id,
                                     variant: product.variant,
                                   }),
-                                  techEval: [...(prev.products.updatable?.techEval?.[specDeltaKey(product)]?.techEval ?? []), change.action],
+                                  techEval: [...(prev.products.updatable?.techEval?.[product.id]?.techEval ?? []), change.action],
                                 }
                               }
                             }
