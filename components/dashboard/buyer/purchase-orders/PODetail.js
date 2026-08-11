@@ -475,7 +475,22 @@ const PODetail = ({ id }) => {
   // generation, and approver notification. No approval bypass; if no
   // policy is configured the backend returns the same error it would for
   // any other initiate trigger.
+  // Initiate vs Force Initiate. `covers_all_products` is derived on the server
+  // (the client is sent only this PO's items, so it cannot know what is
+  // missing). A PO that carries every product on its RFQ is a plain, green
+  // Initiate; one that does not is an amber Force Initiate, because initiating
+  // FREEZES it — anything finalized afterwards is clubbed into a separate PO,
+  // and the buyer has to be told that before they commit.
+  //
+  // Defaults to complete when the flag is absent (call-off POs, or an older
+  // payload): the safe default is the plain confirmation, not a warning about a
+  // condition we have not actually established.
+  const coversAllProducts = po?.covers_all_products !== false;
+  const isForceInitiate = !coversAllProducts;
+  const [initiateOpen, setInitiateOpen] = useState(false);
+
   const handleInitiatePO = async () => {
+    setInitiateOpen(false);
     setInitiating(true);
     try {
       const res = await handlePOInitialization(id);
@@ -809,10 +824,16 @@ const PODetail = ({ id }) => {
                    as the page's primary call to action and invites the click
                    it will not accept. The unavailable state should look like
                    the disabled "Download PO" beside it. */
-                className={`${styles.btn} ${canWrite ? styles.btnSuccess : styles.btnSecondary}`}
+                className={`${styles.btn} ${
+                  !canWrite
+                    ? styles.btnSecondary
+                    : isForceInitiate
+                    ? styles.btnWarnStrong
+                    : styles.btnSuccess
+                }`}
                 type="button"
                 disabled={initiating || !canWrite}
-                onClick={canWrite ? handleInitiatePO : undefined}
+                onClick={canWrite ? () => setInitiateOpen(true) : undefined}
                 title={
                   canWrite
                     ? undefined
@@ -820,7 +841,7 @@ const PODetail = ({ id }) => {
                 }
               >
                 <Send size={13} />
-                {initiating ? "Initiating…" : "Initiate PO"}
+                {initiating ? "Initiating…" : isForceInitiate ? "Force Initiate" : "Initiate"}
               </button>
             )}
             {isPending && awaitingMe && canApprove && (
@@ -1796,6 +1817,35 @@ const PODetail = ({ id }) => {
           `description` is the modal's one dangerouslySetInnerHTML prop, and the
           vendor name is vendor-authored, so both interpolations are escaped
           (see escapeHtml). Anything added to this string later must be too. */}
+      {/* Initiate / Force Initiate confirmation.
+
+          Two different questions, so two different modals rather than one with
+          a conditional sentence. The complete case just needs a yes; the
+          incomplete case has to state the consequence the buyer cannot see
+          from the page — that the products still unfinalized on this RFQ will
+          land in a SEPARATE purchase order once this one is frozen.
+
+          `description` is the modal's dangerouslySetInnerHTML prop, so the two
+          interpolated values are escaped like every other value on it, even
+          though both are server-derived integers today. */}
+      <ConfirmationModal
+        isOpen={initiateOpen}
+        onClose={() => setInitiateOpen(false)}
+        onConfirm={handleInitiatePO}
+        title={isForceInitiate ? "Force initiate this purchase order?" : "Initiate this purchase order?"}
+        description={
+          isForceInitiate
+            ? `This purchase order does <strong>not</strong> include every product on its RFQ — it covers ${escapeHtml(
+                po.po_product_count
+              )} of ${escapeHtml(po.rfq_product_count)}. Any product finalized after this PO is initiated will be clubbed into a <strong>separate purchase order</strong>. Are you sure you want to force initiate?`
+            : `This purchase order covers every product on its RFQ. It will now go for approval, or be sent to the vendor directly, depending on the approval workflow configured for this business unit.`
+        }
+        confirmButtonColor={isForceInitiate ? "warning" : "success"}
+        confirmButtonText={isForceInitiate ? "Force Initiate" : "Initiate"}
+        cancelButtonText="Cancel"
+        showCloseButton
+      />
+
       <ConfirmationModal
         isOpen={rejectOpen}
         onClose={() => setRejectOpen(false)}

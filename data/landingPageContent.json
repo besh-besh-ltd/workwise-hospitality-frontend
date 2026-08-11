@@ -9,14 +9,31 @@
   },
   "seo": {
     "title": "Workwise — Procurement built exclusively for hospitality",
-    "description": "Workwise runs RFQs, tenders, negotiations and purchase orders across every property on one platform, so hospitality groups know they paid the right price every time."
+    "description": "Procurement se Profit — Workwise runs RFQs, tenders and negotiations across every property on one platform, so you know you paid the right price.",
+    "siteUrl": "https://hospitality.letsworkwise.com",
+    "ogImage": "/assets/images/og-workwise-hospitality.png",
+    "ogImageAlt": "Workwise — Procurement se Profit. Every rupee, accounted for. AI-powered procurement, crafted exclusively for hospitality.",
+    "ogImageWidth": 1200,
+    "ogImageHeight": 630
   },
   "nav": {
     "items": [
-      { "label": "The problem", "href": "#lh-problem" },
-      { "label": "The platform", "href": "#lh-solution" },
-      { "label": "How it works", "href": "#lh-journey" },
-      { "label": "Proof", "href": "#lh-testimonials" }
+      {
+        "label": "The problem",
+        "href": "#lh-problem"
+      },
+      {
+        "label": "The platform",
+        "href": "#lh-solution"
+      },
+      {
+        "label": "How it works",
+        "href": "#lh-journey"
+      },
+      {
+        "label": "Proof",
+        "href": "#lh-testimonials"
+      }
     ],
     "loginHref": "/hotel-vendor",
     "loginLabel": "Log in",
@@ -45,15 +62,30 @@
   "logoWall": {
     "eyebrow": "Trusted by procurement teams at",
     "logos": [
-      { "name": "The Orchid Hotels", "src": "" },
-      { "name": "Kamat Group", "src": "" }
+      {
+        "name": "The Orchid Hotels",
+        "src": ""
+      },
+      {
+        "name": "Kamat Group",
+        "src": ""
+      }
     ]
   },
   "proofBand": {
     "stats": [
-      { "value": "6-9%", "label": "Average cost reduction" },
-      { "value": "75%", "label": "Less time to award" },
-      { "value": "1", "label": "Rate per item, every property" }
+      {
+        "value": "6-9%",
+        "label": "Average cost reduction"
+      },
+      {
+        "value": "75%",
+        "label": "Less time to award"
+      },
+      {
+        "value": "1",
+        "label": "Rate per item, every property"
+      }
     ],
     "footnote": "Figures from Workwise customer deployments. Ask for the full breakdown on your demo call."
   },
@@ -188,15 +220,27 @@
       {
         "heading": "Platform",
         "links": [
-          { "label": "Products", "href": "/products" },
-          { "label": "Log in", "href": "/hotel-vendor" }
+          {
+            "label": "Products",
+            "href": "/products"
+          },
+          {
+            "label": "Log in",
+            "href": "/hotel-vendor"
+          }
         ]
       },
       {
         "heading": "Company",
         "links": [
-          { "label": "Contact us", "href": "mailto:hello@letsworkwise.com" },
-          { "label": "Sitemap", "href": "/sitemap" }
+          {
+            "label": "Contact us",
+            "href": "mailto:hello@letsworkwise.com"
+          },
+          {
+            "label": "Sitemap",
+            "href": "/sitemap"
+          }
         ]
       }
     ],
@@ -209,9 +253,21 @@
     "title": "Book a demo",
     "sidePanel": {
       "items": [
-        { "icon": "clock", "title": "Thirty minutes", "text": "We keep it focused on your workflow" },
-        { "icon": "file", "title": "Bring an RFQ or tender", "text": "We will run it through Workwise live, using your own properties and vendors" },
-        { "icon": "users", "title": "The right people", "text": "Procurement, hotel GMs and finance can all join the same session" }
+        {
+          "icon": "clock",
+          "title": "Thirty minutes",
+          "text": "We keep it focused on your workflow"
+        },
+        {
+          "icon": "file",
+          "title": "Bring an RFQ or tender",
+          "text": "We will run it through Workwise live, using your own properties and vendors"
+        },
+        {
+          "icon": "users",
+          "title": "The right people",
+          "text": "Procurement, hotel GMs and finance can all join the same session"
+        }
       ],
       "writeLabel": "Prefer to write?",
       "email": "hello@letsworkwise.com"
@@ -224,10 +280,26 @@
       "Other"
     ],
     "countryCodes": [
-      { "code": "+91", "iso": "IN", "label": "IN (+91)" },
-      { "code": "+1", "iso": "US", "label": "US (+1)" },
-      { "code": "+971", "iso": "AE", "label": "AE (+971)" },
-      { "code": "+44", "iso": "GB", "label": "UK (+44)" }
+      {
+        "code": "+91",
+        "iso": "IN",
+        "label": "IN (+91)"
+      },
+      {
+        "code": "+1",
+        "iso": "US",
+        "label": "US (+1)"
+      },
+      {
+        "code": "+971",
+        "iso": "AE",
+        "label": "AE (+971)"
+      },
+      {
+        "code": "+44",
+        "iso": "GB",
+        "label": "UK (+44)"
+      }
     ],
     "defaultCountryCode": "+91",
     "submitLabel": "Request a demo"

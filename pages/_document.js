@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from "next/document";
+import SiteMeta from "@/components/seo/SiteMeta";
 
 export default function Document() {
   return (
@@ -10,6 +11,10 @@ export default function Document() {
           name="keywords"
           content="procurement, tender, rfq, buyer, vendor"
         ></meta>
+        {/* Link-preview tags. Server-rendered here because _document is the
+            only part of the tree that survives the PersistGate gate in
+            redux/provider.js — see components/seo/SiteMeta.js. */}
+        <SiteMeta />
         <link
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
           rel="stylesheet"

@@ -23,9 +23,12 @@ const LandingPage = () => {
 
   return (
     <>
+      {/* Browser-tab title only. The link-preview tags (og:*, twitter:*)
+          are server-rendered from _document via components/seo/SiteMeta.js,
+          because nothing rendered here reaches a crawler — see that file. */}
       <Head>
         <title>{content.seo.title}</title>
-        <meta name="description" content={content.seo.description} />
+        <link rel="canonical" href={content.seo.siteUrl} />
       </Head>
 
       <div className="lh-page">
