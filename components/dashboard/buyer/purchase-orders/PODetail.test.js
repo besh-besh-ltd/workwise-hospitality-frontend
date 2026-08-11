@@ -822,3 +822,141 @@ describe("Items & pricing totals", () => {
     expect(cells[4]).toBe("₹29,000.00");
   });
 });
+
+/* ── Documents ──────────────────────────────────────────────────────────────
+ *
+ * Client report: approvers were rejecting POs for "no documents" while the
+ * files sat in two cards at the very bottom of the right-hand aside, below the
+ * activity feed and off-screen. The prominent mid-page card showed only the PO
+ * pdf / GRN / invoice, so the two surfaces were NOT duplicates — they were
+ * different document classes, one of them effectively invisible.
+ *
+ * The fix consolidates all of them into the one mid-page card, grouped by
+ * provenance (the grouping is decided server-side and arrives as
+ * document_groups). These tests pin the two things that can regress: every
+ * class is reachable from the prominent card, and nothing is left in the aside.
+ */
+const DOC_GROUPS = [
+  {
+    key: "po",
+    title: "PO documents",
+    files: [{ url: "https://s3.test/po-108194.pdf", name: "po-108194.pdf", label: "PO", product: null }],
+  },
+  {
+    key: "rfq",
+    title: "RFQ documents (buyer-issued)",
+    files: [
+      { url: "https://s3.test/terms.pdf", name: "terms.pdf", label: "T&C", product: null },
+      { url: "https://s3.test/kb-datasheet.pdf", name: "kb-datasheet.pdf", label: "TDS", product: "KEYBOARD" },
+    ],
+  },
+  {
+    key: "vendor_quote",
+    title: "Vendor quote documents",
+    files: [{ url: "https://s3.test/quote-terms.pdf", name: "quote-terms.pdf", label: "T&C", product: null }],
+  },
+  {
+    key: "technical",
+    title: "Technical evaluation documents",
+    files: [
+      { url: "https://s3.test/clause-brief.pdf", name: "clause-brief.pdf", label: "Buyer clause", product: "KEYBOARD" },
+      { url: "https://s3.test/vendor-cert.pdf", name: "vendor-cert.pdf", label: "Vendor response", product: "KEYBOARD" },
+    ],
+  },
+];
+
+/* The documents card, located by its heading's section ancestor. */
+const docsCard = () => screen.getByText("Documents & attachments").closest("section");
+
+describe("Documents & attachments", () => {
+  it("shows every document class in the one prominent card, under its own heading", async () => {
+    await mount({ document_groups: DOC_GROUPS });
+
+    const card = within(docsCard());
+
+    // The four groups an approver has to be able to tell apart.
+    expect(card.getByText("PO documents")).toBeInTheDocument();
+    expect(card.getByText("RFQ documents (buyer-issued)")).toBeInTheDocument();
+    expect(card.getByText("Vendor quote documents")).toBeInTheDocument();
+    expect(card.getByText("Technical evaluation documents")).toBeInTheDocument();
+
+    // …and every file inside them, including the vendor-supplied ones that used
+    // to be the easiest to miss.
+    expect(card.getByText("po-108194.pdf")).toBeInTheDocument();
+    expect(card.getByText("kb-datasheet.pdf")).toBeInTheDocument();
+    expect(card.getByText("quote-terms.pdf")).toBeInTheDocument();
+    expect(card.getByText("vendor-cert.pdf")).toBeInTheDocument();
+  });
+
+  it("counts every grouped file in the header pill, not just the PO documents", async () => {
+    await mount({ document_groups: DOC_GROUPS });
+    expect(within(docsCard()).getByText("6 files")).toBeInTheDocument();
+  });
+
+  it("labels each file with its kind and the product it belongs to", async () => {
+    await mount({ document_groups: DOC_GROUPS });
+    const card = within(docsCard());
+
+    // A datasheet is only meaningful next to the product it describes.
+    expect(card.getByText("TDS · KEYBOARD")).toBeInTheDocument();
+    // Technical evaluation mixes buyer-issued and vendor-submitted files, so
+    // the label — not the group heading — has to say which is which.
+    expect(card.getByText("Buyer clause · KEYBOARD")).toBeInTheDocument();
+    expect(card.getByText("Vendor response · KEYBOARD")).toBeInTheDocument();
+    // An RFQ-level file has no product; the separator must not be left dangling
+    // ("T&C · " with nothing after it).
+    const rfqTerms = card.getByText("terms.pdf").closest("a");
+    expect(within(rfqTerms).getByText("T&C")).toBeInTheDocument();
+  });
+
+  it("links each file to its own url", async () => {
+    await mount({ document_groups: DOC_GROUPS });
+    expect(within(docsCard()).getByText("vendor-cert.pdf").closest("a")).toHaveAttribute(
+      "href",
+      "https://s3.test/vendor-cert.pdf"
+    );
+  });
+
+  it("leaves no second documents surface in the aside", async () => {
+    await mount({ document_groups: DOC_GROUPS });
+
+    // The two aside cards this consolidation removed. Their headings must not
+    // come back — a vendor document shown twice is what started this.
+    expect(screen.queryByText("Vendor documents")).not.toBeInTheDocument();
+    expect(screen.queryByText("Buyer documents")).not.toBeInTheDocument();
+
+    // Every rendered link to a document lives inside the one card.
+    const card = docsCard();
+    for (const group of DOC_GROUPS) {
+      for (const f of group.files) {
+        const links = screen.getAllByText(f.name);
+        expect(links).toHaveLength(1);
+        expect(card.contains(links[0])).toBe(true);
+      }
+    }
+  });
+
+  // `docs` survives in the payload because the hero's "Download PO" control
+  // reads the po-typed entry out of it. It is no longer a rendering source:
+  // rendering it here is what produced a second, ungrouped document list.
+  it("renders from document_groups only — never from the legacy flat docs array", async () => {
+    await mount({
+      document_groups: [],
+      docs: [{ name: "PO 108194.pdf", type: "po", kind: "po", size: null, url: "https://s3.test/po.pdf" }],
+    });
+
+    expect(screen.queryByText("Documents & attachments")).not.toBeInTheDocument();
+    expect(screen.queryByText("PO 108194.pdf")).not.toBeInTheDocument();
+  });
+
+  it("renders a call-off PO that only has PO documents without empty headings", async () => {
+    await mount({ document_groups: [DOC_GROUPS[0]] });
+    const card = within(docsCard());
+
+    expect(card.getByText("PO documents")).toBeInTheDocument();
+    expect(card.getByText("1 file")).toBeInTheDocument();
+    // No heading for a class this PO has nothing in.
+    expect(card.queryByText("RFQ documents (buyer-issued)")).not.toBeInTheDocument();
+    expect(card.queryByText("Technical evaluation documents")).not.toBeInTheDocument();
+  });
+});
