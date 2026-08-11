@@ -132,7 +132,24 @@ const mount = async (overrides = {}) => {
   return utils;
 };
 
-const initiatePO = () => screen.queryByRole("button", { name: /^initiate po$/i });
+// The control now carries one of two labels — "Initiate" when the PO covers
+// every product on its RFQ, "Force Initiate" when it does not. These tests are
+// about WHO gets the control, not which variant it is, so they match either.
+// Variant behaviour is covered in PODetail.initiate.test.js.
+const initiatePO = () => {
+  const all = screen.queryAllByRole("button", { name: /^(force initiate|initiate)$/i });
+  return all.length ? all[0] : null;   // [0] is the page control
+};
+
+/** Click the control, then accept the confirmation it now opens. */
+const clickInitiateAndConfirm = () => {
+  const pageButtons = screen.queryAllByRole("button", { name: /^(force initiate|initiate)$/i });
+  fireEvent.click(pageButtons[0]);
+  // The modal's confirm carries the same label, so it is the LAST match once
+  // the dialog is open (the page control renders first).
+  const all = screen.queryAllByRole("button", { name: /^(force initiate|initiate)$/i });
+  fireEvent.click(all[all.length - 1]);
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -179,13 +196,22 @@ describe("Initiate PO — a draft PO and a user who holds awarding.create", () =
     expect(initiatePO()).toBeEnabled();
   });
 
-  it("initiates the PO when clicked", async () => {
+  it("initiates the PO once the confirmation is accepted", async () => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+
+    await mount();
+    clickInitiateAndConfirm();
+
+    await waitFor(() => expect(handlePOInitialization).toHaveBeenCalledWith("52"));
+  });
+
+  it("does NOT initiate on the button alone — the confirmation must be accepted", async () => {
     state.grants = { [PO_HOTEL]: ["read", "create"] };
 
     await mount();
     fireEvent.click(initiatePO());
 
-    await waitFor(() => expect(handlePOInitialization).toHaveBeenCalledWith("52"));
+    expect(handlePOInitialization).not.toHaveBeenCalled();
   });
 });
 
