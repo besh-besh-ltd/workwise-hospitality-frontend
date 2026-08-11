@@ -14,7 +14,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FileText, IndianRupee, Clock3, CircleCheck, TriangleAlert, ArrowRight, ChevronDown, Users, Mail, Phone } from "lucide-react";
-import { statusLabel, inr, initialsOf, fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
+import { statusLabel, inr, initialsOf, fmtDateOnly, fmtDateTime } from "@/components/dashboard/buyer/purchase-orders/shared";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
 import {
   effectiveApproverStatus,
@@ -320,7 +320,7 @@ function ApproverRow({ ap, eff, emphasise }) {
           <span className="dot" />
           {pill.text}
         </span>
-        {ap?.acted_at && <span className="mr-time">{fmtDateOnly(ap.acted_at)}</span>}
+        {ap?.acted_at && <span className="mr-time">{fmtDateTime(ap.acted_at)}</span>}
       </div>
     </div>
   );
@@ -342,7 +342,7 @@ function RemovedApproverRow({ ap }) {
           <span className="dot" />
           Removed{reason ? ` · ${reason}` : ""}
         </span>
-        {ap?.removed_at && <span className="mr-time">{fmtDateOnly(ap.removed_at)}</span>}
+        {ap?.removed_at && <span className="mr-time">{fmtDateTime(ap.removed_at)}</span>}
       </div>
     </div>
   );

@@ -108,15 +108,21 @@ const levelLabel = (node) => {
 
 /* ── formatting ────────────────────────────────────────────────────────── */
 
+// The ONE way this panel writes an instant. Every timestamp on the drawer is a
+// full instant in the payload — `acted_at`, the level's `when` and `removed_at`
+// all arrive as ISO strings off quoteCompareViewModel.buildQuoteApprovalData —
+// so nothing here has any business rendering a date on its own.
+//
+// It used to. The milestone line ("Sent for approval — Ash I · 11 Aug 2026 ·
+// 03:50 PM") used this; the approver rows and the level's "cleared" summary used
+// a second, day-only formatter. That made the panel useless for the question it
+// is actually opened to answer on a busy day — not WHETHER someone approved but
+// WHEN, against a bid deadline or another approval on the same date. Two people
+// clearing a level four hours apart both read "11 Aug 2026".
 const fmtWhen = (d) => {
   if (d == null || d === "") return null;
   const m = moment(d);
   return m.isValid() ? m.format("DD MMM YYYY · hh:mm A") : null;
-};
-const fmtDay = (d) => {
-  if (d == null || d === "") return null;
-  const m = moment(d);
-  return m.isValid() ? m.format("DD MMM YYYY") : null;
 };
 
 const initialsOf = (name) =>
@@ -158,7 +164,7 @@ const GroupLabel = ({ tone, children }) => (
 );
 
 function ApproverRow({ ap, eff, onLiveLevel }) {
-  const when = fmtDay(ap?.acted_at);
+  const when = fmtWhen(ap?.acted_at);
   const muted = eff === "NOT_REQUIRED" || eff === "NOT_REACHED";
   return (
     <div className={`${styles.apRow} ${muted ? styles.apRowMuted : ""}`}>
@@ -182,7 +188,7 @@ function ApproverRow({ ap, eff, onLiveLevel }) {
 // rather than a stack of opacities.
 function RemovedApproverRow({ ap }) {
   const reason = ap?.removal_reason ? removalReasonLabel(ap.removal_reason) : null;
-  const when = fmtDay(ap?.removed_at);
+  const when = fmtWhen(ap?.removed_at);
   return (
     <div className={`${styles.apRow} ${styles.apRowRemoved}`}>
       <span className={styles.apAvatar}>{ap?.initials || initialsOf(ap?.name)}</span>
@@ -242,9 +248,13 @@ function ApprovalLevelCard({ node, nodeKey, isCurrent, blockedBy, open, onToggle
   // especially with `decision_rule` absent, where we cannot tell a blocker from
   // a bystander.
   const waitingOn = isCurrent ? namePreview(t.outstanding.map((r) => r.ap?.name)) : null;
+  // Safe to carry a "·"-separated instant into a "·"-separated meta line only
+  // because this clause is always the LAST one: `blockedBy` needs status
+  // "pending" and `waitingOn` needs the live level, and a done/rejected level is
+  // neither. Nothing can follow the time and be mistaken for part of it.
   const settledOn =
-    (node?.status === "done" || node?.status === "rejected") && fmtDay(node?.when)
-      ? `${pill.text.toLowerCase()} ${fmtDay(node.when)}`
+    (node?.status === "done" || node?.status === "rejected") && fmtWhen(node?.when)
+      ? `${pill.text.toLowerCase()} ${fmtWhen(node.when)}`
       : null;
 
   return (
