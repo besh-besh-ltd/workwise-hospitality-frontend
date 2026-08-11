@@ -2553,6 +2553,12 @@ useEffect(() => {
     const updatedSourceVendorIds = updatedSourceVendors.map(v => v.user_id);
 
     for (const rfqProduct of rfqProducts) {
+      // A product added in this session has no server id yet. Reading
+      // `.id.toString()` off it threw and took the whole sync down; and there
+      // is nothing to sync anyway, since its vendor list only exists once the
+      // row does (otherRfqProductId is fetched against below, so a synthetic
+      // key would not work here the way it does for the edit buffers).
+      if (rfqProduct.id === undefined || rfqProduct.id === null) continue;
       if (
         rfqProduct.product_id === productId &&
         rfqProduct.id.toString() !== sourceRfqProductId
