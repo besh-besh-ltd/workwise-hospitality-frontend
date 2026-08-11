@@ -209,7 +209,7 @@ const RULE_LABEL = { ALL: "All must approve", ANY: "Any one approves" };
 const ROSTER_VISIBLE = 8;
 
 /* ── Who can initiate this draft ─────────────────────────────────────────────
-   The note above this block explains why Force Initiate is dead. On its own
+   The note above this block explains why Initiate PO is dead. On its own
    that is half an answer: "you don't have permission" with no name attached
    leaves a buyer holding a stuck purchase order and nobody to call, which is
    what it used to say ("ask an administrator, or whoever approves purchase
@@ -342,7 +342,7 @@ const PODetail = ({ id }) => {
      of the reply whenever the viewer's mapping snapshot doesn't cover it
      (rbacModel.getUserPermissionsForHotels keys on `urs.company_id IN
      (companies of the requested hotels) AND (urs.hotel_id IS NULL OR
-     urs.hotel_id IN (requested))`) — that is the missing Force Initiate
+     urs.hotel_id IN (requested))`) — that is the missing Initiate PO
      button — while a create grant held at some *other* hotel was being
      counted as if it applied here.
 
@@ -470,12 +470,12 @@ const PODetail = ({ id }) => {
     }
   };
 
-  // Force Initiate — drives the draft PO into the standard initiation flow
+  // Initiate PO — drives the draft PO into the standard initiation flow
   // (GET /po/initiate/:id). Triggers approval-instance creation, PDF
   // generation, and approver notification. No approval bypass; if no
   // policy is configured the backend returns the same error it would for
   // any other initiate trigger.
-  const handleForceInitiate = async () => {
+  const handleInitiatePO = async () => {
     setInitiating(true);
     try {
       const res = await handlePOInitialization(id);
@@ -794,7 +794,7 @@ const PODetail = ({ id }) => {
                 Download PO
               </button>
             )}
-            {/* Force Initiate. A user without the grant still SEES the control,
+            {/* Initiate PO. A user without the grant still SEES the control,
                 disabled and captioned (see the note under the hero) — the
                 button used to be omitted outright, which told a finaliser who
                 cannot initiate their own draft nothing at all and sent them to
@@ -812,7 +812,7 @@ const PODetail = ({ id }) => {
                 className={`${styles.btn} ${canWrite ? styles.btnSuccess : styles.btnSecondary}`}
                 type="button"
                 disabled={initiating || !canWrite}
-                onClick={canWrite ? handleForceInitiate : undefined}
+                onClick={canWrite ? handleInitiatePO : undefined}
                 title={
                   canWrite
                     ? undefined
@@ -820,7 +820,7 @@ const PODetail = ({ id }) => {
                 }
               >
                 <Send size={13} />
-                {initiating ? "Initiating…" : "Force Initiate"}
+                {initiating ? "Initiating…" : "Initiate PO"}
               </button>
             )}
             {isPending && awaitingMe && canApprove && (

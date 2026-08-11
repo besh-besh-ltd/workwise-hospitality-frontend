@@ -1,6 +1,6 @@
-// PODetail — who gets the "Force Initiate" button on a draft PO.
+// PODetail — who gets the "Initiate PO" button on a draft PO.
 //
-// The reported bug: a user who holds `awarding.create` sees no Force Initiate
+// The reported bug: a user who holds `awarding.create` sees no Initiate PO
 // button on a draft PO and cannot initiate it. The gate itself was fine
 // (`po.status === "draft" && (canUpdate || canCreate)`); what was wrong was the
 // SCOPE the grants were resolved against. The page asked
@@ -132,7 +132,7 @@ const mount = async (overrides = {}) => {
   return utils;
 };
 
-const forceInitiate = () => screen.queryByRole("button", { name: /force initiate/i });
+const initiatePO = () => screen.queryByRole("button", { name: /^initiate po$/i });
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -141,7 +141,7 @@ beforeEach(() => {
   state.mappings = [];
 });
 
-describe("Force Initiate — a draft PO and a user who holds awarding.create", () => {
+describe("Initiate PO — a draft PO and a user who holds awarding.create", () => {
   // The reported repro. Stage user 407 holds CEO (awarding read/create/approve)
   // at hotel 30, which is the hotel PO 52 belongs to. Their persisted profile
   // carries no hospitality_mappings, so the page used to resolve permissions
@@ -155,7 +155,7 @@ describe("Force Initiate — a draft PO and a user who holds awarding.create", (
 
     await mount();
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
     expect(screen.queryByText("access denied")).not.toBeInTheDocument();
   });
 
@@ -167,7 +167,7 @@ describe("Force Initiate — a draft PO and a user who holds awarding.create", (
 
     await mount();
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
   });
 
   it("is live for a viewer whose mappings do include the PO's hotel", async () => {
@@ -176,20 +176,20 @@ describe("Force Initiate — a draft PO and a user who holds awarding.create", (
 
     await mount();
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
   });
 
   it("initiates the PO when clicked", async () => {
     state.grants = { [PO_HOTEL]: ["read", "create"] };
 
     await mount();
-    fireEvent.click(forceInitiate());
+    fireEvent.click(initiatePO());
 
     await waitFor(() => expect(handlePOInitialization).toHaveBeenCalledWith("52"));
   });
 });
 
-describe("Force Initiate — when the user may not initiate", () => {
+describe("Initiate PO — when the user may not initiate", () => {
   // Production user 165 (Hitesh K Uchila) is this shape: rfq / quote-compare /
   // negotiation / boq create, but `awarding.read` and nothing more. He can
   // finalise a quote — which is what mints the draft PO — and then cannot move
@@ -201,7 +201,7 @@ describe("Force Initiate — when the user may not initiate", () => {
 
     await mount();
 
-    const btn = forceInitiate();
+    const btn = initiatePO();
     expect(btn).toBeInTheDocument();
     expect(btn).toBeDisabled();
     expect(screen.getByText(/awarding · create/)).toBeInTheDocument();
@@ -212,7 +212,7 @@ describe("Force Initiate — when the user may not initiate", () => {
     state.grants = { [PO_HOTEL]: ["read"] };
 
     await mount();
-    fireEvent.click(forceInitiate());
+    fireEvent.click(initiatePO());
 
     expect(handlePOInitialization).not.toHaveBeenCalled();
   });
@@ -232,7 +232,7 @@ describe("Force Initiate — when the user may not initiate", () => {
 
     await mount();
 
-    expect(forceInitiate()).toBeDisabled();
+    expect(initiatePO()).toBeDisabled();
   });
 
   // Nothing to initiate, so neither the control nor the explanation belongs
@@ -243,7 +243,7 @@ describe("Force Initiate — when the user may not initiate", () => {
 
     await mount({ status: "pending_approval", status_label: "Pending Approval" });
 
-    expect(forceInitiate()).not.toBeInTheDocument();
+    expect(initiatePO()).not.toBeInTheDocument();
     expect(screen.queryByText(/awarding · create/)).not.toBeInTheDocument();
   });
 
@@ -252,14 +252,14 @@ describe("Force Initiate — when the user may not initiate", () => {
 
     await mount();
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
     expect(screen.queryByText(/awarding · create/)).not.toBeInTheDocument();
   });
 });
 
 /* ─────────────────────────────────────────────────────────────────────────
    "You don't have permission" is half an answer.
-   The note under the dead Force Initiate button used to end with "ask an
+   The note under the dead Initiate PO button used to end with "ask an
    administrator, or whoever approves purchase orders here" — which names
    nobody, so the buyer holding the stuck draft had no one to call. It now
    names the people who hold `awarding.create` on this PO's business unit,
@@ -302,7 +302,7 @@ describe("Who can initiate this draft", () => {
     await mount();
     await settle();
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
     expect(screen.queryByRole("heading", { name: /who can initiate/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Vineet I")).not.toBeInTheDocument();
     // The lookup exists to explain a dead control; this one is live.
@@ -338,7 +338,7 @@ describe("Who can initiate this draft", () => {
     expect(screen.queryByRole("heading", { name: /who can initiate/i })).not.toBeInTheDocument();
     // Everything that explains the dead button is still on screen.
     expect(screen.getByText(/awarding · create/)).toBeInTheDocument();
-    expect(forceInitiate()).toBeDisabled();
+    expect(initiatePO()).toBeDisabled();
     expect(screen.getByText("Items & pricing")).toBeInTheDocument();
   });
 
@@ -393,6 +393,6 @@ describe("POs the backend returns without a hotel", () => {
 
     await mount({ hotel_id: null, department_id: null });
 
-    expect(forceInitiate()).toBeEnabled();
+    expect(initiatePO()).toBeEnabled();
   });
 });
