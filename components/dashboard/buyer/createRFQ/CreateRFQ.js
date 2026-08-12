@@ -1905,12 +1905,32 @@ useEffect(() => {
       // Basics, Contact, Timeline, Reverse Auction, Delivery, Terms, Review).
       // Falls back to "Changes" if currentStep is somehow out of range.
       const stepLabel = STEPS[currentStep - 1]?.label || 'Changes';
-      toast.success(
-        <h6>
-          <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} Draft #{res.message?.rfq?.rfq_no}:</b> {stepLabel} saved successfully!
-        </h6>,
-        { position: "top-right" }
-      );
+      // The server names anything it refused to write — edits filed against a
+      // product this RFQ does not have. That only happens when the client is
+      // out of step with the server, and reporting plain success on top of it
+      // is what hid a week of lost products. Say so instead.
+      const droppedWrites = res.message?.dropped_writes || [];
+      if (droppedWrites.length > 0) {
+        const droppedProducts = new Set(
+          droppedWrites.map((d) => d.product_variant_id).filter(Boolean)
+        );
+        toast.warning(
+          <h6>
+            Saved, but {droppedProducts.size || droppedWrites.length} product
+            {(droppedProducts.size || droppedWrites.length) === 1 ? "" : "s"} could not be
+            updated because {(droppedProducts.size || droppedWrites.length) === 1 ? "it is" : "they are"} no
+            longer on this {getEntityLabel(rfqFormDataFromStore?.is_tender)}. Please reload and check.
+          </h6>,
+          { position: "top-right", autoClose: false }
+        );
+      } else {
+        toast.success(
+          <h6>
+            <b>{getEntityLabel(rfqFormDataFromStore?.is_tender)} Draft #{res.message?.rfq?.rfq_no}:</b> {stepLabel} saved successfully!
+          </h6>,
+          { position: "top-right" }
+        );
+      }
       setErrorProducts(new Set());
       setHasUnsavedChanges(false);
 
@@ -4665,12 +4685,27 @@ useEffect(() => {
         cancelButtonText="Cancel"
       />
 
+      {/* Draft and edit persist added products by completely different
+          routes — see the modal's header comment. It needs to know which one
+          it is in, because staging into Redux (correct for edit) silently
+          drops the product on a draft. */}
       <AddProductsModal
         isOpen={showAddProductsModal}
         onClose={() => setShowAddProductsModal(false)}
         hotelIds={selectedHotelIds}
         isRestrictedEdit={isRestrictedEdit}
         rfqLabel={getEntityLabel(rfqFormDataFromStore?.is_tender)}
+        mode={isEditMode ? "edit" : "draft"}
+        rfqId={draftRfqId}
+        sheetId={selectedSheet?.value}
+        onBeforeAdd={async () => {
+          // Adding rehydrates the draft from the server; flush whatever the
+          // user has typed but not saved so it is not thrown away.
+          if (hasUnsavedChanges) await handleSaveDraft();
+        }}
+        onAdded={async () => {
+          await getDraftInitialData();
+        }}
       />
       <style jsx>{`
         .refresh-vendors-btn {

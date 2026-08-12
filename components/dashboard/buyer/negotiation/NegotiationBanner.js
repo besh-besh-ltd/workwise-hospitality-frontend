@@ -7,6 +7,7 @@ import {
   getActiveNegotiationRound,
   approveNegotiationRound,
   rejectNegotiationRound,
+  withdrawNegotiationRound,
   closeNegotiationRound
 } from "@/services/negotiation";
 import NegotiationRoundForm from "./NegotiationRoundForm";
@@ -121,6 +122,24 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
       }
     } catch (error) {
       toast.error(error.message || "Failed to reject round");
+    }
+  };
+
+  // Withdraw is the AUTHOR taking their own request back — not an approver's
+  // verdict. It exists because a round waiting on an approver blocks any new
+  // round on the same fields, and until now the person who created it was
+  // shown no way out at all.
+  const handleWithdraw = async (remarks) => {
+    try {
+      const response = await withdrawNegotiationRound(activeRound.id, remarks);
+      if (response.status === 1) {
+        toast.success(response.message || "Round withdrawn");
+        loadRounds();
+      } else {
+        toast.error(response.message || "Failed to withdraw round");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to withdraw round");
     }
   };
 
@@ -315,32 +334,69 @@ const NegotiationBanner = ({ rfq_id, currentUser }) => {
                   const isCurrentApprover = userApproval &&
                     (userApproval.status === 'PENDING' || userApproval.status === 'pending' || !userApproval.status);
 
-                  return isCurrentApprover ? (
-                    <>
-                      <Alert variant="warning" className="mb-2 py-2" style={{ fontSize: "13px" }}>
-                        <strong>Action Required!</strong> You need to approve or reject this round.
-                      </Alert>
-                      <div className="d-flex gap-2 mb-3">
-                        <Button
-                          variant="success"
-                          size="sm"
-                          onClick={handleApprove}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => {
-                            const reason = window.prompt('Please provide a reason for rejection:');
-                            if (reason) handleReject(reason);
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    </>
-                  ) : null;
+                  if (isCurrentApprover) {
+                    return (
+                      <>
+                        <Alert variant="warning" className="mb-2 py-2" style={{ fontSize: "13px" }}>
+                          <strong>Action Required!</strong> You need to approve or reject this round.
+                        </Alert>
+                        <div className="d-flex gap-2 mb-3">
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={handleApprove}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => {
+                              const reason = window.prompt('Please provide a reason for rejection:');
+                              if (reason) handleReject(reason);
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // Not an approver — but if you WROTE this round, you can take
+                  // it back. Without this the creator sees nothing at all while
+                  // the round blocks every new round on the same fields; on
+                  // RFQ #536326 that lasted 24.5 hours, and production holds
+                  // 179 rounds that died waiting like this.
+                  const isCreator =
+                    String(activeRound.created_by) === String(currentUser?.id);
+                  if (isCreator) {
+                    return (
+                      <>
+                        <Alert variant="secondary" className="mb-2 py-2" style={{ fontSize: "13px" }}>
+                          Waiting on your approvers. Until this round is approved or
+                          withdrawn, you cannot open another round on the same fields
+                          for these vendors.
+                        </Alert>
+                        <div className="d-flex gap-2 mb-3">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const reason = window.prompt(
+                                'Withdraw this round? Please say why (the vendor has not seen it):'
+                              );
+                              if (reason && reason.trim()) handleWithdraw(reason.trim());
+                            }}
+                          >
+                            Withdraw round
+                          </Button>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  return null;
                 })()}
 
                 <div className="mb-2">

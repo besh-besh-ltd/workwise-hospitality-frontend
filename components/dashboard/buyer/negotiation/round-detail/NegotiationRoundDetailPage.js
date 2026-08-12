@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "react-toastify";
 import {
   BarChart3,
   Coins,
@@ -28,7 +29,7 @@ import {
 } from "lucide-react";
 
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
-import { getNegotiationRoundDetail } from "@/services/negotiation";
+import { getNegotiationRoundDetail, withdrawNegotiationRound } from "@/services/negotiation";
 
 import {
   normalizeRoundDetail,
@@ -101,6 +102,31 @@ export default function NegotiationRoundDetailPage({ roundId }) {
       }
     },
     [roundId]
+  );
+
+  // In-place actions from the server's gate list. Only `withdraw` today: the
+  // author pulling back a round that is still waiting on an approver, which
+  // otherwise blocks them from opening a replacement on the same fields.
+  const handleAction = useCallback(
+    async (action) => {
+      if (action?.key !== "withdraw") return;
+      const reason = window.prompt(
+        "Withdraw this round? Please say why (the vendors have not seen it):"
+      );
+      if (!reason || !reason.trim()) return;
+      try {
+        const res = await withdrawNegotiationRound(roundId, reason.trim());
+        if (res?.status === 1) {
+          toast.success(res.message || "Round withdrawn");
+          load(scope, { silent: true });
+        } else {
+          toast.error(res?.message || "Failed to withdraw round");
+        }
+      } catch (e) {
+        toast.error(e?.message || "Failed to withdraw round");
+      }
+    },
+    [roundId, scope, load]
   );
 
   useEffect(() => {
@@ -234,7 +260,7 @@ export default function NegotiationRoundDetailPage({ roundId }) {
               )}
             </>
           }
-          actions={<RoundActions actions={actions} round={round} onDark />}
+          actions={<RoundActions actions={actions} round={round} onDark onAction={handleAction} />}
           meta={[
             {
               label: "Responses due",
