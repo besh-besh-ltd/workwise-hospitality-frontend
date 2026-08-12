@@ -601,13 +601,42 @@ const SendQuoteWizard = () => {
 
   const canContinueStep1 = acceptedTerms;
   const canContinueStep2 = evalGateOk;
-  // Pricing step (step 3): at least one product priced with delivery.
+
+  /**
+   * Whether this line must state a delivery period before the quote can go out.
+   *
+   * A fresh quote always must. During a negotiation round it must only if the
+   * buyer actually opened delivery_period — because that is exactly when the
+   * input is editable (see the `disabled` on the delivery field below, which
+   * asks the same question).
+   *
+   * Requiring it unconditionally is what deadlocked RFQ 560: quotes submitted
+   * before the delivery period became mandatory store '', the round opened
+   * only base_price, and the vendor was handed a required field that was
+   * simultaneously disabled — with no way to satisfy either. Tying the
+   * requirement to editability keeps the rule for every quote that can
+   * actually meet it, and drops it only where meeting it is impossible.
+   */
+  const deliveryRequired = useCallback(
+    (p) => {
+      if (!isBidExpired) return true;
+      return (negotiationFields[p.id] || []).some(
+        (f) => f.name === "delivery_period" && f.targetPrice != null && f.targetPrice !== ""
+      );
+    },
+    [isBidExpired, negotiationFields]
+  );
+
+  // Pricing step (step 3): at least one product priced, with delivery where
+  // the vendor is in a position to supply it.
   const canContinueStep3 = useMemo(() => {
     if (!products.length) return false;
     return products.some(
-      (p) => isLinePriced(p) && (parseInt(p.delivery_period) || 0) > 0
+      (p) =>
+        isLinePriced(p) &&
+        (!deliveryRequired(p) || (parseInt(p.delivery_period) || 0) > 0)
     );
-  }, [products]);
+  }, [products, deliveryRequired]);
   // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
   const canContinueStep4 = useMemo(() => {
     const gstinOk = isValidGstin(vendorGSTIN);
@@ -1153,8 +1182,17 @@ const SendQuoteWizard = () => {
         const target = parseFloat(f.targetPrice);
         if (isNaN(target)) return true; // keep non-numeric fields like payment_terms
         if (f.name === "base_price") {
-          const quoted = parseFloat(product.unit_price || 0);
-          return quoted > 0 && target < quoted;
+          const quoted = parseFloat(product.unit_price);
+          // No comparable prior price — an MRP line (which deliberately keeps
+          // unit_price blank in client state) or a line the vendor never
+          // priced. Keep the buyer's ask, exactly as the charge branch below
+          // does when there is no matching charge to compare against.
+          //
+          // Dropping it here does not merely hide the ask: isFieldNegotiable
+          // reads this same list, so a dropped base_price DISABLES the price
+          // input for the whole round. Every MRP line was un-repriceable.
+          if (!Number.isFinite(quoted) || quoted <= 0) return true;
+          return target < quoted;
         }
         const charge = (product.other_charges || []).find(
           (c) => (c.slug || c.name) === f.name
@@ -1578,8 +1616,12 @@ const SendQuoteWizard = () => {
       // Every filled line must be complete (legacy parity): a priced line
       // needs a delivery period and vice-versa. Fully empty lines pass —
       // they go out as skipped (unit_price 0).
+      //
+      // Skipped entirely for a line whose delivery period the buyer did not
+      // open: the vendor cannot edit that field, so this could only ever
+      // reject a revision they are not permitted to fix. See deliveryRequired.
       const hasPartialLine = filteredProducts.some(
-        (p) => isLinePriced(p) !== (p.delivery_period > 0)
+        (p) => deliveryRequired(p) && isLinePriced(p) !== (p.delivery_period > 0)
       );
       if (hasPartialLine) {
         toast.error("Base price and delivery period must be greater than zero");
@@ -3476,7 +3518,11 @@ const Step3Pricing = ({
                           </div>
                           {(() => {
                             const nf = negByName("unit_price") || negByName("base_price") || negByName("price");
-                            if (!nf?.targetPrice) return null;
+                            // Not `!nf?.targetPrice`: a target of 0 is a real
+                            // ask. isFieldNegotiable already unlocks the field
+                            // for it, so the truthiness check unlocked the
+                            // input while hiding what to aim at.
+                            if (nf?.targetPrice == null || nf.targetPrice === "") return null;
                             return (
                               <div className={styles.negHint}>
                                 <span className={styles.negHintDot} />
@@ -4526,10 +4572,23 @@ const ActionBar = ({
    ════════════════════════════════════════════════════════════════ */
 const CHARGE_TYPES = ["Freight", "Insurance", "Packaging & Handling", "Installation", "TCS", "Custom"];
 
+// Zero is a legitimate amount, not a missing one. A buyer can and does open a
+// negotiation asking for freight at 0, and the round auto-adds that charge at
+// exactly `amount: 0` (see the negotiated-charge injector above) — so
+// rejecting 0 here made the form contradict the ask it had just rendered, and
+// left the vendor unable to close this modal at all. 110 of the 490 charge
+// entries already stored in production are zero-amount.
+//
+// Blank and negative are still errors; only the "> 0" part was wrong.
 const validateCharge = (ch, i) => {
   const errs = [];
   if (!ch.name || !ch.name.trim()) errs.push("name missing");
-  if (!(parseFloat(ch.amount) > 0)) errs.push("amount must be greater than 0");
+  const amount = parseFloat(ch.amount);
+  if (!Number.isFinite(amount)) errs.push("amount is required");
+  else if (amount < 0) errs.push("amount cannot be negative");
+  // Kept: the server requires a note on every per-product charge
+  // (validateProductChargeComments), so dropping it here would only move the
+  // rejection from this modal to the submit call.
   if (!(ch.comment || "").trim()) errs.push("note is required");
   return {
     idx: i,
@@ -5013,10 +5072,14 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
    ════════════════════════════════════════════════════════════════ */
 const GLOBAL_CHARGE_TYPES = ["Shipping insurance", "Handling", "Service fee", "Discount", "Custom"];
 
+// Same zero rule as validateCharge above. GLOBAL_CHARGE_TYPES literally
+// includes "Discount", which could never be stated at all under the old check.
 const validateGlobalCharge = (ch, i) => {
   const errs = [];
   if (!ch.name || !ch.name.trim()) errs.push("name missing");
-  if (!(parseFloat(ch.amount) > 0)) errs.push("amount must be greater than 0");
+  const amount = parseFloat(ch.amount);
+  if (!Number.isFinite(amount)) errs.push("amount is required");
+  else if (amount < 0) errs.push("amount cannot be negative");
   if (!(ch.comment || "").trim()) errs.push("note is required");
   return {
     idx: i,
