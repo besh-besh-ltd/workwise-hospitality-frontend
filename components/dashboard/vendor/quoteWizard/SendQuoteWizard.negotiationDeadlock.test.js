@@ -1,8 +1,8 @@
 // SendQuoteWizard — a negotiation revision must not require a field the
 // buyer never opened.
 //
-// CONFIRMED DEFECT, reproduced against production data (RFQ 560, vendor
-// PRATIK MALI). The vendor was invited to a negotiation round on base_price,
+// CONFIRMED DEFECT, reproduced against a real reported case (internal ref
+// RFQ 560). The vendor was invited to a negotiation round on base_price,
 // opened the wizard, lowered the price, and could not submit. The Confirm &
 // Update button stayed disabled, and clicking through raised:
 //
@@ -100,7 +100,7 @@ jest.mock("next/router", () => ({
 
 jest.mock("react-redux", () => ({
   __esModule: true,
-  useSelector: (fn) => fn({ userProfile: { id: 372, name: "PRATIK MALI" } }),
+  useSelector: (fn) => fn({ userProfile: { id: 7001, name: "Test Vendor" } }),
 }));
 
 import React from "react";
@@ -117,7 +117,7 @@ const rfqProduct = () => ({
   id: RFQ_PRODUCT_ID,
   product_id: 13679,
   variant: "standard",
-  product_details: [{ name: "ACP SHEET" }],
+  product_details: [{ name: "CLADDING PANEL" }],
   product_specs: [
     { title: "Quantity", value: "10" },
     { title: "Unit", value: "nos" },
@@ -142,11 +142,11 @@ const legacyQuoteLine = (over = {}) => ({
 
 const mkRfq = (quoteLines) => ({
   id: 560,
-  rfq_no: 536106,
-  title: "ORCHID HOTEL PUNE - ACP WORK",
+  rfq_no: 500001,
+  title: "Cladding work",
   is_tender: 0,
-  company_name: "Orchid Hotel Pune",
-  hotel_name: "Orchid Hotel Pune",
+  company_name: "Test Hospitality Co",
+  hotel_name: "Test Hotel",
   department_name: "Engineering",
   // Bid window CLOSED — the only state in which a negotiation round applies.
   bid_end_date: "2020-01-01 12:00:00",
@@ -167,7 +167,7 @@ const mkRound = (fields) => ({
   products: [
     {
       rfq_product_id: RFQ_PRODUCT_ID,
-      vendor_targets: [{ vendor_id: 372, fields }],
+      vendor_targets: [{ vendor_id: 7001, fields }],
     },
   ],
 });

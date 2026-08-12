@@ -1069,7 +1069,11 @@ const SendQuoteWizard = () => {
             // it gates the vendor's tax inputs independently of the amount target.
             const mapFields = (rawFields) => (rawFields || []).map((f) => ({
               name: f.name,
-              targetPrice: f.target || f.target_price,
+              // `??`, not `||`: a numeric target of 0 is a real ask (the buyer
+              // wants this charge waived) and `||` would discard it in favour
+              // of the legacy `target_price` key, which is usually absent —
+              // leaving targetPrice undefined and the field locked.
+              targetPrice: f.target ?? f.target_price,
               demand: f.demand || null,
               mode: f.mode || null,
               taxDemand: f.tax_demand || null,
