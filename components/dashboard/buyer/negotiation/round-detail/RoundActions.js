@@ -47,7 +47,24 @@ export function resolveActionHref(action, round) {
   return null;
 }
 
-function ActionButton({ action, round, onDark }) {
+function ActionButton({ action, round, onDark, onAction }) {
+  // Operations act on the round in place rather than navigating. They still
+  // come from the same server-derived gate list, so nothing renders that the
+  // API would refuse.
+  if (action.operation) {
+    const cls = `btn btn-sm${action.tone === "primary" || onDark ? " cta" : ""}`;
+    return (
+      <button
+        type="button"
+        className={cls}
+        onClick={() => onAction && onAction(action)}
+        disabled={action.disabled || !onAction}
+        data-testid={`action-${action.key}`}
+      >
+        {action.label}
+      </button>
+    );
+  }
   const href = resolveActionHref(action, round);
   const cls = `btn btn-sm${action.tone === "primary" || onDark ? " cta" : ""}`;
   if (action.disabled || !href) {
@@ -70,7 +87,7 @@ function ActionButton({ action, round, onDark }) {
   );
 }
 
-export default function RoundActions({ actions = [], round, onDark = false }) {
+export default function RoundActions({ actions = [], round, onDark = false, onAction }) {
   // Always offer the way back to the parent record — a buyer answering a call
   // needs to be one click from the RFQ / contract regardless of round state.
   const parentHref = round.isArc
@@ -84,7 +101,7 @@ export default function RoundActions({ actions = [], round, onDark = false }) {
   return (
     <>
       {actions.map((a) => (
-        <ActionButton key={a.key} action={a} round={round} onDark={onDark} />
+        <ActionButton key={a.key} action={a} round={round} onDark={onDark} onAction={onAction} />
       ))}
       {parentHref && (
         <Link href={parentHref} className="btn btn-sm" data-testid="action-open-parent">

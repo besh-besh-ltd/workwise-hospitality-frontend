@@ -699,6 +699,11 @@ export function isTerminatedStatus(status) {
 const ACTION_CATALOGUE = [
   { key: "approve", flag: "can_approve", label: "Review and approve", route: "approve", tone: "primary" },
   { key: "reject", flag: "can_reject", label: "Reject this round", route: "approve" },
+  // Not a navigation — an operation performed in place, so it carries no
+  // `route`. The server sets can_withdraw only for the round's own author
+  // while it is still awaiting approval; `reject` next to it needs
+  // negotiation.approve, which the author often does not hold.
+  { key: "withdraw", flag: "can_withdraw", label: "Withdraw this round", operation: true },
   { key: "close_round", flag: "can_close", label: "Close the round", route: "round" },
   {
     key: "submit_quotes_for_approval",
@@ -748,6 +753,10 @@ function normalizeActions(raw) {
     disabled: false,
     reason: null,
     tone: a.tone || null,
+    // Operations act on the round in place; without this the button falls
+    // through to href resolution, finds none, and renders disabled with
+    // "No screen is wired for this action yet."
+    operation: a.operation === true,
   }));
 }
 
