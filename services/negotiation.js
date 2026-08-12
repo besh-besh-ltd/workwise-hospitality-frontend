@@ -162,6 +162,24 @@ export const rejectNegotiationRound = (round_id, remarks, department_id = null) 
 };
 
 /**
+ * Withdraw a round you created that is still awaiting approval.
+ *
+ * Distinct from rejectNegotiationRound: that is an APPROVER's verdict, this is
+ * the author taking their own request back. The server enforces creator-only
+ * and refuses once the round has gone live to the vendor.
+ */
+export const withdrawNegotiationRound = (round_id, remarks) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/withdraw`, { remarks });
+      resolve(response);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
+
+/**
  * Close a negotiation round
  */
 export const closeNegotiationRound = (round_id, action) => {
