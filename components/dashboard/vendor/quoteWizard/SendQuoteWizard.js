@@ -3252,7 +3252,7 @@ const Step3Pricing = ({
   onOpenMethodModal,
 }) => {
   const hasGlobalCharges = (globalCharges || []).some(
-    (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
+    (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
   const activeGlobalCount = (globalCharges || []).filter(
     (c) => c.name && c.name.trim()
@@ -3346,7 +3346,11 @@ const Step3Pricing = ({
               if (!c.name) return s;
               return s + computeChargeBreakdown(c, p).total;
             }, 0);
-            const hasCharges = (p.other_charges || []).some((c) => c.name && parseFloat(c.amount) > 0);
+            // A charge waived to zero still EXISTS — hiding it here left the vendor
+            // no way to see the charge the buyer had just negotiated to 0.
+            const hasCharges = (p.other_charges || []).some(
+              (c) => c.name && Number.isFinite(parseFloat(c.amount))
+            );
             const negFields = (negotiationFields && negotiationFields[p.id]) || [];
             const negByName = (name) =>
               negFields.find((f) => (f.name || "").toLowerCase() === name.toLowerCase());
@@ -3868,7 +3872,7 @@ const Step4CommercialTerms = ({
   isBidExpired = false,
 }) => {
   const hasGlobalCharges = (globalCharges || []).some(
-    (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
+    (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
   const activeGlobalCount = (globalCharges || []).filter(
     (c) => c.name && c.name.trim()
@@ -4245,7 +4249,7 @@ const Step5Review = ({
   const priced = products.filter(isLinePriced);
   const skipped = products.filter((p) => !isLinePriced(p));
   const activeGlobalCharges = (globalCharges || []).filter(
-    (c) => c.name && c.name.trim() && parseFloat(c.amount) > 0
+    (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
   const activePaymentTerms = paymentTerms.filter((t) => t.action !== "delete");
 
