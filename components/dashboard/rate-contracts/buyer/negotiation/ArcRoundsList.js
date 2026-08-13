@@ -5,6 +5,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import {
+  formatNegotiationDateTime,
+  formatNegotiationDeadline,
+  parseNegotiationTime,
+} from "@/utils/negotiationTime";
 
 const STATUS_MAP = {
   PENDING_APPROVAL: { cls: "warn", label: "Pending approval" },
@@ -20,12 +25,10 @@ function fmtINR(n) {
   return "₹" + Math.round(Number(n)).toLocaleString("en-IN");
 }
 
-function fmtDate(iso) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  } catch { return iso; }
-}
+// This file's private fmtDate was `new Date(iso).toLocaleString("en-IN", …)`:
+// right for an ISO instant, silently wrong for the naive UTC string this
+// endpoint used to send, which it read as 07:00 local. Deleted in favour of
+// utils/negotiationTime, which handles both shapes and pins the zone.
 
 function scopeLabel(round) {
   if (round.arc_item_id && round.arc_item_name) return round.arc_item_name;
@@ -44,9 +47,9 @@ function useCountdown(endDateIso, effectiveStatus) {
 
   const compute = useCallback(() => {
     if (!endDateIso || effectiveStatus !== "ACTIVE") { setText(""); return; }
-    const s = String(endDateIso);
-    const end = new Date(s.includes("+") || s.includes("Z") ? s : s.replace(" ", "T") + "Z");
-    const diff = end - Date.now();
+    const end = parseNegotiationTime(endDateIso);
+    if (!end) { setText(""); return; }
+    const diff = end.getTime() - Date.now();
     if (diff <= 0) { setText("Expired"); return; }
     const days = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
@@ -125,7 +128,7 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
       </div>
 
       <div className="arc-neg-round-meta">
-        <span>Deadline: {fmtDate(round.end_date)}</span>
+        <span>Deadline: {formatNegotiationDeadline(round.end_date)}</span>
         {countdown && <span style={{ color: "#b45309", fontWeight: 600 }}>· {countdown}</span>}
         <span>· {(round.vendor_ids || []).length} vendor{(round.vendor_ids || []).length === 1 ? "" : "s"}</span>
         {round.target_price != null && <span>· Target {fmtINR(round.target_price)}</span>}
@@ -191,7 +194,7 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
                         {delta !== null ? `${Number(delta) > 0 ? "+" : ""}${delta}%` : "—"}
                       </td>
                       <td style={{ fontSize: 11, color: "var(--fg-3)" }}>
-                        {q.submitted_at ? new Date(q.submitted_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        {formatNegotiationDateTime(q.submitted_at)}
                       </td>
                     </tr>
                   );

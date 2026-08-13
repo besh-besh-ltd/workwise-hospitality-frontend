@@ -2,20 +2,22 @@
 // Mirrors StepReview.js: one card per staged entry (queue + current), each showing
 // scope + vendor/target table + edit/remove; a single datetime-local End date picker.
 import { useMemo } from "react";
+import {
+  formatNegotiationDeadline,
+  localDateTimeInputMin,
+  parseLocalDateTimeInput,
+} from "@/utils/negotiationTime";
 
 function fmtINR(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return "₹" + Math.round(Number(n)).toLocaleString("en-IN");
 }
 
-// Show a readable end date
-function fmtEndDate(localStr) {
-  if (!localStr) return "—";
-  try {
-    const d = new Date(localStr);
-    return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  } catch { return localStr; }
-}
+// The wizard's end date is a LOCAL wall-clock string out of the
+// datetime-local control, so it is parsed as local and then rendered in the
+// one zone the negotiation works to. Same seam as StepReview.js.
+const fmtEndDate = (localStr) =>
+  formatNegotiationDeadline(parseLocalDateTimeInput(localStr));
 
 function EntryCard({ entry, idx, isQueue, items, vendors, onEdit, onRemove }) {
   const itemName = useMemo(() => {
@@ -105,12 +107,8 @@ export default function ArcStepReview({
 
   const totalEntries = queue.length + (currentEntry ? 1 : 0);
 
-  // Min datetime = now + 5 minutes
-  const minDatetime = useMemo(() => {
-    const d = new Date(Date.now() + 5 * 60 * 1000);
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }, []);
+  // Min datetime = now + 5 minutes, in the control's own (local) zone.
+  const minDatetime = useMemo(() => localDateTimeInputMin(5 * 60 * 1000), []);
 
   return (
     <div className="arc-neg-step-card">

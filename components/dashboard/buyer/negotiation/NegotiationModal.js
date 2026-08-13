@@ -51,6 +51,7 @@ export function splitApprovalsByRemoval(approvals) {
   return { activeApprovals, removedApprovals, approvedCount };
 }
 import { getChargeNames } from '@/services/rfq';
+import { localDateTimeInputMin } from '@/utils/negotiationTime';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
@@ -2563,7 +2564,7 @@ const NegotiationModal = ({
                 setFormData(prev => ({ ...prev, end_date: next }));
                 if (next) setEndDateError(false);
               }}
-              min={new Date().toISOString().slice(0, 16)}
+              min={localDateTimeInputMin()}
               required
               disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={`${styles.fieldInput} ${endDateError ? styles.fieldInputError : ''}`}

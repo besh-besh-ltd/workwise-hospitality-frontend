@@ -5,20 +5,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
+import { parseNegotiationTime } from "@/utils/negotiationTime";
 
 function fmtINR(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
   return "₹" + Math.round(Number(n)).toLocaleString("en-IN");
 }
 
-// Countdown hook — mirrors NegotiationBanner.js:32-62
+// Countdown hook. It used to carry its own copy of the naive-UTC parser
+// (as did five other files); utils/negotiationTime is the one now.
 function useCountdown(deadlineIso) {
   const [text, setText] = useState("");
   const compute = useCallback(() => {
     if (!deadlineIso) { setText(""); return; }
-    const s = String(deadlineIso);
-    const end = new Date(s.includes("+") || s.includes("Z") ? s : s.replace(" ", "T") + "Z");
-    const diff = end - Date.now();
+    const end = parseNegotiationTime(deadlineIso);
+    if (!end) { setText(""); return; }
+    const diff = end.getTime() - Date.now();
     if (diff <= 0) { setText("Round ended"); return; }
     const days = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
