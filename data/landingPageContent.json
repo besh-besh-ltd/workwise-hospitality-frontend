@@ -256,23 +256,13 @@
       {
         "heading": "Platform",
         "links": [
-          { "label": "Products", "href": "/products" },
           { "label": "Log in", "action": "login" },
           { "label": "Register as vendor", "action": "register" }
         ]
       },
       {
         "heading": "Company",
-        "links": [
-          {
-            "label": "Contact us",
-            "href": "mailto:hello@letsworkwise.com"
-          },
-          {
-            "label": "Sitemap",
-            "href": "/sitemap"
-          }
-        ]
+        "links": [{ "label": "Contact us", "href": "mailto:hello@letsworkwise.com" }]
       }
     ],
     "contact": {
