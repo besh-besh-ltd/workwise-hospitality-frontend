@@ -68,9 +68,19 @@ export default function RoundBanners({ model, scope }) {
   if (round.approval?.isPending) {
     banners.push(
       <Banner key="approval" tone="violet" icon={<Gavel size={14} />} testId="banner-approval">
-        <strong>Waiting on approval.</strong>{" "}
+        {/* A reader who has already voted needs to be told so, not told the
+            round is "waiting on approval" as if nothing had happened. Names
+            are fine HERE — unlike the status chip, this banner is the place
+            you look to find out who to chase. */}
+        <strong>
+          {round.approval.myStatus === "APPROVED"
+            ? "You have approved."
+            : round.approval.myStatus === "REJECTED"
+            ? "You have rejected this round."
+            : "Waiting on approval."}
+        </strong>{" "}
         {round.approval.pendingWith
-          ? `Currently with ${round.approval.pendingWith}`
+          ? `Still with ${round.approval.pendingWith}`
           : "Currently with the configured approver"}
         {round.approval.level != null && round.approval.totalLevels != null
           ? ` · level ${round.approval.level} of ${round.approval.totalLevels}`

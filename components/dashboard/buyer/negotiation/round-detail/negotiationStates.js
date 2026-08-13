@@ -34,7 +34,10 @@ export const NEG_STATE = {
 export const NEG_STATE_PRESENTATION = {
   [NEG_STATE.AWAITING_APPROVAL]: {
     key: NEG_STATE.AWAITING_APPROVAL,
-    label: "Awaiting your approval",
+    // NOT "Awaiting YOUR approval" — this table is keyed on the round's state
+    // and there is no viewer in scope here. The viewer-relative wording lives
+    // in negStateHeaderLabel below, which is given one.
+    label: "Awaiting approval",
     description: "Waiting for an internal approver before vendors are notified.",
     tone: "committee",
     badge: "committee",
@@ -105,6 +108,54 @@ export const NEG_STATE_PRESENTATION = {
     pulse: false,
   },
 };
+
+/**
+ * The header wording for a state, TO A PARTICULAR VIEWER.
+ *
+ * `awaiting_approval` is the one state whose honest headline depends on who is
+ * reading. The state is a property of the round; "your" is a property of the
+ * reader, and baking it into NEG_STATE_PRESENTATION told all five approvers on
+ * a round the same thing — including, for 16.5 hours, the one who had already
+ * approved it. 96% of rounds go through a multi-approver ALL step, so this is
+ * the normal case, not an edge.
+ *
+ *   my_status   others pending   header
+ *   ─────────────────────────────────────────────────────────────────────
+ *   PENDING     any              Awaiting your approval
+ *   APPROVED    yes              You approved — awaiting 2 other approvers
+ *   APPROVED    no               You approved — finalising
+ *   REJECTED    any              You rejected this round
+ *   null        any              Awaiting approval
+ *
+ * A COUNT, not names: "awaiting Priya and Vikram" tells the reader who is
+ * sitting on it, which is not theirs to know from a status chip.
+ *
+ * `null` covers two different readers — someone who is not an approver at all,
+ * and any surface that cannot tell (the parent listing rolls several rounds
+ * into one row, so "my status" has no single answer there). Both get the
+ * neutral label, which is true for both.
+ *
+ * Every other state's label is viewer-independent and passes straight through.
+ */
+export function negStateHeaderLabel(state, { myStatus = null, pendingCount = null, pendingWith = null } = {}) {
+  const base = negStatePresentation(state).label;
+  if (toNegState(state) !== NEG_STATE.AWAITING_APPROVAL) return base;
+
+  const mine = String(myStatus ?? "").trim().toUpperCase();
+  if (mine === "PENDING") return "Awaiting your approval";
+  if (mine === "REJECTED") return "You rejected this round";
+  if (mine !== "APPROVED") return base;
+
+  // The viewer has approved, so they are not in pending_with — its length IS
+  // the number of OTHER approvers still to act.
+  const others = Number.isFinite(Number(pendingCount))
+    ? Number(pendingCount)
+    : Array.isArray(pendingWith)
+    ? pendingWith.length
+    : 0;
+  if (others <= 0) return "You approved — finalising";
+  return `You approved — awaiting ${others} other approver${others === 1 ? "" : "s"}`;
+}
 
 /** Display order for tabs and the legend. */
 export const NEG_STATE_SEQUENCE = Object.values(NEG_STATE_PRESENTATION)
