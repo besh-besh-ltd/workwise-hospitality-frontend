@@ -202,7 +202,9 @@ describe("one row per RFQ", () => {
 
 describe("status labels", () => {
   it.each([
-    ["awaiting_approval", "Awaiting your approval"],
+    // Neutral, not possessive — the label is keyed on the round's state and
+    // the listing has no viewer. "your" is decided at the header, per reader.
+    ["awaiting_approval", "Awaiting approval"],
     ["open_with_vendors", "Open with vendors"],
     ["ready_for_decision", "Ready for your decision"],
     ["no_vendor_response", "Closed — no vendor response"],
@@ -267,7 +269,7 @@ describe("explanatory text", () => {
       mkResponse([], {
         facets: {
           status: [
-            { key: "awaiting_approval", label: "Awaiting your approval", count: 2 },
+            { key: "awaiting_approval", label: "Awaiting approval", count: 2 },
             { key: "lapsed", label: "Lapsed — never approved", count: 1 },
           ],
         },
@@ -275,7 +277,7 @@ describe("explanatory text", () => {
     );
     const facet = screen.getByTestId("facet-status");
 
-    expect(within(facet).getByText("Awaiting your approval").closest("label"))
+    expect(within(facet).getByText("Awaiting approval").closest("label"))
       .toHaveAttribute("title", "Waiting for an internal approver before vendors are notified.");
     expect(within(facet).getByText("Lapsed — never approved").closest("label"))
       .toHaveAttribute(

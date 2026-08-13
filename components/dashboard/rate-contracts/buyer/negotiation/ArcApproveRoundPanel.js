@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
+import { formatNegotiationDeadline } from "@/utils/negotiationTime";
 
 const STATUS_MAP = {
   PENDING_APPROVAL: { cls: "warn", label: "Pending approval" },
@@ -16,12 +17,8 @@ const STATUS_MAP = {
   EXPIRED:          { cls: "danger", label: "Expired" },
 };
 
-function fmtDate(iso) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  } catch { return iso; }
-}
+// This file's private fmtDate fell into the same naive-UTC trap as
+// ArcRoundsList's. Deleted — utils/negotiationTime is the one reading.
 
 function fmtINR(n) {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
@@ -180,7 +177,7 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
               <div className="arc-neg-approve-meta">
                 <span>Scope: <strong>{scopeLabel(round)}</strong></span>
                 {" · "}
-                <span>Deadline: <strong>{fmtDate(round.end_date)}</strong></span>
+                <span>Deadline: <strong>{formatNegotiationDeadline(round.end_date)}</strong></span>
                 {" · "}
                 <span><strong>{(round.vendor_ids || []).length}</strong> vendor{(round.vendor_ids || []).length === 1 ? "" : "s"} invited</span>
                 {round.target_price != null && <>{" · "}<span>Target: <strong>{fmtINR(round.target_price)}</strong></span></>}

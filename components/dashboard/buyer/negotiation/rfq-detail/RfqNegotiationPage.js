@@ -19,7 +19,8 @@ import { useRouter } from "next/router";
 import { CalendarClock, Layers, PiggyBank, TrendingDown, UserCheck, Users } from "lucide-react";
 
 import { getNegotiationListView } from "@/services/negotiation";
-import { negStatePresentation } from "../round-detail/negotiationStates";
+import { negStateHeaderLabel, negStatePresentation } from "../round-detail/negotiationStates";
+import { formatNegotiationDeadline } from "@/utils/negotiationTime";
 import StateStrip from "../list/StateStrip";
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
 import {
@@ -324,6 +325,21 @@ export default function RfqNegotiationPage({ rfqId }) {
   }
 
   const st = negStatePresentation(parent.neg_status);
+  // THE ticket-2 header. "Awaiting your approval" used to be baked into the
+  // state, so this page — which has no Approve button anywhere on it — kept
+  // shouting it at an approver who had already approved, while its own
+  // "Needs you" tile (viewer-aware, off action_required) had correctly
+  // disappeared. Two things on one screen, disagreeing about the same fact.
+  //
+  // At the PARENT grain `action_required` is all the viewer signal there is,
+  // and legitimately so: a parent rolls several rounds into one row, so
+  // "my approval status" has no single answer. Not-pending-on-me therefore
+  // resolves to the neutral "Awaiting approval" rather than the count
+  // sentence — true either way, and no longer a contradiction.
+  const headerLabel = negStateHeaderLabel(parent.neg_status, {
+    myStatus: parent.my_status ?? (parent.action_required ? "PENDING" : null),
+    pendingCount: parent.pending_count ?? null,
+  });
   const roundCount = Number(parent.round_count || 0);
   const vendors = asArray(parent.vendors);
   const vendorCount = Number(parent.vendor_count ?? vendors.length ?? 0);
@@ -335,7 +351,7 @@ export default function RfqNegotiationPage({ rfqId }) {
       <LifecycleHero
         eyebrow={`${parent.is_tender ? "Tender" : "RFQ"} · Negotiation`}
         title={parentTitle(parent)}
-        status={{ label: st.label, tone: st.heroChip }}
+        status={{ label: headerLabel, tone: st.heroChip }}
         idText={`#${parentNumber(parent)}`}
         back={{ label: "Back to negotiations", href: LIST_HREF }}
         sub={
@@ -352,7 +368,11 @@ export default function RfqNegotiationPage({ rfqId }) {
         meta={[
           { label: "First round", value: fmtDate(parent.first_round_at) || "—" },
           { label: "Last activity", value: fmtDate(parent.last_activity_at) || "—" },
-          { label: "Next deadline", value: fmtDate(parent.next_deadline) || "None pending" },
+          // The one tile here that is an INSTRUCTION rather than a record.
+          // "13 Aug 2026" for a 12:30 PM deadline is accurate and unusable —
+          // a buyer cannot tell from it whether they have the afternoon.
+          // First round / Last activity stay dates: nobody acts on those.
+          { label: "Next deadline", value: parent.next_deadline ? formatNegotiationDeadline(parent.next_deadline) : "None pending" },
           { label: "Vendor responses", value: quotesReceived },
         ]}
       />

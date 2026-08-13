@@ -52,7 +52,13 @@
 //   history            top-level `history` array.
 
 import {
+  formatNegotiationDate,
+  formatNegotiationDateTime,
+  negotiationRelative,
+} from "@/utils/negotiationTime";
+import {
   NEG_STATE,
+  negStateHeaderLabel,
   negStatePresentation,
   toNegState,
   deriveNegotiationState,
@@ -62,6 +68,7 @@ import {
 
 export {
   NEG_STATE,
+  negStateHeaderLabel,
   negStatePresentation,
   toNegState,
   deriveNegotiationState,
@@ -663,11 +670,15 @@ export function normalizeTotals(rawTotals, lines, rawCumulative) {
 // (./negotiationStates) so the listing and this page can never drift again.
 // Legacy raw column values and the old five-bucket `neg_status` are folded in
 // there too, so an older payload still renders a real label.
-export function roundStatusPresentation(status) {
+// `viewer` — { myStatus, pendingCount, pendingWith } off the approval card, or
+// omitted. Only `awaiting_approval` reads it, and only to answer "does this
+// round still await THIS reader's approval, or somebody else's?". Omitting it
+// yields the neutral label, which is the honest answer when nobody knows.
+export function roundStatusPresentation(status, viewer = null) {
   const p = negStatePresentation(status);
   return {
     key: p.key,
-    label: p.label,
+    label: negStateHeaderLabel(status, viewer || {}),
     description: p.description,
     tone: p.tone,
     // `.arc-hero .status-chip` and `.cc-badge` do not carry the same variant
@@ -883,6 +894,14 @@ function normalizeApproval(raw) {
     isPendingForMe:
       pickBool(raw, ["is_pending_for_me"]) === true ||
       instances.some((i) => pickBool(i, ["is_pending_for_me"]) === true),
+    // Where the VIEWER stands — PENDING | APPROVED | REJECTED | null — and how
+    // many approvers are still to act. Without these the page can only say
+    // "awaiting approval" and has to guess whose.
+    myStatus: pickStr(raw, ["my_status"]) || (current ? pickStr(current, ["my_status"]) : null),
+    pendingCount:
+      pickNum(raw, ["pending_count"]) ??
+      (current ? pickNum(current, ["pending_count"]) : null) ??
+      (Array.isArray(raw.pending_with) ? raw.pending_with.length : null),
     pendingWith,
     level:
       pickNum(raw, ["current_level", "level", "sequence"]) ??
@@ -1028,7 +1047,11 @@ export function normalizeRoundDetail(payload) {
           hasApprovedQuote: pickBool(roundRaw, ["has_approved_quote"]) === true,
         })
       : toNegState(rawStatus));
-  const statusPresentation = roundStatusPresentation(status);
+  // The approval card is read BEFORE the status chip, because on an
+  // `awaiting_approval` round the chip's wording depends on where the viewer
+  // stands in that approval — see negStateHeaderLabel.
+  const approval = normalizeApproval(d.approval || roundRaw.approval);
+  const statusPresentation = roundStatusPresentation(status, approval);
 
   // ── FIX 3: the round number is RFQ-wide ──────────────────────────────────
   // Product definition: "round_number means the number of the current round in
@@ -1115,7 +1138,7 @@ export function normalizeRoundDetail(payload) {
     publishedAt: pickStr(roundRaw, ["published_at"]),
     remarks: pickStr(roundRaw, ["remarks"]),
     wholeParentMode,
-    approval: normalizeApproval(d.approval || roundRaw.approval),
+    approval,
   };
 
   const scopeEcho =
@@ -1226,51 +1249,14 @@ export function movementSentence(savedValue, { locked = false } = {}) {
   return `Saved ${formatMoney(n)}`;
 }
 
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Naive DB timestamps are stored UTC; render them in the viewer's zone. */
-function toDate(raw) {
-  if (!raw) return null;
-  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw;
-  const s = String(raw);
-  const iso = !s.includes("Z") && !/[+-]\d{2}:?\d{2}$/.test(s) ? s.replace(" ", "T") + "Z" : s;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-export function formatDate(raw) {
-  const d = toDate(raw);
-  if (!d) return "—";
-  return `${String(d.getDate()).padStart(2, "0")} ${MON[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-export function formatDateTime(raw) {
-  const d = toDate(raw);
-  if (!d) return "—";
-  const h = d.getHours();
-  const h12 = ((h + 11) % 12) + 1;
-  return `${formatDate(raw)}, ${h12}:${String(d.getMinutes()).padStart(2, "0")} ${
-    h >= 12 ? "PM" : "AM"
-  }`;
-}
-
-/** "in 3 days" / "2 days ago" / null when the timestamp is unusable. */
-export function relativeTo(raw, now = Date.now()) {
-  const d = toDate(raw);
-  if (!d) return null;
-  const diff = d.getTime() - now;
-  const abs = Math.abs(diff);
-  const day = 86400000;
-  const unit =
-    abs < 3600000
-      ? [Math.round(abs / 60000), "minute"]
-      : abs < day
-      ? [Math.round(abs / 3600000), "hour"]
-      : [Math.round(abs / day), "day"];
-  const [n, u] = unit;
-  const plural = n === 1 ? u : `${u}s`;
-  return diff >= 0 ? `in ${n} ${plural}` : `${n} ${plural} ago`;
-}
+// These four were the canonical copy of the naive-UTC parser — and three other
+// files carried their own near-identical version of it while fourteen render
+// sites carried none. They now delegate to utils/negotiationTime, the single
+// formatter for the whole negotiation tree, and stay exported under their old
+// names so this module's consumers are untouched.
+export const formatDate = (raw) => formatNegotiationDate(raw);
+export const formatDateTime = (raw) => formatNegotiationDateTime(raw);
+export const relativeTo = (raw, now = Date.now()) => negotiationRelative(raw, now);
 
 /**
  * "Round 7 of 138" — this round's position in the whole RFQ / rate contract.

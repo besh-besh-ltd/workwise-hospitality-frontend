@@ -3,7 +3,7 @@ import { Modal } from 'react-bootstrap';
 import { TrendingDown, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import ApprovalWorkflowSection from '../approval/ApprovalWorkflowSection';
 import { approveNegotiationRound, rejectNegotiationRound } from '@/services/negotiation';
-import { formatDisplayDate } from "@/utils/sharedFunctions";
+import { formatNegotiationDeadline } from "@/utils/negotiationTime";
 import ProcessScopeErrorBanner from "@/components/shared/ProcessScopeErrorBanner";
 import styles from './NegotiationUI.module.scss';
 
@@ -171,7 +171,7 @@ const NegotiationWorkflowModal = ({
             <div className={styles.wfInfoItem}>
               <p className={styles.wfInfoLabel}>End Date</p>
               <p className={styles.wfInfoValue} style={{ fontSize: '0.82rem' }}>
-                {round.end_date ? formatDisplayDate(round.end_date, { includeTime: true }) : 'N/A'}
+                {formatNegotiationDeadline(round.end_date, 'N/A')}
               </p>
             </div>
             <div className={styles.wfInfoItem}>

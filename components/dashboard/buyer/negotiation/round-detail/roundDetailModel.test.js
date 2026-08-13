@@ -396,7 +396,10 @@ describe("normalizeRoundDetail — whole payload", () => {
 
   it("maps the stored uppercase status enums the column actually holds", () => {
     const s = (status) => normalizeRoundDetail({ round: { id: 1, status }, items: [] }).round;
-    expect(s("PENDING_APPROVAL").statusPresentation.label).toBe("Awaiting your approval");
+    // Neutral: this payload carries no approval card, so there is no viewer
+    // to be possessive about. negStateHeaderLabel adds "your" only when the
+    // approval says the round is pending on the reader.
+    expect(s("PENDING_APPROVAL").statusPresentation.label).toBe("Awaiting approval");
     expect(s("ACTIVE").statusPresentation.label).toBe("Open with vendors");
     expect(s("CANCELLED").isTerminated).toBe(true);
     expect(s("EXPIRED").isTerminated).toBe(true);

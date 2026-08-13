@@ -12,6 +12,7 @@ import StepProduct from './StepProduct';
 import StepVendorsAndTargets from './StepVendorsAndTargets';
 import StepReview from './StepReview';
 import { getProductDetails, getProductRoundStatus, roundCoversProduct } from './negotiationHelpers';
+import { formatNegotiationDeadline, parseNegotiationTime } from '@/utils/negotiationTime';
 import styles from './CreateRound.module.scss';
 
 const STEPS = [
@@ -112,13 +113,9 @@ const CreateRoundPage = () => {
         // (rfq_product_id) and multi-product (products[]) rounds are honoured —
         // multi-product rounds carry a NULL top-level rfq_product_id.
         const now = new Date();
-        const parseUtc = (d) => {
-          const s = String(d || '');
-          return new Date(s.includes('+') || s.includes('Z') ? s : s.replace(' ', 'T') + 'Z');
-        };
         const inFlightRounds = (Array.isArray(activeRounds) ? activeRounds : []).filter(r =>
           ['ACTIVE', 'PENDING_APPROVAL'].includes(String(r?.status || '').toUpperCase())
-          && parseUtc(r.end_date) > now
+          && parseNegotiationTime(r.end_date) > now
         );
         const stitched = productList.map(p => ({
           ...p,
@@ -494,9 +491,14 @@ const CreateRoundPage = () => {
               <div className={styles.heroCell}>
                 <div className={styles.heroK}>Submission deadline</div>
                 <div className={`${styles.heroV} ${styles.heroMono}`}>
-                  {rfqInfo.deadline
-                    ? new Date(rfqInfo.deadline).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                    : '—'}
+                  {/* The SECOND 5h30m bug on this screen, pointing the other
+                      way: rfqInfo.deadline is tbl_rfq.bid_end_date, a naive
+                      IST column the API used to resolve through the server's
+                      timezone, so a 12:00 IST deadline arrived as 12:00Z and
+                      rendered 05:30 pm. The API now sends the real instant
+                      (quoteCompareViewModel.parseDeadline); this renders it in
+                      the one zone the negotiation works to. */}
+                  {formatNegotiationDeadline(rfqInfo.deadline)}
                 </div>
               </div>
               <div className={styles.heroCell}>
