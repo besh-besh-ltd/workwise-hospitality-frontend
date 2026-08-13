@@ -123,12 +123,14 @@ const LandingFooter = ({ content, logo, onLogin, onRegister }) => {
           max-width: ${MAXW};
           margin: 0 auto;
         }
+        /* No border-bottom here: .lh-footer-assure draws its own border-top,
+           and having both left two parallel rules with dead space between them.
+           Grid rather than space-between so the sparse link columns spread
+           across the right half instead of clustering at the far edge. */
         .lh-footer-top {
-          display: flex;
-          justify-content: space-between;
-          gap: clamp(40px, 8vw, 96px);
-          padding-bottom: 48px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+          gap: clamp(40px, 6vw, 80px);
         }
         .lh-footer-brand {
           max-width: 34ch;
@@ -162,9 +164,9 @@ const LandingFooter = ({ content, logo, onLogin, onRegister }) => {
           border-bottom-color: ${GOLD};
         }
         .lh-footer-columns {
-          display: flex;
-          gap: clamp(40px, 7vw, 80px);
-          flex-wrap: wrap;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: clamp(32px, 5vw, 64px);
         }
         .lh-footer-col-heading {
           font-family: ${SANS};
@@ -304,7 +306,7 @@ const LandingFooter = ({ content, logo, onLogin, onRegister }) => {
             align-items: flex-start;
           }
           .lh-footer-top {
-            flex-direction: column;
+            grid-template-columns: 1fr;
             gap: 44px;
           }
           .lh-footer-brand {
