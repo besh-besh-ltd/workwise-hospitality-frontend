@@ -37,17 +37,21 @@ const LogoWall = ({ content }) => {
       <style jsx>{`
         .lh-logos {
           background: ${PAPER};
-          padding: 0 ${GUTTER} clamp(48px, 6vw, 72px);
+          padding: clamp(40px, 5vw, 64px) ${GUTTER} clamp(48px, 6vw, 72px);
         }
+        /* Stacked and centred rather than a left-bunched row: with only a
+           couple of names, an inline row left ~430px of dead space to the
+           right and read as unfinished. */
         :global(.lh-logos-inner) {
           max-width: ${MAXW};
           margin: 0 auto;
           border-top: 1px solid ${RULE};
           padding-top: clamp(28px, 3.5vw, 40px);
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: clamp(24px, 4vw, 56px);
-          flex-wrap: wrap;
+          gap: clamp(20px, 2.6vw, 30px);
+          text-align: center;
         }
         .lh-logos-eyebrow {
           font-family: ${SANS};
@@ -64,6 +68,7 @@ const LogoWall = ({ content }) => {
           padding: 0;
           display: flex;
           align-items: center;
+          justify-content: center;
           flex-wrap: wrap;
           gap: clamp(20px, 3.5vw, 44px);
         }
@@ -97,10 +102,8 @@ const LogoWall = ({ content }) => {
         }
 
         @media (max-width: ${BP.md}) {
-          :global(.lh-logos-inner) {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 20px;
+          .lh-logos-list {
+            gap: 18px;
           }
         }
       `}</style>

@@ -170,7 +170,7 @@ const Layout = (props) => {
     })();
   }, [router.query.token]);
 
-  const isStaticPage = router.pathname === '/hotel-vendor' || router.pathname === '/';
+  const isStaticPage = router.pathname === '/';
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';

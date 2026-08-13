@@ -7,16 +7,23 @@ import LogoWall from './LogoWall';
 import ProofBand from './ProofBand';
 import ProblemSection from './ProblemSection';
 import SolutionSection from './SolutionSection';
+import OfferingsSection from './OfferingsSection';
 import JourneySection from './JourneySection';
 import WhatYouGetSection from './WhatYouGetSection';
 import TestimonialsSection from './TestimonialsSection';
 import ClosingCta from './ClosingCta';
 import LandingFooter from './LandingFooter';
 import BookDemoModal from './BookDemoModal';
+import LandingAuth from './LandingAuth';
 import { PAPER, INK, SANS } from './theme';
 
 const LandingPage = () => {
   const [showBookDemo, setShowBookDemo] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+
+  const openAuth = () => setShowAuth(true);
+  const openRegister = () => setShowRegister(true);
 
   const openBookDemo = () => setShowBookDemo(true);
   const closeBookDemo = () => setShowBookDemo(false);
@@ -32,20 +39,39 @@ const LandingPage = () => {
       </Head>
 
       <div className="lh-page">
-        <LandingNavbar content={content.nav} logo={content.meta} onBookDemo={openBookDemo} />
+        <LandingNavbar
+          content={content.nav}
+          logo={content.meta}
+          onBookDemo={openBookDemo}
+          onLogin={openAuth}
+          onRegister={openRegister}
+        />
         <HeroSection content={content.hero} onBookDemo={openBookDemo} />
         <LogoWall content={content.logoWall} />
         <ProofBand content={content.proofBand} />
         <ProblemSection content={content.problem} />
         <SolutionSection content={content.solution} />
+        <OfferingsSection content={content.offerings} />
         <JourneySection content={content.journey} />
         <WhatYouGetSection content={content.whatYouGet} />
         <TestimonialsSection content={content.testimonials} />
         <ClosingCta content={content.closingCta} onBookDemo={openBookDemo} />
-        <LandingFooter content={content.footer} logo={content.meta} />
+        <LandingFooter
+          content={content.footer}
+          logo={content.meta}
+          onLogin={openAuth}
+          onRegister={openRegister}
+        />
       </div>
 
       {showBookDemo && <BookDemoModal content={content.bookDemoModal} onClose={closeBookDemo} />}
+
+      <LandingAuth
+        open={showAuth}
+        setOpen={setShowAuth}
+        registerOpen={showRegister}
+        setRegisterOpen={setShowRegister}
+      />
 
       <style jsx global>{`
         /* Scoped to .lh-page so the dashboard keeps its own Geist/arc_v2 stack.

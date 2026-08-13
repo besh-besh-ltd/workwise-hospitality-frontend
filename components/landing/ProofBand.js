@@ -74,8 +74,10 @@ const ProofBand = ({ content }) => (
         font-size: 0.78rem;
         line-height: 1.6;
         color: ${INK_3};
+        /* Uncapped: 60ch cut the line at 496px inside a 1240px band, wrapping
+           a single sentence and orphaning the last word. */
         margin: 22px 0 0;
-        max-width: 60ch;
+        text-wrap: pretty;
       }
 
       @media (max-width: ${BP.lg}) {

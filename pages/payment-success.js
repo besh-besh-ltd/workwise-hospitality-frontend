@@ -119,7 +119,7 @@ const PaymentSuccessPage = () => {
                         window.location.href = "/dashboard/vendor";
                       } else {
                         // Not logged in, redirect to login page
-                        router.push("/hotel-vendor?login=true");
+                        router.push("/?login=true");
                       }
                     }}
                   >
