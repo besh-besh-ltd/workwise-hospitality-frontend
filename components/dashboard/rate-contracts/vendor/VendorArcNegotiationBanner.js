@@ -1,5 +1,5 @@
 // VendorArcNegotiationBanner — per-item active-round banner for vendor quote page.
-// Mirrors NegotiationBanner.js ACTIVE treatment (amber-tinted, countdown, per-item input).
+// Amber-tinted ACTIVE treatment: countdown + per-item input.
 // Self-hides when no ACTIVE round exists. Rate-only V1 (no gst_pct/charges).
 
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -41,7 +41,7 @@ function scopeLabel(round) {
   return "ARC-level";
 }
 
-// Live countdown helper (mirrors NegotiationBanner.js:32-62)
+// Live countdown helper.
 function useCountdown(endDateIso, effectiveStatus) {
   const [text, setText] = useState("");
 

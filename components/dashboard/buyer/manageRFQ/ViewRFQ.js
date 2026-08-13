@@ -799,7 +799,7 @@ const ViewRFQ = ({
   /* ── Per-product Negotiation rounds ──
      Fetched eagerly per product so the card's round count + "finalized by"
      actor are accurate and the history modal opens with data immediately.
-     Buyer view relies on the JWT (no magic-link token), like NegotiationBanner. */
+     Buyer view relies on the JWT (no magic-link token). */
   const [negRoundsByProduct, setNegRoundsByProduct] = useState({});
   const [negLoading, setNegLoading] = useState({});
   const negReqRef = useRef(0);
