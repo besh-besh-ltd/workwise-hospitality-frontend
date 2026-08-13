@@ -52,6 +52,11 @@
 //   history            top-level `history` array.
 
 import {
+  formatNegotiationDate,
+  formatNegotiationDateTime,
+  negotiationRelative,
+} from "@/utils/negotiationTime";
+import {
   NEG_STATE,
   negStatePresentation,
   toNegState,
@@ -1226,51 +1231,14 @@ export function movementSentence(savedValue, { locked = false } = {}) {
   return `Saved ${formatMoney(n)}`;
 }
 
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Naive DB timestamps are stored UTC; render them in the viewer's zone. */
-function toDate(raw) {
-  if (!raw) return null;
-  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw;
-  const s = String(raw);
-  const iso = !s.includes("Z") && !/[+-]\d{2}:?\d{2}$/.test(s) ? s.replace(" ", "T") + "Z" : s;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-export function formatDate(raw) {
-  const d = toDate(raw);
-  if (!d) return "—";
-  return `${String(d.getDate()).padStart(2, "0")} ${MON[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-export function formatDateTime(raw) {
-  const d = toDate(raw);
-  if (!d) return "—";
-  const h = d.getHours();
-  const h12 = ((h + 11) % 12) + 1;
-  return `${formatDate(raw)}, ${h12}:${String(d.getMinutes()).padStart(2, "0")} ${
-    h >= 12 ? "PM" : "AM"
-  }`;
-}
-
-/** "in 3 days" / "2 days ago" / null when the timestamp is unusable. */
-export function relativeTo(raw, now = Date.now()) {
-  const d = toDate(raw);
-  if (!d) return null;
-  const diff = d.getTime() - now;
-  const abs = Math.abs(diff);
-  const day = 86400000;
-  const unit =
-    abs < 3600000
-      ? [Math.round(abs / 60000), "minute"]
-      : abs < day
-      ? [Math.round(abs / 3600000), "hour"]
-      : [Math.round(abs / day), "day"];
-  const [n, u] = unit;
-  const plural = n === 1 ? u : `${u}s`;
-  return diff >= 0 ? `in ${n} ${plural}` : `${n} ${plural} ago`;
-}
+// These four were the canonical copy of the naive-UTC parser — and three other
+// files carried their own near-identical version of it while fourteen render
+// sites carried none. They now delegate to utils/negotiationTime, the single
+// formatter for the whole negotiation tree, and stay exported under their old
+// names so this module's consumers are untouched.
+export const formatDate = (raw) => formatNegotiationDate(raw);
+export const formatDateTime = (raw) => formatNegotiationDateTime(raw);
+export const relativeTo = (raw, now = Date.now()) => negotiationRelative(raw, now);
 
 /**
  * "Round 7 of 138" — this round's position in the whole RFQ / rate contract.

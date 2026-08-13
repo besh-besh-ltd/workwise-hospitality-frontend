@@ -14,6 +14,8 @@
 //
 // LABELS ARE SENTENCE CASE. Do not Title-Case them back.
 
+import { parseNegotiationTime } from "@/utils/negotiationTime";
+
 export const NEG_STATE = {
   AWAITING_APPROVAL: "awaiting_approval",
   OPEN_WITH_VENDORS: "open_with_vendors",
@@ -176,15 +178,9 @@ export function deriveNegotiationState({
   if (raw === "EXPIRED") return NEG_STATE.LAPSED;
   if (raw === "CANCELLED" || raw === "REJECTED") return NEG_STATE.CANCELLED;
 
-  // Naive DB timestamps are UTC — the same normalisation roundDetailModel does.
-  let endMs = null;
-  if (endDate) {
-    const s = String(endDate);
-    const iso = !s.includes("Z") && !/[+-]\d{2}:?\d{2}$/.test(s) ? s.replace(" ", "T") + "Z" : s;
-    const t = new Date(iso).getTime();
-    endMs = Number.isNaN(t) ? null : t;
-  }
-  const windowOpen = endMs == null || endMs > Date.now();
+  // Third of the four copies of the naive-UTC parser this tree used to carry.
+  const end = parseNegotiationTime(endDate);
+  const windowOpen = end == null || end.getTime() > Date.now();
   if (raw === "ACTIVE" && windowOpen) return NEG_STATE.OPEN_WITH_VENDORS;
   if (raw === "COMPLETED") return NEG_STATE.CONCLUDED;
 

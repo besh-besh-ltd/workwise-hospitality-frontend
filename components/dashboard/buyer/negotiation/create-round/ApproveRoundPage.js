@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import { Spinner } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import moment from 'moment';
 import { Check, ShieldCheck, ShieldX } from 'lucide-react';
 import { getQuoteComparison, getQuoteComparisonView } from '@/services/pricing';
 import {
@@ -12,17 +11,18 @@ import {
   rejectNegotiationRound,
 } from '@/services/negotiation';
 import { getChargeNames } from '@/services/rfq';
+import { formatNegotiationDateTime, parseNegotiationTime } from '@/utils/negotiationTime';
 import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './CreateRound.module.scss';
 
-// Parse bare DB timestamps as UTC (backend sends them without a suffix).
-const parseAsUTC = (d) => {
-  if (!d) return null;
-  const s = String(d);
-  return new Date(s.includes('+') || s.includes('Z') ? s : s.replace(' ', 'T') + 'Z');
-};
+// This page carried the last of four private copies of the naive-UTC parser,
+// and it is the page that made the duplication visible: it parsed `created_at`
+// correctly two inches above an end date it handed to StepReview unparsed, so
+// "created 12 Aug 2026, 12:35 PM" sat over "End date 13 Aug 2026 · 07:00 AM" —
+// same row, same screen, 5h30m apart. utils/negotiationTime is the one parser
+// now, imported above.
 
 // Map a STORED round row into the queued-round entries StepReview already
 // renders (same shape the wizard's queue holds). Multi rounds carry their
@@ -129,7 +129,7 @@ const ApproveRoundPage = () => {
     return (bundle.rounds_history || [])
       .filter((r) =>
         r.status === 'PENDING_APPROVAL'
-        && parseAsUTC(r.end_date) > now
+        && parseNegotiationTime(r.end_date) > now
         && (instancesByRound[String(r.id)] || [])
           .some((i) => i.status === 'PENDING' && i.can_user_approve))
       .sort((a, b) => (b.round_number || 0) - (a.round_number || 0));
@@ -165,7 +165,7 @@ const ApproveRoundPage = () => {
       const instancesByRound = fresh.negotiation_instances || {};
       const stillPending = (fresh.rounds_history || []).some((r) =>
         r.status === 'PENDING_APPROVAL'
-        && parseAsUTC(r.end_date) > new Date()
+        && parseNegotiationTime(r.end_date) > new Date()
         && (instancesByRound[String(r.id)] || [])
           .some((i) => i.status === 'PENDING' && i.can_user_approve));
       if (!stillPending) backToComparison();
@@ -275,7 +275,7 @@ const ApproveRoundPage = () => {
                       Round {round.round_number}
                       <span className={styles.approveRoundMeta}>
                         · created by {round.created_by_name || '—'}
-                        {round.created_at ? ` · ${moment(parseAsUTC(round.created_at)).format('DD MMM YYYY, hh:mm A')}` : ''}
+                        {round.created_at ? ` · ${formatNegotiationDateTime(round.created_at)}` : ''}
                       </span>
                     </p>
                     {(approvers.length > 0 || removedApprovers.length > 0) && (
@@ -294,7 +294,7 @@ const ApproveRoundPage = () => {
                         {removedApprovers.map((a) => {
                           const reasonLabel = a.removal_reason ? removalReasonLabel(a.removal_reason) : null;
                           const whenLabel = a.removed_at
-                            ? moment(parseAsUTC(a.removed_at)).format('DD MMM YYYY, hh:mm A')
+                            ? formatNegotiationDateTime(a.removed_at)
                             : null;
                           const title = [reasonLabel, whenLabel ? `Removed ${whenLabel}` : null]
                             .filter(Boolean)
