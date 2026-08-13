@@ -64,6 +64,16 @@ const TARGETS = [
   "components/dashboard/rate-contracts/buyer/negotiation",
   "components/dashboard/rate-contracts/vendor/VendorArcNegotiationBanner.js",
   "components/dashboard/buyer/manageRFQ/NegotiationRoundsModal.js",
+  // Vendor-side RFQ negotiation renderers. Added in review: all three read
+  // round.end_date and all three sat outside every target above, which is the
+  // "wrong glob" version of the very miss this guard exists to prevent.
+  // ProductNegotiationBadge is live (send-quote.js + the buyer's
+  // ProductComparisonTab); the other two are orphans today but are the obvious
+  // things to re-mount, and a guard that only covers mounted files invites the
+  // next regression.
+  "components/dashboard/vendor/ProductNegotiationBadge.js",
+  "components/dashboard/vendor/VendorNegotiationInfo.js",
+  "components/dashboard/vendor/NegotiationRoundBanner.js",
 ];
 
 /** Every .js/.jsx under a target, tests excluded. */
