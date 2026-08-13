@@ -425,7 +425,15 @@ export const buildVendorTargetsPayload = ({
 };
 
 // Convert datetime-local input → UTC ISO string for the API.
-export const toUtcEndDate = (local) => moment(local).utc().format();
+//
+// The input is a LOCAL wall clock ("2026-08-13T12:30"), not an instant, so it
+// goes through parseLocalDateTimeInput rather than parseNegotiationTime — the
+// latter would read it as UTC and store the round 5h30m late. Naming the two
+// shapes apart is exactly what ticket 1 fell through.
+export const toUtcEndDate = (local) => {
+  const d = parseLocalDateTimeInput(local);
+  return d ? d.toISOString() : null;
+};
 
 // Aggregate vendors across every product in the RFQ for the RFQ-level
 // negotiation round flow. Returns a `productPriceData`-shaped object
