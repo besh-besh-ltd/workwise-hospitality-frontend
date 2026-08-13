@@ -5,10 +5,13 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, Clock, User } from "lucide-react";
-import { formatDisplayDate } from "@/utils/sharedFunctions";
+import { formatNegotiationDateTime, formatNegotiationDeadline } from "@/utils/negotiationTime";
 import styles from "./NegotiationRoundsModal.module.scss";
 
-const fmtDate = (d) => (d ? formatDisplayDate(d, { includeTime: true }) : "—");
+// formatDisplayDate reads a naive timestamp as LOCAL wall clock — right for the
+// naive-IST columns it was written for, wrong for these. A round's end_date and
+// created_at are naive UTC, so it printed 07:00 AM for a 12:30 PM deadline.
+const fmtDate = (d) => formatNegotiationDateTime(d);
 const fmtPrice = (p) =>
   p == null || p === ""
     ? "—"
@@ -133,7 +136,7 @@ const NegotiationRoundsModal = ({ open, onClose, rounds, productName }) => {
                           <Calendar size={10} strokeWidth={2} /> End date
                         </div>
                         <div className={`${styles.metaVal} ${styles.mono}`}>
-                          {fmtDate(round.end_date)}
+                          {formatNegotiationDeadline(round.end_date)}
                         </div>
                       </div>
                       <div className={styles.metaCell}>

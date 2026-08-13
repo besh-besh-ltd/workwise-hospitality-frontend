@@ -1,5 +1,5 @@
 // ArcNegotiationPanel — CommercialStage sub-panel showing ARC negotiation rounds.
-// Mirrors the inline NegotiationBanner placement within CommercialStage.
+// Sits inline within CommercialStage.
 // On mount: fetches getArcNegotiationRounds; shows + Create round button (canEvaluate+editable).
 
 import { useCallback, useEffect, useRef, useState } from "react";

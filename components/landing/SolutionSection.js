@@ -1,16 +1,18 @@
 import React from 'react';
-import { FiBarChart2, FiCheckCircle, FiShield } from 'react-icons/fi';
+import { LuChartColumnBig, LuLock, LuEyeOff } from 'react-icons/lu';
 import Section from './Section';
 import SectionHead from './SectionHead';
 import Reveal from './Reveal';
 import CardVisual from './CardVisual';
-import { INK, INK_2, RULE, GOLD, GOLD_DEEP, DOC, DOC_INK, SERIF, SANS, MONO, BP } from './theme';
+import { INK, INK_2, RULE, GOLD, GOLD_WASH, DOC, DOC_INK, SERIF, SANS, BP } from './theme';
 
 // Fully-formed element per branch — see the Turbopack note in ProblemSection.
+// The keys double as CardVisual's `variant`, so they stay as-is even though the
+// glyphs changed: a comparison chart, a locked rate, and a hidden identity.
 const renderIcon = (key, size) => {
-  if (key === 'chart') return <FiBarChart2 size={size} />;
-  if (key === 'check') return <FiCheckCircle size={size} />;
-  return <FiShield size={size} />;
+  if (key === 'chart') return <LuChartColumnBig size={size} />;
+  if (key === 'check') return <LuLock size={size} />;
+  return <LuEyeOff size={size} />;
 };
 
 /**
@@ -31,7 +33,7 @@ const SolutionSection = ({ content }) => (
       {content.points.map((point, index) => (
         <Reveal key={point.title} className={`lh-sol-row ${index % 2 ? 'lh-sol-row-flip' : ''}`}>
           <div className="lh-sol-copy">
-            <span className="lh-sol-index">{`0${index + 1}`}</span>
+            <span className="lh-sol-icon">{renderIcon(point.icon, 26)}</span>
             <h3 className="lh-sol-title">{point.title}</h3>
             <p className="lh-sol-desc">{point.description}</p>
           </div>
@@ -67,18 +69,19 @@ const SolutionSection = ({ content }) => (
       :global(.lh-sol-row-flip) .lh-sol-visual {
         order: 1;
       }
-      .lh-sol-index {
-        display: block;
-        font-family: ${MONO};
-        font-size: 0.7rem;
-        letter-spacing: 0.14em;
-        color: ${GOLD_DEEP};
-        font-variant-numeric: tabular-nums;
-        padding-bottom: 16px;
-        border-bottom: 1px solid ${RULE};
-        margin-bottom: 22px;
-        width: fit-content;
-        min-width: 56px;
+      /* Sits where the 01/02/03 index used to, keeping the rule underneath so
+         the row still opens on the same horizontal beat as the rest of page. */
+      .lh-sol-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        border: 1px solid ${GOLD}40;
+        background: ${GOLD_WASH};
+        color: ${GOLD};
+        margin-bottom: 24px;
       }
       .lh-sol-title {
         font-family: ${SERIF};

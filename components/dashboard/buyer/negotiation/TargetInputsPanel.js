@@ -1,5 +1,6 @@
 import React from 'react';
 import { NUMERIC_FIELDS } from './NegotiationFieldsSelect';
+import { localDateTimeInputMin } from '@/utils/negotiationTime';
 import styles from './NegotiationUI.module.scss';
 
 const FIELD_CONFIG = {
@@ -119,7 +120,7 @@ const TargetInputsPanel = ({ selectedFields = [], formData, onFormChange, disabl
             type="datetime-local"
             value={formData.end_date || ''}
             onChange={(e) => onFormChange({ end_date: e.target.value })}
-            min={new Date().toISOString().slice(0, 16)}
+            min={localDateTimeInputMin()}
             required
             disabled={disabled}
             className={styles.fieldInput}

@@ -33,6 +33,8 @@ import "@testing-library/jest-dom";
 
 import { getNegotiationListView } from "@/services/negotiation";
 import RfqNegotiationPage from "./RfqNegotiationPage";
+import { NEG_STATE_PRESENTATION } from "../round-detail/negotiationStates";
+import { formatNegotiationDate } from "@/utils/negotiationTime";
 
 const counts = (over = {}) => ({
   awaiting_approval: 0,
@@ -405,5 +407,164 @@ describe("empty states", () => {
       "href",
       "/dashboard/buyer/negotiation"
     );
+  });
+});
+
+// ── the header, and who is reading it ──────────────────────────────────────
+//
+// F4 — TICKET 2 ON ITS REPORTED SURFACE.
+//
+// This page is the one negotiation screen that renders "AWAITING YOUR
+// APPROVAL" as a header with NO Approve or Reject button anywhere on it
+// (LifecycleHero here gets no `actions`). The possessive came from
+// NEG_STATE_PRESENTATION, a table keyed on the ROUND'S STATE — computed with
+// no viewer in scope, and never had one. The state itself is correct: a round
+// stays `awaiting_approval` until the LAST approver acts, and 96% of rounds go
+// through a multi-approver ALL step with an average 8.4-hour gap between the
+// first approval and the last (max 4.8 days).
+//
+// So the page shouted "awaiting YOUR approval" at somebody who had approved
+// sixteen hours earlier — while its own "Needs you" tile, which IS
+// viewer-aware (action_required <- getPendingNegotiationRoundIds, filtered on
+// sa.status='PENDING'), had correctly gone quiet. Two things on one screen
+// disagreeing about the same fact.
+//
+// WHY THERE IS NO COUNT SENTENCE HERE. At the PARENT grain a row rolls several
+// rounds into one, so "my approval status" has no single answer and
+// `pending_count` has no single referent. This page therefore resolves to the
+// NEUTRAL "Awaiting approval" rather than "You approved — awaiting 2 other
+// approvers". True either way, and no longer a contradiction. The count
+// sentence belongs to the round page, where there is exactly one instance —
+// see NegotiationRoundDetailPage.test.js.
+
+const heroChip = () => document.querySelector(".arc-hero .status-chip");
+const metaCell = (label) => {
+  const cell = Array.from(document.querySelectorAll(".hero-detail-grid .cell")).find(
+    (c) => c.querySelector(".k")?.textContent.trim() === label
+  );
+  return cell?.querySelector(".v");
+};
+
+describe("the header knows it does not know who is reading", () => {
+  it("says 'Awaiting your approval' ONLY when this round is actually waiting on this user", async () => {
+    await renderPage({
+      parent: parentRow({
+        neg_status: "awaiting_approval",
+        state_counts: counts({ awaiting_approval: 1 }),
+        awaiting_approval_count: 1,
+        action_required: true,
+        action_label: "Approval needed",
+      }),
+      rounds: [roundRow(12, { neg_status: "awaiting_approval", action_required: true })],
+    });
+    expect(heroChip()).toHaveTextContent("Awaiting your approval");
+  });
+
+  it("DROPS the possessive once this user has acted — THE REPORTED BUG", async () => {
+    // Identical payload but action_required false: the server no longer counts
+    // this user among the pending approvers, i.e. they have approved. The
+    // round is still legitimately awaiting_approval — just not theirs.
+    await renderPage({
+      parent: parentRow({
+        neg_status: "awaiting_approval",
+        state_counts: counts({ awaiting_approval: 1 }),
+        awaiting_approval_count: 1,
+        action_required: false,
+        action_label: null,
+      }),
+      rounds: [roundRow(12, { neg_status: "awaiting_approval" })],
+    });
+    expect(heroChip()).toHaveTextContent("Awaiting approval");
+    // The whole ticket: this word, on this page, after you have approved.
+    expect(heroChip().textContent).not.toMatch(/your/i);
+  });
+
+  it("stops contradicting its own 'Needs you' tile", async () => {
+    // The two surfaces that disagreed. The tile was always viewer-aware; the
+    // header was not. Asserted together, because either one alone is fine and
+    // the defect is that they differ.
+    await renderPage({
+      parent: parentRow({
+        neg_status: "awaiting_approval",
+        state_counts: counts({ awaiting_approval: 1 }),
+        action_required: false,
+      }),
+      rounds: [roundRow(12, { neg_status: "awaiting_approval" })],
+    });
+    expect(screen.getByTestId("gist-needs-you")).toHaveTextContent(/all clear/i);
+    expect(heroChip().textContent).not.toMatch(/your/i);
+  });
+
+  // negStateHeaderLabel touches ONE state. If a viewer-relative rule leaked
+  // into the other six, this is where it shows. Each state gets its own case
+  // so a regression names the state rather than "the loop failed".
+  it.each([
+    ["ready_for_decision", "Ready for your decision"],
+    ["open_with_vendors", "Open with vendors"],
+    ["concluded", "Concluded"],
+    ["lapsed", "Lapsed — never approved"],
+    ["cancelled", "Cancelled"],
+    ["no_vendor_response", "Closed — no vendor response"],
+  ])("leaves %s's wording exactly as it was", async (state, label) => {
+    await renderPage({
+      parent: parentRow({ neg_status: state }),
+      rounds: [roundRow(12, { neg_status: state })],
+    });
+    expect(heroChip()).toHaveTextContent(label);
+  });
+
+  it("keeps 'Ready for your decision' possessive — that 'your' is about the ROUND, not the reader", () => {
+    // Two labels in this table contain "your" and only ONE of them was a bug.
+    // "Ready for your decision" is addressed to whoever holds the RFQ and is
+    // true for every reader of it; "Awaiting your approval" claimed a fact
+    // about the specific person looking. A blanket de-possessive sweep would
+    // have flattened both.
+    expect(NEG_STATE_PRESENTATION.ready_for_decision.label).toMatch(/your/i);
+    expect(NEG_STATE_PRESENTATION.awaiting_approval.label).not.toMatch(/your/i);
+  });
+});
+
+// ── the deadline tile ──────────────────────────────────────────────────────
+
+describe("Next deadline — an instruction, not a record", () => {
+  it("carries the TIME, because a date alone cannot tell a buyer if they have the afternoon", async () => {
+    // Decision 5. "13 Aug 2026" for a 12:30 PM deadline is accurate and
+    // unusable. `next_deadline` is naive UTC off the listing query.
+    await renderPage({
+      parent: parentRow({ next_deadline: "2026-08-13 07:00:00" }),
+      rounds: [roundRow(12)],
+    });
+    const tile = metaCell("Next deadline");
+    expect(tile).toHaveTextContent(/13 Aug 2026, 12:30 PM IST/);
+    // …and never the stored digits read as local wall clock.
+    expect(tile.textContent).not.toMatch(/07:00 AM/);
+  });
+
+  it("still says 'None pending' when there is no deadline", async () => {
+    await renderPage({ parent: parentRow({ next_deadline: null }), rounds: [roundRow(12)] });
+    expect(metaCell("Next deadline")).toHaveTextContent("None pending");
+  });
+
+  it("leaves First round and Last activity as DATES — nobody acts on those", async () => {
+    // Deliberately not upgraded. A record of when something happened does not
+    // need a clock time, and four timestamps in one strip is noise.
+    await renderPage({
+      parent: parentRow({ first_round_at: "2026-01-04 10:00:00", last_activity_at: "2026-07-02 09:00:00" }),
+      rounds: [roundRow(12)],
+    });
+    // The substance: a date, and no clock time.
+    expect(metaCell("First round")).toHaveTextContent(/0?4 Jan 2026/);
+    expect(metaCell("First round").textContent).not.toMatch(/AM|PM/);
+    expect(metaCell("Last activity")).toHaveTextContent(/0?2 Jul 2026/);
+    expect(metaCell("Last activity").textContent).not.toMatch(/AM|PM/);
+  });
+
+  it("pads the day, because these tiles now come off the SAME formatter as everything else", () => {
+    // A cosmetic delta, recorded on purpose (changes.md §4): parentRow's own
+    // fmtDate rendered "4 Jan 2026" while roundDetailModel rendered
+    // "04 Jan 2026" off the same kind of value. One formatter, one shape —
+    // and a column of dates that lines up. Asserted on the formatter rather
+    // than through the page, so this reads as the styling decision it is.
+    expect(formatNegotiationDate("2026-01-04 10:00:00")).toBe("04 Jan 2026");
   });
 });

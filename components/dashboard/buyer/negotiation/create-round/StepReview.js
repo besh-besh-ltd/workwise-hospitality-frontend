@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import moment from 'moment';
 import { CalendarDays, Trash2, ArrowRight } from 'lucide-react';
 import { previewTotals } from '@/services/pricing';
+import {
+  formatNegotiationDeadline,
+  formatUtcDateTime,
+  localDateTimeInputMin,
+  parseLocalDateTimeInput,
+} from '@/utils/negotiationTime';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
 import {
   getProductDetails,
@@ -634,10 +639,19 @@ const StepReview = ({
   // validation errors are suppressed. Default keeps wizard behavior intact.
   readOnly = false,
 }) => {
+  // `formData.end_date` arrives in TWO different shapes, and that seam is
+  // ticket 1. From the wizard it is a LOCAL wall-clock string out of
+  // <input type="datetime-local"> ("2026-08-13T12:30"); from the approval page
+  // it is a UTC instant off the API. `readOnly` is the discriminator, so each
+  // branch parses the shape it actually has instead of one parser guessing.
+  //
+  // This hint is wizard-only (it sits under the input), so it is computed only
+  // there — fed an API value it would have read 07:00 UTC as 07:00 local and
+  // announced "01:30 UTC" for a deadline that is 07:00 UTC.
   const endDateUtc = useMemo(() => {
-    if (!formData.end_date) return null;
-    return moment(formData.end_date).utc().format('DD MMM YYYY, HH:mm') + ' UTC';
-  }, [formData.end_date]);
+    if (readOnly || !formData.end_date) return null;
+    return formatUtcDateTime(parseLocalDateTimeInput(formData.end_date), null);
+  }, [formData.end_date, readOnly]);
 
   // Build a uniform display shape for every round (queued + current).
   // `previewItems` is the per-vendor /pricing/preview input — used by the
@@ -823,17 +837,22 @@ const StepReview = ({
         </p>
         {readOnly ? (
           <p className={styles.reviewVal} style={{ fontSize: 15, fontWeight: 600 }}>
-            {formData.end_date
-              ? moment(formData.end_date).format('DD MMM YYYY · hh:mm A')
-              : '—'}
+            {/* THE ticket-1 line. `moment(formData.end_date)` read the API's
+                naive UTC "2026-08-13 07:00:00" as local wall clock and printed
+                the digits back unchanged — 07:00 AM for a 12:30 PM deadline,
+                on the one screen whose entire job is approving that deadline. */}
+            {formatNegotiationDeadline(formData.end_date)}
           </p>
         ) : (
           <>
+            {/* The control reads LOCAL wall clock, so a UTC `min` is 5h30m
+                adrift of the thing it constrains and lets an Indian buyer pick
+                a deadline in the past. */}
             <input
               type="datetime-local"
               value={formData.end_date || ''}
               onChange={(e) => updateFormData && updateFormData({ end_date: e.target.value })}
-              min={new Date().toISOString().slice(0, 16)}
+              min={localDateTimeInputMin()}
               className={`${styles.endDateInput} ${endDateError ? styles.endDateInputError : ''}`}
               required
             />

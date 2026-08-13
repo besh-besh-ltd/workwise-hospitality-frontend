@@ -5,11 +5,12 @@
 //   - per-vendor target = ONE optional numeric "target rate"
 //   - buildPayload() → { end_date, products:[] } for createArcNegotiationRound
 import { useCallback, useMemo, useState } from "react";
-import moment from "moment";
+import { parseLocalDateTimeInput } from "@/utils/negotiationTime";
 
+// The control holds LOCAL wall clock; the API wants an instant.
 function toUtcEndDate(localDatetimeStr) {
-  if (!localDatetimeStr) return null;
-  return moment(localDatetimeStr).utc().toISOString();
+  const d = parseLocalDateTimeInput(localDatetimeStr);
+  return d ? d.toISOString() : null;
 }
 
 export default function useArcCreateRoundState({ items = [], vendors = [], qualifiedMap = {}, busyItemIds = [], arcLevelBusy = false } = {}) {

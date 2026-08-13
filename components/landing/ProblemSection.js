@@ -1,18 +1,21 @@
 import React from 'react';
-import { FiClock, FiFileText, FiAlertTriangle, FiUsers } from 'react-icons/fi';
+import { LuFileSpreadsheet, LuSplit, LuHandshake } from 'react-icons/lu';
 import Section from './Section';
 import SectionHead from './SectionHead';
 import Reveal from './Reveal';
-import { INK, INK_2, INK_3, RULE, TERRACOTTA, SERIF, SANS, MONO, BP } from './theme';
+import { INK, INK_2, RULE, GOLD, GOLD_WASH, SERIF, SANS, BP } from './theme';
 
 // Renders a fully-formed icon element per branch (never a variable holding
 // "one of several" component references) — Turbopack hangs indefinitely on
 // dynamic icon-component resolution (object/switch lookup into react-icons).
+//
+// Each icon names the specific failure rather than the emotion: the spreadsheet
+// slog, one item splitting into two rates, and the handshake that decides the
+// award. All from one icon set, so only one react-icons chunk is pulled in.
 const renderIcon = (key, size) => {
-  if (key === 'clock') return <FiClock size={size} />;
-  if (key === 'file') return <FiFileText size={size} />;
-  if (key === 'users') return <FiUsers size={size} />;
-  return <FiAlertTriangle size={size} />;
+  if (key === 'spreadsheet') return <LuFileSpreadsheet size={size} />;
+  if (key === 'split') return <LuSplit size={size} />;
+  return <LuHandshake size={size} />;
 };
 
 /**
@@ -33,8 +36,7 @@ const ProblemSection = ({ content }) => (
     <ul className="lh-prob-grid">
       {content.points.map((point, index) => (
         <Reveal as="li" key={point.title} className="lh-prob-item" delay={index * 110}>
-          <span className="lh-prob-index">{String(index + 1).padStart(2, '0')}</span>
-          <span className="lh-prob-icon">{renderIcon(point.icon, 20)}</span>
+          <span className="lh-prob-icon">{renderIcon(point.icon, 32)}</span>
           <h3 className="lh-prob-title">{point.title}</h3>
           <p className="lh-prob-desc">{point.description}</p>
         </Reveal>
@@ -50,22 +52,25 @@ const ProblemSection = ({ content }) => (
         grid-template-columns: repeat(3, 1fr);
         gap: clamp(28px, 4vw, 56px);
       }
+      /* Centred as a unit: a centred icon over left-ranged text reads as a
+         misalignment rather than a choice. */
       :global(.lh-prob-item) {
-        padding-top: 26px;
+        padding-top: 34px;
         border-top: 1px solid ${RULE};
         position: relative;
-      }
-      .lh-prob-index {
-        font-family: ${MONO};
-        font-size: 0.7rem;
-        letter-spacing: 0.12em;
-        color: ${TERRACOTTA};
-        font-variant-numeric: tabular-nums;
+        text-align: center;
       }
       .lh-prob-icon {
-        display: block;
-        color: ${INK_3};
-        margin: 22px 0 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 24px;
+        border-radius: 50%;
+        border: 1px solid ${GOLD}40;
+        background: ${GOLD_WASH};
+        color: ${GOLD};
       }
       .lh-prob-title {
         font-family: ${SERIF};
@@ -81,7 +86,8 @@ const ProblemSection = ({ content }) => (
         font-size: 0.92rem;
         line-height: 1.65;
         color: ${INK_2};
-        margin: 0;
+        margin: 0 auto;
+        max-width: 38ch;
       }
 
       @media (max-width: ${BP.lg}) {
@@ -90,10 +96,10 @@ const ProblemSection = ({ content }) => (
           gap: 0;
         }
         :global(.lh-prob-item) {
-          padding: 26px 0 30px;
+          padding: 30px 0 34px;
         }
         .lh-prob-icon {
-          margin: 16px 0 14px;
+          margin: 0 auto 18px;
         }
       }
     `}</style>

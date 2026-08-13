@@ -14,6 +14,7 @@ import {
   NEG_STATE_SEQUENCE,
 } from "../round-detail/negotiationStates";
 import { formatCurrencyShort } from "@/utils/sharedFunctions";
+import { formatNegotiationDate, parseNegotiationTime } from "@/utils/negotiationTime";
 
 /* ── identity ─────────────────────────────────────────────────────────────── */
 
@@ -182,18 +183,14 @@ export function formatPct(value, digits = 1) {
 
 /* ── small shared formatting ──────────────────────────────────────────────── */
 
-/** Naive DB timestamps are UTC. */
-export function toDate(raw) {
-  if (!raw) return null;
-  const s = String(raw);
-  const iso = !s.includes("Z") && !/[+-]\d{2}:?\d{2}$/.test(s) ? s.replace(" ", "T") + "Z" : s;
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? null : d;
-}
+// Second of the four copies of the naive-UTC parser this tree used to carry —
+// now a delegation to utils/negotiationTime. `fmtDate` keeps returning NULL
+// rather than an em-dash for a missing value: its callers pick their own
+// fallback (`fmtDate(x) || "None pending"`), and an em-dash would win the `||`.
+export const toDate = (raw) => parseNegotiationTime(raw);
 
 export function fmtDate(raw) {
-  const d = toDate(raw);
-  return d ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+  return formatNegotiationDate(raw, null);
 }
 
 export function asArray(v) {

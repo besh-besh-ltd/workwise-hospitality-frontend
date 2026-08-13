@@ -51,6 +51,7 @@ export function splitApprovalsByRemoval(approvals) {
   return { activeApprovals, removedApprovals, approvedCount };
 }
 import { getChargeNames } from '@/services/rfq';
+import { localDateTimeInputMin, parseLocalDateTimeInput } from '@/utils/negotiationTime';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
@@ -754,9 +755,10 @@ const NegotiationModal = ({
 
     setSubmitting(true);
     try {
-      // Convert local datetime to UTC ISO string
-      // The datetime-local input gives us local time, we need to send UTC to backend
-      const utcEndDate = moment(formData.end_date).utc().format();
+      // The datetime-local input is a LOCAL wall clock, not an instant, so it
+      // goes through parseLocalDateTimeInput — parseNegotiationTime would read
+      // it as UTC and store the round 5h30m late.
+      const utcEndDate = parseLocalDateTimeInput(formData.end_date)?.toISOString() ?? null;
 
       // Create rounds for each selected product
       for (const pid of selectedProducts) {
@@ -2563,7 +2565,7 @@ const NegotiationModal = ({
                 setFormData(prev => ({ ...prev, end_date: next }));
                 if (next) setEndDateError(false);
               }}
-              min={new Date().toISOString().slice(0, 16)}
+              min={localDateTimeInputMin()}
               required
               disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={`${styles.fieldInput} ${endDateError ? styles.fieldInputError : ''}`}

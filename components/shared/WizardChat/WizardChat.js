@@ -93,7 +93,7 @@ export default function WizardChat() {
   return (
     <a
       ref={fabRef}
-      href="https://workwise-assist.vercel.app"
+      href="https://assist.letsworkwise.com/login"
       target="_blank"
       rel="noopener noreferrer"
       draggable="false"
