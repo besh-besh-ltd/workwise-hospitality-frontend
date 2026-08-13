@@ -188,7 +188,12 @@ describe(`THE ZONE TEST — the render must not move when the reader does (proce
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Kolkata",
       day: "2-digit", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit", hour12: true,
+      // hourCycle, NOT hour12. `hour12: true` leaves the CYCLE to ICU, and
+      // en-GB resolves it to h11 on some ICU builds — where 12:30 PM formats
+      // its hour as "00", not "12". That made this cross-check fail in CI
+      // while passing locally, on a value the formatter renders correctly.
+      // The ambiguity was in the test's own reference, not in the helper.
+      hour: "2-digit", minute: "2-digit", hourCycle: "h12",
     }).formatToParts(new Date(AS_ISO_Z));
     const get = (t) => parts.find((p) => p.type === t)?.value;
 
