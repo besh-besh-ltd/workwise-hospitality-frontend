@@ -131,3 +131,35 @@ export function localDateTimeInputMin(offsetMs = 0) {
     d.getHours()
   )}:${pad2(d.getMinutes())}`;
 }
+
+/**
+ * The inverse of the above: what instant does a `<input type="datetime-local">`
+ * value denote?
+ *
+ * `"2026-08-13T12:30"` is LOCAL wall clock, so it must NOT go through
+ * parseNegotiationTime — that would read it as 12:30 UTC and land 5h30m late.
+ * The distinction is the seam ticket 1 fell through: StepReview takes
+ * `formData.end_date` from the wizard (this shape) and from the API (a UTC
+ * instant) and used one parser for both. Two shapes, two parsers, named.
+ */
+export function parseLocalDateTimeInput(value) {
+  if (!value) return null;
+  // ES2016+: a date-time form with no offset is parsed as local time.
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * "13 Aug 2026, 07:00 UTC" — the wizard's "this is what will be stored" hint.
+ *
+ * The only place negotiation renders UTC rather than IST, and it is deliberate:
+ * it tells the buyer what the server will hold, right under the local control
+ * they just typed into.
+ */
+export function formatUtcDateTime(raw, fallback = EM_DASH) {
+  const d = raw instanceof Date ? raw : parseNegotiationTime(raw);
+  if (!d || Number.isNaN(d.getTime())) return fallback;
+  return `${pad2(d.getUTCDate())} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${pad2(
+    d.getUTCHours()
+  )}:${pad2(d.getUTCMinutes())} UTC`;
+}
