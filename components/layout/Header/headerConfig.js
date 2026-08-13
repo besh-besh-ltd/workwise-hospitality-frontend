@@ -7,7 +7,6 @@ export const initialMainNavs = [
   "/contactus",
   "/for-vendors",
   "/vendor/all",
-  "/hotel-vendor",
   "/solutions",
   "/blogs",
   "/validate-otp",
