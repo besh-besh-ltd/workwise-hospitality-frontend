@@ -872,3 +872,202 @@ describe("vendor participation", () => {
     expect(panel).toHaveTextContent("1 of 2");
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// F5 — THE ROUND PAGE, WHERE THE VIEWER IS KNOWN
+// ══════════════════════════════════════════════════════════════════════════
+//
+// Two things this file did not test before this branch, both of which the
+// tickets turned out to live in:
+//
+//   1. NO TIMESTAMP IS ASSERTED ANYWHERE IN IT. The hero's "Responses due"
+//      renders round.end_date, and until now nothing checked what came out.
+//      That is ticket 1's blind spot in one sentence — the payload shape was
+//      pinned in detail and the RENDERING of its most action-bearing field
+//      was not.
+//
+//   2. Unlike RfqNegotiationPage, this page HAS a viewer and HAS Approve /
+//      Reject buttons, so it is where the full ticket-2 rule is observable:
+//      the count sentence ("You approved — awaiting 2 other approvers") needs
+//      exactly one approval instance, which only exists at the round grain.
+//      The parent page rolls several rounds into one row, has no single "my
+//      status", and correctly resolves to the neutral label instead.
+
+const heroStatusChip = () => document.querySelector(".arc-hero .status-chip");
+const heroMeta = (label) => {
+  const cell = Array.from(document.querySelectorAll(".hero-detail-grid .cell")).find(
+    (c) => c.querySelector(".k")?.textContent.trim() === label
+  );
+  return cell?.querySelector(".v");
+};
+
+/** The awaiting-approval payload, with the viewer's own position on it. */
+const mkAwaitingApproval = ({ myStatus, pendingCount, pendingWith, canApprove = false }) =>
+  mkServerPayload({
+    round: {
+      round_id: 501,
+      round_number: 7,
+      stored_round_number: 4,
+      status: "PENDING_APPROVAL",
+      effective_status: "PENDING_APPROVAL",
+      state: "awaiting_approval",
+      // The SERVER label is viewer-independent and now neutral; the possessive
+      // is composed client-side from my_status.
+      state_label: "Awaiting approval",
+      state_description: "Waiting for an internal approver before vendors are notified.",
+      response_count: 0,
+      has_approved_quote: false,
+      is_open: false,
+      mode: "PER_ITEM",
+      source_type: "RFQ",
+      source_id: 512,
+      rounds_on_parent: 138,
+      rounds_on_products: 4,
+      // The production instant behind ticket 1: 07:00 UTC = 12:30 PM IST.
+      end_date: "2026-08-13T07:00:00.000Z",
+      created_at: "2026-08-12T07:05:35.000Z",
+      closed_at: null,
+      created_by: { user_id: 80011, name: "Asha Menon", email: "asha@example.com" },
+    },
+    approval: {
+      instances: [],
+      status: "PENDING",
+      pending_with: pendingWith,
+      pending_count: pendingCount,
+      my_status: myStatus,
+      is_pending_for_me: myStatus === "PENDING",
+      vendor_approvals: { total: 1, approved: 0, rejected: 0, pending: 1 },
+    },
+    actions: {
+      can_approve: canApprove,
+      can_reject: canApprove,
+      can_close: false,
+      can_create_next_round: false,
+      can_view_quotes: true,
+    },
+  });
+
+const OTHERS = [
+  { user_id: 412, name: "Balasaheb Aiwale", status: "PENDING" },
+  { user_id: 138, name: "Prashant Joshi", status: "PENDING" },
+];
+
+describe("F5 — the header speaks to the person reading it", () => {
+  it("says 'Awaiting your approval' to the approver who has not acted", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "PENDING", pendingCount: 3, pendingWith: [...OTHERS, { user_id: 745, name: "You", status: "PENDING" }], canApprove: true })
+    );
+    expect(heroStatusChip()).toHaveTextContent("Awaiting your approval");
+  });
+
+  it("counts the OTHERS once this user has approved — THE TICKET", async () => {
+    // The 8.4-hour average window (4.8 days at worst) in which the old page
+    // kept telling somebody a round awaited THEIR approval after they gave it.
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 2, pendingWith: OTHERS })
+    );
+    expect(heroStatusChip()).toHaveTextContent("You approved — awaiting 2 other approvers");
+    expect(heroStatusChip().textContent).not.toMatch(/Awaiting your approval/i);
+    // A COUNT, not names (decision 3): who is sitting on it is not something
+    // a status chip should broadcast.
+    expect(heroStatusChip().textContent).not.toMatch(/Balasaheb|Prashant/);
+  });
+
+  it("singularises at one, because 'awaiting 1 other approvers' is a tell", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 1, pendingWith: [OTHERS[0]] })
+    );
+    expect(heroStatusChip()).toHaveTextContent("You approved — awaiting 1 other approver");
+    expect(heroStatusChip().textContent).not.toMatch(/approvers/);
+  });
+
+  it("says 'finalising' when this user was the last one", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 0, pendingWith: [] })
+    );
+    expect(heroStatusChip()).toHaveTextContent("You approved — finalising");
+  });
+
+  it("says so plainly when this user rejected", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "REJECTED", pendingCount: 2, pendingWith: OTHERS })
+    );
+    expect(heroStatusChip()).toHaveTextContent("You rejected this round");
+  });
+
+  it("stays neutral for a reader who is not an approver at all", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: null, pendingCount: 2, pendingWith: OTHERS })
+    );
+    expect(heroStatusChip()).toHaveTextContent("Awaiting approval");
+    expect(heroStatusChip().textContent).not.toMatch(/your|You/i);
+  });
+});
+
+describe("F5 — the button and the header agree", () => {
+  it("hides Approve from the approver who already approved", async () => {
+    // The server gate (can_approve) and the header wording are two views of
+    // ONE fact. A page that says "you approved" beside a live Approve button
+    // is the bug in a different costume.
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 2, pendingWith: OTHERS })
+    );
+    expect(screen.queryByTestId("action-approve")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("action-reject")).not.toBeInTheDocument();
+    expect(heroStatusChip()).toHaveTextContent("You approved");
+  });
+
+  it("shows Approve to the approver it is actually waiting on", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "PENDING", pendingCount: 2, pendingWith: OTHERS, canApprove: true })
+    );
+    expect(screen.getByTestId("action-approve")).toBeInTheDocument();
+    expect(heroStatusChip()).toHaveTextContent("Awaiting your approval");
+  });
+
+  it("the blocking banner tells an approver who acted, and still names who to chase", async () => {
+    // Names ARE right here — unlike the status chip, this banner is the place
+    // you look to find out who is sitting on it.
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 2, pendingWith: OTHERS })
+    );
+    const banner = screen.getByTestId("banner-approval");
+    expect(banner).toHaveTextContent("You have approved.");
+    expect(banner).toHaveTextContent("Balasaheb Aiwale");
+    expect(banner).not.toHaveTextContent("Waiting on approval.");
+  });
+});
+
+describe("F5 — the deadline this page renders", () => {
+  it("renders 'Responses due' as 12:30 PM IST, not the stored 07:00", async () => {
+    // NO TIMESTAMP WAS ASSERTED IN THIS FILE BEFORE THIS TEST. The payload
+    // shape was pinned in detail; what the page printed was not.
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "PENDING", pendingCount: 1, pendingWith: [OTHERS[0]], canApprove: true })
+    );
+    const due = heroMeta("Responses due");
+    expect(due).toHaveTextContent(/13 Aug 2026, 12:30 PM/);
+    expect(due.textContent).not.toMatch(/07:00 AM/);
+  });
+
+  it("renders the naive form the API used to send identically", async () => {
+    // Older payloads and cached responses still carry the unlabelled string.
+    // One instant, two spellings, one rendering.
+    const payload = mkAwaitingApproval({ myStatus: null, pendingCount: 2, pendingWith: OTHERS });
+    payload.data.round.end_date = "2026-08-13 07:00:00";
+    payload.data.round.created_at = "2026-08-12 07:05:35";
+    await renderPage(payload);
+    expect(heroMeta("Responses due")).toHaveTextContent(/13 Aug 2026, 12:30 PM/);
+    expect(heroMeta("Opened")).toHaveTextContent(/12 Aug 2026, 12:35 PM/);
+  });
+
+  it("names the creator's timestamp in IST too, on the same line as the name", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: null, pendingCount: 2, pendingWith: OTHERS })
+    );
+    const creator = screen.getByTestId("hero-creator");
+    expect(creator).toHaveTextContent("Asha Menon");
+    expect(creator).toHaveTextContent(/12 Aug 2026, 12:35 PM/);
+    expect(creator.textContent).not.toMatch(/07:05/);
+  });
+});
