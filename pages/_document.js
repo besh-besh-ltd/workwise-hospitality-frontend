@@ -26,7 +26,7 @@ export default function Document() {
         {/* Display face for the landing page. Scoped to .lh-page in CSS so it
             never leaks into the dashboard, which stays on Geist. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"
           rel="stylesheet"
         ></link>
         <link rel="icon" href="/fabicon.ico" />

@@ -12,8 +12,9 @@ const LandingFooter = ({ content, logo, onLogin, onRegister }) => {
       <div className="lh-footer-inner">
         <div className="lh-footer-top">
           <div className="lh-footer-brand">
-            {/* The white mark is correct here — this is the one dark surface. */}
-            <Image src={logo.logoLight} alt={logo.logoAlt} width={132} height={30} />
+            {/* The brand mark: navy "wise" sits on its own gold parallelogram,
+                so it reads correctly on the dark surface without a light variant. */}
+            <Image src={logo.logo} alt={logo.logoAlt} width={158} height={36} />
             <p className="lh-footer-tagline">{content.tagline}</p>
             <div className="lh-footer-contact">
               {email && (
