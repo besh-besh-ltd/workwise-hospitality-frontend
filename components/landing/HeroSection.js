@@ -252,18 +252,22 @@ const HeroSection = ({ content, onBookDemo }) => {
           display: block;
           line-height: 0;
         }
-        /* Covers the poster so anywhere on the frame starts the film, but the
-           control itself is parked bottom-right: the poster carries its own
-           headline and a centred disc sat straight on top of it. Bottom-left is
-           already taken by the rate chip. */
+        /* Covers the poster so anywhere on the frame starts the film. The
+           control sits along the bottom edge rather than dead centre, so it
+           never covers the poster's own headline. */
         .lh-hero-play {
           position: absolute;
           inset: 0;
           display: flex;
-          align-items: flex-end;
+          /* Stacked so the disc itself lands dead centre; as a row the label
+             pushed it ~84px off-axis. Kept compact and hugging the bottom edge:
+             the poster's own headline ends at 72.5% of the frame, leaving only
+             about 97px of clear space for this control to live in. */
+          flex-direction: column;
+          align-items: center;
           justify-content: flex-end;
-          gap: 14px;
-          padding: clamp(16px, 2vw, 24px);
+          gap: 8px;
+          padding: clamp(12px, 1.4vw, 16px);
           background: linear-gradient(0deg, rgba(11, 31, 58, 0.62) 0%, rgba(11, 31, 58, 0) 42%);
           border: none;
           cursor: pointer;
@@ -278,8 +282,8 @@ const HeroSection = ({ content, onBookDemo }) => {
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          width: 54px;
-          height: 54px;
+          width: 50px;
+          height: 50px;
           border-radius: 50%;
           background: ${GOLD};
           color: ${PAPER};
