@@ -9,8 +9,9 @@
     "build:dev": "env-cmd -f .env.development next build",
     "build:prod": "env-cmd -f .env.production next build",
     "build:test": "env-cmd -f .env.test next build",
-    "lint": "next lint",
-    "test": "jest"
+    "lint": "eslint .",
+    "test": "jest",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",

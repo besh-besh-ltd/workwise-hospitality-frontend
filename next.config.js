@@ -2,6 +2,17 @@
 
 const nextConfig = {
   output: 'standalone',
+  eslint: {
+    // Linting happens in its own CI job (`npm run lint`), NOT during the build.
+    //
+    // `next build` runs its own ESLint pass that does not honour
+    // eslint-suppressions.json, so with a config present it fails on the 11
+    // pre-existing violations recorded there and every build — including every
+    // deploy — goes red. The dedicated job runs the same rules through the
+    // ESLint CLI, where suppressions work, and the CI gate requires it. So
+    // coverage is unchanged; only the place it runs moves.
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: false,
   skipTrailingSlashRedirect: true,
   images: {
