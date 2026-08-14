@@ -54,6 +54,27 @@ const VendorManagement = () => {
             })
     }
     
+    // Both of these were referenced by the bulk-upload UI below but never
+    // written, so picking a file threw `ReferenceError: uploadToClient is not
+    // defined` and the Upload button threw the same for uploadToServer. The
+    // rest of the feature IS wired — Cancel already clears `file` and
+    // `uploadProgress`, and the filename row renders off `file` — so only the
+    // two handlers were missing.
+    const uploadToClient = (event) => {
+        const selected = event?.target?.files?.[0] ?? null;
+        setFile(selected);
+        setuploadProgress(0);
+    };
+
+    // Deliberately NOT implemented: there is no bulk private-vendor upload
+    // endpoint anywhere in services/, so there is nothing to POST to. Writing
+    // one here would be inventing an API. This states the truth instead of
+    // crashing; the feature was never finished and this whole file is a
+    // deletion candidate (nothing imports it).
+    const uploadToServer = () => {
+        toast.error("Bulk vendor upload is not available yet.");
+    };
+
     const getPrivateVendorList = async () => {
         setLoading(true);
         privateVendorList(limit, page)

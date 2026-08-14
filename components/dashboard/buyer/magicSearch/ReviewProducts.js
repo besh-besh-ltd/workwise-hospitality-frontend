@@ -253,21 +253,35 @@ const ReviewProducts = ({
             return lFMap;
         });
 
-        // Changes by Agnij 2024-10-22 [Added safety checks]
-        // Safely iterate over cities keys if available
-        if (cities && typeof cities.keys === 'function') {
-            const cityKeys = Array.from(cities.keys());
-            cityKeys.forEach(city => {
-                getAllCities(city, globalFilters.state, globalFilters.country);
-            });
+        // `getAllCities` / `getAllStates` never existed anywhere in the codebase,
+        // so this block threw ReferenceError the moment either Map had a key —
+        // and it discarded its own results, so even had the names resolved it
+        // would have refreshed nothing. The keys are prodKeys (see setCities /
+        // setStates above), not city or state ids, and the real services take a
+        // single id, not three arguments.
+        //
+        // Routed through this file's own helpers, which are the correct call and
+        // actually write the refreshed options back into state.
+        const asOptions = (v) => (v == null ? [] : [].concat(v)).filter((o) => o?.value != null);
+
+        if (cities instanceof Map) {
+            const selectedStates = asOptions(globalFilters?.state);
+            // Empty would make the helper store an empty list and wipe the
+            // options, so a cleared filter is left alone rather than blanked.
+            if (selectedStates.length) {
+                Array.from(cities.keys()).forEach((prodKey) => {
+                    fetchCitiesForProduct(prodKey, selectedStates);
+                });
+            }
         }
-        
-        // Safely iterate over states keys if available
-        if (states && typeof states.keys === 'function') {
-            const stateKeys = Array.from(states.keys());
-            stateKeys.forEach(state => {
-                getAllStates(state, globalFilters.country);
-            });
+
+        if (states instanceof Map) {
+            const selectedCountries = asOptions(globalFilters?.country);
+            if (selectedCountries.length) {
+                Array.from(states.keys()).forEach((prodKey) => {
+                    fetchStatesForProduct(prodKey, selectedCountries);
+                });
+            }
         }
     }, [globalFilters]);
 

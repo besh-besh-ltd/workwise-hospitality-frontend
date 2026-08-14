@@ -3159,8 +3159,11 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         Tax asked: “{chargeTaxDemand}”
                                         </div>
                                         )}
+                                        {/* marginTop was set twice on the notice below ('4px' then 6); the
+                                            later key won, so 6 is what has always rendered — and it matches
+                                            the sibling notice above. Dropping the dead one changes nothing. */}
                                         {(charge.tax === undefined || charge.tax === "" || charge.tax === null) && (
-                                        <div style={{ color: '#856404', fontSize: '0.7rem', lineHeight: 1.3, marginTop: '4px', backgroundColor: '#fff8e1', marginTop: 6, padding: '2px 6px', borderRadius: '3px', border: '1px solid #f0ad4e' }}>
+                                        <div style={{ color: '#856404', fontSize: '0.7rem', lineHeight: 1.3, backgroundColor: '#fff8e1', marginTop: 6, padding: '2px 6px', borderRadius: '3px', border: '1px solid #f0ad4e' }}>
                                         Enter 0 for non-taxable charge.
                                         </div>
                                         )}
