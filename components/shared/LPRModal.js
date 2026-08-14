@@ -15,6 +15,12 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
   const [error, setError] = useState(null);
   const [lprData, setLprData] = useState([]);
   const [allQuotesData, setAllQuotesData] = useState([]);
+  // The error state renders a Retry button that calls setRetryCount. The state
+  // it sets was never declared, so clicking Retry threw
+  // `ReferenceError: setRetryCount is not defined` and took the modal down —
+  // on the one control whose entire job is recovering from a failure.
+  // Bumping this re-runs the fetch effect, which is what Retry was meant to do.
+  const [retryCount, setRetryCount] = useState(0);
 
   // Format currency values
 //   const formatCurrency = (value) => {
@@ -59,7 +65,7 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
     };
 
     fetchData();
-  }, [show, activeTab, variantId]);
+  }, [show, activeTab, variantId, retryCount]);
 
   // Determine which data to display
   const displayData = activeTab === 'lpr' ? lprData : allQuotesData;

@@ -80,7 +80,11 @@ const DownloadReportsForBuyer = (props) => {
         setEmail("");
         break;
       case "selection":
-        setSelection(value);
+        // Was `setSelection` — no such setter exists; the state is
+        // `selectedOption`. Nothing dispatches this case today (the Select
+        // calls setSelectedOption directly), so it never threw — but it would
+        // the moment anyone routed the selection through handleChange.
+        setSelectedOption(value);
         setLatestReportFile(null);
         setEmail("");
         break;
@@ -539,8 +543,13 @@ const DownloadReportsForBuyer = (props) => {
 
   // filter project name by project id
   const getProjectNameById = (projectId) => {
-    const project = projectOptions.filter(p => p.value == projectId);
-    return project ? project[0].label : "Project";
+    // Two bugs, both dormant only because nothing calls this yet:
+    // `projectOptions` never existed (the state is `options`), and the old
+    // `filter(...)` returned an ARRAY — always truthy — so the "not found"
+    // branch was unreachable and `project[0].label` threw on a miss instead.
+    // `find` + optional chaining makes the fallback actually reachable.
+    const project = options.find((p) => p.value == projectId);
+    return project?.label ?? "Project";
   };
 
   return (
@@ -577,8 +586,10 @@ const DownloadReportsForBuyer = (props) => {
             type="button"
             style={{
               backgroundColor: "transparent",
-              fontSize: "20px",
               border: "none",
+              // The object also set fontSize: "20px" above; the later key won,
+              // so 30px is what has always rendered. Dropping the dead one
+              // changes nothing on screen.
               fontSize: "30px",
             }}
             className="close"

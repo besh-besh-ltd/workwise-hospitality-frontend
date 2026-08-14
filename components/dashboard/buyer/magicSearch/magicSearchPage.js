@@ -185,7 +185,13 @@ const uploadToServer = async (processed_file, raw_url) => {
     return;
   }
 
-  if (!fileData.file && processed_file && !processed_file instanceof File) {
+  // Was `!processed_file instanceof File`, which binds as
+  // `(!processed_file) instanceof File` — a boolean is never a File, so this
+  // guard evaluated to false every single time and never fired. The only
+  // caller passes a real `new File(...)`, so the working path is unchanged;
+  // the guard now actually catches a non-File instead of letting it through
+  // to `processed_file.name` below.
+  if (!fileData.file && processed_file && !(processed_file instanceof File)) {
     toast.error("Processed file is not an instance of File!");
     return;
   }
