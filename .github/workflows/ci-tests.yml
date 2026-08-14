@@ -67,6 +67,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: ESLint (no-undef)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Exists because of the negotiation P0 on 2026-08-14: a helper called a
+      # function nobody had imported, and it reached production because this
+      # repo had no ESLint config at all. `no-undef` catches that whole class.
+      #
+      # The rule set is deliberately tiny (see eslint.config.mjs) and the 11
+      # pre-existing violations are recorded in eslint-suppressions.json, so
+      # this job is green today and fails the moment NEW code reintroduces one.
+      - name: Run ESLint
+        run: npm run lint
+
   test:
     name: Jest (38 suites)
     runs-on: ubuntu-latest
@@ -130,14 +158,15 @@ jobs:
   ci-gate:
     name: CI gate
     if: always()
-    needs: [test, build]
+    needs: [test, build, lint]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Assert tests and build succeeded
+      - name: Assert tests, build and lint succeeded
         run: |
           echo "tests: ${{ needs.test.result }}"
           echo "build: ${{ needs.build.result }}"
+          echo "lint:  ${{ needs.lint.result }}"
           if [ "${{ needs.test.result }}" != "success" ]; then
             echo "::error::The Jest suite failed. Open the 'Jest' job above."
             exit 1
@@ -146,4 +175,8 @@ jobs:
             echo "::error::next build failed — the suite can pass while the app does not compile. Open the 'Next build' job above."
             exit 1
           fi
-          echo "Tests and build green."
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "::error::ESLint failed. Most likely no-undef — something is called that is not imported or defined. That is the class that took negotiation-round creation down in production on 2026-08-14. Open the 'ESLint' job above."
+            exit 1
+          fi
+          echo "Tests, build and lint green."
