@@ -637,17 +637,67 @@ const SendQuoteWizard = () => {
         (!deliveryRequired(p) || (parseInt(p.delivery_period) || 0) > 0)
     );
   }, [products, deliveryRequired]);
-  // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
+  /**
+   * Commercial terms step (step 4): valid GSTIN (or empty) + payment terms
+   * that sum to 100.
+   *
+   * Gated on the same principle as deliveryRequired above: require a field
+   * only where the vendor can actually edit it. After bid expiry
+   * Step4CommercialTerms disables every payment-term input unless the round
+   * raised an RFQ-level ask on payment_terms, and the GSTIN input locks
+   * unconditionally (`disabled={isReadOnly || isBidExpired}`) because GSTIN is
+   * never negotiable. Demanding a correction there is a dead end, not a
+   * safeguard — it deadlocked base_price-only rounds, where a quote carrying a
+   * payment row with no stored `type` (the select still DISPLAYS "advance") or
+   * a malformed legacy GSTIN could never reach Review & submit.
+   *
+   * The stored values are already on record and go out unchanged, so nothing
+   * is validated away — the check simply moves to where it can be satisfied.
+   */
+  const paymentTermsEditable =
+    !isBidExpired ||
+    (negotiationFields.__rfq_level__ || []).some(
+      (f) => (f.name || "").toLowerCase() === "payment_terms"
+    );
   const canContinueStep4 = useMemo(() => {
-    const gstinOk = isValidGstin(vendorGSTIN);
+    const gstinOk = isBidExpired || isValidGstin(vendorGSTIN);
     const validPayment =
-      paymentTotal === 100 &&
-      paymentTerms
-        .filter((t) => t.action !== "delete")
-        .every((t) => t.type && (Number(t.value) || 0) > 0);
+      !paymentTermsEditable ||
+      (paymentTotal === 100 &&
+        paymentTerms
+          .filter((t) => t.action !== "delete")
+          .every((t) => t.type && (Number(t.value) || 0) > 0));
     return gstinOk && validPayment;
-  }, [vendorGSTIN, paymentTotal, paymentTerms]);
+  }, [vendorGSTIN, paymentTotal, paymentTerms, isBidExpired, paymentTermsEditable]);
   const canSubmit = canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
+
+  /**
+   * Why "Continue to review" is disabled, in the vendor's own terms.
+   *
+   * A dead button with no stated reason is what turned a locked 80% payment
+   * schedule into a support ticket: the inline hints sit beside the fields,
+   * but a vendor looking at the disabled button has no idea which one is at
+   * fault. This only ever names a condition the vendor can actually act on —
+   * anything locked no longer gates the step at all.
+   */
+  const termsBlockReason = useMemo(() => {
+    if (canContinueStep4) return null;
+    if (paymentTermsEditable) {
+      if (paymentTotal !== 100) {
+        return `Payment terms currently total ${paymentTotal}% — they must total 100% to continue.`;
+      }
+      const incomplete = paymentTerms
+        .filter((t) => t.action !== "delete")
+        .some((t) => !t.type || (Number(t.value) || 0) <= 0);
+      if (incomplete) {
+        return "Every payment term needs a type and a percentage above zero.";
+      }
+    }
+    if (!isBidExpired && !isValidGstin(vendorGSTIN)) {
+      return "The GSTIN format looks off — it should be 15 characters, e.g. 29ABCDE1234F1Z5.";
+    }
+    return null;
+  }, [canContinueStep4, paymentTermsEditable, paymentTotal, paymentTerms, isBidExpired, vendorGSTIN]);
 
   // Review-step double-check callouts.
   const reviewWarnings = useMemo(() => {
@@ -1531,10 +1581,13 @@ const SendQuoteWizard = () => {
 
   /* ─────────────────────────── Submit quote ─────────────────────────── */
   const handleSubmit = async () => {
-    if (!canSubmit) {
-      toast.error("Add prices, payment terms (sum to 100%), and delivery before submitting.");
-      return;
-    }
+    // The submit button is disabled under exactly this condition, so this can
+    // only fire if a future caller wires up its own control. It used to raise
+    // a toast listing every gate at once ("add prices, payment terms, and
+    // delivery") — unreachable, and misleading if it ever had fired, since it
+    // named fields that may be locked. The reason a vendor can act on now
+    // lives in `termsBlockReason`, next to the button that is actually stuck.
+    if (!canSubmit) return;
     if (!rfq) return;
 
     setSubmitting(true);
@@ -2008,6 +2061,7 @@ const SendQuoteWizard = () => {
           canContinueStep2={canContinueStep2}
           canContinueStep3={canContinueStep3}
           canContinueStep4={canContinueStep4}
+          termsBlockReason={termsBlockReason}
           canSubmit={canSubmit && !isReadOnly}
           missedInquiry={missedInquiry}
           clarBlocksQuote={clarBlocksQuote}
@@ -4467,6 +4521,7 @@ const ActionBar = ({
   canContinueStep2,
   canContinueStep3,
   canContinueStep4,
+  termsBlockReason,
   canSubmit,
   evalAnswered,
   evalTotal,
@@ -4501,7 +4556,9 @@ const ActionBar = ({
         : `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`;
     }
     if (currentStepId === "pricing") return "Enter prices for the items you can quote, then continue.";
-    if (currentStepId === "terms") return "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
+    if (currentStepId === "terms") {
+      return termsBlockReason || "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
+    }
     if (currentStepId === "review") return "Review every number, then confirm to submit.";
     return null;
   })();
