@@ -712,6 +712,10 @@ const SendQuoteWizard = () => {
   /* ───────── Edit eligibility ───────── */
   // Per-product negotiable check
   const hasAnyNegotiation = Object.keys(negotiationFields).length > 0;
+  // An RFQ-level round negotiates quote-level fields only (payment terms,
+  // global charges) and covers no product line, so activeNegotiationProductIds
+  // is empty BY DESIGN. The quote is still answerable — on those fields alone.
+  const rfqLevelNegotiationActive = (negotiationFields.__rfq_level__ || []).length > 0;
   const allFinalizedOther = products.length > 0 &&
     products.every((p) => p.finalization_status === "Another vendor is finalized");
   const allFinalizedYou = products.length > 0 &&
@@ -736,10 +740,17 @@ const SendQuoteWizard = () => {
       };
     }
     if (isBidExpired && hasAnyNegotiation) {
+      const negotiatedProductCount =
+        activeNegotiationProductIds.size ||
+        Object.keys(negotiationFields).filter((k) => k !== "__rfq_level__").length;
       return {
         kind: "info",
         title: "Negotiation round in progress — you're invited",
-        body: `The bid deadline has passed, but you've been invited to a negotiation round on ${activeNegotiationProductIds.size || Object.keys(negotiationFields).filter((k) => k !== "__rfq_level__").length} product(s). The buyer's target asks are highlighted on each line.`,
+        // A round can target quote-level terms with no product line at all;
+        // saying "0 product(s)" there reads as a broken page.
+        body: negotiatedProductCount === 0
+          ? "The bid deadline has passed, but you've been invited to a negotiation round on this quote's commercial terms. The buyer's target asks are highlighted under Commercial terms; your product lines stay as quoted."
+          : `The bid deadline has passed, but you've been invited to a negotiation round on ${negotiatedProductCount} product(s). The buyer's target asks are highlighted on each line.`,
         canEdit: true,
       };
     }
@@ -1611,9 +1622,20 @@ const SendQuoteWizard = () => {
         });
 
       // All lines filtered out (finalized / tech-locked / already negotiated /
-      // not in an active round) — nothing left to submit.
-      if (!filteredProducts.length) {
-        toast.error("No products are currently open for quoting.");
+      // not in an active round). An RFQ-level round is answerable on its
+      // quote-level fields alone, so an empty line set is legitimate there —
+      // and required: updateQuoteItems rejects any line that has no active
+      // round of its own. Anywhere else there is genuinely nothing to send.
+      if (!filteredProducts.length && !(alreadyQuoted && rfqLevelNegotiationActive)) {
+        // Name the actual reason. "No products" reads as "this inquiry is
+        // empty" to a vendor whose real problem is that they have already
+        // spent their one response for the round.
+        const answeredThisRound = products.some((p) => negotiationQuoteSubmitted[p.id]);
+        toast.error(
+          answeredThisRound
+            ? "You have already submitted your revised quote for this negotiation round. The buyer must open a new round before you can revise it again."
+            : "No products are currently open for quoting."
+        );
         return;
       }
 
