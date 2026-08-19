@@ -270,10 +270,15 @@ const StepVendorsAndTargets = ({
       case 'comment': return vendorData.comment || '--';
       case 'global_comment': return vendorData.globalComment || '--';
       case 'vendor_tc': return vendorData.vendorTC || '--';
-      case 'documents': return vendorData.documentFiles || [];
+      // Scope-matched: an RFQ-level ask is answered from the quote-wide
+      // uploader, a product-scoped one from that line's uploader. Showing the
+      // wrong set here would have the buyer commenting on files the vendor
+      // cannot see against this ask.
+      case 'documents':
+        return (isRfqMode ? vendorData.documentFiles : vendorData.lineDocumentFiles) || [];
       default: return '--';
     }
-  }, [productPriceData]);
+  }, [productPriceData, isRfqMode]);
 
   return (
     <div className={styles.stepStack}>

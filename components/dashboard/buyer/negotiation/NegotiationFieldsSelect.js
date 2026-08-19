@@ -73,7 +73,16 @@ const NegotiationFieldsSelect = ({ selectedFields = [], onToggleField, formData,
       });
     };
     if (includeOnly?.has('global_comment')) synthesizeText('global_comment', 'Global Comment');
-    if (includeOnly?.has('documents')) synthesizeText('documents', 'RFQ Documents');
+    // `documents` is offered in BOTH modes, under the label for the file set the
+    // vendor answers with: quote-wide attachments at RFQ level, that line's
+    // attachments per product. Offering it only at RFQ level left the per-line
+    // uploader permanently shut — isFieldNegotiable reads the product's own
+    // fields, so a quote-wide ask could never open it (reported on RFQ 536363).
+    if (includeOnly) {
+      if (includeOnly.has('documents')) synthesizeText('documents', 'RFQ Documents');
+    } else {
+      synthesizeText('documents', 'Documents');
+    }
 
     // In RFQ-level mode we want is_global charges; otherwise per-product only.
     const wantGlobal = !!includeOnly;
