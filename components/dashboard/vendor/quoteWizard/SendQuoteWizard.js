@@ -834,6 +834,15 @@ const SendQuoteWizard = () => {
   const isReadOnly = !editStatus.canEdit;
   const missedInquiry = !!editStatus.missed;
 
+  // An RFQ-level `documents` ask is answerable from ANY line as well as from the
+  // quote-wide uploader: the buyer wants the file, not a particular attachment
+  // point. Lines opened this way carry no product entry in the round, so they
+  // must be admitted to the payload explicitly (see filteredProducts) and the
+  // server must accept them (rfqController: the documents-only exemption).
+  const rfqLevelDocAskActive = (negotiationFields.__rfq_level__ || []).some(
+    (f) => (f.name || "").toLowerCase() === "documents"
+  );
+
   // Per-line "is this line fully read-only" — mirrors the `locked` flag computed
   // inside Step3Pricing, so the charges modal (rendered here, outside that
   // component) can disable its fields while still letting the vendor open it.
@@ -1622,7 +1631,15 @@ const SendQuoteWizard = () => {
           // Once-per-round rule: already re-quoted in the latest round.
           if (negotiationQuoteSubmitted[p.id]) return false;
           // Post-expiry, only products with an active negotiation round go out.
-          if (isBidExpired && !activeNegotiationProductIds.has(p.id)) return false;
+          // Exception: an RFQ-level `documents` ask opens every line's uploader,
+          // so a line the vendor attached files to must go out even though the
+          // round names no product. Without this the file is uploaded, listed,
+          // and then silently dropped at submit — worse than a disabled control.
+          if (isBidExpired && !activeNegotiationProductIds.has(p.id)) {
+            const answersDocAsk =
+              rfqLevelDocAskActive && (p.document_files || []).length > 0;
+            if (!answersDocAsk) return false;
+          }
           return true;
         })
         .map((p) => {
@@ -3327,6 +3344,24 @@ const Step3Pricing = ({
   pricingMethod,
   onOpenMethodModal,
 }) => {
+  // `documents` is an RFQ-LEVEL field ("RFQ Documents", NegotiationFieldsSelect).
+  // A round raising it stores one `is_rfq_level` entry and no product entry, so
+  // negotiationFields[productId] is empty and isFieldNegotiable("documents")
+  // below is false for every line — the per-line uploader CANNOT unlock, and
+  // should not: the answer belongs in the quote-wide uploader on the Commercial
+  // terms step, which that same ask does unlock.
+  //
+  // Unlocking this one instead would be wrong twice over: it writes to the
+  // line's document_files, which the buyer never asked about, and updateQuoteItems
+  // rejects any line with no active round of its own.
+  //
+  // What was missing was any way for the vendor to know that. Reported on RFQ
+  // 536363 (round 952 — ACTIVE, is_rfq_level, field `documents`): the vendor saw
+  // a greyed "Attach supporting documents" here and concluded they were blocked,
+  // with the working uploader one step away and unmentioned.
+  const rfqLevelDocAsk = (negotiationFields?.__rfq_level__ || []).find(
+    (f) => (f.name || "").toLowerCase() === "documents"
+  );
   const hasGlobalCharges = (globalCharges || []).some(
     (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
@@ -3428,6 +3463,29 @@ const Step3Pricing = ({
               (c) => c.name && Number.isFinite(parseFloat(c.amount))
             );
             const negFields = (negotiationFields && negotiationFields[p.id]) || [];
+            // The documents controls are gated separately from `locked`.
+            // `bidExpiredForProduct` freezes lines the round did not name — which
+            // is exactly what a quote-wide `documents` ask overrides, since the
+            // buyer wants the file, not a particular attachment point. The real
+            // locks (finalized, tech-eval, already re-quoted, read-only) still
+            // apply; only the not-named-by-this-round freeze is lifted, and only
+            // for these two controls.
+            const docsLocked =
+              finalizedLocked ||
+              techLocked ||
+              negSubmitted ||
+              isReadOnly ||
+              (bidExpiredForProduct && !rfqLevelDocAsk);
+            const docsEditable =
+              !docsLocked &&
+              (!isBidExpired ||
+                !!rfqLevelDocAsk ||
+                negFields.some(
+                  (f) =>
+                    f.name === "documents" &&
+                    f.targetPrice != null &&
+                    f.targetPrice !== ""
+                ));
             const negByName = (name) =>
               negFields.find((f) => (f.name || "").toLowerCase() === name.toLowerCase());
             const isBeingNegotiated = negFields.length > 0;
@@ -3814,7 +3872,7 @@ const Step3Pricing = ({
                         <input
                           type="file"
                           multiple
-                          disabled={locked || !isFieldNegotiable("documents")}
+                          disabled={!docsEditable}
                           onChange={async (e) => {
                             const files = Array.from(e.target.files || []);
                             const urls = [];
@@ -3839,6 +3897,18 @@ const Step3Pricing = ({
                         if (asks.demand) {
                           return <BuyerAskHint mono={false} value={asks.demand} />;
                         }
+                        // No ask on this line, but one on the whole quote — say
+                        // so, and name the step that can actually answer it.
+                        if (rfqLevelDocAsk) {
+                          const rfqAsks = parseDocAsks(rfqLevelDocAsk);
+                          return (
+                            <BuyerAskHint
+                              mono={false}
+                              label="Buyer's document request"
+                              value={`${rfqAsks.demand ? `${rfqAsks.demand} — a` : "A"}pplies to the whole quote. Attach here or under Commercial terms.`}
+                            />
+                          );
+                        }
                         return null;
                       })()}
                       {(p.document_files || []).map((u, di) => {
@@ -3851,7 +3921,7 @@ const Step3Pricing = ({
                           <button
                             type="button"
                             className={styles.iconBtn}
-                            disabled={locked || !isFieldNegotiable("documents")}
+                            disabled={!docsEditable}
                             onClick={() =>
                               onUpdateProduct(idx, {
                                 document_files: (p.document_files || []).filter((f) => f !== u),
