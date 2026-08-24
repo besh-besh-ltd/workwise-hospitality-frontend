@@ -150,6 +150,18 @@ const ALL_STEPS = [
   { id: "review", label: "Review & submit", meta: "Verify and confirm" },
 ];
 
+// Which steps are on screen, given the two things that add or remove one. The
+// `visibleSteps` memo and the data loader both go through this, because they
+// must agree: the loader needs to resolve a landing step by INDEX, and the old
+// hardcoded `hasEvalAtLoad ? 4 : 3` silently assumed the Clarifications step was
+// never present — so on a tender it dropped the vendor on Commercial terms.
+const visibleStepsFor = ({ hasTechEval, showClarStep }) =>
+  ALL_STEPS.filter(
+    (s) =>
+      (s.id !== "eval" || hasTechEval) &&
+      (s.id !== "clarifications" || showClarStep)
+  );
+
 // IST handling for vendor_clarification_date — keep parsing identical to the
 // legacy send-quote page so the deadline never drifts by a few hours.
 const IST_OFFSET_MINUTES = 330;
@@ -551,9 +563,7 @@ const SendQuoteWizard = () => {
   const showClarStep = isTender && (clarificationDeadline != null || clarifications.length > 0);
 
   const visibleSteps = useMemo(() => {
-    let base = ALL_STEPS;
-    if (!hasTechEval) base = base.filter((s) => s.id !== "eval");
-    if (!showClarStep) base = base.filter((s) => s.id !== "clarifications");
+    const base = visibleStepsFor({ hasTechEval, showClarStep });
     // In read-only flows the last step is a snapshot of what's been
     // submitted — there's nothing to confirm anymore, so rename the label.
     if (isBidExpired) {
@@ -566,6 +576,7 @@ const SendQuoteWizard = () => {
     return base;
   }, [hasTechEval, showClarStep, isBidExpired]);
   const currentStepId = visibleSteps[currentStep]?.id || "overview";
+
   const evalTotalClauses = useMemo(
     () => Object.values(techClauses).reduce((n, arr) => n + (arr?.length || 0), 0),
     [techClauses]
@@ -587,6 +598,16 @@ const SendQuoteWizard = () => {
   /* ───────── Gating ───────── */
   const evalGateOk = useMemo(() => {
     if (evalProducts.length === 0) return true;
+    // Clauses arrive asynchronously (fetchVendorAgreement, one call per product).
+    // Until they land, evalAnswered and evalTotalClauses are BOTH 0, so the
+    // `!==` below is false and the gate reads as satisfied. That was harmless
+    // while this only guarded forward navigation, but it is not harmless now
+    // that canSubmit consults it — an unanswered quote could go out in the
+    // window before the clause lists resolve. Treat "not loaded yet" as not
+    // answered.
+    if (techLoading) return false;
+    if (evalProducts.some((p) => !techClauses[p.id])) return false;
+    if (evalTotalClauses === 0) return false;
     if (evalAnswered !== evalTotalClauses) return false;
     // disagree requires comment
     for (const pid of Object.keys(techClauses)) {
@@ -597,7 +618,7 @@ const SendQuoteWizard = () => {
       }
     }
     return true;
-  }, [evalProducts.length, evalAnswered, evalTotalClauses, techClauses, techResponses]);
+  }, [evalProducts, evalAnswered, evalTotalClauses, techClauses, techResponses, techLoading]);
 
   const canContinueStep1 = acceptedTerms;
   const canContinueStep2 = evalGateOk;
@@ -637,17 +658,74 @@ const SendQuoteWizard = () => {
         (!deliveryRequired(p) || (parseInt(p.delivery_period) || 0) > 0)
     );
   }, [products, deliveryRequired]);
-  // Commercial terms step (step 4): valid GSTIN (or empty) + payment terms sum to 100.
+  /**
+   * Commercial terms step (step 4): valid GSTIN (or empty) + payment terms
+   * that sum to 100.
+   *
+   * Gated on the same principle as deliveryRequired above: require a field
+   * only where the vendor can actually edit it. After bid expiry
+   * Step4CommercialTerms disables every payment-term input unless the round
+   * raised an RFQ-level ask on payment_terms, and the GSTIN input locks
+   * unconditionally (`disabled={isReadOnly || isBidExpired}`) because GSTIN is
+   * never negotiable. Demanding a correction there is a dead end, not a
+   * safeguard — it deadlocked base_price-only rounds, where a quote carrying a
+   * payment row with no stored `type` (the select still DISPLAYS "advance") or
+   * a malformed legacy GSTIN could never reach Review & submit.
+   *
+   * The stored values are already on record and go out unchanged, so nothing
+   * is validated away — the check simply moves to where it can be satisfied.
+   */
+  const paymentTermsEditable =
+    !isBidExpired ||
+    (negotiationFields.__rfq_level__ || []).some(
+      (f) => (f.name || "").toLowerCase() === "payment_terms"
+    );
   const canContinueStep4 = useMemo(() => {
-    const gstinOk = isValidGstin(vendorGSTIN);
+    const gstinOk = isBidExpired || isValidGstin(vendorGSTIN);
     const validPayment =
-      paymentTotal === 100 &&
-      paymentTerms
-        .filter((t) => t.action !== "delete")
-        .every((t) => t.type && (Number(t.value) || 0) > 0);
+      !paymentTermsEditable ||
+      (paymentTotal === 100 &&
+        paymentTerms
+          .filter((t) => t.action !== "delete")
+          .every((t) => t.type && (Number(t.value) || 0) > 0));
     return gstinOk && validPayment;
-  }, [vendorGSTIN, paymentTotal, paymentTerms]);
-  const canSubmit = canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
+  }, [vendorGSTIN, paymentTotal, paymentTerms, isBidExpired, paymentTermsEditable]);
+  // evalGateOk belongs here, not only on the step navigation. It used to guard
+  // only forward movement through the stepper, and an already-quoted vendor is
+  // dropped straight onto Review at load — skipping navigation entirely. That is
+  // how RFQ 536289's quote reached the database with six clause-bearing lines
+  // priced and zero clauses answered. The server refuses this too
+  // (techEvalQuoteGate); this keeps the vendor from getting as far as a 400.
+  const canSubmit =
+    evalGateOk && canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
+
+  /**
+   * Why "Continue to review" is disabled, in the vendor's own terms.
+   *
+   * A dead button with no stated reason is what turned a locked 80% payment
+   * schedule into a support ticket: the inline hints sit beside the fields,
+   * but a vendor looking at the disabled button has no idea which one is at
+   * fault. This only ever names a condition the vendor can actually act on —
+   * anything locked no longer gates the step at all.
+   */
+  const termsBlockReason = useMemo(() => {
+    if (canContinueStep4) return null;
+    if (paymentTermsEditable) {
+      if (paymentTotal !== 100) {
+        return `Payment terms currently total ${paymentTotal}% — they must total 100% to continue.`;
+      }
+      const incomplete = paymentTerms
+        .filter((t) => t.action !== "delete")
+        .some((t) => !t.type || (Number(t.value) || 0) <= 0);
+      if (incomplete) {
+        return "Every payment term needs a type and a percentage above zero.";
+      }
+    }
+    if (!isBidExpired && !isValidGstin(vendorGSTIN)) {
+      return "The GSTIN format looks off — it should be 15 characters, e.g. 29ABCDE1234F1Z5.";
+    }
+    return null;
+  }, [canContinueStep4, paymentTermsEditable, paymentTotal, paymentTerms, isBidExpired, vendorGSTIN]);
 
   // Review-step double-check callouts.
   const reviewWarnings = useMemo(() => {
@@ -712,6 +790,10 @@ const SendQuoteWizard = () => {
   /* ───────── Edit eligibility ───────── */
   // Per-product negotiable check
   const hasAnyNegotiation = Object.keys(negotiationFields).length > 0;
+  // An RFQ-level round negotiates quote-level fields only (payment terms,
+  // global charges) and covers no product line, so activeNegotiationProductIds
+  // is empty BY DESIGN. The quote is still answerable — on those fields alone.
+  const rfqLevelNegotiationActive = (negotiationFields.__rfq_level__ || []).length > 0;
   const allFinalizedOther = products.length > 0 &&
     products.every((p) => p.finalization_status === "Another vendor is finalized");
   const allFinalizedYou = products.length > 0 &&
@@ -736,10 +818,17 @@ const SendQuoteWizard = () => {
       };
     }
     if (isBidExpired && hasAnyNegotiation) {
+      const negotiatedProductCount =
+        activeNegotiationProductIds.size ||
+        Object.keys(negotiationFields).filter((k) => k !== "__rfq_level__").length;
       return {
         kind: "info",
         title: "Negotiation round in progress — you're invited",
-        body: `The bid deadline has passed, but you've been invited to a negotiation round on ${activeNegotiationProductIds.size || Object.keys(negotiationFields).filter((k) => k !== "__rfq_level__").length} product(s). The buyer's target asks are highlighted on each line.`,
+        // A round can target quote-level terms with no product line at all;
+        // saying "0 product(s)" there reads as a broken page.
+        body: negotiatedProductCount === 0
+          ? "The bid deadline has passed, but you've been invited to a negotiation round on this quote's commercial terms. The buyer's target asks are highlighted under Commercial terms; your product lines stay as quoted."
+          : `The bid deadline has passed, but you've been invited to a negotiation round on ${negotiatedProductCount} product(s). The buyer's target asks are highlighted on each line.`,
         canEdit: true,
       };
     }
@@ -772,6 +861,15 @@ const SendQuoteWizard = () => {
   })();
   const isReadOnly = !editStatus.canEdit;
   const missedInquiry = !!editStatus.missed;
+
+  // An RFQ-level `documents` ask is answerable from ANY line as well as from the
+  // quote-wide uploader: the buyer wants the file, not a particular attachment
+  // point. Lines opened this way carry no product entry in the round, so they
+  // must be admitted to the payload explicitly (see filteredProducts) and the
+  // server must accept them (rfqController: the documents-only exemption).
+  const rfqLevelDocAskActive = (negotiationFields.__rfq_level__ || []).some(
+    (f) => (f.name || "").toLowerCase() === "documents"
+  );
 
   // Per-line "is this line fully read-only" — mirrors the `locked` flag computed
   // inside Step3Pricing, so the charges modal (rendered here, outside that
@@ -951,6 +1049,11 @@ const SendQuoteWizard = () => {
         // ("I Agree" / "I Dont Agree" / "") and vendor_response_files. So we
         // can drop the separate get-clauses-of-product call and hydrate from
         // a single endpoint, mirroring the working tech-eval page.
+        // { [rfqProductId]: true } for products whose whole clause set is already
+        // answered. Filled inside the fetch loop below and read by the landing-step
+        // decision after it, so it is a plain local, not state — state set inside
+        // this async handler is not readable again until the next render.
+        const fullyAnsweredAtLoad = {};
         const evalable = built.filter((p) => p.has_tech_eval);
         if (evalable.length > 0) {
           setTechLoading(true);
@@ -986,15 +1089,24 @@ const SendQuoteWizard = () => {
                 // it lives in the per-clause chat thread (loaded separately).
                 const responses = {};
                 let anyAnswered = false;
+                let answeredCount = 0;
                 rows.forEach((r) => {
                   const mapped = API_TO_RESPONSE(r.vendor_response);
-                  if (mapped) anyAnswered = true;
+                  if (mapped) {
+                    anyAnswered = true;
+                    answeredCount++;
+                  }
                   responses[r.clause_id] = {
                     response: mapped,
                     comment: "",
                     files: toFileUrls(r.vendor_response_files),
                   };
                 });
+                // Recorded so the landing step below can tell a vendor who has
+                // answered everything from one who has answered some or none.
+                // rows.length is the clause count for this product — the API
+                // returns one row per clause whether or not it was answered.
+                fullyAnsweredAtLoad[p.id] = rows.length > 0 && answeredCount === rows.length;
                 if (!cancelled) {
                   setTechResponses((prev) => ({ ...prev, [p.id]: responses }));
                   if (anyAnswered) {
@@ -1027,14 +1139,35 @@ const SendQuoteWizard = () => {
           if (!cancelled) setTechLoading(false);
         }
 
-        // If already quoted (update mode) — jump straight to the Review step
-        // so the vendor can re-verify and re-submit. They can step back to
-        // edit pricing or terms if needed.
+        // If already quoted (update mode) — land on Review so the vendor can
+        // re-verify and re-submit, stepping back to pricing or terms if needed.
+        //
+        // EXCEPT when technical clauses are still unanswered: then land them on
+        // the Technical evaluation step instead. Jumping unconditionally to
+        // Review is how RFQ 536289 happened — canVisit() returns true for every
+        // step at or below the current one, so arriving at Review retroactively
+        // unlocked the eval step the vendor had never visited, and the old
+        // canSubmit did not consult evalGateOk. A regret converted into a fully
+        // priced 14-line quote with zero clauses answered, and the RFQ deadlocked.
+        //
+        // Landing on the gate is also just the honest answer to "what does this
+        // vendor still owe?" — they cannot submit until it is done.
         if (hasQuote) {
-          const hasEvalAtLoad = built.some((p) => p.has_tech_eval);
-          // visibleSteps order: overview, [eval], pricing, terms, review
-          const reviewIdx = hasEvalAtLoad ? 4 : 3;
-          setCurrentStep(reviewIdx);
+          const evalAtLoad = built.filter((p) => p.has_tech_eval);
+          const clausesOutstanding = evalAtLoad.some((p) => !fullyAnsweredAtLoad[p.id]);
+          const landOn = clausesOutstanding ? "eval" : "review";
+          // Resolved through the same helper visibleSteps uses, so the index is
+          // right whether or not a Clarifications step is present. Synchronous
+          // on purpose: deferring it to an effect costs a render, and the vendor
+          // would see the overview flash before being moved.
+          const steps = visibleStepsFor({
+            hasTechEval: evalAtLoad.length > 0,
+            showClarStep:
+              data.is_tender === 1 &&
+              (data.vendor_clarification_date != null || (data.clarifications || []).length > 0),
+          });
+          const idx = steps.findIndex((s) => s.id === landOn);
+          if (idx >= 0) setCurrentStep(idx);
         }
 
         // Edit eligibility: check bid expiry + active negotiation rounds
@@ -1520,10 +1653,13 @@ const SendQuoteWizard = () => {
 
   /* ─────────────────────────── Submit quote ─────────────────────────── */
   const handleSubmit = async () => {
-    if (!canSubmit) {
-      toast.error("Add prices, payment terms (sum to 100%), and delivery before submitting.");
-      return;
-    }
+    // The submit button is disabled under exactly this condition, so this can
+    // only fire if a future caller wires up its own control. It used to raise
+    // a toast listing every gate at once ("add prices, payment terms, and
+    // delivery") — unreachable, and misleading if it ever had fired, since it
+    // named fields that may be locked. The reason a vendor can act on now
+    // lives in `termsBlockReason`, next to the button that is actually stuck.
+    if (!canSubmit) return;
     if (!rfq) return;
 
     setSubmitting(true);
@@ -1558,7 +1694,15 @@ const SendQuoteWizard = () => {
           // Once-per-round rule: already re-quoted in the latest round.
           if (negotiationQuoteSubmitted[p.id]) return false;
           // Post-expiry, only products with an active negotiation round go out.
-          if (isBidExpired && !activeNegotiationProductIds.has(p.id)) return false;
+          // Exception: an RFQ-level `documents` ask opens every line's uploader,
+          // so a line the vendor attached files to must go out even though the
+          // round names no product. Without this the file is uploaded, listed,
+          // and then silently dropped at submit — worse than a disabled control.
+          if (isBidExpired && !activeNegotiationProductIds.has(p.id)) {
+            const answersDocAsk =
+              rfqLevelDocAskActive && (p.document_files || []).length > 0;
+            if (!answersDocAsk) return false;
+          }
           return true;
         })
         .map((p) => {
@@ -1611,9 +1755,20 @@ const SendQuoteWizard = () => {
         });
 
       // All lines filtered out (finalized / tech-locked / already negotiated /
-      // not in an active round) — nothing left to submit.
-      if (!filteredProducts.length) {
-        toast.error("No products are currently open for quoting.");
+      // not in an active round). An RFQ-level round is answerable on its
+      // quote-level fields alone, so an empty line set is legitimate there —
+      // and required: updateQuoteItems rejects any line that has no active
+      // round of its own. Anywhere else there is genuinely nothing to send.
+      if (!filteredProducts.length && !(alreadyQuoted && rfqLevelNegotiationActive)) {
+        // Name the actual reason. "No products" reads as "this inquiry is
+        // empty" to a vendor whose real problem is that they have already
+        // spent their one response for the round.
+        const answeredThisRound = products.some((p) => negotiationQuoteSubmitted[p.id]);
+        toast.error(
+          answeredThisRound
+            ? "You have already submitted your revised quote for this negotiation round. The buyer must open a new round before you can revise it again."
+            : "No products are currently open for quoting."
+        );
         return;
       }
 
@@ -1986,6 +2141,7 @@ const SendQuoteWizard = () => {
           canContinueStep2={canContinueStep2}
           canContinueStep3={canContinueStep3}
           canContinueStep4={canContinueStep4}
+          termsBlockReason={termsBlockReason}
           canSubmit={canSubmit && !isReadOnly}
           missedInquiry={missedInquiry}
           clarBlocksQuote={clarBlocksQuote}
@@ -3251,6 +3407,24 @@ const Step3Pricing = ({
   pricingMethod,
   onOpenMethodModal,
 }) => {
+  // `documents` is an RFQ-LEVEL field ("RFQ Documents", NegotiationFieldsSelect).
+  // A round raising it stores one `is_rfq_level` entry and no product entry, so
+  // negotiationFields[productId] is empty and isFieldNegotiable("documents")
+  // below is false for every line — the per-line uploader CANNOT unlock, and
+  // should not: the answer belongs in the quote-wide uploader on the Commercial
+  // terms step, which that same ask does unlock.
+  //
+  // Unlocking this one instead would be wrong twice over: it writes to the
+  // line's document_files, which the buyer never asked about, and updateQuoteItems
+  // rejects any line with no active round of its own.
+  //
+  // What was missing was any way for the vendor to know that. Reported on RFQ
+  // 536363 (round 952 — ACTIVE, is_rfq_level, field `documents`): the vendor saw
+  // a greyed "Attach supporting documents" here and concluded they were blocked,
+  // with the working uploader one step away and unmentioned.
+  const rfqLevelDocAsk = (negotiationFields?.__rfq_level__ || []).find(
+    (f) => (f.name || "").toLowerCase() === "documents"
+  );
   const hasGlobalCharges = (globalCharges || []).some(
     (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
@@ -3352,6 +3526,29 @@ const Step3Pricing = ({
               (c) => c.name && Number.isFinite(parseFloat(c.amount))
             );
             const negFields = (negotiationFields && negotiationFields[p.id]) || [];
+            // The documents controls are gated separately from `locked`.
+            // `bidExpiredForProduct` freezes lines the round did not name — which
+            // is exactly what a quote-wide `documents` ask overrides, since the
+            // buyer wants the file, not a particular attachment point. The real
+            // locks (finalized, tech-eval, already re-quoted, read-only) still
+            // apply; only the not-named-by-this-round freeze is lifted, and only
+            // for these two controls.
+            const docsLocked =
+              finalizedLocked ||
+              techLocked ||
+              negSubmitted ||
+              isReadOnly ||
+              (bidExpiredForProduct && !rfqLevelDocAsk);
+            const docsEditable =
+              !docsLocked &&
+              (!isBidExpired ||
+                !!rfqLevelDocAsk ||
+                negFields.some(
+                  (f) =>
+                    f.name === "documents" &&
+                    f.targetPrice != null &&
+                    f.targetPrice !== ""
+                ));
             const negByName = (name) =>
               negFields.find((f) => (f.name || "").toLowerCase() === name.toLowerCase());
             const isBeingNegotiated = negFields.length > 0;
@@ -3738,7 +3935,7 @@ const Step3Pricing = ({
                         <input
                           type="file"
                           multiple
-                          disabled={locked || !isFieldNegotiable("documents")}
+                          disabled={!docsEditable}
                           onChange={async (e) => {
                             const files = Array.from(e.target.files || []);
                             const urls = [];
@@ -3763,6 +3960,18 @@ const Step3Pricing = ({
                         if (asks.demand) {
                           return <BuyerAskHint mono={false} value={asks.demand} />;
                         }
+                        // No ask on this line, but one on the whole quote — say
+                        // so, and name the step that can actually answer it.
+                        if (rfqLevelDocAsk) {
+                          const rfqAsks = parseDocAsks(rfqLevelDocAsk);
+                          return (
+                            <BuyerAskHint
+                              mono={false}
+                              label="Buyer's document request"
+                              value={`${rfqAsks.demand ? `${rfqAsks.demand} — a` : "A"}pplies to the whole quote. Attach here or under Commercial terms.`}
+                            />
+                          );
+                        }
                         return null;
                       })()}
                       {(p.document_files || []).map((u, di) => {
@@ -3775,7 +3984,7 @@ const Step3Pricing = ({
                           <button
                             type="button"
                             className={styles.iconBtn}
-                            disabled={locked || !isFieldNegotiable("documents")}
+                            disabled={!docsEditable}
                             onClick={() =>
                               onUpdateProduct(idx, {
                                 document_files: (p.document_files || []).filter((f) => f !== u),
@@ -4445,6 +4654,7 @@ const ActionBar = ({
   canContinueStep2,
   canContinueStep3,
   canContinueStep4,
+  termsBlockReason,
   canSubmit,
   evalAnswered,
   evalTotal,
@@ -4479,7 +4689,9 @@ const ActionBar = ({
         : `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`;
     }
     if (currentStepId === "pricing") return "Enter prices for the items you can quote, then continue.";
-    if (currentStepId === "terms") return "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
+    if (currentStepId === "terms") {
+      return termsBlockReason || "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
+    }
     if (currentStepId === "review") return "Review every number, then confirm to submit.";
     return null;
   })();

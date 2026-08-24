@@ -173,6 +173,13 @@ export const getVendorPriceData = (product) => {
     // buyer negotiates on as "RFQ Documents" — NOT the per-line product files
     // (`document_files` / tbl_quote_item_files), which are a different set.
     const documentFiles = src.global_document_files || q.global_document_files || [];
+    // The per-LINE attachments (tbl_quote_item_files) — a different set from the
+    // quote-wide one above. A product-scoped `documents` ask is answered by the
+    // vendor's per-line uploader, so the buyer must comment on THESE files or the
+    // file_url in each target matches nothing on the vendor's side.
+    // Kept as a separate key rather than replacing documentFiles: aggregateRfqVendors
+    // builds the RFQ-level view from this same shape and must keep the quote-wide set.
+    const lineDocumentFiles = src.document_files || [];
     const vendorId = (() => {
       const vd = getVendorDetailsFromQuote(q);
       return Number(vd?.id || vd?.user_id || q.vendor_id || q.created_by || 0);
@@ -181,7 +188,7 @@ export const getVendorPriceData = (product) => {
     return {
       vendorName, totalPrice, unitPrice, quantity,
       otherCharges, globalCharges, tax, taxMode,
-      deliveryPeriod, paymentTerms, vendorTC, comment, globalComment, documentFiles, vendorId,
+      deliveryPeriod, paymentTerms, vendorTC, comment, globalComment, documentFiles, lineDocumentFiles, vendorId,
       isRegret,
     };
   }).filter(v => v.totalPrice > 0 || v.isRegret);

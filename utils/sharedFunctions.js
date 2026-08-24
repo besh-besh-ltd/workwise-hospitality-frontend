@@ -589,7 +589,7 @@ export const getRFQPublishState = (data) => {
     //   - withdrawn (status 5)
     // Permission/owner checks live in canEditRfq() — this flag only encodes
     // the *status-based* slice that the existing UI was already gating on.
-    canEdit: !isClosed && !!data && (!isBidEnded(data) || data.has_dead_end_product || data.has_tech_stuck_product),
+    canEdit: !isClosed && !!data && (!isBidEnded(data) || data.has_dead_end_product || data.has_tech_stuck_product || data.has_tech_unstartable_product),
     // Helper for edit URL determination (only used when canEdit === true)
     editUrl: (id) => `/dashboard/buyer/rfq-management-edit?id=${id}`,
     // Helper for queries/reminder visibility
@@ -643,10 +643,14 @@ export const canEditRfq = (rfq, currentUser) => {
   // Bid window passed — but allow edit if no vendors submitted quotes,
   // so the creator can extend the deadline.
   // Also allow editing when a product is dead-ended (all eligible vendors'
-  // POs were rejected and no other vendor available) or tech-stuck (all vendors
-  // failed tech eval), matching backend assertEditAllowed() bypass.
+  // POs were rejected and no other vendor available), tech-stuck (all vendors
+  // failed tech eval), or tech-unstartable (clauses exist and a vendor quoted,
+  // but nobody ever answered, so evaluation cannot even begin and the quote can
+  // never surface commercially). All three match a backend assertEditAllowed()
+  // bypass — keep this condition and that one in step.
   if (isBidEnded(rfq) && rfq.is_quotes_present
-      && !rfq.has_dead_end_product && !rfq.has_tech_stuck_product) {
+      && !rfq.has_dead_end_product && !rfq.has_tech_stuck_product
+      && !rfq.has_tech_unstartable_product) {
     return {
       allowed: false,
       reason: 'The submission deadline has passed; this RFQ can no longer be edited.'
@@ -675,6 +679,18 @@ export const canEditRfq = (rfq, currentUser) => {
       allowed: true,
       restrictedEdit: true,
       reason: 'Restricted editing: all vendors failed technical evaluation. You can only extend the Quote Submission Deadline and refresh vendors.'
+    };
+  }
+  // Distinct from has_tech_stuck_product above: there, evaluation ran and
+  // everyone failed. Here it never started — nobody answered the clauses, so
+  // there is nobody to score and no quote can clear the commercial gate.
+  // Extending the deadline is the only way out, because the vendor cannot answer
+  // a technical clause after the window closes.
+  if (rfq.has_tech_unstartable_product) {
+    return {
+      allowed: true,
+      restrictedEdit: true,
+      reason: 'Restricted editing: a product needs technical evaluation but no vendor answered its clauses, so evaluation cannot start. Extend the Quote Submission Deadline to let vendors respond — you can only change the deadline and refresh vendors.'
     };
   }
   if (rfq.has_received_quotes) {

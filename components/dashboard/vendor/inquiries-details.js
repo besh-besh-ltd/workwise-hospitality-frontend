@@ -1751,13 +1751,16 @@ const RfqManagementPreview = () => {
                       );
 
                     const tooltipReason = hasPendingTechEval
-                      ? "Technical evaluation is pending"
+                      ? "Answer the technical evaluation clauses first — the quote form opens on that step"
                       : statusMessage;
 
                     const isClarificationBlocked =
                       statusMessage === "Clarification Window Active" ||
                       statusMessage === "Clarification in Progress";
-                    const shouldDisableView = isClarificationBlocked || hasPendingTechEval;
+                    // hasPendingTechEval deliberately absent: viewing the inquiry
+                    // is how a vendor reaches the clauses they are being asked to
+                    // answer. Disabling it closed the only route in.
+                    const shouldDisableView = isClarificationBlocked;
 
                     if (isQuoteBlocked && !hasPendingTechEval) {
                       return (
@@ -1783,9 +1786,8 @@ const RfqManagementPreview = () => {
                             isReverseAuctionActive ? "btn-success" : "btn-secondary"
                           }`}
                           onClick={goToQuoteCreation}
-                          disabled={hasPendingTechEval}
                         >
-                          {hasPendingTechEval ? "Tech Eval Pending" : isReverseAuctionActive ? "Send Quote" : statusMessage}
+                          {hasPendingTechEval ? "Complete Technical Evaluation" : isReverseAuctionActive ? "Send Quote" : statusMessage}
                         </button>
                         {hasPendingTechEval && <span className="quote-status-tooltip">{tooltipReason}</span>}
                       </span>
@@ -1802,14 +1804,23 @@ const RfqManagementPreview = () => {
                       );
                       const isViewOnly = rfqDetails?.status == 2 || !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
 
+                      // This button is deliberately NOT disabled on
+                      // hasPendingTechEval any more. It used to be, with the
+                      // tooltip "complete all tech eval responses first" — while
+                      // the wizard behind this very button was the only place to
+                      // do that. The vendor was told to finish something and
+                      // denied the only door to it. The wizard now opens on the
+                      // Technical evaluation step when clauses are outstanding,
+                      // so sending them through IS the fix; evalGateOk and the
+                      // server-side techEvalQuoteGate still stop a submission
+                      // that has not answered them.
                       return (
                         <button
                           id="update_your_quote-rfq_header-inquiries_details_page"
                           type="button"
                           className="btn btn-secondary btn-sm p-2 m-0 p-2"
                           style={{ width: "240px" }}
-                          disabled={hasPendingTechEval}
-                          title={hasPendingTechEval ? "Technical evaluation is pending - complete all tech eval responses first" : ""}
+                          title={hasPendingTechEval ? "Answer the technical evaluation clauses, then submit your quote" : ""}
                           onClick={() => {
                             const rfqId = localId || id;
                             if (!rfqId) {
@@ -1825,7 +1836,7 @@ const RfqManagementPreview = () => {
                         >
                           <>
                             <FontAwesomeIcon icon={isViewOnly ? faEye : faEdit} className="me-2" />
-                            {hasPendingTechEval ? "Tech Eval Pending" : isViewOnly ? "View Quote" : "Update Your Quote"}
+                            {hasPendingTechEval ? "Complete Technical Evaluation" : isViewOnly ? "View Quote" : "Update Your Quote"}
                           </>
                         </button>
                       );
@@ -3069,19 +3080,39 @@ const RfqManagementPreview = () => {
                                             </div>
                                           )
                                         ) : hasPendingTechEval ? (
+                                            /* Was a disabled button reading "Tech Eval Pending",
+                                               which told the vendor to finish the technical
+                                               evaluation while disabling the only link that
+                                               reaches it. Now it goes to the wizard, which opens
+                                               on the Technical evaluation step while clauses are
+                                               outstanding. */
+                                          <Link
+                                            className="mx-auto mt-2"
+                                            href={`/dashboard/vendor/quote?type=update-quote&id=${localId || id || ''}${
+                                              token !== undefined
+                                                ? `&token=${token}`
+                                                : ""
+                                            }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                            onClick={(e) => {
+                                              if (!localId && !id) {
+                                                e.preventDefault();
+                                                toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+                                              }
+                                            }}
+                                          >
                                             <button
                                               type="button"
                                               className="btn btn-secondary m-0"
-                                              style={{ width: "240px", opacity: "0.5" }}
-                                              disabled
-                                              title="Technical evaluation is pending - complete all tech eval responses first"
+                                              style={{ width: "240px" }}
+                                              title="Answer the technical evaluation clauses, then submit your quote"
                                             >
                                               <FontAwesomeIcon
                                                 icon={faCircleExclamation}
                                                 className="me-2"
                                               />
-                                              Tech Eval Pending
+                                              Complete Technical Evaluation
                                             </button>
+                                          </Link>
                                           ) : quoteDisabled && !hasActiveNegotiationRounds ? (
                                           <Link
                                             className="mx-auto mt-2"

@@ -106,8 +106,11 @@ const fmtFieldValue = (fieldKey, value, mode, basePrice = 0) => {
 //                                  demand = "free text"
 //   - LIVE wizard state:           value  = '{"0":"comment","demand":"free text"}'
 // Both normalize to { comments: [{ label, comment, url }], demand }.
-const buildDocDetail = (value, demand, vendorInfo) => {
-  const docFiles = vendorInfo?.documentFiles || [];
+const buildDocDetail = (value, demand, vendorInfo, isRfqLevel = true) => {
+  // Same scope rule as StepVendorsAndTargets: a product-scoped ask indexes into
+  // the line's attachments, an RFQ-level one into the quote-wide set.
+  const docFiles =
+    (isRfqLevel ? vendorInfo?.documentFiles : vendorInfo?.lineDocumentFiles) || [];
   const comments = [];
   let dem = demand && String(demand).trim() ? String(demand).trim() : null;
 
@@ -216,7 +219,7 @@ const readQuotedForField = (vendorInfo, fieldKey) => {
 };
 
 // Display rows for a SUBMITTED-shape vendor_targets[] (queued rounds).
-const buildVendorRowsFromPayload = (vendorTargets, priceData) => {
+const buildVendorRowsFromPayload = (vendorTargets, priceData, isRfqLevel = true) => {
   return (vendorTargets || []).map(vt => {
     const vendorInfo = priceData.vendors.find(v => v.vendorId === Number(vt.vendor_id));
     const vendorName = vendorInfo ? vendorInfo.vendorName : `Vendor ${vt.vendor_id}`;
@@ -236,7 +239,7 @@ const buildVendorRowsFromPayload = (vendorTargets, priceData) => {
         quotedDisplay: quoted ? fmtFieldValue(f.name, quoted.value, quoted.mode, basePrice) : '—',
         quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
         targetTaxDisplay: f.tax_demand ? `Tax: “${f.tax_demand}”` : null,
-        docDetail: f.name === 'documents' ? buildDocDetail(f.target, f.demand, vendorInfo) : null,
+        docDetail: f.name === 'documents' ? buildDocDetail(f.target, f.demand, vendorInfo, isRfqLevel) : null,
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
         deltaValue: signedDelta(cmp),
@@ -253,6 +256,7 @@ const buildVendorRowsFromLiveState = ({
   formData,
   effectiveFields,
   priceData,
+  isRfqLevel = true,
 }) => {
   return (selectedVendorIds || []).map(vid => {
     const vt = vendorTargets[vid] || {};
@@ -304,7 +308,7 @@ const buildVendorRowsFromLiveState = ({
         quotedDisplay: quoted ? fmtFieldValue(fieldKey, quoted.value, quoted.mode, basePrice) : '—',
         quotedTaxDisplay: quoted ? fmtTaxValue(quoted.tax, quoted.taxMode) : null,
         targetTaxDisplay: hasTaxNote ? `Tax: “${String(taxNote).trim()}”` : null,
-        docDetail: fieldKey === 'documents' ? buildDocDetail(value, null, vendorInfo) : null,
+        docDetail: fieldKey === 'documents' ? buildDocDetail(value, null, vendorInfo, isRfqLevel) : null,
         deltaDisplay: cmp ? `${cmp.result === 'lower' ? '−' : (cmp.result === 'greater' ? '+' : '')}${cmp.diffAmt}` : null,
         deltaDirection: cmp?.result || null,
         deltaValue: signedDelta(cmp),
@@ -693,7 +697,7 @@ const StepReview = ({
           l1Total: priceData.l1 || 0,
           l1VendorName: priceData.vendors[0]?.vendorName || null,
         },
-        vendorRows: buildVendorRowsFromPayload(r.vendor_targets, priceData),
+        vendorRows: buildVendorRowsFromPayload(r.vendor_targets, priceData, isQueuedRfq),
         previewItems,
       });
     });
@@ -737,6 +741,7 @@ const StepReview = ({
           formData,
           effectiveFields,
           priceData,
+          isRfqLevel: isCurrentRfq,
         }),
         previewItems,
       });
