@@ -165,7 +165,13 @@ const BookDemoForm = ({ content, onClose }) => {
           </button>
 
           <style jsx>{`
-            .lh-demo-form {
+            /* :global() is required, and must stay its own rule. This class
+               sits on Formik's <Form>, a child component, so styled-jsx never
+               stamps its scope hash onto the element — the plain .lh-demo-form
+               selector matched nothing and the form fell back to display:block
+               with no gap at all. Do not comma-join it with a scoped selector
+               either; styled-jsx drops the :global() half of a mixed list. */
+            :global(.lh-demo-form) {
               display: flex;
               flex-direction: column;
               gap: 20px;
@@ -244,11 +250,13 @@ const BookDemoForm = ({ content, onClose }) => {
               color: ${PAPER};
               border: none;
               border-radius: 2px;
-              padding: 14px 32px;
+              padding: 11px 26px;
               font-weight: 500;
-              font-size: 0.94rem;
+              font-size: 0.88rem;
               cursor: pointer;
               align-self: flex-start;
+              /* Sits on top of the form's 20px gap, which only started applying
+                 once the :global() fix above landed. */
               margin-top: 4px;
               transition: background 0.25s ease;
             }

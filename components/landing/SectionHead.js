@@ -65,14 +65,19 @@ const SectionHead = ({ number, eyebrow, heading, subheading, invert = false }) =
           letter-spacing: -0.015em;
           color: ${INK};
           margin: 0;
-          max-width: 20ch;
+          /* Wide enough that every current heading sets on one line; 20ch cut
+             the measure to a third of the available width and force-wrapped
+             all of them. Balance only kicks in if the copy grows. */
+          max-width: 44ch;
+          text-wrap: balance;
         }
         .lh-head-sub {
           font-size: ${TYPE.body};
           line-height: 1.65;
           color: ${INK_2};
           margin: 20px 0 0;
-          max-width: 54ch;
+          max-width: 96ch;
+          text-wrap: pretty;
         }
 
         /* Inverted treatment for the ink-on-dark closing band. */

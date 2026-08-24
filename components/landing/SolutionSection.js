@@ -91,7 +91,8 @@ const SolutionSection = ({ content }) => (
         letter-spacing: -0.015em;
         color: ${INK};
         margin: 0 0 16px;
-        max-width: 18ch;
+        max-width: 32ch;
+        text-wrap: balance;
       }
       .lh-sol-desc {
         font-family: ${SANS};
