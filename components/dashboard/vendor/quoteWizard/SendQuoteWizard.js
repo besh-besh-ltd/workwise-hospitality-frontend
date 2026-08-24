@@ -150,6 +150,18 @@ const ALL_STEPS = [
   { id: "review", label: "Review & submit", meta: "Verify and confirm" },
 ];
 
+// Which steps are on screen, given the two things that add or remove one. The
+// `visibleSteps` memo and the data loader both go through this, because they
+// must agree: the loader needs to resolve a landing step by INDEX, and the old
+// hardcoded `hasEvalAtLoad ? 4 : 3` silently assumed the Clarifications step was
+// never present — so on a tender it dropped the vendor on Commercial terms.
+const visibleStepsFor = ({ hasTechEval, showClarStep }) =>
+  ALL_STEPS.filter(
+    (s) =>
+      (s.id !== "eval" || hasTechEval) &&
+      (s.id !== "clarifications" || showClarStep)
+  );
+
 // IST handling for vendor_clarification_date — keep parsing identical to the
 // legacy send-quote page so the deadline never drifts by a few hours.
 const IST_OFFSET_MINUTES = 330;
@@ -551,9 +563,7 @@ const SendQuoteWizard = () => {
   const showClarStep = isTender && (clarificationDeadline != null || clarifications.length > 0);
 
   const visibleSteps = useMemo(() => {
-    let base = ALL_STEPS;
-    if (!hasTechEval) base = base.filter((s) => s.id !== "eval");
-    if (!showClarStep) base = base.filter((s) => s.id !== "clarifications");
+    const base = visibleStepsFor({ hasTechEval, showClarStep });
     // In read-only flows the last step is a snapshot of what's been
     // submitted — there's nothing to confirm anymore, so rename the label.
     if (isBidExpired) {
@@ -566,6 +576,7 @@ const SendQuoteWizard = () => {
     return base;
   }, [hasTechEval, showClarStep, isBidExpired]);
   const currentStepId = visibleSteps[currentStep]?.id || "overview";
+
   const evalTotalClauses = useMemo(
     () => Object.values(techClauses).reduce((n, arr) => n + (arr?.length || 0), 0),
     [techClauses]
@@ -587,6 +598,16 @@ const SendQuoteWizard = () => {
   /* ───────── Gating ───────── */
   const evalGateOk = useMemo(() => {
     if (evalProducts.length === 0) return true;
+    // Clauses arrive asynchronously (fetchVendorAgreement, one call per product).
+    // Until they land, evalAnswered and evalTotalClauses are BOTH 0, so the
+    // `!==` below is false and the gate reads as satisfied. That was harmless
+    // while this only guarded forward navigation, but it is not harmless now
+    // that canSubmit consults it — an unanswered quote could go out in the
+    // window before the clause lists resolve. Treat "not loaded yet" as not
+    // answered.
+    if (techLoading) return false;
+    if (evalProducts.some((p) => !techClauses[p.id])) return false;
+    if (evalTotalClauses === 0) return false;
     if (evalAnswered !== evalTotalClauses) return false;
     // disagree requires comment
     for (const pid of Object.keys(techClauses)) {
@@ -597,7 +618,7 @@ const SendQuoteWizard = () => {
       }
     }
     return true;
-  }, [evalProducts.length, evalAnswered, evalTotalClauses, techClauses, techResponses]);
+  }, [evalProducts, evalAnswered, evalTotalClauses, techClauses, techResponses, techLoading]);
 
   const canContinueStep1 = acceptedTerms;
   const canContinueStep2 = evalGateOk;
@@ -669,7 +690,14 @@ const SendQuoteWizard = () => {
           .every((t) => t.type && (Number(t.value) || 0) > 0));
     return gstinOk && validPayment;
   }, [vendorGSTIN, paymentTotal, paymentTerms, isBidExpired, paymentTermsEditable]);
-  const canSubmit = canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
+  // evalGateOk belongs here, not only on the step navigation. It used to guard
+  // only forward movement through the stepper, and an already-quoted vendor is
+  // dropped straight onto Review at load — skipping navigation entirely. That is
+  // how RFQ 536289's quote reached the database with six clause-bearing lines
+  // priced and zero clauses answered. The server refuses this too
+  // (techEvalQuoteGate); this keeps the vendor from getting as far as a 400.
+  const canSubmit =
+    evalGateOk && canContinueStep3 && canContinueStep4 && !clarBlocksQuote;
 
   /**
    * Why "Continue to review" is disabled, in the vendor's own terms.
@@ -1021,6 +1049,11 @@ const SendQuoteWizard = () => {
         // ("I Agree" / "I Dont Agree" / "") and vendor_response_files. So we
         // can drop the separate get-clauses-of-product call and hydrate from
         // a single endpoint, mirroring the working tech-eval page.
+        // { [rfqProductId]: true } for products whose whole clause set is already
+        // answered. Filled inside the fetch loop below and read by the landing-step
+        // decision after it, so it is a plain local, not state — state set inside
+        // this async handler is not readable again until the next render.
+        const fullyAnsweredAtLoad = {};
         const evalable = built.filter((p) => p.has_tech_eval);
         if (evalable.length > 0) {
           setTechLoading(true);
@@ -1056,15 +1089,24 @@ const SendQuoteWizard = () => {
                 // it lives in the per-clause chat thread (loaded separately).
                 const responses = {};
                 let anyAnswered = false;
+                let answeredCount = 0;
                 rows.forEach((r) => {
                   const mapped = API_TO_RESPONSE(r.vendor_response);
-                  if (mapped) anyAnswered = true;
+                  if (mapped) {
+                    anyAnswered = true;
+                    answeredCount++;
+                  }
                   responses[r.clause_id] = {
                     response: mapped,
                     comment: "",
                     files: toFileUrls(r.vendor_response_files),
                   };
                 });
+                // Recorded so the landing step below can tell a vendor who has
+                // answered everything from one who has answered some or none.
+                // rows.length is the clause count for this product — the API
+                // returns one row per clause whether or not it was answered.
+                fullyAnsweredAtLoad[p.id] = rows.length > 0 && answeredCount === rows.length;
                 if (!cancelled) {
                   setTechResponses((prev) => ({ ...prev, [p.id]: responses }));
                   if (anyAnswered) {
@@ -1097,14 +1139,35 @@ const SendQuoteWizard = () => {
           if (!cancelled) setTechLoading(false);
         }
 
-        // If already quoted (update mode) — jump straight to the Review step
-        // so the vendor can re-verify and re-submit. They can step back to
-        // edit pricing or terms if needed.
+        // If already quoted (update mode) — land on Review so the vendor can
+        // re-verify and re-submit, stepping back to pricing or terms if needed.
+        //
+        // EXCEPT when technical clauses are still unanswered: then land them on
+        // the Technical evaluation step instead. Jumping unconditionally to
+        // Review is how RFQ 536289 happened — canVisit() returns true for every
+        // step at or below the current one, so arriving at Review retroactively
+        // unlocked the eval step the vendor had never visited, and the old
+        // canSubmit did not consult evalGateOk. A regret converted into a fully
+        // priced 14-line quote with zero clauses answered, and the RFQ deadlocked.
+        //
+        // Landing on the gate is also just the honest answer to "what does this
+        // vendor still owe?" — they cannot submit until it is done.
         if (hasQuote) {
-          const hasEvalAtLoad = built.some((p) => p.has_tech_eval);
-          // visibleSteps order: overview, [eval], pricing, terms, review
-          const reviewIdx = hasEvalAtLoad ? 4 : 3;
-          setCurrentStep(reviewIdx);
+          const evalAtLoad = built.filter((p) => p.has_tech_eval);
+          const clausesOutstanding = evalAtLoad.some((p) => !fullyAnsweredAtLoad[p.id]);
+          const landOn = clausesOutstanding ? "eval" : "review";
+          // Resolved through the same helper visibleSteps uses, so the index is
+          // right whether or not a Clarifications step is present. Synchronous
+          // on purpose: deferring it to an effect costs a render, and the vendor
+          // would see the overview flash before being moved.
+          const steps = visibleStepsFor({
+            hasTechEval: evalAtLoad.length > 0,
+            showClarStep:
+              data.is_tender === 1 &&
+              (data.vendor_clarification_date != null || (data.clarifications || []).length > 0),
+          });
+          const idx = steps.findIndex((s) => s.id === landOn);
+          if (idx >= 0) setCurrentStep(idx);
         }
 
         // Edit eligibility: check bid expiry + active negotiation rounds
