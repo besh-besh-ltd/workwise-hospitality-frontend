@@ -80,6 +80,7 @@ const ProblemSection = ({ content }) => (
         letter-spacing: -0.01em;
         color: ${INK};
         margin: 0 0 12px;
+        text-wrap: balance;
       }
       .lh-prob-desc {
         font-family: ${SANS};

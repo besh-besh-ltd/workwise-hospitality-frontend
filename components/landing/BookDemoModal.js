@@ -2,7 +2,7 @@ import React from 'react';
 import Modal from 'react-modal';
 import BookDemoForm from './BookDemoForm';
 import { FiX, FiClock, FiFileText, FiUsers, FiCheckCircle } from 'react-icons/fi';
-import { PAPER, PAPER_ALT, INK, INK_2, INK_3, RULE, GOLD, GOLD_DEEP, SERIF, SANS, BP } from './theme';
+import { PAPER_ALT, PAPER_DEEP, INK, INK_2, INK_3, RULE, GOLD_DEEP, SERIF, SANS, BP } from './theme';
 
 // See ProblemSection.js for why this returns literal JSX per branch rather
 // than resolving a dynamic icon component reference.
@@ -33,9 +33,12 @@ const BookDemoModal = ({ content, onClose }) => (
         right: 'auto',
         bottom: 'auto',
         border: 'none',
-        borderRadius: '2px',
+        borderRadius: 0,
         padding: 0,
-        background: PAPER,
+        // Transparent, and the card shape lives on `.lh-modal` instead: this
+        // inline style cannot carry a media query, and the rounded corners have
+        // to move from the left edge to the top edge once the panels stack.
+        background: 'transparent',
       },
     }}
   >
@@ -73,10 +76,21 @@ const BookDemoModal = ({ content, onClose }) => (
     </div>
 
     <style jsx>{`
+      /* The card itself. It owns the rounding and clips its own children, so
+         the panels inside never need to know the shape — square corners on the
+         aside and the form get cut to match. */
       .lh-modal {
         position: relative;
-        background: ${PAPER};
+        /* PAPER_DEEP, not PAPER: the card is the form half's background, and
+           PAPER is the exact navy of the page behind the overlay, so the whole
+           right side used to disappear into the hero. This also fills the two
+           notches the aside's rounded right corners cut into the seam. */
+        background: ${PAPER_DEEP};
         font-family: ${SANS};
+        /* Rounded down the left side only — both corners of the aside — while
+           the form half keeps square right corners. */
+        border-radius: 20px 0 0 20px;
+        overflow: hidden;
       }
       .lh-modal-close {
         position: absolute;
@@ -103,9 +117,16 @@ const BookDemoModal = ({ content, onClose }) => (
         display: grid;
         grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
       }
+      /* Rounded on all four corners, so it reads as its own panel rather than a
+         half of the card. Stated explicitly rather than left to inheritance:
+         styles/scss/_all.scss:7452 styles the bare aside element with this same
+         20px radius (plus white bg and 10px padding, both overridden here), and
+         depending on that legacy rule for our shape would be invisible to
+         anyone reading this file.
+         NOTE: no backticks in this block — they close the style jsx literal. */
       .lh-modal-side {
         background: ${PAPER_ALT};
-        border-right: 1px solid ${RULE};
+        border-radius: 20px;
         padding: clamp(28px, 4vw, 40px);
       }
       .lh-modal-title {
@@ -173,6 +194,9 @@ const BookDemoModal = ({ content, onClose }) => (
         border-bottom: 1px solid ${RULE};
         padding-bottom: 2px;
       }
+      /* No fill and no border of its own — it simply is the card. The only
+         thing marking the split is the aside's darker PAPER_ALT panel sitting
+         on top, which is why the card carries PAPER_DEEP rather than PAPER. */
       .lh-modal-form {
         padding: clamp(28px, 4vw, 40px);
       }
@@ -181,9 +205,12 @@ const BookDemoModal = ({ content, onClose }) => (
         .lh-modal-body {
           grid-template-columns: 1fr;
         }
+        /* Stacked, so there is no left/right split to respect and the card
+           rounds all four corners. */
+        .lh-modal {
+          border-radius: 20px;
+        }
         .lh-modal-side {
-          border-right: none;
-          border-bottom: 1px solid ${RULE};
           padding-right: 60px;
         }
       }

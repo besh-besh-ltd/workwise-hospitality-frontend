@@ -50,7 +50,7 @@ const LandingNavbar = ({ content, logo, onBookDemo, onLogin, onRegister }) => {
     <header className={`lh-nav ${isScrolled ? 'lh-nav-stuck' : ''}`}>
       <div className="lh-nav-inner">
         <a href="#lh-hero" className="lh-nav-logo" onClick={closeMenu}>
-          <Image src={logo.logoLight} alt={logo.logoAlt} width={132} height={30} priority />
+          <Image src={logo.logo} alt={logo.logoAlt} width={158} height={36} priority />
         </a>
 
         <nav className={`lh-nav-links ${isOpen ? 'lh-nav-links-open' : ''}`}>

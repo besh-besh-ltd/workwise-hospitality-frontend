@@ -43,9 +43,9 @@ export const DOC_GREEN = '#2C7A5B';
 export const DOC_RED = '#C2492B';
 
 /* Type -------------------------------------------------------------------- */
-// Instrument Serif ships regular + italic only. The constraint is the
-// discipline: hierarchy comes from size and space, never from weight.
-export const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif";
+// Source Serif 4: an optical-size variable face with real weights, wider and
+// lower-contrast than Instrument Serif, which read as cramped at display sizes.
+export const SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
 export const SANS = "'Geist', -apple-system, BlinkMacSystemFont, sans-serif";
 export const MONO = "'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 

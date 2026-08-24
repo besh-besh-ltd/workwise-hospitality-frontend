@@ -229,14 +229,14 @@
   "testimonials": {
     "number": "06",
     "eyebrow": "Proof",
-    "heading": "What our customers say",
+    "heading": "What our clients say",
     "items": [
       {
-        "quote": "WorkWise gave us one rate across every property and complete transparency in vendor evaluation. Our procurement is now faster, cleaner and far easier to control.",
+        "quote": "Workwise brought procurement across all our properties onto one platform. We finally see and control every rupee of spend, sourcing is faster and fairer, and the savings have been real.",
         "author": "Nitin Rajenimbalkar",
-        "position": "DGM — Procurement",
-        "company": "The Orchid Hotels, Kamat Group",
-        "logoText": "The Orchid Hotels",
+        "position": "DGM",
+        "company": "Kamat Hotels India Limited",
+        "logoText": "Kamat Hotels India Limited",
         "results": [
           { "value": "3 days", "label": "Quote cycle, down from 3 weeks" },
           { "value": "1 rate", "label": "Per item, across every property" },
@@ -247,7 +247,7 @@
   },
   "closingCta": {
     "heading": "See it run on your own numbers.",
-    "description": "Bring a live RFQ or tender to the call. We will run it through Workwise using your properties and your vendors, in thirty minutes.",
+    "description": "Bring one live requirement to the call — housekeeping, F&B, engineering or a renovation package. We will run it through Workwise on your own properties, your own vendors and your own rates, in thirty minutes.",
     "buttonLabel": "Book a demo"
   },
   "footer": {
@@ -299,8 +299,8 @@
         },
         {
           "icon": "file",
-          "title": "Bring an RFQ or tender",
-          "text": "We will run it through Workwise live, using your own properties and vendors"
+          "title": "Bring an RFQ or ARC",
+          "text": "A live request for quote or annual rate contract, run through Workwise on your own properties and vendors"
         },
         {
           "icon": "users",
@@ -315,7 +315,6 @@
       "Product demo",
       "General enquiry",
       "Partnership",
-      "Support",
       "Other"
     ],
     "countryCodes": [
