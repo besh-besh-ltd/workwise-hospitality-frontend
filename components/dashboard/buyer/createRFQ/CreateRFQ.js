@@ -53,6 +53,8 @@ import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import { isQuantityValid, isUnitValid } from "@/utils/productCompleteness";
 import { specDeltaKey } from "@/utils/rfqSpecDelta";
+import { buildEditSnapshotPayload } from "@/utils/rfqEditSnapshot";
+import { createSaveGate } from "@/utils/saveGate";
 
 
 const myVendorOptions = [
@@ -115,97 +117,6 @@ const STEPS = [
   { id: 4, label: 'Terms' },
   { id: 5, label: 'Review' },
 ];
-
-// Builds the `{ rfq_id, snapshot }` payload that /rfq/update expects when
-// editing an existing RFQ. The snapshot is a full picture of the RFQ — not
-// a delta — so this walks the live Redux products + form data and reshapes
-// each product into { id, product_variant_id, variant, product_name,
-// comment, specs (object), files (object), vendors (id[]) }.
-const buildEditSnapshotPayload = ({
-  editRfqId,
-  formDataCopy,
-  fullMobile,
-  rfqProductsFromStore,
-  selectedTerms,
-  selectedHotelIds,
-  liveUpdatableData,
-}) => {
-  const products = (rfqProductsFromStore || []).map((p) => {
-    // Spec rows: array of {title, value} → flat object keyed by title
-    const specs = {};
-    const specRows = Array.isArray(p.spec) ? p.spec : (p.product_specs || []);
-    for (const row of specRows) {
-      if (row && row.title != null) specs[row.title] = row.value;
-    }
-    const vendorList = Array.isArray(p.vendors)
-      ? p.vendors
-      : Array.isArray(p.vendor_details) ? p.vendor_details : [];
-    const vendors = vendorList
-      .map((v) => Number(v.user_id ?? v.id))
-      .filter((id) => !Number.isNaN(id));
-    // Prefer the synchronous delta from updatableDataRef when present —
-    // a same-tick saveDraft() after an upload sees fresh URLs there before
-    // useSelector has a chance to re-render. "rm" is the sentinel that
-    // handleFilesChange writes when an array goes empty.
-    const fileOverride = liveUpdatableData?.products?.updatable?.files?.[p.id];
-    const pickFiles = (key, fallback) => {
-      const delta = fileOverride?.[key];
-      if (delta === undefined) return (fallback || []).filter(Boolean);
-      if (delta === "rm") return [];
-      return Array.isArray(delta) ? delta.filter(Boolean) : (fallback || []).filter(Boolean);
-    };
-    const files = {
-      qap_file: pickFiles("qap_file", p.qap_file),
-      spec_file: pickFiles("spec_file", p.spec_file),
-      datasheet_file: pickFiles("datasheet_file", p.datasheet_file),
-    };
-    return {
-      id: p.id ?? null,
-      clientId: p.clientId,
-      product_variant_id: Number(p.product_variant_id ?? p.product_id),
-      variant: Number(p.variant) || 0,
-      product_name: p.product_details?.[0]?.name || p.name || `Product ${p.id || ''}`,
-      comment: p.comment || '',
-      specs,
-      files,
-      vendors,
-      tech_eval_clauses: p.tech_eval_clauses || [],
-    };
-  });
-
-  const snapshot = {
-    title: formDataCopy.title ?? '',
-    comment: formDataCopy.comment ?? '',
-    contact_name: formDataCopy.contact_name ?? '',
-    contact_number: fullMobile,
-    response_email: formDataCopy.response_email ?? '',
-    location: formDataCopy.location ?? '',
-    bid_end_date: formDataCopy.bid_end_date ?? '',
-    tender_publish_date: formDataCopy.tender_publish_date ?? null,
-    tender_fees: formDataCopy.tender_fees ?? null,
-    vendor_clarification_date: formDataCopy.vendor_clarification_date ?? null,
-    rfq_type: formDataCopy.rfq_type ?? null,
-    reverse_auction: Number(formDataCopy.reverse_auction || 0),
-    ra_start_date: formDataCopy.ra_start_date ?? null,
-    ra_end_date: formDataCopy.ra_end_date ?? null,
-    project_id: formDataCopy.project_id != null && formDataCopy.project_id !== ''
-      ? Number(formDataCopy.project_id)
-      : null,
-    is_tender: Number(formDataCopy.is_tender || 0),
-    hotel_ids: Array.isArray(selectedHotelIds) && selectedHotelIds.length > 0
-      ? selectedHotelIds
-      : (Array.isArray(formDataCopy.hotel_ids) ? formDataCopy.hotel_ids : []),
-    terms: (selectedTerms || []).map((t) => Number(t.id || t.term_id)).filter(Boolean),
-    // T&C attachments — diffed on the backend (applyTermFileChanges).
-    // Empty array clears all files; omitting the key would mean "no change".
-    term_and_condition_files: Array.isArray(formDataCopy.term_and_condition_files)
-      ? formDataCopy.term_and_condition_files.filter(Boolean)
-      : [],
-    products,
-  };
-
-  return { rfq_id: editRfqId, snapshot };
-};
 
 // Stable empty-array reference shared across renders. useSelector falls
 // back to this when the underlying field is null/undefined; without a stable
@@ -630,6 +541,16 @@ const CreateRFQ = () => {
   // previous one. Holds an AbortController while a request is pending,
   // null once it settles (or has been superseded).
   const saveDraftAbortRef = useRef(null);
+  // One-slot gate around the save. Guarantees at most one in-flight request and
+  // remembers a save that was requested while one was running, so blocking a
+  // duplicate never loses the buyer's latest edit. See utils/saveGate.js.
+  const saveGateRef = useRef(null);
+  if (!saveGateRef.current) saveGateRef.current = createSaveGate();
+  const handleSaveDraftRef = useRef(null);
+  // Reactive mirror of the gate, purely for the Save button's disabled state —
+  // a ref cannot drive a re-render, and state updates cannot be trusted to
+  // guard concurrency.
+  const [savingChanges, setSavingChanges] = useState(false);
   // True once we've read currentStep / maxStepReached from the URL on
   // first mount. Prevents the URL→state hydration from running again
   // when our own state→URL sync replaces the query.
@@ -1780,7 +1701,7 @@ useEffect(() => {
       specFieldsToValidate.some((f) => isSpecFieldEmpty(p, f))
   );
 
-  const handleSaveDraft = async () => {
+  const performSaveDraft = async () => {
     // Supersede any prior in-flight save — the latest payload wins. The
     // previous request's catch will see an ERR_CANCELED and bail without
     // toasting / triggering side effects.
@@ -1997,6 +1918,39 @@ useEffect(() => {
 
 
   };
+
+  // Only one save may be in flight. Step navigation fires this without
+  // awaiting and `updateRfq` cannot be cancelled once dispatched, so without
+  // the gate four clicks through the wizard become four commits — which is how
+  // one product on RFQ 536245 became four rows and two of them were deleted.
+  const handleSaveDraft = async () => {
+    if (!saveGateRef.current.begin()) {
+      // A save is already flushing these edits. Callers that await this one
+      // (AddProductsModal's onBeforeAdd) must not proceed against a
+      // half-written draft, so wait for the in-flight save instead of
+      // returning early.
+      await saveGateRef.current.whenIdle();
+      return;
+    }
+    setSavingChanges(true);
+    const inFlight = performSaveDraft();
+    saveGateRef.current.track(inFlight);
+    try {
+      await inFlight;
+    } finally {
+      const requestedWhileBusy = saveGateRef.current.end();
+      setSavingChanges(false);
+      // Re-enter on the next tick so the post-save refetch has had a chance to
+      // land and the ref points at a render that has seen it.
+      if (requestedWhileBusy) setTimeout(() => handleSaveDraftRef.current?.(), 0);
+    }
+  };
+
+  // Always points at the current render's save. A deferred re-save must go
+  // through the latest closure: `rfqProductsFromStore` is a useSelector value,
+  // so replaying a captured callback would resend the stale product list the
+  // gate exists to stop.
+  handleSaveDraftRef.current = handleSaveDraft;
 
   const loadDraft = async (id, sheet_id = queryMeta.sheet_id) => {
     dispatch(setStoreLoading(true));
@@ -4423,7 +4377,7 @@ useEffect(() => {
                           type="button"
                           className="rfq-btn rfq-btn--secondary"
                           onClick={handleSaveDraft}
-                          disabled={!hasUnsavedChanges || isReadOnly || (selectedHotelIds.length > 0 && !hasPermission)}
+                          disabled={savingChanges || !hasUnsavedChanges || isReadOnly || (selectedHotelIds.length > 0 && !hasPermission)}
                           id="save_draft-rfq_actions-create_rfq_page"
                           title={
                             selectedHotelIds.length > 0 && !hasPermission
@@ -4435,7 +4389,7 @@ useEffect(() => {
                                   : ""
                           }
                         >
-                          Save Changes
+                          {savingChanges ? "Saving…" : "Save Changes"}
                         </button>
                       )}
                       {currentStep < STEPS.length && (
