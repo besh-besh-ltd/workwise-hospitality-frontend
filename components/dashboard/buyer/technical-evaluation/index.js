@@ -25,6 +25,7 @@ import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, B
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
 import ReadMore from "@/components/shared/ReadMore";
+import { summariseEvaluationProgress } from "@/utils/techEvalScoring";
 
 
 
@@ -402,25 +403,15 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = fal
         const vendors = rfqProduct?.vendors || [];
         const clauses = rfqProduct?.clauses || [];
 
-        // A vendor is fully scored if every clause has a scored response (score_timestamp != response_timestamp)
-        const isVendorScored = (vendorId) => {
-          if (!clauses || clauses.length === 0) return false;
-          return clauses.every(clause => {
-            const resp = clause.vendor_responses?.find(r => String(r.vendor_id) === String(vendorId));
-            return resp?.score_timestamp && resp.score_timestamp !== resp.response_timestamp;
-          });
-        };
-
-        // Only count vendors that are scored AND not already verified from previous rounds
-        const unverifiedVendors = vendors.filter(v => v.is_verified !== true);
-        const evaluatedVendorCount = unverifiedVendors.filter(v => isVendorScored(v.vendor_id)).length;
-        const isFullyEvaluated = evaluatedVendorCount > 0 && unverifiedVendors.length > 0 &&
-          unverifiedVendors.every(v => isVendorScored(v.vendor_id));
+        // Shared with the expanded grid, so the two can no longer disagree
+        // about who has been scored — see utils/techEvalScoring.js.
+        const { evaluatedVendorCount, isFullyEvaluated, totalVendors } =
+          summariseEvaluationProgress(vendors, clauses);
 
         newMap.set(rfqProduct.rfq_product_id, {
           isFullyEvaluated,
           evaluatedVendorCount,
-          totalVendors: vendors.length,
+          totalVendors,
           isPendingApproval: false,
           workflowComplete: false,
           workflowState: null // Will be overridden by ClauseProductItem when expanded
