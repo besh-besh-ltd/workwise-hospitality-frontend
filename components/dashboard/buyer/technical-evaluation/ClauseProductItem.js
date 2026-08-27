@@ -14,6 +14,7 @@ import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
+import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore } from '@/utils/techEvalScoring';
 import styles from './TechnicalEvaluation.module.scss';
 
 
@@ -69,21 +70,10 @@ const ClauseProductItem = ({
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
 
-    // Check if a response was actually scored by the evaluator.
-    // score_timestamp is defaulted to creation time, so compare against response_timestamp.
-    const isResponseScored = (resp) => {
-      if (!resp?.score_timestamp) return false;
-      return resp.response_timestamp !== resp.score_timestamp;
-    };
-
-    // Helper: Check if a vendor has been truly scored for ALL clauses
-    const isVendorFullyScored = (vendorId) => {
-      if (!clauseInfo || clauseInfo.length === 0) return false;
-      return clauseInfo.every(clause => {
-        const response = clause.vendor_responses?.find(r => String(r.vendor_id) == String(vendorId));
-        return response && isResponseScored(response);
-      });
-    };
+    // "Scored" means a buyer recorded marks — see utils/techEvalScoring.js for
+    // why the timestamps that used to stand in for this could not be trusted.
+    const isResponseScored = isClauseScored;
+    const isVendorFullyScored = (vendorId) => isVendorFullyScoredFor(clauseInfo, vendorId);
 
     // Technical Evaluation Workflow Hook - Multi-round approval support
     const {
@@ -401,13 +391,14 @@ const ClauseProductItem = ({
                 if (clause.clause_id === selectedClauseForRemark.clause_id) {
                     const updatedResponses = (clause.vendor_responses || []).map(resp => {
                         if (String(resp.vendor_id) === String(selectedVendorForRemark.vendor_id || selectedVendorForRemark.value)) {
-                            return {
-                                ...resp,
-                                buyer_marks: parseInt(buyerMarks),
-                                buyer_remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : resp.buyer_remark,
-                                score_timestamp: new Date().toISOString(),
-                                scorer_name: currentUserProfile?.name || resp.scorer_name
-                            };
+                            // buyer_id is what marks the clause scored, so the
+                            // optimistic patch has to carry it.
+                            return applyLocalScore(resp, {
+                                buyerId: currentUserProfile?.id,
+                                marks: parseInt(buyerMarks),
+                                remark: selectedClauseForRemark.clause_type === 'sampling' ? (buyerRemark || null) : undefined,
+                                scorerName: currentUserProfile?.name
+                            });
                         }
                         return resp;
                     });
@@ -591,17 +582,15 @@ const ClauseProductItem = ({
     // Notify parent about evaluation status for this product
     useEffect(() => {
         if (onEvaluationStatusChange && vendors && clauseInfo) {
-            const allVendors = vendors || [];
-            const evaluatedVendorCount = allVendors.filter(v => isVendorFullyScored(v.vendor_id)).length;
-
-            // A product is fully evaluated if all vendors have scores for all clauses
-            const isFullyEvaluated = evaluatedVendorCount > 0 && allVendors.length > 0 &&
-                allVendors.every(vendor => isVendorFullyScored(vendor.vendor_id));
+            // Vendors already verified in an approved round are finished
+            // business — counting them re-enables a Submit the server refuses.
+            const { evaluatedVendorCount, isFullyEvaluated, totalVendors } =
+                summariseEvaluationProgress(vendors, clauseInfo);
 
             onEvaluationStatusChange(product.id, {
                 isFullyEvaluated,
                 evaluatedVendorCount,
-                totalVendors: allVendors.length,
+                totalVendors,
                 isPendingApproval,
                 workflowComplete,
                 workflowState
