@@ -187,22 +187,6 @@ export const editRfqSchema = yup.object().shape({
 // Admin Account Management Schemas
 // ==========================================
 
-// Edit Account validation schema
-export const editAccountSchema = yup.object().shape({
-  name: yup.string().required("Name is required"),
-  email: yup
-    .string()
-    .email("Invalid email")
-    .required("Email is required"),
-  mobile: yup
-    .string()
-    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
-    .min(8, "Mobile number must be at least 8 digits")
-    .max(15, "Mobile number cannot exceed 15 digits")
-    .required("Mobile number is required"),
-  countryCode: yup.string().required("Country code is required"),
-});
-
 // Create Account validation schema
 export const createAccountSchema = yup.object().shape({
   name: yup.string().required("Name is required"),

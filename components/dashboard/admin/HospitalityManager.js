@@ -26,19 +26,7 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
 import styles from "./hospitality-manager/HospitalityManager.module.css";
-
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.user_id}`
-        : `hotel-${item.user_id}-${item.hospitality_hotel_id || "null"}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
+import { dedupeHospitalityMappings } from "./shared/hospitalityMappings";
 
 const HospitalityManager = () => {
   const router = useRouter();

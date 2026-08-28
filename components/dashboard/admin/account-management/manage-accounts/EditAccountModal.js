@@ -7,7 +7,7 @@ import { getDepartments } from "@/services/rbac";
 import { sendLog, SeverityNumber } from "@/lib/otel";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
-import { dedupeHospitalityMappings } from "./accessUtils";
+import { dedupeHospitalityMappings } from "@/components/dashboard/admin/shared/hospitalityMappings";
 import styles from "./ManageAccounts.module.scss";
 
 /**
@@ -95,7 +95,6 @@ const EditAccountModal = ({
   onClose,
   account,
   isHospitality,
-  roleOptions,
   initialRoleScopes,
   userDepartments,
   userMappings,
@@ -169,7 +168,6 @@ const EditAccountModal = ({
     email: account.email || "",
     mobile: mobileNumber || "",
     countryCode: countryCode || "+91",
-    role: account.role ? roleOptions?.find((r) => r.value === account.role) : null,
     status: statusValue,
     employee_type: getEmployeeTypeOption(account.employee_type),
     employee_code: account.employee_code || "",

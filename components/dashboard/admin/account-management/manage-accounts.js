@@ -85,13 +85,6 @@ const reportEditLoadFailure = (raw, source, extra = {}) => {
   }
 };
 
-const roleOptions = [
-  { value: 8, label: "Management", color: "#2E5BA8" },
-  { value: 2, label: "Procurement", color: "#428B41" },
-  { value: 9, label: "Engineering", color: "#FFE600" },
-  { value: 10, label: "Finance", color: "#5b5b5b" },
-];
-
 const ManageAccountsPage = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
@@ -560,7 +553,6 @@ const ManageAccountsPage = () => {
           onClose={() => setEditModal({ open: false, account: null })}
           account={editModal.account}
           isHospitality={isHospitalityCompany}
-          roleOptions={roleOptions}
           initialRoleScopes={editModalData.roleScopes}
           userDepartments={editModalData.departments}
           userMappings={editModalData.mappings}

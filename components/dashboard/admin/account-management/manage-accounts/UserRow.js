@@ -3,6 +3,7 @@ import { HiOutlinePencil } from "react-icons/hi";
 import { BsBuilding } from "react-icons/bs";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
 import styles from "./ManageAccounts.module.scss";
+import { dedupeHospitalityMappings } from "@/components/dashboard/admin/shared/hospitalityMappings";
 
 const AVATAR_COLORS = [
   "#2E5BA8", "#3B82F6", "#1D4ED8", "#4F46E5",
@@ -23,19 +24,6 @@ const getInitials = (name) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return parts[0].slice(0, 2).toUpperCase();
-};
-
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.hospitality_company_id}`
-        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 };
 
 const TruncatedBadges = ({ items, renderBadge, maxVisible = 2, getLabel }) => {
