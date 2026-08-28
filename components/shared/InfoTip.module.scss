@@ -1,17 +1,30 @@
-.wrapper {
+.trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
-  cursor: help;
+  justify-content: center;
   margin-left: 4px;
+  padding: 2px;
   vertical-align: middle;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: help;
+  line-height: 0;
+  color: inherit;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color, #2563eb);
+    outline-offset: 1px;
+  }
 }
 
 .icon {
   color: #bbb;
   transition: color 0.15s;
 
-  .wrapper:hover & {
+  .trigger:hover &,
+  .trigger:focus-visible & {
     color: #888;
   }
 }
@@ -20,7 +33,7 @@
   position: absolute;
   transform: translateX(-50%) translateY(-100%);
   width: max-content;
-  max-width: 220px;
+  max-width: 260px;
   padding: 8px 12px;
   background: var(--dark-color);
   color: #fff;
@@ -31,8 +44,13 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   z-index: 9999;
   pointer-events: none;
-  animation: fadeIn 0.12s ease;
+  animation: infoTipFadeIn 0.12s ease;
   white-space: normal;
+
+  &.below {
+    transform: translateX(-50%) translateY(0);
+    animation-name: infoTipFadeInBelow;
+  }
 }
 
 .arrow {
@@ -43,9 +61,14 @@
   width: 8px;
   height: 8px;
   background: var(--dark-color);
+
+  .below & {
+    bottom: auto;
+    top: -4px;
+  }
 }
 
-@keyframes fadeIn {
+@keyframes infoTipFadeIn {
   from {
     opacity: 0;
     transform: translateX(-50%) translateY(calc(-100% + 4px));
@@ -53,5 +76,22 @@
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(-100%);
+  }
+}
+
+@keyframes infoTipFadeInBelow {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    animation: none;
   }
 }

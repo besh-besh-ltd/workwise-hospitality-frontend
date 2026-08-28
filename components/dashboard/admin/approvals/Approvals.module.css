@@ -1,0 +1,203 @@
+/* ============================================
+   Approvals — unit picker + context bar
+   ============================================ */
+
+.page {
+  padding: 24px 28px 40px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+}
+
+/* --- Context bar shown once a unit is open --- */
+.contextBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #ececec;
+  margin-bottom: 20px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.backBtn:hover {
+  background: #f7f7f7;
+  border-color: #d0d0d0;
+}
+
+.backBtn:focus-visible {
+  outline: 2px solid var(--primary-color, #2563eb);
+  outline-offset: 1px;
+}
+
+.contextCrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.contextCompany {
+  color: #6b7280;
+}
+
+.contextSep {
+  color: #c4c4c4;
+}
+
+.contextUnit {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+/* --- Unit picker --- */
+.companyBlock {
+  margin-bottom: 28px;
+}
+
+.companyName {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin: 0 0 12px;
+}
+
+.unitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.unitCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.unitCard:hover {
+  border-color: #d0d0d0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.unitCard:focus-visible {
+  outline: 2px solid var(--primary-color, #2563eb);
+  outline-offset: 2px;
+}
+
+.unitName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.unitLocation {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.unitAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color, #2563eb);
+}
+
+/* --- States --- */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 56px 24px;
+  border: 1px dashed #e0e0e0;
+  border-radius: 14px;
+  color: #6b7280;
+}
+
+.emptyState h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 8px 0 0;
+}
+
+.emptyState p {
+  font-size: 13px;
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.errorBanner {
+  padding: 12px 16px;
+  border: 1px solid #f3d0d0;
+  background: #fdf3f3;
+  color: #a33;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 18px 16px 32px;
+  }
+
+  .unitGrid {
+    grid-template-columns: 1fr;
+  }
+}

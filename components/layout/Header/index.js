@@ -20,7 +20,7 @@ import {
 
 
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
-import { initialMainNavs, roleMenus, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
+import { initialMainNavs, visibleRoleMenu, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
 import styles from "./Header.module.css";
@@ -89,15 +89,10 @@ const Header = () => {
     enabled: !!loggedinUser && !!isDashboardPage,
   });
 
-  const currentRoleMenu = useMemo(() => {
-    const baseMenu = roleMenus[currentUserType] || [];
-    if (currentUserType === "admin" && !isHospitalityCompany) {
-      return baseMenu.filter(
-        (item) => item.href !== "/dashboard/admin/hospitality-manager"
-      );
-    }
-    return baseMenu;
-  }, [currentUserType, isHospitalityCompany]);
+  const currentRoleMenu = useMemo(
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
+    [currentUserType, isHospitalityCompany]
+  );
 
   // ── Subscription guard: redirect from locked pages ──
   useEffect(() => {

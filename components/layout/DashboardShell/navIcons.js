@@ -26,6 +26,8 @@ import {
   Handshake,
   FileDiff,
   FilePen,
+  KeyRound,
+  Stamp,
 } from "lucide-react";
 
 /**
@@ -76,9 +78,13 @@ export const NAV_ICONS = {
   // Notifications inbox — shared between buyer and vendor.
   "/dashboard/notifications": Bell,
 
-  // Admin
+  // Admin — Overview uses House with the other dashboards, above.
+  // People → the users they manage. Organisation → the building hierarchy.
+  // Access → a key, i.e. who holds which. Approvals → a stamp, i.e. sign-off.
   "/dashboard/admin/account-management/manage-accounts": Users,
   "/dashboard/admin/hospitality-manager": Building2,
+  "/dashboard/admin/access": KeyRound,
+  "/dashboard/admin/approvals": Stamp,
 
   // Vendor
   "/dashboard/vendor/product-management": Package,
