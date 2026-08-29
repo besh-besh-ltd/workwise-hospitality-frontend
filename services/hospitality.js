@@ -346,11 +346,19 @@ export const sendHotelPaymentLink = (companyId, hotelId) =>
     }
   });
 
-export const sendBUCredentials = (companyId, hotelId) =>
+/**
+ * Mails login credentials to people at a business unit.
+ *
+ * `userIds` narrows to a chosen few (UM-12). Omitted, it still means everyone
+ * mapped to the unit — the server treats an empty list as no selection rather
+ * than as nobody, so a picker with nothing ticked cannot silently send zero.
+ */
+export const sendBUCredentials = (companyId, hotelId, userIds = null) =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post(
-        `/hospitality/company/${companyId}/hotels/${hotelId}/send-credentials`
+        `/hospitality/company/${companyId}/hotels/${hotelId}/send-credentials`,
+        userIds?.length ? { user_ids: userIds } : {}
       );
       resolve(response);
     } catch (error) {

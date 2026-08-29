@@ -22,6 +22,7 @@ import PeopleTab from "./hospitality-manager/PeopleTab";
 import CompanyFormModal from "./hospitality-manager/modals/CompanyFormModal";
 import HotelFormModal from "./hospitality-manager/modals/HotelFormModal";
 import PaymentModal from "./hospitality-manager/modals/PaymentModal";
+import SendCredentialsModal from "./hospitality-manager/modals/SendCredentialsModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
@@ -56,6 +57,9 @@ const HospitalityManager = () => {
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
   const [sendingCredentialsHotelId, setSendingCredentialsHotelId] = useState(null);
+  // UM-12: pick who receives credentials instead of mailing the whole unit
+  // behind a window.confirm.
+  const [credentialsModal, setCredentialsModal] = useState({ open: false, hotel: null });
   const [removeMappingConfirm, setRemoveMappingConfirm] = useState({ open: false, mapping: null });
   const [approvalImpactModal, setApprovalImpactModal] = useState({ open: false, type: null, data: null, pendingMapping: null });
 
@@ -138,6 +142,22 @@ const HospitalityManager = () => {
     } finally {
       setIsLoadingCompanyMappingList(false);
     }
+  };
+
+  /**
+   * Everyone who would receive credentials for a unit.
+   *
+   * Mirrors the server's eligibility exactly — people mapped to the unit plus
+   * people mapped at company level, deduplicated — so the picker cannot offer
+   * somebody the server would then silently drop.
+   */
+  const getHotelUsers = (hotelId) => {
+    const hotelSpecific = hotelUserMappings?.[hotelId] || [];
+    const seen = new Set(hotelSpecific.map((item) => item.user_id));
+    const companyWide = companyUserMappings.filter(
+      (item) => item.mapping_type === 0 && !seen.has(item.user_id)
+    );
+    return [...hotelSpecific, ...companyWide];
   };
 
   const getHotelUserCount = (hotelId) => {
@@ -385,15 +405,26 @@ const HospitalityManager = () => {
     }
   };
 
-  const handleSendCredentials = async (hotel) => {
+  /**
+   * Opens the recipient picker (UM-12).
+   *
+   * This used to be a window.confirm that mailed everyone mapped to the unit.
+   * The mail carries a plaintext password for anyone still on the shared
+   * default, so a mistaken click had every account at the unit as its blast
+   * radius — and an admin helping one person who had lost their details had no
+   * way to send to just them.
+   */
+  const handleSendCredentials = (hotel) => {
     if (!selectedCompanyId) { toast.error("Select a company first"); return; }
-    const confirmSend = window.confirm(
-      `Send login credentials email to all users mapped to "${hotel.name}"?`
-    );
-    if (!confirmSend) return;
+    setCredentialsModal({ open: true, hotel });
+  };
+
+  const submitCredentials = async (userIds) => {
+    const hotel = credentialsModal.hotel;
+    if (!hotel || !selectedCompanyId) return;
     try {
       setSendingCredentialsHotelId(hotel.id);
-      const response = await sendBUCredentials(selectedCompanyId, hotel.id);
+      const response = await sendBUCredentials(selectedCompanyId, hotel.id, userIds);
       const msg = response?.data?.message || response?.message || "Credentials sent successfully!";
       toast.success(msg);
     } catch (error) {
@@ -401,6 +432,7 @@ const HospitalityManager = () => {
       toast.error(error?.message?.response?.data?.message || "Failed to send credentials");
     } finally {
       setSendingCredentialsHotelId(null);
+      setCredentialsModal({ open: false, hotel: null });
     }
   };
 
@@ -561,6 +593,15 @@ const HospitalityManager = () => {
         companyName={selectedCompany?.name}
         existingDocuments={hotelDocuments}
       />
+      <SendCredentialsModal
+        isOpen={credentialsModal.open}
+        onClose={() => setCredentialsModal({ open: false, hotel: null })}
+        hotel={credentialsModal.hotel}
+        users={credentialsModal.hotel ? getHotelUsers(credentialsModal.hotel.id) : []}
+        isSending={sendingCredentialsHotelId === credentialsModal.hotel?.id}
+        onSend={submitCredentials}
+      />
+
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
