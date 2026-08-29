@@ -28,6 +28,7 @@ import {
   FilePen,
   KeyRound,
   Stamp,
+  History,
 } from "lucide-react";
 
 /**
@@ -85,6 +86,8 @@ export const NAV_ICONS = {
   "/dashboard/admin/hospitality-manager": Building2,
   "/dashboard/admin/access": KeyRound,
   "/dashboard/admin/approvals": Stamp,
+  // Activity -> a clock turned back, i.e. the record of what already happened.
+  "/dashboard/admin/activity": History,
 
   // Vendor
   "/dashboard/vendor/product-management": Package,

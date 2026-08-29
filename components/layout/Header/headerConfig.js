@@ -62,6 +62,7 @@ export const roleMenus = {
     { href: "/dashboard/admin/account-management/manage-accounts", label: "People", targetMenu: "nav", section: "Manage" },
     { href: "/dashboard/admin/access", label: "Access", targetMenu: "nav", section: "Manage" },
     { href: "/dashboard/admin/approvals", label: "Approvals", targetMenu: "nav", section: "Manage", hospitalityOnly: true },
+    { href: "/dashboard/admin/activity", label: "Activity", targetMenu: "nav", section: "Oversight", hospitalityOnly: true },
   ],
   // Buyer rail — grouped by procure-to-pay phase (Sourcing → Contracts →
   // Requisition & Orders), in lifecycle order. `group` is the phase header;
