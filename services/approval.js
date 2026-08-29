@@ -236,3 +236,47 @@ export const willBeFinalApprover = (params = {}) =>
     }
   });
 
+
+/**
+ * What is stuck, company-wide, classified. Scope is derived from the session
+ * on the server, so there is no company parameter to pass and no way to widen
+ * it from here.
+ */
+export const getStuckApprovals = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/stuck`,
+        { params }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const getReassignmentCandidates = (instanceId, params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/stuck/${instanceId}/candidates`,
+        { params }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const reassignApprover = (instanceId, payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/general/hospitality/approval/stuck/${instanceId}/reassign`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });

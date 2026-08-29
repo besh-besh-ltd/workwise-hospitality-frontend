@@ -5,6 +5,7 @@ import { BsDiagram3, BsArrowLeft } from "react-icons/bs";
 import { HiOutlineLocationMarker } from "react-icons/hi";
 import { getHospitalityCompanies } from "@/services/hospitality";
 import ApprovalHierarchyRedesigned from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy";
+import StuckApprovals from "./StuckApprovals";
 import Loader from "@/components/shared/Loader";
 import InfoTip from "@/components/shared/InfoTip";
 import styles from "./Approvals.module.css";
@@ -23,10 +24,18 @@ import styles from "./Approvals.module.css";
  * query string. What is new is the way in — a unit picker that says which
  * units are configured — and the fact that the selection lives in the URL, so
  * Back returns you to the unit you were looking at rather than to a default.
+ *
+ * Two views, because an admin who says "approvals" means one of two things and
+ * only knows which once they are here. Setup is who *should* approve; In
+ * progress is what is actually waiting and who on. Separate screens would put
+ * the second one behind a nav entry nobody would find, and the two questions
+ * lead into each other — a unit that keeps blocking is usually a unit whose
+ * matrix is wrong.
  */
 const ApprovalsPage = () => {
   const router = useRouter();
-  const { companyId, hotelId } = router.query;
+  const { companyId, hotelId, view } = router.query;
+  const activeView = view === "stuck" ? "stuck" : "setup";
 
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +83,60 @@ const ApprovalsPage = () => {
   const clearSelection = useCallback(() => {
     router.push({ pathname: "/dashboard/admin/approvals" }, undefined, { shallow: true });
   }, [router]);
+
+  // In the URL, like every other selection on these screens, so a link to
+  // "what is stuck" can be sent to somebody.
+  const showView = useCallback(
+    (next) => {
+      router.push(
+        {
+          pathname: "/dashboard/admin/approvals",
+          query: next === "stuck" ? { view: "stuck" } : {},
+        },
+        undefined,
+        { shallow: true }
+      );
+    },
+    [router]
+  );
+
+  const viewTabs = (
+    <div className={styles.viewTabs} role="tablist" aria-label="Approvals view">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeView === "setup"}
+        className={`${styles.viewTab} ${activeView === "setup" ? styles.viewTabOn : ""}`}
+        onClick={() => showView("setup")}
+      >
+        Setup
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeView === "stuck"}
+        className={`${styles.viewTab} ${activeView === "stuck" ? styles.viewTabOn : ""}`}
+        onClick={() => showView("stuck")}
+      >
+        In progress
+      </button>
+    </div>
+  );
+
+  if (activeView === "stuck") {
+    return (
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Approvals</h1>
+            <p className={styles.subtitle}>What is waiting, and who on</p>
+          </div>
+        </header>
+        {viewTabs}
+        <StuckApprovals />
+      </div>
+    );
+  }
 
   // A unit is chosen and it really exists — hand over to the existing editor.
   if (companyId && hotelId) {
@@ -123,6 +186,8 @@ const ApprovalsPage = () => {
           </p>
         </div>
       </header>
+
+      {viewTabs}
 
       {loadError && <div className={styles.errorBanner}>{loadError}</div>}
 
