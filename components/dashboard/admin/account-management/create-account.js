@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
@@ -58,6 +58,15 @@ const CreateAccountPage = () => {
   // Pending mappings & role scopes (applied after user creation)
   const [pendingMappings, setPendingMappings] = useState([]);
   const [pendingRoleScopes, setPendingRoleScopes] = useState([]);
+  /**
+   * A role the admin selected but never pressed "Add Role" on.
+   *
+   * UM-3: this used to be dropped without a word — the account was created
+   * with no roles and nobody found out until the person could not do their
+   * job. The edit modal already rescued it silently; here it was lost
+   * outright. Now it is added, and said out loud.
+   */
+  const pendingScopeRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -165,8 +174,27 @@ const CreateAccountPage = () => {
       }
 
       // Include roles and mappings directly in the create payload
-      if (isHospitality && pendingRoleScopes.length > 0) {
-        apiData.roles = pendingRoleScopes.map((role) => ({
+      const stagedRoles = [...pendingRoleScopes];
+      const unstaged = pendingScopeRef.current;
+      if (isHospitality && unstaged?.role_id && unstaged?.company_id) {
+        const alreadyStaged = stagedRoles.some(
+          (r) =>
+            r.role_id === unstaged.role_id &&
+            r.company_id === unstaged.company_id &&
+            (r.hotel_id || null) === (unstaged.hotel_id || null) &&
+            (r.department_id || null) === (unstaged.department_id || null) &&
+            (r.process_id || null) === (unstaged.process_id || null)
+        );
+        if (!alreadyStaged) {
+          stagedRoles.push(unstaged);
+          toast.info(
+            `Also added the role "${unstaged.role_title || "you selected"}" — it was filled in but not added to the list.`
+          );
+        }
+      }
+
+      if (isHospitality && stagedRoles.length > 0) {
+        apiData.roles = stagedRoles.map((role) => ({
           role_id: role.role_id,
           company_id: role.company_id || null,
           hotel_id: role.hotel_id || null,
@@ -392,6 +420,7 @@ const CreateAccountPage = () => {
                       isEditMode={false}
                       externalMappings={pendingMappings}
                       userDepartments={values.department_id}
+                      pendingScopeRef={pendingScopeRef}
                     />
                   </div>
                 )}

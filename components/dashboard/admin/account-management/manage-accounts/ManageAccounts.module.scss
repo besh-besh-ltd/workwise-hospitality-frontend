@@ -1645,3 +1645,52 @@ $transition-fast: all 0.15s ease;
 @media (max-width: 640px) {
   .addRoleGrid { grid-template-columns: 1fr; }
 }
+
+/* Confirmation that a role was staged, shown directly under the Add Role
+   action. Without it, adding several roles in a row gives no sign anything
+   happened — the form simply clears (UM-2). */
+.addRoleStagedNote {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid #cfe6d4;
+  border-radius: 8px;
+  background: #f3fbf6;
+  color: #15803d;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* The edit form, rendered directly beneath the role it is editing (UM-6).
+   Indented and rule-marked so the tie back to that row is unmistakable. */
+.scopeRoleInlineEdit {
+  margin: 6px 0 10px 14px;
+  padding-left: 14px;
+  border-left: 2px solid #d6d6cf;
+}
+
+/* A stat card that narrows the list below it (UM-8). Reset the button chrome
+   so it stays visually identical to an inert card, then earn the affordance
+   with hover, focus and a pressed state. */
+.statCardClickable {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  border: 1px solid transparent;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+.statCardClickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+}
+
+.statCardClickable:focus-visible {
+  outline: 2px solid var(--primary-color, #2563eb);
+  outline-offset: 2px;
+}
+
+.statCardActive {
+  border-color: currentColor;
+  box-shadow: 0 0 0 1px currentColor inset;
+}

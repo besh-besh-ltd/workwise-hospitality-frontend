@@ -511,6 +511,12 @@ const ManageAccountsPage = () => {
         mappedCount={stats.mapped_count}
         isHospitality={isHospitalityCompany}
         isLoading={initialLoad}
+        activeStatus={filters.status?.value ?? null}
+        onSelectStatus={(value) =>
+          handleFilterChange({
+            status: value ? { value, label: value === "active" ? "Active" : "Inactive" } : null,
+          })
+        }
       />
 
       <UserFilters

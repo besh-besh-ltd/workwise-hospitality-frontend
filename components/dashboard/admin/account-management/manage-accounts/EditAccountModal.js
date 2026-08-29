@@ -8,6 +8,7 @@ import { sendLog, SeverityNumber } from "@/lib/otel";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import { dedupeHospitalityMappings } from "@/components/dashboard/admin/shared/hospitalityMappings";
+import { toast } from "react-toastify";
 import styles from "./ManageAccounts.module.scss";
 
 /**
@@ -203,6 +204,12 @@ const EditAccountModal = ({
       );
       if (!isDuplicate) {
         finalRoleScopes.push(pending);
+        // Rescuing this silently was still a surprise: the admin pressed
+        // Update Account expecting one outcome and got another. Saying so is
+        // the difference between a helpful default and a spooky one (UM-3).
+        toast.info(
+          `Also added the role "${pending.role_title || "you selected"}" — it was filled in but not added to the list.`
+        );
       }
     }
 
@@ -477,6 +484,39 @@ const EditAccountModal = ({
                               {mapping.mapping_type === 0
                                 ? mapping.company_name || "Company"
                                 : `${mapping.company_name ? mapping.company_name + " → " : ""}${mapping.hotel_name || "BU"}`}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Departments (UM-5).
+                      This summary showed the units a person can reach but not
+                      the departments they sit in, so verifying a department
+                      meant opening the role list and reading the tag on every
+                      grant. Departments are global, not per-unit (they carry
+                      no company or hotel column), so they are listed in their
+                      own right rather than nested under a unit. */}
+                  <div className={styles.mappedAccessInfo}>
+                    <div className={styles.mappedAccessLabel}>Departments</div>
+                    {(() => {
+                      const named = (userDepartments || [])
+                        .map((d) => (typeof d === "object" ? d.label || d.title : d))
+                        .filter(Boolean);
+                      if (named.length === 0) {
+                        return (
+                          <div className={styles.mappedAccessEmpty}>
+                            No department assigned. Roles granted below without a
+                            department apply across all of them.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className={styles.mappedAccessBadges}>
+                          {named.map((label) => (
+                            <span key={label} className={`${styles.mappingBadge} ${styles.mappingHotel}`}>
+                              {label}
                             </span>
                           ))}
                         </div>
