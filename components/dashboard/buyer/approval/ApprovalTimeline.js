@@ -493,6 +493,21 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
         .at-step-card.is-action-required .at-approver.is-removed:hover {
           background: rgba(220, 38, 38, 0.09);
         }
+        /* A deactivated approver who is still on a live step. Distinct from
+           the removed group below: they were never taken off, so they still
+           belong to the active list and still count — they simply cannot act. */
+        .at-unreachable-badge {
+          font-size: 0.58rem;
+          font-weight: 600;
+          padding: 1px 6px;
+          border-radius: 20px;
+          background: #fef3f2;
+          border: 1px solid #fecdca;
+          color: #b42318;
+          margin-left: 6px;
+          white-space: nowrap;
+        }
+
         .at-removed-name {
           color: #b91c1c !important;
           font-weight: 600;
@@ -831,13 +846,25 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                         const AIcon = aStatus.icon;
                         const isSkipped = approver.status === "PENDING" && isStepApprovedAny;
                         const isApproverExpired = approver.status === "PENDING" && isExpired;
+                        // Still on the step, still PENDING, and cannot log in.
+                        // The engine keeps the row rather than deleting it, so
+                        // without saying so this reads as "waiting on them" —
+                        // 24 rows across 19 live approvals in production.
+                        // `account_active` is absent from older payloads, so
+                        // only an explicit false counts.
+                        const isUnreachable =
+                          approver.status === "PENDING" &&
+                          approver.account_active === false &&
+                          !isSkipped;
                         const iconClass = approver.status === "APPROVED" ? "done"
                           : approver.status === "REJECTED" ? "failed"
                           : isApproverExpired ? "failed"
+                          : isUnreachable ? "failed"
                           : isSkipped ? "skipped" : "waiting";
                         const tagClass = approver.status === "APPROVED" ? "approved"
                           : approver.status === "REJECTED" ? "rejected"
                           : isApproverExpired ? "rejected"
+                          : isUnreachable ? "rejected"
                           : isSkipped ? "skipped" : "waiting";
 
                         return (
@@ -856,6 +883,16 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                                   {approver.added_mid_flight && (
                                     <span className="at-midflight-badge" title="This approver was added mid-approval">
                                       Added mid-approval
+                                    </span>
+                                  )}
+                                  {/* Never colour alone: the badge carries the
+                                      words, and they say what to do about it. */}
+                                  {isUnreachable && (
+                                    <span
+                                      className="at-unreachable-badge"
+                                      title="This person's account has been deactivated, so they cannot sign in to approve. Reassign this step from Admin › Approvals › In progress."
+                                    >
+                                      Account deactivated
                                     </span>
                                   )}
                                 </div>
@@ -882,7 +919,7 @@ const ApprovalTimeline = ({ steps = [], currentStep, initiatedBy, instanceStatus
                             </div>
                             <div className="at-approver-side">
                               <span className={`at-approver-status-tag ${tagClass}`}>
-                                {aStatus.text}
+                                {isUnreachable ? "Cannot act" : aStatus.text}
                               </span>
                               {approver.comment && !isMobile && (
                                 <OverlayTrigger
