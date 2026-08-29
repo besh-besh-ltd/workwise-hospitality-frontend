@@ -428,3 +428,41 @@ export const getVendorMappings = () =>
   });
 
 
+
+/** HN-2: what would happen if this business unit were removed. */
+export const previewHotelDeletion = (companyId, hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/hospitality/company/${companyId}/hotels/${hotelId}/delete-preflight`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+/** `archive: true` hides it instead of removing it. */
+export const removeHotel = (companyId, hotelId, { archive = false } = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.delete(
+        `/hospitality/company/${companyId}/hotels/${hotelId}${archive ? "?archive=true" : ""}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const restoreHotel = (companyId, hotelId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/hospitality/company/${companyId}/hotels/${hotelId}/restore`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });

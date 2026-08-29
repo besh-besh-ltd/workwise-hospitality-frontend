@@ -6,6 +6,7 @@ import { HiPlus } from "react-icons/hi";
 import {
   createHospitalityCompany,
   createHospitalityHotel,
+  removeHotel,
   createHOBusinessUnit,
   updateHospitalityHotel,
   getHospitalityCompanies,
@@ -23,6 +24,7 @@ import CompanyFormModal from "./hospitality-manager/modals/CompanyFormModal";
 import HotelFormModal from "./hospitality-manager/modals/HotelFormModal";
 import PaymentModal from "./hospitality-manager/modals/PaymentModal";
 import SendCredentialsModal from "./hospitality-manager/modals/SendCredentialsModal";
+import RemoveUnitModal from "./hospitality-manager/modals/RemoveUnitModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
@@ -96,6 +98,9 @@ const HospitalityManager = () => {
   // behind a window.confirm.
   const [credentialsModal, setCredentialsModal] = useState({ open: false, hotel: null });
   const [removeMappingConfirm, setRemoveMappingConfirm] = useState({ open: false, mapping: null });
+  // HN-2: removing an accidentally created unit.
+  const [removeUnit, setRemoveUnit] = useState({ open: false, hotel: null });
+  const [removingUnit, setRemovingUnit] = useState(false);
   const [approvalImpactModal, setApprovalImpactModal] = useState({ open: false, type: null, data: null, pendingMapping: null });
 
   // --- Derived Data ---
@@ -359,6 +364,25 @@ const HospitalityManager = () => {
     setShowHotelModal(true);
   };
 
+  const finishUnitRemoval = async (hotel, { archive }) => {
+    setRemovingUnit(true);
+    try {
+      await removeHotel(selectedCompanyId, hotel.id, { archive });
+      toast.success(archive ? "Business unit archived" : "Business unit removed");
+      setRemoveUnit({ open: false, hotel: null });
+      // Hotels are derived from the companies payload (loaded with
+      // include=hotels), so one reload refreshes both.
+      await loadCompanies();
+    } catch (error) {
+      toast.error(
+        error?.message?.response?.data?.message ||
+          (archive ? "Could not archive this unit" : "Could not remove this unit")
+      );
+    } finally {
+      setRemovingUnit(false);
+    }
+  };
+
   const handleSetHierarchy = (hotel) => {
     router.push(
       `/dashboard/admin/hospitality-manager/approval-hierarchy?companyId=${selectedCompanyId}&hotelId=${hotel.id}`
@@ -581,6 +605,7 @@ const HospitalityManager = () => {
                 onSetHierarchy={handleSetHierarchy}
                 onSendPayment={() => setShowPaymentModal(true)}
                 onSendCredentials={handleSendCredentials}
+                onRemoveHotel={(hotel) => setRemoveUnit({ open: true, hotel })}
                 sendingCredentialsHotelId={sendingCredentialsHotelId}
                 isLoading={isLoadingHotels}
                 hasPendingPayments={hasPendingPayments}
@@ -630,6 +655,16 @@ const HospitalityManager = () => {
         companyName={selectedCompany?.name}
         existingDocuments={hotelDocuments}
       />
+      <RemoveUnitModal
+        isOpen={removeUnit.open}
+        companyId={selectedCompanyId}
+        hotel={removeUnit.hotel}
+        busy={removingUnit}
+        onClose={() => setRemoveUnit({ open: false, hotel: null })}
+        onRemove={(hotel) => finishUnitRemoval(hotel, { archive: false })}
+        onArchive={(hotel) => finishUnitRemoval(hotel, { archive: true })}
+      />
+
       <SendCredentialsModal
         isOpen={credentialsModal.open}
         onClose={() => setCredentialsModal({ open: false, hotel: null })}
