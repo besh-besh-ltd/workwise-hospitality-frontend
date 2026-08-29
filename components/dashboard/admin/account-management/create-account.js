@@ -39,6 +39,32 @@ const IdentityHint = ({ field, status }) => {
   return <small className={styles.identityHintFree}>This {noun} is available.</small>;
 };
 
+/**
+ * What kind of account this is.
+ *
+ * The backend used to accept any user_type from this form's payload with no
+ * validation at all, so a company admin could mint a cross-tenant super admin;
+ * the only thing preventing it was this file hardcoding "2". That hole is
+ * closed server-side, which is what makes offering the choice safe.
+ *
+ * Administrator is described by what it lets someone do, in the manner Stripe
+ * describes its roles — a name alone tells an admin nothing about the blast
+ * radius of the thing they are about to grant.
+ */
+const ACCOUNT_TYPES = [
+  {
+    value: 2,
+    label: "Team member",
+    blurb: "Raises and works on RFQs, quotes, negotiations and orders, within the units and departments you give them.",
+  },
+  {
+    value: 7,
+    label: "Administrator",
+    blurb: "Everything a team member can do, plus managing people, business units, roles and approval workflows — including creating other administrators.",
+    warn: "Administrators can change who approves spend, and can grant this to anyone else.",
+  },
+];
+
 const employeeTypeOptions = [
   { value: "full-time", label: "Full Time" },
   { value: "part-time", label: "Part Time" },
@@ -68,6 +94,7 @@ const initialValues = {
   employee_code: "",
   payroll_company_id: "",
   department_id: [],
+  account_type: 2,
 };
 
 const CreateAccountPage = () => {
@@ -155,7 +182,7 @@ const CreateAccountPage = () => {
         name: values.name,
         email: values.email,
         mobile: formattedMobile,
-        user_type: "2",
+        user_type: values.account_type ?? 2,
         password: values.password,
       };
 
@@ -304,6 +331,36 @@ const CreateAccountPage = () => {
                   <div className={styles.createSectionTitle}>Account Information</div>
                   <div className="row g-3">
                     <div className="col-md-6">
+                      <fieldset className={styles.accountTypeGroup}>
+                        <legend className={styles.accountTypeLegend}>
+                          Account type <span style={{ color: "#ef4444" }}>*</span>
+                        </legend>
+                        {ACCOUNT_TYPES.map((type) => (
+                          <label
+                            key={type.value}
+                            className={`${styles.accountTypeOption} ${
+                              values.account_type === type.value ? styles.accountTypeOptionOn : ""
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="account_type"
+                              checked={values.account_type === type.value}
+                              onChange={() => setFieldValue("account_type", type.value)}
+                            />
+                            <span>
+                              <span className={styles.accountTypeLabel}>{type.label}</span>
+                              <span className={styles.accountTypeBlurb}>{type.blurb}</span>
+                            </span>
+                          </label>
+                        ))}
+                        {values.account_type === 7 && (
+                          <p className={styles.accountTypeWarning} role="status">
+                            {ACCOUNT_TYPES.find((t) => t.value === 7).warn}
+                          </p>
+                        )}
+                      </fieldset>
+
                       <CommonFormInput
                         name="name"
                         label="Full Name"

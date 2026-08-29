@@ -679,3 +679,20 @@ export const checkIdentity = (params = {}) =>
       reject({ message: error });
     }
   });
+
+/**
+ * Emails a locked-out user a link to set a new password (T0).
+ *
+ * The administrator triggers it and never sees the code — the endpoint
+ * deliberately does not return one, so this restores access without becoming
+ * a way to impersonate the person.
+ */
+export const sendPasswordReset = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/users/${userId}/send-password-reset`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
