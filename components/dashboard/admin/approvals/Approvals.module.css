@@ -328,7 +328,46 @@
 }
 .reassignConfirm:disabled { background: #d7d9de; color: #8b8f98; cursor: default; }
 
+/* ── Cover ──────────────────────────────────────────────────────────────── */
+
+.coverForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #fbfbfd;
+  margin-bottom: 18px;
+}
+
+.coverConfirm {
+  grid-column: 1 / -1;
+  justify-self: start;
+  border: 0; border-radius: 8px; padding: 8px 18px;
+  background: #1f2937; color: #fff; font-size: 13px; cursor: pointer;
+}
+.coverConfirm:disabled { background: #d7d9de; color: #8b8f98; cursor: default; }
+
+.coverRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.coverState {
+  font-size: 11px; padding: 2px 9px; border-radius: 20px;
+  border: 1px solid #e6eaf2; background: #f4f6fa; color: #667085;
+  white-space: nowrap;
+}
+.coverStateOn { border-color: #a6f4c5; background: #ecfdf3; color: #027a48; font-weight: 600; }
+
 @media (max-width: 860px) {
+  .coverForm { grid-template-columns: 1fr; }
+  .coverRow { grid-template-columns: 1fr; align-items: flex-start; }
+
   .classTabs { grid-template-columns: 1fr; }
   .stuckMain { grid-template-columns: 1fr; align-items: flex-start; }
   .stuckAge { align-items: flex-start; }

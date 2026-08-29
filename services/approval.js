@@ -280,3 +280,42 @@ export const reassignApprover = (instanceId, payload) =>
       reject({ message: error });
     }
   });
+
+/** Cover: who is standing in for whom, and for how long. */
+export const getApprovalDelegations = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/delegations`,
+        { params }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const createApprovalDelegation = (payload) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(
+        `/general/hospitality/approval/delegations`,
+        payload
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+
+export const revokeApprovalDelegation = (id) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.delete(
+        `/general/hospitality/approval/delegations/${id}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });

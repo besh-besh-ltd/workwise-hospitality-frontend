@@ -6,6 +6,7 @@ import { HiOutlineLocationMarker } from "react-icons/hi";
 import { getHospitalityCompanies } from "@/services/hospitality";
 import ApprovalHierarchyRedesigned from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy";
 import StuckApprovals from "./StuckApprovals";
+import ApprovalCover from "./ApprovalCover";
 import Loader from "@/components/shared/Loader";
 import InfoTip from "@/components/shared/InfoTip";
 import styles from "./Approvals.module.css";
@@ -35,7 +36,7 @@ import styles from "./Approvals.module.css";
 const ApprovalsPage = () => {
   const router = useRouter();
   const { companyId, hotelId, view } = router.query;
-  const activeView = view === "stuck" ? "stuck" : "setup";
+  const activeView = ["stuck", "cover"].includes(view) ? view : "setup";
 
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +92,7 @@ const ApprovalsPage = () => {
       router.push(
         {
           pathname: "/dashboard/admin/approvals",
-          query: next === "stuck" ? { view: "stuck" } : {},
+          query: next === "setup" ? {} : { view: next },
         },
         undefined,
         { shallow: true }
@@ -120,20 +121,33 @@ const ApprovalsPage = () => {
       >
         In progress
       </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeView === "cover"}
+        className={`${styles.viewTab} ${activeView === "cover" ? styles.viewTabOn : ""}`}
+        onClick={() => showView("cover")}
+      >
+        Cover
+      </button>
     </div>
   );
 
-  if (activeView === "stuck") {
+  if (activeView !== "setup") {
     return (
       <div className={styles.page}>
         <header className={styles.header}>
           <div>
             <h1 className={styles.title}>Approvals</h1>
-            <p className={styles.subtitle}>What is waiting, and who on</p>
+            <p className={styles.subtitle}>
+              {activeView === "stuck"
+                ? "What is waiting, and who on"
+                : "Who stands in while someone is away"}
+            </p>
           </div>
         </header>
         {viewTabs}
-        <StuckApprovals />
+        {activeView === "stuck" ? <StuckApprovals /> : <ApprovalCover />}
       </div>
     );
   }
