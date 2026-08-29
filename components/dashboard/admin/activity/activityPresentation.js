@@ -13,6 +13,10 @@
  * not staff; the scheduler is not a person; and the site representative who
  * signs for goods is a real human without an account. Rendering all four as
  * "User" is the fastest way to make an audit trail untrustworthy.
+ *
+ * One of them is called out rather than merely distinguished: Workwise's own
+ * staff, working inside this company's account. That is the line an IT review
+ * scans for, so it should be the one the eye lands on.
  */
 
 export const SEVERITY_META = {
@@ -27,6 +31,11 @@ export const SEVERITY_META = {
 export const ACTOR_META = {
   USER: { label: "Staff", hint: "Someone in your company" },
   VENDOR: { label: "Vendor", hint: "A supplier acting on your RFQs and orders" },
+  WORKWISE_STAFF: {
+    label: "Workwise",
+    alert: true,
+    hint: "Workwise's own support staff, working inside your account from the internal console. Their reads are recorded here as well as their changes, so you can see everything they looked at.",
+  },
   GUEST_TOKEN: {
     label: "Site rep",
     hint: "A person acting from a one-time link — typically signing for goods received — who has no account",

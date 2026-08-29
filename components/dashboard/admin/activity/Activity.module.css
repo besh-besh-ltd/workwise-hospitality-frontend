@@ -128,6 +128,12 @@
   padding: 2px 7px; border-radius: 20px; background: #eef2ff;
   border: 1px solid #dfe4fb; color: #4338ca; font-size: 10.5px; white-space: nowrap;
 }
+/* The supplier, inside the customer's account. Deliberately louder than the
+   other actor chips — it is the line a client's IT review looks for, and it
+   should not have to be hunted for among vendors and cron jobs. */
+.actorChipAlert {
+  background: #fff7ed; border-color: #fed7aa; color: #9a3412; font-weight: 600;
+}
 .reconstructed {
   display: inline-flex; align-items: center;
   padding: 2px 7px; border-radius: 20px; background: #fff;

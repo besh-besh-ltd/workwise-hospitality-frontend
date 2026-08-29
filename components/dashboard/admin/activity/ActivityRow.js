@@ -71,7 +71,9 @@ const ActivityRow = ({ event }) => {
           </span>
           <span className={styles.chip}>{event.category}</span>
           {event.actor_type !== "USER" && (
-            <span className={styles.actorChip}>
+            <span
+              className={`${styles.actorChip} ${actor.alert ? styles.actorChipAlert : ""}`}
+            >
               {actor.label}
               <InfoTip label={`What "${actor.label}" means`} text={actor.hint} size={11} />
             </span>

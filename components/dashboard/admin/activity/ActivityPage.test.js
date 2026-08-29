@@ -59,6 +59,16 @@ const EVENTS = [
     is_reconstructed: false,
   },
   {
+    id: 4,
+    occurred_at: iso(90),
+    summary: "Workwise staff (Support) opened Priya Sharma's account",
+    severity: "notable",
+    category: "Workwise Access",
+    actor_type: "WORKWISE_STAFF",
+    actor_label: "Support",
+    is_reconstructed: false,
+  },
+  {
     id: 1,
     occurred_at: iso(60 * 30),
     summary: "RFQ 536462 was published automatically at its scheduled time",
@@ -246,5 +256,39 @@ describe("the detail behind a line", () => {
     render(<ActivityPage />);
     fireEvent.click(await screen.findByText("Priya approved purchase order 138800"));
     expect(await screen.findByText(/no column-level record/i)).toBeInTheDocument();
+  });
+});
+
+describe("Workwise's own staff in the feed", () => {
+  // The trail's headline promise is that an admin sees everything happening in
+  // their company. A client's IT review asks a narrower question first — who at
+  // the supplier can see our data — and an entry that reads like their own
+  // employee answers it wrongly.
+  it("names the supplier rather than passing them off as company staff", async () => {
+    render(<ActivityPage />);
+    const row = await screen.findByText(/Workwise staff \(Support\) opened/i);
+    const meta = row.closest("li");
+    expect(within(meta).getByText("Workwise")).toBeInTheDocument();
+    expect(within(meta).queryByText("Staff")).not.toBeInTheDocument();
+  });
+
+  it("says what that chip means without making the reader guess", async () => {
+    render(<ActivityPage />);
+    await screen.findByText(/Workwise staff \(Support\) opened/i);
+    fireEvent.click(screen.getByLabelText('What "Workwise" means'));
+    expect(
+      await screen.findByText(/support staff, working inside your account/i)
+    ).toBeInTheDocument();
+  });
+
+  it("can be filtered down to on its own", async () => {
+    // "Show me only what Workwise did" is the whole reason an auditor opens
+    // this screen, so it has to be one selection rather than a search.
+    render(<ActivityPage />);
+    await screen.findByText(/Workwise staff \(Support\) opened/i);
+    const kind = screen.getByLabelText("Kind of actor");
+    expect(
+      within(kind).getByRole("option", { name: "Workwise" })
+    ).toBeInTheDocument();
   });
 });
