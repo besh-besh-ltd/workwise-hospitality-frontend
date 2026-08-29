@@ -12,7 +12,32 @@ import { getDepartments } from "@/services/rbac";
 import { getHospitalityCompanies, getHospitalityHotels } from "@/services/hospitality";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import InlineAccessManager from "./manage-accounts/InlineAccessManager";
+import useIdentityAvailability from "@/hooks/useIdentityAvailability";
 import styles from "./manage-accounts/ManageAccounts.module.scss";
+
+/**
+ * Says whether the address just typed is already in use.
+ *
+ * Deliberately not an error: the admin may be about to correct it, and a red
+ * field on something they are still typing is noise. It becomes an error at
+ * submit, where the server checks again — this is the earlier, quieter warning
+ * that saves filling in the rest of the form first.
+ */
+const IdentityHint = ({ field, status }) => {
+  if (!status) return null;
+  const noun = field === "email" ? "email address" : "mobile number";
+  if (status.state === "checking") {
+    return <small className={styles.identityHintChecking}>Checking…</small>;
+  }
+  if (status.state === "taken") {
+    return (
+      <small className={styles.identityHintTaken} role="alert">
+        Another account already uses this {noun}.
+      </small>
+    );
+  }
+  return <small className={styles.identityHintFree}>This {noun} is available.</small>;
+};
 
 const employeeTypeOptions = [
   { value: "full-time", label: "Full Time" },
@@ -67,6 +92,9 @@ const CreateAccountPage = () => {
    * outright. Now it is added, and said out loud.
    */
   const pendingScopeRef = useRef(null);
+  // UM-1: tell the admin an email or mobile is taken while they are typing it,
+  // not after the whole form has been filled in and submitted.
+  const identity = useIdentityAvailability();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -287,26 +315,35 @@ const CreateAccountPage = () => {
                       />
                     </div>
                     <div className="col-md-6">
-                      <CommonFormInput
-                        name="email"
-                        label="Email Address"
-                        type="email"
-                        placeholder="john@example.com"
-                        touched={touched}
-                        errors={errors}
-                        required
-                      />
+                      {/* CommonFormInput carries a "do not change" note and
+                          does not forward onBlur, so the check is attached to
+                          the wrapper — React's onBlur bubbles from the input. */}
+                      <div onBlur={(e) => identity.check("email", e.target.value)}>
+                        <CommonFormInput
+                          name="email"
+                          label="Email Address"
+                          type="email"
+                          placeholder="john@example.com"
+                          touched={touched}
+                          errors={errors}
+                          required
+                        />
+                      </div>
+                      <IdentityHint field="email" status={identity.status.email} />
                     </div>
                     <div className="col-md-6">
-                      <CommonFormInput
-                        name="mobile"
-                        label="Mobile Number"
-                        type="mobile"
-                        touched={touched}
-                        errors={errors}
-                        values={values}
-                        required
-                      />
+                      <div onBlur={(e) => identity.check("mobile", e.target.value)}>
+  <CommonFormInput
+                          name="mobile"
+                          label="Mobile Number"
+                          type="mobile"
+                          touched={touched}
+                          errors={errors}
+                          values={values}
+                          required
+                        />
+                      </div>
+                      <IdentityHint field="mobile" status={identity.status.mobile} />
                     </div>
                     <div className="col-md-6">
                       <CommonFormInput

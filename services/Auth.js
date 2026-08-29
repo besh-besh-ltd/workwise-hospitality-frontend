@@ -663,3 +663,19 @@ export const verifyVendorToken = (token) => {
   return axiosInstance.post('/users/verify-vendor-token', { token });
 };
 
+
+/**
+ * Whether an email or mobile is already taken (UM-1).
+ *
+ * Answers yes or no only — deliberately never anything about the account it
+ * matched, which would make this an authenticated directory lookup.
+ */
+export const checkIdentity = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/users/check-identity`, { params });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
