@@ -1653,3 +1653,15 @@
    consequential one. */
 .buActionDanger { color: #b42318; border-color: #fecdca; }
 .buActionDanger:hover { background: #fef3f2; }
+
+/* Edit Company: the flow did not exist, so the entry point sits on the header
+   the admin is already looking at rather than behind a menu. */
+.companyHeadRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+.editCompanyBtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #cbd5e1; background: #fff; color: #334155;
+  border-radius: 8px; padding: 6px 14px; font-size: 12.5px; cursor: pointer;
+  white-space: nowrap;
+}
+.editCompanyBtn:hover { background: #f8fafc; }

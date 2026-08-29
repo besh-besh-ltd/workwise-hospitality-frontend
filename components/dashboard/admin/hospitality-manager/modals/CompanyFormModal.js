@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import { HiX } from "react-icons/hi";
 import styles from "../HospitalityManager.module.css";
@@ -42,7 +42,17 @@ const defaultCompanyForm = {
   msme: "",
 };
 
-const CompanyFormModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
+/**
+ * Create *or* edit. The edit branch did not exist: `updateHospitalityCompany`
+ * had been sitting in the service layer with no caller, so a company created
+ * with a typo in its GST or bank details could never be corrected from the
+ * product — only by asking Workwise.
+ *
+ * One form for both, because the fields are the same and a second modal would
+ * be two things to keep in step. `company` being present is what switches it.
+ */
+const CompanyFormModal = ({ isOpen, onClose, onSubmit, isSubmitting, company = null }) => {
+  const isEdit = Boolean(company?.id);
   const [form, setForm] = useState(defaultCompanyForm);
   const [documents, setDocuments] = useState({
     gst: null,
@@ -50,6 +60,23 @@ const CompanyFormModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
     cancelled_cheque: null,
     msme: null,
   });
+
+  // Loaded when the modal opens on a company, and cleared when it opens on
+  // none — otherwise the previous company's details would linger into a
+  // "Create" and be saved as a new one.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!company) {
+      setForm(defaultCompanyForm);
+      return;
+    }
+    setForm({
+      ...defaultCompanyForm,
+      ...Object.fromEntries(
+        Object.keys(defaultCompanyForm).map((k) => [k, company[k] ?? ""])
+      ),
+    });
+  }, [isOpen, company]);
 
   const handleClose = () => {
     setForm(defaultCompanyForm);
@@ -71,8 +98,14 @@ const CompanyFormModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
     <Modal isOpen={isOpen} onRequestClose={handleClose} ariaHideApp={false} style={modalOverlayStyles}>
       <div className={styles.modalHeader}>
         <div>
-          <h5 className={styles.modalTitle}>Create New Company</h5>
-          <div className={styles.modalSubtitle}>Fill in the company details to get started</div>
+          <h5 className={styles.modalTitle}>
+            {isEdit ? `Edit ${company.name}` : "Create New Company"}
+          </h5>
+          <div className={styles.modalSubtitle}>
+            {isEdit
+              ? "Changes apply to this company and every business unit under it"
+              : "Fill in the company details to get started"}
+          </div>
         </div>
         <button type="button" className={styles.modalClose} onClick={handleClose}>
           <HiX size={16} />
@@ -295,7 +328,13 @@ const CompanyFormModal = ({ isOpen, onClose, onSubmit, isSubmitting }) => {
             Cancel
           </button>
           <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Company"}
+            {isSubmitting
+              ? isEdit
+                ? "Saving..."
+                : "Creating..."
+              : isEdit
+                ? "Save changes"
+                : "Create Company"}
           </button>
         </div>
       </form>

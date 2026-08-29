@@ -1,14 +1,24 @@
 import React from "react";
 import { HiOutlineLocationMarker, HiOutlineMail } from "react-icons/hi";
-import { BsBuilding, BsPeople, BsCheckCircle } from "react-icons/bs";
+import { BsBuilding, BsPeople, BsCheckCircle, BsPencil } from "react-icons/bs";
 import styles from "./HospitalityManager.module.css";
 
-const CompanyOverview = ({ company, hotelCount, userCount, activeCount }) => {
+const CompanyOverview = ({ company, hotelCount, userCount, activeCount, onEdit }) => {
   if (!company) return null;
 
   return (
     <div className={styles.overviewCard}>
-      <h2 className={styles.companyName}>{company.name}</h2>
+      <div className={styles.companyHeadRow}>
+        <h2 className={styles.companyName}>{company.name}</h2>
+        {/* There was no edit at all: a company created with a typo in its GST
+            or bank details could only be corrected by asking Workwise. */}
+        {onEdit && (
+          <button type="button" className={styles.editCompanyBtn} onClick={() => onEdit(company)}>
+            <BsPencil size={12} />
+            Edit company
+          </button>
+        )}
+      </div>
       <div className={styles.companyMeta}>
         {company.region && (
           <span className={styles.metaItem}>

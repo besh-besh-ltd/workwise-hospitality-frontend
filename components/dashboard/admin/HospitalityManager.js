@@ -5,6 +5,7 @@ import { BsBuilding } from "react-icons/bs";
 import { HiPlus } from "react-icons/hi";
 import {
   createHospitalityCompany,
+  updateHospitalityCompany,
   createHospitalityHotel,
   removeHotel,
   createHOBusinessUnit,
@@ -82,6 +83,8 @@ const HospitalityManager = () => {
   const setActiveTab = useCallback((tab) => setUrlState({ tab }), [setUrlState]);
   const [userMappingFilter, setUserMappingFilter] = useState("all");
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  // Which company the form is editing, or null when it is creating one.
+  const [editingCompany, setEditingCompany] = useState(null);
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState(null);
@@ -249,8 +252,7 @@ const HospitalityManager = () => {
 
     try {
       setIsSubmittingCompany(true);
-      await createHospitalityCompany(
-        {
+      const payload = {
           name: form.name.trim(),
           region: form.region.trim() || "",
           contact_email: form.contact_email.trim() || "",
@@ -263,16 +265,24 @@ const HospitalityManager = () => {
           ifsc_code: form.ifsc_code.trim() || "",
           account_holder_name: form.account_holder_name.trim() || "",
           msme: form.msme.trim() || "",
-        },
-        documents
-      );
-      toast.success("Company created successfully!");
+      };
+
+      if (editingCompany?.id) {
+        await updateHospitalityCompany(editingCompany.id, payload, documents);
+      } else {
+        await createHospitalityCompany(payload, documents);
+      }
+      toast.success(editingCompany?.id ? "Company updated" : "Company created successfully!");
       resetForm();
       setShowCompanyModal(false);
+      setEditingCompany(null);
       loadCompanies();
     } catch (error) {
       console.error(error);
-      toast.error(error?.message?.response?.data?.message || "Failed to create company");
+      toast.error(
+        error?.message?.response?.data?.message ||
+          (editingCompany?.id ? "Failed to update company" : "Failed to create company")
+      );
     } finally {
       setIsSubmittingCompany(false);
     }
@@ -530,7 +540,8 @@ const HospitalityManager = () => {
         </section>
         <CompanyFormModal
           isOpen={showCompanyModal}
-          onClose={() => setShowCompanyModal(false)}
+          company={editingCompany}
+          onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
           onSubmit={handleCompanySubmit}
           isSubmitting={isSubmittingCompany}
         />
@@ -564,6 +575,7 @@ const HospitalityManager = () => {
         {selectedCompany ? (
           <>
             <CompanyOverview
+              onEdit={(c) => { setEditingCompany(c); setShowCompanyModal(true); }}
               company={selectedCompany}
               hotelCount={hotels.length}
               userCount={companyUserMappings.length}
@@ -638,7 +650,8 @@ const HospitalityManager = () => {
       {/* Modals */}
       <CompanyFormModal
         isOpen={showCompanyModal}
-        onClose={() => setShowCompanyModal(false)}
+        company={editingCompany}
+        onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
         onSubmit={handleCompanySubmit}
         isSubmitting={isSubmittingCompany}
       />
