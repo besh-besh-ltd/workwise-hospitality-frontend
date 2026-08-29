@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { BsBuilding } from "react-icons/bs";
@@ -36,13 +36,48 @@ const HospitalityManager = () => {
 
   // --- Core Data ---
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  // HN-1: the selection lives in the URL, not in component state.
+  //
+  // Setting a unit's approval hierarchy navigates away to another page; its
+  // Back calls router.back(), which remounts this screen. With the selection
+  // in useState that remount started from null every time — so an admin who
+  // configured approvals for one unit was returned to the empty landing state
+  // and had to find their company again. Reading it from the query makes Back
+  // land where they were, and makes the view linkable.
+  const selectedCompanyId = useMemo(() => {
+    const raw = Number(router.query.companyId);
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }, [router.query.companyId]);
   const [hotels, setHotels] = useState([]);
   const [companyUserMappings, setCompanyUserMappings] = useState([]);
   const [hotelUserMappings, setHotelUserMappings] = useState({});
 
   // --- UI State ---
-  const [activeTab, setActiveTab] = useState("hotels");
+  // In the URL for the same reason as the company: the round trip through the
+  // approval hierarchy must not silently drop you back onto a different tab.
+  const activeTab = ["hotels", "users"].includes(router.query.tab)
+    ? router.query.tab
+    : "hotels";
+
+  // `replace`, not `push`: choosing a company is not a place you should have
+  // to press Back through. Back is reserved for leaving this screen, which is
+  // the whole point of HN-1.
+  const setUrlState = useCallback(
+    (next) => {
+      const query = { ...router.query, ...next };
+      Object.keys(query).forEach((k) => {
+        if (query[k] === null || query[k] === undefined || query[k] === "") delete query[k];
+      });
+      router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    },
+    [router]
+  );
+
+  const setSelectedCompanyId = useCallback(
+    (id) => setUrlState({ companyId: id ? String(id) : null }),
+    [setUrlState]
+  );
+  const setActiveTab = useCallback((tab) => setUrlState({ tab }), [setUrlState]);
   const [userMappingFilter, setUserMappingFilter] = useState("all");
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
@@ -92,10 +127,12 @@ const HospitalityManager = () => {
       const response = await getHospitalityCompanies({ include: 'hotels' });
       const list = response?.data ?? response ?? [];
       setCompanies(list);
+      // Default to the first company only when the URL names none, or names
+      // one that is gone. A URL that already names a real company is the
+      // caller's intent and must survive a refresh of the list.
       if (list.length) {
-        setSelectedCompanyId((prev) =>
-          prev && list.some((c) => c.id === prev) ? prev : list[0].id
-        );
+        const fromUrl = Number(router.query.companyId);
+        if (!list.some((c) => c.id === fromUrl)) setSelectedCompanyId(list[0].id);
       } else {
         setSelectedCompanyId(null);
         setHotels([]);
