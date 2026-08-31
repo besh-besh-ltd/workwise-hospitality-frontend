@@ -2,8 +2,10 @@
    Access — the role catalogue
    ============================================ */
 
+/* The shell owns the page gutter (DashboardShell 20px 24px) — see the note in
+   Activity.module.css. Only the trailing space is ours. */
 .page {
-  padding: 24px 28px 48px;
+  padding-bottom: 28px;
 }
 
 .header {

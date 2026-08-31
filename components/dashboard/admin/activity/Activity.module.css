@@ -3,7 +3,11 @@
    read, so severity owns the left edge at a fixed x-position and only
    `critical` is allowed to shout. Everything else is deliberately quiet. */
 
-.page { padding: 26px 30px 44px; max-width: 1180px; }
+/* No page padding: DashboardShell already applies 20px 24px to its content
+   area, and adding more here pushed these screens ~30px further in than every
+   other page in the product. The shell owns the page gutter so the whole app
+   lines up; a page only adds the bottom breathing room a long scroll needs. */
+.page { padding-bottom: 24px; max-width: 1180px; }
 
 .header {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -210,7 +214,6 @@
 .pagerState { font-size: 12.5px; color: #98a2b3; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 900px) {
-  .page { padding: 18px 16px 32px; }
   .filterMore { grid-template-columns: 1fr; }
 
   /* Two columns: severity and time stack in a narrow gutter, the sentence
@@ -224,10 +227,14 @@
   /* The whole sentence is already the toggle, so a separate chevron on its
      own line is a second control doing the same job in more space. */
   .expand { display: none; }
+  .detail { margin-left: 59px; }
 }
 
+/* Indented to line up with the sentence it belongs to: 78px risk column +
+   52px time + two 14px gaps. Hard-coding it is the trade for a grid the row
+   needs — keep it in step if those widths move. */
 .detail {
-  margin: 10px 0 4px 58px; padding: 12px 14px;
+  margin: 4px 0 12px 143px; padding: 12px 14px;
   border: 1px solid #f0f0f0; border-radius: 10px; background: #fafafa;
 }
 .detailNote { margin: 0; font-size: 12px; color: #6b7280; line-height: 1.6; }
@@ -249,33 +256,3 @@
 .diffField { color: #374151; font-family: ui-monospace, SFMono-Regular, monospace; white-space: nowrap; }
 .diffFrom { color: #9ca3af; text-decoration: line-through; }
 .diffTo { color: #15803d; }
-
-/* --- States --- */
-.emptyState {
-  padding: 48px 24px; text-align: center; border: 1px dashed #e0e0e0; border-radius: 14px; color: #6b7280;
-}
-.emptyState h2 { font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 6px; }
-.emptyState p { font-size: 13px; margin: 0 auto; max-width: 44ch; line-height: 1.6; }
-
-.errorBanner {
-  padding: 12px 16px; border: 1px solid #f3d0d0; background: #fdf3f3;
-  color: #a33; border-radius: 10px; font-size: 13px;
-}
-
-.pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding-top: 8px; }
-.pagerBtn {
-  padding: 7px 16px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff;
-  color: #374151; font-size: 12.5px; cursor: pointer;
-}
-.pagerBtn:hover:not(:disabled) { background: #f7f7f7; }
-.pagerBtn:disabled { opacity: .45; cursor: not-allowed; }
-.pagerState { font-size: 12px; color: #6b7280; font-variant-numeric: tabular-nums; }
-
-@media (max-width: 900px) {
-  .page { padding: 18px 16px 32px; }
-  .body { grid-template-columns: 1fr; gap: 18px; }
-  .rail { position: static; }
-  .rowMain { grid-template-columns: 44px 1fr; }
-  .rowMeta { grid-column: 2; justify-content: flex-start; margin-top: 4px; }
-  .detail { margin-left: 0; }
-}
