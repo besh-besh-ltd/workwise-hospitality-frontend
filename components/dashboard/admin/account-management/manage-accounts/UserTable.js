@@ -10,6 +10,8 @@ const UserTable = ({
   isHospitality,
   onEdit,
   onManageAccess,
+  onResetPassword,
+  resettingPasswordFor,
   loadingSteps,
 }) => {
   if (isLoading) {
@@ -60,6 +62,8 @@ const UserTable = ({
               departments={account.departments || []}
               onEdit={onEdit}
               onManageAccess={onManageAccess}
+              onResetPassword={onResetPassword}
+              isResettingPassword={resettingPasswordFor === account.id}
             />
           ))}
         </tbody>

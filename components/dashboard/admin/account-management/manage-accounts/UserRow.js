@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { HiOutlinePencil } from "react-icons/hi";
+import { HiOutlinePencil, HiOutlineKey } from "react-icons/hi";
 import { BsBuilding } from "react-icons/bs";
 import { formatDisplayDate } from "@/utils/sharedFunctions";
 import styles from "./ManageAccounts.module.scss";
+import { dedupeHospitalityMappings } from "@/components/dashboard/admin/shared/hospitalityMappings";
 
 const AVATAR_COLORS = [
   "#2E5BA8", "#3B82F6", "#1D4ED8", "#4F46E5",
@@ -23,19 +24,6 @@ const getInitials = (name) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return parts[0].slice(0, 2).toUpperCase();
-};
-
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.hospitality_company_id}`
-        : `hotel-${item.hospitality_company_id}-${item.hospitality_hotel_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 };
 
 const TruncatedBadges = ({ items, renderBadge, maxVisible = 2, getLabel }) => {
@@ -72,7 +60,7 @@ const TruncatedBadges = ({ items, renderBadge, maxVisible = 2, getLabel }) => {
   );
 };
 
-const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, onEdit, onManageAccess }) => {
+const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, onEdit, onManageAccess, onResetPassword, isResettingPassword }) => {
   const isActive = account.status === "active";
   const initials = getInitials(account.name);
   const avatarColor = getAvatarColor(account.name);
@@ -92,6 +80,15 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
               {account.name}
               {account.employee_code ? <span className={styles.userEmpCode}> · {account.employee_code}</span> : ""}
               {!isActive && <span className={styles.inactiveTag}>Inactive</span>}
+              {/* Administrators used to be filtered out of this list entirely.
+                  Now that they are shown, the most consequential thing about a
+                  row — whether this person can administer the company — should
+                  be visible without opening it. */}
+              {account.is_company_admin && (
+                <span className={styles.adminTag} title="Can manage users, units, access and approvals">
+                  Administrator
+                </span>
+              )}
             </div>
             <div className={styles.userEmail}>{account.email}</div>
             {account.mobile && (
@@ -152,6 +149,18 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
             <button type="button" className={styles.accessBtn} onClick={() => onManageAccess(account)}>
               <BsBuilding size={12} />
               Access
+            </button>
+          )}
+          {onResetPassword && (
+            <button
+              type="button"
+              className={styles.accessBtn}
+              onClick={() => onResetPassword(account)}
+              disabled={isResettingPassword}
+              title="Email this person a link to set a new password"
+            >
+              <HiOutlineKey size={13} />
+              {isResettingPassword ? "Sending…" : "Reset password"}
             </button>
           )}
           <button type="button" className={styles.editBtn} onClick={() => onEdit(account)}>

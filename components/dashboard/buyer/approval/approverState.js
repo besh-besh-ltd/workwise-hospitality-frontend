@@ -80,10 +80,27 @@ export const tallyStep = (step) => {
   const acted = of("APPROVED", "REJECTED")
     // Oldest decision first — the level reads as the order it actually happened.
     .sort((a, b) => String(a.ap?.acted_at || "").localeCompare(String(b.ap?.acted_at || "")));
+  const outstanding = of("PENDING");
   return {
     active, removed, acted,
     // Server order is meaningful (contract), so these groups keep it.
-    outstanding: of("PENDING"),
+    outstanding,
+    // A subset of `outstanding`, deliberately — not a seventh state.
+    //
+    // A deactivated account leaves its approver row PENDING forever, because
+    // the engine keeps the row rather than deleting it. So the approval state
+    // really is "pending"; what is false is presenting that person as somebody
+    // we are waiting on, when they cannot log in. Production carries 24 such
+    // rows across 19 live approvals.
+    //
+    // Kept inside `outstanding` rather than removed from it, so the arithmetic
+    // below still holds and an ALL level that can never complete still reads
+    // as incomplete. A surface that NAMES who it is waiting on should exclude
+    // these and say why; a surface that COUNTS should not.
+    //
+    // `account_active` is absent from older payloads, so an approver with no
+    // such field is treated as reachable — the previous behaviour.
+    unreachable: outstanding.filter((r) => r.ap?.account_active === false),
     notRequired: of("NOT_REQUIRED"),
     notReached: of("NOT_REACHED"),
     approved: of("APPROVED").length,

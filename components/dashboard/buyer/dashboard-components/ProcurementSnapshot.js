@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { BarChart3, ArrowUpRight, ArrowDownRight, PieChart } from "lucide-react";
 import { getProcurementSnapshot } from "@/services/dashboard";
-import CardTooltip from "./CardTooltip";
+import InfoTip from "@/components/shared/InfoTip";
 import SpendBreakupModal from "./SpendBreakupModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
@@ -104,7 +104,7 @@ const ProcurementSnapshot = ({ filters }) => {
             >
               <div className={styles.metricLabel}>
                 {metric.label}
-                <CardTooltip text={metric.tooltip} />
+                <InfoTip text={metric.tooltip} />
               </div>
               <div className={styles.metricValueRow}>
                 <div className={styles.metricValue}>

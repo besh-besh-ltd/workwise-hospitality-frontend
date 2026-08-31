@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Layers } from "lucide-react";
 import { getAbcAnalysis } from "@/services/dashboard";
-import CardTooltip from "./CardTooltip";
+import InfoTip from "@/components/shared/InfoTip";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./ABCAnalysis.module.scss";
@@ -173,7 +173,7 @@ const ABCAnalysis = ({ filters }) => {
         <div className={styles.itemList}>
           <div className={styles.itemListHead}>
             Focus items
-            <CardTooltip text={`Highest-contributing items by ${metricNoun}, with their ABC tier.`} />
+            <InfoTip text={`Highest-contributing items by ${metricNoun}, with their ABC tier.`} />
           </div>
           {topItems.map((it) => {
             const meta = CLASS_META[it.class] || CLASS_META.C;

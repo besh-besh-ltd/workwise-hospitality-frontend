@@ -14,6 +14,7 @@ const BusinessUnitsTab = ({
   onSetHierarchy,
   onSendPayment,
   onSendCredentials,
+  onRemoveHotel,
   sendingCredentialsHotelId,
   isLoading,
   hasPendingPayments,
@@ -70,6 +71,7 @@ const BusinessUnitsTab = ({
             userCount={getHotelUserCount(hotel.id)}
             onEdit={onEditHotel}
             onSetHierarchy={onSetHierarchy}
+            onRemove={onRemoveHotel}
             onSendCredentials={onSendCredentials}
             isSendingCredentials={sendingCredentialsHotelId === hotel.id}
           />

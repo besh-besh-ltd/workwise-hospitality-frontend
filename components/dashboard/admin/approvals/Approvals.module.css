@@ -1,0 +1,395 @@
+/* ============================================
+   Approvals — unit picker + context bar
+   ============================================ */
+
+/* The shell owns the page gutter (DashboardShell 20px 24px) — see the note in
+   Activity.module.css. Only the trailing space is ours. */
+.page {
+  padding-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+}
+
+/* --- Context bar shown once a unit is open --- */
+.contextBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #ececec;
+  margin-bottom: 20px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.backBtn:hover {
+  background: #f7f7f7;
+  border-color: #d0d0d0;
+}
+
+.backBtn:focus-visible {
+  outline: 2px solid var(--primary-color, #2563eb);
+  outline-offset: 1px;
+}
+
+.contextCrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.contextCompany {
+  color: #6b7280;
+}
+
+.contextSep {
+  color: #c4c4c4;
+}
+
+.contextUnit {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+/* --- Unit picker --- */
+.companyBlock {
+  margin-bottom: 28px;
+}
+
+.companyName {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin: 0 0 12px;
+}
+
+.unitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.unitCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.unitCard:hover {
+  border-color: #d0d0d0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.unitCard:focus-visible {
+  outline: 2px solid var(--primary-color, #2563eb);
+  outline-offset: 2px;
+}
+
+.unitName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.unitLocation {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.unitAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color, #2563eb);
+}
+
+/* --- States --- */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 56px 24px;
+  border: 1px dashed #e0e0e0;
+  border-radius: 14px;
+  color: #6b7280;
+}
+
+.emptyState h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 8px 0 0;
+}
+
+.emptyState p {
+  font-size: 13px;
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.errorBanner {
+  padding: 12px 16px;
+  border: 1px solid #f3d0d0;
+  background: #fdf3f3;
+  color: #a33;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+
+/* ── Setup vs In progress ───────────────────────────────────────────────── */
+
+.viewTabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: #f1f3f7;
+  border-radius: 9px;
+  margin-bottom: 20px;
+}
+
+.viewTab {
+  border: 0;
+  background: transparent;
+  padding: 6px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #5b6472;
+  cursor: pointer;
+}
+
+.viewTabOn {
+  background: #fff;
+  color: #1f2937;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+/* ── What is stuck ──────────────────────────────────────────────────────── */
+
+.classTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Each count is a button, because every one of them is a different job.
+   Never colour alone: the tone pairs with the count and its label. */
+.classTab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.classTabOn { border-color: #1f2937; box-shadow: 0 0 0 1px #1f2937 inset; }
+
+.classCount { font-size: 22px; font-weight: 650; line-height: 1.1; }
+.classLabel { font-size: 12.5px; color: #5b6472; }
+
+.tone_danger .classCount { color: #b42318; }
+.tone_warn .classCount { color: #b54708; }
+.tone_muted .classCount { color: #667085; }
+
+.classHint {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 12.5px; color: #5b6472; line-height: 1.6;
+  margin: 0 0 18px; max-width: 720px;
+}
+
+.stuckList { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.stuckRow {
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.stuckMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) auto auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.stuckWhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stuckEntity { font-size: 13.5px; font-weight: 600; color: #1f2937; }
+.stuckUnit { font-size: 12px; color: #667085; }
+
+.stuckWho { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.stuckWhoLabel { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #98a2b3; }
+.stuckApprovers { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: #344054; }
+
+.approverChip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 2px 8px; border-radius: 20px;
+  background: #f4f6fa; border: 1px solid #e6eaf2;
+}
+
+/* Not colour alone — the chip also carries the words saying why. */
+.approverDead { background: #fff; border-style: dashed; color: #98a2b3; }
+.approverWhy { font-size: 10.5px; color: #b42318; }
+.approverDead .approverWhy { color: #98a2b3; }
+
+.stuckAge { display: flex; flex-direction: column; align-items: flex-end; }
+.stuckAgeValue { font-size: 13px; font-weight: 600; color: #344054; }
+.stuckAgeLabel { font-size: 10.5px; color: #98a2b3; }
+
+.reassignBtn {
+  border: 1px solid #d0d5dd; background: #fff; color: #344054;
+  border-radius: 8px; padding: 6px 14px; font-size: 12.5px; cursor: pointer;
+}
+.reassignBtn:disabled { opacity: .55; cursor: default; }
+
+.stuckAdvice { font-size: 12px; color: #667085; margin: 10px 0 0; }
+
+.reassignPanel {
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb;
+  display: grid; gap: 10px;
+}
+
+.reassignField { display: grid; gap: 4px; font-size: 12px; color: #475467; }
+.reassignField select,
+.reassignField input {
+  border: 1px solid #d0d5dd; border-radius: 8px; padding: 7px 10px;
+  font-size: 13px; color: #1f2937; background: #fff;
+}
+
+.reassignNote { font-size: 11.5px; color: #667085; margin: 0; }
+
+.reassignConfirm {
+  justify-self: start;
+  border: 0; border-radius: 8px; padding: 8px 18px;
+  background: #b54708; color: #fff; font-size: 13px; cursor: pointer;
+}
+.reassignConfirm:disabled { background: #d7d9de; color: #8b8f98; cursor: default; }
+
+/* ── Cover ──────────────────────────────────────────────────────────────── */
+
+/* Not .classHint: that one is display:flex so a label and an InfoTip sit side
+   by side, which turns any inline <strong> into a third column and breaks the
+   sentence in half. This one is ordinary flowing text with the tip inline. */
+.coverHint {
+  font-size: 12.5px; color: #5b6472; line-height: 1.6;
+  margin: 0 0 18px; max-width: 720px;
+}
+.coverHint strong { color: #1f2937; font-weight: 600; }
+
+.coverForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #fbfbfd;
+  margin-bottom: 18px;
+}
+
+.coverConfirm {
+  grid-column: 1 / -1;
+  justify-self: start;
+  border: 0; border-radius: 8px; padding: 8px 18px;
+  background: #1f2937; color: #fff; font-size: 13px; cursor: pointer;
+}
+.coverConfirm:disabled { background: #d7d9de; color: #8b8f98; cursor: default; }
+
+.coverRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.coverState {
+  font-size: 11px; padding: 2px 9px; border-radius: 20px;
+  border: 1px solid #e6eaf2; background: #f4f6fa; color: #667085;
+  white-space: nowrap;
+}
+.coverStateOn { border-color: #a6f4c5; background: #ecfdf3; color: #027a48; font-weight: 600; }
+
+@media (max-width: 860px) {
+  .coverForm { grid-template-columns: 1fr; }
+  .coverRow { grid-template-columns: 1fr; align-items: flex-start; }
+
+  .classTabs { grid-template-columns: 1fr; }
+  .stuckMain { grid-template-columns: 1fr; align-items: flex-start; }
+  .stuckAge { align-items: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 18px 16px 32px;
+  }
+
+  .unitGrid {
+    grid-template-columns: 1fr;
+  }
+}

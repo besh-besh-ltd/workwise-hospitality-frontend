@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
@@ -12,7 +12,58 @@ import { getDepartments } from "@/services/rbac";
 import { getHospitalityCompanies, getHospitalityHotels } from "@/services/hospitality";
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import InlineAccessManager from "./manage-accounts/InlineAccessManager";
+import useIdentityAvailability from "@/hooks/useIdentityAvailability";
 import styles from "./manage-accounts/ManageAccounts.module.scss";
+
+/**
+ * Says whether the address just typed is already in use.
+ *
+ * Deliberately not an error: the admin may be about to correct it, and a red
+ * field on something they are still typing is noise. It becomes an error at
+ * submit, where the server checks again — this is the earlier, quieter warning
+ * that saves filling in the rest of the form first.
+ */
+const IdentityHint = ({ field, status }) => {
+  if (!status) return null;
+  const noun = field === "email" ? "email address" : "mobile number";
+  if (status.state === "checking") {
+    return <small className={styles.identityHintChecking}>Checking…</small>;
+  }
+  if (status.state === "taken") {
+    return (
+      <small className={styles.identityHintTaken} role="alert">
+        Another account already uses this {noun}.
+      </small>
+    );
+  }
+  return <small className={styles.identityHintFree}>This {noun} is available.</small>;
+};
+
+/**
+ * What kind of account this is.
+ *
+ * The backend used to accept any user_type from this form's payload with no
+ * validation at all, so a company admin could mint a cross-tenant super admin;
+ * the only thing preventing it was this file hardcoding "2". That hole is
+ * closed server-side, which is what makes offering the choice safe.
+ *
+ * Administrator is described by what it lets someone do, in the manner Stripe
+ * describes its roles — a name alone tells an admin nothing about the blast
+ * radius of the thing they are about to grant.
+ */
+const ACCOUNT_TYPES = [
+  {
+    value: 2,
+    label: "Team member",
+    blurb: "Raises and works on RFQs, quotes, negotiations and orders, within the units and departments you give them.",
+  },
+  {
+    value: 7,
+    label: "Administrator",
+    blurb: "Everything a team member can do, plus managing people, business units, roles and approval workflows — including creating other administrators.",
+    warn: "Administrators can change who approves spend, and can grant this to anyone else.",
+  },
+];
 
 const employeeTypeOptions = [
   { value: "full-time", label: "Full Time" },
@@ -43,6 +94,7 @@ const initialValues = {
   employee_code: "",
   payroll_company_id: "",
   department_id: [],
+  account_type: 2,
 };
 
 const CreateAccountPage = () => {
@@ -58,6 +110,18 @@ const CreateAccountPage = () => {
   // Pending mappings & role scopes (applied after user creation)
   const [pendingMappings, setPendingMappings] = useState([]);
   const [pendingRoleScopes, setPendingRoleScopes] = useState([]);
+  /**
+   * A role the admin selected but never pressed "Add Role" on.
+   *
+   * UM-3: this used to be dropped without a word — the account was created
+   * with no roles and nobody found out until the person could not do their
+   * job. The edit modal already rescued it silently; here it was lost
+   * outright. Now it is added, and said out loud.
+   */
+  const pendingScopeRef = useRef(null);
+  // UM-1: tell the admin an email or mobile is taken while they are typing it,
+  // not after the whole form has been filled in and submitted.
+  const identity = useIdentityAvailability();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,7 +182,7 @@ const CreateAccountPage = () => {
         name: values.name,
         email: values.email,
         mobile: formattedMobile,
-        user_type: "2",
+        user_type: values.account_type ?? 2,
         password: values.password,
       };
 
@@ -165,8 +229,27 @@ const CreateAccountPage = () => {
       }
 
       // Include roles and mappings directly in the create payload
-      if (isHospitality && pendingRoleScopes.length > 0) {
-        apiData.roles = pendingRoleScopes.map((role) => ({
+      const stagedRoles = [...pendingRoleScopes];
+      const unstaged = pendingScopeRef.current;
+      if (isHospitality && unstaged?.role_id && unstaged?.company_id) {
+        const alreadyStaged = stagedRoles.some(
+          (r) =>
+            r.role_id === unstaged.role_id &&
+            r.company_id === unstaged.company_id &&
+            (r.hotel_id || null) === (unstaged.hotel_id || null) &&
+            (r.department_id || null) === (unstaged.department_id || null) &&
+            (r.process_id || null) === (unstaged.process_id || null)
+        );
+        if (!alreadyStaged) {
+          stagedRoles.push(unstaged);
+          toast.info(
+            `Also added the role "${unstaged.role_title || "you selected"}" — it was filled in but not added to the list.`
+          );
+        }
+      }
+
+      if (isHospitality && stagedRoles.length > 0) {
+        apiData.roles = stagedRoles.map((role) => ({
           role_id: role.role_id,
           company_id: role.company_id || null,
           hotel_id: role.hotel_id || null,
@@ -248,6 +331,36 @@ const CreateAccountPage = () => {
                   <div className={styles.createSectionTitle}>Account Information</div>
                   <div className="row g-3">
                     <div className="col-md-6">
+                      <fieldset className={styles.accountTypeGroup}>
+                        <legend className={styles.accountTypeLegend}>
+                          Account type <span style={{ color: "#ef4444" }}>*</span>
+                        </legend>
+                        {ACCOUNT_TYPES.map((type) => (
+                          <label
+                            key={type.value}
+                            className={`${styles.accountTypeOption} ${
+                              values.account_type === type.value ? styles.accountTypeOptionOn : ""
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="account_type"
+                              checked={values.account_type === type.value}
+                              onChange={() => setFieldValue("account_type", type.value)}
+                            />
+                            <span>
+                              <span className={styles.accountTypeLabel}>{type.label}</span>
+                              <span className={styles.accountTypeBlurb}>{type.blurb}</span>
+                            </span>
+                          </label>
+                        ))}
+                        {values.account_type === 7 && (
+                          <p className={styles.accountTypeWarning} role="status">
+                            {ACCOUNT_TYPES.find((t) => t.value === 7).warn}
+                          </p>
+                        )}
+                      </fieldset>
+
                       <CommonFormInput
                         name="name"
                         label="Full Name"
@@ -259,26 +372,35 @@ const CreateAccountPage = () => {
                       />
                     </div>
                     <div className="col-md-6">
-                      <CommonFormInput
-                        name="email"
-                        label="Email Address"
-                        type="email"
-                        placeholder="john@example.com"
-                        touched={touched}
-                        errors={errors}
-                        required
-                      />
+                      {/* CommonFormInput carries a "do not change" note and
+                          does not forward onBlur, so the check is attached to
+                          the wrapper — React's onBlur bubbles from the input. */}
+                      <div onBlur={(e) => identity.check("email", e.target.value)}>
+                        <CommonFormInput
+                          name="email"
+                          label="Email Address"
+                          type="email"
+                          placeholder="john@example.com"
+                          touched={touched}
+                          errors={errors}
+                          required
+                        />
+                      </div>
+                      <IdentityHint field="email" status={identity.status.email} />
                     </div>
                     <div className="col-md-6">
-                      <CommonFormInput
-                        name="mobile"
-                        label="Mobile Number"
-                        type="mobile"
-                        touched={touched}
-                        errors={errors}
-                        values={values}
-                        required
-                      />
+                      <div onBlur={(e) => identity.check("mobile", e.target.value)}>
+  <CommonFormInput
+                          name="mobile"
+                          label="Mobile Number"
+                          type="mobile"
+                          touched={touched}
+                          errors={errors}
+                          values={values}
+                          required
+                        />
+                      </div>
+                      <IdentityHint field="mobile" status={identity.status.mobile} />
                     </div>
                     <div className="col-md-6">
                       <CommonFormInput
@@ -392,6 +514,7 @@ const CreateAccountPage = () => {
                       isEditMode={false}
                       externalMappings={pendingMappings}
                       userDepartments={values.department_id}
+                      pendingScopeRef={pendingScopeRef}
                     />
                   </div>
                 )}

@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
-import CardTooltip from "../dashboard-components/CardTooltip";
+import InfoTip from "@/components/shared/InfoTip";
 import { DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./PersonaCard.module.scss";
 
@@ -102,7 +102,7 @@ const PersonaCard = ({
           )}
           <div className={styles.title}>
             {title}
-            {tooltip && <CardTooltip text={tooltip} />}
+            {tooltip && <InfoTip text={tooltip} />}
           </div>
         </div>
         <div className={styles.headActions}>
@@ -197,7 +197,7 @@ export const PersonaCardShell = ({
           )}
           <div className={styles.title}>
             {title}
-            {tooltip && <CardTooltip text={tooltip} />}
+            {tooltip && <InfoTip text={tooltip} />}
           </div>
         </div>
         <div className={styles.headActions}>

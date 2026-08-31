@@ -60,7 +60,6 @@ const renderModal = async (props = {}) => {
         onClose={jest.fn()}
         account={ACCOUNT}
         isHospitality
-        roleOptions={[]}
         initialRoleScopes={[]}
         userDepartments={[]}
         userMappings={[]}

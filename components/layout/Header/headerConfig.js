@@ -41,11 +41,28 @@ export const initialMainNavs = [
 ];
 
 export const roleMenus = {
+  // Company admin rail. Each destination answers one question an admin
+  // actually has, in the order they tend to ask it: is anything wrong right
+  // now (Overview), what does my company look like in here (Organisation),
+  // who has an account (People), what can each role do (Access), and who
+  // signs off on what (Approvals).
+  //
+  // Approvals used to have no entry at all — the approval matrix, which
+  // decides who authorises spend, was reachable only by drilling into a
+  // company and then a unit. That is the highest-consequence screen in the
+  // product and it was the hardest to find.
+  //
+  // The hrefs deliberately keep their older paths even where the label
+  // changed: LoginContainer and ProcessScopeErrorBanner navigate to them by
+  // path, and admins have them bookmarked. Renaming the URL buys nothing.
   admin: [
     { href: "/dashboard/admin/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
-    { href: "/dashboard/admin", label: "Dashboard", targetMenu: "nav", section: "Main" },
-    { href: "/dashboard/admin/account-management/manage-accounts", label: "User Management", targetMenu: "nav", section: "Management" },
-    { href: "/dashboard/admin/hospitality-manager", label: "Hospitality Network", targetMenu: "nav", section: "Management" },
+    { href: "/dashboard/admin", label: "Overview", targetMenu: "nav", section: "Main" },
+    { href: "/dashboard/admin/hospitality-manager", label: "Organisation", targetMenu: "nav", section: "Manage", hospitalityOnly: true },
+    { href: "/dashboard/admin/account-management/manage-accounts", label: "People", targetMenu: "nav", section: "Manage" },
+    { href: "/dashboard/admin/access", label: "Access", targetMenu: "nav", section: "Manage" },
+    { href: "/dashboard/admin/approvals", label: "Approvals", targetMenu: "nav", section: "Manage", hospitalityOnly: true },
+    { href: "/dashboard/admin/activity", label: "Activity", targetMenu: "nav", section: "Oversight", hospitalityOnly: true },
   ],
   // Buyer rail — grouped by procure-to-pay phase (Sourcing → Contracts →
   // Requisition & Orders), in lifecycle order. `group` is the phase header;
@@ -107,6 +124,22 @@ export const roleMenus = {
     { href: "/dashboard/notifications",       label: "Notifications", targetMenu: "nav", group: "Account", section: null },
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
+};
+
+/**
+ * The nav a given user should actually see.
+ *
+ * Some admin destinations only mean anything for a hospitality company —
+ * Organisation and Approvals are both built on the company/hotel hierarchy.
+ * This used to be expressed as `item.href !== "/dashboard/admin/hospitality-manager"`
+ * duplicated across SideNav, MobileNav and Header, which meant every new
+ * hospitality-only entry had to be remembered in three places. Items now
+ * declare `hospitalityOnly` and the rule lives here once.
+ */
+export const visibleRoleMenu = (currentUserType, { isHospitalityCompany } = {}) => {
+  const baseMenu = roleMenus[currentUserType] || [];
+  if (isHospitalityCompany) return baseMenu;
+  return baseMenu.filter((item) => !item.hospitalityOnly);
 };
 
 export const websiteMenu = [

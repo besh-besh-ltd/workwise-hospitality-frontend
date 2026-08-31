@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { X, LogOut, KeyRound } from "lucide-react";
-import { roleMenus } from "@/components/layout/Header/headerConfig";
+import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
@@ -23,15 +23,10 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
   const isSubLocked = isHospitalityVendor && !hasValidSub;
   const { pendingCountFor } = usePendingApprovalIndicators({ enabled: !!user });
 
-  const currentRoleMenu = useMemo(() => {
-    const baseMenu = roleMenus[currentUserType] || [];
-    if (currentUserType === "admin" && !isHospitalityCompany) {
-      return baseMenu.filter(
-        (item) => item.href !== "/dashboard/admin/hospitality-manager"
-      );
-    }
-    return baseMenu;
-  }, [currentUserType, isHospitalityCompany]);
+  const currentRoleMenu = useMemo(
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
+    [currentUserType, isHospitalityCompany]
+  );
 
   if (!open) return null;
 
