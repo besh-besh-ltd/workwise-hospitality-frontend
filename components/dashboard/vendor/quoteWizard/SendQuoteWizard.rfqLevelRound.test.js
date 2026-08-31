@@ -209,7 +209,11 @@ const renderWizard = async (rounds, vendorStatus = []) => {
   getAllActiveNegotiationRounds.mockResolvedValue({ data: rounds });
   getAllVendorNegotiationStatus.mockResolvedValue({ status: 1, data: vendorStatus });
   render(<SendQuoteWizard />);
-  await screen.findAllByText("Review & submit");
+  // A live round now lands the vendor on the step holding the ask (Pricing or
+  // Commercial terms), not on Review — the step they landed on used to mention
+  // neither the round nor the target (RFQ 536237). Walk to Review explicitly.
+  const reviewTab = (await screen.findAllByText("Review & submit"))[0];
+  await userEvent.click(reviewTab.closest("button") || reviewTab);
 };
 
 const submitButton = () => screen.getByRole("button", { name: /Confirm & Update/i });

@@ -183,10 +183,10 @@ const renderAtTerms = async (rfqOverrides, rounds = [basePriceOnlyRound()]) => {
   getAllActiveNegotiationRounds.mockResolvedValue({ data: rounds });
   render(<SendQuoteWizard />);
   await screen.findAllByText("Review & submit");
-  // A saved quote lands on the last step; walk back to Commercial terms, which
-  // is where the vendor gets stuck.
-  const back = await screen.findByRole("button", { name: /^Back$/i });
-  await userEvent.click(back);
+  // A live round lands the vendor on Pricing (the step holding the ask), so
+  // walk FORWARD to Commercial terms, which is where the vendor gets stuck.
+  const termsTab = (await screen.findAllByText("Commercial terms"))[0];
+  await userEvent.click(termsTab.closest("button") || termsTab);
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /Continue to review/i })).toBeInTheDocument()
   );
