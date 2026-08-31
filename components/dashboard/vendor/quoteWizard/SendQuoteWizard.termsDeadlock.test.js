@@ -19,7 +19,9 @@
 //     complete and the gate still fails;
 //   * percentages that do not total exactly 100 — including float drift from
 //     decimal splits like 33.33 / 33.33 / 33.34;
-//   * a malformed GSTIN, which locks unconditionally once the bid expires.
+//   * a malformed GSTIN, which used to lock once the bid expired — see the
+//     GSTIN test below, where that lock has since been removed so the value
+//     can be corrected in place instead of skipped.
 //
 // The rule these tests pin: mirror deliveryRequired — require a commercial
 // term only where the vendor can actually edit it.
@@ -229,8 +231,17 @@ describe("a base_price-only round must not be gated on locked commercial terms",
     await waitFor(() => expect(continueToReview()).toBeEnabled());
   });
 
-  test("a malformed stored GSTIN does not block the round", async () => {
-    // GSTIN locks unconditionally after bid expiry — it is never negotiable.
+  // GSTIN used to be the third stored-data shape that tripped this deadlock:
+  // the input locked on bid expiry, so a malformed legacy value blocked the
+  // step with no way to fix it, and the gate simply skipped the check.
+  //
+  // That lock is gone — it left a vendor invited to a round with no GSTIN on
+  // file unable to supply one at all (215 of 331 production quotes on
+  // negotiated RFQs are blank), and the backend never asked for it:
+  // rfqController.updateQuoteItems states that `gstin` is "deliberately not
+  // guarded" during a round. So GSTIN now satisfies this suite's rule the
+  // other way round: the vendor CAN edit it, therefore it may be required.
+  test("a malformed stored GSTIN is fixable in place rather than skipped", async () => {
     await renderAtTerms({
       gstin: "NOTAGSTIN",
       paymentTerms: [
@@ -239,6 +250,15 @@ describe("a base_price-only round must not be gated on locked commercial terms",
       ],
     });
 
+    const gstin = screen.getByPlaceholderText("29ABCDE1234F1Z5");
+    await waitFor(() => expect(gstin).toBeEnabled());
+    await waitFor(() => expect(continueToReview()).toBeDisabled());
+
+    await userEvent.clear(gstin);
+    await userEvent.type(gstin, "29ABCDE1234F1Z5");
+
+    // The dead end is what mattered, not the check: correcting the value in
+    // place unblocks the round.
     await waitFor(() => expect(continueToReview()).toBeEnabled());
   });
 
