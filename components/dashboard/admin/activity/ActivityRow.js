@@ -48,47 +48,70 @@ const ActivityRow = ({ event }) => {
   const hasDetail = changes.length > 0;
 
   return (
-    <li className={styles.row}>
+    <li className={`${styles.row} ${severity.loud ? styles.rowLoud : ""}`}>
+      {/* Three fixed columns: risk, time, what happened.
+          Severity used to sit at the far right, a thousand pixels from where
+          the eye starts, so you had to read the whole sentence to find out
+          whether it mattered — and because the badges were right-aligned
+          behind a variable number of chips, no two rows agreed on where that
+          signal lived. Putting it first, at a fixed width, means running your
+          eye down the left edge tells you the shape of the day without
+          reading anything. */}
       <div className={styles.rowMain}>
+        <span className={`${styles.risk} ${styles[`riskLvl_${event.severity}`]}`}>
+          {severity.label}
+        </span>
+
         <time className={styles.time} dateTime={event.occurred_at}>
           {timeLabel(event.occurred_at)}
         </time>
 
+        <div className={styles.rowBody}>
+          <button
+            type="button"
+            className={styles.rowToggle}
+            onClick={toggle}
+            aria-expanded={open}
+          >
+            <span className={styles.summary}>{event.summary}</span>
+          </button>
+
+          {/* Context is a quiet second line rather than a row of pills. Only
+              the actor keeps a badge, and only when it is NOT ordinary company
+              staff — a vendor, the platform, or Workwise's own people is the
+              fact that changes how a line should be read. */}
+          <div className={styles.rowMeta}>
+            {event.actor_type !== "USER" && (
+              <span
+                className={`${styles.actorChip} ${actor.alert ? styles.actorChipAlert : ""}`}
+              >
+                {actor.label}
+                <InfoTip label={`What "${actor.label}" means`} text={actor.hint} size={11} />
+              </span>
+            )}
+            <span className={styles.metaText}>{event.category}</span>
+            {event.is_reconstructed && (
+              <span className={styles.reconstructed}>
+                Reconstructed
+                <InfoTip
+                  label="What reconstructed means"
+                  text="This line was rebuilt from records kept before the activity trail existed. It is accurate about what happened, but some details — sometimes including who did it — were never recorded at the time."
+                  size={11}
+                />
+              </span>
+            )}
+          </div>
+        </div>
+
         <button
           type="button"
-          className={styles.rowToggle}
+          className={styles.expand}
           onClick={toggle}
           aria-expanded={open}
+          aria-label={open ? "Hide what changed" : "Show what changed"}
         >
           {open ? <BsChevronDown size={11} /> : <BsChevronRight size={11} />}
-          <span className={styles.summary}>{event.summary}</span>
         </button>
-
-        <div className={styles.rowMeta}>
-          {/* Never colour alone: each chip carries its word. */}
-          <span className={`${styles.severity} ${styles[`sev_${event.severity}`]}`}>
-            {severity.label}
-          </span>
-          <span className={styles.chip}>{event.category}</span>
-          {event.actor_type !== "USER" && (
-            <span
-              className={`${styles.actorChip} ${actor.alert ? styles.actorChipAlert : ""}`}
-            >
-              {actor.label}
-              <InfoTip label={`What "${actor.label}" means`} text={actor.hint} size={11} />
-            </span>
-          )}
-          {event.is_reconstructed && (
-            <span className={styles.reconstructed}>
-              Reconstructed
-              <InfoTip
-                label="What reconstructed means"
-                text="This line was rebuilt from records kept before the activity trail existed. It is accurate about what happened, but some details — sometimes including who did it — were never recorded at the time."
-                size={11}
-              />
-            </span>
-          )}
-        </div>
       </div>
 
       {open && (

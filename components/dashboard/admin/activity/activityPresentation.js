@@ -19,14 +19,41 @@
  * scans for, so it should be the one the eye lands on.
  */
 
+/**
+ * Severity is the page's primary axis, so it carries more than a label: an
+ * order (the risk bar and the rail read top-down, worst first) and a `loud`
+ * flag that decides whether a row is allowed to shout.
+ *
+ * Only `critical` is loud. A feed where every line competes is a feed where
+ * nothing stands out, which is the failure this screen exists to avoid — an
+ * admin glancing at it should see the shape of the day before reading a word.
+ */
 export const SEVERITY_META = {
   critical: {
     label: "Critical",
+    rank: 0,
+    loud: true,
     hint: "Money, access, or something that cannot be undone",
+    lead: "Worth a look",
   },
-  notable: { label: "Notable", hint: "Moves work forward a stage" },
-  routine: { label: "Routine", hint: "Everyday edits and status changes" },
+  notable: {
+    label: "Notable",
+    rank: 1,
+    loud: false,
+    hint: "Moves work forward a stage",
+    lead: "Moves work along",
+  },
+  routine: {
+    label: "Routine",
+    rank: 2,
+    loud: false,
+    hint: "Everyday edits and status changes",
+    lead: "Everyday edits",
+  },
 };
+
+/** Worst first — the order the risk bar and the feed both read in. */
+export const SEVERITY_ORDER = ["critical", "notable", "routine"];
 
 export const ACTOR_META = {
   USER: { label: "Staff", hint: "Someone in your company" },

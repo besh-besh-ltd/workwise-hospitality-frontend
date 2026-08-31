@@ -7,6 +7,7 @@ import useActivityStream from "@/hooks/useActivityStream";
 import Loader from "@/components/shared/Loader";
 import ActivityFilters from "./ActivityFilters";
 import ActivityRow from "./ActivityRow";
+import ActivityRiskBar from "./ActivityRiskBar";
 import { groupByDay } from "./activityPresentation";
 import styles from "./Activity.module.css";
 
@@ -76,9 +77,17 @@ const ActivityPage = () => {
     }
   }, []);
 
+  // Waits for router.isReady. Next.js leaves router.query empty until
+  // hydration, so firing the fetch on mount asks for an UNFILTERED feed and
+  // renders it — a link to ?severity=critical showed everything, and the tile
+  // sat visibly pressed above a list that contradicted it. Client-side
+  // navigation always worked, which is exactly why this survived: the bug
+  // only appears on a cold load, and a shared or bookmarked link is always a
+  // cold load.
   useEffect(() => {
+    if (!router.isReady) return;
     load();
-  }, [load, router.query]);
+  }, [load, router.isReady, router.query]);
 
   useEffect(() => {
     getActivityFacets()
@@ -173,15 +182,21 @@ const ActivityPage = () => {
         </button>
       </header>
 
-      <div className={styles.body}>
-        <ActivityFilters
-          filters={filters}
-          facets={facets}
-          onChange={applyFilters}
-          onClear={clearFilters}
-          resultCount={loading ? null : total}
-        />
+      <ActivityRiskBar
+        severities={facets.severities}
+        active={filters.severity}
+        onSelect={(severity) => applyFilters({ ...filters, severity, page: 1 })}
+      />
 
+      <ActivityFilters
+        filters={filters}
+        facets={facets}
+        onChange={applyFilters}
+        onClear={clearFilters}
+        resultCount={loading ? null : total}
+      />
+
+      <div className={styles.body}>
         <main className={styles.feed}>
           {pending > 0 && (
             <button type="button" className={styles.newPill} onClick={() => load()}>
@@ -204,16 +219,31 @@ const ActivityPage = () => {
             </div>
           ) : (
             <>
-              {groups.map((group) => (
+              {groups.map((group) => {
+                const criticalToday = group.rows.filter(
+                  (r) => r.severity === "critical"
+                ).length;
+                return (
                 <section key={group.label} className={styles.dayGroup}>
-                  <h2 className={styles.dayHeading}>{group.label}</h2>
+                  <h2 className={styles.dayHeading}>
+                    <span>{group.label}</span>
+                    {/* Only shown when there is something to say. A "0
+                        critical" on every quiet day trains the eye to skip the
+                        place the number appears. */}
+                    {criticalToday > 0 && (
+                      <span className={styles.dayCritical}>
+                        {criticalToday} critical
+                      </span>
+                    )}
+                  </h2>
                   <ul className={styles.rows}>
                     {group.rows.map((event) => (
                       <ActivityRow key={event.id} event={event} />
                     ))}
                   </ul>
                 </section>
-              ))}
+                );
+              })}
 
               <nav className={styles.pager}>
                 <button

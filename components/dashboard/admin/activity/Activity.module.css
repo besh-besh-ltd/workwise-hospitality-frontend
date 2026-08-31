@@ -1,146 +1,231 @@
-/* ============================================
-   Activity — the company trail
-   ============================================ */
+/* Activity — an audit feed read by someone who is not concentrating.
+   The single job of this screen is to let a risk be noticed without being
+   read, so severity owns the left edge at a fixed x-position and only
+   `critical` is allowed to shout. Everything else is deliberately quiet. */
 
-.page { padding: 24px 28px 48px; }
+.page { padding: 26px 30px 44px; max-width: 1180px; }
 
 .header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+  gap: 24px; margin-bottom: 20px;
 }
-.title { font-size: 22px; font-weight: 700; margin: 0; color: #1a1a1a; }
-.subtitle { font-size: 13px; color: #6b7280; margin: 4px 0 0; max-width: 62ch; line-height: 1.55; }
+.title { font-size: 25px; font-weight: 650; color: #14181f; margin: 0 0 4px; letter-spacing: -0.01em; }
+.subtitle { font-size: 13px; color: #6b7280; margin: 0; max-width: 60ch; line-height: 1.55; }
 
 .exportBtn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 14px; border: 1px solid #e0e0e0; border-radius: 9px;
-  background: #fff; color: #374151; font-size: 12.5px; font-weight: 500;
-  cursor: pointer; transition: all .15s ease; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  border: 1px solid #d8dce3; background: #fff; color: #344054;
+  border-radius: 9px; padding: 8px 15px; font-size: 13px; cursor: pointer;
 }
-.exportBtn:hover:not(:disabled) { background: #f7f7f7; border-color: #d0d0d0; }
-.exportBtn:disabled { opacity: .5; cursor: not-allowed; }
-.exportBtn:focus-visible { outline: 2px solid var(--primary-color, #2563eb); outline-offset: 1px; }
+.exportBtn:hover:not(:disabled) { background: #f8fafc; }
+.exportBtn:disabled { opacity: .5; cursor: default; }
 
-.body { display: grid; grid-template-columns: 260px 1fr; gap: 26px; align-items: start; }
+/* ── The risk bar: the answer before the feed is read ──────────────────── */
 
-/* --- Filter rail --- */
-.rail {
-  position: sticky; top: 16px;
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 18px; border: 1px solid #ececec; border-radius: 12px; background: #fff;
+/* Deliberately small. These are a status line, not a dashboard — three big
+   cards would out-shout the feed they exist to introduce, and the feed is the
+   content. The period label leads so the numbers are never read bare. */
+.riskBar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px;
 }
-.railHead { display: flex; align-items: center; justify-content: space-between; }
-.railTitle {
-  font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
-  color: #9ca3af; margin: 0;
+
+.riskPeriod {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: #98a2b3; margin-right: 4px; white-space: nowrap;
 }
+
+.riskTile {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 6px 13px; cursor: pointer;
+  border: 1px solid #e4e7ec; border-radius: 20px; background: #fff;
+  transition: border-color .12s ease, background .12s ease;
+}
+.riskTile:hover { border-color: #c8cdd6; }
+.riskTileOn { border-color: #14181f; background: #14181f; }
+.riskTileOn .riskLabel { color: #fff; }
+.riskTileOn .riskCount { color: #fff; }
+
+.riskCount { font-size: 15px; font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; }
+.riskLabel { font-size: 12px; font-weight: 500; color: #667085; }
+
+/* Colour marks the count only; the word beside it always carries the level,
+   so nothing here depends on colour alone. */
+.risk_critical .riskCount { color: #b42318; }
+.risk_notable  .riskCount { color: #b54708; }
+.risk_routine  .riskCount { color: #667085; }
+
+/* ── Filters: a bar, not a rail ────────────────────────────────────────── */
+
+.filterBar { margin-bottom: 18px; }
+
+.filterTop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.searchWrap { flex: 1 1 320px; min-width: 220px; }
+.search {
+  width: 100%; border: 1px solid #dfe3e9; border-radius: 9px;
+  padding: 9px 13px; font-size: 13px; color: #14181f; background: #fff;
+}
+.search::placeholder { color: #9aa3af; }
+
+.srOnly {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.moreBtn {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  border: 1px solid #dfe3e9; background: #fff; color: #475467;
+  border-radius: 9px; padding: 9px 14px; font-size: 13px; cursor: pointer;
+}
+.moreBtnOn { border-color: #14181f; color: #14181f; }
+.activeDot {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px;
+  background: #14181f; color: #fff; font-size: 10.5px; font-weight: 600;
+}
+
 .clearBtn {
   display: inline-flex; align-items: center; gap: 3px;
-  border: none; background: none; padding: 2px 4px; border-radius: 5px;
-  color: #6b7280; font-size: 11.5px; cursor: pointer;
+  border: 0; background: none; color: #667085; font-size: 12.5px; cursor: pointer;
 }
-.clearBtn:hover { background: #f4f4f1; color: #374151; }
+.clearBtn:hover { color: #b42318; }
 
-.field { display: flex; flex-direction: column; gap: 5px; }
-.fieldRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.fieldLabel {
-  display: flex; align-items: center;
-  font-size: 11.5px; font-weight: 600; color: #6b7280; padding: 0;
+.resultCount { margin: 0 0 0 auto; font-size: 12.5px; color: #98a2b3; }
+
+.filterMore {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; margin-top: 12px; padding: 15px;
+  border: 1px solid #e8eaee; border-radius: 12px; background: #fbfcfd;
 }
+.field { display: grid; gap: 5px; }
+.fieldLabel { font-size: 11.5px; font-weight: 600; color: #667085; }
 .input {
-  width: 100%; padding: 7px 10px; border: 1px solid #e0e0e0; border-radius: 8px;
-  font-size: 12.5px; color: #1a1a1a; background: #fff; font-family: inherit;
-}
-.input:focus-visible { outline: 2px solid var(--primary-color, #2563eb); outline-offset: -1px; border-color: transparent; }
-
-.pills { display: flex; flex-wrap: wrap; gap: 6px; }
-.pill {
-  padding: 4px 10px; border: 1px solid #e0e0e0; border-radius: 20px;
-  background: #fff; color: #6b7280; font-size: 11.5px; cursor: pointer; transition: all .15s ease;
-}
-.pill:hover { border-color: #c8c8c8; }
-.pillOn { background: #1a1a1a; border-color: #1a1a1a; color: #fff; font-weight: 600; }
-.pill:focus-visible { outline: 2px solid var(--primary-color, #2563eb); outline-offset: 2px; }
-
-.railCount {
-  margin: 2px 0 0; padding-top: 12px; border-top: 1px solid #f0f0f0;
-  font-size: 12px; color: #6b7280;
+  border: 1px solid #dfe3e9; border-radius: 8px; padding: 8px 11px;
+  font-size: 13px; color: #14181f; background: #fff; width: 100%;
 }
 
-/* --- Feed --- */
-.feed { min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+/* ── The feed ──────────────────────────────────────────────────────────── */
 
-.newPill {
-  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border: 1px solid var(--primary-color, #2563eb); border-radius: 20px;
-  background: #eff6ff; color: var(--primary-color, #2563eb);
-  font-size: 12.5px; font-weight: 600; cursor: pointer;
-}
-.newPill:hover { background: #dbeafe; }
+.body { display: block; }
+.feed { min-width: 0; }
 
-.dayGroup { display: flex; flex-direction: column; gap: 8px; }
+.dayGroup { margin-bottom: 26px; }
 .dayHeading {
-  position: sticky; top: 0; z-index: 2;
-  margin: 0; padding: 6px 0;
-  font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
-  color: #9ca3af; background: linear-gradient(#fff 70%, rgba(255,255,255,0));
+  display: flex; align-items: baseline; gap: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: #98a2b3; margin: 0 0 8px; padding-bottom: 7px; border-bottom: 1px solid #eceef2;
+}
+.dayCritical { color: #b42318; letter-spacing: .04em; }
+
+.rows { list-style: none; margin: 0; padding: 0; }
+
+.row { border-bottom: 1px solid #f1f3f6; }
+.row:last-child { border-bottom: 0; }
+
+/* The one row type allowed to shout. A wash plus a left edge, so a run of
+   them is visible as a block from across a desk. */
+.rowLoud { background: #fffbfa; box-shadow: inset 3px 0 0 #b42318; }
+
+.rowMain {
+  display: grid;
+  grid-template-columns: 78px 52px minmax(0, 1fr) 26px;
+  align-items: baseline;
+  gap: 14px;
+  padding: 11px 12px 11px 14px;
 }
 
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-
-.row { border-bottom: 1px solid #f2f2f2; padding: 9px 0; }
-.row:last-child { border-bottom: none; }
-
-.rowMain { display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: baseline; }
-
-.time {
-  font-size: 11.5px; color: #9ca3af;
-  font-variant-numeric: tabular-nums; padding-top: 1px;
+/* Fixed width and fixed position: the whole point. Every severity word in the
+   feed sits at the same x, so the left edge can be scanned without reading. */
+.risk {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  white-space: nowrap;
 }
+.riskLvl_critical { color: #b42318; }
+.riskLvl_notable  { color: #b54708; }
+.riskLvl_routine  { color: #b0b7c3; }
+
+.time { font-size: 12px; color: #98a2b3; font-variant-numeric: tabular-nums; }
+
+.rowBody { min-width: 0; }
 
 .rowToggle {
-  display: flex; align-items: baseline; gap: 8px; min-width: 0;
-  border: none; background: none; padding: 0; text-align: left; cursor: pointer; color: #1a1a1a;
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; padding: 0; cursor: pointer;
 }
-.rowToggle:focus-visible { outline: 2px solid var(--primary-color, #2563eb); outline-offset: 3px; border-radius: 4px; }
-.rowToggle svg { flex-shrink: 0; color: #b8b8b8; position: relative; top: 1px; }
+.summary { font-size: 14px; color: #1f2530; line-height: 1.45; }
+/* Weight is the cheapest at-a-glance signal there is. */
+.rowLoud .summary { font-weight: 600; color: #14181f; }
 
-.summary { font-size: 13.5px; line-height: 1.5; }
+.rowMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; }
+.metaText { font-size: 11.5px; color: #98a2b3; }
 
-.rowMeta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-
-/* Severity: colour AND a word, never colour alone. */
-.severity {
-  padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 600;
-  letter-spacing: .02em; white-space: nowrap;
-}
-.sev_critical { background: #fef2f2; color: #b91c1c; border: 1px solid #f5d5d5; }
-.sev_notable  { background: #fef7ed; color: #b45309; border: 1px solid #f2e0c8; }
-.sev_routine  { background: #f4f4f1; color: #6b7280; border: 1px solid #e8e8e3; }
-
-.chip {
-  padding: 2px 8px; border-radius: 20px; background: #f7f7f5;
-  border: 1px solid #ececec; color: #6b7280; font-size: 10.5px; white-space: nowrap;
-}
 .actorChip {
-  display: inline-flex; align-items: center;
-  padding: 2px 7px; border-radius: 20px; background: #eef2ff;
-  border: 1px solid #dfe4fb; color: #4338ca; font-size: 10.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 20px; background: #f2f4f8;
+  border: 1px solid #e4e8ef; color: #4b5565; font-size: 10.5px; white-space: nowrap;
 }
-/* The supplier, inside the customer's account. Deliberately louder than the
-   other actor chips — it is the line a client's IT review looks for, and it
-   should not have to be hunted for among vendors and cron jobs. */
-.actorChipAlert {
-  background: #fff7ed; border-color: #fed7aa; color: #9a3412; font-weight: 600;
-}
+/* The supplier, inside the customer's account — the line an IT review looks
+   for, so it is the one chip permitted any colour. */
+.actorChipAlert { background: #fff7ed; border-color: #fed7aa; color: #9a3412; font-weight: 600; }
+
 .reconstructed {
-  display: inline-flex; align-items: center;
-  padding: 2px 7px; border-radius: 20px; background: #fff;
-  border: 1px dashed #d8d8d8; color: #9ca3af; font-size: 10.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 20px; background: #fff;
+  border: 1px dashed #d8dce3; color: #9aa3af; font-size: 10.5px; white-space: nowrap;
 }
 
-/* --- Expanded detail --- */
+.expand {
+  border: 0; background: none; color: #b0b7c3; cursor: pointer;
+  padding: 2px; line-height: 1; justify-self: end;
+}
+.expand:hover { color: #475467; }
+
+.newPill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #c7d7fe; background: #eff4ff; color: #3538cd;
+  border-radius: 20px; padding: 6px 14px; font-size: 12.5px; cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.errorBanner {
+  padding: 12px 15px; border: 1px solid #f3d0d0; background: #fdf3f3;
+  color: #a33; border-radius: 10px; font-size: 13px; margin-bottom: 16px;
+}
+
+.emptyState {
+  text-align: center; padding: 54px 20px; color: #667085;
+  border: 1px dashed #dfe3e9; border-radius: 12px;
+}
+.emptyState h2 { font-size: 16px; color: #344054; margin: 0 0 6px; }
+.emptyState p { font-size: 13px; margin: 0 auto; max-width: 44ch; line-height: 1.6; }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 22px; }
+.pagerBtn {
+  border: 1px solid #dfe3e9; background: #fff; color: #475467;
+  border-radius: 8px; padding: 7px 16px; font-size: 12.5px; cursor: pointer;
+}
+.pagerBtn:disabled { opacity: .45; cursor: default; }
+.pagerState { font-size: 12.5px; color: #98a2b3; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 900px) {
+  .page { padding: 18px 16px 32px; }
+  .filterMore { grid-template-columns: 1fr; }
+
+  /* Two columns: severity and time stack in a narrow gutter, the sentence
+     takes the rest. The gutter keeps the same left edge the desktop layout
+     has, so the scan-down-the-side reading still works on a phone. */
+  .rowMain { grid-template-columns: 62px minmax(0, 1fr); gap: 4px 12px; }
+  .risk { grid-column: 1; grid-row: 1; font-size: 9.5px; }
+  .time { grid-column: 1; grid-row: 2; font-size: 11px; }
+  .rowBody { grid-column: 2; grid-row: 1 / 4; }
+
+  /* The whole sentence is already the toggle, so a separate chevron on its
+     own line is a second control doing the same job in more space. */
+  .expand { display: none; }
+}
+
 .detail {
   margin: 10px 0 4px 58px; padding: 12px 14px;
   border: 1px solid #f0f0f0; border-radius: 10px; background: #fafafa;

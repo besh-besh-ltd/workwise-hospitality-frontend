@@ -10,7 +10,15 @@ jest.mock("@/lib/axios", () => ({ __esModule: true, default: {} }), { virtual: t
 
 const mockPush = jest.fn();
 let mockQuery = {};
-jest.mock("next/router", () => ({ useRouter: () => ({ query: mockQuery, push: mockPush }) }));
+// `isReady` is modelled because the real router does not populate `query`
+// until after hydration. Omitting it here is what let a cold load with a
+// filter in the URL fetch an unfiltered feed and render it — a shared link to
+// ?severity=critical showed everything, with the tile visibly pressed above a
+// list that contradicted it.
+let mockIsReady = true;
+jest.mock("next/router", () => ({
+  useRouter: () => ({ query: mockQuery, isReady: mockIsReady, push: mockPush }),
+}));
 
 jest.mock("@/services/activity", () => ({
   getActivity: jest.fn(),
@@ -90,6 +98,7 @@ const FACETS = {
 beforeEach(() => {
   mockPush.mockReset();
   mockQuery = {};
+  mockIsReady = true;
   streamHandler = null;
   getActivity.mockReset().mockResolvedValue({ data: { rows: EVENTS, total: 3 } });
   getActivityFacets.mockReset().mockResolvedValue({ data: FACETS });
@@ -162,7 +171,7 @@ describe("filters", () => {
     render(<ActivityPage />);
     await screen.findByText("Priya approved purchase order 138800");
 
-    fireEvent.click(screen.getByRole("button", { name: "Critical" }));
+    fireEvent.click(screen.getByRole("button", { name: /Critical$/ }));
 
     expect(mockPush).toHaveBeenCalledWith(
       { pathname: "/dashboard/admin/activity", query: { severity: "critical" } },
@@ -171,12 +180,37 @@ describe("filters", () => {
     );
   });
 
+  it("waits for the router before asking the server for anything", async () => {
+    // Next.js leaves router.query empty until hydration. Fetching on mount
+    // therefore asks for an UNFILTERED feed and renders it: a shared link to
+    // ?severity=critical showed everything, with the tile visibly pressed
+    // above a list that contradicted it. Client-side navigation always
+    // worked, which is why it survived — a shared or bookmarked link is the
+    // one case that is always a cold load.
+    mockIsReady = false;
+    mockQuery = { severity: "critical" };
+    render(<ActivityPage />);
+
+    await new Promise((r) => setTimeout(r, 60));
+    expect(getActivity).not.toHaveBeenCalled();
+  });
+
+  it("asks for the filter the URL names, once the router is ready", async () => {
+    mockQuery = { severity: "critical" };
+    render(<ActivityPage />);
+
+    await waitFor(() => expect(getActivity).toHaveBeenCalled());
+    expect(getActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ severity: "critical" })
+    );
+  });
+
   it("reads the current filter back out of the URL", async () => {
     mockQuery = { severity: "critical", category: "Approvals" };
     render(<ActivityPage />);
     await screen.findByText("Priya approved purchase order 138800");
 
-    expect(screen.getByRole("button", { name: "Critical" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /Critical$/ })).toHaveAttribute(
       "aria-pressed",
       "true"
     );
@@ -188,6 +222,7 @@ describe("filters", () => {
   it("only offers units this company actually has activity in", async () => {
     render(<ActivityPage />);
     await screen.findByText("Priya approved purchase order 138800");
+    fireEvent.click(screen.getByRole("button", { name: /More filters/ }));
     expect(await screen.findByText("The Orchid Pune (5)")).toBeInTheDocument();
   });
 
@@ -286,6 +321,7 @@ describe("Workwise's own staff in the feed", () => {
     // this screen, so it has to be one selection rather than a search.
     render(<ActivityPage />);
     await screen.findByText(/Workwise staff \(Support\) opened/i);
+    fireEvent.click(screen.getByRole("button", { name: /More filters/ }));
     const kind = screen.getByLabelText("Kind of actor");
     expect(
       within(kind).getByRole("option", { name: "Workwise" })
