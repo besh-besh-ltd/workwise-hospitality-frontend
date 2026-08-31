@@ -62,6 +62,18 @@ const HospitalityManager = () => {
     ? router.query.tab
     : "hotels";
 
+  // Next.js populates router.query AFTER hydration. Until isReady, it is `{}` —
+  // so anything that reads the URL on mount sees nothing, and anything that
+  // WRITES the URL on mount spreads that empty object and wipes the rest of it.
+  //
+  // That is not theoretical: it silently undid the whole of HN-1. Opening
+  // /hospitality-manager?companyId=10001&tab=users landed on the default
+  // company with the tab dropped, because the company loader ran before the
+  // query arrived, concluded the URL named no valid company, and replaced the
+  // URL with its own default. Unit tests could not see it — a mocked router
+  // returns query synchronously populated, which the real one never does.
+  const routerReady = router.isReady;
+
   // `replace`, not `push`: choosing a company is not a place you should have
   // to press Back through. Back is reserved for leaving this screen, which is
   // the whole point of HN-1.
@@ -138,13 +150,15 @@ const HospitalityManager = () => {
       // Default to the first company only when the URL names none, or names
       // one that is gone. A URL that already names a real company is the
       // caller's intent and must survive a refresh of the list.
-      if (list.length) {
-        const fromUrl = Number(router.query.companyId);
-        if (!list.some((c) => c.id === fromUrl)) setSelectedCompanyId(list[0].id);
-      } else {
+      //
+      // Guarded on isReady: before hydration the query is empty, so every URL
+      // would look like "names no company" and be overwritten by the default.
+      if (!list.length) {
         setSelectedCompanyId(null);
         setHotels([]);
       }
+      // Choosing the default is deliberately NOT done here — see the effect
+      // below. It has to wait for the router, and the fetch must not.
     } catch (error) {
       console.error(error);
       toast.error("Failed to load hospitality companies");
@@ -152,6 +166,21 @@ const HospitalityManager = () => {
       setIsLoadingCompanies(false);
     }
   };
+
+  // Pick a default company once, and only once the URL can actually be read.
+  //
+  // Split out of loadCompanies because the two have different preconditions:
+  // the fetch needs nothing, this needs a hydrated router. Folding them
+  // together is what let the pre-hydration empty query overwrite a perfectly
+  // good URL.
+  useEffect(() => {
+    if (!routerReady || !companies.length) return;
+    const fromUrl = Number(router.query.companyId);
+    if (!companies.some((c) => c.id === fromUrl)) {
+      setSelectedCompanyId(companies[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routerReady, companies, router.query.companyId]);
 
   const loadAllUserMappings = async () => {
     if (!selectedCompanyId) { setCompanyUserMappings([]); setHotelUserMappings({}); return; }

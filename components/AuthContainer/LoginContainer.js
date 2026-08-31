@@ -161,7 +161,14 @@ const LoginContainer = (props) => {
                     return;
                 }
                 let userType = "";
-                if (userDetail.user_type == 2) {
+                // Company administration is a capability, not a user type: an
+                // administrator is an ordinary buyer (user_type 2) who also
+                // holds `company.admin`. Reading only user_type would call
+                // them a buyer and AdminGuard would bounce them out of every
+                // admin screen the backend has already allowed them into.
+                if (userDetail.is_company_admin) {
+                    userType = "admin";
+                } else if (userDetail.user_type == 2) {
                     userType = "buyer";
                 } else if (userDetail.user_type == 3) {
                     userType = "vendor";
@@ -260,7 +267,11 @@ const LoginContainer = (props) => {
                     });
 
                     let userType = "";
-                    if (response?.profile?.user_type == 2) {
+                    // Same rule as the password path above: the capability
+                    // decides the persona, not user_type.
+                    if (response?.profile?.is_company_admin) {
+                        userType = "admin";
+                    } else if (response?.profile?.user_type == 2) {
                         userType = "buyer";
                     } else if (response?.profile?.user_type == 3) {
                         userType = "vendor";

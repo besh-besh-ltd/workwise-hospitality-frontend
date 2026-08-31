@@ -114,7 +114,7 @@ const ApprovalCover = () => {
 
   return (
     <div className={styles.cover}>
-      <p className={styles.classHint}>
+      <p className={styles.coverHint}>
         Cover applies to approvals raised from now on. It does not move anything
         already waiting — use <strong>In progress</strong> to reassign those.
         <InfoTip

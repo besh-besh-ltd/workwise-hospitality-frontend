@@ -35,18 +35,30 @@ const CLASS_META = {
     tone: "danger",
     hint: "Every approver on the current step has either been removed from it or had their account switched off. These cannot move without you.",
     action: "Reassign to someone who can approve",
+    empty: {
+      title: "Nothing is blocked",
+      body: "Every approval waiting in your company still has someone who can act on it.",
+    },
   },
   waiting: {
     label: "Waiting on someone",
     tone: "warn",
     hint: "A person who can act has this. It is not broken — it may just need a reminder.",
     action: "Chase the approver, or reassign if they are away",
+    empty: {
+      title: "Nothing is waiting on anyone",
+      body: "No approval in your company is currently sitting with a person who could act on it.",
+    },
   },
   overtaken: {
     label: "No longer matters",
     tone: "muted",
     hint: "The work moved past this approval. An RFQ whose bid window has closed can take no more quotes, so approving it now changes nothing. These are better cancelled than chased.",
     action: "Cancel — approving changes nothing",
+    empty: {
+      title: "Nothing has been overtaken",
+      body: "Every approval still waiting can, if approved, change something.",
+    },
   },
 };
 
@@ -70,7 +82,14 @@ const ageLabel = (days) => {
 const StuckApprovals = () => {
   // Opens on the class that needs an administrator today. A screen that opens
   // on all 332 rows has already failed at the only question being asked.
+  //
+  // But "blocked" is zero for most companies most of the time, and landing on
+  // an empty panel while two other classes hold work is the same failure in
+  // the other direction. So the default holds only until the counts arrive,
+  // then falls to the first class that actually has something — unless the
+  // reader has already chosen one.
   const [selectedClass, setSelectedClass] = useState("blocked");
+  const [classChosen, setClassChosen] = useState(false);
   const [data, setData] = useState({ counts: null, items: [], total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,6 +114,13 @@ const StuckApprovals = () => {
 
   const counts = data.counts || { blocked: 0, waiting: 0, overtaken: 0, total: 0 };
   const meta = CLASS_META[selectedClass];
+
+  useEffect(() => {
+    if (classChosen || !data.counts) return;
+    if (counts[selectedClass] > 0) return;
+    const firstWithWork = ["blocked", "waiting", "overtaken"].find((k) => counts[k] > 0);
+    if (firstWithWork) setSelectedClass(firstWithWork);
+  }, [data.counts, counts, selectedClass, classChosen]);
 
   const nothingAtAll = useMemo(
     () => counts.blocked === 0 && counts.waiting === 0 && counts.overtaken === 0,
@@ -129,7 +155,7 @@ const StuckApprovals = () => {
             className={`${styles.classTab} ${styles[`tone_${m.tone}`]} ${
               selectedClass === key ? styles.classTabOn : ""
             }`}
-            onClick={() => setSelectedClass(key)}
+            onClick={() => { setClassChosen(true); setSelectedClass(key); }}
           >
             <span className={styles.classCount}>{counts[key] ?? 0}</span>
             <span className={styles.classLabel}>{m.label}</span>
@@ -145,8 +171,8 @@ const StuckApprovals = () => {
       {data.items.length === 0 && (
         <div className={styles.emptyState}>
           <BsCheck2Circle size={24} />
-          <h2>Nothing in this state</h2>
-          <p>Nothing in your company is currently {meta.label.toLowerCase()}.</p>
+          <h2>{meta.empty.title}</h2>
+          <p>{meta.empty.body}</p>
         </div>
       )}
 
@@ -218,8 +244,12 @@ const StuckRow = ({ item, recommendation, onReassigned, reassigning, setReassign
     <li className={styles.stuckRow}>
       <div className={styles.stuckMain}>
         <div className={styles.stuckWhat}>
+          {/* The number the rest of the product uses. entity_id is a primary
+              key — an admin sent to chase "RFQ #112" will not find it, because
+              the listing, the emails and the PDF all say RFQ 1. */}
           <span className={styles.stuckEntity}>
-            {ENTITY_LABEL[item.entity_type] || item.entity_type} #{item.entity_id}
+            {ENTITY_LABEL[item.entity_type] || item.entity_type}
+            {item.entity_ref ? ` ${item.entity_ref}` : ""}
           </span>
           <span className={styles.stuckUnit}>
             {item.hotel_name || item.company_name || "—"}

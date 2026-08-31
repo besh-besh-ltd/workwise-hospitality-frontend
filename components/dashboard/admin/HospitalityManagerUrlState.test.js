@@ -14,9 +14,15 @@ jest.mock("@/lib/axios", () => ({ __esModule: true, default: {} }), { virtual: t
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 let mockQuery = {};
+// `isReady` is modelled because the real router does not populate `query`
+// until after hydration. The first version of this mock returned it
+// synchronously, which is exactly why a cold load wiping the URL went
+// unnoticed until the screen was opened in a browser.
+let mockIsReady = true;
 jest.mock("next/router", () => ({
   useRouter: () => ({
     query: mockQuery,
+    isReady: mockIsReady,
     pathname: "/dashboard/admin/hospitality-manager",
     replace: mockReplace,
     push: mockPush,
@@ -52,6 +58,7 @@ beforeEach(() => {
   mockReplace.mockReset();
   mockPush.mockReset();
   mockQuery = {};
+  mockIsReady = true;
 });
 
 describe("where the selection lives", () => {
@@ -119,6 +126,36 @@ describe("where the selection lives", () => {
     // The People tab's own heading renders only when that tab is active, so
     // two "People" means the tab button plus the panel it opened.
     await waitFor(() => expect(screen.getAllByText("People").length).toBeGreaterThan(1));
+  });
+
+  it("does not touch the URL before the router can read it", async () => {
+    // Next.js leaves router.query empty until hydration. Writing the URL from
+    // that state spreads an empty object and wipes whatever was in it — which
+    // silently undid the whole of HN-1: a link naming a company and a tab
+    // landed on the default company with the tab gone.
+    mockIsReady = false;
+    mockQuery = {};
+    render(<HospitalityManager />);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("honours a company and tab that arrive only after hydration", async () => {
+    mockIsReady = false;
+    mockQuery = {};
+    const { rerender } = render(<HospitalityManager />);
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Hydration completes and the real query shows up.
+    mockIsReady = true;
+    mockQuery = { companyId: "10002", tab: "users" };
+    rerender(<HospitalityManager />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    // It must not overwrite the company the URL now names.
+    expect(
+      mockReplace.mock.calls.some(([a]) => String(a?.query?.companyId) === "10001")
+    ).toBe(false);
   });
 
   it("keeps the company when only the tab changes", async () => {
