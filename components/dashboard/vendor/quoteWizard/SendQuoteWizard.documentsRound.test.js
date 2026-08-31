@@ -231,7 +231,11 @@ const renderWizard = async (rounds, vendorStatus = []) => {
   getAllActiveNegotiationRounds.mockResolvedValue({ data: rounds });
   getAllVendorNegotiationStatus.mockResolvedValue({ status: 1, data: vendorStatus });
   render(<SendQuoteWizard />);
-  await screen.findAllByText("Review & submit");
+  // A live round now lands the vendor on the step holding the ask (Pricing or
+  // Commercial terms), not on Review — the step they landed on used to mention
+  // neither the round nor the target (RFQ 536237). Walk to Review explicitly.
+  const reviewTab = (await screen.findAllByText("Review & submit"))[0];
+  await userEvent.click(reviewTab.closest("button") || reviewTab);
 };
 
 const submitButton = () => screen.getByRole("button", { name: /Confirm & Update/i });
@@ -298,8 +302,10 @@ describe("an RFQ-level documents round", () => {
     const input = fileInputUnder(await screen.findByText(/Attach supporting documents/i));
     const file = new File(["x"], "gst.pdf", { type: "application/pdf" });
     await userEvent.upload(input, file);
-    // Submit lives on the last step, relabelled "Review" once the bid expires.
-    const review = (await screen.findAllByText("Review"))[0];
+    // Submit lives on the last step. It keeps its "Review & submit" label while
+    // a round is live — calling it a read-only "Snapshot" is what convinced
+    // vendors the RFQ was closed.
+    const review = (await screen.findAllByText("Review & submit"))[0];
     await userEvent.click(review.closest("button") || review);
     await waitFor(() => expect(submitButton()).toBeEnabled());
     await userEvent.click(submitButton());

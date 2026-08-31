@@ -105,6 +105,7 @@ jest.mock("react-redux", () => ({
 
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
 import { getRFQById } from "@/services/rfq";
@@ -176,8 +177,11 @@ const renderWizard = async (rfq, rounds) => {
   getRFQById.mockResolvedValue({ data: rfq });
   getAllActiveNegotiationRounds.mockResolvedValue({ data: rounds });
   render(<SendQuoteWizard />);
-  // A saved quote opens the wizard directly on Review & submit.
-  await screen.findAllByText("Review & submit");
+  // A live round now lands the vendor on the step holding the ask (Pricing or
+  // Commercial terms), not on Review — the step they landed on used to mention
+  // neither the round nor the target (RFQ 536237). Walk to Review explicitly.
+  const reviewTab = (await screen.findAllByText("Review & submit"))[0];
+  await userEvent.click(reviewTab.closest("button") || reviewTab);
 };
 
 const submitButton = () => screen.getByRole("button", { name: /Confirm & Update/i });
@@ -216,7 +220,20 @@ describe("negotiation revision on a quote with no delivery period", () => {
 
     // Here the field is editable, so requiring it is fair — and the vendor can
     // satisfy it. The rule survives exactly where it makes sense.
-    await waitFor(() => expect(submitButton()).toBeDisabled());
+    //
+    // The block now bites one step earlier: a live round lands the vendor on
+    // Pricing, which is where the blank delivery_period actually is, so they
+    // cannot advance to Review at all rather than walking to the last step to
+    // find a dead submit button. Same guarantee, stated where the vendor can
+    // act on it — Review is unreachable, so submit is unreachable.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Continue to terms/i })
+      ).toBeDisabled()
+    );
+    expect(
+      screen.queryByRole("button", { name: /Confirm & Update/i })
+    ).not.toBeInTheDocument();
   });
 
   test("submit is enabled once a delivery period exists, whatever the round opened", async () => {
