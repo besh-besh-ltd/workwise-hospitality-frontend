@@ -1,6 +1,12 @@
 // ARC v2 vendor quote page — the GSTIN box seeds from the vendor's company
 // profile.
 //
+// Lives here, not beside the page it drives: everything under pages/ is a
+// Next.js ROUTE (there is no `pageExtensions` filter), so a *.test.js file in
+// that tree gets built as a page and fails `next build` at page-data
+// collection with "expect is not defined". Import the page through the `@/`
+// alias instead.
+//
 // Same defect and same rule as the RFQ quote wizard: `gstin_used` is a column
 // on tbl_arc_quote, so it is scoped to ONE contract quote and every new ARC
 // opened with an empty box. Both surfaces now go through utils/gstin.seedGstin
@@ -59,7 +65,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import * as ArcApi from "@/services/arc_v2";
-import VendorArcQuotePage from "./quote";
+import VendorArcQuotePage from "@/pages/dashboard/vendor/rate-contracts/[contractId]/quote";
 
 const PROFILE_GSTIN = "29AAACW1234F1Z5";
 const QUOTE_GSTIN = "27BBBCW9876K1Z3";
