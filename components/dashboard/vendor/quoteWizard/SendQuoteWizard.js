@@ -56,6 +56,7 @@ import {
   sumPaymentTerms,
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
+import { isValidGstin, seedGstin } from "@/utils/gstin";
 
 // Format a buyer's negotiated target for display in an ask chip.
 //  - "days"   → "5 days"          (delivery period)
@@ -370,13 +371,6 @@ const API_TO_RESPONSE = (raw) => {
   return null;
 };
 
-// Loose GSTIN format check — 15 chars, India pattern. Optional field, so the
-// "no value" case is handled separately (warning at review).
-// Canonical 15-char GSTIN: 2-digit state + 10-char PAN + entity digit + 'Z' +
-// checksum. (The previous pattern only matched 14 chars, rejecting valid IDs.)
-const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-const isValidGstin = (v) => !v || GSTIN_PATTERN.test(String(v).trim().toUpperCase());
-
 /* ────────────────────────────────────────────────────────────────
    "Has this line been priced?" — ONE definition, used everywhere.
 
@@ -470,6 +464,11 @@ const SendQuoteWizard = () => {
   const [pricingMethod, setPricingMethod] = useState("TRADITIONAL");
   const [methodModalOpen, setMethodModalOpen] = useState(false);
   const [vendorGSTIN, setVendorGSTIN] = useState("");
+  // True while the GSTIN on screen was seeded from the vendor's company
+  // profile rather than read off this quote. Drives the "from your company
+  // profile" hint — the whole complaint was that a vendor could not tell
+  // whether they had filled the field in.
+  const [gstinFromProfile, setGstinFromProfile] = useState(false);
   const [globalComment, setGlobalComment] = useState("");
   // Vendor's quote-wide attachments — sent as `term_and_condition_files`
   // (stored in tbl_quotes_files for this quote), returned as the top-level
@@ -884,15 +883,20 @@ const SendQuoteWizard = () => {
    * Gated on the same principle as deliveryRequired above: require a field
    * only where the vendor can actually edit it. After bid expiry
    * Step4CommercialTerms disables every payment-term input unless the round
-   * raised an RFQ-level ask on payment_terms, and the GSTIN input locks
-   * unconditionally (`disabled={isReadOnly || isBidExpired}`) because GSTIN is
-   * never negotiable. Demanding a correction there is a dead end, not a
-   * safeguard — it deadlocked base_price-only rounds, where a quote carrying a
-   * payment row with no stored `type` (the select still DISPLAYS "advance") or
-   * a malformed legacy GSTIN could never reach Review & submit.
+   * raised an RFQ-level ask on payment_terms. Demanding a correction there is
+   * a dead end, not a safeguard — it deadlocked base_price-only rounds, where
+   * a quote carrying a payment row with no stored `type` (the select still
+   * DISPLAYS "advance") could never reach Review & submit.
    *
    * The stored values are already on record and go out unchanged, so nothing
    * is validated away — the check simply moves to where it can be satisfied.
+   *
+   * GSTIN is the one field that USED to be listed here and no longer is. It
+   * was skipped post-expiry only because the input locked on bid expiry; that
+   * lock left a vendor invited to a round with no GSTIN on file unable to
+   * supply one (215 of 331 production quotes on negotiated RFQs are blank).
+   * The input is now editable whenever the quote is, so by this same rule the
+   * format check applies again — the vendor can act on it.
    */
   const paymentTermsEditable =
     !isBidExpired ||
@@ -900,7 +904,7 @@ const SendQuoteWizard = () => {
       (f) => (f.name || "").toLowerCase() === "payment_terms"
     );
   const canContinueStep4 = useMemo(() => {
-    const gstinOk = isBidExpired || isValidGstin(vendorGSTIN);
+    const gstinOk = isValidGstin(vendorGSTIN);
     const validPayment =
       !paymentTermsEditable ||
       (paymentTotal === 100 &&
@@ -908,7 +912,7 @@ const SendQuoteWizard = () => {
           .filter((t) => t.action !== "delete")
           .every((t) => t.type && (Number(t.value) || 0) > 0));
     return gstinOk && validPayment;
-  }, [vendorGSTIN, paymentTotal, paymentTerms, isBidExpired, paymentTermsEditable]);
+  }, [vendorGSTIN, paymentTotal, paymentTerms, paymentTermsEditable]);
   // evalGateOk belongs here, not only on the step navigation. It used to guard
   // only forward movement through the stepper, and an already-quoted vendor is
   // dropped straight onto Review at load — skipping navigation entirely. That is
@@ -940,7 +944,7 @@ const SendQuoteWizard = () => {
         return "Every payment term needs a type and a percentage above zero.";
       }
     }
-    if (!isBidExpired && !isValidGstin(vendorGSTIN)) {
+    if (!isValidGstin(vendorGSTIN)) {
       return "The GSTIN format looks off — it should be 15 characters, e.g. 29ABCDE1234F1Z5.";
     }
     return null;
@@ -1232,11 +1236,19 @@ const SendQuoteWizard = () => {
 
         const hasQuote = (data.quotations || []).length > 0;
         setAlreadyQuoted(hasQuote);
+        // What tbl_quotes holds for THIS quote. Tracked outside the `hasQuote`
+        // branch because the profile seed below has to know whether the quote
+        // already answered the question — state set in this async handler is
+        // not readable again until the next render.
+        let storedGstin = "";
         if (hasQuote) {
           // Prefill payment terms + GSTIN + global comment from existing quote
           const qd = data.quote_details || {};
           const q0 = data.quotations?.[0] || {};
-          if (qd.gstin) setVendorGSTIN(qd.gstin);
+          if (qd.gstin) {
+            storedGstin = qd.gstin;
+            setVendorGSTIN(qd.gstin);
+          }
           if (qd.global_comment) setGlobalComment(qd.global_comment);
           // The vendor's quote attachments come back as the top-level
           // `terms_and_conditions_files` (built from tbl_quotes_files for THIS
@@ -1271,6 +1283,30 @@ const SendQuoteWizard = () => {
           }
           // Already-quoted vendors usually only re-visit pricing step
           setAcceptedTerms(true);
+        }
+
+        // GSTIN is a column on tbl_quotes, so it is scoped to ONE quote and
+        // every new RFQ opened with an empty box — which vendors read as "the
+        // GSTIN I entered was lost". Seed it from the vendor's own company
+        // profile, which the platform already holds (422 of 475 vendors) and
+        // which purchaseOrderModel already falls back to when it builds a PO.
+        //
+        // SEED, NEVER OVERRIDE: a quote that carries its own GSTIN keeps it.
+        // Delivery-location GSTINs legitimately differ from the head-office
+        // one, and that value is what the vendor actually submitted.
+        //
+        // Only a well-formed profile GSTIN is offered. 18 of 422 production
+        // profiles hold junk in this column (truncated to 14 chars, a stray
+        // leading ':', one literal password); seeding one would put a value
+        // the vendor never typed into the box and then block them at step 4
+        // for a format error on it.
+        const seeded = seedGstin({
+          stored: storedGstin,
+          profile: data.vendor_profile_gstin,
+        });
+        if (seeded.fromProfile) {
+          setVendorGSTIN(seeded.value);
+          setGstinFromProfile(true);
         }
 
         // Preload tech-eval clauses & responses for each product that has eval.
@@ -1752,6 +1788,9 @@ const SendQuoteWizard = () => {
 
   const changeGSTIN = (v) => {
     markUnsaved();
+    // Once the vendor types, the value is theirs and the profile hint no
+    // longer describes what is on screen.
+    setGstinFromProfile(false);
     setVendorGSTIN(v);
   };
   const changeGlobalComment = (v) => {
@@ -2385,6 +2424,7 @@ const SendQuoteWizard = () => {
             paymentTotal={paymentTotal}
             globalComment={globalComment}
             vendorGSTIN={vendorGSTIN}
+            gstinFromProfile={gstinFromProfile}
             globalCharges={globalCharges}
             globalDocumentFiles={globalDocumentFiles}
             rfqLevelNegFields={negotiationFields.__rfq_level__ || []}
@@ -4381,6 +4421,7 @@ const Step4CommercialTerms = ({
   paymentTotal,
   globalComment,
   vendorGSTIN,
+  gstinFromProfile = false,
   globalCharges,
   globalDocumentFiles = [],
   rfqLevelNegFields = [],
@@ -4411,8 +4452,9 @@ const Step4CommercialTerms = ({
     (rfqLevelNegFields || []).find((f) => (f.name || "").toLowerCase() === name);
   // During the negotiation phase (after bid expiry) only the RFQ-level fields
   // the buyer explicitly raised an ask on may be edited. Before expiry every
-  // field is editable (still subject to isReadOnly). GSTIN is never negotiable,
-  // so it locks once the bid has expired.
+  // field is editable (still subject to isReadOnly). GSTIN is exempt: it
+  // carries no price, so the backend deliberately leaves it un-guarded during
+  // a round (rfqController.updateQuoteItems) and it stays editable here.
   const isRfqFieldLocked = (name) => {
     if (isReadOnly) return true;
     if (!isBidExpired) return false;
@@ -4448,10 +4490,17 @@ const Step4CommercialTerms = ({
             placeholder="29ABCDE1234F1Z5"
             maxLength={15}
             style={{ maxWidth: 280 }}
-            disabled={isReadOnly || isBidExpired}
+            disabled={isReadOnly}
           />
           <div style={{ fontSize: 11.5, color: gstinValid ? "var(--fg-4)" : "#b91c1c", marginTop: 6 }}>
-            {gstinValid ? "Used to issue invoices for the delivery location." : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
+            {gstinValid
+              ? gstinFromProfile
+                // Answers the question the vendor was actually asking — "did I
+                // fill this in, or is the form showing me someone else's
+                // value?" — and says plainly that they can change it.
+                ? "Prefilled from your company profile. Edit it if this delivery location bills under a different GSTIN."
+                : "Used to issue invoices for the delivery location."
+              : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
           </div>
         </div>
 
