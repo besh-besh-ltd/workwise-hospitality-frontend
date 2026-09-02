@@ -1354,6 +1354,26 @@
   pointer-events: none;
   background: var(--surface-2);
 }
+/* Frozen for pricing, but the buyer's document ask is still answerable on this
+   line. Same muted ground as `.locked` WITHOUT the blanket pointer-events and
+   opacity, which would take the deliberately-enabled uploader down with them.
+   Every field the freeze covers is `disabled` in its own right, so nothing else
+   becomes interactive here.
+
+   The dimming moves onto the disabled controls themselves. `.locked` faded the
+   whole card, and dropping that left the frozen price inputs looking editable —
+   so fade exactly what is frozen, which also leaves the one live control (the
+   uploader) as the only crisp thing on the line. */
+.lineCard.lineCardDocsLive {
+  background: var(--surface-2);
+
+  input:disabled,
+  textarea:disabled,
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
 
 .lineHead {
   padding: 20px 24px;

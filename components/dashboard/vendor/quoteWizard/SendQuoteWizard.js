@@ -242,7 +242,8 @@ const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
 // first, then index) and render the demand separately.
 const parseDocAsks = (negField) => {
   if (!negField) return { comments: [], demand: null };
-  const arr = Array.isArray(negField.targetPrice) ? negField.targetPrice : [];
+  const raw = negField.targetPrice;
+  const arr = Array.isArray(raw) ? raw : [];
   const comments = arr
     .filter((d) => d && d.comment && String(d.comment).trim())
     .map((d) => ({
@@ -250,10 +251,19 @@ const parseDocAsks = (negField) => {
       fileUrl: d.file_url || null,
       comment: String(d.comment).trim(),
     }));
+  // The buyer's free-text request reaches us in one of TWO shapes, because two
+  // writers emit it (negotiationHelpers.js):
+  //   :357 per-vendor documents  -> { target: [ …per-doc comments ], demand: "…" }
+  //   :402 global / RFQ-level    -> { target: "kindly add Product image" }
+  // Only `demand` was ever read, so the second shape — 7 of the 8 `documents`
+  // fields in production's `products[]` column, and every round on RFQ 536312 —
+  // rendered an empty hint and the ask never reached the vendor. Read either.
+  const fromTarget =
+    typeof raw === "string" && raw.trim() ? raw.trim() : null;
   const demand =
     negField.demand && String(negField.demand).trim()
       ? String(negField.demand).trim()
-      : null;
+      : fromTarget;
   return { comments, demand };
 };
 
@@ -3925,8 +3935,22 @@ const Step3Pricing = ({
               return negFields.some((f) => names.includes(f.name) && f.taxDemand);
             };
 
+            // `.lineCard.locked` sets `pointer-events: none` on the WHOLE card.
+            // On an RFQ-level `documents` round every line is frozen (the round
+            // names no product), so that class landed on the one card whose
+            // uploader had deliberately been left enabled — the input read
+            // `disabled={false}` and was still dead to the mouse (RFQ 536312).
+            // Every other control in here is `disabled` in its own right, so the
+            // blanket pointer/opacity treatment buys nothing; drop it while the
+            // uploader is live and keep a muted background so the line still
+            // reads as mostly frozen.
             return (
-              <div className={`${styles.lineCard} ${locked ? styles.locked : ""}`} key={p.id}>
+              <div
+                className={`${styles.lineCard} ${
+                  locked && !docsEditable ? styles.locked : ""
+                } ${locked && docsEditable ? styles.lineCardDocsLive : ""}`}
+                key={p.id}
+              >
                 <div className={styles.lineHead}>
                   <div className={styles.lineHeadLeft}>
                     <div className={styles.numChip}>{String(idx + 1).padStart(2, "0")}</div>
