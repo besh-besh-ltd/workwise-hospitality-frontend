@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { ClipboardCheck, FileText, Clock, Package, UserX, Zap } from "lucide-react";
 import { getActionCenterData } from "@/services/dashboard";
-import CardTooltip from "./CardTooltip";
+import InfoTip from "@/components/shared/InfoTip";
 import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
 import NoResponseModal from "./NoResponseModal";
@@ -129,7 +129,7 @@ const ActionCenter = ({ filters }) => {
                 <div className={styles.actionHead}>
                   <div className={styles.actionLabel}>
                     {card.label}
-                    <CardTooltip text={card.tooltip} />
+                    <InfoTip text={card.tooltip} />
                   </div>
                   <div className={`${styles.iconChip} ${styles[card.accent]}`}>
                     <IconComponent size={13} />

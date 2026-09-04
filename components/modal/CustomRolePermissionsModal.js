@@ -9,87 +9,12 @@ import {
   getRolePermissions,
 } from "@/services/rbac";
 import styles from "./CustomRolePermissionsModal.module.scss";
-
-const RESOURCE_LABELS = {
-  RFQ: "RFQ Creation",
-  BOQ: "BOQ (Tender Creation)",
-  TE: "Technical Evaluation",
-  ARC: "ARC (Rate Contracts)",
-  "ARC-TECH": "ARC Technical Evaluation",
-  "ARC-COMM": "ARC Commercial Evaluation",
-  "ARC-COMMITTEE": "ARC Committee",
-  AWARDING: "PO Awarding",
-};
-
-const RESOURCE_DESCRIPTIONS = {
-  RFQ: "Create and manage request for quotation workflows.",
-  BOQ: "Prepare and manage BOQ entries for tender creation.",
-  TE: "Review technical compliance and evaluation decisions.",
-  ARC: "Create, float and administer Annual Rate Contracts.",
-  "ARC-TECH": "Run technical evaluation on rate contracts.",
-  "ARC-COMM": "Run commercial evaluation and reconcile awards on rate contracts.",
-  "ARC-COMMITTEE": "Sit on the ARC committee that approves finalised awards and amendments.",
-  AWARDING: "Manage purchase-order awarding on finalised RFQs.",
-};
-
-const ACTION_LABELS = {
-  create: "Create",
-  read: "View",
-  view: "View",
-  update: "Update",
-  edit: "Edit",
-  delete: "Delete",
-  approve: "Approve",
-  reject: "Reject",
-  export: "Export",
-  submit: "Submit",
-  evaluate: "Evaluate",
-  admin: "Administer",
-};
-
-const ACTION_HELP = {
-  create: "Allow users to create new records",
-  read: "Allow users to view records",
-  view: "Allow users to view records",
-  update: "Allow users to modify existing records",
-  edit: "Allow users to modify existing records",
-  delete: "Allow users to remove records",
-  approve: "Allow users to approve workflow steps",
-  reject: "Allow users to reject workflow steps",
-  export: "Allow users to export data",
-  submit: "Allow users to submit records for processing",
-  evaluate: "Allow users to run evaluations (score / assess responses)",
-  admin: "Allow users full administrative control of this module",
-};
-
-const toReadableLabel = (value = "") =>
-  value
-    .toString()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-
-const getResourceLabel = (resource = "") => {
-  const key = resource.toString().trim().toUpperCase();
-  return RESOURCE_LABELS[key] || toReadableLabel(resource);
-};
-
-const getResourceDescription = (resource = "") => {
-  const key = resource.toString().trim().toUpperCase();
-  return RESOURCE_DESCRIPTIONS[key] || "Manage permissions for this resource.";
-};
-
-const getActionLabel = (action = "") => {
-  const key = action.toString().trim().toLowerCase();
-  return ACTION_LABELS[key] || toReadableLabel(action);
-};
-
-const getActionHelp = (action = "") => {
-  const key = action.toString().trim().toLowerCase();
-  return ACTION_HELP[key] || "Grant access for this action.";
-};
+import {
+  getResourceLabel,
+  getResourceDescription,
+  getActionLabel,
+  getActionHelp,
+} from "@/components/dashboard/admin/shared/permissionLabels";
 
 const modalStyle = {
   overlay: {
@@ -115,7 +40,13 @@ const modalStyle = {
   },
 };
 
-const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
+/**
+ * `initialAction` lets a caller open straight into the editor instead of the
+ * modal's own role list. The Access page already shows the catalogue, so
+ * making an admin land on a second list inside the modal — and pick the same
+ * role again — would be pure friction.
+ */
+const CustomRolePermissionsModal = ({ isOpen, onClose, initialAction = null, initialRole = null }) => {
   const [mode, setMode] = useState("list");
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -374,10 +305,14 @@ const CustomRolePermissionsModal = ({ isOpen, onClose }) => {
   };
 
   useEffect(() => {
-    if (isOpen) {
-      resetRoleForm();
-      loadUserCreatedRoles();
-    }
+    if (!isOpen) return;
+    resetRoleForm();
+    loadUserCreatedRoles();
+    if (initialAction === "create") handleCreateNew();
+    else if (initialAction === "edit" && initialRole) handleEditRole(initialRole);
+    // initialAction/initialRole are read once per open, deliberately: changing
+    // them while the modal is up must not yank the admin out of an edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   return (

@@ -17,6 +17,16 @@ import { resolvePostLoginRedirect } from '../../utils/sharedFunctions';
 import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from '../../services/Auth';
 import { setUserProfile } from '@/redux/slice';
 
+/**
+ * Company administration is a capability, not a user type — an administrator is
+ * an ordinary buyer (user_type 2) who also holds `company.admin`. So the
+ * persona has to be read from the flag first; falling through to the code
+ * alone would call them a buyer and AdminGuard would bounce them out of every
+ * admin screen the backend has already let them into.
+ */
+const personaFor = (detail) =>
+  detail?.is_company_admin ? 'admin' : USER_TYPE_BY_CODE[detail?.user_type];
+
 const USER_TYPE_BY_CODE = {
   2: 'buyer',
   3: 'vendor',
@@ -278,7 +288,7 @@ const LandingAuth = ({ open, setOpen, registerOpen, setRegisterOpen }) => {
           return;
         }
 
-        const userType = USER_TYPE_BY_CODE[userDetail.user_type];
+        const userType = personaFor(userDetail);
         if (!userType) {
           toast.error('Unknown user type. Please contact support.');
           setLoading(false);
@@ -321,7 +331,7 @@ const LandingAuth = ({ open, setOpen, registerOpen, setRegisterOpen }) => {
           }
 
           // Google sign-in never yields user_type 4 ('other').
-          const userType = USER_TYPE_BY_CODE[response?.profile?.user_type];
+          const userType = personaFor(response?.profile);
           if (!userType || userType === 'other') {
             toast.error('Unknown user type. Please contact support.');
             setLoading(false);

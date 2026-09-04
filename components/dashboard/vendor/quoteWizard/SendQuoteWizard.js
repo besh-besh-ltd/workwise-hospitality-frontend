@@ -38,6 +38,7 @@ import { checkBidExpired } from "@/utils/sharedFunctions";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
+import ReadMore from "@/components/shared/ReadMore";
 import {
   RaiseClarificationModal,
   ClarificationDetailModal,
@@ -56,6 +57,7 @@ import {
   sumPaymentTerms,
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
+import { isValidGstin, seedGstin } from "@/utils/gstin";
 
 // Format a buyer's negotiated target for display in an ask chip.
 //  - "days"   → "5 days"          (delivery period)
@@ -69,6 +71,156 @@ const fmtNegTarget = (nf, kind = "amount") => {
   if (kind === "charge") return nf.mode === "percentage" ? `${v}%` : `₹${fmtINR(v)}`;
   if (kind === "text") return String(v);
   return `₹${fmtINR(v)}`;
+};
+
+// A round's `end_date` arrives UTC-naive ("2026-09-01 10:30:00"). Handing that
+// straight to moment()/fmtShortDate reads it as LOCAL time and shows an IST
+// vendor a deadline 5h30m early — on a two-hour round that is the difference
+// between "respond today" and "already missed". Normalise to a real instant
+// first, by the same rule the round filter already applies.
+const parseRoundEnd = (endDate) => {
+  if (!endDate) return null;
+  const raw = String(endDate);
+  const iso =
+    raw.includes("+") || raw.includes("Z") ? raw : raw.replace(" ", "T") + "Z";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+// What to CALL each negotiated field when telling the vendor where to go.
+// A round stores raw field keys (`base_price`, `payment_terms`) and a buyer can
+// also name a free-text charge, so anything unrecognised is humanised instead of
+// shown raw — "Freight Charges", not "freight_charges".
+const NEG_FIELD_LABELS = {
+  base_price: "Unit price",
+  unit_price: "Unit price",
+  price: "Unit price",
+  delivery_period: "Delivery period",
+  comment: "Line comment",
+  documents: "Documents",
+  payment_terms: "Payment terms",
+  global_comment: "Overall comment",
+  vendor_tc: "Terms & conditions",
+};
+
+const negFieldLabel = (name) =>
+  NEG_FIELD_LABELS[name] ||
+  String(name || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Which fmtNegTarget rendering a field's target wants. Unrecognised names are
+// buyer-named charges, which are mode-aware (₹ or %).
+const negAskKind = (name) => {
+  if (name === "delivery_period") return "days";
+  if (["comment", "global_comment", "payment_terms", "vendor_tc"].includes(name)) return "text";
+  if (["base_price", "unit_price", "price"].includes(name)) return "amount";
+  return "charge";
+};
+
+// One line of "here is what the buyer asked for on this field". `documents`
+// carries an ARRAY of per-file comments in targetPrice, so it is never printed
+// as a value — its ask is the free-text demand.
+const negAskValue = (f) => {
+  if (!f) return null;
+  if (f.name === "documents") return f.demand || "Documents requested";
+  return (
+    fmtNegTarget(f, negAskKind(f.name)) ||
+    f.demand ||
+    (f.taxDemand ? `tax — ${f.taxDemand}` : null)
+  );
+};
+
+/**
+ * The outstanding negotiation asks, stated plainly: which item, which field,
+ * what the buyer wants, and a button to the step that holds the input.
+ *
+ * Built for RFQ 536237, where the vendor was dropped on a Review step that
+ * mentioned neither the round nor the ₹1,58,800 ask, under a header reading
+ * "read-only". They concluded the RFQ was shut. Everything they needed was one
+ * step back and nothing pointed to it.
+ */
+const NegotiationCallout = ({ summary, onGoToStep }) => {
+  if (!summary?.active) return null;
+  const { lines, rfqLevel, askCount } = summary;
+  const itemCount = lines.length + (rfqLevel.length > 0 ? 1 : 0);
+  return (
+    <div className={styles.negCallout} data-testid="negotiation-callout">
+      <div className={styles.negCalloutHead}>
+        <AlertTriangle size={15} strokeWidth={2.3} />
+        <div>
+          <div className={styles.negCalloutTitle}>
+            The buyer is waiting on {askCount} change{askCount === 1 ? "" : "s"}
+            {itemCount > 1 ? ` across ${itemCount} sections` : ""}
+          </div>
+          <div className={styles.negCalloutSub}>
+            Your quote will be submitted exactly as it stands below. Nothing here
+            changes until you edit it — open the step listed against each ask.
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.negCalloutList}>
+        {lines.map((line) => (
+          <div key={line.productId} className={styles.negCalloutRow}>
+            <div className={styles.negCalloutRowMain}>
+              <div className={styles.negCalloutItem}>{line.name}</div>
+              <ul className={styles.negCalloutAsks}>
+                {line.asks.map((a) => (
+                  <li key={a.name}>
+                    <span className={styles.negCalloutField}>{a.label}</span>
+                    {a.value ? (
+                      <>
+                        {" — buyer wants "}
+                        <span className={styles.mono}>{a.value}</span>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              type="button"
+              className={styles.negCalloutJump}
+              onClick={() => onGoToStep?.("pricing")}
+            >
+              Go to Pricing
+              <ArrowRight size={13} strokeWidth={2.2} />
+            </button>
+          </div>
+        ))}
+
+        {rfqLevel.length > 0 && (
+          <div className={styles.negCalloutRow}>
+            <div className={styles.negCalloutRowMain}>
+              <div className={styles.negCalloutItem}>Whole quote</div>
+              <ul className={styles.negCalloutAsks}>
+                {rfqLevel.map((a) => (
+                  <li key={a.name}>
+                    <span className={styles.negCalloutField}>{a.label}</span>
+                    {a.value ? (
+                      <>
+                        {" — buyer wants "}
+                        <span className={styles.mono}>{a.value}</span>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              type="button"
+              className={styles.negCalloutJump}
+              onClick={() => onGoToStep?.("terms")}
+            >
+              Go to Commercial terms
+              <ArrowRight size={13} strokeWidth={2.2} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // A single "Buyer's ask" chip. `value` is a pre-formatted string; renders
@@ -91,7 +243,8 @@ const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
 // first, then index) and render the demand separately.
 const parseDocAsks = (negField) => {
   if (!negField) return { comments: [], demand: null };
-  const arr = Array.isArray(negField.targetPrice) ? negField.targetPrice : [];
+  const raw = negField.targetPrice;
+  const arr = Array.isArray(raw) ? raw : [];
   const comments = arr
     .filter((d) => d && d.comment && String(d.comment).trim())
     .map((d) => ({
@@ -99,10 +252,19 @@ const parseDocAsks = (negField) => {
       fileUrl: d.file_url || null,
       comment: String(d.comment).trim(),
     }));
+  // The buyer's free-text request reaches us in one of TWO shapes, because two
+  // writers emit it (negotiationHelpers.js):
+  //   :357 per-vendor documents  -> { target: [ …per-doc comments ], demand: "…" }
+  //   :402 global / RFQ-level    -> { target: "kindly add Product image" }
+  // Only `demand` was ever read, so the second shape — 7 of the 8 `documents`
+  // fields in production's `products[]` column, and every round on RFQ 536312 —
+  // rendered an empty hint and the ask never reached the vendor. Read either.
+  const fromTarget =
+    typeof raw === "string" && raw.trim() ? raw.trim() : null;
   const demand =
     negField.demand && String(negField.demand).trim()
       ? String(negField.demand).trim()
-      : null;
+      : fromTarget;
   return { comments, demand };
 };
 
@@ -220,13 +382,6 @@ const API_TO_RESPONSE = (raw) => {
   return null;
 };
 
-// Loose GSTIN format check — 15 chars, India pattern. Optional field, so the
-// "no value" case is handled separately (warning at review).
-// Canonical 15-char GSTIN: 2-digit state + 10-char PAN + entity digit + 'Z' +
-// checksum. (The previous pattern only matched 14 chars, rejecting valid IDs.)
-const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-const isValidGstin = (v) => !v || GSTIN_PATTERN.test(String(v).trim().toUpperCase());
-
 /* ────────────────────────────────────────────────────────────────
    "Has this line been priced?" — ONE definition, used everywhere.
 
@@ -320,6 +475,11 @@ const SendQuoteWizard = () => {
   const [pricingMethod, setPricingMethod] = useState("TRADITIONAL");
   const [methodModalOpen, setMethodModalOpen] = useState(false);
   const [vendorGSTIN, setVendorGSTIN] = useState("");
+  // True while the GSTIN on screen was seeded from the vendor's company
+  // profile rather than read off this quote. Drives the "from your company
+  // profile" hint — the whole complaint was that a vendor could not tell
+  // whether they had filled the field in.
+  const [gstinFromProfile, setGstinFromProfile] = useState(false);
   const [globalComment, setGlobalComment] = useState("");
   // Vendor's quote-wide attachments — sent as `term_and_condition_files`
   // (stored in tbl_quotes_files for this quote), returned as the top-level
@@ -347,8 +507,68 @@ const SendQuoteWizard = () => {
   // LATEST round (once-per-round rule, legacy parity)
   const [negotiationQuoteSubmitted, setNegotiationQuoteSubmitted] = useState({});
   const [negotiationLoading, setNegotiationLoading] = useState(false);
+  // The live rounds themselves (round_number / end_date), so the header can name
+  // the deadline the vendor is actually working to instead of the dead bid date.
+  const [negotiationRounds, setNegotiationRounds] = useState([]);
   // One-shot guard so negotiated charges are auto-added only once per load
   const negotiationChargesAddedRef = useRef(false);
+
+  // Is a negotiation round live on this quote? Declared here — ABOVE the step
+  // list and the read-only derivations — because all of them need it. Four
+  // separate signals used to test `isBidExpired` alone and told the vendor the
+  // quote was read-only while a round was open (RFQ 536237).
+  const hasAnyNegotiation = Object.keys(negotiationFields).length > 0;
+
+  // Everything the vendor needs to act on the round, in one shape: which lines
+  // carry an ask, which fields, what the buyer wants, and which STEP holds the
+  // input. Per-product asks live on Pricing; RFQ-level asks (payment terms,
+  // global charges, quote-wide documents) live on Commercial terms.
+  const negotiationSummary = useMemo(() => {
+    const empty = { active: false, lines: [], rfqLevel: [], steps: new Set(), askCount: 0 };
+    if (!isBidExpired) return empty;
+    const entries = Object.entries(negotiationFields || {});
+    if (entries.length === 0) return empty;
+
+    const lines = [];
+    let rfqLevel = [];
+    entries.forEach(([key, fields]) => {
+      // A field with no target, no demand and no tax note is not an ask — the
+      // filter effect already drops targets the vendor's quote has met.
+      const asks = (fields || [])
+        .filter(
+          (f) =>
+            (f.targetPrice != null && f.targetPrice !== "") || f.demand || f.taxDemand
+        )
+        .map((f) => ({ name: f.name, label: negFieldLabel(f.name), value: negAskValue(f) }));
+      if (asks.length === 0) return;
+      if (key === "__rfq_level__") {
+        rfqLevel = asks;
+        return;
+      }
+      const idx = products.findIndex((p) => String(p.id) === String(key));
+      lines.push({
+        productId: key,
+        index: idx,
+        name:
+          idx >= 0
+            ? products[idx].product_name || products[idx].name || `Item #${key}`
+            : `Item #${key}`,
+        asks,
+      });
+    });
+
+    const steps = new Set();
+    if (lines.length > 0) steps.add("pricing");
+    if (rfqLevel.length > 0) steps.add("terms");
+    return {
+      active: lines.length > 0 || rfqLevel.length > 0,
+      lines,
+      rfqLevel,
+      steps,
+      askCount:
+        lines.reduce((n, l) => n + l.asks.length, 0) + rfqLevel.length,
+    };
+  }, [negotiationFields, products, isBidExpired]);
 
   // Charges modal
   const [chargesOpenIdx, setChargesOpenIdx] = useState(null);
@@ -564,17 +784,26 @@ const SendQuoteWizard = () => {
 
   const visibleSteps = useMemo(() => {
     const base = visibleStepsFor({ hasTechEval, showClarStep });
+    // Mark the steps that hold an outstanding ask so the stepper can point at
+    // them. A vendor who lands mid-wizard has no other way to tell which tab
+    // the buyer is waiting on.
+    const flagged = base.map((s) => ({
+      ...s,
+      negotiation: negotiationSummary.steps.has(s.id),
+    }));
     // In read-only flows the last step is a snapshot of what's been
     // submitted — there's nothing to confirm anymore, so rename the label.
-    if (isBidExpired) {
-      return base.map((s) =>
+    // NOT when a round is live: the vendor can and must still submit, and
+    // calling it a snapshot is what convinced them the RFQ was closed.
+    if (isBidExpired && !hasAnyNegotiation) {
+      return flagged.map((s) =>
         s.id === "review"
           ? { ...s, label: "Review", meta: "Snapshot of your submitted quote" }
           : s
       );
     }
-    return base;
-  }, [hasTechEval, showClarStep, isBidExpired]);
+    return flagged;
+  }, [hasTechEval, showClarStep, isBidExpired, hasAnyNegotiation, negotiationSummary]);
   const currentStepId = visibleSteps[currentStep]?.id || "overview";
 
   const evalTotalClauses = useMemo(
@@ -665,15 +894,20 @@ const SendQuoteWizard = () => {
    * Gated on the same principle as deliveryRequired above: require a field
    * only where the vendor can actually edit it. After bid expiry
    * Step4CommercialTerms disables every payment-term input unless the round
-   * raised an RFQ-level ask on payment_terms, and the GSTIN input locks
-   * unconditionally (`disabled={isReadOnly || isBidExpired}`) because GSTIN is
-   * never negotiable. Demanding a correction there is a dead end, not a
-   * safeguard — it deadlocked base_price-only rounds, where a quote carrying a
-   * payment row with no stored `type` (the select still DISPLAYS "advance") or
-   * a malformed legacy GSTIN could never reach Review & submit.
+   * raised an RFQ-level ask on payment_terms. Demanding a correction there is
+   * a dead end, not a safeguard — it deadlocked base_price-only rounds, where
+   * a quote carrying a payment row with no stored `type` (the select still
+   * DISPLAYS "advance") could never reach Review & submit.
    *
    * The stored values are already on record and go out unchanged, so nothing
    * is validated away — the check simply moves to where it can be satisfied.
+   *
+   * GSTIN is the one field that USED to be listed here and no longer is. It
+   * was skipped post-expiry only because the input locked on bid expiry; that
+   * lock left a vendor invited to a round with no GSTIN on file unable to
+   * supply one (215 of 331 production quotes on negotiated RFQs are blank).
+   * The input is now editable whenever the quote is, so by this same rule the
+   * format check applies again — the vendor can act on it.
    */
   const paymentTermsEditable =
     !isBidExpired ||
@@ -681,7 +915,7 @@ const SendQuoteWizard = () => {
       (f) => (f.name || "").toLowerCase() === "payment_terms"
     );
   const canContinueStep4 = useMemo(() => {
-    const gstinOk = isBidExpired || isValidGstin(vendorGSTIN);
+    const gstinOk = isValidGstin(vendorGSTIN);
     const validPayment =
       !paymentTermsEditable ||
       (paymentTotal === 100 &&
@@ -689,7 +923,7 @@ const SendQuoteWizard = () => {
           .filter((t) => t.action !== "delete")
           .every((t) => t.type && (Number(t.value) || 0) > 0));
     return gstinOk && validPayment;
-  }, [vendorGSTIN, paymentTotal, paymentTerms, isBidExpired, paymentTermsEditable]);
+  }, [vendorGSTIN, paymentTotal, paymentTerms, paymentTermsEditable]);
   // evalGateOk belongs here, not only on the step navigation. It used to guard
   // only forward movement through the stepper, and an already-quoted vendor is
   // dropped straight onto Review at load — skipping navigation entirely. That is
@@ -721,7 +955,7 @@ const SendQuoteWizard = () => {
         return "Every payment term needs a type and a percentage above zero.";
       }
     }
-    if (!isBidExpired && !isValidGstin(vendorGSTIN)) {
+    if (!isValidGstin(vendorGSTIN)) {
       return "The GSTIN format looks off — it should be 15 characters, e.g. 29ABCDE1234F1Z5.";
     }
     return null;
@@ -789,7 +1023,6 @@ const SendQuoteWizard = () => {
 
   /* ───────── Edit eligibility ───────── */
   // Per-product negotiable check
-  const hasAnyNegotiation = Object.keys(negotiationFields).length > 0;
   // An RFQ-level round negotiates quote-level fields only (payment terms,
   // global charges) and covers no product line, so activeNegotiationProductIds
   // is empty BY DESIGN. The quote is still answerable — on those fields alone.
@@ -970,8 +1203,22 @@ const SendQuoteWizard = () => {
   // i.e. they have a quote on record but can no longer edit it.
   // Scoped to bid-expiry (NOT finalization, which is its own success/danger
   // story and shows its own inline banner inside the Pricing step).
-  const reviewOnly = isBidExpired && alreadyQuoted && !missedInquiry;
+  // A live round means the quote is NOT a read-only archive — the vendor is
+  // being asked to change it. Without this exemption the invite banner rendered
+  // in the "missed inquiry" warning chrome, under a header that said read-only.
+  const reviewOnly = isBidExpired && alreadyQuoted && !missedInquiry && !hasAnyNegotiation;
+  // Still the honest meaning: the BID window closed. It no longer implies
+  // "read-only" on its own — HeaderStrip checks `liveRound` first, and a live
+  // round overrides both the status label and the deadline pill.
   const bidEnded = isBidExpired;
+  // The deadline the vendor is actually working to. The bid date is history the
+  // moment a round opens; showing it as the only date is what read as "closed".
+  const liveRound = useMemo(() => {
+    if (!hasAnyNegotiation || negotiationRounds.length === 0) return null;
+    return [...negotiationRounds].sort(
+      (a, b) => (Number(b.round_number) || 0) - (Number(a.round_number) || 0)
+    )[0];
+  }, [hasAnyNegotiation, negotiationRounds]);
 
   /* ─────────────────────────── Data load ─────────────────────────── */
   useEffect(() => {
@@ -1000,11 +1247,19 @@ const SendQuoteWizard = () => {
 
         const hasQuote = (data.quotations || []).length > 0;
         setAlreadyQuoted(hasQuote);
+        // What tbl_quotes holds for THIS quote. Tracked outside the `hasQuote`
+        // branch because the profile seed below has to know whether the quote
+        // already answered the question — state set in this async handler is
+        // not readable again until the next render.
+        let storedGstin = "";
         if (hasQuote) {
           // Prefill payment terms + GSTIN + global comment from existing quote
           const qd = data.quote_details || {};
           const q0 = data.quotations?.[0] || {};
-          if (qd.gstin) setVendorGSTIN(qd.gstin);
+          if (qd.gstin) {
+            storedGstin = qd.gstin;
+            setVendorGSTIN(qd.gstin);
+          }
           if (qd.global_comment) setGlobalComment(qd.global_comment);
           // The vendor's quote attachments come back as the top-level
           // `terms_and_conditions_files` (built from tbl_quotes_files for THIS
@@ -1039,6 +1294,30 @@ const SendQuoteWizard = () => {
           }
           // Already-quoted vendors usually only re-visit pricing step
           setAcceptedTerms(true);
+        }
+
+        // GSTIN is a column on tbl_quotes, so it is scoped to ONE quote and
+        // every new RFQ opened with an empty box — which vendors read as "the
+        // GSTIN I entered was lost". Seed it from the vendor's own company
+        // profile, which the platform already holds (422 of 475 vendors) and
+        // which purchaseOrderModel already falls back to when it builds a PO.
+        //
+        // SEED, NEVER OVERRIDE: a quote that carries its own GSTIN keeps it.
+        // Delivery-location GSTINs legitimately differ from the head-office
+        // one, and that value is what the vendor actually submitted.
+        //
+        // Only a well-formed profile GSTIN is offered. 18 of 422 production
+        // profiles hold junk in this column (truncated to 14 chars, a stray
+        // leading ':', one literal password); seeding one would put a value
+        // the vendor never typed into the box and then block them at step 4
+        // for a format error on it.
+        const seeded = seedGstin({
+          stored: storedGstin,
+          profile: data.vendor_profile_gstin,
+        });
+        if (seeded.fromProfile) {
+          setVendorGSTIN(seeded.value);
+          setGstinFromProfile(true);
         }
 
         // Preload tech-eval clauses & responses for each product that has eval.
@@ -1152,25 +1431,19 @@ const SendQuoteWizard = () => {
         //
         // Landing on the gate is also just the honest answer to "what does this
         // vendor still owe?" — they cannot submit until it is done.
-        if (hasQuote) {
-          const evalAtLoad = built.filter((p) => p.has_tech_eval);
-          const clausesOutstanding = evalAtLoad.some((p) => !fullyAnsweredAtLoad[p.id]);
-          const landOn = clausesOutstanding ? "eval" : "review";
-          // Resolved through the same helper visibleSteps uses, so the index is
-          // right whether or not a Clarifications step is present. Synchronous
-          // on purpose: deferring it to an effect costs a render, and the vendor
-          // would see the overview flash before being moved.
-          const steps = visibleStepsFor({
-            hasTechEval: evalAtLoad.length > 0,
-            showClarStep:
-              data.is_tender === 1 &&
-              (data.vendor_clarification_date != null || (data.clarifications || []).length > 0),
-          });
-          const idx = steps.findIndex((s) => s.id === landOn);
-          if (idx >= 0) setCurrentStep(idx);
-        }
+        //
+        // The decision itself is made BELOW, after the negotiation fetch: when a
+        // round is live the honest landing step is the one holding the ask, and
+        // that is not knowable until the rounds are in. Dropping a negotiating
+        // vendor on Review is how RFQ 536237 stalled for six rounds — the step
+        // they landed on never mentioned the ask, and the editable field was one
+        // step back with nothing pointing to it.
+        const landingCtx = { hasQuote, built, fullyAnsweredAtLoad, data };
 
-        // Edit eligibility: check bid expiry + active negotiation rounds
+        // Edit eligibility: check bid expiry + active negotiation rounds.
+        // Filled by the fetch below and read by the landing decision after it —
+        // state set in here is not readable again until the next render.
+        let negotiatedFieldKeys = [];
         const expired = data.bid_end_date ? checkBidExpired(data.bid_end_date) : false;
         if (!cancelled) setIsBidExpired(expired);
         if (expired) {
@@ -1237,12 +1510,46 @@ const SendQuoteWizard = () => {
             if (!cancelled) {
               setNegotiationFields(fieldsByProduct);
               setActiveNegotiationProductIds(coveredProductIds);
+              setNegotiationRounds(activeRounds);
             }
+            negotiatedFieldKeys = Object.keys(fieldsByProduct);
           } catch (e) {
             console.error("Failed to load negotiation rounds", e);
           } finally {
             if (!cancelled) setNegotiationLoading(false);
           }
+        }
+
+        // Landing step — decided here so it can see the live round (see the
+        // note above the landingCtx assignment).
+        if (!cancelled && landingCtx.hasQuote) {
+          const evalAtLoad = landingCtx.built.filter((p) => p.has_tech_eval);
+          const clausesOutstanding = evalAtLoad.some(
+            (p) => !landingCtx.fullyAnsweredAtLoad[p.id]
+          );
+          // An unanswered clause still outranks everything — the vendor cannot
+          // submit until it is done, so pointing anywhere else is a dead end.
+          // Otherwise: a live round means the work is on the step holding the
+          // ask; only a quote with nothing outstanding lands on Review.
+          const negotiatedStep = negotiatedFieldKeys.some((k) => k !== "__rfq_level__")
+            ? "pricing"
+            : negotiatedFieldKeys.length > 0
+              ? "terms"
+              : null;
+          const landOn = clausesOutstanding
+            ? "eval"
+            : negotiatedStep || "review";
+          // Resolved through the same helper visibleSteps uses, so the index is
+          // right whether or not a Clarifications step is present.
+          const steps = visibleStepsFor({
+            hasTechEval: evalAtLoad.length > 0,
+            showClarStep:
+              landingCtx.data.is_tender === 1 &&
+              (landingCtx.data.vendor_clarification_date != null ||
+                (landingCtx.data.clarifications || []).length > 0),
+          });
+          const idx = steps.findIndex((s) => s.id === landOn);
+          if (idx >= 0) setCurrentStep(idx);
         }
       })
       .catch(() => {
@@ -1492,6 +1799,9 @@ const SendQuoteWizard = () => {
 
   const changeGSTIN = (v) => {
     markUnsaved();
+    // Once the vendor types, the value is theirs and the profile hint no
+    // longer describes what is on screen.
+    setGstinFromProfile(false);
     setVendorGSTIN(v);
   };
   const changeGlobalComment = (v) => {
@@ -1981,6 +2291,7 @@ const SendQuoteWizard = () => {
         alreadyQuoted={alreadyQuoted}
         totalSteps={visibleSteps.length}
         bidEnded={bidEnded}
+        liveRound={liveRound}
         onBack={handleBack}
       />
 
@@ -1990,6 +2301,33 @@ const SendQuoteWizard = () => {
         canVisit={canVisit}
         onStep={goToStep}
       />
+
+      {/* The invite gets its OWN banner. It used to ride on the `reviewOnly`
+          branch below, which meant the one accurate message on the page was
+          dressed in "you missed this inquiry" chrome. It also names the steps
+          to go to, because the vendor may be looking at any of them. */}
+      {hasAnyNegotiation && editStatus.kind !== "success" && editStatus.kind !== "danger" && (
+        <div className={styles.negBanner}>
+          <AlertTriangle size={16} strokeWidth={2.2} />
+          <div className={styles.missedBannerBody}>
+            <div className={styles.negBannerTitle}>{editStatus.title}</div>
+            <div className={styles.negBannerDetail}>{editStatus.body}</div>
+            {negotiationSummary.steps.size > 0 && (
+              <div className={styles.negBannerSteps}>
+                Open{" "}
+                {[...negotiationSummary.steps]
+                  .map((sid) => (sid === "pricing" ? "Pricing" : "Commercial terms"))
+                  .join(" and ")}{" "}
+                to make the change
+                {liveRound?.end_date
+                  ? ` — this round closes ${fmtShortDate(parseRoundEnd(liveRound.end_date), { includeTime: true })}`
+                  : ""}
+                .
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {(missedInquiry || reviewOnly) && editStatus.kind !== "success" && editStatus.kind !== "danger" && (
         <div className={`${styles.missedBanner} ${reviewOnly ? styles.missedBannerReview : ""}`}>
@@ -2097,6 +2435,7 @@ const SendQuoteWizard = () => {
             paymentTotal={paymentTotal}
             globalComment={globalComment}
             vendorGSTIN={vendorGSTIN}
+            gstinFromProfile={gstinFromProfile}
             globalCharges={globalCharges}
             globalDocumentFiles={globalDocumentFiles}
             rfqLevelNegFields={negotiationFields.__rfq_level__ || []}
@@ -2127,6 +2466,11 @@ const SendQuoteWizard = () => {
             paymentTerms={paymentTerms}
             warnings={reviewWarnings}
             canSubmit={canSubmit && !isReadOnly}
+            negotiationSummary={negotiationSummary}
+            onGoToStep={(stepId) => {
+              const idx = visibleSteps.findIndex((s) => s.id === stepId);
+              if (idx >= 0) goToStep(idx);
+            }}
           />
         )}
       </main>
@@ -2318,13 +2662,18 @@ const SendQuoteWizard = () => {
 /* ════════════════════════════════════════════════════════════════
    Header strip
    ════════════════════════════════════════════════════════════════ */
-const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, bidEnded, onBack }) => {
+const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, bidEnded, liveRound, onBack }) => {
   const isTender = rfq?.is_tender === 1;
-  const status = bidEnded
-    ? { label: alreadyQuoted ? "Existing quote · Read-only" : "Inquiry · Closed", dot: "danger" }
-    : alreadyQuoted
-      ? { label: "Existing quote · Update", dot: "warn" }
-      : { label: "New inquiry · Active", dot: "" };
+  // A live round outranks the bid window: the vendor IS being asked to revise,
+  // so the status must not read "Read-only" and the date must not be the dead
+  // bid date. Saying both is what stalled RFQ 536237 for six rounds.
+  const status = liveRound
+    ? { label: `Negotiation R${liveRound.round_number} · Revision requested`, dot: "warn" }
+    : bidEnded
+      ? { label: alreadyQuoted ? "Existing quote · Read-only" : "Inquiry · Closed", dot: "danger" }
+      : alreadyQuoted
+        ? { label: "Existing quote · Update", dot: "warn" }
+        : { label: "New inquiry · Active", dot: "" };
   const stepCopy = totalSteps === 2 ? "two quick steps" : "three quick steps";
   return (
     <section className={styles.headerStrip}>
@@ -2356,13 +2705,20 @@ const HeaderStrip = ({ rfq, pageType, alreadyQuoted, totalSteps, bidEnded, onBac
               #{rfq?.rfq_no}
             </span>
           </span>
-          {rfq?.bid_end_date && (
-            <span className={`${styles.pill} ${bidEnded ? styles.danger : styles.warn}`}>
+          {liveRound ? (
+            <span className={`${styles.pill} ${styles.warn}`}>
               <Clock size={12} />
-              {bidEnded
-                ? `Already ended · ${fmtShortDate(rfq.bid_end_date)}`
-                : `Deadline · ${fmtShortDate(rfq.bid_end_date)}`}
+              {`Respond by · ${fmtShortDate(parseRoundEnd(liveRound.end_date), { includeTime: true })}`}
             </span>
+          ) : (
+            rfq?.bid_end_date && (
+              <span className={`${styles.pill} ${bidEnded ? styles.danger : styles.warn}`}>
+                <Clock size={12} />
+                {bidEnded
+                  ? `Already ended · ${fmtShortDate(rfq.bid_end_date)}`
+                  : `Deadline · ${fmtShortDate(rfq.bid_end_date)}`}
+              </span>
+            )
           )}
           {rfq?.id && (
             <a
@@ -2438,16 +2794,28 @@ const Stepper = ({ steps, currentStep, canVisit, onStep }) => {
                 ref={(el) => { itemRefs.current[i] = el; }}
                 className={`${styles.step} ${isActive ? styles.stepActive : ""} ${
                   isDone ? styles.stepDone : ""
-                }`}
+                } ${s.negotiation ? styles.stepNegotiation : ""}`}
                 disabled={disabled}
+                data-negotiation={s.negotiation ? "true" : "false"}
                 onClick={() => onStep(i)}
               >
                 <div className={styles.stepNum}>
                   <span className={styles.stepNumText}>{i + 1}</span>
                 </div>
                 <div className={styles.stepLabelWrap}>
-                  <div className={styles.stepLabel}>{s.label}</div>
-                  <div className={styles.stepMeta}>{s.meta}</div>
+                  <div className={styles.stepLabel}>
+                    {s.label}
+                    {/* The only cue that this tab is the one the buyer is
+                        waiting on. A vendor landing mid-wizard has no other. */}
+                    {s.negotiation && (
+                      <span className={styles.stepNegBadge}>
+                        Negotiation
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.stepMeta}>
+                    {s.negotiation ? "Buyer has asked for a revision here" : s.meta}
+                  </div>
                 </div>
               </button>
               {i < steps.length - 1 && <div className={styles.stepDivider} />}
@@ -2579,10 +2947,16 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted,
                         </div>
                       );
                     }
+                    // Two lines, then Read More. The full text used to live only
+                    // in a `title` tooltip, which is not somewhere a vendor
+                    // looks — and a 486-character spec is not a tooltip.
                     return (
-                      <div className={styles.previewSpec} title={parts.join(" · ")}>
-                        {parts.join(" · ")}
-                      </div>
+                      <ReadMore
+                        content={parts.join(" · ")}
+                        maxLines={2}
+                        additionalClasses={styles.previewSpec}
+                        linkClassName={styles.previewSpecMore}
+                      />
                     );
                   })()}
                 </div>
@@ -3568,8 +3942,22 @@ const Step3Pricing = ({
               return negFields.some((f) => names.includes(f.name) && f.taxDemand);
             };
 
+            // `.lineCard.locked` sets `pointer-events: none` on the WHOLE card.
+            // On an RFQ-level `documents` round every line is frozen (the round
+            // names no product), so that class landed on the one card whose
+            // uploader had deliberately been left enabled — the input read
+            // `disabled={false}` and was still dead to the mouse (RFQ 536312).
+            // Every other control in here is `disabled` in its own right, so the
+            // blanket pointer/opacity treatment buys nothing; drop it while the
+            // uploader is live and keep a muted background so the line still
+            // reads as mostly frozen.
             return (
-              <div className={`${styles.lineCard} ${locked ? styles.locked : ""}`} key={p.id}>
+              <div
+                className={`${styles.lineCard} ${
+                  locked && !docsEditable ? styles.locked : ""
+                } ${locked && docsEditable ? styles.lineCardDocsLive : ""}`}
+                key={p.id}
+              >
                 <div className={styles.lineHead}>
                   <div className={styles.lineHeadLeft}>
                     <div className={styles.numChip}>{String(idx + 1).padStart(2, "0")}</div>
@@ -4064,6 +4452,7 @@ const Step4CommercialTerms = ({
   paymentTotal,
   globalComment,
   vendorGSTIN,
+  gstinFromProfile = false,
   globalCharges,
   globalDocumentFiles = [],
   rfqLevelNegFields = [],
@@ -4094,8 +4483,9 @@ const Step4CommercialTerms = ({
     (rfqLevelNegFields || []).find((f) => (f.name || "").toLowerCase() === name);
   // During the negotiation phase (after bid expiry) only the RFQ-level fields
   // the buyer explicitly raised an ask on may be edited. Before expiry every
-  // field is editable (still subject to isReadOnly). GSTIN is never negotiable,
-  // so it locks once the bid has expired.
+  // field is editable (still subject to isReadOnly). GSTIN is exempt: it
+  // carries no price, so the backend deliberately leaves it un-guarded during
+  // a round (rfqController.updateQuoteItems) and it stays editable here.
   const isRfqFieldLocked = (name) => {
     if (isReadOnly) return true;
     if (!isBidExpired) return false;
@@ -4131,10 +4521,17 @@ const Step4CommercialTerms = ({
             placeholder="29ABCDE1234F1Z5"
             maxLength={15}
             style={{ maxWidth: 280 }}
-            disabled={isReadOnly || isBidExpired}
+            disabled={isReadOnly}
           />
           <div style={{ fontSize: 11.5, color: gstinValid ? "var(--fg-4)" : "#b91c1c", marginTop: 6 }}>
-            {gstinValid ? "Used to issue invoices for the delivery location." : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
+            {gstinValid
+              ? gstinFromProfile
+                // Answers the question the vendor was actually asking — "did I
+                // fill this in, or is the form showing me someone else's
+                // value?" — and says plainly that they can change it.
+                ? "Prefilled from your company profile. Edit it if this delivery location bills under a different GSTIN."
+                : "Used to issue invoices for the delivery location."
+              : "GSTIN format looks off — should be 15 characters (e.g. 29ABCDE1234F1Z5)."}
           </div>
         </div>
 
@@ -4452,6 +4849,8 @@ const Step5Review = ({
   paymentTerms,
   warnings,
   canSubmit,
+  negotiationSummary,
+  onGoToStep,
 }) => {
   // MRP-aware — see isLinePriced. Testing unit_price here is what told vendors
   // their priced MRP lines would be "marked as regret".
@@ -4473,6 +4872,10 @@ const Step5Review = ({
           </div>
         </div>
       </div>
+
+      {/* Above the warnings on purpose: this is the reason the vendor is on
+          this page at all, and the numbers below are the ones NOT yet changed. */}
+      <NegotiationCallout summary={negotiationSummary} onGoToStep={onGoToStep} />
 
       {warnings.length > 0 && (
         <div className={styles.reviewWarnings}>

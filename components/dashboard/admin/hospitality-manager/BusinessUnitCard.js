@@ -1,6 +1,6 @@
 import React from "react";
 import { HiOutlineLocationMarker } from "react-icons/hi";
-import { BsPeople, BsPencil, BsDiagram3, BsEnvelope } from "react-icons/bs";
+import { BsPeople, BsPencil, BsDiagram3, BsEnvelope, BsTrash } from "react-icons/bs";
 import { BiRupee } from "react-icons/bi";
 import styles from "./HospitalityManager.module.css";
 
@@ -25,7 +25,7 @@ const getPaymentLabel = (hotel) => {
   return hotel.email ? "Onboarding" : "No Email";
 };
 
-const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy, onSendCredentials, isSendingCredentials }) => {
+const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy, onSendCredentials, onRemove, isSendingCredentials }) => {
   const statusStyle = getStatusStyle(hotel.status);
   const location = [hotel.city, hotel.state].filter(Boolean).join(", ");
   const feeValue = hotel.fee_amount > 0 ? hotel.fee_amount : "N/A";
@@ -86,6 +86,20 @@ const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy, onSendCred
           <BsDiagram3 size={13} />
           Set Hierarchy
         </button>
+        {/* HN-2. Opens the check rather than a confirm: the honest answer is
+            usually "you cannot delete this, but you can archive it", and that
+            only helps alongside what is in the way. */}
+        {onRemove && (
+          <button
+            type="button"
+            className={`${styles.buActionBtn} ${styles.buActionDanger}`}
+            onClick={() => onRemove(hotel)}
+            aria-label={`Remove ${hotel.name}`}
+          >
+            <BsTrash size={13} />
+            Remove
+          </button>
+        )}
       </div>
       <button
         type="button"

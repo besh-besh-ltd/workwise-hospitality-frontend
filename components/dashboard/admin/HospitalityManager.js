@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { BsBuilding } from "react-icons/bs";
 import { HiPlus } from "react-icons/hi";
 import {
   createHospitalityCompany,
+  updateHospitalityCompany,
   createHospitalityHotel,
+  removeHotel,
   createHOBusinessUnit,
   updateHospitalityHotel,
   getHospitalityCompanies,
@@ -22,23 +24,13 @@ import PeopleTab from "./hospitality-manager/PeopleTab";
 import CompanyFormModal from "./hospitality-manager/modals/CompanyFormModal";
 import HotelFormModal from "./hospitality-manager/modals/HotelFormModal";
 import PaymentModal from "./hospitality-manager/modals/PaymentModal";
+import SendCredentialsModal from "./hospitality-manager/modals/SendCredentialsModal";
+import RemoveUnitModal from "./hospitality-manager/modals/RemoveUnitModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
 import styles from "./hospitality-manager/HospitalityManager.module.css";
-
-const dedupeHospitalityMappings = (list = []) => {
-  const seen = new Set();
-  return list.filter((item) => {
-    const key =
-      item.mapping_type === 0
-        ? `company-${item.user_id}`
-        : `hotel-${item.user_id}-${item.hospitality_hotel_id || "null"}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
+import { dedupeHospitalityMappings } from "./shared/hospitalityMappings";
 
 const HospitalityManager = () => {
   const router = useRouter();
@@ -47,15 +39,64 @@ const HospitalityManager = () => {
 
   // --- Core Data ---
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  // HN-1: the selection lives in the URL, not in component state.
+  //
+  // Setting a unit's approval hierarchy navigates away to another page; its
+  // Back calls router.back(), which remounts this screen. With the selection
+  // in useState that remount started from null every time — so an admin who
+  // configured approvals for one unit was returned to the empty landing state
+  // and had to find their company again. Reading it from the query makes Back
+  // land where they were, and makes the view linkable.
+  const selectedCompanyId = useMemo(() => {
+    const raw = Number(router.query.companyId);
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }, [router.query.companyId]);
   const [hotels, setHotels] = useState([]);
   const [companyUserMappings, setCompanyUserMappings] = useState([]);
   const [hotelUserMappings, setHotelUserMappings] = useState({});
 
   // --- UI State ---
-  const [activeTab, setActiveTab] = useState("hotels");
+  // In the URL for the same reason as the company: the round trip through the
+  // approval hierarchy must not silently drop you back onto a different tab.
+  const activeTab = ["hotels", "users"].includes(router.query.tab)
+    ? router.query.tab
+    : "hotels";
+
+  // Next.js populates router.query AFTER hydration. Until isReady, it is `{}` —
+  // so anything that reads the URL on mount sees nothing, and anything that
+  // WRITES the URL on mount spreads that empty object and wipes the rest of it.
+  //
+  // That is not theoretical: it silently undid the whole of HN-1. Opening
+  // /hospitality-manager?companyId=10001&tab=users landed on the default
+  // company with the tab dropped, because the company loader ran before the
+  // query arrived, concluded the URL named no valid company, and replaced the
+  // URL with its own default. Unit tests could not see it — a mocked router
+  // returns query synchronously populated, which the real one never does.
+  const routerReady = router.isReady;
+
+  // `replace`, not `push`: choosing a company is not a place you should have
+  // to press Back through. Back is reserved for leaving this screen, which is
+  // the whole point of HN-1.
+  const setUrlState = useCallback(
+    (next) => {
+      const query = { ...router.query, ...next };
+      Object.keys(query).forEach((k) => {
+        if (query[k] === null || query[k] === undefined || query[k] === "") delete query[k];
+      });
+      router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    },
+    [router]
+  );
+
+  const setSelectedCompanyId = useCallback(
+    (id) => setUrlState({ companyId: id ? String(id) : null }),
+    [setUrlState]
+  );
+  const setActiveTab = useCallback((tab) => setUrlState({ tab }), [setUrlState]);
   const [userMappingFilter, setUserMappingFilter] = useState("all");
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  // Which company the form is editing, or null when it is creating one.
+  const [editingCompany, setEditingCompany] = useState(null);
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState(null);
@@ -68,7 +109,13 @@ const HospitalityManager = () => {
   const [isSubmittingHotel, setIsSubmittingHotel] = useState(false);
   const [isLoadingCompanyMappingList, setIsLoadingCompanyMappingList] = useState(false);
   const [sendingCredentialsHotelId, setSendingCredentialsHotelId] = useState(null);
+  // UM-12: pick who receives credentials instead of mailing the whole unit
+  // behind a window.confirm.
+  const [credentialsModal, setCredentialsModal] = useState({ open: false, hotel: null });
   const [removeMappingConfirm, setRemoveMappingConfirm] = useState({ open: false, mapping: null });
+  // HN-2: removing an accidentally created unit.
+  const [removeUnit, setRemoveUnit] = useState({ open: false, hotel: null });
+  const [removingUnit, setRemovingUnit] = useState(false);
   const [approvalImpactModal, setApprovalImpactModal] = useState({ open: false, type: null, data: null, pendingMapping: null });
 
   // --- Derived Data ---
@@ -100,14 +147,18 @@ const HospitalityManager = () => {
       const response = await getHospitalityCompanies({ include: 'hotels' });
       const list = response?.data ?? response ?? [];
       setCompanies(list);
-      if (list.length) {
-        setSelectedCompanyId((prev) =>
-          prev && list.some((c) => c.id === prev) ? prev : list[0].id
-        );
-      } else {
+      // Default to the first company only when the URL names none, or names
+      // one that is gone. A URL that already names a real company is the
+      // caller's intent and must survive a refresh of the list.
+      //
+      // Guarded on isReady: before hydration the query is empty, so every URL
+      // would look like "names no company" and be overwritten by the default.
+      if (!list.length) {
         setSelectedCompanyId(null);
         setHotels([]);
       }
+      // Choosing the default is deliberately NOT done here — see the effect
+      // below. It has to wait for the router, and the fetch must not.
     } catch (error) {
       console.error(error);
       toast.error("Failed to load hospitality companies");
@@ -115,6 +166,21 @@ const HospitalityManager = () => {
       setIsLoadingCompanies(false);
     }
   };
+
+  // Pick a default company once, and only once the URL can actually be read.
+  //
+  // Split out of loadCompanies because the two have different preconditions:
+  // the fetch needs nothing, this needs a hydrated router. Folding them
+  // together is what let the pre-hydration empty query overwrite a perfectly
+  // good URL.
+  useEffect(() => {
+    if (!routerReady || !companies.length) return;
+    const fromUrl = Number(router.query.companyId);
+    if (!companies.some((c) => c.id === fromUrl)) {
+      setSelectedCompanyId(companies[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routerReady, companies, router.query.companyId]);
 
   const loadAllUserMappings = async () => {
     if (!selectedCompanyId) { setCompanyUserMappings([]); setHotelUserMappings({}); return; }
@@ -150,6 +216,22 @@ const HospitalityManager = () => {
     } finally {
       setIsLoadingCompanyMappingList(false);
     }
+  };
+
+  /**
+   * Everyone who would receive credentials for a unit.
+   *
+   * Mirrors the server's eligibility exactly — people mapped to the unit plus
+   * people mapped at company level, deduplicated — so the picker cannot offer
+   * somebody the server would then silently drop.
+   */
+  const getHotelUsers = (hotelId) => {
+    const hotelSpecific = hotelUserMappings?.[hotelId] || [];
+    const seen = new Set(hotelSpecific.map((item) => item.user_id));
+    const companyWide = companyUserMappings.filter(
+      (item) => item.mapping_type === 0 && !seen.has(item.user_id)
+    );
+    return [...hotelSpecific, ...companyWide];
   };
 
   const getHotelUserCount = (hotelId) => {
@@ -199,8 +281,7 @@ const HospitalityManager = () => {
 
     try {
       setIsSubmittingCompany(true);
-      await createHospitalityCompany(
-        {
+      const payload = {
           name: form.name.trim(),
           region: form.region.trim() || "",
           contact_email: form.contact_email.trim() || "",
@@ -213,16 +294,24 @@ const HospitalityManager = () => {
           ifsc_code: form.ifsc_code.trim() || "",
           account_holder_name: form.account_holder_name.trim() || "",
           msme: form.msme.trim() || "",
-        },
-        documents
-      );
-      toast.success("Company created successfully!");
+      };
+
+      if (editingCompany?.id) {
+        await updateHospitalityCompany(editingCompany.id, payload, documents);
+      } else {
+        await createHospitalityCompany(payload, documents);
+      }
+      toast.success(editingCompany?.id ? "Company updated" : "Company created successfully!");
       resetForm();
       setShowCompanyModal(false);
+      setEditingCompany(null);
       loadCompanies();
     } catch (error) {
       console.error(error);
-      toast.error(error?.message?.response?.data?.message || "Failed to create company");
+      toast.error(
+        error?.message?.response?.data?.message ||
+          (editingCompany?.id ? "Failed to update company" : "Failed to create company")
+      );
     } finally {
       setIsSubmittingCompany(false);
     }
@@ -314,6 +403,25 @@ const HospitalityManager = () => {
     setShowHotelModal(true);
   };
 
+  const finishUnitRemoval = async (hotel, { archive }) => {
+    setRemovingUnit(true);
+    try {
+      await removeHotel(selectedCompanyId, hotel.id, { archive });
+      toast.success(archive ? "Business unit archived" : "Business unit removed");
+      setRemoveUnit({ open: false, hotel: null });
+      // Hotels are derived from the companies payload (loaded with
+      // include=hotels), so one reload refreshes both.
+      await loadCompanies();
+    } catch (error) {
+      toast.error(
+        error?.message?.response?.data?.message ||
+          (archive ? "Could not archive this unit" : "Could not remove this unit")
+      );
+    } finally {
+      setRemovingUnit(false);
+    }
+  };
+
   const handleSetHierarchy = (hotel) => {
     router.push(
       `/dashboard/admin/hospitality-manager/approval-hierarchy?companyId=${selectedCompanyId}&hotelId=${hotel.id}`
@@ -397,15 +505,26 @@ const HospitalityManager = () => {
     }
   };
 
-  const handleSendCredentials = async (hotel) => {
+  /**
+   * Opens the recipient picker (UM-12).
+   *
+   * This used to be a window.confirm that mailed everyone mapped to the unit.
+   * The mail carries a plaintext password for anyone still on the shared
+   * default, so a mistaken click had every account at the unit as its blast
+   * radius — and an admin helping one person who had lost their details had no
+   * way to send to just them.
+   */
+  const handleSendCredentials = (hotel) => {
     if (!selectedCompanyId) { toast.error("Select a company first"); return; }
-    const confirmSend = window.confirm(
-      `Send login credentials email to all users mapped to "${hotel.name}"?`
-    );
-    if (!confirmSend) return;
+    setCredentialsModal({ open: true, hotel });
+  };
+
+  const submitCredentials = async (userIds) => {
+    const hotel = credentialsModal.hotel;
+    if (!hotel || !selectedCompanyId) return;
     try {
       setSendingCredentialsHotelId(hotel.id);
-      const response = await sendBUCredentials(selectedCompanyId, hotel.id);
+      const response = await sendBUCredentials(selectedCompanyId, hotel.id, userIds);
       const msg = response?.data?.message || response?.message || "Credentials sent successfully!";
       toast.success(msg);
     } catch (error) {
@@ -413,6 +532,7 @@ const HospitalityManager = () => {
       toast.error(error?.message?.response?.data?.message || "Failed to send credentials");
     } finally {
       setSendingCredentialsHotelId(null);
+      setCredentialsModal({ open: false, hotel: null });
     }
   };
 
@@ -449,7 +569,8 @@ const HospitalityManager = () => {
         </section>
         <CompanyFormModal
           isOpen={showCompanyModal}
-          onClose={() => setShowCompanyModal(false)}
+          company={editingCompany}
+          onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
           onSubmit={handleCompanySubmit}
           isSubmitting={isSubmittingCompany}
         />
@@ -483,6 +604,7 @@ const HospitalityManager = () => {
         {selectedCompany ? (
           <>
             <CompanyOverview
+              onEdit={(c) => { setEditingCompany(c); setShowCompanyModal(true); }}
               company={selectedCompany}
               hotelCount={hotels.length}
               userCount={companyUserMappings.length}
@@ -524,6 +646,7 @@ const HospitalityManager = () => {
                 onSetHierarchy={handleSetHierarchy}
                 onSendPayment={() => setShowPaymentModal(true)}
                 onSendCredentials={handleSendCredentials}
+                onRemoveHotel={(hotel) => setRemoveUnit({ open: true, hotel })}
                 sendingCredentialsHotelId={sendingCredentialsHotelId}
                 isLoading={isLoadingHotels}
                 hasPendingPayments={hasPendingPayments}
@@ -556,7 +679,8 @@ const HospitalityManager = () => {
       {/* Modals */}
       <CompanyFormModal
         isOpen={showCompanyModal}
-        onClose={() => setShowCompanyModal(false)}
+        company={editingCompany}
+        onClose={() => { setShowCompanyModal(false); setEditingCompany(null); }}
         onSubmit={handleCompanySubmit}
         isSubmitting={isSubmittingCompany}
       />
@@ -573,6 +697,25 @@ const HospitalityManager = () => {
         companyName={selectedCompany?.name}
         existingDocuments={hotelDocuments}
       />
+      <RemoveUnitModal
+        isOpen={removeUnit.open}
+        companyId={selectedCompanyId}
+        hotel={removeUnit.hotel}
+        busy={removingUnit}
+        onClose={() => setRemoveUnit({ open: false, hotel: null })}
+        onRemove={(hotel) => finishUnitRemoval(hotel, { archive: false })}
+        onArchive={(hotel) => finishUnitRemoval(hotel, { archive: true })}
+      />
+
+      <SendCredentialsModal
+        isOpen={credentialsModal.open}
+        onClose={() => setCredentialsModal({ open: false, hotel: null })}
+        hotel={credentialsModal.hotel}
+        users={credentialsModal.hotel ? getHotelUsers(credentialsModal.hotel.id) : []}
+        isSending={sendingCredentialsHotelId === credentialsModal.hotel?.id}
+        onSend={submitCredentials}
+      />
+
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}

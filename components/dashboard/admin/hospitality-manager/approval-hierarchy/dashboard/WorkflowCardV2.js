@@ -1,8 +1,30 @@
 import React, { useState, useCallback } from "react";
-import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope } from "react-icons/bs";
+import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope, BsBuilding } from "react-icons/bs";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { DS, PROCESS_TYPE_COLORS, getCardStageOrder, getEntityTypeConfig } from "../constants";
 import s from "./WorkflowCardV2.module.scss";
+
+/**
+ * The departments an approver belongs to.
+ *
+ * A level names a person or a role and nothing else, which leaves an admin
+ * auditing a chain unable to tell two same-named approvers apart, or to see
+ * which part of the business a level actually answers for. useApprovalData
+ * already attaches departmentNames to every resolved approver (from
+ * /rbac/users/batch-departments) — this draws them. Nothing renders when the
+ * user is mapped to no department, rather than an empty rail.
+ */
+const DeptList = ({ names }) => {
+  if (!names || names.length === 0) return null;
+  return (
+    <div className={s.deptList}>
+      <BsBuilding size={9} className={s.deptIcon} />
+      {names.map((name) => (
+        <span key={name} className={s.deptChip}>{name}</span>
+      ))}
+    </div>
+  );
+};
 
 const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC (Publish & Base)", ARC_TECH: "ARC Technical Evaluation", ARC_NEGOTIATION: "ARC Negotiation", ARC_COMMITTEE: "ARC Committee Award", ARC_AMENDMENT: "ARC Amendment" };
 const STAGE_DESCRIPTIONS = { RFQ: "Triggered when a new RFQ is submitted for approval", TECHNICAL: "Approves technical evaluation markings", NEGOTIATION: "Approves negotiation rounds", NEGOTIATION_QUOTE: "Final approval on vendor quotes after negotiation", PO: "Final sign-off before purchase order is issued", TENDER: "Approval gate when a tender is submitted", ARC: "Required — gates publishing a rate contract; default for every ARC stage", ARC_TECH: "Approves rate contract technical evaluation", ARC_NEGOTIATION: "Approves rate contract negotiation rounds", ARC_COMMITTEE: "ARC committee approval of finalised awards", ARC_AMENDMENT: "Approves post-award rate contract amendments" };
@@ -15,9 +37,11 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
 
   const processType = (process?.process_type || "RFQ").toUpperCase();
   const isArc = !!process?.is_arc || processType === "ARC";
-  // Canonical route first, then any stage this process has a policy for but its
-  // route does not name (an RFQ process carrying TENDER/ARC policies, say) — so
-  // the card's totals always reconcile with the KPI row above the list.
+  // Canonical route first, then any reachable stage this process has a policy
+  // for but its route does not name (an RFQ process carrying a TENDER policy,
+  // say). ARC-flow stages are never appended — they are process-free and a
+  // process-pinned ARC policy can never fire; DashboardView reports those.
+  // Everything the card DOES show is counted in its own totals below.
   const stageOrder = getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc);
   const typeColor = PROCESS_TYPE_COLORS[processType] || DS.primary;
   const stages = stageOrder.map((et) => { const p = (policies || []).find((pol) => pol.entity_type === et); return { entity_type: et, steps: p?.steps || [] }; });
@@ -68,7 +92,11 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
             const isExpanded = expandedStage === i;
             return (
               <React.Fragment key={stage.entity_type}>
-                <div className={`${s.stage} ${s.stageClickable}`} onClick={() => handleStageClick(i)}>
+                <div
+                  className={`${s.stage} ${s.stageClickable}`}
+                  data-edge={i === 0 ? "start" : isLast ? "end" : undefined}
+                  onClick={() => handleStageClick(i)}
+                >
                   {/* Hover tooltip */}
                   <div className={s.tooltip}>
                     <div className={s.tooltipInner}>
@@ -142,6 +170,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                         {info?.type === "User" && info?.email && (
                           <div className={s.emailLine}><BsEnvelope size={9} /> {info.email}</div>
                         )}
+                        {info?.type === "User" && <DeptList names={info?.users?.[0]?.departmentNames} />}
                         {isRole && hasUsers && (
                           <>
                             <button className={s.usersToggle} onClick={(e) => toggleUsers(userKey, e)}>
@@ -152,8 +181,11 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                               <div className={s.usersList}>
                                 {info.users.map((user, idx) => (
                                   <div key={user.user_id || idx} className={s.userRow}>
-                                    <span className={s.userName}>{user.name}</span>
-                                    {user.email && <span className={s.userEmail}>{user.email}</span>}
+                                    <div className={s.userIdentity}>
+                                      <span className={s.userName}>{user.name}</span>
+                                      {user.email && <span className={s.userEmail}>{user.email}</span>}
+                                    </div>
+                                    <DeptList names={user.departmentNames} />
                                   </div>
                                 ))}
                               </div>

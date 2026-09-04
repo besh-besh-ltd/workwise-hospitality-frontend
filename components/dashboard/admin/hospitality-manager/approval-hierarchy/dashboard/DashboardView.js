@@ -4,7 +4,7 @@ import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, isArcEntityType } from "../constants";
+import { DS, isArcEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
 import s from "./DashboardView.module.scss";
 
 /** Ids may arrive as numbers or strings depending on the endpoint. */
@@ -31,9 +31,10 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
       // Every policy routed through this process, whatever its entity_type. The
       // filter used to also intersect with getStageEntityOrder(proc.process_type),
       // which silently discarded any stage outside the process type's canonical
-      // route — in production the RFQ-typed process 2 owns TENDER and ARC
-      // policies too, so the card showed 5 of 7 stages while the KPI row above it
-      // counted all 7. WorkflowCardV2 now appends the extra stages instead.
+      // route — in production the RFQ-typed process 2 owns a TENDER policy too,
+      // so the card showed 5 of 6 stages while the KPI row above it counted all
+      // 6. WorkflowCardV2 appends the reachable extras; the ARC-flow ones it
+      // cannot show are reported by the misroutedArc diagnostic below.
       groups.push({ process: proc, policies: policies.filter((p) => sameId(p.process_id, proc.id)) });
     });
     // ARC flow: process-free policies whose entity_type is an ARC stage group
@@ -44,6 +45,26 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);
+
+  // ARC-flow policies pinned to a process whose route does not name them. The
+  // ARC flow is process-free — an ARC contract carries process_id = NULL and
+  // findBestMatchingPolicyTx matches `process_id = $4 OR process_id IS NULL`, so
+  // a NULL entity process can only ever select a NULL-process policy. These rows
+  // can never be chosen. They used to be drawn into the process card as ordinary
+  // stages, which read as "this RFQ route has a rate-contract gate" — it does
+  // not. getCardStageOrder drops them; this names them, because a policy the KPI
+  // row counts must never vanish from the page without a word.
+  const misroutedArc = useMemo(
+    () =>
+      processGroups
+        .filter((g) => !g.isArc && !g.isOrphan && g.process?.id)
+        .map((g) => ({
+          process: g.process,
+          policies: getMisroutedArcPolicies(g.process?.process_type, g.policies),
+        }))
+        .filter((g) => g.policies.length > 0),
+    [processGroups]
+  );
 
   // Policies routed through a process that is not in the loaded process list.
   // They belong to no group, so nothing above renders them — and because the KPI
@@ -117,6 +138,33 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                 </div>
               ))}
             </>
+          )}
+
+          {misroutedArc.length > 0 && (
+            <div className={s.diagnostic} data-testid="arc-misrouted-diagnostic">
+              <BsExclamationTriangle size={16} className={s.diagnosticIcon} />
+              <div>
+                <div className={s.diagnosticTitle}>
+                  {misroutedArc.reduce((n, g) => n + g.policies.length, 0)} ARC stage
+                  {misroutedArc.reduce((n, g) => n + g.policies.length, 0) !== 1 ? "s are" : " is"} attached to a
+                  process and will never be used
+                </div>
+                <div className={s.diagnosticBody}>
+                  Rate contract approvals are <b>process-free</b> — an ARC never carries a process, so a policy saved
+                  against one can never be matched to it. These stages are counted in the totals above but are not shown
+                  on the process cards, because they do not gate anything.
+                </div>
+                {misroutedArc.map((g) => (
+                  <div key={g.process.id} className={s.diagnosticBody}>
+                    <b>{g.process.name}</b> ({(g.process.process_type || "RFQ").toUpperCase()}):{" "}
+                    {g.policies.map((p) => getEntityTypeConfig(p.entity_type).label).join(", ")}.
+                  </div>
+                ))}
+                <div className={s.diagnosticBody}>
+                  Configure them on the <b>ARC (Rate Contracts)</b> card instead, then delete these.
+                </div>
+              </div>
+            </div>
           )}
 
           {unmatchedPolicies.length > 0 && (

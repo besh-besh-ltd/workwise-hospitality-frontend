@@ -18,6 +18,7 @@ import VendorCommercialStage from "@/components/dashboard/rate-contracts/vendor/
 import VendorArcNegotiationBanner from "@/components/dashboard/rate-contracts/vendor/VendorArcNegotiationBanner";
 import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
 import useArcQuotePreview from "@/hooks/useArcQuotePreview";
+import { seedGstin } from "@/utils/gstin";
 
 // Sr 53 — 2-decimal money display (not whole-rupee rounding). The pricing
 // engine already keeps 2-dp end to end (pricingEngine.js q2); this formatter
@@ -333,10 +334,20 @@ export default function VendorQuotePage() {
         setPrice(seed);
 
         if (qt) {
-          setGstin(qt.gstin_used || "");
+          // gstin_used is scoped to THIS contract quote, so it opened blank on
+          // every new ARC even though the vendor's company profile already
+          // holds their GSTIN. seedGstin fills an empty box from the profile
+          // and never touches a value the vendor actually submitted — the same
+          // rule the RFQ quote wizard uses, deliberately shared so the two
+          // surfaces cannot answer the vendor differently.
+          const seeded = seedGstin({
+            stored: qt.gstin_used,
+            profile: d.vendor_profile_gstin,
+          });
+          setGstin(seeded.value);
           setGlobals(g => ({
             ...g,
-            gstin: qt.gstin_used || "",
+            gstin: seeded.value,
             comment: qt.payment_terms_notes || "",
           }));
           // Phase 1 §3 — seed server-persisted T&C acceptance on load.

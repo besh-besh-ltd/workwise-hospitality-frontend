@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { sendPasswordReset } from "@/services/Auth";
 import {
   BsFileEarmarkText,
   BsFileEarmarkRuled,
@@ -85,13 +86,6 @@ const reportEditLoadFailure = (raw, source, extra = {}) => {
   }
 };
 
-const roleOptions = [
-  { value: 8, label: "Management", color: "#2E5BA8" },
-  { value: 2, label: "Procurement", color: "#428B41" },
-  { value: 9, label: "Engineering", color: "#FFE600" },
-  { value: 10, label: "Finance", color: "#5b5b5b" },
-];
-
 const ManageAccountsPage = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const [loading, setLoading] = useState(false);
@@ -99,6 +93,10 @@ const ManageAccountsPage = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [stats, setStats] = useState({ total_count: 0, active_count: 0, inactive_count: 0, mapped_count: 0 });
   const [filters, setFilters] = useState({ status: null, search: "", companyId: null, hotelId: null });
+  // Resetting a password is an action taken *for* somebody, so it confirms
+  // first — an accidental click emails a real person a real reset.
+  const [resetConfirm, setResetConfirm] = useState({ open: false, account: null });
+  const [resettingPasswordFor, setResettingPasswordFor] = useState(null);
 
   const [isHospitalityCompany, setIsHospitalityCompany] = useState(false);
   const [hospitalityCompanies, setHospitalityCompanies] = useState([]);
@@ -518,6 +516,42 @@ const ManageAccountsPage = () => {
         mappedCount={stats.mapped_count}
         isHospitality={isHospitalityCompany}
         isLoading={initialLoad}
+        activeStatus={filters.status?.value ?? null}
+        onSelectStatus={(value) =>
+          handleFilterChange({
+            status: value ? { value, label: value === "active" ? "Active" : "Inactive" } : null,
+          })
+        }
+      />
+
+      <ConfirmationModal
+        isOpen={resetConfirm.open}
+        onClose={() => setResetConfirm({ open: false, account: null })}
+        onConfirm={async () => {
+          const account = resetConfirm.account;
+          setResetConfirm({ open: false, account: null });
+          if (!account) return;
+          setResettingPasswordFor(account.id);
+          try {
+            const res = await sendPasswordReset(account.id);
+            toast.success(res?.message || `A password reset has been emailed to ${account.email}.`);
+          } catch (error) {
+            toast.error(
+              error?.message?.response?.data?.message || "Could not send the password reset"
+            );
+          } finally {
+            setResettingPasswordFor(null);
+          }
+        }}
+        title="Send a password reset?"
+        description={
+          resetConfirm.account
+            ? `${resetConfirm.account.name} will be emailed a link to set a new password. Their current password stops working once they use it. You will not see the new password.`
+            : ""
+        }
+        confirmButtonColor="warning"
+        confirmButtonText="Send reset"
+        cancelButtonText="Cancel"
       />
 
       <UserFilters
@@ -534,6 +568,8 @@ const ManageAccountsPage = () => {
         isLoading={loading}
         isHospitality={isHospitalityCompany}
         onEdit={handleEditAccount}
+        onResetPassword={(account) => setResetConfirm({ open: true, account })}
+        resettingPasswordFor={resettingPasswordFor}
         onManageAccess={handleManageAccess}
         loadingSteps={[
           { label: "Verifying profile...", status: loadingSteps.profile },
@@ -560,7 +596,6 @@ const ManageAccountsPage = () => {
           onClose={() => setEditModal({ open: false, account: null })}
           account={editModal.account}
           isHospitality={isHospitalityCompany}
-          roleOptions={roleOptions}
           initialRoleScopes={editModalData.roleScopes}
           userDepartments={editModalData.departments}
           userMappings={editModalData.mappings}

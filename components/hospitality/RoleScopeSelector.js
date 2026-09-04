@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { HiX, HiPencil } from "react-icons/hi";
 import { getDepartments, getRoles, getRolePermissions } from "@/services/rbac";
@@ -23,6 +23,16 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
+  // "" = not yet chosen, "all" = deliberately every unit, "<id>" = one unit.
+  //
+  // The unit used to default to "All Business Units", which meant Role and
+  // Department were reachable before the admin had thought about scope at all
+  // — the out-of-sequence problem in UM-4. Requiring a deliberate choice fixes
+  // that without removing the legitimate all-units grant, which is a real and
+  // common thing to want.
+  const [hotelChoice, setHotelChoice] = useState("");
+  // Confirmation after a role is staged, so multi-add has visible feedback.
+  const [justAdded, setJustAdded] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState(propSelectedDepartment || null);
   const [processes, setProcesses] = useState([]);
   // Single process per scope row, matching the Business Unit / Department
@@ -285,24 +295,39 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
 
   /* ---------------- Handlers ---------------- */
 
-  const resetForm = () => {
+  /**
+   * Clears the form.
+   *
+   * `keepScope` is what makes assigning several roles bearable. Giving one
+   * person four roles at the same unit used to mean re-picking the company and
+   * the unit four times — UM-2. After a role is staged, the scope stays and
+   * only the role, department and process reset, so the second role is two
+   * choices rather than six.
+   */
+  const resetForm = ({ keepScope = false } = {}) => {
     setSelectedRole(null);
-    setSelectedCompany(null);
-    setSelectedHotel(null);
     setSelectedDepartment(null);
     setSelectedProcess(null);
     setPermissions({});
     setError(null);
+    if (!keepScope) {
+      setSelectedCompany(null);
+      setSelectedHotel(null);
+      setHotelChoice("");
+    }
   };
 
   const commitScope = (scope) => {
     if (editingIndex !== null && onReplaceRole) {
       onReplaceRole(editingIndex, scope);
       setEditingIndex(null);
+      setJustAdded(null);
+      resetForm();
     } else {
       onAddRole(scope);
+      setJustAdded(scope.role_title || "Role");
+      resetForm({ keepScope: true });
     }
-    resetForm();
   };
 
   const handleAddRole = () => {
@@ -370,6 +395,8 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setSelectedRole(matchedRole);
     setSelectedCompany(matchedCompany || null);
     setSelectedHotel(matchedHotel);
+    setHotelChoice(role.hotel_id ? String(role.hotel_id) : "all");
+    setJustAdded(null);
     setSelectedDepartment(matchedDept);
     // Process pre-fill: single value, matching dept/hotel selection. The
     // process options list reloads asynchronously via the selectedCompany
@@ -395,6 +422,14 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     setEditingIndex(null);
     resetForm();
   };
+
+  /**
+   * Whether the form holds a selection the admin has not staged yet.
+   *
+   * UM-3: people fill this in, miss "Add Role", press Update Account and lose
+   * the grant silently. The parent asks this before saving so it can say so.
+   */
+  const hasUnstagedSelection = () => Boolean(selectedRole && selectedCompany);
 
   /* ---------------- Helpers ---------------- */
 
@@ -464,6 +499,258 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
     }));
   }, [existingRoles, allCompanies, allDepartments]);
 
+  /**
+   * The add/edit form, rendered in one of two places.
+   *
+   * In add mode it sits below the list, where new work belongs. In edit mode
+   * it is rendered inline directly beneath the row being edited (UM-6) —
+   * previously editing a role scrolled the admin to a form at the bottom of a
+   * long modal, with no visual tie back to the row they had clicked, so it was
+   * easy to lose track of which grant was being changed.
+   */
+  const roleForm = (
+    <>
+            {/* Add / Edit Role Form. Shared form: in create mode it inserts a
+                new role; in edit mode it replaces the role at editingIndex. */}
+            <div className={styles.addRoleSection}>
+              <div className={styles.addRoleTitle}>
+                {isEditing ? "Edit Role" : "Add New Role"}
+              </div>
+              <div className={styles.addRoleGrid}>
+                {/* Order matters here. Company -> Business Unit -> Role +
+                    Department, each gated on the one before it (UM-4). It used
+                    to run Role -> Company -> Business Unit, with Department
+                    reachable as soon as a role was picked, which let an admin
+                    choose a department before deciding which unit it belonged
+                    to. Scope first, then what the person may do inside it. */}
+
+                {/* Company */}
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>
+                    Company <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <select
+                    className={styles.formSelect}
+                    value={selectedCompany?.id || ""}
+                    onChange={(e) => {
+                      const company = companies.find((c) => c.id === Number(e.target.value));
+                      setSelectedCompany(company || null);
+                      setSelectedHotel(null);
+                      setHotelChoice("");
+                      setSelectedRole(null);
+                      setSelectedDepartment(null);
+                      setError(null);
+                    }}
+                  >
+                    <option value="">Select company...</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Business Unit */}
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>
+                    Business Unit <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <select
+                    className={styles.formSelect}
+                    disabled={!selectedCompany}
+                    value={hotelChoice}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setHotelChoice(value);
+                      setSelectedHotel(
+                        value && value !== "all"
+                          ? selectedCompany?.hotels.find((h) => h.id === Number(value)) || null
+                          : null
+                      );
+                      setSelectedDepartment(null);
+                      setError(null);
+                    }}
+                  >
+                    <option value="">Select business unit...</option>
+                    <option value="all">All Business Units</option>
+                    {selectedCompany?.hotels.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Role */}
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>
+                    Role <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <select
+                    className={styles.formSelect}
+                    disabled={!selectedCompany || !hotelChoice}
+                    value={selectedRole?.id || ""}
+                    onChange={(e) => {
+                      const role = roles.find((r) => r.id === Number(e.target.value)) || null;
+                      setSelectedRole(role);
+                      setError(null);
+                    }}
+                  >
+                    <option value="">
+                      {!selectedCompany
+                        ? "Select a company first..."
+                        : !hotelChoice
+                        ? "Select a business unit first..."
+                        : "Select a role..."}
+                    </option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Department */}
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>
+                    Department
+                    <span className={styles.addRoleFieldHint}> (optional)</span>
+                  </label>
+                  <select
+                    className={styles.formSelect}
+                    disabled={
+                      propSelectedDepartment && !isEditMode
+                        ? true
+                        : !selectedCompany || !hotelChoice
+                    }
+                    value={selectedDepartment?.id || selectedDepartment?.value || ""}
+                    onChange={(e) => {
+                      const dept = departments.find((d) => d.id === Number(e.target.value)) || null;
+                      setSelectedDepartment(dept);
+                      if (dept) setError(null);
+                    }}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Process — single select, matching the Business Unit /
+                    Department dropdowns above. NULL on emit = "all processes"
+                    (mirrors how hotel_id/department_id work). Admins create
+                    multi-process access by adding multiple role rows.
+                    Hidden entirely for ARC-only roles — ARC is process-free. */}
+                {isArcOnlyRole ? (
+                  <div className={styles.addRoleField}>
+                    <label className={styles.addRoleFieldLabel}>Process</label>
+                    <small className={styles.formSmallHint} style={{ color: "#9d174d" }}>
+                      ARC roles are process-free — this grant applies to all rate contracts. No process needed.
+                    </small>
+                  </div>
+                ) : (
+                <div className={styles.addRoleField}>
+                  <label className={styles.addRoleFieldLabel}>
+                    Process
+                    <span className={styles.addRoleFieldHint}> (optional)</span>
+                  </label>
+                  <select
+                    className={styles.formSelect}
+                    disabled={!selectedCompany || !hotelChoice || !selectedRole || processesLoading}
+                    value={selectedProcess?.id || ""}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      const proc = processes.find((p) => p.id === id) || null;
+                      setSelectedProcess(proc);
+                      if (proc) setError(null);
+                    }}
+                  >
+                    <option value="">
+                      {processesLoading ? "Loading processes..." : "All Processes"}
+                    </option>
+                    {processes.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.process_type ? ` (${p.process_type})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCompany && !processesLoading && processes.length === 0 && (
+                    <small className={styles.formSmallHint}>
+                      No processes configured for this company yet. Role will apply to all processes once they're added.
+                    </small>
+                  )}
+                </div>
+                )}
+              </div>
+
+              {/* The action sits directly under the fields, before the
+                  permissions preview (UM-3). It used to come after the preview,
+                  which on a full-height role can be a screen and a half of
+                  content — so people filled the form in, never saw the button,
+                  pressed Update Account and lost the grant without being told. */}
+              <div className={styles.addRoleFooter}>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className={styles.outlineBtn}
+                    onClick={handleCancelEdit}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  disabled={!selectedRole || !selectedCompany}
+                  onClick={handleAddRole}
+                >
+                  {isEditing ? "Save Changes" : "Add Role"}
+                </button>
+              </div>
+
+              {justAdded && !isEditing && (
+                <div className={styles.addRoleStagedNote} role="status">
+                  <strong>{justAdded}</strong> added to the list above. The company
+                  and business unit are kept — pick another role to add a second.
+                </div>
+              )}
+
+              {/* Permissions Preview */}
+              {selectedRole && (
+                <div className={styles.permissionsPreview}>
+                  <div className={styles.permissionsPreviewTitle}>
+                    Permissions for "{selectedRole.title}"
+                  </div>
+                  {hasPermissions ? (
+                    Object.entries(permissions).map(([resource, actions]) => (
+                      <div key={resource} className={styles.permissionsResourceRow}>
+                        <div className={styles.permissionsResourceName}>{resource}</div>
+                        <div className={styles.permissionsActionList}>
+                          {(Array.isArray(actions) ? actions : []).map((action) => (
+                            <span key={action} className={styles.permissionActionTag}>
+                              {action}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={styles.permissionsEmpty}>
+                      Loading permissions...
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+    </>
+  );
+
   return (
     <div className={styles.roleSelectorWrap}>
       {loading && (
@@ -500,8 +787,8 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                           {hotel.roles.map((role) => {
                             const isThisRowEditing = editingIndex === role._index;
                             return (
+                              <Fragment key={`r-${role._index}`}>
                               <div
-                                key={`r-${role._index}`}
                                 className={`${styles.scopeRoleRow} ${isThisRowEditing ? styles.scopeRoleRowEditing : ""}`}
                               >
                                 <div className={styles.scopeRoleMain}>
@@ -553,6 +840,10 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                                   )}
                                 </div>
                               </div>
+                              {isThisRowEditing && (
+                                <div className={styles.scopeRoleInlineEdit}>{roleForm}</div>
+                              )}
+                              </Fragment>
                             );
                           })}
                         </div>
@@ -568,210 +859,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
             )}
           </div>
 
-          {/* Add / Edit Role Form. Shared form: in create mode it inserts a
-              new role; in edit mode it replaces the role at editingIndex. */}
-          <div className={styles.addRoleSection}>
-            <div className={styles.addRoleTitle}>
-              {isEditing ? "Edit Role" : "Add New Role"}
-            </div>
-            <div className={styles.addRoleGrid}>
-              {/* Role */}
-              <div className={styles.addRoleField}>
-                <label className={styles.addRoleFieldLabel}>
-                  Role <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <select
-                  className={styles.formSelect}
-                  value={selectedRole?.id || ""}
-                  onChange={(e) => {
-                    const role = roles.find((r) => r.id === Number(e.target.value)) || null;
-                    setSelectedRole(role);
-                    if (!role) {
-                      setError(null);
-                      setSelectedCompany(null);
-                      setSelectedHotel(null);
-                      setSelectedDepartment(null);
-                    }
-                  }}
-                >
-                  <option value="">Select a role...</option>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Company */}
-              <div className={styles.addRoleField}>
-                <label className={styles.addRoleFieldLabel}>
-                  Company <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <select
-                  className={styles.formSelect}
-                  value={selectedCompany?.id || ""}
-                  onChange={(e) => {
-                    const company = companies.find((c) => c.id === Number(e.target.value));
-                    setSelectedCompany(company || null);
-                    setSelectedHotel(null);
-                  }}
-                  disabled={!selectedRole}
-                >
-                  <option value="">Select company...</option>
-                  {companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Business Unit */}
-              <div className={styles.addRoleField}>
-                <label className={styles.addRoleFieldLabel}>
-                  Business Unit
-                  <span className={styles.addRoleFieldHint}> (optional)</span>
-                </label>
-                <select
-                  className={styles.formSelect}
-                  disabled={!selectedCompany || !selectedRole}
-                  value={selectedHotel?.id || ""}
-                  onChange={(e) => {
-                    setSelectedHotel(
-                      selectedCompany?.hotels.find((h) => h.id === Number(e.target.value)) || null
-                    );
-                    setSelectedDepartment(null);
-                  }}
-                >
-                  <option value="">All Business Units</option>
-                  {selectedCompany?.hotels.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Department */}
-              <div className={styles.addRoleField}>
-                <label className={styles.addRoleFieldLabel}>
-                  Department
-                  <span className={styles.addRoleFieldHint}> (optional)</span>
-                </label>
-                <select
-                  className={styles.formSelect}
-                  disabled={propSelectedDepartment && !isEditMode ? true : !selectedRole}
-                  value={selectedDepartment?.id || selectedDepartment?.value || ""}
-                  onChange={(e) => {
-                    const dept = departments.find((d) => d.id === Number(e.target.value)) || null;
-                    setSelectedDepartment(dept);
-                    if (dept) setError(null);
-                  }}
-                >
-                  <option value="">All Departments</option>
-                  {departments.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Process — single select, matching the Business Unit /
-                  Department dropdowns above. NULL on emit = "all processes"
-                  (mirrors how hotel_id/department_id work). Admins create
-                  multi-process access by adding multiple role rows.
-                  Hidden entirely for ARC-only roles — ARC is process-free. */}
-              {isArcOnlyRole ? (
-                <div className={styles.addRoleField}>
-                  <label className={styles.addRoleFieldLabel}>Process</label>
-                  <small className={styles.formSmallHint} style={{ color: "#9d174d" }}>
-                    ARC roles are process-free — this grant applies to all rate contracts. No process needed.
-                  </small>
-                </div>
-              ) : (
-              <div className={styles.addRoleField}>
-                <label className={styles.addRoleFieldLabel}>
-                  Process
-                  <span className={styles.addRoleFieldHint}> (optional)</span>
-                </label>
-                <select
-                  className={styles.formSelect}
-                  disabled={!selectedCompany || !selectedRole || processesLoading}
-                  value={selectedProcess?.id || ""}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    const proc = processes.find((p) => p.id === id) || null;
-                    setSelectedProcess(proc);
-                    if (proc) setError(null);
-                  }}
-                >
-                  <option value="">
-                    {processesLoading ? "Loading processes..." : "All Processes"}
-                  </option>
-                  {processes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.process_type ? ` (${p.process_type})` : ""}
-                    </option>
-                  ))}
-                </select>
-                {selectedCompany && !processesLoading && processes.length === 0 && (
-                  <small className={styles.formSmallHint}>
-                    No processes configured for this company yet. Role will apply to all processes once they're added.
-                  </small>
-                )}
-              </div>
-              )}
-            </div>
-
-            {/* Permissions Preview */}
-            {selectedRole && (
-              <div className={styles.permissionsPreview}>
-                <div className={styles.permissionsPreviewTitle}>
-                  Permissions for "{selectedRole.title}"
-                </div>
-                {hasPermissions ? (
-                  Object.entries(permissions).map(([resource, actions]) => (
-                    <div key={resource} className={styles.permissionsResourceRow}>
-                      <div className={styles.permissionsResourceName}>{resource}</div>
-                      <div className={styles.permissionsActionList}>
-                        {(Array.isArray(actions) ? actions : []).map((action) => (
-                          <span key={action} className={styles.permissionActionTag}>
-                            {action}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className={styles.permissionsEmpty}>
-                    Loading permissions...
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className={styles.addRoleFooter}>
-              {isEditing && (
-                <button
-                  type="button"
-                  className={styles.outlineBtn}
-                  onClick={handleCancelEdit}
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                disabled={!selectedRole || !selectedCompany}
-                onClick={handleAddRole}
-              >
-                {isEditing ? "Save Changes" : "Add Role"}
-              </button>
-            </div>
-          </div>
+          {!isEditing && roleForm}
         </>
       )}
       {/* All-access confirmation modal */}

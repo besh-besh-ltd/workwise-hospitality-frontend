@@ -72,13 +72,45 @@ import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/Negot
 import PurchaseOrderStage, { PO_AWAITING_ANCHOR_ID } from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
 import { StageSkeleton, LifecycleContext } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
+import { parseNegotiationTime } from "@/utils/negotiationTime";
 
 import styles from "./ViewRFQ.module.scss";
 
 /* ─────────────────────────────  small helpers  ───────────────────────────── */
 
+/*
+ * TWO timestamp conventions reach this page, and they are not interchangeable.
+ *
+ *   IST wall clocks   bid_end_date, tender_publish_date,
+ *                     vendor_clarification_date — a buyer typed these into a
+ *                     local datetime control and they are stored exactly as
+ *                     typed. `moment(raw)` reads a naive string as local, which
+ *                     is precisely right for them.
+ *
+ *   UTC wall clocks   `timestamp` — a `timestamp without time zone` column
+ *                     defaulted to CURRENT_TIMESTAMP on a UTC server. dbConn.js
+ *                     registers a type parser for OID 1114 that returns the raw
+ *                     string, so nothing ever marks it as UTC. Reading it as
+ *                     local renders it 5h30m early.
+ *
+ * One formatter used for both is what showed RFQ 968's 01:29 PM creation as
+ * 07:59 AM. parseNegotiationTime is the shared parser for the naive-UTC form
+ * (idempotent on anything already carrying Z or an offset).
+ *
+ * Both render pinned to IST rather than the viewer's zone, so every field on
+ * the card is one clock — the deadlines above already are, by construction.
+ */
+const IST_OFFSET_MIN = 330;
 const fmtDateTime = (d) => (d ? moment(d).format("DD MMM YY · hh:mm A") : "—");
 const fmtDate = (d) => (d ? moment(d).format("DD MMM YYYY") : "—");
+const fmtServerDateTime = (d) => {
+  const i = parseNegotiationTime(d);
+  return i ? moment(i).utcOffset(IST_OFFSET_MIN).format("DD MMM YY · hh:mm A") : "—";
+};
+const fmtServerDate = (d) => {
+  const i = parseNegotiationTime(d);
+  return i ? moment(i).utcOffset(IST_OFFSET_MIN).format("DD MMM YYYY") : "—";
+};
 
 // Single source of truth for the top-of-page eyebrow status (Draft/Active/etc).
 // Mirrors getRFQPublishState() but flattens into a presentation tuple so the
@@ -916,7 +948,7 @@ const ViewRFQ = ({
                   <span className="sep">·</span>
                 </>
               )}
-              <span>Created <span className="em">{fmtDate(data.timestamp)}</span></span>
+              <span>Created <span className="em">{fmtServerDate(data.timestamp)}</span></span>
               <span className="sep">·</span>
               <span>{entity}{data.rfq_type ? ` · ${data.rfq_type}` : ""}</span>
               {data.lifecycle_stage && (
@@ -1198,9 +1230,16 @@ const ViewRFQ = ({
                   {isTender ? "Publish date" : "Created"}
                 </div>
                 <div className={`${styles.detailValue} ${styles.mono}`}>
-                  {data.tender_publish_date
+                  {/*
+                    The label switches on isTender; the value used to switch on
+                    whether a publish date existed. 651 of 757 non-tender RFQs
+                    carry a scheduled tender_publish_date, so 86% of them showed
+                    that publish time under a "Created" heading — RFQ 968 read
+                    03:00 PM for an RFQ created at 01:29 PM. Ask one question.
+                  */}
+                  {isTender
                     ? fmtDateTime(data.tender_publish_date)
-                    : fmtDateTime(data.timestamp)}
+                    : fmtServerDateTime(data.timestamp)}
                 </div>
               </div>
               <div className={styles.detailCell}>

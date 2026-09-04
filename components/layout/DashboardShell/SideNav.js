@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { ChevronDown, LogOut, Search, X } from "lucide-react";
-import { roleMenus } from "@/components/layout/Header/headerConfig";
+import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import SideNavItem from "./SideNavItem";
 import { getNavIcon } from "./navIcons";
@@ -44,15 +44,10 @@ const SideNav = ({
     [pendingCountFor, isSubLocked]
   );
 
-  const currentRoleMenu = useMemo(() => {
-    const baseMenu = roleMenus[currentUserType] || [];
-    if (currentUserType === "admin" && !isHospitalityCompany) {
-      return baseMenu.filter(
-        (item) => item.href !== "/dashboard/admin/hospitality-manager"
-      );
-    }
-    return baseMenu;
-  }, [currentUserType, isHospitalityCompany]);
+  const currentRoleMenu = useMemo(
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
+    [currentUserType, isHospitalityCompany]
+  );
 
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");
 

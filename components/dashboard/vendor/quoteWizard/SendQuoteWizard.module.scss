@@ -280,8 +280,40 @@
   transition: all 0.18s ease;
 }
 .stepLabelWrap { display: flex; flex-direction: column; line-height: 1.2; }
-.stepLabel { font-size: 13px; font-weight: 500; color: var(--fg-2); }
+.stepLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .stepMeta { font-size: 11px; color: var(--fg-4); margin-top: 2px; }
+
+/* A step the buyer is waiting on. Tinted so it reads as "go here" at a glance
+   from any other step — the vendor may land mid-wizard with no other cue. */
+.stepNegotiation {
+  background: var(--warn-soft);
+  border-color: rgba(180, 83, 9, 0.28);
+
+  .stepLabel { color: #7c2d12; font-weight: 600; }
+  .stepMeta { color: #b45309; }
+  .stepNum { border-color: rgba(180, 83, 9, 0.35); color: #b45309; }
+}
+.step.stepNegotiation:not(:disabled):hover { background: #fdebd3; }
+
+.stepNegBadge {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: white;
+  background: var(--warn);
+  border-radius: 4px;
+  padding: 2px 5px;
+  line-height: 1.3;
+}
 
 .stepActive {
   background: var(--surface);
@@ -437,19 +469,31 @@
   letter-spacing: -0.01em;
   color: var(--fg);
 }
+/* The buyer's specification. This used to be a hard one-line clamp
+   (`white-space: nowrap` + ellipsis) with the full text parked in a `title`
+   tooltip — which hid most of it, since 64% of production specs run past one
+   line and 862 of them carry two or more paragraphs. ReadMore now does the
+   clamping so the rest stays one click away, and `pre-wrap` keeps the buyer's
+   own line breaks instead of flattening them into a single run. */
 .previewSpec {
   font-size: 12.5px;
   color: var(--fg-3);
   margin-top: 2px;
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .previewSpecMuted {
   color: var(--fg-4);
   font-style: italic;
+}
+.previewSpecMore {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--info);
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
 }
 .previewRight {
   display: flex;
@@ -667,6 +711,40 @@
   font-size: 12.5px;
   line-height: 1.5;
   color: #92400e;
+}
+
+/* Live-negotiation variant. Same shape as .missedBanner but amber and
+   actionable — the vendor is being ASKED for something, not told they lost. */
+.negBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  margin: 16px 32px 0;
+  background: #fef7ed;
+  border: 1px solid rgba(180, 83, 9, 0.30);
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(180, 83, 9, 0.06);
+
+  > svg { flex-shrink: 0; margin-top: 2px; color: #b45309; }
+}
+.negBannerTitle {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: #7c2d12;
+  margin-bottom: 3px;
+}
+.negBannerDetail {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #92400e;
+}
+.negBannerSteps {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #7c2d12;
 }
 
 /* Read-only-after-quote variant — calmer red palette since the vendor
@@ -1030,6 +1108,7 @@
   font-size: 13px;
   color: var(--fg-3);
   line-height: 1.45;
+  white-space: pre-wrap;
 }
 .productMetaRow {
   display: flex;
@@ -1079,6 +1158,7 @@
   color: var(--fg);
   line-height: 1.55;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .evalEmpty {
@@ -1288,6 +1368,26 @@
   pointer-events: none;
   background: var(--surface-2);
 }
+/* Frozen for pricing, but the buyer's document ask is still answerable on this
+   line. Same muted ground as `.locked` WITHOUT the blanket pointer-events and
+   opacity, which would take the deliberately-enabled uploader down with them.
+   Every field the freeze covers is `disabled` in its own right, so nothing else
+   becomes interactive here.
+
+   The dimming moves onto the disabled controls themselves. `.locked` faded the
+   whole card, and dropping that left the frozen price inputs looking editable —
+   so fade exactly what is frozen, which also leaves the one live control (the
+   uploader) as the only crisp thing on the line. */
+.lineCard.lineCardDocsLive {
+  background: var(--surface-2);
+
+  input:disabled,
+  textarea:disabled,
+  button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
 
 .lineHead {
   padding: 20px 24px;
@@ -1310,7 +1410,7 @@
   margin-top: 1px;
 }
 .lineTitle { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); }
-.lineDesc { font-size: 13px; color: var(--fg-3); margin-top: 4px; line-height: 1.5; max-width: 460px; }
+.lineDesc { font-size: 13px; color: var(--fg-3); margin-top: 4px; line-height: 1.5; max-width: 460px; white-space: pre-wrap; }
 .lineLabel { font-weight: 600; color: var(--fg-2); }
 
 .qtyBlockRight {
@@ -2329,6 +2429,89 @@
   background: var(--warn);
   flex-shrink: 0;
 }
+
+/* ═════════════════════════════════════════════════════════════
+   Negotiation callout — the outstanding asks, stated on Review
+   ═════════════════════════════════════════════════════════════ */
+/* Matches .calloutsCard / .missedBanner: soft fill, one flat border, 12px
+   radius. Same family as every other advisory panel in this wizard. */
+.negCallout {
+  background: var(--warn-soft);
+  border: 1px solid rgba(180, 83, 9, 0.30);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 0 rgba(180, 83, 9, 0.06);
+}
+.negCalloutHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--warn);
+}
+.negCalloutTitle {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--warn);
+}
+.negCalloutSub {
+  font-size: 12px;
+  color: var(--fg-3);
+  margin-top: 3px;
+  max-width: 68ch;
+  line-height: 1.45;
+}
+.negCalloutList {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.negCalloutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.negCalloutRowMain { min-width: 0; flex: 1 1 320px; }
+.negCalloutItem {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.negCalloutAsks {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+.negCalloutField { font-weight: 600; color: var(--fg); }
+.negCalloutJump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--warn);
+  background: var(--warn);
+  color: white;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.18s ease;
+}
+.negCalloutJump:hover { filter: brightness(0.94); }
 
 /* ═════════════════════════════════════════════════════════════
    ClauseChatDrawer — per-clause deviation chat

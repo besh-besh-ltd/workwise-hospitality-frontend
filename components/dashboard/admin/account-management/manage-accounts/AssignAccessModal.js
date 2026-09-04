@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import Modal from "react-modal";
 import { HiX } from "react-icons/hi";
 import { BsBuilding } from "react-icons/bs";
-import { dedupeHospitalityMappings, validateMapping } from "./accessUtils";
+import { validateMapping } from "./accessUtils";
+import { dedupeHospitalityMappings } from "@/components/dashboard/admin/shared/hospitalityMappings";
 import styles from "./ManageAccounts.module.scss";
 
 const modalOverlayStyles = {
