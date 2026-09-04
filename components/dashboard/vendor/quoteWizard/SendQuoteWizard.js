@@ -38,6 +38,7 @@ import { checkBidExpired } from "@/utils/sharedFunctions";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
+import ReadMore from "@/components/shared/ReadMore";
 import {
   RaiseClarificationModal,
   ClarificationDetailModal,
@@ -2946,10 +2947,16 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted,
                         </div>
                       );
                     }
+                    // Two lines, then Read More. The full text used to live only
+                    // in a `title` tooltip, which is not somewhere a vendor
+                    // looks — and a 486-character spec is not a tooltip.
                     return (
-                      <div className={styles.previewSpec} title={parts.join(" · ")}>
-                        {parts.join(" · ")}
-                      </div>
+                      <ReadMore
+                        content={parts.join(" · ")}
+                        maxLines={2}
+                        additionalClasses={styles.previewSpec}
+                        linkClassName={styles.previewSpecMore}
+                      />
                     );
                   })()}
                 </div>
