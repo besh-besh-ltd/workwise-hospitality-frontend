@@ -5,6 +5,8 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import moment from "moment";
+// `timestamp` is a UTC wall clock — see the note on the two conventions in ViewRFQ.js.
+import { parseNegotiationTime } from "@/utils/negotiationTime";
 import { X, Copy as CopyIcon, MapPin, Calendar, ArrowUpRight } from "lucide-react";
 import styles from "./NegotiationRoundsModal.module.scss";
 
@@ -73,7 +75,7 @@ const RfqCopiesModal = ({ open, onClose, copies, parentTitle }) => {
                           {copy.hotel_name && <span>{copy.hotel_name}</span>}
                           {copy.hotel_name && copy.timestamp && <span style={{ color: "#d4d4d8" }}>·</span>}
                           {copy.timestamp && <Calendar size={11} strokeWidth={2} />}
-                          {copy.timestamp && <span>{moment(copy.timestamp).format("DD MMM YYYY")}</span>}
+                          {copy.timestamp && <span>{moment(parseNegotiationTime(copy.timestamp)).utcOffset(330).format("DD MMM YYYY")}</span>}
                         </div>
                       </div>
                     </div>

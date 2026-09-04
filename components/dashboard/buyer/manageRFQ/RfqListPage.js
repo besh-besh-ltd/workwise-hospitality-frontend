@@ -12,6 +12,7 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import moment from "moment";
+import { parseNegotiationTime } from "@/utils/negotiationTime";
 import {
   Filter, Search, ChevronLeft, ChevronRight, Eye, Pencil, Copy as CopyIcon,
   FileText, Users, Plus, Trash2, ShieldCheck, MessageSquare, ClipboardCheck,
@@ -78,6 +79,13 @@ const EMPTY_FILTERS = { status: [], buId: [], categoryId: [], departmentId: [], 
 const DEFAULT_FILTERS = { ...EMPTY_FILTERS, dateFrom: currentFyRange().from, dateTo: currentFyRange().to };
 
 const fmtDate = (d) => (d ? moment(d).format("DD MMM YYYY") : "—");
+// `timestamp` is a UTC wall clock, not an IST one — see the note on the two
+// conventions in ViewRFQ.js. Reading it as local dates an RFQ created after
+// 18:30 UTC to the previous day.
+const fmtServerDate = (d) => {
+  const i = parseNegotiationTime(d);
+  return i ? moment(i).utcOffset(330).format("DD MMM YYYY") : "—";
+};
 // Deadlines (bid_end_date) are `timestamp without time zone` IST wall-clock
 // strings — slice the raw value instead of letting moment/Date parse it in
 // the viewer's local timezone (that would silently mis-render for non-IST
@@ -637,7 +645,7 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
               {cats.length > 0 && <><span className="em">{cats.map((c) => c.title).join(", ")}</span><span className="sep">·</span></>}
               {row.hotel_name && <><span>{row.hotel_name}</span><span className="sep">·</span></>}
               {row.department_title && <><span>{row.department_title}</span><span className="sep">·</span></>}
-              <span>Created {fmtDate(row.timestamp)}</span>
+              <span>Created {fmtServerDate(row.timestamp)}</span>
               {row.bid_end_date && <><span className="sep">·</span><span>Closes {fmtDateTime(row.bid_end_date)}</span></>}
             </div>
             {products.length > 0 && (

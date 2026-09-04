@@ -4,6 +4,17 @@ import { Calendar, Clock, ChevronDown, ChevronUp, MessageCircle, User, UserCheck
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
+import { parseNegotiationTime } from "@/utils/negotiationTime";
+
+// `timestamp` is a UTC wall clock off a `timestamp without time zone` column;
+// the buyer-entered dates beside it (tender_publish_date, bid_end_date,
+// vendor_clarification_date) are IST wall clocks. See the note on the two
+// conventions in ViewRFQ.js — reading the first as local dates an RFQ created
+// after 18:30 UTC to the previous day.
+const fmtServerDate = (d, fmt) => {
+  const i = parseNegotiationTime(d);
+  return i ? moment(i).utcOffset(330).format(fmt) : "---";
+};
 import { getRFQPublishState, formatRFQNumber, textCapitalize, canEditRfq } from '@/utils/sharedFunctions';
 import PublishDateTimer from '@/components/shared/PublishDateTimer';
 import { getStatusConfig, STATUS_CONFIG, getLifecycleConfig, LIFECYCLE_STAGES_ORDERED } from './statusConfig';
@@ -334,7 +345,7 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
               <span className={styles.metaSep} />
               <span className={styles.metaChip}>
                 <Clock size={12} />
-                <span>{moment(data.timestamp).format('DD MMM YYYY')}</span>
+                <span>{fmtServerDate(data.timestamp, 'DD MMM YYYY')}</span>
               </span>
             </>
           )}
@@ -369,14 +380,14 @@ const RFQCard = ({ data, isPendingApproval = false, onSendReminder, hasEditPermi
         <div className={styles.timelineRow}>
           {isDraft ? (
             <>
-              <div className={styles.timelineItem}><Calendar size={14} /><span>Created: <strong>{moment(data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
+              <div className={styles.timelineItem}><Calendar size={14} /><span>Created: <strong>{fmtServerDate(data.timestamp, 'DD-MM-YYYY')}</strong></span></div>
               <div className={styles.timelineItem}><Clock size={14} /><span>Bid Ends: <strong>{formattedBidEndDate}</strong></span></div>
             </>
           ) : publishState.isPrePublishState && data.tender_publish_date ? (
             <div className={styles.timelineItem}><Calendar size={14} /><span>Scheduled:</span><PublishDateTimer publishDate={data.tender_publish_date} variant="full" /></div>
           ) : (
             <>
-              <div className={styles.timelineItem}><Calendar size={14} /><span>Published: <strong>{moment(data.tender_publish_date || data.timestamp).format('DD-MM-YYYY')}</strong></span></div>
+              <div className={styles.timelineItem}><Calendar size={14} /><span>Published: <strong>{data.tender_publish_date ? moment(data.tender_publish_date).format('DD-MM-YYYY') : fmtServerDate(data.timestamp, 'DD-MM-YYYY')}</strong></span></div>
               {data.vendor_clarification_date && (
                 <div className={styles.timelineItem}><Clock size={14} /><span>Clarification Ends: <strong>{moment(data.vendor_clarification_date).format('DD-MM-YYYY hh:mm A')}</strong></span></div>
               )}
