@@ -19,6 +19,11 @@ ARG NEXT_PUBLIC_OTEL_COLLECTOR_URL
 ARG NEXT_PUBLIC_ENV
 ARG NEXT_PUBLIC_POSTHOG_KEY
 ARG NEXT_PUBLIC_POSTHOG_HOST
+# Demo-only, and DEFAULTED here on purpose. The deploy workflow passes a fixed
+# allowlist of --build-arg flags; anything outside it arrives empty. Without
+# this the mock adapter never attaches, every screen calls a real API that does
+# not serve this demo, and the whole portal renders empty.
+ARG NEXT_PUBLIC_DEMO_MODE=1
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY=$NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY
@@ -30,6 +35,7 @@ ENV NEXT_PUBLIC_OTEL_COLLECTOR_URL=$NEXT_PUBLIC_OTEL_COLLECTOR_URL
 ENV NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV
 ENV NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
+ENV NEXT_PUBLIC_DEMO_MODE=$NEXT_PUBLIC_DEMO_MODE
 
 RUN npx next build
 
@@ -38,6 +44,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Signs the demo session cookie. lib/session.js refuses to issue a session
+# without it, so sign-in 500s if nothing supplies one — and the QA deploy
+# script sets only the vars the real app needs, which does not include this.
+# Baked in deliberately: this session carries a persona id and nothing else,
+# there is no real account or data behind it, and a broken login is worse.
+# Override at `docker run -e SESSION_SECRET=...` to rotate.
+ENV SESSION_SECRET=ihg-demo-session-key-2026-rotate-me
 
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid nodejs nextjs
