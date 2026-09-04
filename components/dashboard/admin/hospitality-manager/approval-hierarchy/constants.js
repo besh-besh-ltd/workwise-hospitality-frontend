@@ -143,18 +143,50 @@ export const ALL_STAGE_ENTITY_ORDER = [...new Set([
 
 /**
  * Stage order for a workflow CARD: the process type's canonical route, followed
- * by any other stage the process actually has a policy for.
+ * by any other PROCESS-ROUTE stage the process actually has a policy for.
  *
  * A process's policies are not guaranteed to stay inside its own route. In
- * production the RFQ-typed process 2 also carries TENDER and ARC policies, and
- * intersecting against the canonical order alone dropped them — the card read
+ * production the RFQ-typed process 2 also carries a TENDER policy, and
+ * intersecting against the canonical order alone dropped it — the card read
  * "5/5 stages" while the KPI row above it counted 7. Appending keeps the
  * familiar route order intact and guarantees the card can never silently hide a
- * configured policy.
+ * reachable policy.
+ *
+ * ARC-flow stages are the exception, and they are excluded outright. The ARC
+ * flow is process-free: an ARC contract is created with process_id = NULL, and
+ * the resolver (findBestMatchingPolicyTx) matches
+ * `process_id = $4 OR process_id IS NULL`, so a NULL entity process can only
+ * ever select a NULL-process policy. An ARC policy pinned to a process is
+ * therefore unreachable — staging holds 26 such rows and production 1, and not
+ * one has ever bound an approval instance. Drawing them into an RFQ process's
+ * flow claimed a rate-contract gate on a route that has none.
+ *
+ * Excluding them here would hide a configured row, which is the bug the
+ * appending above exists to prevent — so DashboardView pairs this with a
+ * diagnostic that names every ARC policy pinned to a process. Remove one and
+ * the other stops making sense.
  */
 export const getCardStageOrder = (processType, policies = [], isArc = false) => {
   const canonical = isArc ? ARC_ENTITY_ORDER : getStageEntityOrder(processType);
   const present = new Set((policies || []).map((p) => p.entity_type));
-  const extra = ALL_STAGE_ENTITY_ORDER.filter((et) => present.has(et) && !canonical.includes(et));
+  const extra = ALL_STAGE_ENTITY_ORDER.filter(
+    (et) => present.has(et) && !canonical.includes(et) && !(!isArc && isArcEntityType(et))
+  );
   return [...canonical, ...extra];
+};
+
+/**
+ * ARC-flow policies saved against a process that its route does not name — the
+ * exact set getCardStageOrder drops. Unreachable by the ARC resolver, so the
+ * dashboard reports them rather than drawing them as configured stages.
+ *
+ * The Tender route names ARC as its own final stage, so a TENDER process's ARC
+ * policy still appears on its card and is not reported here. Keep the two in
+ * step: whatever the card stops showing is what this must name.
+ */
+export const getMisroutedArcPolicies = (processType, policies = []) => {
+  const canonical = getStageEntityOrder(processType);
+  return (policies || []).filter(
+    (p) => p?.process_id && isArcEntityType(p.entity_type) && !canonical.includes(p.entity_type)
+  );
 };
