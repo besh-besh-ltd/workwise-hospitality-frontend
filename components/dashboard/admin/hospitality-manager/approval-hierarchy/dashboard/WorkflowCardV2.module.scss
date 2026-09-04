@@ -46,11 +46,37 @@
 .lineDone { background: linear-gradient(90deg, var(--from), var(--to)); }
 
 // CSS Tooltip
+//
+// `.stage` is `position: relative; z-index: 1`, which makes it a STACKING
+// CONTEXT — so the tooltip's own z-index is scoped inside it and counts for
+// nothing outside. DashboardShell's `.sidebar` sits at z-index 1020, and stage 1
+// is close enough to the card's left edge that a 180–230px tooltip centred on it
+// reaches back under the nav: the tooltip was painted beneath the sidebar and
+// simply lost its left half. Raising `.tooltip` alone does not fix it (verified
+// in a browser: at z-index 2000 the sidebar still won) — the stage's own level
+// has to clear the sidebar, which is what the hover rule below does.
+//
+// The edge rules then keep the first and last tooltips inside the card so they
+// have no reason to cross the shell chrome at all; the z-index is the guarantee
+// for every case they do not cover.
 .tooltip {
   position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(4px);
   margin-bottom: 10px; pointer-events: none; opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease; z-index: 50;
 }
+// Above DashboardShell's .sidebar (1020) so the tooltip is not painted under
+// the nav, but below its sticky .topBar (1030) — at 1030 the card's own circles
+// won the tie on DOM order and rode over the header when the page was scrolled.
+.stage:hover { z-index: 1025; }
 .stage:hover .tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+// First and last stage: anchor the tooltip to the circle instead of centring it,
+// so it opens into the card rather than over whatever is beside it.
+.stage[data-edge='start'] .tooltip { left: -8px; transform: translateX(0) translateY(4px); }
+.stage[data-edge='start']:hover .tooltip { transform: translateX(0) translateY(0); }
+.stage[data-edge='start'] .tooltipInner::after { left: 26px; }
+.stage[data-edge='end'] .tooltip { left: auto; right: -8px; transform: translateX(0) translateY(4px); }
+.stage[data-edge='end']:hover .tooltip { transform: translateX(0) translateY(0); }
+.stage[data-edge='end'] .tooltipInner::after { left: auto; right: 20px; margin-left: 0; }
 .tooltipInner {
   background: $dark; color: #fff; border-radius: 10px; padding: 10px 14px;
   min-width: 180px; max-width: 230px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
@@ -145,6 +171,18 @@
   font-size: 10px; color: $muted; margin-top: 1px;
   display: flex; align-items: center; gap: 3px;
 }
+
+// Approver departments
+.deptList {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 3px;
+}
+.deptIcon { color: $muted; flex-shrink: 0; }
+.deptChip {
+  display: inline-flex; align-items: center; padding: 1px 6px;
+  border-radius: 4px; font-size: 10px; font-weight: 500; font-family: $font;
+  background: $page-bg; color: $body; border: 1px solid $border;
+}
+.userIdentity { display: flex; align-items: baseline; flex-wrap: wrap; }
 
 // Stage clickable cursor
 .stageClickable { cursor: pointer; }
