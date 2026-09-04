@@ -469,19 +469,31 @@
   letter-spacing: -0.01em;
   color: var(--fg);
 }
+/* The buyer's specification. This used to be a hard one-line clamp
+   (`white-space: nowrap` + ellipsis) with the full text parked in a `title`
+   tooltip — which hid most of it, since 64% of production specs run past one
+   line and 862 of them carry two or more paragraphs. ReadMore now does the
+   clamping so the rest stays one click away, and `pre-wrap` keeps the buyer's
+   own line breaks instead of flattening them into a single run. */
 .previewSpec {
   font-size: 12.5px;
   color: var(--fg-3);
   margin-top: 2px;
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .previewSpecMuted {
   color: var(--fg-4);
   font-style: italic;
+}
+.previewSpecMore {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--info);
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
 }
 .previewRight {
   display: flex;
@@ -1096,6 +1108,7 @@
   font-size: 13px;
   color: var(--fg-3);
   line-height: 1.45;
+  white-space: pre-wrap;
 }
 .productMetaRow {
   display: flex;
@@ -1145,6 +1158,7 @@
   color: var(--fg);
   line-height: 1.55;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .evalEmpty {
@@ -1396,7 +1410,7 @@
   margin-top: 1px;
 }
 .lineTitle { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); }
-.lineDesc { font-size: 13px; color: var(--fg-3); margin-top: 4px; line-height: 1.5; max-width: 460px; }
+.lineDesc { font-size: 13px; color: var(--fg-3); margin-top: 4px; line-height: 1.5; max-width: 460px; white-space: pre-wrap; }
 .lineLabel { font-weight: 600; color: var(--fg-2); }
 
 .qtyBlockRight {
