@@ -1,6 +1,8 @@
 import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
 import { textCapitalize, formatRFQNumber, getRFQPublishState, canEditRfq } from "@/utils/sharedFunctions";
 import moment from "moment";
+// `timestamp` is a UTC wall clock — see the note on the two conventions in ViewRFQ.js.
+import { parseNegotiationTime } from "@/utils/negotiationTime";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
@@ -119,7 +121,7 @@ const RFQItem = ({ data, showReminder = true, isPendingApproval = false }) => {
         <td style={{ width: "190px" }}>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">Published: </b>
-            {moment(data.timestamp).format("DD-MM-YYYY")}
+            {moment(parseNegotiationTime(data.timestamp)).utcOffset(330).format("DD-MM-YYYY")}
           </span>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">End Date: </b>
