@@ -1,0 +1,321 @@
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// --- Modal positioning ---
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(3px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayIn 0.15s ease-out;
+}
+
+.content {
+  position: relative;
+  max-width: 440px;
+  width: calc(100% - 32px);
+  border: none;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  outline: none;
+  animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// --- Top accent bar ---
+.accentBar {
+  height: 3px;
+  width: 100%;
+}
+
+.accentDanger {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+.accentWarning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+.accentSuccess {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+.accentInfo {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+.accentPrimary {
+  background: linear-gradient(90deg, #2E5BA8, #4f7ec7);
+}
+.accentSecondary {
+  background: linear-gradient(90deg, #64748b, #94a3b8);
+}
+
+// --- Inner layout ---
+.inner {
+  font-family: "Poppins", "Inter", -apple-system, sans-serif;
+  padding: 22px 24px 20px;
+}
+
+// --- Header: icon left, title + description stacked to its right ---
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+  // Pull the text column up slightly so the title's optical baseline lines
+  // up better with the icon tile (which is taller than the title text).
+  padding-top: 4px;
+}
+
+.iconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.iconDanger    { background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; }
+.iconWarning   { background: #fffbeb; color: #f59e0b; border: 1px solid #fef3c7; }
+.iconSuccess   { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; }
+.iconInfo      { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
+.iconPrimary   { background: #eef2ff; color: #2E5BA8; border: 1px solid #dce4f8; }
+.iconSecondary { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+.title {
+  // Tight margin-bottom is the ONLY gap between title and description now —
+  // no more wasted vertical space from icon-vs-title height mismatch.
+  margin: 0 0 6px 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: #0f172a;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+// --- Description ---
+.desc {
+  margin: 0;
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+// --- Comment textarea ---
+.commentGroup {
+  margin-top: 14px;
+  padding-left: 56px;
+}
+
+.commentLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.commentTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #fff;
+  }
+}
+
+.commentError {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+// --- Custom footer ---
+.footer {
+  margin-top: 10px;
+  padding-left: 56px;
+}
+
+// --- Buttons ---
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.btn {
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  line-height: 1.4;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(0);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+.btnCancel {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+
+  &:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+  }
+}
+
+.btnDanger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35); }
+}
+
+.btnWarning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35); }
+}
+
+.btnSuccess {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); }
+}
+
+.btnInfo {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35); }
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, #3b6fc0, #2E5BA8);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(46, 91, 168, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(46, 91, 168, 0.35); }
+}
+
+.btnSecondary {
+  background: linear-gradient(135deg, #64748b, #475569);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(100, 116, 139, 0.25);
+  &:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(100, 116, 139, 0.35); }
+}
+
+// --- Spinner ---
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.5s linear infinite;
+  flex-shrink: 0;
+}
+
+// --- Close button ---
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #cbd5e1;
+  padding: 0;
+  transition: all 0.15s ease;
+  z-index: 1;
+
+  &:hover:not(:disabled) {
+    color: #64748b;
+    background: #f8fafc;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+@media (max-width: 480px) {
+  .inner { padding: 18px 20px 16px; }
+  .desc { padding-left: 0; }
+  .commentGroup { padding-left: 0; }
+  .footer { padding-left: 0; }
+  .actions { flex-direction: column-reverse; gap: 6px; }
+  .btn { width: 100%; justify-content: center; }
+}

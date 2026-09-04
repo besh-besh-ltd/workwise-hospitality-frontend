@@ -1,0 +1,600 @@
+/* ── Resizable wrapper ── */
+.wrapper {
+  position: sticky;
+  top: 52px;
+  flex-shrink: 0;
+  height: fit-content;
+  z-index: 2;
+}
+
+/* Embedded mode: fills parent container inside DashboardShell sidebar */
+.wrapperEmbedded {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.wrapperEmbedded .sidebar {
+  max-height: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar {
+  background-color: #fff;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  max-height: 90vh;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: visible;
+}
+
+/* ── Resize drag handle ── */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 11;
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.resizeHandle:hover {
+  background: rgba(46, 91, 168, 0.15);
+}
+
+.resizeHandleActive {
+  background: rgba(46, 91, 168, 0.25) !important;
+}
+
+/* ── Header ── */
+.sidebarHeader {
+  padding: 12px 12px 0 12px;
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Tab bar ── */
+.tabBar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.tabSlot {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  transition: flex 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tabSlotActive {
+  flex: 1 1 auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-family: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.tab:hover:not(.tabActive) {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.tabActive {
+  background: rgba(46, 91, 168, 0.06);
+  border-color: rgba(46, 91, 168, 0.12);
+  color: var(--primary-color, #2E5BA8);
+  gap: 6px;
+  justify-content: flex-start;
+}
+
+.tabIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tabContent {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  width: 0;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tabActive .tabContent {
+  width: auto;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.22s ease 0.12s;
+}
+
+.tabLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--primary-color, #2E5BA8);
+  color: #fff;
+}
+
+/* ── Tooltip for collapsed tabs ── */
+.tabTooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 5px;
+  white-space: nowrap;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tabTooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-bottom-color: #1e293b;
+}
+
+.tabSlot:hover .tabTooltip {
+  opacity: 1;
+}
+
+/* ── Filters ── */
+.filtersSection {
+  padding: 6px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filterToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.filterToggleLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.filterToggleIcon {
+  font-size: 12px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.filterToggleIconOpen {
+  transform: rotate(180deg);
+}
+
+.filterBody {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.filterBodyOpen {
+  max-height: 500px;
+  opacity: 1;
+}
+
+.filterBodyClosed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.filterGroup {
+  margin-bottom: 6px;
+}
+
+.filterLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 12px;
+  color: #334155;
+  background: #f8fafc;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: var(--primary-color, #2E5BA8);
+  box-shadow: 0 0 0 2px rgba(46, 91, 168, 0.1);
+  background: #fff;
+}
+
+.searchInput::placeholder {
+  color: #94a3b8;
+}
+
+/* ── RFQ list ── */
+.listContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.listContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.listContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.listContainer::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* ── RFQ card ── */
+.rfqCard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 2px 4px;
+  cursor: pointer;
+  text-decoration: none !important;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.rfqCard:hover {
+  background: #f8fafc;
+  border-left-color: #cbd5e1;
+}
+
+.rfqCardSelected {
+  background: #f0f4fa !important;
+  border-color: #e0e8f4 !important;
+  border-left: 3px solid var(--primary-color, #2E5BA8) !important;
+}
+
+.rfqCardActionRequired {
+  background: #fffbf5;
+  border-color: #fde8d0 !important;
+  border-left: 3px solid #f97316 !important;
+  animation: attentionPulse 3s ease-in-out infinite;
+}
+
+.rfqCardActionRequired:hover {
+  background: #fff7ed;
+  animation: none;
+}
+
+@keyframes attentionPulse {
+  0%, 100% { background: #fffbf5; }
+  50% { background: #fff0e0; }
+}
+
+.rfqCardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.rfqNumber {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rfqCardSelected .rfqNumber {
+  color: var(--primary-color, #2E5BA8);
+}
+
+.entityType {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: #f1f5f9;
+  color: #64748b;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rfqCardSelected .entityType {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.rfqTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rfqCardSelected .rfqTitle {
+  color: #475569;
+}
+
+.rfqMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+/* ── Tags ── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+}
+
+.tagWarning { background: #fef3c7; color: #92400e; }
+.tagDanger { background: #fee2e2; color: #991b1b; }
+.tagSuccess { background: #dcfce7; color: #166534; }
+.tagInfo { background: #dbeafe; color: #1e40af; }
+.tagPurple { background: #f3e8ff; color: #6b21a8; }
+.tagNeutral { background: #f1f5f9; color: #475569; }
+
+.tagDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tagDotWarning { background: #f59e0b; }
+.tagDotDanger { background: #ef4444; }
+.tagDotSuccess { background: #22c55e; }
+.tagDotInfo { background: #3b82f6; }
+.tagDotPurple { background: #a855f7; }
+
+/* ── Empty state ── */
+.emptyState {
+  text-align: center;
+  padding: 24px 12px;
+  color: #94a3b8;
+}
+
+.emptyText {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.emptyEmoji {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.emptyTextPositive {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  margin: 0 0 2px 0;
+}
+
+.emptySubtext {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ── Load more ── */
+.loadMore {
+  text-align: center;
+  padding: 6px;
+}
+
+.loadMoreBtn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-color, #2E5BA8);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 3px 10px;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.loadMoreBtn:hover {
+  background: #f0f4ff;
+}
+
+/* ── Loading ── */
+.loadingSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  gap: 5px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* ── End of list ── */
+.endOfList {
+  text-align: center;
+  padding: 12px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #c0c8d4;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Responsive react-select overrides ── */
+.filterGroup :global(.react-select__control) {
+  min-height: 30px;
+  font-size: 11px;
+  border-color: #e2e8f0;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.filterGroup :global(.react-select__value-container) {
+  padding: 0 6px;
+}
+
+.filterGroup :global(.react-select__indicator) {
+  padding: 3px;
+}
+
+.filterGroup :global(.react-select__placeholder) {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.filterGroup :global(.react-select__single-value) {
+  font-size: 11px;
+}
+
+.filterGroup :global(.react-select__multi-value) {
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+/* ── Mobile drawer mode (opt-in via mobileOpen prop) ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1049;
+}
+
+.wrapperMobile {
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  height: 100vh !important;
+  width: 85vw !important;
+  min-width: 0 !important;
+  max-width: 340px;
+  z-index: 1050;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+  padding-left: 0;
+}
+
+.wrapperMobileOpen {
+  transform: translateX(0);
+}
+
+.wrapperMobile .sidebar {
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+}
+
+/* Hide sidebar inline on mobile for pages that don't opt into drawer mode */
+@media (max-width: 768px) {
+  .wrapper:not(.wrapperMobile) {
+    display: none;
+  }
+}

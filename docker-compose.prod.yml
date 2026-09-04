@@ -1,0 +1,14 @@
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:-frontend:latest}
+    container_name: prod-frontend
+    ports:
+      - "0.0.0.0:3000:3000"
+    env_file: .env.production
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://'+(require('os').hostname())+':3000/').then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped

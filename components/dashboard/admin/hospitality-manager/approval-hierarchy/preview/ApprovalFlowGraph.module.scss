@@ -1,0 +1,88 @@
+@import '../tokens';
+
+.wrap { padding: 4px 0; position: relative; }
+.wrapCompact { padding: 2px 0; }
+.flow {
+  display: flex; flex-direction: column; align-items: stretch;
+  position: relative; padding-left: 12px;
+  &::before {
+    content: ''; position: absolute; left: 23px; top: 14px; bottom: 14px;
+    width: 2px; background: rgba($primary, 0.15); z-index: 0;
+  }
+}
+.flowCompact { padding-left: 10px; &::before { left: 20px; top: 12px; bottom: 12px; } }
+
+.endpoint { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.endpointDot {
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; font-size: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1); position: relative; z-index: 1;
+}
+.endpointDotCompact { width: 22px; height: 22px; font-size: 9px; }
+.endpointLabel { font-size: 11px; font-weight: 600; color: $muted; font-family: $font; }
+.connector { height: 8px; }
+.connectorCompact { height: 6px; }
+
+.stage { display: flex; align-items: flex-start; gap: 10px; }
+.stageCompact { gap: 8px; }
+.stageDot {
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; margin-top: 8px; transition: all 0.2s;
+  position: relative; z-index: 1;
+}
+.stageDotCompact { width: 22px; height: 22px; margin-top: 6px; }
+.stageDotFilled { box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+.stageDotEmpty { border: 2px dashed $border; background: $card; }
+
+.stageContent {
+  flex: 1; border: 1px solid $border; border-radius: 10px; background: $card;
+  padding: 8px 12px; min-width: 0; transition: all 0.2s;
+}
+.stageContentCompact { padding: 6px 10px; }
+.stageContentActive {
+  border-color: transparent; background: linear-gradient(135deg, $card, $page-bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.stageTop { display: flex; align-items: center; gap: 6px; }
+.stageName { font-size: 12px; font-weight: 700; color: $dark; font-family: $font; }
+.stageNameCompact { font-size: 11px; }
+.stageCount { font-size: 10px; color: $muted; margin-left: auto; font-family: $font; }
+
+.levels { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba($border, 0.4); }
+.levelsCompact { margin-top: 4px; padding-top: 4px; }
+.level { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.level + .level { border-top: 1px solid $page-bg; }
+.lBadge {
+  background: $primary; color: #fff; border-radius: 4px; padding: 0px 5px;
+  font-size: 9px; font-weight: 700; font-family: $font; flex-shrink: 0; line-height: 16px;
+}
+.lName {
+  font-size: 11px; font-weight: 600; color: $body; font-family: $font;
+  display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0;
+}
+.lNameCompact { font-size: 10px; }
+.lRule { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; font-family: $font; flex-shrink: 0; }
+.lRuleAny { background: $green-tint; color: #166534; }
+.lRuleAll { background: $orange-tint; color: #e65100; }
+
+.accBtn {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: $page-bg; border: 1px solid $border; border-radius: 6px;
+  padding: 4px 8px; margin-top: 3px; cursor: pointer; font-size: 10px;
+  font-weight: 600; color: $body; font-family: $font; transition: 0.15s;
+  &:hover { background: darken($page-bg, 3%); }
+}
+.accChevron { transition: transform 0.2s; color: $muted; }
+.accChevronOpen { transform: rotate(0deg); }
+.accChevronClosed { transform: rotate(-90deg); }
+.accBody { overflow: hidden; transition: max-height 0.25s ease-out; }
+.users {
+  background: $page-bg; border: 1px solid $border; border-top: none;
+  border-radius: 0 0 6px 6px; padding: 4px 8px;
+}
+.user { padding: 3px 0; font-size: 10px; }
+.user + .user { border-top: 1px solid $border; }
+.userName { font-weight: 600; color: $dark; }
+.userEmail { color: $muted; margin-left: 4px; }
+.noUsers { background: #fef2f2; border-radius: 4px; padding: 3px 6px; margin-top: 3px; font-size: 10px; color: #b91c1c; }
+.emailLine { font-size: 10px; color: $muted; display: flex; align-items: center; gap: 3px; margin-top: 1px; }

@@ -1,0 +1,55 @@
+@import '../tokens';
+
+.card {
+  background: $card;
+  border: 1px solid rgba($border, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.04);
+  overflow: hidden;
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, $primary, $secondary, $accent);
+    z-index: 1;
+  }
+}
+.body {
+  padding: 28px 32px;
+}
+.footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 32px;
+  border-top: 1px solid $border;
+  background: $page-bg;
+}
+.btnOutline {
+  border: 1px solid $border; background: transparent; color: $body;
+  border-radius: 8px; font-size: 13px; font-weight: 500;
+  padding: 9px 20px; display: inline-flex; align-items: center;
+  gap: 6px; transition: all 0.2s ease; font-family: $font; cursor: pointer;
+  &:hover { background: $page-bg; border-color: #b0b0b0; }
+}
+.btnPrimary {
+  background: $primary; border: none; color: #fff;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  padding: 9px 24px; display: inline-flex; align-items: center;
+  gap: 6px; box-shadow: 0 1px 3px rgba($primary, 0.2);
+  transition: all 0.2s ease; font-family: $font; cursor: pointer;
+  &:hover { background: darken($primary, 8%); box-shadow: 0 2px 6px rgba($primary, 0.3); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+.btnSave {
+  background: $secondary; border: none; color: #fff;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  padding: 9px 24px; display: inline-flex; align-items: center;
+  gap: 6px; box-shadow: 0 1px 3px rgba($secondary, 0.2);
+  transition: all 0.2s ease; font-family: $font; cursor: pointer;
+  &:hover { background: darken($secondary, 8%); box-shadow: 0 2px 6px rgba($secondary, 0.3); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+@media (max-width: 575px) {
+  .body { padding: 20px 16px; }
+  .footer { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+}

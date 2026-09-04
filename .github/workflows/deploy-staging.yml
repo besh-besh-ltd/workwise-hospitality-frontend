@@ -1,0 +1,123 @@
+name: Frontend Deploy (staging)
+
+on:
+  push:
+    branches:
+      - qa
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Specific commit SHA to deploy (leave empty for latest)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend-qa
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  DEPLOY_SHA: ${{ inputs.commit_sha || github.sha }}
+
+jobs:
+  build-and-push:
+    name: Build Docker image & push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Parse environment variables from ENV_STAGING
+        id: parse-env
+        run: |
+          # Write the secret to a temp file and source it
+          echo "${{ secrets.ENV_STAGING }}" > /tmp/.env.staging
+
+          # Extract each NEXT_PUBLIC_* variable
+          while IFS='=' read -r key value; do
+            # Skip empty lines and comments
+            [[ -z "$key" || "$key" =~ ^# ]] && continue
+            # Only process NEXT_PUBLIC_* variables
+            if [[ "$key" == NEXT_PUBLIC_* ]]; then
+              # Remove surrounding quotes from value
+              value=$(echo "$value" | sed 's/^["'\''"]//;s/["'\''"]$//')
+              echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+            fi
+          done < /tmp/.env.staging
+
+          rm -f /tmp/.env.staging
+
+      - name: Build and push Docker image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${DEPLOY_SHA}"
+
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_API_URL }}" \
+            --build-arg NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY="${{ steps.parse-env.outputs.NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY }}" \
+            --build-arg NEXT_PUBLIC_RAZORPAY_KEY="${{ steps.parse-env.outputs.NEXT_PUBLIC_RAZORPAY_KEY }}" \
+            --build-arg NEXT_PUBLIC_RAZORPAY_SECRET="${{ steps.parse-env.outputs.NEXT_PUBLIC_RAZORPAY_SECRET }}" \
+            --build-arg NEXT_PUBLIC_RAZORPAY_SIGNATURE="${{ steps.parse-env.outputs.NEXT_PUBLIC_RAZORPAY_SIGNATURE }}" \
+            --build-arg NEXT_PUBLIC_AI_SERVER_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_AI_SERVER_URL }}" \
+            --build-arg NEXT_PUBLIC_POSTHOG_KEY="${{ steps.parse-env.outputs.NEXT_PUBLIC_POSTHOG_KEY }}" \
+            --build-arg NEXT_PUBLIC_POSTHOG_HOST="${{ steps.parse-env.outputs.NEXT_PUBLIC_POSTHOG_HOST }}" \
+            --build-arg NEXT_PUBLIC_OTEL_COLLECTOR_URL="${{ steps.parse-env.outputs.NEXT_PUBLIC_OTEL_COLLECTOR_URL }}" \
+            --build-arg NEXT_PUBLIC_ENV="${{ steps.parse-env.outputs.NEXT_PUBLIC_ENV }}" \
+            -t "${IMAGE_URI}" \
+            -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest" \
+            .
+
+          docker push "${IMAGE_URI}"
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to staging EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.WORKWISE_SSH_USER }}
+          key: ${{ secrets.WORKWISE_SSH_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 10m
+          envs: IMAGE_URI
+          script: |
+            set -euo pipefail
+
+            # ECR login
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
+              docker login --username AWS --password-stdin \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+            # Pull and deploy
+            docker pull "${IMAGE_URI}"
+            bash "$HOME/deploy.sh" frontend "${IMAGE_URI}"

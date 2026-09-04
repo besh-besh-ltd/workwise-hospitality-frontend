@@ -1,0 +1,133 @@
+/* NegotiationSavings — inner-content only. Card frame from PersonaCardShell. */
+
+/* Footnote clarifying the exclusion rule (Sr 240). */
+.exclusionNote {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #ebebe6;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+.headlineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.headlineLbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.headlineNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+
+.mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+.savedPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.18);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+
+  &.lossSavedPill {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: rgba(185, 28, 28, 0.18);
+  }
+}
+
+.headerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+
+  svg { flex-shrink: 0; }
+
+  &.winPill {
+    background: #ecfdf5;
+    color: #15803d;
+    border: 1px solid rgba(21, 128, 61, 0.22);
+  }
+  &.lossPill {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid rgba(185, 28, 28, 0.22);
+  }
+}
+
+.lossNum {
+  color: #b91c1c !important;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.barGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.barLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #71717a;
+}
+
+.barTrack {
+  height: 6px;
+  background: #f4f4f1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.grey { background: #a8a29e; }
+  &.green { background: #15803d; }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
+}

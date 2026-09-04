@@ -1,0 +1,319 @@
+// ARC v2 — frontend service client. Wraps the /v1/arc-v2/* endpoints exposed
+// by backend/app/routes/arc_v2/*. Mirrors the existing service-file pattern
+// (one named export per route, promise-returning, errors surface via Axios's
+// global interceptor).
+
+import axiosInstance from "@/lib/axios";
+import axiosFormData from "@/lib/axiosFormData";
+
+const BASE = "/arc-v2";
+
+// ============================================================
+// Buyer — listing + dashboard + wizard
+// ============================================================
+
+export const listContracts = (params = {}) =>
+  axiosInstance.get(`${BASE}`, { params });
+
+// Server-authoritative listing: search / facet / sort / paginate + Pending-for-me.
+export const getContractsListView = (payload = {}) =>
+  axiosInstance.post(`${BASE}/list-view`, payload);
+
+export const getDashboardKpis = (params = {}) =>
+  axiosInstance.get(`${BASE}/kpis`, { params });
+
+export const getDepartmentsForCategory = ({ category_id, hospitality_company_id } = {}) =>
+  axiosInstance.get(`${BASE}/category-departments`, {
+    params: { category_id, hospitality_company_id },
+  });
+
+// Departments the user is mapped to in a given hotel (ARC create picker).
+export const getDepartmentsForHotel = ({ hotel_id } = {}) =>
+  axiosInstance.get(`${BASE}/hotel-departments`, { params: { hotel_id } });
+
+export const getSubCategories = (categoryId) =>
+  axiosInstance.get(`${BASE}/sub-categories`, { params: { category_id: categoryId } });
+
+// Wizard pickers — categories, hotels, variants, eligible vendors.
+export const listRootCategories = () => axiosInstance.get(`${BASE}/categories`);
+export const listAccessibleHotels = () => axiosInstance.get(`${BASE}/hotels`);
+export const searchVariants = ({ category_id, sub_category_ids, q, page, limit } = {}) =>
+  axiosInstance.get(`${BASE}/variants`, {
+    params: {
+      category_id,
+      sub_category_ids: Array.isArray(sub_category_ids) && sub_category_ids.length > 0
+        ? sub_category_ids.join(',') : undefined,
+      q: q || undefined,
+      page,
+      limit,
+    },
+  });
+export const listEligibleVendors = ({ category_id, hotel_id } = {}) =>
+  axiosInstance.get(`${BASE}/eligible-vendors`, { params: { category_id, hotel_id } });
+
+export const getContractDetail = (id) => axiosInstance.get(`${BASE}/${id}`);
+// Lifecycle spine for the single authoritative ARC page — computed stage
+// states + the caller's per-ARC permissions.
+export const getLifecycle      = (id) => axiosInstance.get(`${BASE}/${id}/lifecycle`);
+export const getActiveSummary  = (id) => axiosInstance.get(`${BASE}/${id}/active-summary`);
+// Contracted vendor's uploaded compliance docs (base64) for the bundle download.
+export const getVendorDocumentsBundle = (contractId) => axiosInstance.get(`${BASE}/contracts/${contractId}/vendor-documents`);
+
+export const createDraft = (payload) => axiosInstance.post(`${BASE}`, payload);
+export const updateDraft = (id, patch) => axiosInstance.patch(`${BASE}/${id}`, patch);
+export const publish    = (id) => axiosInstance.post(`${BASE}/${id}/publish`, {});
+export const withdraw   = (id) => axiosInstance.post(`${BASE}/${id}/withdraw`, {});
+export const terminate  = (id, reason) => axiosInstance.post(`${BASE}/${id}/terminate`, { reason });
+// Sr 40 — buyer "Extend submission deadline" (pre-evaluation only). Body's
+// submission_end_at is the raw datetime-local string ("YYYY-MM-DDTHH:mm") —
+// no client-side Date() conversion, same IST-naive convention as create/update.
+export const extendSubmission = (id, payload) => axiosInstance.post(`${BASE}/${id}/extend-submission`, payload);
+
+// Publish-approval gate — chain detail (latest ARC_PUBLISH instance, or null)
+// + decide (approve/reject; comment required on reject).
+export const getPublishApproval    = (id) => axiosInstance.get(`${BASE}/${id}/publish-approval`);
+export const publishApprovalDecide = (id, body) => axiosInstance.post(`${BASE}/${id}/publish-approval/decide`, body);
+
+// ============================================================
+// Buyer — Tech evaluation
+// ============================================================
+
+export const setupTechEval = (itemId, payload) =>
+  axiosInstance.post(`${BASE}/evaluation/items/${itemId}/tech-eval`, payload);
+
+export const getTechEvalForItem = (itemId) =>
+  axiosInstance.get(`${BASE}/evaluation/items/${itemId}/tech-eval`);
+
+// NOTE: the buyer-records-vendor-response path was REMOVED — vendors now
+// self-author technical responses + evidence (two-envelope flow). The buyer
+// ONLY scores them via scoreResponse (which now also carries mandatory_passed
+// for mandatory clauses).
+export const scoreResponse = (payload) =>
+  axiosInstance.post(`${BASE}/evaluation/tech-eval/score`, payload);
+
+// Evaluator-side ownership/permission-checked evidence proxy URL (no raw S3).
+export const techEvidenceUrl = (fileId) =>
+  `${BASE}/evaluation/tech-eval/evidence/${fileId}`;
+
+// Tech-eval approval — chain view + approve/reject/amend (approver-only;
+// amend = { marks: [{ response_id, buyer_marks, buyer_remark }] }).
+export const getTechEvalApproval = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/tech-eval/approval`);
+export const techEvalDecide = (arcId, body) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/decide`, body);
+
+export const submitTechEval = (arcId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/tech-eval/submit`, {});
+
+// ── Universal (ARC-wide) technical clauses — a SECOND, separate configurator ──
+// Rides the SAME ARC_TECH approval (no separate submit/approve; the shared
+// submitTechEval covers both). Storage + UI stay separate from the item family.
+export const setupUniversalTechEval = (arcId, payload) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/universal-tech-eval`, payload);
+
+export const getUniversalTechEval = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/universal-tech-eval`);
+
+export const scoreUniversalResponse = (payload) =>
+  axiosInstance.post(`${BASE}/evaluation/universal-tech-eval/score`, payload);
+
+// Evaluator-side ownership/permission-checked evidence proxy URL (no raw S3).
+export const universalTechEvidenceUrl = (fileId) =>
+  `${BASE}/evaluation/universal-tech-eval/evidence/${fileId}`;
+
+// ============================================================
+// Buyer — Commercial evaluation (with split-award reconciliation)
+// ============================================================
+
+export const getCommEval = (arcId) => axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval`);
+
+export const saveAllocation = (arcId, { item_id, allocations }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/allocation`, { item_id, allocations });
+
+export const finalizeCommEval = (arcId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/finalize`, {});
+
+export const sendBackCommEvalToTech = (arcId, reason) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/send-back-to-tech`, { reason });
+
+// Vendor-clarification resolution (commercial evaluator) — scoped field edit.
+export const reviseClarification = (arcId, clarificationId, { value, response }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/clarification/${clarificationId}/revise`, { value, response });
+export const upholdClarification = (arcId, clarificationId, { response }) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/clarification/${clarificationId}/uphold`, { response });
+
+// ============================================================
+// Buyer — Committee
+// ============================================================
+
+export const getCommitteeView = (arcId) => axiosInstance.get(`${BASE}/committee/${arcId}`);
+// decision: 'approve' | 'reject' (reject = send back; comment mandatory).
+export const decideCommittee  = (arcId, body) => axiosInstance.post(`${BASE}/committee/${arcId}/decide`, body);
+
+// ============================================================
+// Vendor portal — quote submission + contract acceptance
+// ============================================================
+
+export const vendorListRequests        = () => axiosInstance.get(`${BASE}/vendor/requests`);
+export const vendorGetRequestDetail    = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}`);
+export const vendorGetRequestLifecycle = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}/lifecycle`);
+// Phase 1 §3 — persist T&C acceptance server-side (idempotent).
+export const vendorAcceptTerms         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/accept-terms`, { arc_id: Number(arcId) });
+// Phase 2 — engine-driven stateless preview (qty server-derived, never stored).
+// payload: { arc_id, lines: [...], global_charges?: [...] }
+// Response: res.data.{ lines:[{arc_item_id,base,base_tax,charges,charges_total,total}], grand_subtotal, grand_total, ... }
+export const vendorPreviewQuote        = (payload) => axiosInstance.post(`${BASE}/vendor/quote/preview`, payload);
+export const vendorSaveQuoteDraft      = (payload) => axiosInstance.post(`${BASE}/vendor/quote/draft`, payload);
+export const vendorSubmitQuote         = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/submit`, { arc_id: arcId });
+export const vendorWithdrawQuote       = (arcId) => axiosInstance.post(`${BASE}/vendor/quote/withdraw`, { arc_id: arcId });
+// Download the vendor's OWN submitted quote as a PDF (blob). responseType:'blob'
+// makes axios set response.data to a Blob; the shared instance's response
+// interceptor returns response.data, so this resolves to the Blob directly.
+// Auth + hospitality headers are injected by the shared instance's request
+// interceptor (same token source as every other call).
+export const downloadVendorQuotePdf    = (arcId) => axiosInstance.get(`${BASE}/vendor/quote/${arcId}/pdf`, { responseType: "blob" });
+// Version history of the vendor's OWN quote submissions (newest-first, vendor-
+// isolated server-side). Response: res.data.{ quote_id, versions:[{version_no,
+// submitted_at, grand_total, line_count}] }.
+export const vendorQuoteHistory        = (arcId) => axiosInstance.get(`${BASE}/vendor/quote/${arcId}/history`);
+
+// ── Vendor — Technical envelope (two-envelope flow) ──────────────────────
+// Self-author clause responses + evidence, sealed BEFORE the commercial quote
+// (hard two-step when the ARC requires technical responses).
+export const vendorGetTechClauses        = (arcId) => axiosInstance.get(`${BASE}/vendor/requests/${arcId}/tech-clauses`);
+export const vendorSaveTechEnvelopeDraft = (payload) => axiosInstance.post(`${BASE}/vendor/tech-envelope/draft`, payload);
+export const vendorUploadTechEvidence    = (clauseId, formData) => axiosFormData.post(`${BASE}/vendor/tech-envelope/clause/${clauseId}/file`, formData);
+export const vendorDeleteTechEvidence    = (fileId) => axiosInstance.delete(`${BASE}/vendor/tech-envelope/file/${fileId}`);
+export const vendorSubmitTechEnvelope    = (arcId) => axiosInstance.post(`${BASE}/vendor/tech-envelope/submit`, { arc_id: arcId });
+
+// ── Vendor — Universal (ARC-wide) technical envelope ─────────────────────
+// Universal clauses arrive inside the existing vendorGetTechClauses response as
+// a separate `universal` key (no dedicated GET); the seal rides
+// vendorSubmitTechEnvelope. Only draft/upload/delete calls are needed here.
+export const vendorSaveUniversalTechEnvelopeDraft = (payload) => axiosInstance.post(`${BASE}/vendor/universal-tech-envelope/draft`, payload);
+export const vendorUploadUniversalTechEvidence    = (clauseId, formData) => axiosFormData.post(`${BASE}/vendor/universal-tech-envelope/clause/${clauseId}/file`, formData);
+export const vendorDeleteUniversalTechEvidence    = (fileId) => axiosInstance.delete(`${BASE}/vendor/universal-tech-envelope/file/${fileId}`);
+
+// Dashboard rollups — counts, totals, spend ranks, recent call-offs, activity.
+export const vendorGetDashboard          = (params = {}) => axiosInstance.get(`${BASE}/vendor/dashboard`, { params });
+export const vendorListPendingAcceptance = () => axiosInstance.get(`${BASE}/vendor/pending-acceptance`);
+export const vendorListActiveContracts   = () => axiosInstance.get(`${BASE}/vendor/active`);
+export const vendorGetContract           = (id) => axiosInstance.get(`${BASE}/vendor/contracts/${id}`);
+export const vendorRequestOtp            = (id) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/request`, {});
+export const vendorVerifyOtp             = (id, code) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/otp/verify`, { code });
+export const vendorDeclineContract       = (id, reason) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/decline`, { reason });
+// Raise a pre-signature clarification: items = [{ arc_contract_line_id, field, comment }].
+export const vendorRequestClarification  = (id, items) => axiosInstance.post(`${BASE}/vendor/contracts/${id}/clarification`, { items });
+// All of the vendor's amendment requests across contracts (My Amendments page).
+export const vendorListAmendments        = () => axiosInstance.get(`${BASE}/vendor/amendments`);
+
+// Addendum re-signing — the vendor signs the approved amendment's addendum
+// (sign-to-activate gate) before its effects bind. OTP reuses the contract
+// signature flow, scoped to the addendum id.
+export const vendorListAddendums         = () => axiosInstance.get(`${BASE}/vendor/addendums`);
+export const vendorRequestAddendumOtp    = (id) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/request`, {});
+export const vendorVerifyAddendumOtp     = (id, code) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/otp/verify`, { code });
+export const vendorDeclineAddendum       = (id, reason) => axiosInstance.post(`${BASE}/vendor/addendums/${id}/decline`, { reason });
+
+// Amendments — request + list live now; approve/reject ship with the
+// committee gate (Phase C, still 501).
+//
+// requestAmendment payload shape:
+//   {
+//     arc_contract_id, amendment_type, amendment_from, amendment_to?,
+//     reason, payload: { … type-specific fields … }
+//   }
+// type-specific payload:
+//   price       : { arc_contract_line_id, new_rate }
+//   qty         : { arc_contract_line_id, new_qty }
+//   item_add    : { product_variant_id, new_qty, new_rate }
+//   item_remove : { arc_contract_line_id }
+//   term        : { }  (amendment_from = new end date)
+// Vendor-side — vendor portal page POSTs here to request an amendment.
+export const requestAmendment        = (payload)         => axiosInstance.post(`${BASE}/amendments/request`, payload);
+// Buyer-side — list (active + requested) and the single review endpoint
+// that drives approve / reject / edit-then-approve transitions.
+export const listAmendments          = (params = {})     => axiosInstance.get(`${BASE}/amendments`, { params });
+export const reviewAmendment         = (amendmentId, body) => axiosInstance.post(`${BASE}/amendments/${amendmentId}/review`, body);
+// Legacy aliases — backend returns 501 → use reviewAmendment instead.
+export const approveAmendment        = (amendmentId)     => axiosInstance.post(`${BASE}/amendments/${amendmentId}/approve`, {});
+export const rejectAmendment         = (amendmentId, r)  => axiosInstance.post(`${BASE}/amendments/${amendmentId}/reject`, { reason: r });
+
+// ============================================================
+// Buyer — Manual ARC entry / backfill  (/v1/arc-v2/manual/*)
+// ============================================================
+// Single dense back-office workspace where the purchase team hand-keys a
+// complete ARC at any lifecycle target stage (S0 Draft … S5 Ended) with
+// backdated timestamps. The draft IS the ARC row (status='draft'); resume via
+// ?d=<arcId>. All tenant scope is server-derived from req.user — the client
+// never sends company_id. See spec §6.
+
+// All vendors (user_type=3,status=1) with a `subscribed` flag for the
+// "show all / override eligibility" toggle (§4.4). Eligible-only set still
+// comes from the existing listEligibleVendors export above.
+export const listAllVendors        = ({ hotel_id, category_id } = {}) =>
+  axiosInstance.get(`${BASE}/manual/all-vendors`, { params: { hotel_id, category_id } });
+
+// Create the draft ARC + provenance row. Payload: { header, scope, provenance }.
+// Company is derived server-side from the chosen hotel; never sent by the client.
+export const createManualDraft     = (payload) => axiosInstance.post(`${BASE}/manual/draft`, payload);
+
+// Full hydrated graph (groups A–M as entered) for resume.
+export const getManualDraft        = (id) => axiosInstance.get(`${BASE}/manual/draft/${id}`);
+
+// Coarse partial patch (PATCH) — kept for whole-section bulk saves.
+export const patchManualDraft      = (id, patch) => axiosInstance.patch(`${BASE}/manual/draft/${id}`, patch);
+
+// Per-section autosave (PUT section). section ∈ {header,scope,provenance,
+// vendors,items,quotes,awards,terms,contract,signatures,approvals}; body = that
+// section's fields. Server validates the section but never enforces cross-stage
+// completeness until finalize.
+export const saveManualSection     = (id, section, body) =>
+  axiosInstance.put(`${BASE}/manual/draft/${id}/section/${section}`, body);
+
+// S4/S5 already-signed PDF upload (multipart). Rejected with 409 for S3.
+export const uploadManualContractDoc = (id, vendorId, formData) =>
+  axiosFormData.post(`${BASE}/manual/draft/${id}/contract/${vendorId}/document`, formData);
+
+// Atomic finalize/backfill — writes the full object graph with backdated
+// timestamps and lands tbl_arc.status at the target stage's persisted status.
+export const finalizeManualArc     = (id, body = { confirm: true }) =>
+  axiosInstance.post(`${BASE}/manual/draft/${id}/finalize`, body);
+
+// ============================================================
+// ARC Negotiation — buyer + vendor service functions
+// ============================================================
+
+// Buyer — list all rounds for an ARC (item-level + arc-level)
+export const getArcNegotiationRounds = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds`);
+
+// Buyer — create a new round (multi-shape or legacy single-item)
+// body: { end_date, target_price?, remarks?, products: [...] }  OR
+//       { arc_item_id, vendor_ids, end_date }                   OR
+//       { is_arc_level: true, vendor_targets, end_date }
+export const createArcNegotiationRound = (arcId, body) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds`, body);
+
+// Buyer — approve / reject (engine-gated; caller must be the pending approver)
+export const approveArcNegotiationRound = (arcId, roundId, body = {}) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/approve`, body);
+export const rejectArcNegotiationRound  = (arcId, roundId, body = {}) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/reject`, body);
+
+// Buyer — close a round (ACTIVE or ENDED → COMPLETED)
+export const closeArcNegotiationRound = (arcId, roundId) =>
+  axiosInstance.post(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/close`, {});
+
+// Buyer — per-round quote view (before/after rates from all vendors)
+export const getArcNegotiationRoundQuotes = (arcId, roundId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds/${roundId}/quotes`);
+
+// Vendor — list rounds + item-level context for this vendor's ARC
+export const getVendorArcNegotiations = (arcId) =>
+  axiosInstance.get(`${BASE}/vendor/requests/${arcId}/negotiation`);
+
+// Vendor — submit a revised rate for one item in an ACTIVE round
+// body: { arc_item_id, rate, gst_pct?, charges? }
+export const submitVendorArcNegotiationQuote = (roundId, body) =>
+  axiosInstance.post(`${BASE}/vendor/negotiation/rounds/${roundId}/quote`, body);

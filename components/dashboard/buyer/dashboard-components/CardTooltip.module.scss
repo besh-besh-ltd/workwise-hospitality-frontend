@@ -1,0 +1,57 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.icon {
+  color: #bbb;
+  transition: color 0.15s;
+
+  .wrapper:hover & {
+    color: #888;
+  }
+}
+
+.bubble {
+  position: absolute;
+  transform: translateX(-50%) translateY(-100%);
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 12px;
+  background: var(--dark-color);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  pointer-events: none;
+  animation: fadeIn 0.12s ease;
+  white-space: normal;
+}
+
+.arrow {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--dark-color);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(calc(-100% + 4px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-100%);
+  }
+}

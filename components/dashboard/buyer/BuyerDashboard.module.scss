@@ -1,0 +1,249 @@
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: calc(100vh - 80px);
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
+/* ── Header (minimal palette) ── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.greetingBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.greeting {
+  font-size: 22px;
+  font-weight: 700;
+  color: #18181b;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.greetingSubtext {
+  font-size: 13px;
+  font-weight: 400;
+  color: #71717a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Filters ── */
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+}
+
+/* Custom date-range picker (Sr 304) — shown when range = "Custom". */
+.customRange {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dateInput {
+  height: 34px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  color: #18181b;
+  padding: 0 8px;
+  cursor: pointer;
+
+  &:hover { border-color: #d6d6cf; }
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+  }
+}
+
+.dateSep {
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.filterItem {
+  position: relative;
+
+  :global(.react-select__control) {
+    min-height: 34px;
+    border: 1px solid #ebebe6;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 13px;
+    box-shadow: none;
+    cursor: pointer;
+    min-width: 170px;
+
+    &:hover {
+      border-color: #d6d6cf;
+    }
+  }
+
+  :global(.react-select__control--is-focused) {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 1px #2563eb !important;
+  }
+
+  :global(.react-select__value-container) {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  :global(.react-select__indicator-separator) {
+    display: none;
+  }
+
+  :global(.react-select__dropdown-indicator) {
+    padding: 4px 8px;
+    color: #999;
+  }
+
+  :global(.react-select__menu) {
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f0f0f0;
+    overflow: hidden;
+    z-index: 10;
+    margin-top: 4px;
+  }
+
+  :global(.react-select__option) {
+    font-size: 13px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  :global(.react-select__option--is-focused) {
+    background: #fafaf9;
+  }
+
+  :global(.react-select__option--is-selected) {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  :global(.react-select__single-value) {
+    font-size: 13px;
+    color: #18181b;
+  }
+
+  :global(.react-select__placeholder) {
+    font-size: 13px;
+    color: #a1a1aa;
+  }
+
+  :global(.react-select__multi-value) {
+    background: #eff6ff;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  :global(.react-select__multi-value__label) {
+    color: #2563eb;
+    font-weight: 500;
+    font-size: 12px;
+    padding: 1px 4px;
+  }
+
+  :global(.react-select__multi-value__remove) {
+    color: #2563eb;
+    &:hover {
+      background: rgba(37, 99, 235, 0.1);
+      color: #2563eb;
+    }
+  }
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: #d6d6cf;
+    color: #18181b;
+    background: #fafaf9;
+  }
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dateInput {
+  padding: 6px 10px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--dark-color);
+  outline: none;
+  height: 34px;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+  }
+}
+
+/* ── Layout ── */
+.mainContent {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+
+  @media (max-width: 992px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}

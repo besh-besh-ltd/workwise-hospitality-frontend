@@ -1,0 +1,187 @@
+/* CostIntelligence — inner-content only. Card frame from PersonaCardShell. */
+
+/* Benchmark strip (Sr 299/300/302): best-price-paid vs latest, above/below. */
+.benchmarkBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+  border: 1px solid #eef0ee;
+  border-radius: 10px;
+}
+
+.benchItem {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.benchLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.benchValue {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.benchDelta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+
+  &.over  { color: #b91c1c; background: #fef2f2; }
+  &.under { color: #15803d; background: #ecfdf3; }
+  &.even  { color: #52525b; background: #f4f4f5; }
+}
+
+.benchNote {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+.productSelector {
+  min-width: 180px;
+
+  :global(.react-select__indicator-separator) {
+    display: none;
+  }
+}
+
+.chartContainer {
+  height: 200px;
+  margin: 8px 0 12px;
+  position: relative;
+}
+
+.vendorSectionLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  margin: 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #f4f4f1;
+  }
+}
+
+.vendorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.vendorCard {
+  padding: 10px 12px;
+  border: 1px solid #ebebe6;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.18s ease, background 0.18s ease;
+
+  &:hover { border-color: #d6d6cf; }
+
+  &.best {
+    background: #ecfdf5;
+    border-color: rgba(21, 128, 61, 0.22);
+  }
+}
+
+.vendorNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.vendorName {
+  font-size: 12px;
+  font-weight: 500;
+  color: #18181b;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.rankChip {
+  flex-shrink: 0;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1.25;
+
+  &.rankGold {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  &.rankSilver {
+    background: #f1f5f9;
+    color: #475569;
+  }
+  &.rankBase {
+    background: #f4f4f5;
+    color: #71717a;
+  }
+}
+
+.vendorPriceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.vendorPrice {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.015em;
+}
+
+.bestBadge {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #15803d;
+  color: white;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
+}

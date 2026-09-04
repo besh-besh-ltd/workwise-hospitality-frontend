@@ -1,0 +1,134 @@
+/* SmartInsights — minimal insight rows with subtle priority signals.
+   Inner content only — card frame comes from PersonaCardShell. */
+
+.insightsBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.insightCard {
+  display: flex;
+  gap: 10px;
+  padding: 11px 0 12px 12px;
+  position: relative;
+  border-top: 1px solid #f4f4f1;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+
+  /* Thin left accent rail — single visual anchor for priority */
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 2px;
+    border-radius: 2px;
+    background: #e5e5e5;
+  }
+
+  &.price_alert::before        { background: #dc2626; }
+  &.vendor_optimization::before{ background: #15803d; }
+  &.spend_trend::before        { background: #2563eb; }
+  &.general::before            { background: #a1a1aa; }
+}
+
+.iconChip {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+
+  .price_alert &        { background: #fef2f2; color: #b91c1c; }
+  .vendor_optimization &{ background: #f0fdf4; color: #15803d; }
+  .spend_trend &        { background: #eff6ff; color: #2563eb; }
+  .general &            { background: #f4f4f5; color: #71717a; }
+}
+
+.insightBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.insightHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.insightTitle {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+  color: #18181b;
+  flex: 1;
+  min-width: 0;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.25;
+
+  .price_alert &        { background: #fee2e2; color: #b91c1c; }
+  .vendor_optimization &{ background: #dcfce7; color: #166534; }
+  .spend_trend &        { background: #dbeafe; color: #1d4ed8; }
+  .general &            { background: #f4f4f5; color: #52525b; }
+}
+
+.insightDescription {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  color: #71717a;
+  line-height: 1.5;
+
+  strong, b {
+    color: #18181b;
+    font-weight: 600;
+  }
+}
+
+.actionCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.18s ease;
+
+  .price_alert &        { color: #b91c1c; }
+  .vendor_optimization &{ color: #15803d; }
+  .spend_trend &        { color: #2563eb; }
+  .general &            { color: #52525b; }
+
+  &:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  svg { display: block; transition: transform 0.18s ease; }
+  &:hover svg { transform: translateX(2px); }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: #a1a1aa;
+  font-style: italic;
+}

@@ -1,0 +1,343 @@
+// POCard.module.scss - Table Row Styles for PO Listing
+
+// Urgency colors
+$urgency-normal: #6c757d;
+$urgency-warning: #fd7e14;
+$urgency-critical: #dc3545;
+
+// ========================================
+// ROW CONTAINER
+// ========================================
+.rowContainer {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+// ========================================
+// HEADER ROW
+// ========================================
+.headerRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 950px;
+
+  .colStatus,
+  .colPoNumber {
+    text-align: left;
+  }
+
+  .colPending,
+  .colProducts,
+  .colInitiator,
+  .colDate {
+    text-align: center;
+  }
+
+  .colQuantity,
+  .colValue {
+    text-align: right;
+  }
+
+  .colActions {
+    text-align: center;
+  }
+}
+
+// ========================================
+// PO ROW
+// ========================================
+.poRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  min-height: 50px;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  min-width: 950px;
+
+  &:hover {
+    background: #f8f9fa;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.requiresAction {
+    border-left: 3px solid #ffc107;
+    background: #fffdf5;
+    &:hover { background: #fff8e1; }
+  }
+
+  &.userAction {
+    border-left: 3px solid #e85d04;
+    animation: bgFlicker 2s ease-in-out infinite;
+    box-shadow: 0 1px 4px rgba(232, 93, 4, 0.1);
+    &:hover {
+      animation: none;
+      background: #fef0e5;
+      box-shadow: 0 2px 8px rgba(232, 93, 4, 0.2);
+    }
+  }
+
+  &.isDraft {
+    border-left: 3px solid #6c757d;
+    background: #fafafa;
+    &:hover { background: #f5f5f5; }
+  }
+
+  &.isApproved {
+    border-left: 3px solid #28a745;
+    background: #f0fff4;
+    &:hover { background: #e8f9ed; }
+  }
+
+  &.isRejected {
+    border-left: 3px solid #dc3545;
+    background: #fff5f5;
+    &:hover { background: #fee2e2; }
+  }
+}
+
+// ========================================
+// COLUMN WIDTHS
+// ========================================
+.colSelect {
+  width: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  input[type="checkbox"] {
+    width: 16px; height: 16px; cursor: pointer; accent-color: #1a56db; margin: 0;
+    &:disabled { cursor: not-allowed; opacity: 0.45; }
+  }
+}
+.colStatus {
+  width: 130px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+}
+
+// "Pending at: <name>" caption shown under the status badge on rows whose
+// PO is currently awaiting approval. Tight typography so it doesn't add row
+// height when present and stays invisible when absent.
+.pendingAtCaption {
+  font-size: 0.65rem;
+  line-height: 1.2;
+  color: #6c757d;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+}
+.pendingAtLabel {
+  color: #94a3b8;
+  font-weight: 500;
+}
+.pendingAtName {
+  color: #475569;
+  font-weight: 600;
+}
+.colPoNumber { width: 85px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+.poNum { font-weight: 700; font-size: 0.8rem; color: #212529; }
+.projectName { font-size: 0.6rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; max-width: 80px; }
+
+.colPending { width: 70px; flex-shrink: 0; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 2px; text-align: center; margin-right: 10px; padding-right: 10px; border-right: 1px solid #e9ecef; }
+.colVendor { width: 140px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #495057; font-size: 0.8rem; text-align: left; }
+.colProducts { width: 65px; flex-shrink: 0; color: #495057; font-size: 0.8rem; cursor: pointer; text-align: center; &:hover { color: #212529; } }
+
+.colQuantity { width: 80px; flex-shrink: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 3px; }
+.qtyNumber { font-size: 0.95rem; font-weight: 700; color: #212529; }
+.qtyUnit { font-size: 0.7rem; color: #6c757d; font-weight: 500; }
+
+.colValue { width: 100px; flex-shrink: 0; font-weight: 700; color: #28a745; text-align: right; font-size: 0.85rem; padding-right: 12px; margin-right: 8px; border-right: 1px solid #e9ecef; }
+.colInitiator { width: 35px; flex-shrink: 0; color: #6c757d; display: flex; align-items: center; justify-content: center; cursor: pointer; &:hover { color: #0d6efd; } }
+.colDate { width: 65px; flex-shrink: 0; color: #6c757d; font-size: 0.75rem; cursor: help; text-align: center; }
+
+// ========================================
+// STATUS BADGE
+// ========================================
+.statusBadge { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; padding: 3px 6px; white-space: nowrap; }
+
+// ========================================
+// URGENCY
+// ========================================
+.urgencyNormal { color: $urgency-normal; }
+.urgencyWarning { color: $urgency-warning; font-weight: 600; }
+.urgencyCritical { color: $urgency-critical; font-weight: 700; animation: pulse 2s infinite; }
+.alertIcon { animation: shake 0.5s ease-in-out infinite; }
+.waitEmpty { color: #adb5bd; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+@keyframes bgFlicker { 0%, 100% { background: #fff; } 50% { background: #fff5eb; } }
+
+// Milestone indicators
+.milestoneIndicator { font-size: 0.75rem; cursor: help; margin-left: 2px; }
+.milestoneCritical { animation: shake 0.5s ease-in-out infinite; }
+.milestoneWarning { animation: pulse 1.5s ease-in-out infinite; }
+.milestoneUpcoming { opacity: 0.9; }
+.milestoneNormal { opacity: 0.8; }
+
+// ========================================
+// ACTION BUTTONS — icon-only
+// ========================================
+.colActions { width: 130px; flex-shrink: 0; display: flex; gap: 8px; justify-content: center; }
+
+.iconBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  border: none; cursor: pointer; text-decoration: none;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #e7f1ff 0%, #d0e2ff 100%);
+  color: #1a56db;
+  box-shadow: 0 1px 3px rgba(13, 110, 253, 0.15);
+
+  &:hover {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(13, 110, 253, 0.25);
+  }
+}
+
+.iconBtnDanger {
+  background: linear-gradient(135deg, #fde8e8 0%, #f8d0d0 100%);
+  color: #c81e1e;
+  box-shadow: 0 1px 3px rgba(220, 53, 69, 0.15);
+  &:hover {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.35);
+  }
+}
+
+.iconBtnSuccess {
+  background: linear-gradient(135deg, #d4edda 0%, #b8dfca 100%);
+  color: #155724;
+  box-shadow: 0 1px 3px rgba(40, 167, 69, 0.15);
+  &:hover {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.35);
+  }
+}
+
+// Legacy text button styles kept for Initiate PO (draft state) on mobile
+.approveBtn, .rejectBtn, .viewBtn, .initiateBtn {
+  padding: 6px 14px; border-radius: 6px; border: 1.5px solid; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all 0.2s ease; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+}
+.approveBtn { background: #d4edda; border-color: #28a745; color: #155724;
+  &:hover { background: #28a745; color: white; border-color: #28a745; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3); }
+}
+.rejectBtn { background: #f8d7da; border-color: #dc3545; color: #721c24;
+  &:hover { background: #dc3545; color: white; border-color: #dc3545; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); }
+}
+.viewBtn { background: #e7f1ff; border-color: #0d6efd; color: #084298;
+  &:hover { background: #0d6efd; color: white; border-color: #0d6efd; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3); }
+}
+.initiateBtn { background: #cfe2ff; border-color: #0d6efd; color: #084298;
+  &:hover { background: #0d6efd; color: white; border-color: #0d6efd; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3); }
+}
+
+// ========================================
+// EMPTY STATE
+// ========================================
+.emptyRow { display: flex; align-items: center; justify-content: center; padding: 40px 20px; color: #6c757d; font-size: 0.9rem; }
+
+// ========================================
+// MOBILE CARD LAYOUT
+// ========================================
+.mobileCard {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  &:hover { background: #f8f9fa; }
+  &:last-child { border-bottom: none; }
+  &.userAction {
+    border-left: 3px solid #e85d04;
+    background: #fff5eb;
+  }
+}
+
+.mobileCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobileCardMiddle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobileVendor {
+  font-size: 0.85rem;
+  color: #495057;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.mobileValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.mobileQty {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.mobileCardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  .approveBtn, .rejectBtn, .viewBtn, .initiateBtn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+}
+
+// ========================================
+// RESPONSIVE
+// ========================================
+@media (max-width: 1200px) { .colInitiator { display: none; } .projectName { display: none; } }
+@media (max-width: 1100px) { .colDate { display: none; } }
+@media (max-width: 768px) {
+  .headerRow { display: none; }
+  .poRow { display: none; }
+}

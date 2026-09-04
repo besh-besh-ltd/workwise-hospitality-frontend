@@ -1,0 +1,110 @@
+/* Push-permission prompt — minimal card aligned with the dashboard aesthetic.
+   Tokens mirror DashboardShell.module.css:
+     surface white   #ffffff
+     border          #ebebe6
+     soft separator  #f4f4f1
+     muted text      #71717a
+     mid text        #52525b
+     primary text    #18181b
+     accent blue     #2563eb
+     bg hover        #fafaf9
+*/
+
+.card {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1080;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 14px 12px;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 14px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 18px 40px -12px rgba(15, 15, 14, 0.20);
+  font-family: inherit;
+  animation: ppSlideIn 0.18s ease;
+}
+
+@keyframes ppSlideIn {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.row { display: flex; gap: 11px; align-items: flex-start; }
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #eef2ff;
+  color: #2563eb;
+  display: grid;
+  place-items: center;
+}
+
+.body { flex: 1; min-width: 0; }
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #52525b;
+  line-height: 1.5;
+}
+
+.close {
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  margin: -4px -4px 0 0;
+  cursor: pointer;
+  color: #a1a1aa;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+.close:hover { background: #fafaf9; color: #52525b; }
+
+.actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+.btnGhost {
+  background: transparent;
+  border: 1px solid #ebebe6;
+  color: #52525b;
+}
+.btnGhost:hover { background: #fafaf9; color: #18181b; }
+.btnPrimary {
+  background: #18181b;
+  border: 1px solid #18181b;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btnPrimary:hover { background: #000000; }
+.btnPrimary:disabled { opacity: 0.6; cursor: default; }
+.btnPrimary:disabled:hover { background: #18181b; }

@@ -1,0 +1,324 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { addChatComment, fetchChatData } from '@/services/rfq';
+import { toast } from 'react-toastify';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPaperclip, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { handleFileUpload } from '@/utils/sharedFunctions';
+import FileLink from '@/components/shared/FileLink';
+import FullLoader from '@/components/shared/FullLoader';
+
+
+const BuyerVendorChat = ({
+  showChat,
+  closeChat,
+  data,
+  userData,
+  otherUser,
+  token = "",
+  product,
+  rfq_no
+}) => {
+  const [messages, setMessages] = useState(null);
+  const [messageText, setMessageText] = useState("");
+  const [files, setFiles] = useState(null);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [sendButtonLoading, setSendButtonLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const latestMessageRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileClick = () => {
+    fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
+  };
+
+  const uploadToServer = async (e) => {
+    setFileLoading(true)
+    try {
+      const filePath = await handleFileUpload(e, token);
+      const newList = [...(files || []), filePath];
+      setFiles(newList);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setFileLoading(false);
+      e.target.value = null;
+    }
+  }
+
+  const removeChatFile = (fileType, file) => {
+    const updatedList = files.filter((fileItem) => fileItem != file);
+    setFiles(updatedList);
+  }
+
+  const getChatData = async () => {
+    const payload = {
+      clause_id: data.clause_id,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id || otherUser)
+    }
+    try {
+      setLoading(true)
+      const res = await fetchChatData(payload,token);
+      setMessages(res.data);
+    } catch (error) {
+      console.log(error)
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!messageText) {
+      toast.error("Message text can't be empty!", { position: "top-right" });
+      setSendButtonLoading(false);
+      return;
+    }
+
+    let payload = {
+      clause_id: data.clause_id,
+      sender_id: parseInt(userData.id),
+      receiver_id: parseInt(otherUser?.buyer_id || otherUser?.vendor_id),
+      text: messageText,
+      file_url: files,
+      product:product,
+      vendor: otherUser,
+      rfq_no: {
+        ...rfq_no,
+      }
+    }
+   
+    setSendButtonLoading(true);
+    try {
+      const res = await addChatComment(payload,token);
+      setMessageText("");
+      setFiles(null);
+      getChatData();
+    } catch (error) {
+      console.log(error)
+    } finally {
+      setSendButtonLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (data) {
+      getChatData();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (latestMessageRef.current) {
+      latestMessageRef.current.scrollIntoView({ behavior: "auto" });
+    }
+  }, [messages]);
+
+  return (
+    <>
+      {showChat && (
+        <div
+          className="modal fade show d-flex flex-column bg-white shadow-lg"
+          style={{
+            position: 'fixed',
+            top: '0',
+            right: '0',
+            left: 'auto', 
+            zIndex: 1050,
+            width: 'calc(100% - 450px)', 
+            maxWidth: '450px', 
+            height: '100vh',
+            borderLeft: '2px solid #ddd',
+            padding: '10px',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="modal-header" sty le={{ borderBottom: '1px solid #ddd' }}>
+            <h5 className="modal-title">Evaluation / Deviation</h5>
+            <button
+              type="button"
+              className="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              onClick={closeChat}
+              id="close_chat-chat_actions-buyer_vendor_chat"
+            >
+            </button>
+          </div>
+
+          <div
+            className="modal-body hasFullLoader"
+            style={{
+              overflowY: 'auto',
+              padding: '10px 0',
+            }}
+          >
+            {loading && <FullLoader />}
+            {messages &&
+              messages.map((msg, idx) => {
+                // Vendor senders always show "Vendor", evaluators show their name from backend
+                const senderLabel = (msg.sender_user_type === 3 || msg.sender_user_type === '3')
+                  ? "Vendor"
+                  : (msg.sender_name || "Evaluator");
+                return (
+                  <div
+                    key={`cmnt_${msg.comment_id}`}
+                    ref={idx === messages.length - 1 ? latestMessageRef : null}
+                    className={`d-flex ${String(msg.created_by) === String(userData.id) ? "justify-content-end" : ""} mb-2`}
+                  >
+                    <div
+                      className={`text-dark px-3 py-2 me-2 `}
+                      style={{
+                        maxWidth: "70%",
+                        backgroundColor: String(msg.created_by) === String(userData.id) ? "#d1e7fd" : "#e0e0e0",
+                        borderRadius: String(msg.created_by) === String(userData.id) ? "10px 0 0 10px" : "0 10px 10px 0"
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2 }}>
+                        {senderLabel}
+                      </div>
+                      <p className="mb-0">{msg.comment_text}</p>
+                      {msg.comment_files && msg.comment_files.length > 0 && (
+                        <div className="mt-2">
+                          <FileLink
+                            Files={msg.comment_files}
+                            Class="badge text-bg-secondary rounded-pill py-0"
+                            Style={{ fontSize: "10px" }}
+                          />
+                        </div>
+                      )}
+                      {msg.created_at && (
+                        <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.6 }}>
+                          {new Date(msg.created_at + '+05:30').toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                            timeZone: 'Asia/Kolkata'
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          <div
+            style={{
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              padding: '10px',
+              bottom: '10px',
+              backgroundColor: 'white',
+              boxSizing: 'border-box', 
+            }}
+          >
+            {files &&
+              <>
+                <FileLink Files={files} ColumnClass="col-md-6" showDownload={false} RemoveFile={removeChatFile} />
+                <hr />
+              </>
+            }
+
+            <textarea
+              rows="2"
+              maxLength="500"
+              placeholder="Type a message..."
+              className="form-control"
+              style={{
+                resize: 'none',
+                overflowY: 'auto',
+                paddingRight: '30px',
+                paddingBottom: '10px',
+                border: 'none',
+                outline: 'none',
+                boxShadow: 'none',
+                height: 'auto',
+              }}
+              value={messageText}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+                const textarea = e.target;
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+              }}
+            ></textarea>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderTop: '1px solid #ddd',
+                paddingTop: '10px',
+                marginTop: '10px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+                onClick={handleFileClick}
+                id="attach_file-chat_actions-buyer_vendor_chat"
+              >
+                <FontAwesomeIcon
+                  icon={faPaperclip}
+                  className="me-2 opacity-75"
+                />
+                Attach File
+                {fileLoading &&
+                  <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                }
+              </div>
+
+              {/* Hidden file input field triggered by the "Attach file" button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                style={{ display: 'none' }}
+                onChange={uploadToServer}
+              />
+
+              {sendButtonLoading &&
+                <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              }
+              <button
+                type="button"
+                className="text-white border-0"
+                style={{
+                  backgroundColor: 'green',
+                  padding: '5px 10px',
+                  borderRadius: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+                onClick={handleSendMessage}
+                id="send_chat_message-chat_actions-buyer_vendor_chat"
+              >
+                Send
+                <FontAwesomeIcon
+                  icon={faPaperPlane}
+                  color="#fff"
+                  className="ms-2"
+                />
+              </button>
+            </div>
+          </div>
+
+        </div>
+      )}
+    </>
+  );
+};
+
+export default BuyerVendorChat;

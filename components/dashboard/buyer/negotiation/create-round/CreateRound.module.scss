@@ -1,0 +1,1522 @@
+// Create Negotiation Round — page chrome (header, stepper, sticky footer,
+// product picker rows). Inner panels reuse NegotiationUI.module.scss.
+
+// Palette aligned to the new app UI (see QuoteComparison.module.scss qc-tokens).
+$primary: #1f2937;
+$primary-soft: #1f2937;
+$primary-hover: #111827;
+$ink-strong: #18181b;
+$ink: #3f3f46;
+$ink-soft: #71717a;
+$ink-muted: #a1a1aa;
+$divider: #e8e8e3;
+$divider-strong: #d6d6cf;
+$surface: #ffffff;
+$surface-soft: #f7f7f5;
+$accent-green: #15803d;
+$danger: #b91c1c;
+$ring: 0 0 0 3px rgba(31, 41, 55, 0.14);
+$font-body: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+.page {
+  // Background + page padding come from DashboardShell's main/content now.
+  font-family: $font-body;
+}
+// ---------- Header ----------
+
+.header {
+  // Dark hero band — mirrors the Commercial Evaluation band on the new
+  // quote-comparison page.
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 24px;
+}
+
+.headerTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.queueChipWrap {
+  position: relative;
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+.queueChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #fde68a;
+  }
+}
+
+.queueChipCaret {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.queueList {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  list-style: none;
+  padding: 6px;
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  z-index: 60;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.queueListItem {
+  display: grid;
+  grid-template-columns: 1fr auto 24px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+
+  & + & {
+    border-top: 1px solid $divider;
+  }
+}
+
+.queueListName {
+  font-size: 13px;
+  font-weight: 600;
+  color: $ink-strong;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queueListMeta {
+  font-size: 12px;
+  color: $ink-soft;
+  white-space: nowrap;
+}
+
+.queueListRemove {
+  background: transparent;
+  border: 0;
+  color: $ink-soft;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+// ---------- Hero band RFQ details (mirrors the Commercial Evaluation band) ----
+
+.heroRfqNum {
+  margin-left: 12px;
+  color: #ffffff;
+  font-family: $font-mono;
+  letter-spacing: -0.02em;
+  font-size: 18px;
+}
+
+.heroStatusChip {
+  margin-left: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.3);
+  vertical-align: middle;
+}
+
+.heroSep {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.heroEm {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.heroQuotesChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.heroDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 32px;
+  row-gap: 18px;
+  margin-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 18px;
+}
+
+@media (max-width: 920px) {
+  .heroDetailGrid {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+    row-gap: 16px;
+  }
+}
+
+.heroCell {
+  min-width: 0;
+}
+
+.heroK {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+}
+
+.heroV {
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heroMono {
+  font-family: $font-mono;
+}
+
+// ---------- Stepper ----------
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.stepperItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  cursor: default;
+  user-select: none;
+}
+
+.stepperItemClickable {
+  cursor: pointer;
+
+  &:hover .stepperBadge {
+    border-color: $primary-soft;
+  }
+}
+
+.stepperBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: $surface;
+  border: 1.5px solid $divider-strong;
+  color: $ink-muted;
+  transition: all 0.15s ease;
+}
+
+.stepperBadgeActive {
+  background: $primary;
+  border-color: $primary;
+  color: $surface;
+}
+
+.stepperBadgeDone {
+  background: $primary;
+  border-color: $primary;
+  color: $surface;
+}
+
+.stepperLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ink-soft;
+}
+
+.stepperLabelActive {
+  color: $ink-strong;
+  font-weight: 600;
+}
+
+.stepperConnector {
+  flex: 1 1 auto;
+  height: 1px;
+  background: $divider;
+  min-width: 24px;
+}
+
+// ---------- Card / surface used by step content ----------
+
+.card {
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0px 1px 2px 0px #1e293b;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 24px;
+  border-bottom: 1px solid $divider;
+  background: $surface;
+}
+
+.cardHeaderIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(31, 41, 55, 0.06);
+  color: $primary-soft;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+}
+
+.cardHeaderTextWrap {
+  flex: 1 1 auto;
+}
+
+.cardHeaderTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0 0 2px;
+}
+
+.cardHeaderSub {
+  font-size: 13px;
+  color: $ink-soft;
+  margin: 0;
+}
+
+.cardBody {
+  padding: 20px 24px;
+}
+
+// ---------- Step 1: product picker ----------
+
+.searchRow {
+  padding: 16px 24px;
+  border-bottom: 1px solid $divider;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid $divider-strong;
+  border-radius: 8px;
+  font-size: 14px;
+  background: $surface;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    border-color: $primary-soft;
+    box-shadow: $ring;
+  }
+}
+
+.productList {
+  display: flex;
+  flex-direction: column;
+}
+
+.productRow {
+  display: grid;
+  grid-template-columns: 28px minmax(220px, 1.4fr) repeat(4, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid $divider;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: $surface;
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &:hover:not(.productRowDisabled) {
+    background: rgba(31, 41, 55, 0.03);
+  }
+}
+
+.productRowSelected {
+  background: rgba(31, 41, 55, 0.05);
+  box-shadow: inset 3px 0 0 0 $primary;
+}
+
+.productRowDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+// RFQ-level radio row on Step 1. Looser layout than the product list because
+// it has no QTY / L1 / VENDORS columns — just a radio + main content block
+// with title, sub, and a three-column meta strip (SCOPE / FIELDS / VENDORS).
+.rfqLevelRow {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid $divider;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: $surface;
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &:hover:not(.productRowDisabled) {
+    background: rgba(31, 41, 55, 0.03);
+  }
+}
+
+.rfqLevelMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rfqLevelTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.rfqLevelSub {
+  font-size: 12.5px;
+  color: $ink-soft;
+  margin: 0;
+}
+
+.rfqLevelMeta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed $divider;
+}
+
+.productRadio {
+  width: 18px;
+  height: 18px;
+  accent-color: $primary;
+  cursor: pointer;
+}
+
+.productMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.productName {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productSpec {
+  font-size: 12.5px;
+  color: $ink-soft;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productMetaLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: $ink-muted;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px;
+}
+
+.productMetaValue {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.productMetaQty {
+  font-family: $font-mono;
+  font-size: 14px;
+  color: $ink;
+  margin: 0;
+}
+
+.productMetaL1 {
+  font-family: $font-mono;
+  font-size: 15px;
+  font-weight: 600;
+  color: $accent-green;
+  margin: 0;
+}
+
+.productMetaL1Vendor {
+  font-size: 11.5px;
+  color: $ink-soft;
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productStatusBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.createStatusApproved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.createStatusPartial {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.createStatusNoQuotes {
+  background: #f1f5f9;
+  color: $ink-soft;
+}
+
+.createStatusQueued {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+// ---------- Empty / loading ----------
+
+.empty {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0 0 4px;
+}
+
+.emptySub {
+  font-size: 13px;
+  color: $ink-soft;
+  margin: 0;
+}
+
+.fullLoader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  gap: 12px;
+  color: $ink-soft;
+}
+
+// ---------- Step 2 sections ----------
+
+.stepStack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.endDateSection {
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  padding: 20px 24px;
+}
+
+.endDateTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0 0 4px;
+}
+
+.endDateHint {
+  font-size: 13px;
+  color: $ink-soft;
+  margin: 0 0 14px;
+}
+
+.endDateInput {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 14px;
+  border: 1px solid $divider-strong;
+  border-radius: 8px;
+  font-size: 14px;
+  background: $surface;
+  outline: none;
+
+  &:focus {
+    border-color: $primary-soft;
+    box-shadow: $ring;
+  }
+}
+
+.endDateInputError {
+  border-color: $danger !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+}
+
+.warningBanner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.warningBannerIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f97316;
+  color: $surface;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  margin-top: 1px;
+}
+
+.infoBanner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.infoBannerIcon {
+  flex: 0 0 16px;
+  margin-top: 2px;
+  color: #2563eb;
+}
+
+.dangerBanner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.dangerBannerIcon {
+  flex: 0 0 16px;
+  margin-top: 2px;
+  color: #dc2626;
+}
+
+.errorList {
+  margin: 0;
+  padding-left: 20px;
+  color: $danger;
+  font-size: 13px;
+
+  li {
+    margin-bottom: 2px;
+  }
+}
+
+// ---------- Step 3 review ----------
+
+.reviewGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.reviewBlock {
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  padding: 20px 24px;
+}
+
+.reviewBlockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.reviewBlockTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.reviewEditLink {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: $primary-soft;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.reviewKeyValue {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  row-gap: 8px;
+  column-gap: 16px;
+  font-size: 13.5px;
+}
+
+.reviewKey {
+  color: $ink-soft;
+}
+
+.reviewVal {
+  color: $ink-strong;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.reviewVendorRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid $divider;
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+// ---------- Step 3 product card (white) + nested vendors block (gray) ----------
+
+.reviewProductCard {
+  background: $surface;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reviewProductHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 12px;
+}
+
+.reviewProductHeadMain {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reviewProductTag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: $ink-muted;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// RFQ-WIDE chip next to the round tag — only on RFQ-level review cards.
+.reviewRfqChip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+// Subtle accent on the RFQ-level review card — green left border so it
+// reads as the "scope-wide" entry at a glance.
+.reviewRfqCard {
+  box-shadow: inset 4px 0 0 0 #16a34a;
+}
+
+.reviewProductName {
+  font-size: 18px;
+  font-weight: 700;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.reviewProductHeadActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.reviewRemoveBtn {
+  background: transparent;
+  border: 1px solid $divider-strong;
+  color: $ink-soft;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+  }
+}
+
+.reviewProductMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px 24px;
+  padding: 4px 22px 18px;
+}
+
+.reviewProductMetaGrid > div > p {
+  margin: 2px 0 0;
+}
+
+.reviewVendorsBlock {
+  background: $surface-soft;
+  border-top: 1px solid $divider;
+  padding: 14px 22px 18px;
+}
+
+.reviewVendorsLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $ink-muted;
+  margin: 0 0 10px;
+}
+
+@media (max-width: 720px) {
+  .reviewProductHead {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .reviewProductHeadActions {
+    align-self: flex-end;
+  }
+}
+
+.reviewVendorName {
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink-strong;
+  margin: 0;
+}
+
+.reviewVendorTargets {
+  font-size: 13px;
+  color: $ink;
+  margin: 0;
+}
+
+// ---------- Step 3: enriched vendor + field rows ----------
+
+.reviewVendorHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reviewVendorTotals {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reviewVendorTotalQuoted {
+  font-family: $font-mono;
+  color: $ink-muted;
+  text-decoration: line-through;
+}
+
+.reviewVendorTotalProjected {
+  font-family: $font-mono;
+  color: $ink-strong;
+}
+
+.reviewArrow {
+  color: $ink-muted;
+  flex: 0 0 auto;
+}
+
+.reviewFieldList {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reviewFieldRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: $ink;
+}
+
+.reviewFieldLabel {
+  font-weight: 600;
+  color: $ink-strong;
+  min-width: 120px;
+}
+
+.reviewFieldQuoted {
+  color: $ink-soft;
+}
+
+.reviewFieldTarget {
+  color: $ink-strong;
+  font-weight: 500;
+}
+
+.reviewFieldDelta {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.reviewFieldTaxNote {
+  font-style: normal;
+  font-size: 11.5px;
+  color: $ink-muted;
+  margin-left: 2px;
+}
+
+.reviewFieldEmpty {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: $ink-muted;
+  font-style: italic;
+}
+
+// Per-document comment detail under a `documents` review row. Spans the full
+// width of the wrapping flex row so it reads as a sub-list.
+.reviewDocDetail {
+  flex-basis: 100%;
+  width: 100%;
+  margin: 4px 0 2px;
+  padding: 8px 10px;
+  background: #fff8e1;
+  border: 1px solid #f0ad4e;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.reviewDocItem {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.reviewDocLabel {
+  font-weight: 600;
+  color: $ink-strong;
+  min-width: 110px;
+
+  a {
+    color: $ink-strong;
+    text-decoration: underline;
+  }
+}
+
+.reviewDocComment {
+  color: $ink-soft;
+  flex: 1;
+}
+
+.reviewDeltaPill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.deltaDown {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.deltaUp {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.deltaFlat {
+  background: #f1f5f9;
+  color: $ink-soft;
+}
+
+.reviewProductFooter {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed $divider-strong;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reviewProductFooterLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $ink-soft;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.reviewProductFooterQuoted {
+  color: $ink-muted;
+  text-decoration: line-through;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.reviewProductFooterProjected {
+  color: $ink-strong;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.reviewGrandTotal {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: $surface-soft;
+  border: 1px solid $divider;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reviewGrandLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $ink-soft;
+  margin-right: 4px;
+}
+
+.reviewGrandQuoted {
+  font-family: $font-mono;
+  color: $ink-muted;
+  text-decoration: line-through;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.reviewGrandProjected {
+  font-family: $font-mono;
+  color: $ink-strong;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+// ---------- Sticky footer ----------
+
+.footer {
+  // Sticky (not fixed) so the bar stays inside the content column — the new
+  // app shell has a left sidebar, and a fixed full-width bar slides under it.
+  // Rendered via portal as a direct child of DashboardShell's `.main`
+  // flex column (after the scrollable content) — margin-top: auto pushes it
+  // to the bottom on short pages; sticky pins it on long ones.
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border-top: 1px solid $divider;
+  padding: 14px 24px;
+  z-index: 50;
+  box-shadow: 0 -2px 12px rgba(24, 24, 27, 0.04);
+}
+
+.footerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.footerStepInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  color: $ink-soft;
+  min-width: 0;
+}
+
+.footerStepNum {
+  font-weight: 600;
+  color: $ink-strong;
+}
+
+.footerProductTag {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 500;
+  color: $ink-strong;
+  background: $surface-soft;
+  border: 1px solid $divider;
+  padding: 4px 10px;
+  border-radius: 6px;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnGhost {
+  background: transparent;
+  border: 0;
+  color: $ink;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: $surface-soft;
+  }
+}
+
+.btnSecondary {
+  background: $surface;
+  border: 1px solid $divider-strong;
+  color: $ink;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 9px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: $surface-soft;
+    border-color: $ink-muted;
+  }
+}
+
+.btnPrimary {
+  background: $primary;
+  border: 1px solid $primary;
+  color: $surface;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $ring;
+  }
+
+  &:hover:not(:disabled) {
+    background: $primary-hover;
+    border-color: $primary-hover;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ---------- Approval page (ApproveRoundPage) ----------
+
+.approveRoundBlock {
+  margin-bottom: 28px;
+}
+
+.approveRoundHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.approveRoundTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: $ink-strong;
+  margin: 0 0 6px;
+}
+
+.approveRoundMeta {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: $ink-soft;
+  margin-left: 6px;
+}
+
+.approveJourney {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.approverChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid $divider-strong;
+  color: $ink-soft;
+}
+
+.approverChipDone {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: $accent-green;
+}
+
+.approverChipRemoved {
+  background: #f4f4f1;
+  border-color: $divider-strong;
+  color: $ink-soft;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.approveRoundActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.btnApprove {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: $accent-green;
+  border: 1px solid $accent-green;
+  color: $surface;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #166534;
+    border-color: #166534;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btnReject {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: $surface;
+  border: 1px solid #fca5a5;
+  color: $danger;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #fef2f2;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ---------- Cancel confirmation modal ----------
+
+.cancelModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 24px;
+}
+
+.cancelModal {
+  position: relative;
+  background: $surface;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.25);
+  padding: 26px 28px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.cancelModalClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: $ink-soft;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(15, 23, 42, 0.06);
+    color: $ink-strong;
+  }
+}
+
+.cancelModalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: $ink-strong;
+  margin: 0 0 10px;
+}
+
+.cancelModalBody {
+  font-size: 14px;
+  color: $ink-soft;
+  margin: 0 0 20px;
+  line-height: 1.55;
+}
+
+.cancelModalActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+// ---------- Read-only banner ----------
+
+.readOnlyBanner {
+  background: #fef9c3;
+  border: 1px solid #facc15;
+  color: #854d0e;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+// ---------- Responsive ----------
+
+@media (max-width: 900px) {
+  .productRow {
+    grid-template-columns: 28px 1fr;
+  }
+
+  .productMetaItem {
+    grid-column: 2;
+  }
+
+  .reviewKeyValue {
+    grid-template-columns: 1fr;
+  }
+
+  .footerStepInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}

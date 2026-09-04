@@ -1,0 +1,1647 @@
+// ============================================
+//  Manage Accounts - SCSS Module
+// ============================================
+
+// --- Variables ---
+$primary: #2E5BA8;
+$primary-dark: #264FA0;
+$primary-light: #f2f6ff;
+
+$text-dark: #0f172a;
+$text-body: #374151;
+$text-muted: #64748b;
+$text-light: #94a3b8;
+$text-placeholder: #cbd5e1;
+
+$green: #16a34a;
+$green-active: #22c55e;
+$green-bg: #dcfce7;
+$green-text: #166534;
+
+$red: #dc2626;
+$red-bg: #fef2f2;
+$red-border: #fecaca;
+
+$indigo: #4f46e5;
+$indigo-bg: #eef2ff;
+$indigo-border: #e0e7ff;
+
+$border: #e5e7eb;
+$border-light: #e2e8f0;
+$border-subtle: #f1f5f9;
+
+$bg-page: #fff;
+$bg-muted: #f8fafc;
+$bg-hover: #fafcfe;
+$bg-footer: #fafbfc;
+
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 10px;
+$radius-xl: 12px;
+$radius-2xl: 14px;
+$radius-3xl: 16px;
+
+$shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+$shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+$transition: all 0.2s ease;
+$transition-fast: all 0.15s ease;
+
+// --- Mixins ---
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+@mixin badge-base {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: $radius-sm;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@mixin form-input-base {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: $radius-md;
+  border: 1.5px solid $border-light;
+  font-size: 14px;
+  color: $text-dark;
+  transition: $transition;
+  background: #fff;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+  }
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+
+  &:disabled {
+    background: $bg-muted;
+    color: $text-light;
+  }
+}
+
+@mixin btn-base {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: $radius-lg;
+  font-weight: 600;
+  cursor: pointer;
+  transition: $transition;
+  white-space: nowrap;
+}
+
+// --- Animations ---
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+// ============================================
+//  Page Layout
+// ============================================
+.pageWrap {
+  max-width: 1400px;
+}
+
+.pageHeader {
+  margin-bottom: 28px;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-dark;
+  margin: 0 0 4px;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: $text-muted;
+  margin: 0;
+}
+
+// ============================================
+//  Stat Cards
+// ============================================
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: $radius-xl;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.statIconWrap {
+  width: 48px;
+  height: 48px;
+  border-radius: $radius-xl;
+  @include flex-center;
+  flex-shrink: 0;
+  color: #fff;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.statValue {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: $text-muted;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+// Stat color variants
+.statTeal {
+  background: linear-gradient(135deg, $primary-light 0%, #edf3ff 100%);
+  .statIconWrap { background: $primary; }
+  .statValue { color: $primary; }
+}
+
+.statGreen {
+  background: linear-gradient(135deg, #f0fdf4 0%, $green-bg 100%);
+  .statIconWrap { background: $green; }
+  .statValue { color: $green; }
+}
+
+.statRed {
+  background: linear-gradient(135deg, $red-bg 0%, $red-border 100%);
+  .statIconWrap { background: $red; }
+  .statValue { color: $red; }
+}
+
+.statIndigo {
+  background: linear-gradient(135deg, $indigo-bg 0%, $indigo-border 100%);
+  .statIconWrap { background: $indigo; }
+  .statValue { color: $indigo; }
+}
+
+// ============================================
+//  Filter Bar
+// ============================================
+.filterCard {
+  background: #fff;
+  border-radius: $radius-2xl;
+  padding: 20px 24px;
+  box-shadow: $shadow-card;
+  margin-bottom: 24px;
+}
+
+.filterRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  flex: 1;
+  min-width: 180px;
+}
+
+.filterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.filterInput {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: $radius-md;
+  border: 1.5px solid $border-light;
+  font-size: 13px;
+  color: $text-dark;
+  transition: $transition;
+  background: #fff;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+  }
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+}
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+// ============================================
+//  Buttons
+// ============================================
+.primaryBtn {
+  @include btn-base;
+  padding: 9px 18px;
+  border: none;
+  background: $primary;
+  color: #fff;
+  font-size: 13px;
+  text-decoration: none;
+
+  &:hover {
+    background: $primary-dark;
+    box-shadow: 0 4px 12px rgba(46, 91, 168, 0.3);
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
+.outlineBtn {
+  @include btn-base;
+  padding: 9px 18px;
+  border: 1.5px solid $border-light;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+    background: $primary-light;
+  }
+}
+
+// ============================================
+//  Table
+// ============================================
+.tableCard {
+  background: #fff;
+  border-radius: $radius-3xl;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+}
+
+.accountsTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  thead th {
+    background: $bg-muted;
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid $border;
+
+    &:first-child { padding-left: 24px; }
+    &:last-child { text-align: right; padding-right: 24px; }
+  }
+
+  tbody {
+    td {
+      padding: 14px 16px;
+      font-size: 13px;
+      color: $text-body;
+      border-bottom: 1px solid $border-subtle;
+      vertical-align: middle;
+
+      &:first-child { padding-left: 24px; }
+      &:last-child { text-align: right; padding-right: 24px; }
+    }
+
+    tr {
+      transition: background $transition-fast;
+
+      &:hover { background: $bg-hover; }
+      &:last-child td { border-bottom: none; }
+    }
+  }
+}
+
+.rowInactive {
+  opacity: 0.6;
+}
+
+// ============================================
+//  User Cell
+// ============================================
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: $radius-lg;
+  @include flex-center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-dark;
+}
+
+.userEmail {
+  font-size: 12px;
+  color: $text-light;
+}
+
+.userMobile {
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.inactiveTag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: $border-subtle;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+.userEmpCode {
+  font-size: 12px;
+  font-weight: 400;
+  color: $text-light;
+}
+
+.userMobileInline {
+  font-size: 11px;
+  color: $text-light;
+  margin-top: 1px;
+}
+
+// ============================================
+//  Status Badge
+// ============================================
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.statusActive { background: $green-bg; color: $green-text; }
+.statusInactive { background: $border-subtle; color: $text-muted; }
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotActive { background: $green-active; }
+.dotInactive { background: $text-light; }
+
+// ============================================
+//  Badges
+// ============================================
+.badgeWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.roleBadge {
+  @include badge-base;
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.deptBadge {
+  @include badge-base;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.mappingBadge {
+  @include badge-base;
+  gap: 4px;
+}
+
+.mappingCompany { background: $indigo-border; color: #3730a3; }
+.mappingHotel { background: #d1fae5; color: #065f46; }
+
+.noData {
+  font-size: 12px;
+  color: $text-placeholder;
+}
+
+.moreBadge {
+  @include badge-base;
+  background: $border-subtle;
+  color: #475569;
+  border: 1px solid $border-light;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background: $border-light;
+    color: $primary;
+  }
+}
+
+// ============================================
+//  Action Buttons (Table Row)
+// ============================================
+.actionBtnGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.accessBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: $radius-md;
+  border: 1.5px solid $indigo-border;
+  background: #f8f9ff;
+  color: $indigo;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    border-color: $indigo;
+    background: $indigo-bg;
+  }
+}
+
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  border: 1.5px solid $border-light;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+    background: $primary-light;
+  }
+}
+
+// ============================================
+//  Pagination
+// ============================================
+.paginationWrap {
+  padding: 16px 24px;
+  border-top: 1px solid $border-subtle;
+}
+
+// ============================================
+//  Empty State
+// ============================================
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: $border-subtle;
+  @include flex-center;
+  margin-bottom: 20px;
+  color: $text-light;
+}
+
+.emptyTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 8px 0;
+}
+
+.emptyDescription {
+  font-size: 14px;
+  color: $text-light;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+// ============================================
+//  Loading & Skeleton
+// ============================================
+.loadingWrap {
+  @include flex-center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid $border;
+  border-top-color: $primary;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.skeletonPulse {
+  background: linear-gradient(90deg, $border-light 25%, $border-subtle 50%, $border-light 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: $radius-sm;
+}
+
+.statValueSkeleton { width: 56px; height: 28px; }
+.statLabelSkeleton { width: 72px; height: 12px; margin-top: 6px; }
+
+// ============================================
+//  Progressive Loader
+// ============================================
+.progressiveLoaderWrap {
+  @include flex-center;
+  padding: 48px 20px;
+}
+
+.progressiveLoaderCard {
+  background: $bg-muted;
+  border-radius: $radius-2xl;
+  padding: 28px 32px;
+  max-width: 360px;
+  width: 100%;
+  border: 1px solid $border;
+}
+
+.progressiveLoaderTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: $text-dark;
+  margin: 0 0 20px 0;
+}
+
+.loadingStep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+
+  & + & {
+    border-top: 1px solid $border-subtle;
+  }
+}
+
+.stepIcon {
+  width: 22px;
+  height: 22px;
+  @include flex-center;
+  flex-shrink: 0;
+}
+
+.stepIconComplete { color: $green; }
+.stepIconActive { color: $primary; }
+.stepIconPending { color: $text-placeholder; }
+
+.miniSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid $border-light;
+  border-top-color: $primary;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.stepText {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.stepTextComplete { color: $green; }
+.stepTextActive { color: $text-dark; font-weight: 600; }
+
+// ============================================
+//  Modal
+// ============================================
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: $bg-muted;
+  border-bottom: 1px solid $border;
+  flex-shrink: 0;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: $text-dark;
+  margin: 0 0 3px 0;
+}
+
+.modalSubtitle {
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.modalClose {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-md;
+  border: none;
+  background: $border;
+  @include flex-center;
+  cursor: pointer;
+  transition: $transition;
+  color: $text-muted;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #d1d5db;
+    color: $text-body;
+  }
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modalBody {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.modalSection {
+  margin-bottom: 28px;
+  &:last-child { margin-bottom: 0; }
+}
+
+.modalSectionTitle {
+  @include section-title;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $border-subtle;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid $border;
+  background: $bg-footer;
+  flex-shrink: 0;
+}
+
+// --- Edit modal prefetch states ---
+// Shown while (or instead of) the role-scope / department fetches resolve.
+// Saving is blocked until they do — an empty form here means "delete
+// everything" to the API.
+.modalLoadingBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+  background: $bg-muted;
+  border-bottom: 1px solid $border-subtle;
+  flex-shrink: 0;
+}
+
+.modalLoadError {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 24px;
+  background: $red-bg;
+  border-bottom: 1px solid $red-border;
+  flex-shrink: 0;
+}
+
+.modalLoadErrorIcon {
+  color: $red;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.modalLoadErrorText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: $text-body;
+  line-height: 1.45;
+
+  strong { color: $text-dark; font-weight: 600; }
+}
+
+.modalLoadErrorRetry {
+  margin-left: auto;
+  align-self: center;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  border: 1.5px solid $red-border;
+  background: #fff;
+  color: $red;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: $transition;
+
+  &:hover { background: $red; border-color: $red; color: #fff; }
+}
+
+// --- Modal Bootstrap Overrides ---
+.modalBody {
+  :global(.form-group) { margin-bottom: 0 !important; }
+
+  :global(.form-label) {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-body;
+    margin-bottom: 6px;
+  }
+
+  :global(.form-control),
+  :global(.form-select) {
+    @include form-input-base;
+  }
+
+  :global(.invalid-feedback) {
+    font-size: 12px;
+    color: $red;
+    margin-top: 4px;
+  }
+
+  :global(.text-danger) {
+    color: #ef4444 !important;
+  }
+
+  // React Select overrides
+  :global(.css-13cymwt-control),
+  :global(.css-t3ipsp-control) {
+    border-radius: $radius-md;
+    border: 1.5px solid $border-light;
+    font-size: 14px;
+    min-height: 42px;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  :global(.css-t3ipsp-control) {
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+  }
+
+  :global(.css-13cymwt-control:hover) { border-color: $text-placeholder; }
+
+  :global(.css-1dimb5e-singleValue),
+  :global(.css-1jqq78o-placeholder) { font-size: 14px; }
+
+  :global(.css-1jqq78o-placeholder) { color: $text-placeholder; }
+}
+
+// --- Mapped Access Badges (info in edit modal) ---
+.mappedAccessInfo {
+  background: $bg-muted;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  padding: 12px 14px;
+}
+
+.mappedAccessLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.mappedAccessBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mappedAccessEmpty {
+  font-size: 12px;
+  color: $text-light;
+  font-style: italic;
+}
+
+// ============================================
+//  Form Styles
+// ============================================
+.formLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-body;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.formRequired { color: #ef4444; margin-left: 2px; }
+
+.formHint {
+  font-size: 12px;
+  color: $text-light;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.formInput {
+  @include form-input-base;
+}
+
+.formSelect {
+  composes: formInput;
+  cursor: pointer;
+}
+
+.formSmallHint {
+  font-size: 11px;
+  color: $text-light;
+  margin-top: 4px;
+}
+
+.cancelBtn {
+  padding: 10px 22px;
+  border-radius: $radius-lg;
+  border: 1.5px solid $border-light;
+  background: #fff;
+  color: $text-muted;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background: $border-subtle;
+    border-color: $text-placeholder;
+  }
+}
+
+.submitBtn {
+  padding: 10px 22px;
+  border-radius: $radius-lg;
+  border: none;
+  background: $primary;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: $transition;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  &:hover:not(:disabled) { background: $primary-dark; }
+  &:disabled { opacity: 0.7; cursor: not-allowed; }
+}
+
+.submitBtnSpinner {
+  width: 13px;
+  height: 13px;
+  border: 1.8px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+// ============================================
+//  Mapping Table (legacy, kept for reference)
+// ============================================
+.mappingTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  margin-bottom: 16px;
+
+  thead th {
+    background: $bg-muted;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid $border;
+  }
+
+  tbody td {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: $text-body;
+    border-bottom: 1px solid $border-subtle;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+}
+
+.removeBtn {
+  padding: 4px 10px;
+  border-radius: $radius-sm;
+  border: 1px solid $red-border;
+  background: #fff;
+  color: $red;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover {
+    background: $red-bg;
+    border-color: $red;
+  }
+}
+
+// ============================================
+//  Mapping Form
+// ============================================
+.mappingForm {
+  background: $bg-muted;
+  border-radius: $radius-lg;
+  padding: 16px;
+  border: 1px solid $border;
+}
+
+.mappingFormTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-body;
+  margin-bottom: 12px;
+}
+
+// --- Toggle ---
+.toggleWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: $bg-muted;
+  border-radius: $radius-md;
+  border: 1px solid $border;
+}
+
+.toggleLabel { font-size: 13px; font-weight: 500; color: $text-body; }
+.toggleHint { font-size: 11px; color: $text-light; margin-top: 2px; }
+
+// ============================================
+//  Access List (AssignAccessModal / InlineAccessManager)
+// ============================================
+.accessList {
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.accessRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid $border-subtle;
+  background: #fff;
+  transition: background $transition-fast;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: $bg-hover; }
+}
+
+.accessRowInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.accessRowCompany { font-size: 13px; font-weight: 600; color: $text-dark; }
+.accessRowScope { font-size: 12px; color: $text-muted; }
+
+.accessRowRemove {
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-sm;
+  border: none;
+  background: transparent;
+  color: $text-light;
+  @include flex-center;
+  cursor: pointer;
+  transition: $transition-fast;
+  flex-shrink: 0;
+
+  &:hover { background: $red-bg; color: $red; }
+}
+
+.accessEmptyState {
+  text-align: center;
+  padding: 24px 16px;
+  color: $text-light;
+  font-size: 13px;
+  background: $bg-muted;
+  border-radius: $radius-lg;
+  border: 1px dashed $border-light;
+}
+
+.accessEmptyIcon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.addAccessSection {
+  background: $bg-muted;
+  border-radius: $radius-lg;
+  padding: 16px;
+  border: 1px solid $border;
+  margin-top: 16px;
+}
+
+.addAccessTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-body;
+  margin-bottom: 14px;
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stepNumber {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: $primary;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  @include flex-center;
+  flex-shrink: 0;
+}
+
+.stepLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $text-body;
+  cursor: pointer;
+
+  input[type="radio"] { accent-color: $primary; }
+}
+
+// ============================================
+//  Create Account Page
+// ============================================
+.createCard {
+  background: #fff;
+  border-radius: $radius-3xl;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+}
+
+.createCardBody {
+  padding: 32px;
+
+  // React Select overrides (same as modal)
+  :global(.css-13cymwt-control),
+  :global(.css-t3ipsp-control) {
+    border-radius: $radius-md;
+    border: 1.5px solid $border-light;
+    font-size: 14px;
+    min-height: 42px;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  :global(.css-t3ipsp-control) {
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba(46, 91, 168, 0.1);
+  }
+
+  :global(.css-13cymwt-control:hover) { border-color: $text-placeholder; }
+}
+
+.createSection {
+  margin-bottom: 32px;
+  &:last-child { margin-bottom: 0; }
+}
+
+.createSectionTitle {
+  @include section-title;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid $border-subtle;
+}
+
+.createFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 32px;
+  border-top: 1px solid $border;
+  background: $bg-footer;
+}
+
+// ============================================
+//  Role Scope Selector
+// ============================================
+.roleSelectorWrap {
+  border: 1px solid $border;
+  border-radius: $radius-xl;
+  background: #fff;
+  overflow: hidden;
+}
+
+.roleSelectorLoading {
+  padding: 24px;
+  text-align: center;
+  color: $text-muted;
+  font-size: 13px;
+}
+
+.roleSelectorError {
+  padding: 12px 16px;
+  background: $red-bg;
+  color: $red;
+  font-size: 13px;
+  border-radius: $radius-md;
+  margin: 12px;
+}
+
+// --- Assigned Roles ---
+.assignedRolesSection {
+  padding: 16px;
+  border-bottom: 1px solid $border-subtle;
+}
+
+.assignedRolesTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 12px;
+}
+
+.assignedRolesList {
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+.roleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid $border-subtle;
+  background: #fff;
+  transition: background $transition-fast;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: $bg-hover; }
+}
+
+.roleRowMain { flex: 1; min-width: 0; }
+
+.roleRowTopLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.roleRowTitle { font-size: 13px; font-weight: 700; color: $text-dark; }
+
+.roleRowScopePath { font-size: 12px; color: $text-muted; }
+.roleRowScopeSep { color: $text-placeholder; margin: 0 1px; }
+.roleRowScopeValue { color: #475569; font-weight: 500; }
+
+.roleRowPermLine { font-size: 11px; color: $text-light; line-height: 1.5; }
+.roleRowPermHighlight { color: $text-muted; font-weight: 600; text-transform: capitalize; }
+.roleRowPermDot { margin: 0 4px; color: #d1d5db; }
+
+.roleRowRemove {
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-sm;
+  border: none;
+  background: transparent;
+  color: $text-light;
+  @include flex-center;
+  cursor: pointer;
+  transition: $transition-fast;
+  flex-shrink: 0;
+  margin-top: 1px;
+
+  &:hover { background: $red-bg; color: $red; }
+}
+
+.assignedRolesEmpty {
+  text-align: center;
+  padding: 20px 16px;
+  color: $text-light;
+  font-size: 13px;
+  background: $bg-muted;
+  border-radius: $radius-md;
+  border: 1px dashed $border-light;
+}
+
+// --- Hierarchical scope view: Company → Business Unit → Roles ---
+// Compact grouped layout — admin sees roles within a scope at a glance
+// without unnecessary chrome eating vertical space.
+
+.scopeGroupList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scopeGroupCard {
+  border: 1px solid $border-subtle;
+  border-radius: $radius-md;
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+// Slim accent strip on the left edge of each company card — gives visual
+// rhythm between cards without extra vertical padding.
+.scopeGroupCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: $primary;
+  opacity: 0.7;
+}
+
+.scopeCompanyHeading {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: $text-dark;
+  padding: 7px 12px 7px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid $border-subtle;
+  letter-spacing: -0.005em;
+}
+
+.scopeBuBlock {
+  padding: 6px 10px 8px 14px;
+
+  & + & {
+    border-top: 1px dashed $border-subtle;
+  }
+}
+
+// "Silent letters" — small, muted BU name above the role rows
+.scopeBuHeading {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: $text-placeholder;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  padding-left: 4px;
+}
+
+.scopeRoleList {
+  display: flex;
+  flex-direction: column;
+}
+
+.scopeRoleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  min-height: 28px;
+  transition: background $transition-fast;
+
+  &:hover { background: $bg-hover; }
+}
+
+.scopeRoleRowEditing {
+  background: rgba(46, 91, 168, 0.07);
+  box-shadow: inset 2px 0 0 $primary;
+
+  &:hover { background: rgba(46, 91, 168, 0.10); }
+}
+
+.scopeRoleMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.scopeRoleTitle {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: $text-dark;
+  line-height: 1.2;
+}
+
+.scopeRoleDeptTag {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid $border-subtle;
+  padding: 0 6px;
+  border-radius: 8px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+.scopeRoleEditingBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: $primary;
+  background: rgba(46, 91, 168, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+
+.scopeRoleActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity $transition-fast;
+}
+
+// Reveal action buttons on row hover for a cleaner default state.
+.scopeRoleRow:hover .scopeRoleActions,
+.scopeRoleRowEditing .scopeRoleActions {
+  opacity: 1;
+}
+
+.scopeRoleEdit,
+.scopeRoleRemove {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: $text-light;
+  @include flex-center;
+  cursor: pointer;
+  transition: $transition-fast;
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.scopeRoleEdit:hover:not(:disabled) {
+  background: rgba(46, 91, 168, 0.1);
+  color: $primary;
+}
+
+.scopeRoleRemove:hover:not(:disabled) {
+  background: $red-bg;
+  color: $red;
+}
+
+// --- Add Role Form ---
+.addRoleSection { padding: 16px; }
+
+.addRoleTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 14px;
+}
+
+.addRoleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.addRoleField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.addRoleFieldLabel { font-size: 12px; font-weight: 600; color: $text-body; }
+.addRoleFieldHint { font-size: 11px; color: $text-light; font-weight: 400; }
+
+// --- Permissions Preview ---
+.permissionsPreview {
+  background: $bg-muted;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.permissionsPreviewTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+
+.permissionsResourceRow {
+  margin-bottom: 10px;
+  &:last-child { margin-bottom: 0; }
+}
+
+.permissionsResourceName {
+  font-size: 12px;
+  font-weight: 700;
+  color: $text-dark;
+  text-transform: capitalize;
+  margin-bottom: 4px;
+}
+
+.permissionsActionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.permissionActionTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: $green-bg;
+  color: $green-text;
+  text-transform: capitalize;
+}
+
+.permissionsEmpty { font-size: 12px; color: $text-light; font-style: italic; }
+.addRoleFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+// ============================================
+//  Responsive
+// ============================================
+@media (max-width: 991px) {
+  .statsRow { grid-template-columns: repeat(2, 1fr); }
+
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterGroup { min-width: 100%; }
+  .filterActions { margin-left: 0; justify-content: flex-end; }
+}
+
+@media (max-width: 767px) {
+  .statsRow { grid-template-columns: 1fr; }
+
+  .filterActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primaryBtn, .outlineBtn { justify-content: center; }
+}
+
+@media (max-width: 640px) {
+  .addRoleGrid { grid-template-columns: 1fr; }
+}

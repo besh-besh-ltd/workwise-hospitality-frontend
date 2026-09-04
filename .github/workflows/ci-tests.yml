@@ -1,0 +1,182 @@
+name: Frontend CI - Tests & Build
+
+# Runs the Jest suite and a production build on every PR targeting main / qa.
+# A green `CI gate` check is the merge gate.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS EXISTS
+#
+# Until now this repository had no test workflow at all — only deploy-prod.yml
+# and deploy-staging.yml, both triggered `on: push` to main / qa. So the 605
+# Jest tests never ran on a pull request, and the first time anything executed
+# against a branch was the deploy that shipped it. A PR could go green with a
+# broken suite.
+#
+# WHY THIS IS NOT SHARDED (unlike the backend)
+#
+# The backend splits into 9 per-domain jobs because each of its suites boots the
+# whole app against a real Postgres and retains ~29 MB that is never released,
+# which overruns Node's default heap partway through. None of that applies here:
+# these are jsdom component and unit tests with no database and no server, and
+# the entire suite finishes in about eight seconds. One job is the right shape —
+# copying the backend's matrix would add several runners of scheduling overhead
+# to save nothing.
+#
+# WHY THE BUILD IS A SEPARATE STEP FROM THE TESTS
+#
+# Jest resolves modules itself and never type-checks pages, so a broken import,
+# a bad dynamic `import()`, or a page that fails to prerender all pass the unit
+# suite untouched. `next build` is what catches those, and it is the closest
+# cheap proxy for "would this have deployed".
+#
+# WHY THE BUILD NEEDS NO REPO SECRET
+#
+# Every `build:*` script in package.json goes through `env-cmd -f .env.<name>`,
+# and all of those files are gitignored, so none of them exist on a runner. But
+# the build does not need real values: every variable the client reads is
+# `NEXT_PUBLIC_*`, which Next inlines into the bundle at build time and which is
+# therefore public by construction — not a secret in any meaningful sense. So we
+# call `next build` directly with placeholders below instead of depending on a
+# repo secret that would leave this check red until somebody configured it.
+#
+# The artefact this job produces is thrown away; deploy-staging.yml / deploy-prod.yml
+# still build with the real environment. This step only asks "does it compile".
+#
+# WHY LINT IS NOT A GATE HERE
+#
+# `npm run lint` is `next lint`, which is deprecated in this Next version and,
+# more to the point, unconfigured — there is no ESLint config in the repo, so it
+# drops into an interactive "How would you like to configure ESLint?" prompt.
+# On a runner that either hangs until the timeout or fails for a reason that has
+# nothing to do with the change under review. Adding a lint gate is worth doing,
+# but it needs an ESLint config decided first; wiring it up blind would make
+# every PR red on day one.
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [main, qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per PR/branch. New pushes cancel in-flight runs to save minutes.
+  group: ci-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ESLint (no-undef)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Exists because of the negotiation P0 on 2026-08-14: a helper called a
+      # function nobody had imported, and it reached production because this
+      # repo had no ESLint config at all. `no-undef` catches that whole class.
+      #
+      # The rule set is deliberately tiny (see eslint.config.mjs) and the 11
+      # pre-existing violations are recorded in eslint-suppressions.json, so
+      # this job is green today and fails the moment NEW code reintroduces one.
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    name: Jest (38 suites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --ci makes a missing snapshot a failure rather than a silent write, so a
+      # snapshot that was never committed cannot pass here and then differ for
+      # everyone else.
+      - name: Run tests
+        run: npx jest --ci
+
+  build:
+    name: Next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Placeholders only — see "WHY THE BUILD NEEDS NO REPO SECRET" above. These
+    # exist so the build has something to inline; none of them is contacted.
+    env:
+      NEXT_PUBLIC_API_URL: 'http://localhost:8002/api/v1'
+      NEXT_PUBLIC_SERVICEWORKER_PUBLIC_KEY: 'BMlcHp3X2DtYmsKkev81HR4CJeOqxTyLEZC0JU3Fnxi7qaKqM7-qOWvgPCb4Q9FmFW6-hyc9AG4w4BtrHTkwO2c'
+      NEXT_PUBLIC_ENV: 'test'
+      NEXT_PUBLIC_AI_SERVER_URL: 'http://localhost:8001'
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `next build` directly, not `npm run build:*` — those wrap it in env-cmd
+      # against a gitignored file that does not exist on a runner.
+      - name: Build
+        run: npx next build
+
+  # ---------------------------------------------------------------------------
+  # The single required status check. Branch protection points at THIS job, so
+  # adding or renaming a job above never means editing branch protection.
+  # ---------------------------------------------------------------------------
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [test, build, lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assert tests, build and lint succeeded
+        run: |
+          echo "tests: ${{ needs.test.result }}"
+          echo "build: ${{ needs.build.result }}"
+          echo "lint:  ${{ needs.lint.result }}"
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "::error::The Jest suite failed. Open the 'Jest' job above."
+            exit 1
+          fi
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "::error::next build failed — the suite can pass while the app does not compile. Open the 'Next build' job above."
+            exit 1
+          fi
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "::error::ESLint failed. Most likely no-undef — something is called that is not imported or defined. That is the class that took negotiation-round creation down in production on 2026-08-14. Open the 'ESLint' job above."
+            exit 1
+          fi
+          echo "Tests, build and lint green."

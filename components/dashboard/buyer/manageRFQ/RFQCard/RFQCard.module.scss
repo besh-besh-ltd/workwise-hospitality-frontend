@@ -1,0 +1,883 @@
+// RFQCard — minimal, design-system aligned (mirrors ViewRFQ.module.scss tokens).
+// Tokens inlined as literals to keep the module self-contained.
+
+.rfqCard {
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 12px;
+  overflow: visible;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  color: #18181b;
+
+  &:hover {
+    border-color: #d6d6cf;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  &.pulse {
+    animation: card-glow 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes card-glow {
+  0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 0 0 3px rgba(180, 83, 9, 0.10); }
+  50%      { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 0 0 5px rgba(180, 83, 9, 0.05); }
+}
+
+// ============================================
+// ENTITY TYPE BADGE (RFQ / TENDER)
+// ============================================
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid #ebebe6;
+
+  &.rfqType {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: rgba(37, 99, 235, 0.18);
+  }
+
+  &.tenderType {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border-color: rgba(124, 58, 237, 0.18);
+  }
+}
+
+// ============================================
+// STATUS BADGE — minimal severity-toned pill
+// ============================================
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #f4f4f1;
+  color: #3f3f46;
+  border: 1px solid #ebebe6;
+
+  &.pulseAnimation { animation: badge-pulse 2.4s ease-in-out infinite; }
+}
+
+.success { background: #ecfdf5; color: #15803d; border-color: rgba(21, 128, 61, 0.18); }
+.warn    { background: #fef7ed; color: #b45309; border-color: rgba(180, 83, 9, 0.18); }
+.info    { background: #eff6ff; color: #2563eb; border-color: rgba(37, 99, 235, 0.18); }
+.danger  { background: #fef2f2; color: #b91c1c; border-color: rgba(185, 28, 28, 0.18); }
+.neutral { background: #f4f4f1; color: #71717a; border-color: #ebebe6; }
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.22); }
+  50%      { box-shadow: 0 0 0 5px rgba(180, 83, 9, 0.08); }
+}
+
+// ============================================
+// BACKLOG WARNING BANNER
+// ============================================
+
+.backlogCard {
+  border-color: rgba(185, 28, 28, 0.30) !important;
+}
+
+.backlogBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fef2f2;
+  border-top: 1px solid rgba(185, 28, 28, 0.16);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #3f3f46;
+}
+
+.backlogIcon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  flex-shrink: 0;
+  color: #b91c1c;
+}
+
+.backlogText {
+  flex: 1;
+  min-width: 0;
+
+  strong { color: #18181b; font-weight: 600; }
+}
+
+// ============================================
+// COMPACT VIEW — header (always visible)
+// ============================================
+
+.compactView {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover { background-color: #eff6ff; }
+}
+
+// Row 1: badges + title + meta + (right edge) lifecycle + chevron.
+// rightSection nests inside this row and is pushed to the far right via
+// margin-left:auto — so the chevron and lifecycle pill never wrap onto a
+// new visual line.
+.compactRow1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compactRow1 .title {
+  // Was flex:1 — that consumed all remaining horizontal space and pushed
+  // the right-edge content far past the title. We want the title to shrink
+  // (truncating with ellipsis) so the right-side pill/chevron sit close to
+  // the meta. Cap to its natural width with shrink, no grow.
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #18181b;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Lineage chip — restated in the neutral palette so it sits flush with
+// the rest of the card (the previous indigo bg/border clashed against the
+// minimal grayscale aesthetic).
+.copiedFromChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #ebebe6;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #52525b;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  svg {
+    color: #a1a1aa;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: #fafaf9;
+    border-color: #d6d6cf;
+    color: #18181b;
+    text-decoration: none;
+
+    svg { color: #71717a; }
+  }
+}
+
+.copiedFromLabel {
+  color: #71717a;
+  font-weight: 500;
+}
+
+.copiedFromNum {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #18181b;
+}
+
+// Right Section: Lifecycle + Expand toggle. Lives at the right edge of
+// compactRow1 — margin-left:auto pushes it past the title + meta cluster.
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: auto;
+
+  @media (max-width: 991px) {
+    margin-left: 0;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+// Divider between identity and vendor stats inside compactRow1
+.sectionDivider {
+  width: 1px;
+  height: 28px;
+  background: #dee2e6;
+  flex-shrink: 0;
+  margin: 0 4px;
+
+  @media (max-width: 1199px) {
+    display: none;
+  }
+}
+
+.vendorChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+
+  @media (max-width: 1199px) {
+    display: none;
+  }
+}
+
+.vendorNum {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.vendorLabel {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-right: 2px;
+}
+
+.vendorSep {
+  width: 1px;
+  height: 16px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.rfqNumberInline {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11.5px;
+  color: #71717a;
+  background: #f4f4f1;
+  border-radius: 5px;
+  padding: 2px 7px;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.queryBadgeCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  flex-shrink: 0;
+}
+
+// Row 2: metadata chips
+.compactRow2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #52525b;
+  white-space: nowrap;
+  letter-spacing: -0.005em;
+
+  svg { color: #a1a1aa; flex-shrink: 0; }
+}
+
+.metaSep {
+  width: 1px;
+  height: 12px;
+  background: #ebebe6;
+  flex-shrink: 0;
+}
+
+// Days-left tones (rounded chips)
+.daysGreen,
+.daysYellow,
+.daysRed {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+}
+
+.daysGreen  { color: #15803d; background: #ecfdf5; border-color: rgba(21, 128, 61, 0.18); }
+.daysYellow { color: #b45309; background: #fef7ed; border-color: rgba(180, 83, 9, 0.18); }
+.daysRed    { color: #b91c1c; background: #fef2f2; border-color: rgba(185, 28, 28, 0.18); }
+
+.vendorIconBlue   { color: #2563eb !important; flex-shrink: 0; }
+.vendorIconGreen  { color: #15803d !important; flex-shrink: 0; }
+.vendorIconOrange { color: #b45309 !important; flex-shrink: 0; }
+.vendorIconRed    { color: #b91c1c !important; flex-shrink: 0; }
+
+// ============================================
+// EXPAND TOGGLE
+// ============================================
+
+.expandToggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #a1a1aa;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+
+  &:hover { background: #f4f4f1; color: #18181b; }
+
+  .expanded & { transform: rotate(180deg); }
+}
+
+// ============================================
+// LIFECYCLE PILL — minimal monochrome
+// ============================================
+
+.lifecycleWrap {
+  position: relative;
+  flex-shrink: 0;
+
+  @media (max-width: 1199px) { display: none; }
+}
+
+.lifecyclePill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  cursor: default;
+  transition: all 0.15s ease;
+
+  &:hover { background: #efefe9; border-color: #d6d6cf; }
+}
+
+.lcDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: lc-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes lc-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
+}
+
+.lcLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #3f3f46;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.lcSep {
+  width: 1px;
+  height: 11px;
+  background: #d6d6cf;
+  flex-shrink: 0;
+}
+
+.lcActors {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #71717a;
+
+  svg { opacity: 0.7; }
+}
+
+// -- Tooltip — clean white card --
+.lcTooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  background: #ffffff;
+  border: 1px solid #e8e8e3;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -8px rgba(15, 15, 14, 0.18), 0 2px 6px rgba(15, 15, 14, 0.06);
+  padding: 0;
+  animation: lctt-in 0.15s ease-out;
+  overflow: hidden;
+  z-index: 50;
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    right: 0;
+    height: 14px;
+    background: transparent;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    right: 24px;
+    width: 10px;
+    height: 10px;
+    background: #ffffff;
+    border-right: 1px solid #e8e8e3;
+    border-bottom: 1px solid #e8e8e3;
+    transform: rotate(45deg);
+  }
+
+  @media (max-width: 767px) {
+    width: 260px;
+    left: 0;
+    right: auto;
+    &::after { left: 20px; right: auto; }
+  }
+}
+
+@keyframes lctt-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.lcTTTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px 10px;
+}
+
+.lcTTDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.lcTTInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lcTTLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.lcTTDesc {
+  font-size: 11.5px;
+  color: #71717a;
+  line-height: 1.4;
+}
+
+.lcTTProgress {
+  padding: 8px 16px 10px;
+  border-top: 1px solid #f4f4f1;
+}
+
+.lcTTProgressLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+  display: block;
+  margin-bottom: 7px;
+}
+
+.lcTTBar {
+  display: flex;
+  gap: 3px;
+}
+
+.lcTTBarSeg {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: #f4f4f1;
+  transition: background 0.2s;
+}
+
+.lcTTBarDone { opacity: 0.5; }
+
+.lcTTBarCur {
+  opacity: 1;
+  height: 5px;
+  margin-top: -0.5px;
+}
+
+.lcTTActors {
+  padding: 10px 16px 12px;
+  border-top: 1px solid #f4f4f1;
+}
+
+.lcTTActorsHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 7px;
+
+  svg { color: #71717a; }
+}
+
+.lcTTRuleTag {
+  font-size: 9.5px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid #ebebe6;
+  color: #71717a;
+  white-space: nowrap;
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: -0.005em;
+}
+
+.lcTTActorsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.lcTTActor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  width: calc(50% - 4px);
+  min-width: 0;
+}
+
+.lcTTActorDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #15803d;
+  flex-shrink: 0;
+}
+
+.lcTTActorName {
+  font-size: 11.5px;
+  color: #3f3f46;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ============================================
+// EXPANDED VIEW — details (on click)
+// ============================================
+
+.expandedView {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.3s ease;
+  background: #fafaf9;
+  border-top: 1px solid transparent;
+
+  &.visible {
+    max-height: 520px;
+    opacity: 1;
+    padding: 16px;
+    border-top-color: #ebebe6;
+  }
+}
+
+.expanded .expandedView {
+  max-height: 520px;
+  opacity: 1;
+  padding: 16px;
+  border-top-color: #ebebe6;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ebebe6;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #52525b;
+  letter-spacing: -0.005em;
+
+  svg { color: #a1a1aa; }
+
+  strong { color: #18181b; font-weight: 600; }
+}
+
+.timelineRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #ebebe6;
+  border-radius: 10px;
+}
+
+.timelineItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #52525b;
+  letter-spacing: -0.005em;
+
+  svg { color: #a1a1aa; }
+
+  strong {
+    color: #18181b;
+    font-weight: 600;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: -0.01em;
+  }
+}
+
+// ============================================
+// ACTION BUTTONS — minimal
+// ============================================
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  font-family: inherit;
+  // Override global .btn { width: 190px } and ::before arrow from _all.scss
+  width: auto;
+  transition: all 0.15s ease;
+
+  &::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14);
+  }
+}
+
+.btnPrimary {
+  background: #1f2937;
+  color: #ffffff;
+  border-color: #1f2937;
+
+  &:hover, &:focus, &:active {
+    background: #111827 !important;
+    border-color: #111827 !important;
+    color: #ffffff !important;
+  }
+}
+
+.btnSecondary {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  color: #18181b;
+
+  &:hover, &:focus, &:active {
+    background: #f4f4f1 !important;
+    border-color: #d6d6cf !important;
+    color: #18181b !important;
+  }
+}
+
+.btnDanger {
+  background: #ffffff;
+  border-color: #d6d6cf;
+  color: #b91c1c;
+
+  &:hover, &:focus, &:active {
+    background: #fef2f2 !important;
+    border-color: #b91c1c !important;
+    color: #b91c1c !important;
+  }
+}
+
+.actionBtnDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.actionBtnCount {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  margin-left: 2px;
+}
+
+// ============================================
+// MOBILE RESPONSIVE
+// ============================================
+
+@media (max-width: 767px) {
+  .compactView {
+    padding: 11px 13px;
+    gap: 8px;
+    position: relative;
+  }
+
+  .compactRow1 {
+    flex-wrap: wrap;
+    gap: 6px;
+
+    .title {
+      order: 10;
+      flex: 0 0 100%;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      font-size: 13px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+  }
+
+  .rfqNumberInline { order: 3; }
+  .queryBadgeCompact { order: 4; }
+
+  .expandToggle {
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    margin: 0;
+  }
+
+  .compactRow2 { gap: 5px 10px; }
+
+  .metaSep { display: none; }
+
+  .expandedView.visible { padding: 12px; }
+
+  .metaRow {
+    gap: 4px 14px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .metaItem {
+    font-size: 12px;
+    svg { width: 12px; height: 12px; }
+  }
+
+  .timelineRow {
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .timelineItem {
+    font-size: 12px;
+    svg { width: 12px; height: 12px; }
+  }
+
+  .actionsRow { gap: 6px; }
+
+  .actionBtn {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
+  }
+}
