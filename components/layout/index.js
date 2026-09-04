@@ -170,7 +170,9 @@ const Layout = (props) => {
     })();
   }, [router.query.token]);
 
-  const isStaticPage = router.pathname === '/';
+  // '/login' carries its own full-bleed brand panel, so the marketing Header
+  // would stack a second Workwise logo on top of the IHG one.
+  const isStaticPage = router.pathname === '/' || router.pathname === '/login';
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';

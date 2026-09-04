@@ -16,7 +16,7 @@ export const company = {
   name: "IHG Hotels & Resorts",
   legalName: "IHG Hotels & Resorts — India",
   region: "South West Asia",
-  procurementEmail: "procurement@ihg-demo.in",
+  procurementEmail: "procurement.sea@ihg.com",
   fy: "FY 2026-27",
 };
 
@@ -96,30 +96,36 @@ export const departments = [
  * cookie; `approvalLimit` is in rupees and gates the approve button.
  */
 export const people = [
+  // The four people IHG named. The `id`s below are the demo's capability
+  // slots and are referenced across every fixture (approval chains, RFQ
+  // ownership, MR raisers) — they stay put; only the identities change.
+  //
+  // Two of these are IT rather than procurement, so their cards describe the
+  // VIEW they open rather than pretending they run a housekeeping desk.
   {
     id: "housekeeping",
     numericId: 901,
-    name: "Ananya Rao",
-    initials: "AR",
-    title: "Executive Housekeeper",
-    email: "ananya.rao@ihg-demo.in",
-    phone: "+91 98200 41172",
+    name: "Gilles Galloni",
+    initials: "GG",
+    title: "IT · Southeast Asia",
+    email: "gilles.galloni@ihg.com",
+    phone: "+65 6395 0100",
     propertyIds: ["ic-mumbai"],
     department: "housekeeping",
     approvalLimit: 0,
     // What this persona is for, shown on the login card so the demo driver
     // can pick the right one without remembering the matrix.
-    blurb: "Raises requisitions for her property. Sees her own demand, not the group's.",
+    blurb: "Requisitioner view — raises requisitions for one property, and sees only that property's demand.",
     can: { raiseMR: true, runSourcing: false, approvePO: false, awardContract: false },
   },
   {
     id: "purchase",
     numericId: 902,
-    name: "Dhruv Menon",
-    initials: "DM",
-    title: "Manager · Purchase",
-    email: "dhruv.menon@ihg-demo.in",
-    phone: "+91 98330 27714",
+    name: "Vivek Jaiswal",
+    initials: "VJ",
+    title: "Procurement Lead · Southeast Asia",
+    email: "vivek.jaiswal@ihg.com",
+    phone: "+65 6395 0101",
     propertyIds: ["ic-mumbai", "cp-noida", "hie-blr", "voco-corb", "ss-barwara"],
     department: "housekeeping",
     approvalLimit: 0,
@@ -129,29 +135,29 @@ export const people = [
   {
     id: "finance",
     numericId: 903,
-    name: "Priya Nair",
-    initials: "PN",
-    title: "Director of Finance",
-    email: "priya.nair@ihg-demo.in",
-    phone: "+91 99870 55210",
+    name: "Nicolas Mastronardi",
+    initials: "NM",
+    title: "IT · Southeast Asia",
+    email: "nicolas.mastronardi@ihg.com",
+    phone: "+65 6395 0102",
     propertyIds: ["ic-mumbai"],
     department: "finance",
     approvalLimit: 2500000,
-    blurb: "Approves purchase orders up to ₹25L for InterContinental Marine Drive.",
+    blurb: "Approver view — approves purchase orders up to ₹25L for InterContinental Marine Drive.",
     can: { raiseMR: false, runSourcing: false, approvePO: true, awardContract: false },
   },
   {
     id: "regional",
     numericId: 904,
-    name: "Vikram Sethi",
-    initials: "VS",
-    title: "Regional Director · Procurement",
-    email: "vikram.sethi@ihg-demo.in",
-    phone: "+91 98110 60934",
+    name: "Vipin Khandelwal",
+    initials: "VK",
+    title: "Head of IT · Southeast Asia",
+    email: "vipin.khandelwal@ihg.com",
+    phone: "+65 6395 0103",
     propertyIds: ["ic-mumbai", "cp-noida", "hie-blr", "voco-corb", "ss-barwara"],
     department: "procurement",
     approvalLimit: 100000000,
-    blurb: "Signs off contract awards and any order above ₹25L, group-wide.",
+    blurb: "Full group view — signs off contract awards and any order above ₹25L.",
     can: { raiseMR: false, runSourcing: true, approvePO: true, awardContract: true },
   },
 ];

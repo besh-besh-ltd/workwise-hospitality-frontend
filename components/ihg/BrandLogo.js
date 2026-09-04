@@ -10,9 +10,12 @@ const BrandLogo = ({ height = 22, tone = "navy" }) => {
   const { logo, clientShortName, productName } = brand;
 
   if (logo.src) {
+    // The mark is a solid black wordmark, so it disappears on the login's
+    // navy panel — `tone="light"` picks the reversed file instead.
+    const src = tone === "light" && logo.srcLight ? logo.srcLight : logo.src;
     return (
       <Image
-        src={logo.src}
+        src={src}
         alt={logo.alt}
         width={logo.width}
         height={logo.height}

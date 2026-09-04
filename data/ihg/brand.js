@@ -20,12 +20,15 @@ export const brand = {
   poweredBy: "Powered by Workwise",
 
   logo: {
-    // Set `src` to a file in /public once the real asset lands; while it is
-    // null the SVG wordmark in components/shell/BrandLogo.js renders instead.
-    src: null,
+    // The official secondary horizontal mark, taken from ihgplc.com. Two
+    // variants because the login's left panel is navy: the supplied asset is
+    // a single-fill SVG, so `white` is the same file with fill:#000 → #fff.
+    src: "/ihg/ihg-logo.svg",
+    srcLight: "/ihg/ihg-logo-white.svg",
     alt: "IHG Hotels & Resorts",
-    width: 96,
-    height: 22,
+    // Native viewBox is 300×60; width is derived from the rendered height.
+    width: 300,
+    height: 60,
   },
 
   // Drives --primary / --primary-2 etc. in styles/tokens.css, which in turn

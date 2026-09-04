@@ -1,5 +1,5 @@
 import { peopleById } from "@/data/ihg/org";
-import { createSessionToken, sessionCookie } from "@/lib/session";
+import { createSessionToken, sessionCookie, isSecureRequest } from "@/lib/session";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -19,6 +19,6 @@ export default async function handler(req, res) {
   }
 
   const token = await createSessionToken(persona.id);
-  res.setHeader("Set-Cookie", sessionCookie(token));
+  res.setHeader("Set-Cookie", sessionCookie(token, isSecureRequest(req)));
   return res.status(200).json({ ok: true, personaId: persona.id });
 }
