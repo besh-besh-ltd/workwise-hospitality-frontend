@@ -22,11 +22,20 @@
     radial-gradient(90% 70% at 8% 108%, rgba(46,123,214,0.20), transparent 60%),
     linear-gradient(168deg, #041233 0%, var(--navy) 46%, #011029 100%);
   color: #fff;
-  padding: 56px 60px 48px;
+  padding: 56px 64px 48px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  /* Was space-between, which pushed the properties list to the floor and left
+     a tall empty field in the middle. The content now stacks from the top and
+     the plaque is spaced off it, so the panel reads as one column. */
+  justify-content: flex-start;
+  gap: 0;
 }
+
+/* The panel is wide; the copy was capped narrow enough to leave most of the
+   right-hand side empty. */
+.brandPanel > div:first-child { max-width: 760px; }
+.plaque { margin-top: auto; }
 
 /* Grain. Keeps a large flat navy field from reading as plastic. */
 .brandPanel::after {
@@ -43,7 +52,7 @@
 .rule { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(184,137,59,0.85), rgba(255,255,255,0.06)); }
 
 .eyebrow {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -53,29 +62,62 @@
 .display {
   font-family: "Instrument Serif", Georgia, serif;
   font-weight: 400;
-  font-size: clamp(38px, 4.4vw, 62px);
-  line-height: 1.02;
+  font-size: clamp(46px, 5.2vw, 76px);
+  line-height: 1.04;
   letter-spacing: -0.015em;
-  margin: 26px 0 0;
-  max-width: 15ch;
+  margin: 30px 0 0;
+  /* White, explicitly. With no colour of its own this inherited the page's
+     dark ink and rendered near-black on navy — legible only at an angle. */
+  color: #ffffff;
+  max-width: 20ch;
 }
 .display em { font-style: italic; color: var(--gold); }
 
+.tagline {
+  margin: 14px 0 0;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-size: clamp(21px, 2.1vw, 29px);
+  line-height: 1.25;
+  color: var(--gold);
+}
+
 .subhead {
-  margin: 20px 0 0;
-  max-width: 46ch;
-  font-size: 14.5px;
-  line-height: 1.62;
-  color: rgba(255,255,255,0.68);
+  margin: 22px 0 0;
+  max-width: 54ch;
+  font-size: 16.5px;
+  line-height: 1.68;
+  color: rgba(255,255,255,0.86);
+}
+
+/* ── proof band ── */
+.stats {
+  margin: 40px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  max-width: 560px;
+}
+.statValue {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(30px, 3vw, 40px);
+  line-height: 1;
+  color: var(--gold);
+}
+.statLabel {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.66);
 }
 
 /* ── the brass plaque: properties in scope ──────────────── */
 .plaque { border-top: 1px solid rgba(255,255,255,0.13); padding-top: 20px; }
 .plaqueHead {
-  font-size: 10px;
+  font-size: 11.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.42);
+  color: rgba(255,255,255,0.58);
   margin-bottom: 14px;
 }
 .plaqueRow {
@@ -84,17 +126,17 @@
   gap: 12px;
   padding: 7px 0;
   border-bottom: 1px solid rgba(255,255,255,0.07);
-  font-size: 13px;
+  font-size: 14.5px;
 }
 .plaqueRow:last-child { border-bottom: 0; }
-.plaqueName { color: rgba(255,255,255,0.9); }
+.plaqueName { color: rgba(255,255,255,0.95); }
 .plaqueDots { flex: 1; border-bottom: 1px dotted rgba(255,255,255,0.18); transform: translateY(-3px); }
 .plaqueCity {
   font-family: "Geist Mono", ui-monospace, monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.66);
 }
 
 .brandFoot {

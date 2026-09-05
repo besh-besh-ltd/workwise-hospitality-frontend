@@ -44,11 +44,20 @@ export const brand = {
   },
 
   login: {
-    eyebrow: "Group Procurement",
-    headline: "Procurement, with the busywork taken out.",
-    // The one-liner under the headline. Keep it about their outcome.
+    // Lifted from the live site's hero (data/landingPageContent.json) so the
+    // login says exactly what workwise says, rather than a second version of it.
+    eyebrow: "AI-Powered Procurement Platform",
+    headline: "Procurement se Profit",
+    tagline: "Crafted exclusively for Hospitality",
     subhead:
-      "Source, negotiate, evaluate and approve across every property — with an assistant that reads the paperwork first and shows you its evidence.",
+      "Every rupee, accounted for. Workwise runs RFQs, tenders and negotiations across every property on one platform — so you know you paid the right price, every single time.",
+    // The site's proof band. Fills the panel's dead middle with something
+    // worth reading instead of empty navy.
+    stats: [
+      { value: "6-9%", label: "Average cost reduction" },
+      { value: "75%", label: "Less time to award" },
+      { value: "1", label: "Rate per item, every property" },
+    ],
     // Small print at the foot of the login card.
     footnote: "Demonstration environment · seeded with representative data",
   },

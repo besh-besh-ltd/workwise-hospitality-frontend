@@ -66,12 +66,27 @@ export default function Login() {
             </div>
 
             <h1 className={`${styles.display} ${styles.reveal}`} style={{ animationDelay: "120ms" }}>
-              Procurement, with the <em>busywork</em> taken out.
+              {brand.login.headline}
             </h1>
 
-            <p className={`${styles.subhead} ${styles.reveal}`} style={{ animationDelay: "200ms" }}>
+            <p className={`${styles.tagline} ${styles.reveal}`} style={{ animationDelay: "170ms" }}>
+              {brand.login.tagline}
+            </p>
+
+            <p className={`${styles.subhead} ${styles.reveal}`} style={{ animationDelay: "230ms" }}>
               {brand.login.subhead}
             </p>
+
+            {/* The site's proof band. Also does layout work: without it the
+                panel's middle is a large empty field of navy. */}
+            <div className={`${styles.stats} ${styles.reveal}`} style={{ animationDelay: "300ms" }}>
+              {brand.login.stats.map((s) => (
+                <div key={s.label} className={styles.stat}>
+                  <div className={styles.statValue}>{s.value}</div>
+                  <div className={styles.statLabel}>{s.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className={`${styles.plaque} ${styles.reveal}`} style={{ animationDelay: "300ms" }}>
