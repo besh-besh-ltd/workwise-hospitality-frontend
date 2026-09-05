@@ -89,11 +89,12 @@ jest.mock("react-redux", () => ({
 }));
 
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
-import { getRFQById } from "@/services/rfq";
+import { getRFQById, updateQuotation, handleUploadFile } from "@/services/rfq";
+import { toast } from "react-toastify";
 import {
   getAllActiveNegotiationRounds,
   getAllVendorNegotiationStatus,
@@ -297,5 +298,143 @@ describe("the uploader on a line frozen only by an RFQ-level documents ask", () 
     // Finalization is a real lock, not the not-named-by-this-round freeze.
     expect(lineCards()[0].className).toMatch(/\blocked\b/);
     expect(lineCards()[0].querySelector('input[type="file"]')).toBeDisabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. THE ASK OUTLIVES THE ANSWER.
+//
+// Reported again on RFQ 536312 after the first two defects were fixed: round
+// 1005 is ACTIVE and asks BOTH lines for photos, the banner says so, the hint
+// renders "Need Photos" — and "Attach supporting documents" is still dead.
+//
+// `docsLocked` inherits `negSubmitted`, the once-per-round rule. The vendor
+// answers the round's PRICE, that sets `hasSubmittedQuote`, and the uploader
+// closes underneath them while the very same round is still asking that line
+// for the document. The Sep 1 fix lifted the freeze only for `rfqLevelDocAsk`,
+// so a per-product ask never reached the exemption.
+//
+// A document is not a price. Answering one must not forfeit the other.
+describe("a per-product documents ask, after the vendor has answered the round", () => {
+  const answered = (...productIds) =>
+    productIds.map((pid) => ({
+      id: 1005,
+      round_number: 4,
+      rfq_product_id: pid,
+      hasSubmittedQuote: true,
+      vendor_quoted_price: 20000,
+      vendor_submitted_at: "2026-09-02 10:00:00",
+      target_price: null,
+    }));
+
+  const renderAnswered = async (rounds, status) => {
+    getRFQById.mockResolvedValue({ data: mkRfq() });
+    getAllActiveNegotiationRounds.mockResolvedValue({ data: rounds });
+    getAllVendorNegotiationStatus.mockResolvedValue({ status: 1, data: status });
+    ({ container } = render(<SendQuoteWizard />));
+    await screen.findByText(/Negotiation round in progress/i, {}, { timeout: 5000 });
+  };
+
+  test("the uploader stays open on the line the round is asking about", async () => {
+    await renderAnswered([perProductStringRound("Need Photos")], answered(P1, P2));
+    await gotoStep("Pricing");
+
+    const card = lineCards()[0];
+    expect(card.querySelector('input[type="file"]')).toBeEnabled();
+  });
+
+  test("the card is not rendered fully locked, so the uploader is clickable", async () => {
+    await renderAnswered([perProductStringRound("Need Photos")], answered(P1, P2));
+    await gotoStep("Pricing");
+
+    // `.lineCard.locked` is `pointer-events: none` — enabled in the DOM and
+    // dead to the mouse is exactly how this was reported the first time.
+    lineCards().forEach((card) => {
+      expect(card.className).not.toMatch(/\blocked\b/);
+    });
+  });
+
+  test("the price stays closed — once per round still means once per round", async () => {
+    await renderAnswered([perProductStringRound("Need Photos")], answered(P1, P2));
+    await gotoStep("Pricing");
+
+    const priceInput = within(lineCards()[0]).getByPlaceholderText("0.00");
+    expect(priceInput).toBeDisabled();
+  });
+
+  test("a round that does NOT ask for documents keeps the uploader shut", async () => {
+    const priceOnlyRound = {
+      id: 1006,
+      round_number: 5,
+      status: "ACTIVE",
+      end_date: "2099-09-01 12:30:00",
+      rfq_product_id: null,
+      products: [
+        { rfq_product_id: P1, vendor_targets: [{ vendor_id: VENDOR_ID, fields: [{ name: "base_price", target: 19000 }] }] },
+        { rfq_product_id: P2, vendor_targets: [{ vendor_id: VENDOR_ID, fields: [{ name: "base_price", target: 1500 }] }] },
+      ],
+    };
+    await renderAnswered([priceOnlyRound], answered(P1, P2));
+    await gotoStep("Pricing");
+
+    expect(lineCards()[0].querySelector('input[type="file"]')).toBeDisabled();
+  });
+
+  test("a line finalized for another vendor stays locked even with a live ask", async () => {
+    const rfq = mkRfq();
+    rfq.products[0].finalization_status = "Another vendor is finalized";
+    getRFQById.mockResolvedValue({ data: rfq });
+    getAllActiveNegotiationRounds.mockResolvedValue({ data: [perProductStringRound("Need Photos")] });
+    getAllVendorNegotiationStatus.mockResolvedValue({ status: 1, data: answered(P1, P2) });
+    ({ container } = render(<SendQuoteWizard />));
+    await screen.findByText(/Negotiation round in progress/i, {}, { timeout: 5000 });
+    await gotoStep("Pricing");
+
+    expect(lineCards()[0].className).toMatch(/\blocked\b/);
+    expect(lineCards()[0].querySelector('input[type="file"]')).toBeDisabled();
+  });
+  test("the answered line carries its new file all the way to the server", async () => {
+    // The silent-data-loss half. filteredProducts drops every line whose round
+    // the vendor has already answered, so opening the uploader without this
+    // exemption would let them attach a file, see it listed, submit, and lose
+    // it - strictly worse than the disabled control they reported.
+    handleUploadFile.mockResolvedValue({ data: [{ file_path: "https://files/photo.jpg" }] });
+    await renderAnswered([perProductStringRound("Need Photos")], answered(P1, P2));
+    await gotoStep("Pricing");
+
+    const input = lineCards()[0].querySelector('input[type="file"]');
+    await userEvent.upload(input, new File(["x"], "photo.jpg", { type: "image/jpeg" }));
+
+    const review = (await screen.findAllByText("Review & submit"))[0];
+    await userEvent.click(review.closest("button") || review);
+    const submit = await screen.findByRole("button", { name: /Confirm & Update/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    await userEvent.click(submit);
+
+    await waitFor(() => expect(updateQuotation).toHaveBeenCalled());
+    const [, payload] = updateQuotation.mock.calls[0];
+    expect(payload.products).toHaveLength(1);
+    expect(payload.products[0].id).toBe(P1);
+    expect(payload.products[0].document_files).toContain("https://files/photo.jpg");
+  });
+
+  test("with nothing attached, the once-per-round refusal still stands", async () => {
+    // The exemption is scoped to lines that actually carry a file. With none,
+    // every line is still dropped and the submit is refused exactly as before —
+    // opening the uploader must not reopen the price round by a side door.
+    await renderAnswered([perProductStringRound("Need Photos")], answered(P1, P2));
+
+    const review = (await screen.findAllByText("Review & submit"))[0];
+    await userEvent.click(review.closest("button") || review);
+    const submit = await screen.findByRole("button", { name: /Confirm & Update/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    await userEvent.click(submit);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/already submitted your revised quote/i)
+      )
+    );
+    expect(updateQuotation).not.toHaveBeenCalled();
   });
 });

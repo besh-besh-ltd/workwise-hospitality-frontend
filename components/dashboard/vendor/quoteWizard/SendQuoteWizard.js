@@ -1104,6 +1104,15 @@ const SendQuoteWizard = () => {
     (f) => (f.name || "").toLowerCase() === "documents"
   );
 
+  // The per-product twin of the above: does an ACTIVE round ask THIS line for
+  // documents? Reported on RFQ 536312 round 1005 — a per-product ask, so
+  // `rfqLevelDocAskActive` is false and every documents exemption keyed on it
+  // missed the case entirely.
+  const lineDocAskActive = (productId) =>
+    ((negotiationFields || {})[productId] || []).some(
+      (f) => (f.name || "").toLowerCase() === "documents"
+    );
+
   // Per-line "is this line fully read-only" — mirrors the `locked` flag computed
   // inside Step3Pricing, so the charges modal (rendered here, outside that
   // component) can disable its fields while still letting the vendor open it.
@@ -2002,7 +2011,17 @@ const SendQuoteWizard = () => {
           // locked in the pricing grid and must not be quoted.
           if (showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted) return false;
           // Once-per-round rule: already re-quoted in the latest round.
-          if (negotiationQuoteSubmitted[p.id]) return false;
+          // Exception, mirroring the uploader gate in Step3Pricing: a round
+          // still asking this line for DOCUMENTS is answerable after the price
+          // has been answered. Dropping such a line here would upload the file,
+          // list it, and then silently discard it at submit — the same trap the
+          // RFQ-level exemption below was written to avoid.
+          if (negotiationQuoteSubmitted[p.id]) {
+            const answersDocAsk =
+              (lineDocAskActive(p.id) || rfqLevelDocAskActive) &&
+              (p.document_files || []).length > 0;
+            if (!answersDocAsk) return false;
+          }
           // Post-expiry, only products with an active negotiation round go out.
           // Exception: an RFQ-level `documents` ask opens every line's uploader,
           // so a line the vendor attached files to must go out even though the
@@ -3900,29 +3919,37 @@ const Step3Pricing = ({
               (c) => c.name && Number.isFinite(parseFloat(c.amount))
             );
             const negFields = (negotiationFields && negotiationFields[p.id]) || [];
-            // The documents controls are gated separately from `locked`.
-            // `bidExpiredForProduct` freezes lines the round did not name — which
-            // is exactly what a quote-wide `documents` ask overrides, since the
-            // buyer wants the file, not a particular attachment point. The real
-            // locks (finalized, tech-eval, already re-quoted, read-only) still
-            // apply; only the not-named-by-this-round freeze is lifted, and only
-            // for these two controls.
+            // The documents controls are gated separately from `locked`, because
+            // two of the freezes in it are about the PRICE and say nothing about
+            // whether the buyer is still waiting on a file:
+            //   `bidExpiredForProduct` — the round did not name this line
+            //   `negSubmitted`         — the vendor already answered this round
+            // A live `documents` ask overrides both: the buyer wants the file,
+            // not a particular attachment point, and not at a particular moment
+            // in the round. The locks that are genuinely about the line being
+            // over (finalized, tech-eval, read-only) still apply, and all of
+            // this is scoped to these two controls.
+            // Is an ACTIVE round asking THIS line for documents? Either as a
+            // per-product ask on the line, or quote-wide. Read the field's mere
+            // presence, not its `target`: the two writers in negotiationHelpers
+            // emit `{ target: "…" }`, `{ target: [...], demand: "…" }` and
+            // `{ target: [] , demand: "…" }`, and the last shape carries the
+            // buyer's words in `demand` alone — a target check drops it.
+            const lineDocAsk = negFields.find(
+              (f) => (f.name || "").toLowerCase() === "documents"
+            );
+            const docAskLive = !!lineDocAsk || !!rfqLevelDocAsk;
             const docsLocked =
               finalizedLocked ||
               techLocked ||
-              negSubmitted ||
               isReadOnly ||
-              (bidExpiredForProduct && !rfqLevelDocAsk);
-            const docsEditable =
-              !docsLocked &&
-              (!isBidExpired ||
-                !!rfqLevelDocAsk ||
-                negFields.some(
-                  (f) =>
-                    f.name === "documents" &&
-                    f.targetPrice != null &&
-                    f.targetPrice !== ""
-                ));
+              // Once-per-round governs the PRICE. A document is not a price:
+              // while the round is still asking this line for one, answering
+              // the price must not forfeit the ask (RFQ 536312 round 1005 —
+              // banner up, hint rendered, uploader dead).
+              (negSubmitted && !docAskLive) ||
+              (bidExpiredForProduct && !docAskLive);
+            const docsEditable = !docsLocked && (!isBidExpired || docAskLive);
             const negByName = (name) =>
               negFields.find((f) => (f.name || "").toLowerCase() === name.toLowerCase());
             const isBeingNegotiated = negFields.length > 0;
