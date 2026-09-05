@@ -1727,7 +1727,9 @@ const QuoteComparison = ({
                 return (
                   <th className={styles.vendorHead} key={v.id}>
                     <div className={styles.vhRow}>
-                      <span className={`${styles.vAv} ${avatarOf(v.id)}`}>{v.short}</span>
+                      {/* Initials, not the short name: this chip is a 28px box,
+                          and a full name overflows it onto the vendor name. */}
+                      <span className={`${styles.vAv} ${avatarOf(v.id)}`}>{v.initials || v.short}</span>
                       <div className={styles.vhMain}>
                         <div className={styles.vhNameRow}>
                           <span
@@ -2832,7 +2834,7 @@ const QuoteComparison = ({
                   vb.vendor && (
                     <div className={styles.finalizeVendorRow} key={vb.vendor.id}>
                       <span className={styles.vn}>
-                        <span className={styles.av}>{vb.vendor.short}</span>
+                        <span className={styles.av}>{vb.vendor.initials || vb.vendor.short}</span>
                         <span>{vb.vendor.name}</span>
                       </span>
                       <span className={styles.vamt}>₹{fmt(vb.total)}</span>
@@ -2935,7 +2937,7 @@ const QuoteComparison = ({
                     <div className={styles.diProduct}>{d.product.name}</div>
                     {d.vendor && (
                       <div className={styles.diVendor}>
-                        <span className={styles.av}>{d.vendor.short}</span>
+                        <span className={styles.av}>{d.vendor.initials || d.vendor.short}</span>
                         <span>{d.vendor.name}</span>
                       </div>
                     )}

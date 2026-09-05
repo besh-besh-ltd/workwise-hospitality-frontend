@@ -266,7 +266,7 @@
 .vendorHead { padding: 16px 18px 14px; width: 264px; min-width: 264px; text-align: left; border-right: 1px solid var(--border); position: relative; vertical-align: top; }
 .vendorHead:last-child { border-right: none; }
 .vhRow { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; }
-.vAv { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; flex-shrink: 0; letter-spacing: -0.01em; border: 1px solid var(--border); background: var(--indigo-soft); color: var(--indigo); }
+.vAv { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; flex-shrink: 0; letter-spacing: -0.01em; border: 1px solid var(--border); background: var(--indigo-soft); color: var(--indigo); overflow: hidden; white-space: nowrap; }
 .vhMain { min-width: 0; flex: 1; }
 .vhNameRow { display: flex; align-items: center; gap: 8px; }
 .vName { font-size: 13.5px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; min-width: 0; }

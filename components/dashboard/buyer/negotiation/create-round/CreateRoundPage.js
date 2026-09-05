@@ -59,9 +59,12 @@ const CreateRoundPage = () => {
   });
 
   // Apply a preselection passed via query params, once products have loaded.
-  // `?level=rfq`            → start an RFQ-wide round (mode=rfq, all vendors).
-  // `?preSelectProductId=N` → start a single-product round with product N (and
-  //                           its vendors) selected. Both jump to Step 2.
+  // `?level=rfq`            → start an RFQ-wide round (mode=rfq, all vendors),
+  //                           but STAY on Step 1. Nothing has been chosen yet,
+  //                           and dropping straight into "Vendors & targets"
+  //                           hides the product step and the base-price and
+  //                           charge fields that only a product round offers.
+  // `?preSelectProductId=N` → a product IS chosen, so that one jumps to Step 2.
   const { setMode: wizardSetMode, handleSelectProduct: wizardSelectProduct, goToStep: wizardGoToStep } = wizard;
   const preselectAppliedRef = useRef(false);
   useEffect(() => {
@@ -70,7 +73,6 @@ const CreateRoundPage = () => {
       if (!products.length) return; // need vendor data to preselect vendors
       preselectAppliedRef.current = true;
       wizardSetMode('rfq');
-      wizardGoToStep(2);
     } else if (preSelectProductId) {
       const pid = Number(preSelectProductId);
       if (!products.some((p) => Number(p.id) === pid)) return; // wait for load
