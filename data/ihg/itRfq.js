@@ -23,7 +23,10 @@ export const itRfq = {
   status: "Quotes received",
   invited: 5,
   quoted: 5,
-  closesOn: "2026-09-28",
+  // Already past: bidding is closed, which is what makes the technical
+  // evaluation scoreable. The sequence this RFQ demonstrates is
+  // bidding closed -> technical scored -> quotes unmasked.
+  closesOn: "2026-08-28",
   estimatedValue: 38600000,
   ownerId: "regional",
 };
