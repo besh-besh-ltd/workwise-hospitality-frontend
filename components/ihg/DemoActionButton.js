@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Send, Loader2, Check, LockOpen } from "lucide-react";
+import { Send, Loader2, Check, LockOpen, ClipboardCheck } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "@/lib/axios";
 
@@ -22,6 +22,13 @@ const VARIANTS = {
     labels: { idle: "Publish now", busy: "Inviting suppliers…", done: "Quotes received" },
     fallback: "Quotes received",
     error: "Could not publish this RFQ.",
+  },
+  completeTechnical: {
+    path: (id) => `/rfq/demo-complete-technical/${id}`,
+    icon: ClipboardCheck,
+    labels: { idle: "Complete technical evaluation", busy: "Scoring\u2026", done: "Quotes unmasked" },
+    fallback: "Technical evaluation complete — quotes are now visible",
+    error: "Could not complete the technical evaluation.",
   },
   closeBidding: {
     path: (id) => `/rfq/demo-close-bidding/${id}`,
@@ -68,7 +75,9 @@ const DemoActionButton = ({ rfqId, variant = "publish", size = "sm", onDone, cla
       title={
         variant === "closeBidding"
           ? "Skip to the bid deadline so the quotes become visible"
-          : "Publish to the approved suppliers and collect their quotes"
+          : variant === "completeTechnical"
+            ? "Sign off the technical evaluation so the commercial quotes unmask"
+            : "Publish to the approved suppliers and collect their quotes"
       }
     >
       <Icon

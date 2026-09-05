@@ -2252,13 +2252,30 @@ const QuoteComparison = ({
               <Lock size={18} />
             </div>
             <div className={styles.lockBannerBody}>
-              <strong>Quotes are sealed until the submission deadline.</strong>
-              <span>
-                Vendors have submitted — but their prices, totals and identities stay hidden until{" "}
-                <b>{bidEndDate ? fmtDateTime(bidEndDate) : "the deadline"}</b>. You can see how many
-                quotes each item received below; the full comparison unlocks automatically once the
-                window closes.
-              </span>
+              {/* Two different gates reach this banner. Naming the wrong one is
+                  worse than saying nothing: on a clause-bearing RFQ the wait is
+                  the technical evaluation, not the clock. */}
+              {view?.quotes_locked_reason === "technical" ? (
+                <>
+                  <strong>Quotes are sealed until the technical evaluation is complete.</strong>
+                  <span>
+                    Every vendor has submitted, but prices, totals and identities stay hidden until
+                    each one has been scored against all {rfqInfo.tech_clauses || "the"} clauses. You
+                    can see how many quotes each item received below; the full comparison unlocks the
+                    moment the evaluation is signed off — so price cannot colour a technical mark.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <strong>Quotes are sealed until the submission deadline.</strong>
+                  <span>
+                    Vendors have submitted — but their prices, totals and identities stay hidden until{" "}
+                    <b>{bidEndDate ? fmtDateTime(bidEndDate) : "the deadline"}</b>. You can see how many
+                    quotes each item received below; the full comparison unlocks automatically once the
+                    window closes.
+                  </span>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { CATEGORY, FY, rfq, mr, contract } from "./thread";
+import { itRfq } from "./itRfq";
 
 /**
  * The surrounding book of work.
@@ -37,7 +38,27 @@ export const threadRfqRow = {
   live: true,
 };
 
-export const allRfqs = [threadRfqRow, ...otherRfqs];
+/**
+ * The IT RFQ, shaped like a register row.
+ *
+ * Sits beside the thread because it demonstrates the rule the thread cannot:
+ * it carries technical clauses, so its quotes stay masked until they are
+ * scored. See data/ihg/itRfq.js.
+ */
+export const itRfqRow = {
+  id: itRfq.id,
+  title: itRfq.title,
+  propertyIds: itRfq.propertyIds,
+  department: itRfq.department,
+  status: itRfq.status,
+  invited: itRfq.invited,
+  quoted: itRfq.quoted,
+  closesOn: itRfq.closesOn,
+  value: itRfq.estimatedValue,
+  live: true,
+};
+
+export const allRfqs = [threadRfqRow, itRfqRow, ...otherRfqs];
 
 export const otherMrs = [
   { id: "MR-2627-0904", title: "Banquet crockery replacement", propertyId: "cp-noida", department: "Food & Beverage", raisedOn: "2026-06-02", lineCount: 14, urgency: "Planned", status: "Converted to RFQ", value: 4200000 },

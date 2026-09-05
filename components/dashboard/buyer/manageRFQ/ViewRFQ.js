@@ -1005,6 +1005,10 @@ const ViewRFQ = ({
                   build has no vendor side. Gone once quotes are in. */}
               {data.demo_awaiting_publish && <DemoActionButton rfqId={data.rfq_no || data.id} variant="publish" />}
               {data.demo_awaiting_close && <DemoActionButton rfqId={data.rfq_no || data.id} variant="closeBidding" />}
+              {/* On an RFQ with clauses, quotes stay masked until the technical
+                  evaluation is signed off. Scoring 25 cells live is not a demo,
+                  so this stands in for it. */}
+              {data.demo_awaiting_technical && <DemoActionButton rfqId={data.rfq_no || data.id} variant="completeTechnical" />}
               {lineage.copies.length > 0 && (
                 <button
                   type="button"
