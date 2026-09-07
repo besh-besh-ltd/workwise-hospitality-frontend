@@ -55,7 +55,10 @@ function describe(stage) {
       }
       return { node: "ended", icon: I.skip, tone: "slate", text: stage.summary || "Closed" };
     case "locked":
-      return { node: "locked", icon: I.lock, tone: "dim", text: "Not reached" };
+      // A locked stage that knows WHY it is locked should say so. "Not
+      // reached" beside five finalized products reads as though finalizing
+      // had failed, rather than as waiting on the approver.
+      return { node: "locked", icon: I.lock, tone: "dim", text: stage.summary || "Not reached" };
     case "active":
     default: {
       if (yourCall) {
