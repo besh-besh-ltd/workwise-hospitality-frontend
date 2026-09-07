@@ -30,6 +30,9 @@ import ReadMore from "@/components/shared/ReadMore";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
 import { buildPoDecisionMemoPlan } from "@/lib/wwai/panels/poDecision";
+
+/** The purchase orders a decision memo has actually been written for. */
+const MEMO_POS = new Set(["108215", "108231", "108244", "108250", "108258"]);
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
@@ -940,6 +943,12 @@ const PODetail = ({ id }) => {
             title="AI decision memo"
             sub={`PO #${po?.po_number || id} · ${po?.vendor?.name || ""}`}
             runLabel="Re-run analysis"
+            // The memo is written per PO. Asking for one that has none used to
+            // fall back to the fixture's default PO, so running it on an order
+            // raised during the demo produced a confident memo about a
+            // different supplier and a different amount.
+            disabled={!MEMO_POS.has(String(po?.po_number || id))}
+            disabledHint="No decision memo has been prepared for this purchase order."
             buildPlan={() => buildPoDecisionMemoPlan(String(po?.po_number || id))}
           />
 
