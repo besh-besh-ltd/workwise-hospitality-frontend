@@ -883,8 +883,16 @@ const StartRFQ = () => {
             id="ai-vendor-match"
             className="vm-ai-panel"
             title="AI vendor matching"
-            sub="Ranked on past on-time delivery, response speed and your approved-vendor list"
+            sub={
+              stagedItems.length
+                ? `Matching suppliers for ${stagedItems.length} selected item${stagedItems.length === 1 ? "" : "s"} — ranked on past on-time delivery, response speed and your approved-vendor list`
+                : "Ranked on past on-time delivery, response speed and your approved-vendor list"
+            }
             runLabel="Match vendors"
+            // Nothing to match against until something is selected. Left live,
+            // it produced a ranked shortlist from an empty basket.
+            disabled={stagedItems.length === 0}
+            disabledHint="Add at least one product above — the match is made against the items you select."
             buildPlan={() =>
               buildVendorMatchPlan({
                 staged: stagedFromNames(stagedItems.map((it) => it.variant_name || it.product_name)),

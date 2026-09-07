@@ -23,12 +23,19 @@ const WwAiPanel = ({
   className = "",
   buildPlan,
   autoRun = false,
+  // When the panel has nothing to analyse yet. The engine binds its own click
+  // handler on the run button, so blocking has to happen at the button — and
+  // the reason has to be visible, or it reads as a dead control.
+  disabled = false,
+  disabledHint,
 }) => {
   const rootRef = useRef(null);
   // Held in a ref so re-renders never re-bind the click handler, and the
   // engine always calls the freshest builder.
   const planRef = useRef(buildPlan);
   planRef.current = buildPlan;
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +46,7 @@ const WwAiPanel = ({
       if (cancelled || !rootRef.current || !window.WWAi) return;
 
       window.WWAi.attach(rootRef.current, () => planRef.current());
-      if (autoRun) {
+      if (autoRun && !disabledRef.current) {
         setTimeout(() => {
           if (!cancelled && rootRef.current) window.WWAi.run(rootRef.current, planRef.current());
         }, 260);
@@ -59,12 +66,18 @@ const WwAiPanel = ({
         </div>
         <div className="ww-ai-head-right">
           <span className="ww-ai-chip beta">Beta</span>
-          <button type="button" className="ww-ai-run">
+          <button
+            type="button"
+            className="ww-ai-run"
+            disabled={disabled}
+            title={disabled ? disabledHint : undefined}
+          >
             <span dangerouslySetInnerHTML={{ __html: SPARK }} />
             {runLabel}
           </button>
         </div>
       </div>
+      {disabled && disabledHint && <div className="ww-ai-waiting">{disabledHint}</div>}
       <div className="ww-ai-body" hidden />
     </section>
   );
