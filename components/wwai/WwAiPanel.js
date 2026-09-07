@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import axiosInstance from "@/lib/axios";
 
 /**
  * The signed-off AI panel, mounted inside the real portal.
@@ -43,6 +44,16 @@ const WwAiPanel = ({
     (async () => {
       // Imported for its side effect: the engine assigns window.WWAi.
       await import("@/lib/wwai/ai-engine");
+      // The panels are vanilla JS lifted from the prototype, so they cannot
+      // import the app's axios. The demo's API IS that axios instance (the
+      // mock is an adapter on it), so a raw fetch from a panel would leave the
+      // app and hit nothing. This is the bridge back in.
+      if (!window.WWApi) {
+        window.WWApi = {
+          post: (url, body) => axiosInstance.post(url, body),
+          get: (url, config) => axiosInstance.get(url, config),
+        };
+      }
       if (cancelled || !rootRef.current || !window.WWAi) return;
 
       window.WWAi.attach(rootRef.current, () => planRef.current());
