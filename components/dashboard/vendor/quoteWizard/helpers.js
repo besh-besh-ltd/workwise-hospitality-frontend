@@ -51,18 +51,36 @@ export const buildInitialQuoteProducts = (rfq) => {
 
     // Synthesize one "other_charges" array combining legacy freight/package
     // with explicit other_charges so the new UI only deals with one concept.
-    const existing = (quote.other_charges || []).map((c) => ({
-      _id: genLocalId("oc"),
-      name: c.name,
-      slug: c.slug,
-      amount: parseFloat(c.amount ?? c.tax ?? 0) || 0,
-      amount_mode: c.amount_mode || c.tax_mode || "percentage",
-      // Per-charge GST. tax === null/undefined = inherit base rate (tri-state).
-      // Explicit 0 means "no tax on this charge".
-      tax: c.charge_tax ?? (c.tax_on_charge != null ? c.tax_on_charge : null),
-      tax_mode: c.charge_tax_mode || "percentage",
-      comment: c.comment || "",
-    }));
+    const existing = (quote.other_charges || []).map((c) => {
+      // Two charge shapes reach this code, and `tax` means a different thing in
+      // each — so read it only once the shape is known.
+      //
+      //   CURRENT: { amount, amount_mode, tax, tax_mode }
+      //            `tax` is the charge's own GST.
+      //   LEGACY : { tax, tax_mode }  (no `amount` key)
+      //            `tax` is the AMOUNT, `tax_mode` its mode. This is what the
+      //            `c.amount ?? c.tax` fallback below exists for.
+      //
+      // The backend hands the `other_charges` JSONB back untouched, so the
+      // current shape is exactly what was stored. Reading the GST from
+      // `charge_tax`/`tax_on_charge` — keys nothing in the backend has ever
+      // emitted — made every charge hydrate as `tax: null`, wiping a stated
+      // rate on load and, under an active negotiation round, reading as a
+      // change to a charge the vendor never touched.
+      const isLegacy = c.amount == null;
+      return {
+        _id: genLocalId("oc"),
+        name: c.name,
+        slug: c.slug,
+        amount: parseFloat(c.amount ?? c.tax ?? 0) || 0,
+        amount_mode: (isLegacy ? c.tax_mode : c.amount_mode) || "percentage",
+        // Per-charge GST. tax === null/undefined = inherit base rate (tri-state).
+        // Explicit 0 means "no tax on this charge".
+        tax: isLegacy ? null : c.tax ?? null,
+        tax_mode: (isLegacy ? null : c.tax_mode) || "percentage",
+        comment: c.comment || "",
+      };
+    });
     const existingNames = new Set(existing.map((c) => (c.name || "").toLowerCase()));
     const migrated = [];
     if (parseFloat(quote.freight_price) > 0 && !existingNames.has("freight")) {
