@@ -238,7 +238,9 @@ const PODashboard = () => {
         id="ai-queue"
         className="po-ai-panel"
         title="AI approval queue"
-        sub="5 POs waiting on you · ₹58,03,372.00 held"
+        // Derived from the KPIs this screen already loaded. It was a typed
+        // string, so it drifted from the register the moment any PO value moved.
+        sub={`${k.awaitingYou ?? 0} PO${(k.awaitingYou ?? 0) === 1 ? "" : "s"} waiting on you · ${inr(k.heldValue)} held`}
         runLabel="Triage my queue"
         buildPlan={() => buildPoDecisionQueuePlan()}
       />
