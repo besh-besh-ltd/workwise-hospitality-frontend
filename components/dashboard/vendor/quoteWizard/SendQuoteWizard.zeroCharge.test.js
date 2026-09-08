@@ -109,7 +109,10 @@ const charge = (amount, comment) => ({
   slug: "freight",
   amount,
   amount_mode: "absolute",
-  tax_on_charge: 0,
+  // The per-charge GST, in the key the API actually sends. This fixture used
+  // to say `tax_on_charge`, which nothing in the backend has ever emitted —
+  // see helpers.chargeTaxHydration.test.js for the defect that hid behind it.
+  tax: 0,
   tax_mode: "percentage",
   comment,
 });
