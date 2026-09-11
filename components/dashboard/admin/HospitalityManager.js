@@ -11,6 +11,8 @@ import {
   createHOBusinessUnit,
   updateHospitalityHotel,
   getHospitalityCompanies,
+  restoreHotel,
+  getHospitalityHotels,
   getHotelDocuments,
   getCompanyUserMappings,
   deleteUserMapping,
@@ -29,6 +31,7 @@ import RemoveUnitModal from "./hospitality-manager/modals/RemoveUnitModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { TwoPanelPage } from "@/components/layout/DashboardShell";
 import useIsMobile from "@/hooks/useIsMobile";
+import { apiErrorMessage } from "./shared/apiError";
 import styles from "./hospitality-manager/HospitalityManager.module.css";
 import { dedupeHospitalityMappings } from "./shared/hospitalityMappings";
 
@@ -52,6 +55,8 @@ const HospitalityManager = () => {
     return Number.isFinite(raw) && raw > 0 ? raw : null;
   }, [router.query.companyId]);
   const [hotels, setHotels] = useState([]);
+  const [archivedHotels, setArchivedHotels] = useState([]);
+  const [restoringHotelId, setRestoringHotelId] = useState(null);
   const [companyUserMappings, setCompanyUserMappings] = useState([]);
   const [hotelUserMappings, setHotelUserMappings] = useState({});
 
@@ -249,6 +254,27 @@ const HospitalityManager = () => {
     loadCompanies();
   }, []);
 
+  /**
+   * Archived units, fetched separately.
+   *
+   * The companies payload (include=hotels) is filtered to live units
+   * server-side, which is right for the grid. Archiving used to end there: an
+   * archived unit appeared in no list and no screen could restore it, so the
+   * only way back was a hand-written SQL update. This is the way back.
+   */
+  const loadArchivedHotels = useCallback(async (companyId) => {
+    if (!companyId) return;
+    try {
+      const res = await getHospitalityHotels(companyId, { includeArchived: true });
+      const all = res?.data?.data || res?.data || [];
+      setArchivedHotels(all.filter((h) => Number(h.is_deleted) === 1));
+    } catch (error) {
+      // An admin who cannot see the archive still has a working page; say
+      // nothing rather than throwing a toast over the unit grid.
+      setArchivedHotels([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedCompanyId) {
       // Derive hotels from the companies list (loaded with include=hotels)
@@ -257,9 +283,10 @@ const HospitalityManager = () => {
       setHotels(selectedCompany?.hotels || []);
       setIsLoadingHotels(false);
       loadAllUserMappings();
+      loadArchivedHotels(selectedCompanyId);
       setUserMappingFilter("all");
     }
-  }, [selectedCompanyId, companies]);
+  }, [selectedCompanyId, companies, loadArchivedHotels]);
 
   // --- Handlers ---
   const handleCompanySubmit = async (form, documents, resetForm) => {
@@ -412,6 +439,7 @@ const HospitalityManager = () => {
       // Hotels are derived from the companies payload (loaded with
       // include=hotels), so one reload refreshes both.
       await loadCompanies();
+      await loadArchivedHotels(selectedCompanyId);
     } catch (error) {
       toast.error(
         error?.message?.response?.data?.message ||
@@ -419,6 +447,20 @@ const HospitalityManager = () => {
       );
     } finally {
       setRemovingUnit(false);
+    }
+  };
+
+  const handleRestoreUnit = async (hotel) => {
+    setRestoringHotelId(hotel.id);
+    try {
+      await restoreHotel(selectedCompanyId, hotel.id);
+      toast.success(`${hotel.name} restored`);
+      await loadCompanies();
+      await loadArchivedHotels(selectedCompanyId);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not restore this unit"));
+    } finally {
+      setRestoringHotelId(null);
     }
   };
 
@@ -635,6 +677,9 @@ const HospitalityManager = () => {
             {activeTab === "hotels" && (
               <BusinessUnitsTab
                 hotels={hotels}
+                archivedHotels={archivedHotels}
+                onRestoreHotel={handleRestoreUnit}
+                restoringHotelId={restoringHotelId}
                 getHotelUserCount={getHotelUserCount}
                 onAddHotel={() => {
                   setEditingHotel(null);

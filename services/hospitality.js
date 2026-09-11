@@ -66,11 +66,13 @@ export const updateHospitalityCompany = (companyId, payload) =>
     }
   });
 
-export const getHospitalityHotels = (companyId) =>
+export const getHospitalityHotels = (companyId, { includeArchived = false } = {}) =>
   new Promise(async (resolve, reject) => {
     try {
+      // Archived units are hidden by default. Ask for them explicitly — the
+      // Archived section below the grid is the only way back to one.
       const response = await axiosInstance.get(
-        `/hospitality/company/${companyId}/hotels`
+        `/hospitality/company/${companyId}/hotels${includeArchived ? "?include_archived=true" : ""}`
       );
       resolve(response);
     } catch (error) {
