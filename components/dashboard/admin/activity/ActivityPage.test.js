@@ -173,11 +173,15 @@ describe("filters", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Critical$/ }));
 
-    expect(mockPush).toHaveBeenCalledWith(
-      { pathname: "/dashboard/admin/activity", query: { severity: "critical" } },
-      undefined,
-      { shallow: true }
-    );
+    // `from` rides along because the tile's count is a 30-day figure and the
+    // feed it filters has no date bound — see "the risk summary and the feed
+    // agree on a period" below. Both belong in the URL so the shared link
+    // reproduces what the sender saw.
+    const [url, , opts] = mockPush.mock.calls.at(-1);
+    expect(url.pathname).toBe("/dashboard/admin/activity");
+    expect(url.query.severity).toBe("critical");
+    expect(url.query.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(opts).toEqual({ shallow: true });
   });
 
   it("waits for the router before asking the server for anything", async () => {
@@ -280,11 +284,52 @@ describe("the detail behind a line", () => {
     fireEvent.click(await screen.findByText("Priya approved purchase order 138800"));
 
     await waitFor(() => expect(getActivityChanges).toHaveBeenCalledWith(3));
-    expect(await screen.findByText("status")).toBeInTheDocument();
+
+    // Named the way an administrator would, not the way the column is spelled.
+    // This used to assert the raw `status` / `tbl_rfq_purchase_order`, which
+    // pinned exactly what the testers asked us to stop showing them.
+    expect(await screen.findByText("Status")).toBeInTheDocument();
     expect(screen.getByText("pending_approval")).toBeInTheDocument();
     expect(screen.getByText("approved")).toBeInTheDocument();
+    expect(screen.getByText(/Purchase order #528/)).toBeInTheDocument();
+    expect(screen.getByText("Changed")).toBeInTheDocument();
+
+    // The raw column name stays reachable for anyone debugging, just not in
+    // the reader's way.
+    expect(screen.getByTitle("status")).toBeInTheDocument();
+
     // Bookkeeping columns move on every edit and mean nothing.
     expect(screen.queryByText("updated_at")).not.toBeInTheDocument();
+  });
+
+  it("renders a date, a flag and an id as a person would read them", async () => {
+    // The three shapes that made the old detail unreadable: a raw timestamp,
+    // a bare `true`, and an integer foreign key with no clue what it points at.
+    getActivityChanges.mockResolvedValue({
+      data: {
+        event: EVENTS[0],
+        changes: [
+          {
+            table_name: "tbl_hospitality_company_hotels",
+            operation: "UPDATE",
+            record_id: 31,
+            old_data: { is_head_office: false, bid_end_date: "2026-09-05 14:30:00", hotel_id: 12 },
+            new_data: { is_head_office: true, bid_end_date: "2026-09-07 09:00:00", hotel_id: 14 },
+          },
+        ],
+      },
+    });
+    render(<ActivityPage />);
+    fireEvent.click(await screen.findByText("Priya approved purchase order 138800"));
+
+    await waitFor(() => expect(getActivityChanges).toHaveBeenCalled());
+
+    expect(await screen.findByText("Head office")).toBeInTheDocument();
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(screen.getByText("05 Sep 2026, 02:30 pm")).toBeInTheDocument();
+    expect(screen.getByText("#14")).toBeInTheDocument();
+    expect(screen.getByText("Business unit")).toBeInTheDocument();
   });
 
   it("explains an empty detail rather than showing a blank box", async () => {
@@ -326,5 +371,48 @@ describe("Workwise's own staff in the feed", () => {
     expect(
       within(kind).getByRole("option", { name: "Workwise" })
     ).toBeInTheDocument();
+  });
+});
+
+// The risk bar counted one window and filtered another.
+//
+// Its tiles are a 30-day summary — the backend windows the facet query
+// deliberately, because "3 critical" means nothing without a period and an
+// all-time count only ever grows. The feed underneath has no date bound at
+// all. So clicking "Critical 12" could produce a list of four hundred, and the
+// words "Last 30 days" sat at the top of the page reading like the window for
+// everything below them. That is the whole basis of the "only last 30 days"
+// report: there is no 30-day cap on the feed anywhere.
+describe("the risk summary and the feed agree on a period", () => {
+  it("scopes the feed to the same 30 days when a level is selected", async () => {
+    render(<ActivityPage />);
+    const tile = await screen.findByRole("button", { name: /critical/i });
+
+    fireEvent.click(tile);
+
+    await waitFor(() => {
+      const q = mockPush.mock.calls.at(-1)[0].query;
+      expect(q.severity).toBe("critical");
+      expect(q.from).toBeTruthy();
+    });
+  });
+
+  it("does not overrule dates the admin chose themselves", async () => {
+    mockQuery = { from: "2026-02-01", to: "2026-03-01" };
+    render(<ActivityPage />);
+    fireEvent.click(await screen.findByRole("button", { name: /critical/i }));
+
+    await waitFor(() => {
+      const q = mockPush.mock.calls.at(-1)[0].query;
+      expect(q.from).toBe("2026-02-01");
+      expect(q.to).toBe("2026-03-01");
+    });
+  });
+
+  it("says the summary is a summary, not the page's window", async () => {
+    render(<ActivityPage />);
+    // "Last 30 days" on its own read as the window for everything below it.
+    expect(await screen.findByText(/last 30 days/i)).toBeInTheDocument();
+    expect(screen.getByText(/summary/i)).toBeInTheDocument();
   });
 });

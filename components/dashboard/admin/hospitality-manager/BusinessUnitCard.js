@@ -1,5 +1,6 @@
 import React from "react";
 import { HiOutlineLocationMarker } from "react-icons/hi";
+import { BsBuilding } from "react-icons/bs";
 import { BsPeople, BsPencil, BsDiagram3, BsEnvelope, BsTrash } from "react-icons/bs";
 import { BiRupee } from "react-icons/bi";
 import styles from "./HospitalityManager.module.css";
@@ -34,7 +35,18 @@ const BusinessUnitCard = ({ hotel, userCount, onEdit, onSetHierarchy, onSendCred
     <div className={styles.buCard}>
       <div className={styles.buCardHeader}>
         <div className={styles.buTitleBlock}>
-          <h4 className={styles.buName}>{hotel.name}</h4>
+          <h4 className={styles.buName}>
+            {hotel.name}
+            {/* The flag has been enforced in the database since the head-office
+                migration, and refused by the API, but no screen showed it —
+                so "which unit is the HO?" could only be answered by reading
+                the name. Absent must not read as true: older payloads omit it. */}
+            {hotel.is_head_office === true && (
+              <span className={styles.headOfficeBadge}>
+                <BsBuilding size={10} /> Head office
+              </span>
+            )}
+          </h4>
           <div className={styles.buLocation}>
             <HiOutlineLocationMarker size={14} />
             <span>{location || "Location not set"}</span>

@@ -11,7 +11,7 @@
 // on. So `unreachable` is a subset of `outstanding`, and the arithmetic the
 // server also computes stays intact.
 
-import { tallyStep, effectiveApproverStatus } from "./approverState";
+import { tallyStep, effectiveApproverStatus, outstandingForNaming } from "./approverState";
 
 const step = (approvers, extra = {}) => ({
   status: "PENDING",
@@ -85,5 +85,79 @@ describe("an approver who cannot sign in", () => {
     const t = tallyStep(step([{ user_id: 1, status: "PENDING" }]));
     expect(t.outstanding).toHaveLength(1);
     expect(t.unreachable).toHaveLength(0);
+  });
+});
+
+// The half that was computed but never drawn.
+//
+// `tallyStep().unreachable` has existed since UM-11 with a doc comment stating
+// the rule — "a surface that NAMES who it is waiting on should exclude these
+// and say why; a surface that COUNTS should not" — and no renderer consumed
+// it. The RFQ and PO timelines said "Cannot act"; the quote-comparison
+// Approval Trail and the RFQ Purchase Order stage went on naming the same
+// people as people we are waiting on. One approval, two answers.
+describe("naming who a step is actually waiting on", () => {
+  it("leaves out somebody who cannot sign in, and says how many", () => {
+    const t = tallyStep(
+      step([
+        { user_id: 1, name: "Priya Sharma", status: "PENDING" },
+        { user_id: 2, name: "Left The Company", status: "PENDING", account_active: false },
+      ])
+    );
+    const { names, unreachableCount } = outstandingForNaming(t);
+
+    expect(names).toEqual(["Priya Sharma"]);
+    expect(unreachableCount).toBe(1);
+  });
+
+  it("reads names off either field the two payloads use", () => {
+    // The PO stage's approvers carry `user_name`; the trail's carry `name`.
+    const t = tallyStep(
+      step([
+        { user_id: 1, user_name: "Ravi Nair", status: "PENDING" },
+        { user_id: 2, name: "Asha Menon", status: "PENDING" },
+      ])
+    );
+    expect(outstandingForNaming(t).names).toEqual(["Ravi Nair", "Asha Menon"]);
+  });
+
+  it("names nobody when every outstanding approver is unreachable", () => {
+    // The honest answer is "nobody can act", not a name that cannot act.
+    const t = tallyStep(
+      step([{ user_id: 2, name: "Left The Company", status: "PENDING", account_active: false }])
+    );
+    const { names, unreachableCount } = outstandingForNaming(t);
+
+    expect(names).toEqual([]);
+    expect(unreachableCount).toBe(1);
+  });
+
+  it("is unchanged when everyone can act", () => {
+    const t = tallyStep(
+      step([
+        { user_id: 1, name: "Priya Sharma", status: "PENDING" },
+        { user_id: 2, name: "Ravi Nair", status: "PENDING" },
+      ])
+    );
+    const { names, unreachableCount } = outstandingForNaming(t);
+
+    expect(names).toEqual(["Priya Sharma", "Ravi Nair"]);
+    expect(unreachableCount).toBe(0);
+  });
+
+  it("treats an approver with no account_active field as reachable", () => {
+    // Older payloads omit it; the previous behaviour was to trust the row.
+    const t = tallyStep(step([{ user_id: 1, name: "Priya Sharma", status: "PENDING" }]));
+    expect(outstandingForNaming(t).names).toEqual(["Priya Sharma"]);
+  });
+
+  it("says nothing about a level that is finished", () => {
+    const t = tallyStep(
+      step([{ user_id: 1, name: "Priya Sharma", status: "APPROVED" }], { status: "APPROVED" })
+    );
+    const { names, unreachableCount } = outstandingForNaming(t);
+
+    expect(names).toEqual([]);
+    expect(unreachableCount).toBe(0);
   });
 });

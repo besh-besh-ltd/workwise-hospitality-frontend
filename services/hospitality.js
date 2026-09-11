@@ -53,12 +53,44 @@ export const createHospitalityCompany = (payload, files = {}) =>
     }
   });
 
-export const updateHospitalityCompany = (companyId, payload) =>
+/**
+ * Update a company, with or without replacement documents.
+ *
+ * The edit form renders the same four file inputs as create, and the backend
+ * route accepts them — but this took two arguments while its caller passed
+ * three, and sent JSON regardless. An administrator could pick a new GST
+ * certificate, save, be told "Company updated", and the file never left the
+ * browser.
+ *
+ * JSON is still sent when there are no files, so nothing about the ordinary
+ * edit changes.
+ */
+export const updateHospitalityCompany = (companyId, payload, files = {}) =>
   new Promise(async (resolve, reject) => {
     try {
+      const attached = ['gst', 'pan', 'cancelled_cheque', 'msme'].filter((k) => files?.[k]);
+
+      if (!attached.length) {
+        const response = await axiosInstance.put(
+          `/hospitality/company/${companyId}`,
+          payload
+        );
+        resolve(response);
+        return;
+      }
+
+      const formData = new FormData();
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] !== null && payload[key] !== undefined && payload[key] !== '') {
+          formData.append(key, payload[key]);
+        }
+      });
+      attached.forEach((k) => formData.append(k, files[k]));
+
       const response = await axiosInstance.put(
         `/hospitality/company/${companyId}`,
-        payload
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
       );
       resolve(response);
     } catch (error) {

@@ -210,7 +210,10 @@ const LoginContainer = (props) => {
                     } else if (userType == "vendor" && pathname.includes("/dashboard/vendor/inquiries-details")) {
                         console.log("Push Sent")
                     } else if (userType == "admin") {
-                        router.push(`/dashboard/admin/hospitality-manager`);
+                        // The Overview, not Organisation. It was pointed at
+                        // hospitality-manager because the landing page was a
+                        // buyer's dashboard and therefore useless to an admin.
+                        router.push(`/dashboard/admin`);
                     } else if (userType == "finance" || userType == "engineering") {
                         router.push(`/dashboard/${userType}/editprofile`);
                     } else {
@@ -299,7 +302,10 @@ const LoginContainer = (props) => {
                     if (userType == "buyer") {
                         router.push(`/dashboard/buyer/start-rfq?loggedin=true`);
                     } else if (userType == "admin") {
-                        router.push(`/dashboard/admin/hospitality-manager`);
+                        // The Overview, not Organisation. It was pointed at
+                        // hospitality-manager because the landing page was a
+                        // buyer's dashboard and therefore useless to an admin.
+                        router.push(`/dashboard/admin`);
                     } else if (userType == "finance" || userType == "engineering") {
                         router.push(`/dashboard/${userType}/editprofile`);
                     } else {
