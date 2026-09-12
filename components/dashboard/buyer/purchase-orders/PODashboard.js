@@ -37,6 +37,13 @@ const PAGE_LIMIT = 10;
 const STATUS_TABS = [
   { key: "all", label: "All", count: "all" },
   { key: "action-required", label: "Pending for me", count: "action_required" },
+  // A draft is the one state on this page that needs a person to act before it
+  // can move, and it was the only one with no way to filter to it. The server
+  // has always computed this bucket and its count (poDashboardModel
+  // STATUS_BUCKETS.draft / status_counts.draft) — the tab strip simply never
+  // offered them, so drafts were reachable only by scrolling "All". Production
+  // had 7 stuck this way, the oldest 32 days old.
+  { key: "draft", label: "Draft", count: "draft" },
   { key: "approved", label: "Approved", count: "approved" },
   { key: "rejected", label: "Rejected", count: "rejected" },
 ];

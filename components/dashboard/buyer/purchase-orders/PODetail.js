@@ -504,7 +504,16 @@ const PODetail = ({ id }) => {
         res?.data?.message ||
         res?.message ||
         "Purchase Order initiated successfully";
-      toast.success(message);
+      /* The endpoint is idempotent: a PO already past draft answers
+         { already_initiated: true } and changes nothing. That is neither an
+         error (the PO IS initiated) nor a success (this click did not do it),
+         so it gets the neutral toast — a green one told people a double-click
+         had worked. */
+      if (res?.data?.already_initiated) {
+        toast.info(message);
+      } else {
+        toast.success(message);
+      }
       await fetchDetail();
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || "Failed to initiate Purchase Order";
@@ -783,6 +792,48 @@ const PODetail = ({ id }) => {
                     stuck. */}
                 <WhoCanInitiate poId={id} />
               </>
+            )}
+            {/* …and the other half of that sentence, which was missing. The
+                viewer who DOES hold the grant was told nothing at all: no
+                statement that the draft is theirs to move, no hint that
+                anything was waiting. Seven production drafts sat untouched
+                that way, the oldest for 32 days, every one of them with a
+                valid approval policy — nothing was blocking them, nobody was
+                told they were theirs.
+
+                Deliberately NOT accompanied by WhoCanInitiate: that block
+                answers "who can do this instead of me" and excludes the
+                viewer, so it would answer a question this reader does not
+                have. What the action will actually do is on the control's
+                own InfoTip. */}
+            {po.status === "draft" && canWrite && (
+              <div className={styles.heroPendingNote}>
+                <span className={styles.clockIc}>
+                  <AlertCircle size={14} />
+                </span>
+                <span>
+                  This purchase order is a draft and is{" "}
+                  <strong>waiting for you to initiate it</strong> — nothing else is
+                  blocking it.
+                  {/* Initiating is the point of no return: whatever is not on
+                      this PO becomes a separate one. Production RFQ 808 carries
+                      two drafts for the same vendor covering 1 and 2 of its 3
+                      products, and nothing said so — so the buyer initiated one
+                      and ended up with two purchase orders. */}
+                  {po.mergeable_draft_count > 0 && (
+                    <>
+                      {" "}
+                      There {po.mergeable_draft_count === 1 ? "is" : "are"}{" "}
+                      <strong>
+                        {po.mergeable_draft_count} other draft
+                        {po.mergeable_draft_count === 1 ? "" : "s"}
+                      </strong>{" "}
+                      for this vendor on the same RFQ — merge them first if this
+                      should be one order.
+                    </>
+                  )}
+                </span>
+              </div>
             )}
             {isPending && !awaitingMe && (
               <div className={styles.heroPendingNote}>
