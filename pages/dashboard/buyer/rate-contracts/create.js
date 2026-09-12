@@ -195,6 +195,14 @@ export default function CreateRateContractPage() {
   // (the browse list only holds the current pages; variantById falls back here).
   const [selectedMeta, setSelectedMeta] = useState({});
   const [itemSpecs, setItemSpecs] = useState({});
+  // Sampling is per ITEM, not per contract: a rate contract routinely mixes
+  // items where a physical sample is meaningful with items where it is not.
+  // `arc.sample_required` survives as the rollup of these (see
+  // arcModel.syncSampleRequiredRollup). Client feedback item 3.
+  const [itemSamples, setItemSamples] = useState({});
+  // How many of the selected items need a sample — drives the Terms read-back
+  // and the contract-level rollup we send.
+  const sampleItemCount = selectedItemIds.filter((id) => !!itemSamples[id]).length;
   const [itemQtys, setItemQtys] = useState({});
   const [itemUoms, setItemUoms] = useState({});
   // Sr 5 — ids whose selected-item detail (qty/UOM/spec) is minimised. Default
@@ -217,7 +225,6 @@ export default function CreateRateContractPage() {
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
   const [deliveryTerms, setDeliveryTerms] = useState("Within 2 days of each released PO");
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
-  const [samplesRequired, setSamplesRequired] = useState(false);
 
   // Step 5 — Tech eval + vendors. Technical evaluation is configured PER ITEM:
   // techByItem[itemId] toggles whether that product is technically evaluated
@@ -310,6 +317,7 @@ export default function CreateRateContractPage() {
         setItemSpecs(Object.fromEntries(items.map((it) => [it.product_variant_id, it.spec_text || ""])));
         setItemQtys(Object.fromEntries(items.map((it) => [it.product_variant_id, it.indicative_qty != null ? String(it.indicative_qty) : ""])));
         setItemUoms(Object.fromEntries(items.map((it) => [it.product_variant_id, it.uom || ""])));
+        setItemSamples(Object.fromEntries(items.map((it) => [it.product_variant_id, !!it.sample_required])));
 
         // ── Step 4 — Terms ──
         setSubmissionStart(isoDateTime(arc.submission_start_at));
@@ -322,7 +330,6 @@ export default function CreateRateContractPage() {
         setPaymentTerms(arc.payment_terms_expected || "");
         setDeliveryTerms(arc.delivery_expected || "");
         setPenalty(arc.penalty_clause || "");
-        setSamplesRequired(!!arc.sample_required);
 
         // ── Step 5 — Tech eval (per item) + vendors ──
         // Default every selected item's tech toggle ON (the wizard's rule), then
@@ -611,7 +618,7 @@ export default function CreateRateContractPage() {
     setCategoryTitle(c.title || "");
     setSelectedSubCats([]);
     setSelectedItemIds([]);
-    setItemSpecs({}); setItemQtys({}); setItemUoms({});
+    setItemSpecs({}); setItemQtys({}); setItemUoms({}); setItemSamples({});
     setClausesByItem({}); setMinPassByItem({}); setTechByItem({});
   }
   function pickType(t) {
@@ -712,6 +719,7 @@ export default function CreateRateContractPage() {
       spec_text:          itemSpecs[id] || "",
       indicative_qty:     Number(itemQtys[id]) || 0,
       uom:                itemUoms[id] || null,
+      sample_required:    !!itemSamples[id],
     }));
     return {
       title,
@@ -731,7 +739,9 @@ export default function CreateRateContractPage() {
       // True if ANY item is technically evaluated → vendors must seal a
       // technical envelope (for the items that have clauses) before quoting.
       technical_response_required: anyTechRequired,
-      sample_required:     samplesRequired,
+      // Derived: the buyer answers per item now, and the server
+      // re-derives this the same way (syncSampleRequiredRollup).
+      sample_required:     sampleItemCount > 0,
       escalation_clause_json: {
         type: escalation,
         cap_pct: Number(escalationCap) || null,
@@ -1134,6 +1144,19 @@ export default function CreateRateContractPage() {
                         </div>
                         <label className="label" style={{ marginTop: 11 }}>Specification <span className="req">*</span></label>
                         <textarea className="textarea" value={itemSpecs[id] ?? ""} onChange={(e) => setItemSpecs((m) => ({ ...m, [id]: e.target.value }))} placeholder="Describe the spec, grade, quality requirements…" />
+                        {/* Asked here rather than once on the Terms step: the
+                            answer is a property of the item, and the buyer is
+                            already looking at this item's specification. */}
+                        <label className="cbx" style={{ marginTop: 11 }}>
+                          <input
+                            type="checkbox"
+                            data-item-sample={id}
+                            checked={!!itemSamples[id]}
+                            onChange={(e) => setItemSamples((m) => ({ ...m, [id]: e.target.checked }))}
+                          />
+                          <span className="cbx-box" />
+                          <span>Require a sample of this item before tech evaluation</span>
+                        </label>
                       </div>
                       )}
                     </div>
@@ -1274,11 +1297,14 @@ export default function CreateRateContractPage() {
               <label className="label">Penalty / LD clause</label>
               <textarea className="textarea" value={penalty} onChange={(e) => setPenalty(e.target.value)} placeholder="e.g. 1.5% LD per week of delay, capped at 7.5% of PO value" />
             </div>
-            <label className="cbx" style={{ marginTop: 18 }}>
-              <input type="checkbox" checked={samplesRequired} onChange={(e) => setSamplesRequired(e.target.checked)} />
-              <span className="cbx-box" />
-              <span>Require sample submission before tech evaluation</span>
-            </label>
+            {/* This used to be the ONLY place sampling could be asked, and it
+                asked it for the whole basket. It is now a read-back of the
+                per-item answers given on the Items step. */}
+            <div className="hint" style={{ marginTop: 18 }}>
+              {sampleItemCount === 0
+                ? "No item requires a sample. Ask for one per item on the Items step."
+                : `${sampleItemCount} of ${selectedItemIds.length} item${selectedItemIds.length === 1 ? "" : "s"} require a sample before tech evaluation.`}
+            </div>
           </div>
         </section>
       )}

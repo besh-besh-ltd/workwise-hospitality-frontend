@@ -52,9 +52,15 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
     const [minScoreInput, setMinScoreInput] = useState("");
     const [savingMinScore, setSavingMinScore] = useState(false);
 
-    // Sampling clause specific state
+    // Sampling clause specific state. `samplingText` and `samplingFiles` are
+    // the point of client feedback item 3: the clause used to send the literal
+    // string "Sampling" for every product, so the requirement on a 500ml
+    // shampoo and on a mattress protector read identically.
     const [showSamplingForm, setShowSamplingForm] = useState(false);
     const [samplingWeightage, setSamplingWeightage] = useState("");
+    const [samplingText, setSamplingText] = useState("");
+    const [samplingFiles, setSamplingFiles] = useState([]);
+    const samplingFileInputRef = useRef(null);
 
     // Compute if sampling clause already exists
     const existingSamplingClause = previousClauses?.find(c => c.clause_type === 'sampling');
@@ -221,10 +227,41 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         }
     };
 
+    // Mirrors uploadToServer above, against the sampling clause's own list.
+    const uploadSamplingFile = async (e) => {
+        setFileLoading(true);
+        try {
+            const filePath = await handleFileUpload(e, undefined, { allowAllTypes: true });
+            if (filePath) setSamplingFiles((prev) => [...prev, filePath]);
+        } catch (error) {
+            toast.error(error?.message || "Upload failed");
+        } finally {
+            setFileLoading(false);
+            if (samplingFileInputRef.current) samplingFileInputRef.current.value = "";
+        }
+    };
+
+    const resetSamplingForm = () => {
+        setShowSamplingForm(false);
+        setSamplingWeightage("");
+        setSamplingText("");
+        setSamplingFiles([]);
+    };
+
     const handleAddSamplingClause = async () => {
         // Check if sampling clause already exists
         if (previousClauses?.some(c => c.clause_type === 'sampling')) {
             toast.error("A sampling clause already exists for this item");
+            return;
+        }
+
+        if (!samplingText.trim()) {
+            toast.error("Describe what sample is required");
+            return;
+        }
+
+        if (samplingText.length > CLAUSE_TEXT_MAX) {
+            toast.error(`Sampling requirement must be at most ${CLAUSE_TEXT_MAX} characters`);
             return;
         }
 
@@ -236,8 +273,8 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         const payload = {
             rfq_id,
             rfq_product_id: product.id,
-            clause_text: "Sampling",
-            file_url: [],
+            clause_text: samplingText.trim(),
+            file_url: samplingFiles,
             clause_type: 'sampling',
             weightage: parseInt(samplingWeightage)
         };
@@ -246,8 +283,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         try {
             const res = await addClause(payload);
             toast.success("Sampling clause added successfully");
-            setShowSamplingForm(false);
-            setSamplingWeightage("");
+            resetSamplingForm();
             setTimeout(() => {
                 getPreviousClauses();
             }, 100);
@@ -561,16 +597,32 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                                 />
                                 <button
                                     type="button"
+                                    className="rfq-clause-attach-btn"
+                                    onClick={() => samplingFileInputRef.current?.click()}
+                                >
+                                    <FontAwesomeIcon icon={faPaperclip} />
+                                    <span>Attach file</span>
+                                    {fileLoading && <span className="rfq-clause-attach-btn__spinner" />}
+                                </button>
+                                <input
+                                    type="file"
+                                    data-sampling-file=""
+                                    ref={samplingFileInputRef}
+                                    style={{ display: "none" }}
+                                    onChange={uploadSamplingFile}
+                                />
+                                <button
+                                    type="button"
                                     className="rfq-clause-pill-btn rfq-clause-pill-btn--primary"
                                     onClick={handleAddSamplingClause}
-                                    disabled={loading || !samplingWeightage}
+                                    disabled={loading || !samplingWeightage || !samplingText.trim()}
                                 >
                                     {loading ? '…' : 'Add'}
                                 </button>
                                 <button
                                     type="button"
                                     className="rfq-clause-pill-btn"
-                                    onClick={() => { setShowSamplingForm(false); setSamplingWeightage(""); }}
+                                    onClick={resetSamplingForm}
                                 >
                                     Cancel
                                 </button>
@@ -586,6 +638,45 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                             </button>
                         )}
                     </div>
+
+                    {/* What sample is actually required. Sampling was already
+                        per-product, but it carried no product-specific content:
+                        clause_text was hardcoded to "Sampling", so a buyer
+                        could not say WHAT to send. Regular clauses on this same
+                        form have had text and attachments all along.
+                        Client feedback item 3. */}
+                    {showSamplingForm && !hasSamplingClause && (
+                        <div className="rfq-clause-form__field">
+                            <label className="rfq-clause-label">
+                                What sample is required <span className="rfq-required">*</span>
+                            </label>
+                            <Form.Control
+                                as="textarea"
+                                rows={2}
+                                placeholder="What sample the vendor must submit — quantity, packaging, where to send it"
+                                className="rfq-clause-input rfq-clause-input--textarea"
+                                value={samplingText}
+                                onChange={(e) => setSamplingText(e.target.value)}
+                                maxLength={CLAUSE_TEXT_MAX}
+                            />
+                            <div className="rfq-char-count" aria-live="polite">
+                                {samplingText.length} / {CLAUSE_TEXT_MAX}
+                            </div>
+                            {samplingFiles.length > 0 && (
+                                <div className="rfq-clause-attach-list">
+                                    <FileLink Files={samplingFiles} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* The persisted requirement, so the buyer can read back
+                        what they asked for rather than the word "Sampling". */}
+                    {hasSamplingClause && existingSamplingClause.clause_text && (
+                        <div className="rfq-sampling-card__text">
+                            <ClauseText text={existingSamplingClause.clause_text} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Add / Update clause form (accordion) */}

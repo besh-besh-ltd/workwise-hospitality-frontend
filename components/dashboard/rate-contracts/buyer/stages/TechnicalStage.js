@@ -476,6 +476,15 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     // Universal (ARC-wide) amends fold into the SAME decide call as amend.universal_marks.
     const universalAmendMarks = Object.entries(universalAmends).map(([response_id, v]) => ({ response_id: Number(response_id), ...v }));
     const hasAmends = amendMarks.length > 0 || universalAmendMarks.length > 0;
+    // Editing an evaluator's marks before approving overrides someone else's
+    // judgement, and the reason is what the edit-history row keeps. The server
+    // enforces this too (decideTechEval); mirrored here so the approver is told
+    // before the round trip, exactly as the reject rule above is.
+    if (decision === "approve" && hasAmends && !decideComment.trim()) {
+      setCommentError(true);
+      showToast("Add a reason for amending the marks");
+      return;
+    }
     setDecideBusy(true);
     try {
       await ArcApi.techEvalDecide(arc.id, {
