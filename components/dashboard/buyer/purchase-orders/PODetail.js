@@ -27,6 +27,7 @@ import {
   Send,
 } from "lucide-react";
 import ReadMore from "@/components/shared/ReadMore";
+import InfoTip from "@/components/shared/InfoTip";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -46,6 +47,7 @@ import styles, {
   fmtDateTime,
   fmtDateOnly,
   fmtMaybeDate,
+  escapeHtml,
   Sk,
 } from "./shared";
 
@@ -105,13 +107,6 @@ const titleCaseStatus = (s) => {
    sites and is a separate cleanup, so the escaping happens here, at the
    boundary we own. Anything vendor-supplied that reaches `description` must go
    through this. */
-const escapeHtml = (s) =>
-  String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 /* ── Audit-trail approver vocabulary ─────────────────────────────────────
    The DB only ever stores PENDING / APPROVED / REJECTED / REMOVED on an
@@ -487,6 +482,17 @@ const PODetail = ({ id }) => {
   // condition we have not actually established.
   const coversAllProducts = po?.covers_all_products !== false;
   const isForceInitiate = !coversAllProducts;
+
+  /* What the button is about to do, in the buyer's words.
+     Deliberately does NOT say "sends it to the vendor": the PO reaches the
+     vendor only when the approval policy auto-approves (purchaseOrderModel
+     `initiatePurchaseOrder`); otherwise it goes to the approvers first. The
+     freeze and the split are the parts the buyer cannot see from this page. */
+  const initiateHelp = isForceInitiate
+    ? `Sends this purchase order for approval even though it covers only ${
+        po?.po_product_count ?? "some"
+      } of ${po?.rfq_product_count ?? "the"} products on this RFQ. Initiating freezes it — any product finalized afterwards is raised as a separate purchase order. The PO document is generated now and the approvers are notified. This cannot be undone.`
+    : "Sends this purchase order for approval. It covers every product finalized on this RFQ. The PO document is generated now, and the approvers are notified — or, if no approval step applies, it goes to the vendor for acceptance.";
   const [initiateOpen, setInitiateOpen] = useState(false);
 
   const handleInitiatePO = async () => {
@@ -848,6 +854,16 @@ const PODetail = ({ id }) => {
                 <Send size={13} />
                 {initiating ? "Initiating…" : isForceInitiate ? "Force Initiate" : "Initiate"}
               </button>
+            )}
+            {po.status === "draft" && canWrite && (
+              <InfoTip
+                text={initiateHelp}
+                label={
+                  isForceInitiate
+                    ? "About force initiating this purchase order"
+                    : "About initiating this purchase order"
+                }
+              />
             )}
             {isPending && awaitingMe && canApprove && (
               <>
