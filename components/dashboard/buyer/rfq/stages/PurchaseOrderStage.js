@@ -19,7 +19,7 @@ import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hook
 import {
   effectiveApproverStatus,
   levelPill,
-  namePreview,
+  namePreview, outstandingForNaming,
   ruleLabel,
   tallyStep,
 } from "@/components/dashboard/buyer/approval/approverState";
@@ -365,7 +365,16 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
 
   // Only genuinely-outstanding people — a closed level has none, so a shut
   // level can never claim to be "waiting on" someone it already moved past.
-  const waitingOn = namePreview(t.outstanding.map((r) => r.ap?.user_name));
+  //
+  // And only people who can actually act. A deactivated approver keeps a
+  // PENDING row forever, so naming them here said we were waiting on somebody
+  // who cannot sign in — while the RFQ approval timeline, reading the same
+  // instance, already said "Cannot act".
+  const { names: liveNames, unreachableCount } = outstandingForNaming(t);
+  const waitingOn = namePreview(liveNames);
+  const cannotAct = unreachableCount
+    ? `${unreachableCount} cannot act — account deactivated`
+    : null;
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -393,6 +402,7 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
             {t.notReached.length > 0 ? ` · ${t.notReached.length} not reached` : ""}
             {t.removed.length > 0 ? ` · ${t.removed.length} removed` : ""}
             {!open && waitingOn ? ` · waiting on ${waitingOn}` : ""}
+            {!open && !waitingOn && cannotAct ? ` · ${cannotAct}` : ""}
           </span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>

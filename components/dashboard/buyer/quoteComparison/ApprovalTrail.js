@@ -41,7 +41,7 @@ import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/Stag
 import {
   approverStateLabel,
   levelPill,
-  namePreview,
+  namePreview, outstandingForNaming,
   ruleLabel,
   tallyStep,
 } from "@/components/dashboard/buyer/approval/approverState";
@@ -371,14 +371,27 @@ export function ApprovalTrail({ trail, idPrefix }) {
   // Who it is with right now: the outstanding roster of the live level — the
   // people who still owe it an action. Whether one of them is enough or all of
   // them are needed is the level's own rule, named on the level's header.
-  const nowWith = currentNode
-    ? namePreview(tallyStep(stepFromNode(currentNode)).outstanding.map((r) => r.ap?.name))
+  //
+  // Deactivated approvers are excluded and counted instead. Their row stays
+  // PENDING forever — the engine keeps it rather than deleting it — so naming
+  // them here told a buyer we were waiting on somebody who cannot sign in,
+  // while the RFQ timeline on the next screen said "Cannot act" about the same
+  // person.
+  const currentTally = currentNode ? tallyStep(stepFromNode(currentNode)) : null;
+  const { names: liveNames, unreachableCount } = currentTally
+    ? outstandingForNaming(currentTally)
+    : { names: [], unreachableCount: 0 };
+  const nowWith = namePreview(liveNames);
+  const cannotAct = unreachableCount
+    ? `${unreachableCount} cannot act — account deactivated`
     : null;
 
   const headline = currentNode
     ? nowWith
-      ? `Now with ${nowWith}`
-      : `Now at ${levelLabel(currentNode)}`
+      ? `Now with ${nowWith}${cannotAct ? ` · ${cannotAct}` : ""}`
+      : cannotAct
+        ? `Nobody can act at ${levelLabel(currentNode)} — ${unreachableCount === 1 ? "the approver's account is" : "their accounts are"} deactivated`
+        : `Now at ${levelLabel(currentNode)}`
     : rejectedNode
       ? `Rejected at ${levelLabel(rejectedNode)}`
       : completed

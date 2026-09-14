@@ -1,3 +1,4 @@
+import { isNoiseField } from "./auditPresentation";
 /**
  * How the trail is presented.
  *
@@ -130,13 +131,9 @@ export const groupByDay = (rows = []) => {
  * ones that actually moved tell the reader anything, and the bookkeeping
  * columns moved on every single edit without meaning a thing.
  */
-const NOISE_FIELDS = new Set([
-  "updated_at",
-  "updated_by",
-  "timestamp",
-  "modified_at",
-  "publish_attempts",
-]);
+// The list itself lives in auditPresentation, next to the labels, so one
+// module decides what a reader sees. It is also wider than this was:
+// created_at, created_by and version were still coming through.
 
 export const diffFields = (change) => {
   const before = change?.old_data || {};
@@ -144,7 +141,7 @@ export const diffFields = (change) => {
   const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
 
   return keys
-    .filter((key) => !NOISE_FIELDS.has(key))
+    .filter((key) => !isNoiseField(key))
     .map((key) => ({ field: key, from: before[key], to: after[key] }))
     .filter(({ from, to }) => JSON.stringify(from ?? null) !== JSON.stringify(to ?? null));
 };

@@ -14,6 +14,13 @@ import styles from "./Activity.module.css";
 const POLL_MS = 30000;
 const PAGE_SIZE = 50;
 
+// Mirrors the backend's facet window (activityModel: `occurred_at >= now() -
+// interval '30 days'`). If that ever moves, this moves with it — the point is
+// that the tile's number and the list it filters describe the same period.
+const FACET_WINDOW_DAYS = 30;
+const facetWindowStart = () =>
+  new Date(Date.now() - FACET_WINDOW_DAYS * 86400_000).toISOString().slice(0, 10);
+
 const FILTER_KEYS = [
   "q",
   "from",
@@ -185,7 +192,17 @@ const ActivityPage = () => {
       <ActivityRiskBar
         severities={facets.severities}
         active={filters.severity}
-        onSelect={(severity) => applyFilters({ ...filters, severity, page: 1 })}
+        onSelect={(severity) => {
+          // The tiles count the last 30 days; the feed has no date bound at
+          // all. Selecting a level used to filter an all-time list with a
+          // 30-day number sitting above it — click "Critical 12", get four
+          // hundred rows. Scope the feed to the same window so the number
+          // means what it says. An admin who has set their own dates keeps
+          // them; this only fills a gap, it never overrules a choice.
+          const next = { ...filters, severity, page: 1 };
+          if (severity && !filters.from && !filters.to) next.from = facetWindowStart();
+          applyFilters(next);
+        }}
       />
 
       <ActivityFilters
