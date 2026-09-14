@@ -106,12 +106,16 @@ describe("values", () => {
 
 describe("noise", () => {
   it("hides bookkeeping columns nobody asked about", () => {
-    ["updated_at", "created_at", "updated_by", "created_by", "timestamp", "version"]
+    // `id` included: the record id is already in the block header, and a delete
+    // renders it as "Id 1041 → Empty".
+    ["updated_at", "created_at", "updated_by", "created_by", "timestamp", "version", "id"]
       .forEach((f) => expect(isNoiseField(f)).toBe(true));
   });
 
   it("keeps anything that describes the change itself", () => {
-    ["status", "comment", "bid_end_date", "is_head_office", "hotel_id"]
+    // Note `user_id` and `hotel_id` stay — a foreign key says which thing was
+    // involved, unlike the row's own primary key.
+    ["status", "comment", "bid_end_date", "is_head_office", "hotel_id", "user_id"]
       .forEach((f) => expect(isNoiseField(f)).toBe(false));
   });
 });

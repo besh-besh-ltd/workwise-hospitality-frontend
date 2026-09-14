@@ -28,6 +28,9 @@ const NOISE_FIELDS = new Set([
   "timestamp",
   "modified_at",
   "version",
+  // The record's own id is already in the block header ("User #445"), and on a
+  // delete it renders as "Id 1041 → Empty", which says nothing.
+  "id",
   "publish_attempts",
   "last_publish_attempt_at",
 ]);
