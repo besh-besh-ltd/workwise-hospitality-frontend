@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import { handleFileUpload } from "@/utils/sharedFunctions";
 import { getUnits, addCustomUnit } from "@/services/units";
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -347,7 +348,7 @@ export default function CreateRateContractPage() {
               text: cl.clause_text || "",
               weight: Number(cl.weightage) || 0,
               type: cl.clause_type || "spec",
-              file: "",
+              files: (cl.reference_files || []).map((f) => f.file_url),
               mandatory: !!cl.is_mandatory,
             }));
           } else {
@@ -680,10 +681,47 @@ export default function CreateRateContractPage() {
   function toggleVendor(id) {
     setInvitedVendorIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   }
+  // The buyer's reference document for a clause — the drawing or datasheet the
+  // vendor is being asked to comply with. The storage tables have existed
+  // since the ARC core migration; until now the wizard rendered a dead
+  // "Attach reference document" span with no handler, so nothing ever wrote to
+  // them. The RFQ side has had this working all along (AddClause.js).
+  const [clauseUploading, setClauseUploading] = useState(null);
+
+  async function attachClauseFile(iid, idx, e) {
+    const key = `${iid}:${idx}`;
+    setClauseUploading(key);
+    try {
+      const url = await handleFileUpload(e, undefined, { allowAllTypes: true });
+      if (url) {
+        setClausesByItem((m) => {
+          const list = [...(m[iid] || [])];
+          const cur = list[idx];
+          if (!cur) return m;
+          list[idx] = { ...cur, files: [...(cur.files || []), url] };
+          return { ...m, [iid]: list };
+        });
+      }
+    } finally {
+      setClauseUploading(null);
+      if (e?.target) e.target.value = "";
+    }
+  }
+
+  function removeClauseFile(iid, idx, url) {
+    setClausesByItem((m) => {
+      const list = [...(m[iid] || [])];
+      const cur = list[idx];
+      if (!cur) return m;
+      list[idx] = { ...cur, files: (cur.files || []).filter((u) => u !== url) };
+      return { ...m, [iid]: list };
+    });
+  }
+
   function addClause(iid) {
     setClausesByItem((cl) => ({
       ...cl,
-      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", file: "", mandatory: false }],
+      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", files: [], mandatory: false }],
     }));
   }
   function removeClause(iid, idx) {
@@ -786,6 +824,9 @@ export default function CreateRateContractPage() {
           weightage: Number(c.weight) || 0,
           clause_type: c.type || null,
           is_mandatory: !!c.mandatory,
+          // Re-sent on every save: the server clears and re-inserts the whole
+          // clause set, and the files table cascades from the clause.
+          file_urls: c.files || [],
         })),
       });
     }
@@ -1457,7 +1498,31 @@ export default function CreateRateContractPage() {
                                   />
                                   Mandatory (pass/fail gate)
                                 </label>
-                                <span className="tcr-attach"><PaperclipIcon /> Attach reference document</span>
+                                <label className="tcr-attach" style={{ cursor: "pointer" }}>
+                                  <PaperclipIcon />{" "}
+                                  {clauseUploading === `${iid}:${idx}` ? "Uploading…" : "Attach reference document"}
+                                  <input
+                                    type="file"
+                                    data-clause-file={`${iid}:${idx}`}
+                                    style={{ display: "none" }}
+                                    onChange={(e) => attachClauseFile(iid, idx, e)}
+                                  />
+                                </label>
+                                {(cl.files || []).map((u) => (
+                                  <span key={u} className="clause-type-mini" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <a href={u} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
+                                      {u.split("/").pop().slice(0, 28)}
+                                    </a>
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove ${u.split("/").pop()}`}
+                                      onClick={() => removeClauseFile(iid, idx, u)}
+                                      style={{ border: 0, background: "transparent", color: "var(--danger, #b91c1c)", cursor: "pointer", fontWeight: 700, lineHeight: 1 }}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
                                 <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--fg-4)" }}>Vendors must respond &amp; upload evidence</span>
                               </div>
                             </div>

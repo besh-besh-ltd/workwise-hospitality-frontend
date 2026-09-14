@@ -44,6 +44,29 @@ const fmtDate = (iso) => {
 };
 const clauseWeight = (cl) => Number(cl.weightage ?? cl.weight ?? 0);
 
+// The reference documents the buyer attached when writing this clause. Shown
+// to the evaluator because scoring "conforms to the attached drawing" without
+// the drawing on screen is guesswork. Proxied, never a raw S3 url.
+function ClauseRefs({ files = [] }) {
+  if (!files.length) return null;
+  return (
+    <span className="c-meta" style={{ gap: 6 }}>
+      {files.map((f) => (
+        <a
+          key={f.id}
+          className="c-type"
+          href={`/api/v1/arc-v2/evaluation/tech-eval/clause-file/${f.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={f.file_url}
+        >
+          Reference doc
+        </a>
+      ))}
+    </span>
+  );
+}
+
 export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const techPerms = permissions["arc-tech"] || [];
   const isAdmin = (permissions["arc"] || []).includes("admin");
@@ -771,6 +794,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                             <div className="clause-cell">
                               <span className="c-num">{idx + 1}</span>
                               <span className="c-text">{cl.clause_text || cl.text}</span>
+                              <ClauseRefs files={cl.reference_files} />
                               <div className="c-meta">
                                 <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
                                 <span className="c-type">{cl.clause_type || cl.type || "text"}</span>
@@ -1001,6 +1025,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                         <div className="clause-cell">
                           <span className="c-num">{idx + 1}</span>
                           <span className="c-text">{cl.clause_text || cl.text}</span>
+                          <ClauseRefs files={cl.reference_files} />
                           <div className="c-meta">
                             <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
                             <span className="c-type">{cl.clause_type || cl.type || "text"}</span>

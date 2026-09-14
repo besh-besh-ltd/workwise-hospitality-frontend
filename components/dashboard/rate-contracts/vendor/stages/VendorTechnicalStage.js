@@ -8,6 +8,32 @@ const safeNum = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// The BUYER's reference documents for a clause — the drawing, datasheet or
+// standard the vendor is being asked to comply with. Read-only and visually
+// separate from the vendor's own evidence chips: they are not the vendor's
+// files and must never carry a delete control.
+function ClauseReferenceDocs({ files = [] }) {
+  if (!files.length) return null;
+  return (
+    <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 6 }}>
+      <span style={{ fontSize: 11, color: "var(--fg-3)" }}>Buyer&rsquo;s reference:</span>
+      {files.map((f) => (
+        <a
+          key={f.file_id}
+          className="file-chip-mini"
+          href={f.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 11, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={f.url}
+        >
+          {(f.url?.split("/").pop() || "document").slice(0, 40)}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default function VendorTechnicalStage({
   items,
   techItems,
@@ -120,6 +146,7 @@ export default function VendorTechnicalStage({
                           {c.clause_type && <span className="pill">{c.clause_type}</span>}
                           {c.is_mandatory && <span className="pill warn">Mandatory</span>}
                         </div>
+                        <ClauseReferenceDocs files={c.reference_files} />
                         {!techSealed ? (
                           <div className="clause-actions" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
                             <textarea
@@ -312,6 +339,7 @@ export default function VendorTechnicalStage({
                               {c.clause_type && <span className="pill">{c.clause_type}</span>}
                               {c.is_mandatory && <span className="pill warn">Mandatory</span>}
                             </div>
+                            <ClauseReferenceDocs files={c.reference_files} />
                             {!techSealed ? (
                               <div className="clause-actions" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
                                 <textarea
