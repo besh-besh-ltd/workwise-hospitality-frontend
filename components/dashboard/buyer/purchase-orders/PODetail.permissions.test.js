@@ -534,3 +534,60 @@ describe("initiating a PO that was already initiated", () => {
     expect(toast.info).not.toHaveBeenCalled();
   });
 });
+
+// ── A rejected PO that came back to you ─────────────────────────────────────
+//
+// The reject dialog has always promised "will be rejected and returned to the
+// initiator". Nothing acted on it: production carries 46 rejected PO approvals
+// and exactly ONE PO that was ever resubmitted. handleUpdatePO authorises only
+// `initiated_by` to edit, so the note appears for exactly the person who can do
+// something about it. Client feedback item 7.
+
+const VIEWER = 407; // the id the redux mock above reports
+
+describe("the note on a rejected PO", () => {
+  beforeEach(() => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+    state.mappings = [{ hospitality_hotel_id: PO_HOTEL }];
+  });
+
+  const rejected = (over = {}) => ({
+    status: "rejected",
+    status_label: "Rejected",
+    initiated_by: VIEWER,
+    workflow: [
+      { status: "rejected", title: "Commercial approval", by: "A. Approver", reason: "Freight is double the quote" },
+    ],
+    ...over,
+  });
+
+  it("tells the originator it is theirs to amend", async () => {
+    await mount(rejected());
+    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+  });
+
+  it("carries the rejecter's reason", async () => {
+    await mount(rejected());
+    // The reason also appears in the audit trail below, correctly — scope to
+    // the note so this asserts the note and not the trail.
+    const note = screen.getByText(/sent back to you/i).closest("span").parentElement;
+    expect(note).toHaveTextContent(/Freight is double the quote/);
+  });
+
+  it("says nothing to someone who is not the originator", async () => {
+    // They cannot edit it, so "amend it and raise it again" would be a lie.
+    await mount(rejected({ initiated_by: 999 }));
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+  });
+
+  it("does not appear on a PO that was not rejected", async () => {
+    await mount({ status: "approved", status_label: "Approved", initiated_by: VIEWER, workflow: [] });
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+  });
+
+  it("survives a rejection recorded without a reason", async () => {
+    await mount(rejected({ workflow: [{ status: "rejected", title: "Commercial approval" }] }));
+    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Reason:/i)).not.toBeInTheDocument();
+  });
+});

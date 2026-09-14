@@ -76,3 +76,44 @@
   background: linear-gradient(135deg, $page-bg, $card); font-family: $font;
 }
 .previewBody { padding: 14px 16px; }
+
+
+/* Bulk "add several levels" affordance. Sits under the one-at-a-time button
+   rather than replacing it — adding a single level must not get slower. */
+.bulkAdd {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed #d4d4d8;
+  border-radius: 10px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bulkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bulkPill {
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  color: #52525b;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12px;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+}
+.bulkPillActive {
+  border-color: #2e5ba8;
+  background: rgba(46, 91, 168, 0.08);
+  color: #2e5ba8;
+  font-weight: 600;
+}
+.bulkHint {
+  font-size: 11px;
+  color: #71717a;
+  font-family: 'Poppins', sans-serif;
+}

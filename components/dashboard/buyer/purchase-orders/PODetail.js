@@ -480,6 +480,11 @@ const PODetail = ({ id }) => {
   // Defaults to complete when the flag is absent (call-off POs, or an older
   // payload): the safe default is the plain confirmation, not a warning about a
   // condition we have not actually established.
+  // The rejecter's own words, already carried on the rejected workflow node
+  // (poDashboardModel surfaces the approval comment as the node's reason).
+  const rejectionReason =
+    (po?.workflow || []).find((n) => n.status === "rejected" && n.reason)?.reason || null;
+
   const coversAllProducts = po?.covers_all_products !== false;
   const isForceInitiate = !coversAllProducts;
 
@@ -806,6 +811,24 @@ const PODetail = ({ id }) => {
                 viewer, so it would answer a question this reader does not
                 have. What the action will actually do is on the control's
                 own InfoTip. */}
+            {/* A rejected PO that came back to YOU. The reject dialog has
+                always promised "returned to the initiator" and nothing acted on
+                it: production carries 46 rejected PO approvals and exactly one
+                PO that was ever resubmitted. handleUpdatePO authorises only
+                `initiated_by` to edit, so this note appears for exactly the
+                person who can do something about it. Client feedback item 7. */}
+            {po.status === "rejected" && po.initiated_by === userProfile?.id && (
+              <div className={styles.heroPendingNote}>
+                <span className={styles.clockIc}>
+                  <AlertCircle size={14} />
+                </span>
+                <span>
+                  This purchase order was rejected and{" "}
+                  <strong>sent back to you</strong> — amend it and raise it again.
+                  {rejectionReason ? ` Reason: “${rejectionReason}”` : ""}
+                </span>
+              </div>
+            )}
             {po.status === "draft" && canWrite && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
