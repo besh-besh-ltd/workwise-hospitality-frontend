@@ -130,11 +130,19 @@ export const getAllActiveNegotiationRounds = (rfq_id, token = null) => {
 /**
  * Approve a negotiation round
  */
-export const approveNegotiationRound = (round_id, remarks = null, department_id = null) => {
+/**
+ * Approve a negotiation round.
+ *
+ * `lines` is optional per-line verdicts — omit it (as every caller did before
+ * client feedback item 8) and the whole round is approved. A line sent as
+ * REJECTED is withheld from the vendor while the rest of the round goes live.
+ */
+export const approveNegotiationRound = (round_id, remarks = null, department_id = null, lines = null) => {
   return new Promise(async (resolve, reject) => {
     try {
       const payload = { remarks };
       if (department_id) payload.department_id = department_id;
+      if (Array.isArray(lines) && lines.length > 0) payload.lines = lines;
       // axiosInstance interceptor already returns response.data, so response is { status: 1, data: {...}, message: "..." }
       const response = await axiosInstance.post(`/negotiation/rounds/${round_id}/approve`, payload);
       resolve(response); // Return the full response object
