@@ -11,7 +11,11 @@
 //
 //   2. "it opens the wrong page" — resuming always landed on step 1 (Stage) and
 //      made the user click through everything they had already filled. It now
-//      opens the first step that still needs input.
+//      opens where they left off: the first step with a group they have not
+//      filled, required or optional. The distinction matters here — the client
+//      stopped at Vendors, which is OPTIONAL at the Draft stage, so a rule that
+//      only looked at required groups would skip straight past it to Line items
+//      and read as "still wrong".
 //
 // Product-level: drive the REAL page and assert what it sends / what it shows.
 
@@ -119,16 +123,60 @@ const sectionCalls = (name) =>
   ArcApi.saveManualSection.mock.calls.filter((c) => c[1] === name);
 
 describe("Manual ARC Entry — resuming a saved draft", () => {
-  test("opens the first step that still needs input, not step 1", async () => {
+  // Which step is open = which group panel is rendered.
+  const openStep = async () => {
     render(<ManualArcEntryPage />);
-    // Header/scope/provenance are filled, so Details is done; the Draft stage
-    // needs at least one line item, so that is where the user belongs.
-    expect(await screen.findByText("Resume Manual ARC Entry")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByText("Rate schedule / line items")).toBeInTheDocument()
-    );
-    // The Stage step's own content is not what we opened on.
+    await screen.findByText("Resume Manual ARC Entry");
+    const titles = [
+      ["Vendors", "Parties / vendor selection"],
+      ["Line items", "Rate schedule / line items"],
+      ["Details", "Contract header / meta"],
+    ];
+    for (let i = 0; i < 40; i++) {
+      for (const [label, panel] of titles) {
+        if (screen.queryByText(panel)) return label;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return "(none)";
+  };
+
+  test("opens the step the user stopped at — Vendors — not step 1 and not past it", async () => {
+    // Header/scope/provenance filled; vendors and line items both empty. Vendors
+    // comes first in the flow, so that is where they belong — even though the
+    // Draft stage marks group D optional.
+    expect(await openStep()).toBe("Vendors");
+    // Neither the Stage step we used to dump them on…
     expect(screen.queryByText(/Your choice tailors the rest of the steps/)).toBeNull();
+    // …nor the Item search screen they complained about.
+    expect(screen.queryByText("Rate schedule / line items")).toBeNull();
+  });
+
+  test("a step already filled is not offered again — vendors picked → Line items", async () => {
+    ArcApi.getManualDraft.mockResolvedValue({
+      data: draft({ invitations: [{ vendor_id: VENDOR.id }] }),
+    });
+    expect(await openStep()).toBe("Line items");
+  });
+
+  test("a draft with nothing left to fill opens Review", async () => {
+    ArcApi.getManualDraft.mockResolvedValue({
+      data: draft({
+        invitations: [{ vendor_id: VENDOR.id }],
+        items: [{
+          id: 9001, product_variant_id: 4242, variant_name: "ACRYLIC DOME",
+          indicative_qty: 100, uom: "NOS", spec_text: "spec", target_price: 10,
+        }],
+        arc: {
+          ...draft().arc,
+          payment_terms_expected: "Net 30",
+          delivery_expected: "Within 2 days",
+        },
+      }),
+    });
+    render(<ManualArcEntryPage />);
+    await screen.findByText("Resume Manual ARC Entry");
+    await waitFor(() => expect(screen.getByText(/Check everything, then finalise/)).toBeInTheDocument());
   });
 
   test("a new entry is not mislabelled as a resume", async () => {

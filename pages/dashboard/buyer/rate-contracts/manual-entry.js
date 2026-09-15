@@ -553,8 +553,14 @@ export default function ManualArcEntryPage() {
   const visibleGroups = GROUPS.filter((g) => rules[g.id] !== "H");
 
   // ── Completeness per group (drives the rail dots + summary) ──
-  function groupComplete(gid) {
-    const req = rules[gid] === "R";
+  // `forceRequired` asks a different question: not "is this group complete
+  // enough to finalise" but "has the user put anything in it at all". An
+  // optional group they have not filled short-circuits to true for the rail's
+  // Required/Optional badge (correct), which is no use to the resume landing —
+  // so the landing derives its own map from this same function rather than a
+  // second copy of the rules that could drift.
+  function groupComplete(gid, forceRequired = false) {
+    const req = forceRequired || rules[gid] === "R";
     switch (gid) {
       case "A": return !!title && !!type && (stage === "draft" || !!eligibilityType);
       case "B": return !!hotelId && !!categoryId && !!departmentId;
@@ -567,12 +573,12 @@ export default function ManualArcEntryPage() {
       case "D": return req ? selectedVendorIds.length > 0 : true;
       case "E": return items.length > 0 && items.every((it) => it.product_variant_id && num(it.indicative_qty) > 0 && !!it.uom);
       case "F": {
-        if (rules.F !== "R") return true;
+        if (!req) return true;
         return selectedVendorIds.length > 0 && items.some((it) =>
           selectedVendorIds.some((vid) => num(quoteLines[vid]?.[it.uid]?.rate) > 0));
       }
       case "G": {
-        if (rules.G !== "R") return true;
+        if (!req) return true;
         return items.every((it) => {
           const alloc = (awards[it.uid] || []).reduce((s, a) => s + num(a.allocated_qty), 0);
           return (awards[it.uid] || []).length > 0 && alloc === num(it.indicative_qty);
@@ -581,12 +587,12 @@ export default function ManualArcEntryPage() {
       case "H": return req ? (!!paymentTermsExpected && !!deliveryExpected) : true;
       case "J": {
         if (rules.J === "A") return true;       // auto-generated (S3)
-        if (rules.J !== "R") return true;
+        if (!req) return true;
         return selectedVendors.every((v) => contractDocs[v.id]?.document_s3_url && contractDocs[v.id]?.generated_at);
       }
       case "K": {
         if (rules.K === "A") return true;
-        if (rules.K !== "R") return true;
+        if (!req) return true;
         return selectedVendors.every((v) => contractDocs[v.id]?.signed_by_vendor_at);
       }
       case "L": return req ? (!!committeeDecision && !!committeeDecidedAt && !!committeeDecidedBy) : true;
@@ -607,6 +613,19 @@ export default function ManualArcEntryPage() {
   const allRequiredComplete = visibleGroups
     .filter((g) => rules[g.id] === "R")
     .every((g) => completeness[g.id]);
+
+  // Same function, every group treated as required — "has this been filled",
+  // independent of whether the chosen stage demands it. Only the resume landing
+  // reads this; the rail keeps using `completeness`.
+  const filledness = useMemo(() => {
+    const o = {};
+    for (const g of visibleGroups) o[g.id] = groupComplete(g.id, true);
+    return o;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleGroups, title, type, eligibilityType, hotelId, categoryId, departmentId, createdAt, floatedAt,
+      submissionStart, submissionEnd, contractStart, contractEnd, selectedVendorIds, items, quoteLines,
+      awards, finalizedAt, paymentTermsExpected, deliveryExpected, contractDocs, committeeDecision,
+      committeeDecidedAt, committeeDecidedBy, stage, isAwarded]);
 
   // ── Wizard steps (filtered by the chosen target stage) ──
   const steps = useMemo(
@@ -646,19 +665,23 @@ export default function ManualArcEntryPage() {
   const goBack = () => gotoStep(clampedIdx - 1);
 
   // Resuming a draft used to drop the user back on step 1 (Stage) and make them
-  // click through everything they had already filled. Open the first step that
-  // still needs input instead — by the page's OWN definition of that
-  // (stepStatus 'todo' = a required group for the chosen stage is incomplete) —
-  // and Review when there is nothing left. Runs once per hydration, after the
-  // loaded values have flowed into `completeness`/`steps`; every step stays
-  // clickable, so this only picks the starting point.
+  // click through everything they had already filled. Open where they left off
+  // in the flow instead: the first step with a group they have not filled —
+  // whether the chosen stage calls that group required or optional. An optional
+  // step you have not touched is still a step you have not done, and skipping
+  // past it is what makes a resume feel like it landed in the wrong place (the
+  // client's report was exactly this: they stopped at Vendors, which is
+  // optional at the Draft stage, and expected to come back to it). Everything
+  // filled → Review. Runs once per hydration, after the loaded values have
+  // reached `filledness`/`steps`; every step stays clickable regardless, so
+  // this only picks the starting point.
   useEffect(() => {
     if (resuming || !justResumedRef.current) return;
     justResumedRef.current = false;
-    const idx = steps.findIndex((st) => stepStatus(st) === "todo");
+    const idx = steps.findIndex((st) => st.groups.some((g) => rules[g] !== "H" && !filledness[g]));
     gotoStep(idx >= 0 ? idx : steps.length - 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resuming, steps, completeness]);
+  }, [resuming, steps, filledness]);
 
   // Group D is a click-only step: there is no blur to hang an autosave on, and
   // saveDraft never sent the section either, so the vendor panel lived in local
