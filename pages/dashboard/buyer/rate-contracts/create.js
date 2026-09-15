@@ -274,6 +274,10 @@ export default function CreateRateContractPage() {
     const c = Number(router.query.c);
     if (!c) return;
     let cancelled = false;
+    // Set when we hand the draft off to another page — keeps the "Loading saved
+    // draft…" overlay up through the route change instead of flashing an empty
+    // step 1 on the way out.
+    let handedOff = false;
     (async () => {
       setResuming(true);
       setError(null);
@@ -283,6 +287,19 @@ export default function CreateRateContractPage() {
         const items = res?.data?.items || [];
         const invitations = res?.data?.invitations || [];
         if (!arc || cancelled) return;
+        // A Manual ARC belongs to the manual workspace, which has its own steps
+        // and its own persistence. This wizard cannot represent one: the
+        // backdated date chain lives on the manual-entry row, not on the ARC's
+        // date columns, so deriveResumeStep below would land the user on Items
+        // with nothing to continue past — and a save here would reconcile the
+        // manually entered rate schedule away. Bounce, don't hydrate. (The
+        // backend refuses the writes too; this is what keeps a stale link or a
+        // bookmark from LOOKING like it worked.)
+        if (arc.is_manual) {
+          handedOff = true;
+          router.replace(`/dashboard/buyer/rate-contracts/manual-entry?d=${arc.id}`);
+          return;
+        }
         // Remember the existing ARC so submit() resumes it (no duplicate draft).
         draftArcRef.current = arc.id;
 
@@ -389,7 +406,7 @@ export default function CreateRateContractPage() {
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || e?.message || "Could not load draft");
       } finally {
-        if (!cancelled) setResuming(false);
+        if (!cancelled && !handedOff) setResuming(false);
       }
     })();
     return () => { cancelled = true; };
