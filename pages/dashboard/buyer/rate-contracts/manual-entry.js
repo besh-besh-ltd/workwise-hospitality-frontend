@@ -186,8 +186,10 @@ export default function ManualArcEntryPage() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [stepIdx, setStepIdx] = useState(0);   // current wizard step
-  // Last vendor panel we know the server holds (see vendorsKey).
-  const vendorsSavedRef = useRef(null);
+  // Last vendor panel we know the server holds (see vendorsKey). Seeded to the
+  // empty panel so a fresh entry does not fire a pointless "replace with
+  // nothing" write the moment ensureDraft() mints the ARC row.
+  const vendorsSavedRef = useRef(vendorsKey([], false));
   // The draft id this page has already taken ownership of — either because we
   // hydrated it from ?d=, or because we just created it. ensureDraft() rewrites
   // the URL to ?d=<new id>, which re-triggers the resume effect below; without
