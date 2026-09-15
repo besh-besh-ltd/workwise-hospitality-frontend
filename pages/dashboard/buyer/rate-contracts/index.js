@@ -131,6 +131,15 @@ function categoryColorFor(name) {
 }
 
 function detailHref(row, bucket) {
+  // A Manual ARC is an ordinary draft row with a companion manual-entry record.
+  // It belongs to the manual workspace (?d=), never the create wizard (?c=):
+  // the two wizards do not line up step-for-step (manual step 3 is Vendors,
+  // the create wizard's is Item search), and the create wizard's save/publish
+  // would reconcile the manually entered rate schedule away. Only while it is
+  // still a draft — a finalised manual ARC reads on the lifecycle page like
+  // any other contract.
+  if (row.is_manual && row.status === "draft")
+    return `/dashboard/buyer/rate-contracts/manual-entry?d=${row.id}`;
   if (bucket === "draft")     return `/dashboard/buyer/rate-contracts/create?c=${row.id}`;
   if (bucket === "floated")   return `/dashboard/buyer/rate-contracts/${row.id}`;
   if (bucket === "eval") {

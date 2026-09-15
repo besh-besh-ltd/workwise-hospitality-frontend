@@ -159,6 +159,12 @@ function avClassFor(id) {
   return palette[Math.abs(Number(id) || 0) % palette.length];
 }
 
+// Group D's identity as one comparable string, so the autosave below can tell
+// "the user changed the vendor panel" from "we just hydrated the panel the
+// server already has" and skip the redundant write.
+const vendorsKey = (ids, override) =>
+  `${[...(ids || [])].map(Number).sort((a, b) => a - b).join(",")}|${override ? 1 : 0}`;
+
 // ──────────────────────────────────────────────────────────────────────────
 //  Page
 // ──────────────────────────────────────────────────────────────────────────
@@ -180,6 +186,21 @@ export default function ManualArcEntryPage() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [stepIdx, setStepIdx] = useState(0);   // current wizard step
+  // Last vendor panel we know the server holds (see vendorsKey).
+  const vendorsSavedRef = useRef(null);
+  // The draft id this page has already taken ownership of — either because we
+  // hydrated it from ?d=, or because we just created it. ensureDraft() rewrites
+  // the URL to ?d=<new id>, which re-triggers the resume effect below; without
+  // this the page would re-hydrate a draft it is already editing and overwrite
+  // whatever has not been autosaved yet.
+  const ownedDraftIdRef = useRef(null);
+  // True only when we actually loaded a draft from a link — NOT when
+  // ensureDraft() minted one mid-entry. Drives the "resuming" header.
+  const [resumedDraft, setResumedDraft] = useState(false);
+  // Set the moment a resumed draft finishes hydrating, so the landing effect
+  // below can pick a step ONCE, after the hydrated values have reached
+  // `completeness` / `steps`.
+  const justResumedRef = useRef(false);
 
   // reference data
   const [categories, setCategories] = useState([]);
@@ -341,6 +362,10 @@ export default function ManualArcEntryPage() {
     if (!router.isReady) return;
     const d = Number(router.query.d);
     if (!d) return;
+    // Already ours (we created it, or we have hydrated it) — re-running here
+    // would clobber unsaved edits with the server's older copy.
+    if (ownedDraftIdRef.current === d) return;
+    ownedDraftIdRef.current = d;
     let cancelled = false;
     (async () => {
       setResuming(true); setError(null);
@@ -406,7 +431,11 @@ export default function ManualArcEntryPage() {
         setItems(its);
         itemIdByUidRef.current = idMap;
         // D
-        setSelectedVendorIds((body.invitations || []).map((i) => i.vendor_id));
+        const hydratedVendorIds = (body.invitations || []).map((i) => i.vendor_id);
+        setSelectedVendorIds(hydratedVendorIds);
+        // This IS what the server holds — don't let the autosave below write it
+        // straight back on load.
+        vendorsSavedRef.current = vendorsKey(hydratedVendorIds, !!me.eligibility_overridden);
         // F — quotes → quoteLines (keyed vendor_id + item uid) + quoteMeta.
         const qLines = {};
         const qMeta = {};
@@ -473,6 +502,8 @@ export default function ManualArcEntryPage() {
         setCommitteeDecidedAt(isoDateTime(me.committee_decided_at));
         setCommitteeDecidedBy(me.committee_decided_by != null ? String(me.committee_decided_by) : "");
         setCommitteeComment(me.committee_comment || "");
+        justResumedRef.current = true;
+        setResumedDraft(true);
         showToast("Draft loaded");
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || e?.message || "Could not load draft");
@@ -612,6 +643,40 @@ export default function ManualArcEntryPage() {
   const goNext = () => gotoStep(clampedIdx + 1);
   const goBack = () => gotoStep(clampedIdx - 1);
 
+  // Resuming a draft used to drop the user back on step 1 (Stage) and make them
+  // click through everything they had already filled. Open the first step that
+  // still needs input instead — by the page's OWN definition of that
+  // (stepStatus 'todo' = a required group for the chosen stage is incomplete) —
+  // and Review when there is nothing left. Runs once per hydration, after the
+  // loaded values have flowed into `completeness`/`steps`; every step stays
+  // clickable, so this only picks the starting point.
+  useEffect(() => {
+    if (resuming || !justResumedRef.current) return;
+    justResumedRef.current = false;
+    const idx = steps.findIndex((st) => stepStatus(st) === "todo");
+    gotoStep(idx >= 0 ? idx : steps.length - 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resuming, steps, completeness]);
+
+  // Group D is a click-only step: there is no blur to hang an autosave on, and
+  // saveDraft never sent the section either, so the vendor panel lived in local
+  // state until finalize and was silently lost on save → exit → resume. That is
+  // the "my vendors are gone" half of the client's report. Debounced so working
+  // down a list is one write, skipped until the draft row exists (picking a
+  // vendor should not mint an ARC), and skipped when the panel already matches
+  // what the server holds.
+  useEffect(() => {
+    if (resuming || !arcId) return;
+    const key = vendorsKey(selectedVendorIds, overrideEligibility);
+    if (vendorsSavedRef.current === key) return;
+    const t = setTimeout(async () => {
+      const saved = await autosaveSection("vendors");
+      if (saved) vendorsSavedRef.current = key;
+    }, 600);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVendorIds, overrideEligibility, arcId, resuming]);
+
   // ── Stage selection (warn on downgrade that hides filled groups) ──
   function pickStage(next) {
     if (next === stage) return;
@@ -643,6 +708,8 @@ export default function ManualArcEntryPage() {
     const id = body.arc?.id || body.id;
     if (!id) throw new Error("Could not create draft");
     setArcId(id);
+    // Claim it BEFORE the URL rewrite below, which re-runs the resume effect.
+    ownedDraftIdRef.current = id;
     // reflect resume URL without a full nav
     router.replace({ pathname: router.pathname, query: { d: id } }, undefined, { shallow: true });
     return id;
@@ -693,15 +760,17 @@ export default function ManualArcEntryPage() {
   // Section autosave on blur — PUT a single section. FE-01: builds the payload
   // from FRESH state via buildSectionPayload (the same code the test covers), so
   // the "Saved" chip reflects a confirmed save of CURRENT data, not a stale one.
+  // Returns true only when the section actually reached the server, so a caller
+  // can record what the server now holds (see the group-D autosave).
   const autosaveSection = useCallback(async (section) => {
-    if (busy || resuming) return;
+    if (busy || resuming) return false;
     const st = collectState();
     // Until the draft row exists the server needs the minimum create fields
     // (title + hotel + category + department, all NOT NULL on tbl_arc). Don't
     // fire autosave — or surface the server's "…required" error — on blur
     // before those exist. The data stays in local state and is persisted on
     // Save draft / Finalize, or by the first autosave once prerequisites are met.
-    if (!arcId && !(st.title && st.hotelId && st.categoryId && st.departmentId)) return;
+    if (!arcId && !(st.title && st.hotelId && st.categoryId && st.departmentId)) return false;
     try {
       const id = await ensureDraft();
       setSaveState("saving");
@@ -718,11 +787,13 @@ export default function ManualArcEntryPage() {
       // After items save, learn the server ids so quotes/awards can key off them.
       if (section === "items") await refreshItemIds(id);
       setSaveState("saved");
+      return true;
     } catch (e) {
       // Autosave is best-effort: reflect failure on the status chip only (no
       // disruptive blur-time toast). Real validation is surfaced when the user
       // explicitly clicks Save draft or Finalize.
       setSaveState("error");
+      return false;
     }
   }, [busy, resuming, arcId, ensureDraft, items, collectState, refreshItemIds]);
 
@@ -731,10 +802,16 @@ export default function ManualArcEntryPage() {
     setBusy(true); setError(null); setSaveState("saving");
     try {
       const id = await ensureDraft();
+      const st = collectState();
       // Persist items first so the bulk patch carries resolvable arc_item_ids.
-      await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", collectState()));
+      await ArcApi.saveManualSection(id, "items", buildSectionPayload("items", st));
       await refreshItemIds(id);
-      await ArcApi.patchManualDraft(id, buildDraftPayload(collectState(), itemIdByUidRef.current));
+      // Group D has no column on the draft ARC and no blur to autosave on, so
+      // without this an explicit "Save draft" dropped the vendor panel on the
+      // floor and resume came back empty. finalize() has always sent it.
+      await ArcApi.saveManualSection(id, "vendors", buildSectionPayload("vendors", st));
+      vendorsSavedRef.current = vendorsKey(st.selectedVendorIds, st.overrideEligibility);
+      await ArcApi.patchManualDraft(id, buildDraftPayload(st, itemIdByUidRef.current));
       setSaveState("saved");
       showToast("Draft saved");
     } catch (e) {
@@ -881,8 +958,15 @@ export default function ManualArcEntryPage() {
       {/* ── Header (full width — shares the grid's left edge) ── */}
       <header className="me-head">
         <div className="me-head-text">
-          <h1 className="page-h1">Manual ARC Entry</h1>
-          <p className="page-sub">Reconstruct a historical or in-flight rate contract — one step at a time.</p>
+          {/* Resuming a saved draft looks identical to starting a new one
+              otherwise — say so, and say where we put them. */}
+          {resumedDraft && <span className="page-eyebrow info">Draft · resuming</span>}
+          <h1 className="page-h1">{resumedDraft ? "Resume Manual ARC Entry" : "Manual ARC Entry"}</h1>
+          <p className="page-sub">
+            {resumedDraft
+              ? "Picking up at the first step that still needs input — every step stays open above."
+              : "Reconstruct a historical or in-flight rate contract — one step at a time."}
+          </p>
         </div>
         <SaveChip state={saveState} />
       </header>

@@ -91,13 +91,17 @@ export default function ArcLifecyclePage() {
     return () => { cancelled = true; };
   }, [contractId, load]);
 
-  // Drafts live in the create wizard, not here.
+  // Drafts live in a wizard, not here — and WHICH wizard depends on where the
+  // draft came from. A Manual ARC (back-office entry) has its own workspace with
+  // its own steps; sending it to the create wizard drops the user on Item search
+  // and lets a save reconcile the manually entered rate schedule away.
   useEffect(() => {
-    if (data?.arc?.status === "draft") {
-      router.replace(`/dashboard/buyer/rate-contracts/create?c=${contractId}`);
-    }
+    if (data?.arc?.status !== "draft") return;
+    router.replace(data.arc.is_manual
+      ? `/dashboard/buyer/rate-contracts/manual-entry?d=${contractId}`
+      : `/dashboard/buyer/rate-contracts/create?c=${contractId}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.arc?.status]);
+  }, [data?.arc?.status, data?.arc?.is_manual]);
 
   // Stage selection — honour ?stage= when valid + unlocked, else default.
   useEffect(() => {

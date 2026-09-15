@@ -112,6 +112,15 @@ const PRESET_SUB = {
 // page; ?stage= hints jump straight to the stage matching the row's status,
 // and the page itself falls back to its server-computed default stage.
 function detailHref(row, bucket) {
+  // A Manual ARC is an ordinary draft row with a companion manual-entry record.
+  // It belongs to the manual workspace (?d=), never the create wizard (?c=):
+  // the two wizards do not line up step-for-step (manual step 3 is Vendors,
+  // the create wizard's is Item search), and the create wizard's save/publish
+  // would reconcile the manually entered rate schedule away. Only while it is
+  // still a draft — a finalised manual ARC reads on the lifecycle page like
+  // any other contract.
+  if (row.is_manual && row.status === "draft")
+    return `/dashboard/buyer/rate-contracts/manual-entry?d=${row.id}`;
   // Publish-approval states land on the overview (pending chain / rejection
   // reason + re-publish), NOT the edit wizard.
   if (row.status === "pending_publish_approval" || row.status === "publish_rejected")
@@ -617,7 +626,14 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                               the true `draft` status — pending/rejected sub-statuses stay
                               on the read-only overview (Sr 41b, tracked separately). */}
                           {row.status === "draft" && (
-                            <span className="needs-action-pill" title="Continue editing this draft in the create wizard">Edit draft</span>
+                            <span className="needs-action-pill" title={row.is_manual
+                              ? "Continue this back-office entry in the Manual ARC workspace"
+                              : "Continue editing this draft in the create wizard"}>Edit draft</span>
+                          )}
+                          {/* Two kinds of draft open two different wizards; say
+                              which one this card goes to before the click. */}
+                          {row.is_manual && (
+                            <span className="bu-tag" title="Entered through the Manual ARC workspace">Manual entry</span>
                           )}
                         </div>
                         <div className="cc-sub">
