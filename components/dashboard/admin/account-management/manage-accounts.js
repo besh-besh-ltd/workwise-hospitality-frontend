@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
+import { apiErrorMessage } from "@/components/dashboard/admin/shared/apiError";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { sendPasswordReset } from "@/services/Auth";
@@ -379,7 +380,11 @@ const ManageAccountsPage = () => {
         retryEditModalData();
         return;
       }
-      toast.error("Failed to update user");
+      // Any other code the server rejected with — say its sentence rather than
+      // a generic failure. DUPLICATE_ROLE_SCOPE ("This role assignment already
+      // exists for this user.") used to land here and be thrown away, which is
+      // what made a duplicate assignment look like it silently did nothing.
+      toast.error(apiErrorMessage(err, "Failed to update user"));
     } finally {
       setSavingAccount(false);
     }

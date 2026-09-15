@@ -49,11 +49,25 @@ describe("a unit nothing refers to", () => {
     expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument();
   });
 
-  it("does not offer archiving when a real delete is possible", async () => {
+  it("also offers archiving, now that an archived unit can be found again", async () => {
+    // This screen used to withhold archiving whenever a clean delete was
+    // possible. That was defensible while archiving was a one-way door — an
+    // archived unit vanished from every list and no UI could restore it — but
+    // it left an admin who only wanted to hide a unit with permanent deletion
+    // as their single option. Archived units are now listed and restorable, so
+    // the reversible action is the safer one and must be on offer.
     mockPreview.mockResolvedValue({ data: { can_hard_delete: true, references: [], total: 0 } });
     renderModal();
     await screen.findByRole("button", { name: /Delete permanently/i });
-    expect(screen.queryByRole("button", { name: /Archive/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Archive/i })).toBeInTheDocument();
+  });
+
+  it("archives rather than deletes when archiving is chosen", async () => {
+    const onArchive = jest.fn();
+    mockPreview.mockResolvedValue({ data: { can_hard_delete: true, references: [], total: 0 } });
+    renderModal({ onArchive });
+    fireEvent.click(await screen.findByRole("button", { name: /Archive/i }));
+    expect(onArchive).toHaveBeenCalledWith(HOTEL);
   });
 });
 

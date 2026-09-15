@@ -2,11 +2,15 @@ import React from "react";
 import { HiPlus } from "react-icons/hi";
 import { BsBuilding, BsEnvelope } from "react-icons/bs";
 import BusinessUnitCard from "./BusinessUnitCard";
+import ArchivedUnits from "./ArchivedUnits";
 import EmptyState from "./EmptyState";
 import styles from "./HospitalityManager.module.css";
 
 const BusinessUnitsTab = ({
   hotels,
+  archivedHotels = [],
+  onRestoreHotel,
+  restoringHotelId,
   getHotelUserCount,
   onAddHotel,
   onCreateHO,
@@ -29,13 +33,21 @@ const BusinessUnitsTab = ({
 
   if (hotels.length === 0) {
     return (
-      <EmptyState
-        icon={<BsBuilding size={36} />}
-        title="No business units yet"
-        description="Add your first business unit to start mapping teams, projects and approval hierarchies."
-        buttonText="+ Add First Business Unit"
-        onButtonClick={onAddHotel}
-      />
+      <>
+        <EmptyState
+          icon={<BsBuilding size={36} />}
+          title="No business units yet"
+          description="Add your first business unit to start mapping teams, projects and approval hierarchies."
+          buttonText="+ Add First Business Unit"
+          onButtonClick={onAddHotel}
+        />
+        {/* Archiving the last unit must not hide the way back to it. */}
+        <ArchivedUnits
+          units={archivedHotels}
+          onRestore={onRestoreHotel}
+          restoringId={restoringHotelId}
+        />
+      </>
     );
   }
 
@@ -84,6 +96,12 @@ const BusinessUnitsTab = ({
           <span className={styles.addBuSubtext}>Create a new business unit</span>
         </div>
       </div>
+
+      <ArchivedUnits
+        units={archivedHotels}
+        onRestore={onRestoreHotel}
+        restoringId={restoringHotelId}
+      />
     </>
   );
 };

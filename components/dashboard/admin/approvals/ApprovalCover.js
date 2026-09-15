@@ -55,7 +55,17 @@ const ApprovalCover = () => {
         getCompanyUsersDetailed({ limit: 500 }),
       ]);
       setRows(cover?.data || []);
-      setPeople((staff?.data?.users || staff?.data || []).filter((u) => u.status === 1));
+      // GET /users/company-users-detailed maps status to a word
+      // ("active"/"inactive", usersController.js:1318) while other callers of
+      // this list still hand back the raw 1/0 column. Filtering on the number
+      // alone matched nothing, so both dropdowns were permanently empty and
+      // "Arrange cover" could never enable — the feature had never once been
+      // usable. Accept either shape rather than betting on one.
+      setPeople(
+        (staff?.data?.users || staff?.data || []).filter(
+          (u) => u.status === 1 || u.status === "active"
+        )
+      );
       setError(null);
     } catch (err) {
       setError("Could not load approval cover.");

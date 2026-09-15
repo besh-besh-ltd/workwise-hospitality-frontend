@@ -30,10 +30,15 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import "@testing-library/jest-dom";
 import ApprovalCover from "./ApprovalCover";
 
+// The shape GET /users/company-users-detailed actually returns.
+// usersController.js:1318 maps the numeric column to a word —
+// `status: user.status === 1 ? "active" : "inactive"` — so a fixture using
+// the raw 1/0 tests a payload this screen is never handed. It did, and that
+// is why the empty-dropdown defect shipped green.
 const PEOPLE = [
-  { id: 11, name: "Priya Sharma", status: 1 },
-  { id: 12, name: "Ravi Nair", status: 1 },
-  { id: 13, name: "Left The Company", status: 0 },
+  { id: 11, name: "Priya Sharma", status: "active" },
+  { id: 12, name: "Ravi Nair", status: "active" },
+  { id: 13, name: "Left The Company", status: "inactive" },
 ];
 
 const ROWS = [
@@ -92,6 +97,22 @@ describe("what cover is", () => {
 });
 
 describe("arranging it", () => {
+  // The defect this screen shipped with: the people list arrived with
+  // `status: "active"` and the component kept only `status === 1`, so both
+  // dropdowns were empty, "Arrange cover" never enabled, and no delegation was
+  // ever recorded in production. Pin the contract, not just the count.
+  it("offers the people the API actually returns", async () => {
+    render(<ApprovalCover />);
+    const away = await screen.findByLabelText(/who is away/i);
+    const names = within(away)
+      .getAllByRole("option")
+      .map((o) => o.textContent)
+      .filter((t) => !/choose a person/i.test(t));
+
+    expect(names).toContain("Priya Sharma");
+    expect(names).toContain("Ravi Nair");
+  });
+
   it("does not offer people who cannot sign in", async () => {
     // Cover handed to a deactivated account is refused by the server and would
     // silently do nothing; offering the name is the wrong place to find out.

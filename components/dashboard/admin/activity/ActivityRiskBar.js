@@ -28,10 +28,14 @@ const ActivityRiskBar = ({ severities = [], active, onSelect }) => {
   return (
     <div className={styles.riskBar} role="group" aria-label="Filter by importance">
       <span className={styles.riskPeriod}>
-        Last 30 days
+        {/* "Last 30 days" alone, as the first text under the page heading, read
+            as the window for the feed below — which has no date bound at all.
+            Saying it is a summary is the difference between a label and a
+            claim about the whole page. */}
+        Summary · last 30 days
         <InfoTip
           label="What these counts cover"
-          text="Everything recorded across all your business units in the last 30 days — not just what is on screen. Select a level to show only those entries; select it again to clear."
+          text="Everything recorded across all your business units in the last 30 days — not just what is on screen. Selecting a level shows those entries from the same 30 days; select it again to clear. The feed itself goes back as far as your history does — use the date filters to reach it."
           size={11}
         />
       </span>

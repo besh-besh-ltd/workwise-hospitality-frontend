@@ -9,7 +9,15 @@ import {
   diffFields,
   formatValue,
 } from "./activityPresentation";
+import {
+  labelForField,
+  labelForTable,
+  formatAuditValue,
+} from "./auditPresentation";
 import styles from "./Activity.module.css";
+
+// "UPDATE" is how the trigger records it, not how anyone says it.
+const OPERATION_WORDS = { INSERT: "Added", UPDATE: "Changed", DELETE: "Removed" };
 
 /**
  * One line of the trail, expandable into exactly what changed.
@@ -134,9 +142,9 @@ const ActivityRow = ({ event }) => {
               return (
                 <div key={`${change.table_name}-${change.record_id}-${i}`} className={styles.change}>
                   <div className={styles.changeHead}>
-                    <span className={styles.changeOp}>{change.operation}</span>
+                    <span className={styles.changeOp}>{OPERATION_WORDS[change.operation] || change.operation}</span>
                     <span className={styles.changeTable}>
-                      {change.table_name} #{change.record_id}
+                      {labelForTable(change.table_name)} #{change.record_id}
                     </span>
                   </div>
                   {fields.length === 0 ? (
@@ -153,9 +161,18 @@ const ActivityRow = ({ event }) => {
                       <tbody>
                         {fields.map(({ field, from, to }) => (
                           <tr key={field}>
-                            <td className={styles.diffField}>{field}</td>
-                            <td className={styles.diffFrom}>{formatValue(from)}</td>
-                            <td className={styles.diffTo}>{formatValue(to)}</td>
+                            {/* The raw column name stays reachable on hover —
+                                somebody debugging needs it, nobody reading the
+                                trail does. */}
+                            <td className={styles.diffField} title={field}>
+                              {labelForField(field)}
+                            </td>
+                            <td className={styles.diffFrom}>
+                              {formatAuditValue(field, from, { labels: change.labels })}
+                            </td>
+                            <td className={styles.diffTo}>
+                              {formatAuditValue(field, to, { labels: change.labels })}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -164,6 +181,13 @@ const ActivityRow = ({ event }) => {
                 </div>
               );
             })}
+
+          {detail?.truncated && (
+            <p className={styles.detailNote}>
+              Only the first {changes.length} row changes are shown — this
+              action touched more than one expansion can usefully list.
+            </p>
+          )}
         </div>
       )}
     </li>

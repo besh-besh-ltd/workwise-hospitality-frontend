@@ -167,3 +167,35 @@ export const namePreview = (names, max = 2) => {
   const extra = list.length - shown.length;
   return `${shown.join(", ")}${extra > 0 ? ` +${extra}` : ""}`;
 };
+
+/**
+ * The people a step is genuinely waiting on, and how many it cannot wait on.
+ *
+ * `unreachable` has been computed here since UM-11, with the rule stated on it:
+ * a surface that NAMES who it is waiting on should exclude these and say why.
+ * Nothing consumed it, so the RFQ and PO timelines said "Cannot act" while the
+ * quote-comparison Approval Trail and the RFQ Purchase Order stage carried on
+ * naming the same deactivated people as people we are waiting on. This is the
+ * shared answer, so the two halves cannot drift apart again.
+ *
+ * The two payloads spell the name differently — the trail's approvers carry
+ * `name`, the PO stage's carry `user_name` — so both are read here rather than
+ * at each call site.
+ *
+ * `unreachableCount` is returned rather than folded into the sentence: how it
+ * reads belongs to the surface, but whether to mention it at all should not be
+ * a decision anyone has to remember to make.
+ */
+export const outstandingForNaming = (tally) => {
+  const outstanding = tally?.outstanding || [];
+  const unreachable = tally?.unreachable || [];
+  const blocked = new Set(unreachable.map((r) => r.ap?.user_id));
+
+  return {
+    names: outstanding
+      .filter((r) => !blocked.has(r.ap?.user_id))
+      .map((r) => r.ap?.name || r.ap?.user_name)
+      .filter(Boolean),
+    unreachableCount: unreachable.length,
+  };
+};

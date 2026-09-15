@@ -113,12 +113,21 @@ const RemoveUnitModal = ({ isOpen, companyId, hotel, onClose, onRemove, onArchiv
       {!loading && preview?.can_hard_delete && (
         <>
           <p className={styles.removeNote}>
-            Nothing refers to this unit, so it can be removed completely. This
-            cannot be undone.
+            Nothing refers to this unit, so it can be removed completely — that
+            cannot be undone. Archiving hides it from every list instead, and
+            you can restore it later from Archived business units.
           </p>
           <div className={styles.removeActions}>
             <button type="button" className={styles.removeCancelBtn} onClick={onClose}>
               Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.removeArchiveBtn}
+              disabled={busy}
+              onClick={() => onArchive(hotel)}
+            >
+              <BsArchive size={13} /> {busy ? "Archiving…" : "Archive"}
             </button>
             <button
               type="button"
