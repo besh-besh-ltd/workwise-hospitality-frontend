@@ -96,6 +96,8 @@ export default function VendorQuotePage() {
   const [lockedNote, setLockedNote] = useState("");
 
   // ── Technical envelope (two-envelope flow) ──
+  // GROUP rate contract: invited hotels whose subscription has lapsed.
+  const [renewalNeededHotelIds, setRenewalNeededHotelIds] = useState([]);
   const [techEnvelope, setTechEnvelope] = useState(null);  // { required, tech_submitted_at, clauses_total, clauses_answered }
   const [techItems, setTechItems] = useState([]);           // [{ arc_item_id, clauses:[...] }]
   const [techResponses, setTechResponses] = useState({});  // { [clauseId]: vendor_response }
@@ -273,6 +275,7 @@ export default function VendorQuotePage() {
 
         setArc(a);
         setItems(its);
+        setRenewalNeededHotelIds(d.renewal_needed_hotel_ids || []);
         setInvitation(inv);
         setQuote(qt);
         setTechEnvelope(te);
@@ -494,6 +497,7 @@ export default function VendorQuotePage() {
         const d = res?.data || {};
         setArc(d.arc || null);
         setItems(d.items || []);
+        setRenewalNeededHotelIds(d.renewal_needed_hotel_ids || []);
         setQuote(d.quote || null);
         const te = d.tech_envelope || null;
         setTechEnvelope(te);
@@ -1512,6 +1516,7 @@ export default function VendorQuotePage() {
           submissionEnd={submissionEnd}
           termStart={termStart}
           termEnd={termEnd}
+          renewalNeededHotelIds={renewalNeededHotelIds}
         />
       )}
 

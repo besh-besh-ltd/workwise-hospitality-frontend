@@ -110,11 +110,19 @@ export default function VendorCommercialStage({
           <div className="q-section-head">
             <div>
               <div className="q-section-title">Pricing &amp; commercial terms</div>
-              <div className="q-section-sub">Enter your single price per item for the full contract term. Single-BU contract — one price applies.</div>
+              <div className="q-section-sub">
+                {arc.is_group
+                  ? "Enter your single price per item for the full contract term. Group rate contract — the same price applies at every hotel you were invited for, so include delivery to each."
+                  : "Enter your single price per item for the full contract term. Single-BU contract — one price applies."}
+              </div>
               <div className="mini-stats">
                 <div className="mini-stat"><div className="lbl">Items to price</div><div className="val">{items.length}</div></div>
                 <div className="div"></div>
-                <div className="mini-stat"><div className="lbl">Business unit</div><div className="val"><span className="mono">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
+                {arc.is_group ? (
+                  <div className="mini-stat"><div className="lbl">Hotels</div><div className="val">{(arc.hotels || []).map((h) => h.name).join(", ") || "—"}</div></div>
+                ) : (
+                  <div className="mini-stat"><div className="lbl">Business unit</div><div className="val"><span className="mono">{arc.hotel_code || "—"}</span> {arc.hotel_name || ""}</div></div>
+                )}
                 <div className="div"></div>
                 <div className="mini-stat"><div className="lbl">Contract term</div><div className="val"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
               </div>

@@ -145,6 +145,10 @@ export default function VendorAcceptPage() {
   const [flagOpen, setFlagOpen] = useState({});
   const [flagDraft, setFlagDraft] = useState({});
   const [flagField, setFlagField] = useState({});
+  // GROUP rate contract: the hotels this vendor supplies (lines[].hotels splits
+  // each line). A group award's committed quantity is a sum across hotels, so
+  // it is not open to clarification (the server refuses it).
+  const [hotels, setHotels] = useState([]);
   const [submittingClar, setSubmittingClar] = useState(false);
 
   // commercial terms
@@ -176,6 +180,7 @@ export default function VendorAcceptPage() {
     setContract(res?.data?.contract || null);
     setArc(res?.data?.arc || null);
     setLines(res?.data?.lines || []);
+    setHotels(res?.data?.hotels || []);
     setClarifications(res?.data?.clarifications || []);
   };
 
@@ -190,6 +195,7 @@ export default function VendorAcceptPage() {
         setContract(res?.data?.contract || null);
         setArc(res?.data?.arc || null);
         setLines(res?.data?.lines || []);
+        setHotels(res?.data?.hotels || []);
         setClarifications(res?.data?.clarifications || []);
       } finally {
         if (!cancelled) setLoading(false);
@@ -269,18 +275,19 @@ export default function VendorAcceptPage() {
     if (lineFlagged[id] || awaitingBuyer) return;
     setLineConfirmed((s) => ({ ...s, [id]: !s[id] }));
   };
+  const disputeFields = arc?.is_group ? DISPUTE_FIELDS.filter((f) => f.key !== "committed_qty") : DISPUTE_FIELDS;
   const openFlag = (id) => {
     if (awaitingBuyer) return;
     setFlagOpen((s) => ({ ...s, [id]: true }));
     setFlagDraft((s) => ({ ...s, [id]: s[id] || "" }));
-    setFlagField((s) => ({ ...s, [id]: s[id] || DISPUTE_FIELDS[0].key }));
+    setFlagField((s) => ({ ...s, [id]: s[id] || disputeFields[0].key }));
   };
   const cancelFlag = (id) => {
     setFlagOpen((s) => ({ ...s, [id]: false }));
   };
   const flagLine = (id) => {
     const note = (flagDraft[id] || "").trim();
-    const field = flagField[id] || DISPUTE_FIELDS[0].key;
+    const field = flagField[id] || disputeFields[0].key;
     if (!note) { showToast("Add a short note explaining the concern"); return; }
     setLineFlagged((s) => ({ ...s, [id]: { field, note } }));
     setLineConfirmed((s) => ({ ...s, [id]: false }));
@@ -458,9 +465,11 @@ export default function VendorAcceptPage() {
   const vendorSignatory = contract.vendor_name || "Authorised signatory";
   const vendorMobile = contract.vendor_mobile || contract.vendor_phone_masked || null;
   const vendorEmail  = contract.vendor_email || null;
-  const hotelName  = A.hotel_name || "the business unit";
-  const hotelCity  = A.hotel_city || "";
-  const buFull     = hotelName + (hotelCity ? ` · ${hotelCity}` : "");
+  const isGroup    = !!A.is_group;
+  const hotelName  = isGroup ? `${hotels.length} hotel${hotels.length === 1 ? "" : "s"}` : (A.hotel_name || "the business unit");
+  const hotelCity  = isGroup ? "" : (A.hotel_city || "");
+  const buFull     = isGroup ? hotels.map((h) => h.name).join(", ") : hotelName + (hotelCity ? ` · ${hotelCity}` : "");
+  const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const companyName = A.company_name || "Workwise Hospitality";
   const buyerName  = A.buyer_name || "Buyer Procurement Lead";
   const buyerRole  = A.buyer_designation || "Procurement Lead";
@@ -516,7 +525,7 @@ export default function VendorAcceptPage() {
               <span>Buyer: <span className="em">{companyName}</span></span>
               {category && <><span className="sep">·</span><span>{category}</span></>}
               <span className="sep">·</span>
-              <span className="em">{hotelName}</span>
+              <span className="em">{isGroup ? `Group · ${hotelName}` : hotelName}</span>
             </div>
           </div>
           <div className="hero-actions">
@@ -655,7 +664,7 @@ export default function VendorAcceptPage() {
                   <div className="p-role">Buyer</div>
                   <div className="p-name">{companyName}</div>
                   <div className="p-meta">
-                    {hotelName}{hotelCity ? ` · ${hotelCity}` : ""}
+                    {isGroup ? buFull : <>{hotelName}{hotelCity ? ` · ${hotelCity}` : ""}</>}
                     <br />Authorised signatory: <strong style={{ color: "var(--fg)" }}>{buyerName}</strong>
                     {buyerRole ? ` · ${buyerRole}` : ""}
                   </div>
@@ -680,14 +689,27 @@ export default function VendorAcceptPage() {
                 </div>
                 <div className="t-k">Business unit</div>
                 <div className="t-v">
-                  <span className="bu-tag primary">
-                    <Icon w={11} sw={2} d={ICONS.building} />
-                    <span>{buFull}</span>
-                  </span>
+                  {isGroup ? (
+                    <span className="flex flex-wrap gap-1">
+                      {hotels.map((h) => (
+                        <span key={h.hotel_id} className="bu-tag primary">
+                          <Icon w={11} sw={2} d={ICONS.building} />
+                          <span>{[h.name, h.city].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="bu-tag primary">
+                      <Icon w={11} sw={2} d={ICONS.building} />
+                      <span>{buFull}</span>
+                    </span>
+                  )}
                 </div>
                 <div className="t-k">Award scope</div>
                 <div className="t-v">
-                  Sole supplier for <strong>{lines.length}</strong> SKU(s) at <strong>{hotelName}</strong>. Buyer retains a 10% emergency-procurement carve-out.
+                  {isGroup
+                    ? <>Supplier for <strong>{lines.length}</strong> SKU(s) at each hotel listed above, in the quantity shown per hotel. Buyer retains a 10% emergency-procurement carve-out.</>
+                    : <>Sole supplier for <strong>{lines.length}</strong> SKU(s) at <strong>{hotelName}</strong>. Buyer retains a 10% emergency-procurement carve-out.</>}
                 </div>
               </div>
             </div>
@@ -806,10 +828,19 @@ export default function VendorAcceptPage() {
                         <div className="lr-cell" style={{ gridColumn: "span 5" }}>
                           <div className="lc-k">Annual committed quantity</div>
                           <div className="lr-bu-list" style={{ marginTop: 5 }}>
-                            <span className="lr-bu-pill">
-                              <span>{hotelName}</span>
-                              <span className="qty">{Number(line.committed_qty || 0).toLocaleString("en-IN")} {uom}</span>
-                            </span>
+                            {isGroup && Array.isArray(line.hotels) && line.hotels.length > 0 ? (
+                              line.hotels.map((h) => (
+                                <span key={h.hotel_id} className="lr-bu-pill" title={hotelNameOf(h.hotel_id)}>
+                                  <span>{hotelNameOf(h.hotel_id)}</span>
+                                  <span className="qty">{Number(h.committed_qty || 0).toLocaleString("en-IN")} {uom}</span>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="lr-bu-pill">
+                                <span>{hotelName}</span>
+                                <span className="qty">{Number(line.committed_qty || 0).toLocaleString("en-IN")} {uom}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -824,10 +855,10 @@ export default function VendorAcceptPage() {
                             <label className="fc-label">Which term is the concern?</label>
                             <select
                               className="fc-select"
-                              value={flagField[line.id] || DISPUTE_FIELDS[0].key}
+                              value={flagField[line.id] || disputeFields[0].key}
                               onChange={(e) => setFlagField((s) => ({ ...s, [line.id]: e.target.value }))}
                             >
-                              {DISPUTE_FIELDS.map((f) => (
+                              {disputeFields.map((f) => (
                                 <option key={f.key} value={f.key}>{f.label}</option>
                               ))}
                             </select>
