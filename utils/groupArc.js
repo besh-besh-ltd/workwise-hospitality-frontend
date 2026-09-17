@@ -103,3 +103,17 @@ export function uncoveredHotelIds(vendors = [], hotelIds = []) {
   const served = new Set((vendors || []).flatMap((v) => (v.hotel_ids || []).map(Number)));
   return ids(hotelIds).filter((id) => !served.has(id));
 }
+
+/** A short code for a hotel name: "Goa Beach Resort" → "GBR". */
+export function hotelCode(name) {
+  const parts = String(name || "").replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+  return (parts[0][0] + parts[1][0] + (parts[2]?.[0] || "")).toUpperCase();
+}
+
+/** "Goa Resort (lead), Mumbai Suites" — the lead hotel first. */
+export function coveredHotelsLabel(hotels = []) {
+  const list = (hotels || []).slice().sort((a, b) => Number(!!b.is_lead) - Number(!!a.is_lead));
+  return list.map((h) => (h.is_lead ? `${h.name} (lead)` : h.name)).join(", ");
+}

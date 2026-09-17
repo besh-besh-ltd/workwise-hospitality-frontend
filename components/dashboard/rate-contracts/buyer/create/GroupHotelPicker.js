@@ -4,12 +4,7 @@
 // Uses the wizard's cat-grid / cat-card primitives from styles/arc_v2.css so it
 // reads as the same step it replaces for single-hotel contracts.
 
-const buCodeFor = (name) => {
-  const parts = String(name || "").replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "—";
-  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
-  return (parts[0][0] + parts[1][0] + (parts[2]?.[0] || "")).toUpperCase();
-};
+import { hotelCode as buCodeFor } from "@/utils/groupArc";
 
 export default function GroupHotelPicker({ hotels = [], selectedIds = [], leadId = null, onToggle, onMakeLead }) {
   const selected = new Set(selectedIds.map(Number));

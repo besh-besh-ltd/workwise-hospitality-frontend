@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import storageInstance from "@/utils/storageInstance";
+import { hotelCode } from "@/utils/groupArc";
 import { StageSkeleton, removalReasonLabel } from "./StageShared";
 import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
@@ -190,6 +191,10 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
   const isCreator = arc?.created_by != null && currentUserId() != null && Number(arc.created_by) === Number(currentUserId());
 
   const items = data?.items || [];
+  const hotelNameById = useMemo(
+    () => Object.fromEntries(((data?.arc?.hotels || arc?.hotels) || []).map((h) => [Number(h.hotel_id), h.name])),
+    [data, arc?.hotels]
+  );
   const invitations = data?.invitations || [];
   const quotes = data?.quotes || [];
   const vendors = data?.vendors || {};
@@ -647,10 +652,23 @@ export default function OverviewStage({ arc, stage, lifecycle, permissions, onRe
                             </td>
                             <td>
                               <div className="flex flex-wrap gap-1" style={{ maxWidth: 300 }}>
-                                <span className="qty-chip">
-                                  <span className="qc-code">{arc.hotel_code || "BU"}</span>
-                                  <span className="qc-qty">{fmtQty(qty)}</span>
-                                </span>
+                                {Array.isArray(it.hotel_qtys) && it.hotel_qtys.length > 0 ? (
+                                  // Group rate contract: the quantity each covered hotel expects.
+                                  it.hotel_qtys.map((hq) => {
+                                    const name = hotelNameById[Number(hq.hotel_id)] || `Hotel ${hq.hotel_id}`;
+                                    return (
+                                      <span key={hq.hotel_id} className="qty-chip" title={name}>
+                                        <span className="qc-code">{hotelCode(name)}</span>
+                                        <span className="qc-qty">{fmtQty(hq.indicative_qty)}</span>
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="qty-chip">
+                                    <span className="qc-code">{arc.hotel_code || "BU"}</span>
+                                    <span className="qc-qty">{fmtQty(qty)}</span>
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="center">

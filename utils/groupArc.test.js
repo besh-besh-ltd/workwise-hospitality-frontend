@@ -9,6 +9,8 @@ import {
   buildItemsPayload,
   splitFromItems,
   uncoveredHotelIds,
+  hotelCode,
+  coveredHotelsLabel,
 } from "./groupArc";
 
 describe("buStepComplete", () => {
@@ -102,5 +104,19 @@ describe("uncoveredHotelIds", () => {
   test("names the selected hotels no eligible vendor serves", () => {
     const vendors = [{ id: 1, hotel_ids: [3] }, { id: 2, hotel_ids: [3, 5] }];
     expect(uncoveredHotelIds(vendors, [3, 4, 5])).toEqual([4]);
+  });
+});
+
+describe("hotel labels", () => {
+  test("hotelCode abbreviates a hotel name", () => {
+    expect(hotelCode("Goa Beach Resort")).toBe("GBR");
+    expect(hotelCode("Mumbai")).toBe("MUM");
+    expect(hotelCode("")).toBe("—");
+  });
+
+  test("coveredHotelsLabel lists the lead hotel first", () => {
+    expect(coveredHotelsLabel([
+      { name: "Mumbai Suites" }, { name: "Goa Resort", is_lead: true },
+    ])).toBe("Goa Resort (lead), Mumbai Suites");
   });
 });
