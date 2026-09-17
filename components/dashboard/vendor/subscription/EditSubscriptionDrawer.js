@@ -225,6 +225,11 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
           {availableSubs.length > 0 && (
             <div className={styles.drawerSection}>
               <label className={styles.drawerLabel}>Sub-categories (Free)</label>
+              <p className={styles.drawerHint}>
+                These record what you specialise in. They do not limit the
+                products you receive — your categories above already cover
+                every product within them.
+              </p>
               <Select
                 isMulti
                 options={availableSubs}
