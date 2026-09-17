@@ -5,6 +5,11 @@
 //   arc-comm.evaluate         → + award/split editor, save, finalize, send-back
 // Once finalized (stage complete) everything is read-only; a committee
 // send-back re-opens it (stage.reason === 'sent_back').
+//
+// GROUP rate contract (one ARC, several hotels): vendors quote one rate per
+// item for the group, but the award is made hotel by hotel. Each item carries
+// a row per hotel with its expected quantity, and a vendor can win only the
+// hotels it was invited for. One vendor per hotel per item.
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
@@ -161,6 +166,9 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
   const [clarifications, setClarifications] = useState([]);
   const [clarDraft, setClarDraft] = useState({});   // id → { value, response }
   const [clarBusy, setClarBusy] = useState(null);    // id currently resolving
+  // Group rate contract data (null for a single-hotel ARC): the hotels, each
+  // item's per-hotel quantity and the hotels each vendor was invited for.
+  const [group, setGroup] = useState(null);
 
   const applyPayload = (payload) => {
     setCommEvaluation(payload.comm_evaluation || null);
@@ -168,6 +176,13 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     setQuotes(Array.isArray(payload.quotes) ? payload.quotes : []);
     setClarifications(Array.isArray(payload.clarifications) ? payload.clarifications : []);
     setQualifiedMap(payload.qualified_by_item || {});
+    setGroup(payload.arc?.is_group || (Array.isArray(payload.hotels) && payload.hotels.length > 0)
+      ? {
+          hotels: payload.hotels || [],
+          itemHotelQtys: payload.item_hotel_qtys || {},
+          invitationHotels: payload.invitation_hotels || {},
+        }
+      : null);
     const aw = Array.isArray(payload.awards) ? payload.awards : [];
     setAwards(aw);
     const seed = {};
@@ -360,6 +375,7 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     return { rows, total };
   };
   const itemStatus = (itemId) => {
+    if (isGroup) return groupItemStatus(itemId);
     const it = itemById.get(itemId);
     const indicative = it ? toNum(it.indicative_qty) : 0;
     const { rows, total } = itemAllocations(itemId);
@@ -395,6 +411,84 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     return s;
   };
 
+  // ── group rate contract: award hotel by hotel ────────────────────────
+  const isGroup = !!group;
+  const hotelById = useMemo(
+    () => new Map(((group && group.hotels) || []).map((h) => [Number(h.hotel_id), h])),
+    [group]
+  );
+  // The hotels that expect some of this item, with their quantity.
+  const hotelRowsFor = (itemId) => (((group && group.itemHotelQtys) || {})[String(itemId)] || [])
+    .filter((r) => toNum(r.indicative_qty) > 0)
+    .map((r) => ({
+      hotel_id: Number(r.hotel_id),
+      qty: toNum(r.indicative_qty),
+      hotel: hotelById.get(Number(r.hotel_id)) || { name: `Hotel ${r.hotel_id}` },
+    }));
+  const invitedFor = (vid, hotelId) =>
+    (((group && group.invitationHotels) || {})[String(vid)] || []).map(Number).includes(Number(hotelId));
+  const canAwardAt = (vid, itemId, hotelId) => {
+    const l = lineFor(vid, itemId);
+    return !!l && !l.disqualified && isQualified(vid, itemId) && invitedFor(vid, hotelId);
+  };
+  // { hotelId: [{ vendor_id, qty }] } — the saved award split for one item.
+  const hotelAwardsFor = (itemId) => {
+    const m = {};
+    awards.forEach((a) => {
+      if (Number(a.arc_item_id) !== Number(itemId)) return;
+      (a.hotels || []).forEach((h) => {
+        (m[Number(h.hotel_id)] = m[Number(h.hotel_id)] || []).push({ vendor_id: Number(a.awarded_vendor_id), qty: toNum(h.allocated_qty) });
+      });
+    });
+    return m;
+  };
+  // Awarded when every hotel that some invited vendor can supply is awarded.
+  // A hotel no invited vendor quoted for stays without a supplier.
+  const groupItemStatus = (itemId) => {
+    const rows = hotelRowsFor(itemId);
+    const byHotel = hotelAwardsFor(itemId);
+    const quoted = vendors.some((v) => v.lines.some((x) => x.arc_item_id === itemId));
+    let awardedHotels = 0, openHotels = 0, noSupplier = 0, allocated = 0;
+    const awardedVendors = new Set();
+    rows.forEach((r) => {
+      const at = byHotel[r.hotel_id] || [];
+      const got = at.reduce((sum, x) => sum + x.qty, 0);
+      allocated += got;
+      at.forEach((x) => awardedVendors.add(x.vendor_id));
+      if (Math.abs(got - r.qty) < 0.0001) awardedHotels++;
+      else if (vendors.some((v) => canAwardAt(v.vendor_id, itemId, r.hotel_id))) openHotels++;
+      else noSupplier++;
+    });
+    const base = {
+      indicative: rows.reduce((sum, r) => sum + r.qty, 0), allocated, splitCount: awardedVendors.size,
+      hotels: rows.length, awardedHotels, openHotels, noSupplier,
+    };
+    if (!quoted) return { ...base, kind: "no_quotes" };
+    if (awardedHotels === 0) return { ...base, kind: "pending" };
+    if (openHotels === 0) return { ...base, kind: "awarded" };
+    return { ...base, kind: "partial" };
+  };
+  // { hotelId: vendorId } as saved — the largest share where a hotel is split.
+  const currentHotelVendors = (itemId) => {
+    const out = {};
+    Object.entries(hotelAwardsFor(itemId)).forEach(([hotelId, at]) => {
+      const top = at.reduce((a, b) => (b.qty > a.qty ? b : a), at[0]);
+      if (top) out[hotelId] = top.vendor_id;
+    });
+    return out;
+  };
+  const groupRows = (itemId, hotelVendors) => {
+    const rows = [];
+    hotelRowsFor(itemId).forEach((r) => {
+      const vid = hotelVendors[r.hotel_id];
+      if (vid == null) return;
+      const v = vendors.find((x) => Number(x.vendor_id) === Number(vid));
+      const l = v && v.lines.find((x) => x.arc_item_id === itemId);
+      if (v && l) rows.push({ vendor: v, line: l, qty: r.qty, hotel_id: r.hotel_id });
+    });
+    return rows;
+  };
+
   // ── editing actions (evaluators only) ────────────────────────────────
   // Every award action persists IMMEDIATELY (one source of truth — the
   // server). The only staged state is the percentage draft inside an open
@@ -414,22 +508,55 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
       allocated_share_pct: r.pct,
       l_rank: `L${idx + 1}`,
       is_l1_default: !!(l1 && r.line.quote_line_id === l1.line.quote_line_id),
-      // §1.7 — snapshot records the engine landed rate so the awarded value is
-      // reconstructible from the snapshot alone and matches the ranked number.
-      // line_pricing added for provenance (stable even if engine changes later).
-      awarded_quote_snapshot: {
-        rate: r.line.rate, gst_pct: r.line.gst_pct, charges: r.line.charges,
-        lead_time_days: r.line.lead_time_days, moq: r.line.moq,
-        landed_rate: engineLanded(r.line, includeCharges), include_charges: includeCharges,
-        line_pricing: r.line.line_pricing || null,
-      },
+      awarded_quote_snapshot: quoteSnapshot(r.line),
     }));
   };
 
-  const postAllocation = async (itemId, rows, successMsg) => {
+  // §1.7 — snapshot records the engine landed rate so the awarded value is
+  // reconstructible from the snapshot alone and matches the ranked number.
+  // line_pricing added for provenance (stable even if engine changes later).
+  const quoteSnapshot = (line) => ({
+    rate: line.rate, gst_pct: line.gst_pct, charges: line.charges,
+    lead_time_days: line.lead_time_days, moq: line.moq,
+    landed_rate: engineLanded(line, includeCharges), include_charges: includeCharges,
+    line_pricing: line.line_pricing || null,
+  });
+
+  // GROUP rows: [{ vendor, line, qty, hotel_id }] — one per awarded hotel. The
+  // server stores one award per vendor (its total) plus the hotel split, so a
+  // vendor's rank and share are the same on each of its rows.
+  const buildGroupAllocations = (itemId, rows) => {
+    const l1 = l1ForItem(itemId);
+    const indicative = hotelRowsFor(itemId).reduce((sum, r) => sum + r.qty, 0);
+    const vendorQty = new Map();
+    rows.forEach((r) => vendorQty.set(r.vendor.vendor_id, (vendorQty.get(r.vendor.vendor_id) || 0) + r.qty));
+    const rankedVendorIds = Array.from(new Map(rows.map((r) => [r.vendor.vendor_id, r])).values())
+      .sort((a, b) =>
+        (engineLanded(a.line, includeCharges) ?? Number.MAX_VALUE) -
+        (engineLanded(b.line, includeCharges) ?? Number.MAX_VALUE))
+      .map((r) => r.vendor.vendor_id);
+    return rows.map((r) => ({
+      hotel_id: r.hotel_id,
+      awarded_vendor_id: r.vendor.vendor_id,
+      awarded_quote_line_id: r.line.quote_line_id,
+      allocated_qty: r.qty,
+      allocated_share_pct: indicative > 0 ? Math.round((vendorQty.get(r.vendor.vendor_id) / indicative) * 10000) / 100 : null,
+      l_rank: `L${rankedVendorIds.indexOf(r.vendor.vendor_id) + 1}`,
+      is_l1_default: !!(l1 && r.line.quote_line_id === l1.line.quote_line_id),
+      awarded_quote_snapshot: quoteSnapshot(r.line),
+    }));
+  };
+
+  const postAllocation = async (itemId, rows, successMsg) =>
+    saveItemAllocations(itemId, buildAllocations(itemId, rows), successMsg);
+
+  const postGroupAllocation = async (itemId, hotelVendors, successMsg) =>
+    saveItemAllocations(itemId, buildGroupAllocations(itemId, groupRows(itemId, hotelVendors)), successMsg);
+
+  const saveItemAllocations = async (itemId, allocations, successMsg) => {
     setSavingItem(itemId);
     try {
-      await ArcApi.saveAllocation(arc.id, { item_id: itemId, allocations: buildAllocations(itemId, rows) });
+      await ArcApi.saveAllocation(arc.id, { item_id: itemId, allocations });
       if (successMsg) toast.success(successMsg);
       await reload();
       await onRefresh(); // timeline counts (items_allocated) move
@@ -469,6 +596,18 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     if (!editable || savingItem) return;
     if (!isQualified(vid, itemId)) {
       toast.error("This vendor is not technically qualified for this item.");
+      return;
+    }
+    if (isGroup) {
+      // Every hotel this vendor was invited for goes to it.
+      const next = currentHotelVendors(itemId);
+      let n = 0;
+      hotelRowsFor(itemId).forEach((r) => {
+        if (canAwardAt(vid, itemId, r.hotel_id)) { next[r.hotel_id] = vid; n++; }
+      });
+      if (!n) { toast.error("This vendor was not invited for any hotel that needs this item."); return; }
+      const gv = vendorById.get(vid);
+      await postGroupAllocation(itemId, next, `Awarded ${n} hotel${n === 1 ? "" : "s"} to ${gv?.vendor_name || "vendor"}`);
       return;
     }
     const set = awardedSet(itemId);
@@ -555,6 +694,13 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
   // Removing the last holder clears the item back to Pending.
   const unawardCell = async (vid, itemId) => {
     if (!editable || savingItem) return;
+    if (isGroup) {
+      const next = currentHotelVendors(itemId);
+      Object.keys(next).forEach((hotelId) => { if (Number(next[hotelId]) === Number(vid)) delete next[hotelId]; });
+      await postGroupAllocation(itemId, next,
+        Object.keys(next).length ? "Vendor removed from every hotel" : "Award cleared — item is back to pending");
+      return;
+    }
     const set = awardedSet(itemId);
     if (!set.includes(vid)) return;
     const next = set.filter((x) => x !== vid);
@@ -565,6 +711,39 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     const rows = equalRows(itemId, next);
     await postAllocation(itemId, rows,
       next.length === 1 ? "Back to a single vendor at 100%" : `Re-divided across ${next.length} vendors`);
+  };
+
+  // GROUP: give one hotel's quantity of an item to a vendor invited for it
+  // (replacing whoever held it), or take it back.
+  const awardHotel = async (vid, itemId, hotelId) => {
+    if (!editable || savingItem || !canAwardAt(vid, itemId, hotelId)) return;
+    const next = { ...currentHotelVendors(itemId), [hotelId]: vid };
+    const gv = vendorById.get(vid);
+    await postGroupAllocation(itemId, next, `${hotelById.get(Number(hotelId))?.name || "Hotel"} awarded to ${gv?.vendor_name || "vendor"}`);
+  };
+  const unawardHotel = async (itemId, hotelId) => {
+    if (!editable || savingItem) return;
+    const next = currentHotelVendors(itemId);
+    delete next[hotelId];
+    await postGroupAllocation(itemId, next,
+      Object.keys(next).length
+        ? `${hotelById.get(Number(hotelId))?.name || "Hotel"} has no supplier now`
+        : "Award cleared — item is back to pending");
+  };
+  // GROUP L1: the cheapest vendor invited for each hotel.
+  const groupL1HotelVendors = (itemId) => {
+    const next = {};
+    hotelRowsFor(itemId).forEach((r) => {
+      let best = null;
+      vendors.forEach((v) => {
+        if (!canAwardAt(v.vendor_id, itemId, r.hotel_id)) return;
+        const lan = engineLanded(lineFor(v.vendor_id, itemId), includeCharges);
+        if (lan === null) return;
+        if (best === null || lan < best.landed) best = { vendor_id: v.vendor_id, landed: lan };
+      });
+      if (best) next[r.hotel_id] = best.vendor_id;
+    });
+    return next;
   };
 
   // Award L1 on every item — persists each, then refreshes once.
@@ -578,6 +757,18 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
       let done = 0, failed = 0;
       for (const it of items) {
         const itemId = it.id || it.arc_item_id;
+        if (isGroup) {
+          const next = groupL1HotelVendors(itemId);
+          if (!Object.keys(next).length) continue;
+          try {
+            await ArcApi.saveAllocation(arc.id, {
+              item_id: itemId,
+              allocations: buildGroupAllocations(itemId, groupRows(itemId, next)),
+            });
+            done++;
+          } catch (e) { failed++; }
+          continue;
+        }
         const indicative = toNum(it.indicative_qty);
         const l1 = l1ForItem(itemId);
         if (!l1) continue;
@@ -605,8 +796,13 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
     if (c.awarded < c.total) { toast.error("Allocate every item before finalising."); return; }
     setFinalizing(true);
     try {
-      await ArcApi.finalizeCommEval(arc.id);
+      const resp = await ArcApi.finalizeCommEval(arc.id);
       toast.success("Finalized — sent to the ARC committee");
+      // GROUP: hotels no invited vendor quoted for are finalized without a supplier.
+      const unawarded = (resp?.data || resp || {}).unawarded || [];
+      if (unawarded.length > 0) {
+        toast.warn(`${unawarded.length} hotel ${unawarded.length === 1 ? "line" : "lines"} left without a supplier — no invited vendor quoted. Those hotels buy these items outside this contract.`);
+      }
       await onRefresh({ advance: true }); // jump to Awarding
     } catch (e) { /* interceptor */ } finally {
       setFinalizing(false);
@@ -698,7 +894,21 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
           allocations — awarding requires the commercial evaluate permission.
         </StageReadOnlyBanner>
       )}
-      {editable && !sentBack && (
+      {editable && !sentBack && isGroup && (
+        <div className="guide">
+          <div className="g-ic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+          </div>
+          <div>
+            <strong>Group rate contract — award hotel by hotel.</strong> Each item lists the hotels that need it.
+            Use <strong>Award</strong> on a hotel row to give that hotel&apos;s quantity to a vendor, or <strong>Award</strong> on
+            the item to give a vendor every hotel it was invited for. A vendor can win only the hotels it was invited for.
+            The cheapest landed rate is <strong>L1</strong>. Award every hotel that has an invited vendor to finalize; a hotel
+            no invited vendor quoted for stays without a supplier.
+          </div>
+        </div>
+      )}
+      {editable && !sentBack && !isGroup && (
         <div className="guide">
           <div className="g-ic">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
@@ -941,6 +1151,14 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
                       saving={savingItem === itemId || savingItem === "all"}
                       editable={editable}
                       lockedByApproval={isComplete}
+                      group={isGroup ? {
+                        hotelRows: hotelRowsFor(itemId),
+                        hotelAwards: hotelAwardsFor(itemId),
+                        canAwardAt: (vid, hotelId) => canAwardAt(vid, itemId, hotelId),
+                        invitedFor,
+                        awardHotel: (vid, hotelId) => awardHotel(vid, itemId, hotelId),
+                        unawardHotel: (hotelId) => unawardHotel(itemId, hotelId),
+                      } : null}
                     />
                   );
                 })}
@@ -1087,8 +1305,10 @@ export default function CommercialStage({ arc, lifecycle, stage, permissions, on
           <div className="inner">
             <div className="left">
               <span className="fs-13 text-fg-2">
-                <span className="fw-600 text-fg">{c.awarded} / {c.total}</span> items at 100%
-                {c.awarded < c.total && <> — every item must be fully allocated to finalize</>}
+                <span className="fw-600 text-fg">{c.awarded} / {c.total}</span> {isGroup ? "items awarded" : "items at 100%"}
+                {c.awarded < c.total && (isGroup
+                  ? <> — award every hotel that has an invited vendor to finalize</>
+                  : <> — every item must be fully allocated to finalize</>)}
               </span>
               <span className="text-fg-4">·</span>
               <span className="fs-13 text-fg-2">Contracted: <span className="mono fw-600 text-fg">{fmtLakh(contractedValue())}</span></span>
@@ -1122,6 +1342,7 @@ function ItemRow({
   it, itemId, itemName, uom, indicative, isExp, status, vendors,
   lineFor, effLineFor, revisionFor, isL1, isQualified, landed, includeCharges, allocatedFor,
   awardCell, unawardCell, setShare, setShareByQty, allocMode, setAllocMode, toggleExpand, saving, editable, lockedByApproval,
+  group = null,
 }) {
   // Inline share override — { vid, value } while one cell's % is being edited.
   const [editShare, setEditShare] = useState(null);
@@ -1129,6 +1350,9 @@ function ItemRow({
   const pctOf = (qty) => (indicative > 0 ? Math.round((qty / indicative) * 1000) / 10 : 0);
   const statusLabel =
     status.kind === "no_quotes" ? "No quotes"
+    : group && status.kind === "awarded"
+      ? (status.noSupplier > 0 ? `Awarded · ${status.awardedHotels} of ${status.hotels} hotels` : status.splitCount > 1 ? `Split · ${status.splitCount} vendors` : "Awarded")
+    : group && status.kind === "partial" ? `Partial · ${status.awardedHotels} of ${status.hotels} hotels`
     : status.kind === "awarded"
       ? (status.splitCount > 1 ? `Split · ${status.splitCount} vendors` : "Awarded")
     : status.kind === "partial" ? `Partial · ${pctOf(status.allocated)}%`
@@ -1249,7 +1473,16 @@ function ItemRow({
                   {/* §1.4 — compact authoritative landed (engine basis; ranked on this number) */}
                   {(() => { const el = engineLanded(eff, includeCharges); return el != null ? <>{" · "}<span className="mono" style={{ fontWeight: 600 }}>{fmtINR(el)}</span></> : null; })()}
                 </div>
-                {editable ? (
+                {group ? (
+                  <GroupVendorCellControls
+                    vendor={v}
+                    group={group}
+                    editable={editable}
+                    saving={saving}
+                    onAward={() => awardCell(v.vendor_id, itemId)}
+                    onUnaward={() => unawardCell(v.vendor_id, itemId)}
+                  />
+                ) : editable ? (
                   !isAwarded ? (
                     <button className="cell-select-btn" disabled={saving} title="Award this vendor — shares re-divide equally" onClick={(e) => { e.stopPropagation(); awardCell(v.vendor_id, itemId); }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -1360,6 +1593,59 @@ function ItemRow({
         })}
       </tr>
 
+      {/* GROUP — one row per hotel that needs this item: its quantity, and who
+          supplies it. A vendor can be awarded only hotels it was invited for. */}
+      {group && group.hotelRows.map((r) => {
+        const at = group.hotelAwards[r.hotel_id] || [];
+        const anyEligible = vendors.some((v) => group.canAwardAt(v.vendor_id, r.hotel_id));
+        return (
+          <tr key={`hotel-${r.hotel_id}`} className="bd-row">
+            <td className="bd-label" style={{ textTransform: "none", letterSpacing: 0, fontSize: 12.5, color: "var(--fg-2)" }}>
+              <div className="fw-600 text-fg">{r.hotel.name}</div>
+              <div className="fs-12 text-fg-4">
+                <span className="mono">{r.qty.toLocaleString("en-IN")}</span> {uom}{r.hotel.is_lead ? " · Lead hotel" : ""}
+              </div>
+              {!anyEligible && at.length === 0 && (
+                <div className="fs-12" style={{ color: "var(--warn)" }}>No invited vendor quoted</div>
+              )}
+            </td>
+            {vendors.map((v) => {
+              const mine = at.some((x) => x.vendor_id === Number(v.vendor_id));
+              const quotedHere = !!lineFor(v.vendor_id, itemId);
+              return (
+                <td key={v.vendor_id} className="bd-cell">
+                  {mine ? (
+                    editable ? (
+                      <button type="button" className="cell-pill-awarded" style={{ marginTop: 0 }} disabled={saving} aria-label={`Remove ${v.vendor_name} from ${r.hotel.name}`} title="Take this hotel back — it will have no supplier" onClick={() => group.unawardHotel(r.hotel_id)}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        Awarded
+                        <span className="pill-x" aria-hidden="true">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="cell-pill-awarded" style={{ marginTop: 0, pointerEvents: "none" }}>Awarded</span>
+                    )
+                  ) : group.canAwardAt(v.vendor_id, r.hotel_id) ? (
+                    editable ? (
+                      <button type="button" className="cell-select-btn" style={{ marginTop: 0, opacity: 1 }} disabled={saving} aria-label={`Award ${r.hotel.name} to ${v.vendor_name}`} title="Give this hotel's quantity to this vendor" onClick={() => group.awardHotel(v.vendor_id, r.hotel_id)}>
+                        Award
+                      </button>
+                    ) : (
+                      <span className="bd-dash">—</span>
+                    )
+                  ) : quotedHere && !group.invitedFor(v.vendor_id, r.hotel_id) ? (
+                    <span className="bd-dash">Not invited</span>
+                  ) : (
+                    <span className="bd-dash">—</span>
+                  )}
+                </td>
+              );
+            })}
+          </tr>
+        );
+      })}
+
       {/* Expanded quote details — one spacious row per attribute, values
           aligned under their vendor columns. Sealed / missing lines show
           a quiet em-dash (the price cell above explains why). */}
@@ -1419,5 +1705,39 @@ function ItemRow({
         </tr>
       ))}
     </>
+  );
+}
+
+// GROUP — the item-row controls for one vendor: how many hotels it holds, and
+// a quick way to give it every hotel it was invited for.
+function GroupVendorCellControls({ vendor, group, editable, saving, onAward, onUnaward }) {
+  const vid = Number(vendor.vendor_id);
+  const eligible = group.hotelRows.filter((r) => group.canAwardAt(vendor.vendor_id, r.hotel_id));
+  const won = group.hotelRows.filter((r) => (group.hotelAwards[r.hotel_id] || []).some((x) => x.vendor_id === vid));
+  if (eligible.length === 0 && won.length === 0) {
+    return <div className="landed">Not invited for these hotels</div>;
+  }
+  const canTakeMore = eligible.some((r) => !won.includes(r));
+  const wonLabel = `Awarded · ${won.length} of ${group.hotelRows.length} hotel${group.hotelRows.length === 1 ? "" : "s"}`;
+  return (
+    <div className="awarded-actions" onClick={(e) => e.stopPropagation()}>
+      {won.length > 0 && (editable ? (
+        <button className="cell-pill-awarded" disabled={saving} aria-label={`Remove ${vendor.vendor_name} from every hotel`} title="Remove this vendor from every hotel" onClick={onUnaward}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          {wonLabel}
+          <span className="pill-x" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </span>
+        </button>
+      ) : (
+        <span className="cell-pill-awarded" style={{ pointerEvents: "none" }}>{wonLabel}</span>
+      ))}
+      {editable && canTakeMore && (
+        <button className="cell-select-btn" disabled={saving} aria-label={`Award every invited hotel to ${vendor.vendor_name}`} title="Award this vendor every hotel it was invited for" onClick={onAward}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          {eligible.length === group.hotelRows.length ? "Award all hotels" : `Award ${eligible.length} invited hotel${eligible.length === 1 ? "" : "s"}`}
+        </button>
+      )}
+    </div>
   );
 }
