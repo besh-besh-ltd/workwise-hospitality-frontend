@@ -4,7 +4,7 @@ import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, isArcEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
+import { DS, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
 import s from "./DashboardView.module.scss";
 
 /** Ids may arrive as numbers or strings depending on the endpoint. */
@@ -13,6 +13,9 @@ const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== un
 // Synthetic "process" representing the process-free ARC flow so ARC policies
 // (process_id = NULL, entity_type ARC_*) group into one editable card.
 export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "ARC (Rate Contracts)", process_type: "ARC", is_arc: true };
+// The company-wide Group ARC workflow (hotel_id NULL policies) — shown on every
+// business unit's page because it governs group rate contracts led by any hotel.
+export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (company-wide)", process_type: "ARC_GROUP", is_arc: true, is_arc_group: true };
 
 const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
@@ -41,7 +44,9 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     // into one editable "ARC" card (kept separate from true orphans).
     const arcPolicies = policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type));
     if (arcPolicies.length > 0) groups.push({ process: ARC_FLOW_PROCESS, policies: arcPolicies, isArc: true });
-    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type));
+    const arcGroupPolicies = policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type));
+    if (arcGroupPolicies.length > 0) groups.push({ process: ARC_GROUP_FLOW_PROCESS, policies: arcGroupPolicies, isArc: true });
+    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type));
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);

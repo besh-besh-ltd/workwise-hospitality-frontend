@@ -324,3 +324,19 @@ describe("getMisroutedArcPolicies", () => {
     expect(getMisroutedArcPolicies("RFQ", [arc({ entity_type: "PO" })])).toHaveLength(0);
   });
 });
+
+describe("Group ARC workflow — company-wide, process-free", () => {
+  const GROUP_POLICIES = [
+    { id: 301, hospitality_company_id: 4, hotel_id: null, process_id: null, entity_type: "ARC_GROUP", is_active: true,
+      steps: [{ id: 3011, step_order: 1, decision_rule: "ANY", approver_user_id: 900 }] },
+    { id: 302, hospitality_company_id: 4, hotel_id: null, process_id: null, entity_type: "ARC_GROUP_COMMITTEE", is_active: true,
+      steps: [{ id: 3021, step_order: 1, decision_rule: "ALL", approver_user_id: 901 }] },
+  ];
+
+  test("group workflow policies get their own card and never fall into Uncategorized", () => {
+    renderView({ policies: [...POLICIES, ...GROUP_POLICIES] });
+    expect(screen.getByText("Group ARC (company-wide)")).toBeInTheDocument();
+    expect(screen.queryByText(/ARC_GROUP Approval/)).toBeNull();
+    expect(screen.queryByText("Uncategorized")).toBeNull();
+  });
+});

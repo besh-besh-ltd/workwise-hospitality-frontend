@@ -56,6 +56,13 @@ export const entityTypes = [
   { value: "ARC_NEGOTIATION", label: "ARC Negotiation", description: "Rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
   { value: "ARC_COMMITTEE", label: "ARC Committee Award", description: "Rate contract committee award approval", icon: BsShieldCheck, color: "#db2777" },
   { value: "ARC_AMENDMENT", label: "ARC Amendment", description: "Rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
+  // Group rate contracts (one ARC covering several hotels) — a separate,
+  // company-wide workflow. Group ARCs never fall back to the single-hotel ARC one.
+  { value: "ARC_GROUP", label: "Group ARC Approval", description: "Group rate contract publish & base approval", icon: BsShieldCheck, color: "#be185d" },
+  { value: "ARC_GROUP_TECH", label: "Group ARC Technical Evaluation", description: "Group rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
+  { value: "ARC_GROUP_NEGOTIATION", label: "Group ARC Negotiation", description: "Group rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
+  { value: "ARC_GROUP_COMMITTEE", label: "Group ARC Committee Award", description: "Group rate contract committee award approval", icon: BsShieldCheck, color: "#be185d" },
+  { value: "ARC_GROUP_AMENDMENT", label: "Group ARC Amendment", description: "Group rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
 ];
 
 export const approverSourceTypes = [
@@ -110,6 +117,21 @@ export const ARC_ENTITY_ORDER = ARC_PROCESS_STAGES.map((s) => s.value);
 /** True when an entity_type belongs to the ARC (process-free) flow. */
 export const isArcEntityType = (entityType) => ARC_ENTITY_ORDER.includes(entityType);
 
+// GROUP ARC route — rate contracts covering several hotels. Process-free like
+// ARC, and COMPANY-WIDE: policies are saved with hotel_id = NULL, so one group
+// hierarchy governs every group rate contract whichever hotel leads it. A group
+// ARC never falls back to the single-hotel ARC workflow (and vice versa).
+export const ARC_GROUP_PROCESS_STAGES = [
+  { value: "ARC_GROUP", label: "Group ARC (Publish & Base)", description: "Required — gates publishing a group rate contract and is the default for every stage below.", shortLabel: "Group ARC", required: true },
+  { value: "ARC_GROUP_TECH", label: "Technical Evaluation", description: "Approval of technical evaluation results.", shortLabel: "Tech" },
+  { value: "ARC_GROUP_NEGOTIATION", label: "Negotiation", description: "Approval of negotiation rounds.", shortLabel: "Negotiation" },
+  { value: "ARC_GROUP_COMMITTEE", label: "Committee Award", description: "Group committee approval of finalised awards.", shortLabel: "Committee" },
+  { value: "ARC_GROUP_AMENDMENT", label: "Amendment", description: "Approval of post-award amendments.", shortLabel: "Amendment" },
+];
+export const ARC_GROUP_ENTITY_ORDER = ARC_GROUP_PROCESS_STAGES.map((s) => s.value);
+/** True when an entity_type belongs to the Group ARC (company-wide) flow. */
+export const isArcGroupEntityType = (entityType) => ARC_GROUP_ENTITY_ORDER.includes(entityType);
+
 export const PROCESS_TYPES = {
   RFQ: "RFQ",
   TENDER: "TENDER",
@@ -118,7 +140,7 @@ export const PROCESS_TYPES = {
 
 // Flow type — the wizard supports process-based flows (RFQ/Tender) and the
 // process-free ARC flow.
-export const FLOW_TYPE = { PROCESS: "PROCESS", ARC: "ARC" };
+export const FLOW_TYPE = { PROCESS: "PROCESS", ARC: "ARC", ARC_GROUP: "ARC_GROUP" };
 
 /** Returns the 5-stage config for the given process type. RFQ → RFQ route; TENDER/ARC → Tender route. */
 export const getStagesForProcessType = (processType) => {
@@ -139,6 +161,7 @@ export const ALL_STAGE_ENTITY_ORDER = [...new Set([
   ...RFQ_PROCESS_STAGES.map((s) => s.value),
   ...TENDER_PROCESS_STAGES.map((s) => s.value),
   ...ARC_PROCESS_STAGES.map((s) => s.value),
+  ...ARC_GROUP_PROCESS_STAGES.map((s) => s.value),
 ])];
 
 /**
@@ -166,11 +189,13 @@ export const ALL_STAGE_ENTITY_ORDER = [...new Set([
  * diagnostic that names every ARC policy pinned to a process. Remove one and
  * the other stops making sense.
  */
-export const getCardStageOrder = (processType, policies = [], isArc = false) => {
-  const canonical = isArc ? ARC_ENTITY_ORDER : getStageEntityOrder(processType);
+export const getCardStageOrder = (processType, policies = [], isArc = false, isArcGroup = false) => {
+  const canonical = isArcGroup ? ARC_GROUP_ENTITY_ORDER : isArc ? ARC_ENTITY_ORDER : getStageEntityOrder(processType);
   const present = new Set((policies || []).map((p) => p.entity_type));
   const extra = ALL_STAGE_ENTITY_ORDER.filter(
-    (et) => present.has(et) && !canonical.includes(et) && !(!isArc && isArcEntityType(et))
+    (et) => present.has(et) && !canonical.includes(et)
+      && !((!isArc || isArcGroup) && isArcEntityType(et))
+      && !(!isArcGroup && isArcGroupEntityType(et))
   );
   return [...canonical, ...extra];
 };
@@ -187,6 +212,8 @@ export const getCardStageOrder = (processType, policies = [], isArc = false) => 
 export const getMisroutedArcPolicies = (processType, policies = []) => {
   const canonical = getStageEntityOrder(processType);
   return (policies || []).filter(
-    (p) => p?.process_id && isArcEntityType(p.entity_type) && !canonical.includes(p.entity_type)
+    (p) => p?.process_id
+      && (isArcEntityType(p.entity_type) || isArcGroupEntityType(p.entity_type))
+      && !canonical.includes(p.entity_type)
   );
 };
