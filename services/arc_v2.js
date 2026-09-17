@@ -27,9 +27,11 @@ export const getDepartmentsForCategory = ({ category_id, hospitality_company_id 
     params: { category_id, hospitality_company_id },
   });
 
-// Departments the user is mapped to in a given hotel (ARC create picker).
-export const getDepartmentsForHotel = ({ hotel_id } = {}) =>
-  axiosInstance.get(`${BASE}/hotel-departments`, { params: { hotel_id } });
+// Departments the user is mapped to in a given hotel (ARC create picker). A
+// group rate contract passes hotel_ids and gets the departments shared by all.
+const csv = (ids) => (Array.isArray(ids) && ids.length ? ids.join(",") : undefined);
+export const getDepartmentsForHotel = ({ hotel_id, hotel_ids } = {}) =>
+  axiosInstance.get(`${BASE}/hotel-departments`, { params: { hotel_id, hotel_ids: csv(hotel_ids) } });
 
 export const getSubCategories = (categoryId) =>
   axiosInstance.get(`${BASE}/sub-categories`, { params: { category_id: categoryId } });
@@ -48,8 +50,10 @@ export const searchVariants = ({ category_id, sub_category_ids, q, page, limit }
       limit,
     },
   });
-export const listEligibleVendors = ({ category_id, hotel_id } = {}) =>
-  axiosInstance.get(`${BASE}/eligible-vendors`, { params: { category_id, hotel_id } });
+// A group rate contract passes hotel_ids; each vendor then carries the hotels
+// it covers (hotel_ids) and any needing renewal (renewal_needed_hotel_ids).
+export const listEligibleVendors = ({ category_id, hotel_id, hotel_ids } = {}) =>
+  axiosInstance.get(`${BASE}/eligible-vendors`, { params: { category_id, hotel_id, hotel_ids: csv(hotel_ids) } });
 
 export const getContractDetail = (id) => axiosInstance.get(`${BASE}/${id}`);
 // Lifecycle spine for the single authoritative ARC page — computed stage

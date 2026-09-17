@@ -8,6 +8,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import { getUnits, addCustomUnit } from "@/services/units";
+import GroupHotelPicker from "@/components/dashboard/rate-contracts/buyer/create/GroupHotelPicker";
+import HotelQtySplit from "@/components/dashboard/rate-contracts/buyer/create/HotelQtySplit";
+import {
+  buStepComplete, nextLeadHotelId, hotelSplitTotal, hotelSplitValid,
+  buildScopePayload, buildItemsPayload, splitFromItems, uncoveredHotelIds,
+} from "@/utils/groupArc";
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Constants & helpers
@@ -35,7 +41,7 @@ const ESCALATION_HELP = {
 
 const STEPS = [
   { key: "basics",    label: "Basics",         meta: "Category · type" },
-  { key: "bu",        label: "Business unit",  meta: "Single-BU scope" },
+  { key: "bu",        label: "Business unit",  meta: "One hotel or a group" },
   { key: "items",     label: "Items",          meta: "Pick from catalogue" },
   { key: "terms",     label: "Terms",          meta: "Dates · escalation" },
   { key: "tech",      label: "Tech & vendors", meta: "Clauses · eligibility" },
@@ -179,9 +185,17 @@ export default function CreateRateContractPage() {
   const [type, setType] = useState("product");
   const [selectedSubCats, setSelectedSubCats] = useState([]);
 
-  // Step 2 — BU
+  // Step 2 — BU. A group rate contract covers several hotels (groupHotelIds);
+  // hotelId is then the LEAD hotel, which runs the tender and the approvals.
   const [hotelId, setHotelId] = useState(null);
   const [departmentId, setDepartmentId] = useState(null);
+  const [isGroup, setIsGroup] = useState(false);
+  const [groupHotelIds, setGroupHotelIds] = useState([]);
+  // True once the buyer picks the lead themselves — the Head Office suggestion
+  // then stops overriding it.
+  const [leadChosen, setLeadChosen] = useState(false);
+  // Group items: { [variantId]: { [hotelId]: "qty" } } — the item total is their sum.
+  const [hotelQtys, setHotelQtys] = useState({});
 
   // Step 3 — Items (selectedIds + per-item meta)
   const [itemSearch, setItemSearch] = useState("");
@@ -317,6 +331,10 @@ export default function CreateRateContractPage() {
         // ── Step 2 — Business unit ──
         setHotelId(arc.hotel_id || null);
         setDepartmentId(arc.department_id || null);
+        setIsGroup(!!arc.is_group);
+        setLeadChosen(!!arc.is_group);
+        setGroupHotelIds(arc.is_group ? (arc.hotels || []).map((h) => Number(h.hotel_id)) : []);
+        setHotelQtys(arc.is_group ? splitFromItems(items) : {});
 
         // ── Step 3 — Items ──
         const ids = items.map((it) => it.product_variant_id);
@@ -451,10 +469,16 @@ export default function CreateRateContractPage() {
   // (the department scopes who can raise MRs against this ARC). Independent of
   // the category. Auto-selects when there's exactly one; clears a stale pick
   // when the hotel changes.
+  // A group rate contract has one department, so the choices are the ones the
+  // user holds at EVERY selected hotel.
+  const groupHotelKey = [...groupHotelIds].sort((a, b) => a - b).join(",");
   useEffect(() => {
-    if (!hotelId) { setDepartments([]); setDepartmentId(null); return; }
+    if (isGroup ? groupHotelIds.length < 2 : !hotelId) { setDepartments([]); setDepartmentId(null); return; }
     let cancelled = false;
-    ArcApi.getDepartmentsForHotel({ hotel_id: hotelId })
+    const request = isGroup
+      ? { hotel_ids: [...groupHotelIds].sort((a, b) => a - b) }
+      : { hotel_id: hotelId };
+    ArcApi.getDepartmentsForHotel(request)
       .then((res) => {
         if (cancelled) return;
         const depts = res?.data?.departments || [];
@@ -464,7 +488,8 @@ export default function CreateRateContractPage() {
       })
       .catch(() => { if (!cancelled) setDepartments([]); });
     return () => { cancelled = true; };
-  }, [hotelId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotelId, isGroup, groupHotelKey]);
 
   // Debounce the item search so each keystroke doesn't hit the server.
   useEffect(() => {
@@ -517,16 +542,46 @@ export default function CreateRateContractPage() {
   useEffect(() => { loadVariants(1); }, [loadVariants]);
 
   useEffect(() => {
-    if (!categoryId || !hotelId) { setVendors([]); return; }
+    if (!categoryId || (isGroup ? groupHotelIds.length < 2 : !hotelId)) { setVendors([]); return; }
     let cancelled = false;
-    ArcApi.listEligibleVendors({ category_id: categoryId, hotel_id: hotelId })
+    const request = isGroup
+      ? { category_id: categoryId, hotel_ids: [...groupHotelIds].sort((a, b) => a - b) }
+      : { category_id: categoryId, hotel_id: hotelId };
+    ArcApi.listEligibleVendors(request)
       .then((res) => { if (!cancelled) setVendors(res?.data?.vendors || []); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [categoryId, hotelId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, hotelId, isGroup, groupHotelKey]);
 
   // ── Derived state ───────────────────────────────────────────────────
   const selectedHotel = useMemo(() => hotels.find((h) => h.id === hotelId), [hotels, hotelId]);
+  // Group: the selected hotels, lead first, for the quantity split and review.
+  const groupHotels = useMemo(() => {
+    const byId = new Map(hotels.map((h) => [Number(h.id), h]));
+    return [...groupHotelIds]
+      .sort((a, b) => (a === Number(hotelId) ? -1 : b === Number(hotelId) ? 1 : 0))
+      .map((id) => ({ id, name: byId.get(id)?.name || `Hotel #${id}`, isLead: id === Number(hotelId) }));
+  }, [hotels, groupHotelIds, hotelId]);
+  const hotelsWithoutVendor = useMemo(
+    () => (isGroup && vendors.length ? uncoveredHotelIds(vendors, groupHotelIds) : []),
+    [isGroup, vendors, groupHotelIds]
+  );
+
+  function chooseScope(group) {
+    if (group === isGroup) return;
+    setIsGroup(group);
+    if (group) setGroupHotelIds(hotelId ? [Number(hotelId)] : []);
+  }
+  function toggleGroupHotel(id) {
+    const hid = Number(id);
+    const next = groupHotelIds.includes(hid) ? groupHotelIds.filter((x) => x !== hid) : [...groupHotelIds, hid];
+    setGroupHotelIds(next);
+    setHotelId(nextLeadHotelId({ currentLeadId: hotelId, selectedIds: next, hotels, userChoseLead: leadChosen }));
+  }
+  function setItemHotelQty(itemId, hid, value) {
+    setHotelQtys((m) => ({ ...m, [itemId]: { ...(m[itemId] || {}), [hid]: value } }));
+  }
   const selectedCategoryTitle = useMemo(() => categories.find((c) => c.id === categoryId)?.title || categoryTitle, [categories, categoryId, categoryTitle]);
 
   function variantById(id) { return variants.find((v) => v.id === id) || selectedMeta[id] || { id, name: `Variant #${id}`, slug: "", uom: "—" }; }
@@ -588,10 +643,12 @@ export default function CreateRateContractPage() {
 
   const canNext = useMemo(() => {
     if (step === 1) return !!title && !!categoryId && !!type;
-    if (step === 2) return !!hotelId && !!departmentId;
+    if (step === 2) return buStepComplete({ isGroup, hotelId, groupHotelIds, departmentId });
     if (step === 3)
       return selectedItemIds.length > 0
-        && selectedItemIds.every((id) => Number(itemQtys[id]) > 0 && !!(itemUoms[id] || "").trim() && (itemSpecs[id] || "").trim().length > 0);
+        && selectedItemIds.every((id) =>
+          (isGroup ? hotelSplitValid(hotelQtys[id], groupHotelIds) : Number(itemQtys[id]) > 0)
+          && !!(itemUoms[id] || "").trim() && (itemSpecs[id] || "").trim().length > 0);
     if (step === 4) return !!submissionStart && !!submissionEnd && !!contractStart && !!contractEnd;
     if (step === 5) {
       if (eligibility === "invitation" && invitedVendorIds.length === 0) return false;
@@ -601,7 +658,7 @@ export default function CreateRateContractPage() {
     }
     return true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, title, categoryId, type, hotelId, departmentId, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem, universalTechOn, universalClauses, universalMinPass]);
+  }, [step, title, categoryId, type, hotelId, departmentId, isGroup, groupHotelIds, hotelQtys, selectedItemIds, itemQtys, itemUoms, itemSpecs, submissionStart, submissionEnd, contractStart, contractEnd, eligibility, invitedVendorIds, techByItem, clausesByItem, minPassByItem, universalTechOn, universalClauses, universalMinPass]);
 
   // Any step the user has already REACHED (<= furthestStep) is freely clickable
   // in either direction — back-nav never relocks it (Track C).
@@ -724,20 +781,17 @@ export default function CreateRateContractPage() {
   // same wizard state; only whether publish() runs afterward differs. Kept as
   // one function so the two flows can't drift out of sync (Sr 17).
   function buildPayload() {
-    const items = selectedItemIds.map((id) => ({
-      product_variant_id: id,
-      spec_text:          itemSpecs[id] || "",
-      indicative_qty:     Number(itemQtys[id]) || 0,
-      uom:                itemUoms[id] || null,
-    }));
+    // A group item carries a quantity per covered hotel instead of one total.
+    const items = buildItemsPayload({
+      isGroup, selectedItemIds, itemSpecs, itemQtys, itemUoms, hotelQtys, groupHotelIds,
+    });
     return {
       title,
       description: internalRef ? `Internal ref: ${internalRef}` : "",
       category_id: categoryId,
       sub_category_ids: selectedSubCats,
       type,
-      hotel_id: hotelId,
-      department_id: departmentId,
+      ...buildScopePayload({ isGroup, hotelId, groupHotelIds, departmentId }),
       // No process_id — ARC approval routes via the committee/hierarchy
       // model, so the backend stores process_id as NULL (audit H5).
       submission_start_at: submissionStart,
@@ -892,7 +946,7 @@ export default function CreateRateContractPage() {
           <span className="page-eyebrow info">Draft · resuming</span>
         )}
         <h1 className="page-h1">{draftArcRef.current ? "Resume Rate Contract draft" : "Create Rate Contract"}</h1>
-        <p className="page-sub">Single-BU ARC. Category drives the catalogue; tech eval is configured per item with explicit weights and a minimum passing score.</p>
+        <p className="page-sub">One hotel or a group of hotels. Category drives the catalogue; tech eval is configured per item with explicit weights and a minimum passing score.</p>
       </div>
 
       {/* Resume — clean loading state while the draft hydrates. */}
@@ -1008,16 +1062,39 @@ export default function CreateRateContractPage() {
           <div className="section-head">
             <div className="h-left">
               <div className="ic"><BuildingIcon /></div>
-              <div><h2>Business unit</h2><div className="h-sub">Pick the single property</div></div>
+              <div><h2>Business unit</h2><div className="h-sub">One hotel, or a group of hotels on one contract</div></div>
             </div>
           </div>
           <div className="section-body">
-            <div className="guide" style={{ marginBottom: 14 }}>
-              <div className="g-ic"><InfoIcon /></div>
-              <div>Multi-BU contracts are <strong>Phase 2</strong>. Every ARC is currently single-BU at creation.</div>
+            <div className="type-row" style={{ marginBottom: 14 }}>
+              <div className={`cat-card ${!isGroup ? "selected" : ""}`} onClick={() => chooseScope(false)}>
+                <div className="cc-ic"><BuildingIcon size={20} /></div>
+                <div><div className="cc-name">Single hotel</div><div className="cc-meta">One property runs and uses this contract</div></div>
+              </div>
+              <div className={`cat-card ${isGroup ? "selected" : ""}`} onClick={() => chooseScope(true)}>
+                <div className="cc-ic"><BuildingIcon size={20} /></div>
+                <div><div className="cc-name">Group of hotels</div><div className="cc-meta">One tender and one approval · each hotel orders on its own</div></div>
+              </div>
             </div>
+            {isGroup && (
+              <div className="guide" style={{ marginBottom: 14 }}>
+                <div className="g-ic"><InfoIcon /></div>
+                <div>
+                  Pick at least two hotels of the same company. The <strong>lead hotel</strong> runs the tender, evaluation and approvals — the Head Office is suggested when you pick it.
+                  Group contracts are approved through your company&apos;s <strong>Group ARC</strong> approval workflow.
+                </div>
+              </div>
+            )}
             {hotels.length === 0 ? (
               <div className="guide"><div className="g-ic"><InfoIcon /></div><div>No accessible hotels — check your hospitality access.</div></div>
+            ) : isGroup ? (
+              <GroupHotelPicker
+                hotels={hotels}
+                selectedIds={groupHotelIds}
+                leadId={hotelId}
+                onToggle={toggleGroupHotel}
+                onMakeLead={(id) => { setHotelId(Number(id)); setLeadChosen(true); }}
+              />
             ) : (
               <div className="cat-grid">
                 {hotels.map((b) => (
@@ -1052,13 +1129,19 @@ export default function CreateRateContractPage() {
             )}
             {departments.length === 1 && (
               <div className="help-text" style={{ marginTop: 12 }}>
-                Department auto-set to <strong style={{ color: "var(--fg)" }}>{departments[0].title}</strong> (the only one you&apos;re mapped to in this business unit).
+                Department auto-set to <strong style={{ color: "var(--fg)" }}>{departments[0].title}</strong> (the only one you&apos;re mapped to in {isGroup ? "every selected hotel" : "this business unit"}).
               </div>
             )}
-            {departments.length === 0 && hotelId && (
+            {departments.length === 0 && !isGroup && hotelId && (
               <div className="guide" style={{ marginTop: 12 }}>
                 <div className="g-ic"><InfoIcon /></div>
                 <div>You&apos;re not mapped to any department in this business unit. Ask an admin to grant you department access for it.</div>
+              </div>
+            )}
+            {departments.length === 0 && isGroup && groupHotelIds.length >= 2 && (
+              <div className="guide" style={{ marginTop: 12 }}>
+                <div className="g-ic"><InfoIcon /></div>
+                <div>The selected hotels don&apos;t share a department you&apos;re mapped to. A group rate contract has one department — pick hotels where you hold the same department, or ask an admin for access.</div>
               </div>
             )}
           </div>
@@ -1121,7 +1204,18 @@ export default function CreateRateContractPage() {
                       </div>
                       {!collapsedItemIds.includes(id) && (
                       <div className="item-detail">
+                        {isGroup && (
+                          <div style={{ marginBottom: 11 }}>
+                            <HotelQtySplit
+                              hotels={groupHotels}
+                              values={hotelQtys[id] || {}}
+                              uom={itemUoms[id] || ""}
+                              onChange={(hid, value) => setItemHotelQty(id, hid, value)}
+                            />
+                          </div>
+                        )}
                         <div className="form-grid cols-3">
+                          {!isGroup && (
                           <div>
                             <label className="label">Indicative quantity <span className="req">*</span></label>
                             <div className="input-group" style={{ maxWidth: 200 }}>
@@ -1129,6 +1223,7 @@ export default function CreateRateContractPage() {
                               <div className="suffix" title={uomFull(itemUoms[id] || "unit")}>{itemUoms[id] || "unit"}</div>
                             </div>
                           </div>
+                          )}
                           <div>
                             <label className="label">Unit of measure <span className="req">*</span></label>
                             <select className="select" style={{ maxWidth: 200 }} value={itemUoms[id] ?? ""} onChange={(e) => {
@@ -1602,11 +1697,23 @@ export default function CreateRateContractPage() {
                   <span className="rd-box" />Invitation-only
                 </label>
               </div>
+              {isGroup && hotelsWithoutVendor.length > 0 && (
+                <div className="guide warn" style={{ marginTop: 14 }}>
+                  <div className="g-ic"><AlertIcon /></div>
+                  <div>
+                    No eligible vendor serves{" "}
+                    <strong>{groupHotels.filter((h) => hotelsWithoutVendor.includes(h.id)).map((h) => h.name).join(", ")}</strong>.
+                    You can still publish; those hotels may end up without a supplier on this contract.
+                  </div>
+                </div>
+              )}
               {eligibility === "invitation" && (
                 <div style={{ marginTop: 16 }}>
                   <label className="label">Invite vendors <span className="req">*</span></label>
                   <div className="help-text" style={{ marginTop: -2, marginBottom: 9 }}>
-                    Only vendors subscribed to this business unit × category are listed.
+                    {isGroup
+                      ? "Only vendors subscribed to this category and at least one selected hotel are listed. Each vendor quotes only for the hotels it serves."
+                      : "Only vendors subscribed to this business unit × category are listed."}
                     {invitedVendorIds.length > 0 && <> <span className="mono fw-600" style={{ color: "var(--fg)" }}>{invitedVendorIds.length}</span> selected.</>}
                   </div>
                   <div>
@@ -1622,7 +1729,12 @@ export default function CreateRateContractPage() {
                             <div className={`vpr-av ${avClassFor(v.id)}`}>{initialsFor(v.name)}</div>
                             <div>
                               <div className="vpr-name">{v.name}</div>
-                              <div className="vpr-email">{v.email || "—"}</div>
+                              <div className="vpr-email">
+                                {v.email || "—"}
+                                {isGroup && Array.isArray(v.hotel_ids) && (
+                                  <> · serves <span className="mono fw-600">{v.hotel_ids.length}</span> of {groupHotelIds.length} hotels</>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="vpr-stat"><div className="k">Rating</div><div className="v">—</div></div>
@@ -1653,7 +1765,21 @@ export default function CreateRateContractPage() {
             <div className="kv-grid">
               <div className="k">Title</div><div className="v">{title}</div>
               <div className="k">Category</div><div className="v">{selectedCategoryTitle} · {type === "service" ? "Services" : "Products"}</div>
-              <div className="k">Business unit</div><div className="v"><span className="mono fw-600">{buCodeFor(selectedHotel?.name)}</span> {selectedHotel?.name}</div>
+              <div className="k">Business unit</div>
+              <div className="v">
+                {isGroup ? (
+                  <>
+                    <span className="fw-600">Group · {groupHotels.length} hotels</span>
+                    <div style={{ marginTop: 4 }}>
+                      {groupHotels.map((h, i) => (
+                        <span key={h.id}>{i > 0 && ", "}{h.name}{h.isLead && <span className="text-fg-3"> (lead)</span>}</span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <><span className="mono fw-600">{buCodeFor(selectedHotel?.name)}</span> {selectedHotel?.name}</>
+                )}
+              </div>
               <div className="k">Items</div><div className="v"><span className="em mono">{selectedItemIds.length}</span> picked</div>
               <div className="k">Tender</div><div className="v"><span className="mono">{submissionStart}</span> → <span className="mono">{submissionEnd}</span></div>
               <div className="k">Term</div><div className="v"><span className="mono">{contractStart}</span> → <span className="mono">{contractEnd}</span></div>
@@ -1676,6 +1802,12 @@ export default function CreateRateContractPage() {
                     return (
                       <div key={iid} className="rev-item">
                         <span className="ri-name">{it.name}</span>
+                        {isGroup && (
+                          <>
+                            <span className="ri-dot">·</span>
+                            <span className="ri-fact"><span className="mono fw-600">{hotelSplitTotal(hotelQtys[iid]).toLocaleString("en-IN")}</span> {itemUoms[iid] || ""} across {groupHotels.length} hotels</span>
+                          </>
+                        )}
                         {techOn ? (
                           <>
                             <span className="ri-dot">·</span>
@@ -1733,7 +1865,7 @@ export default function CreateRateContractPage() {
             {/* Sr 17 — Save draft & exit. Gated on BU being set (step ≥ 2) so
                 createDraft's required fields (title/category from step 1,
                 hotel/department from step 2) are always satisfiable. */}
-            {step > 1 && hotelId && departmentId && (
+            {step > 1 && buStepComplete({ isGroup, hotelId, groupHotelIds, departmentId }) && (
               <button className="btn btn-ghost btn-sm" disabled={busy} onClick={saveDraft}>
                 {busy ? "Saving…" : "Save draft & exit"}
               </button>
