@@ -23,7 +23,10 @@ const ENTITY_TYPE_TO_HREF = {
   // asked for does not exist. Quote Compare has no rail entry of its own, so
   // this follows TECHNICAL above and badges the RFQ module it lives under.
   NEGOTIATION_QUOTE: "/dashboard/buyer/rfq-management",
-  // Contracts (ARC v2)
+  // Contracts (ARC v2) — single-hotel and group rate contracts raise the same
+  // instance types; only the policy that shapes them differs.
+  ARC_PUBLISH: "/dashboard/buyer/rate-contracts",
+  ARC_NEGOTIATION: "/dashboard/buyer/rate-contracts",
   ARC_TECH: "/dashboard/buyer/rate-contracts",
   ARC_COMMITTEE: "/dashboard/buyer/rate-contracts",
   ARC_AMENDMENT: "/dashboard/buyer/rate-contracts",
