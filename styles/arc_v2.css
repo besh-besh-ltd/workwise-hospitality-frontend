@@ -508,6 +508,10 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .bu-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:500; padding:3px 8px; border-radius:99px; background:var(--surface-3); color:var(--fg-2); border:1px solid var(--border); }
 .bu-tag svg { color:var(--fg-3); }
 .bu-tag.primary { background:var(--primary-soft); color:var(--primary); border-color:rgba(37,99,235,0.22); } .bu-tag.primary svg { color:var(--primary); }
+/* per-BU quantity chip (Overview "Per-BU committed qty"; one per hotel on a group ARC) — from prototypes/arc_ui/buyer-detail.html */
+.qty-chip { display:inline-flex; align-items:baseline; gap:4px; padding:3px 8px; background:var(--surface-3); border:1px solid var(--border); border-radius:6px; font-size:11px; }
+.qty-chip .qc-code { font-weight:700; color:var(--fg-2); letter-spacing:0.02em; }
+.qty-chip .qc-qty { font-family:'Geist Mono',monospace; font-weight:600; color:var(--fg); }
 
 /* ═══════════════════════════════════════════════════════════
    CONTRACT CARDS (dashboard list)

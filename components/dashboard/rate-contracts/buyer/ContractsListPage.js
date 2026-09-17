@@ -635,10 +635,18 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                           {row.is_manual && (
                             <span className="bu-tag" title="Entered through the Manual ARC workspace">Manual entry</span>
                           )}
+                          {row.is_group && (
+                            <span className="bu-tag">{`Group · ${(row.hotel_names || []).length} hotels`}</span>
+                          )}
                         </div>
                         <div className="cc-sub">
                           {row.category_title && (<><span>{row.category_title}</span><span className="sep">·</span></>)}
-                          {row.hotel_name && (
+                          {row.is_group && (row.hotel_names || []).length > 1 ? (
+                            // Group rate contract: the lead hotel (listed first) and how many others.
+                            <span title={row.hotel_names.join(", ")}>
+                              <span className="mono fw-600">{buCodeFor(row.hotel_names[0])}</span> <span>{`${row.hotel_names[0]} +${row.hotel_names.length - 1} more`}</span>
+                            </span>
+                          ) : row.hotel_name && (
                             <>
                               <span><span className="mono fw-600">{buCodeFor(row.hotel_name)}</span> <span>{row.hotel_name}</span></span>
                             </>
