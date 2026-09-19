@@ -169,6 +169,19 @@ export const relAgo = (iso) => {
 };
 
 /* Skeleton line/block helper. */
+/* ConfirmationModal renders `description` through dangerouslySetInnerHTML.
+   Its sink is shared by ~37 call sites and is a separate cleanup, so anything
+   user- or vendor-supplied that reaches that prop has to be escaped here, at
+   the boundary we own. Lives in shared.js because both the buyer and the
+   vendor purchase-order pages need it. */
+export const escapeHtml = (s) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export const Sk = ({ w = "100%", h = 12, r, style }) => (
   <span className={styles.sk} style={{ display: "block", width: w, height: h, borderRadius: r, ...style }} />
 );

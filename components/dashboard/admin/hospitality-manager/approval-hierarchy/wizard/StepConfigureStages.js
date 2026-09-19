@@ -1,9 +1,77 @@
 import React, { useState } from "react";
+import Select from "react-select";
 import { BsPlus, BsChevronDown, BsChevronRight, BsDiagram3, BsArrowDown } from "react-icons/bs";
 import ApprovalStepCard from "./ApprovalStepCard";
 import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
-import { RFQ_PROCESS_STAGES, DS, getEntityTypeConfig } from "../constants";
+import { RFQ_PROCESS_STAGES, DS, getEntityTypeConfig, approverSourceTypes } from "../constants";
 import s from "./StepConfigureStages.module.scss";
+
+/**
+ * Add several approval levels in one go.
+ *
+ * `tbl_approval_policy_steps.approver_source_id` is a scalar NOT NULL, so
+ * "select L2, L3 and L4 at once" means one approver per level, in the order
+ * chosen — N picks become N sequential levels. That needs no schema change.
+ * (Several approvers on ONE level is a different feature and a migration.)
+ *
+ * The one-at-a-time button stays: adding a single level should not cost two
+ * clicks more than it used to.
+ */
+const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
+  const [sourceType, setSourceType] = useState("ROLE");
+  const [picked, setPicked] = useState([]);
+
+  const commit = () => {
+    if (picked.length === 0) return;
+    onAdd(sourceType, picked.map((o) => o.value));
+    setPicked([]);
+  };
+
+  return (
+    <div className={s.bulkAdd}>
+      <div className={s.bulkRow}>
+        {approverSourceTypes.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            className={`${s.bulkPill} ${sourceType === t.value ? s.bulkPillActive : ""}`}
+            /* Distinct from the identically-labelled pill on each level card:
+               this one chooses what the BULK picker searches. */
+            aria-label={`Add levels by ${t.label.toLowerCase()}`}
+            aria-pressed={sourceType === t.value}
+            onClick={() => { setSourceType(t.value); setPicked([]); }}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span className={s.bulkHint}>Each one becomes its own level, in the order you pick them.</span>
+      </div>
+      <div className={s.bulkRow}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Select
+            inputId="bulk-add-levels"
+            aria-label="Add several levels at once"
+            isMulti
+            options={getApproverOptions(sourceType, null)}
+            value={picked}
+            onChange={(opts) => setPicked(opts || [])}
+            placeholder="Search approvers…"
+            menuPlacement="auto"
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPosition="fixed"
+            maxMenuHeight={280}
+            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+          />
+        </div>
+        {picked.length > 0 && (
+          <button type="button" className={s.addBtn} onClick={commit}>
+            Add {picked.length} level{picked.length === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false }) => {
   const [expandedStage, setExpandedStage] = useState(0);
@@ -15,6 +83,24 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
     });
     onStagesChange(ns);
   };
+  // N approvers -> N sequential levels, appended after whatever is there.
+  const handleAddSteps = (si, sourceType, ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const ns = stages.map((st, i) => {
+      if (i !== si) return st;
+      const existing = st.steps || [];
+      const added = ids.map((id, k) => ({
+        step_order: existing.length + k + 1,
+        approval_type: "STANDARD",
+        decision_rule: "ANY",
+        approver_source_type: sourceType,
+        approver_source_id: id,
+      }));
+      return { ...st, steps: [...existing, ...added] };
+    });
+    onStagesChange(ns);
+  };
+
   const handleRemoveStep = (si, stepIdx) => {
     const ns = stages.map((st, i) => {
       if (i !== si) return st;
@@ -101,13 +187,18 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                     {isExpanded && (
                       <div className={s.stageBody}>
                         {steps.length === 0 ? (
-                          <div className={s.emptyBody}><p>No approval levels configured</p><button type="button" className={s.addBtn} onClick={() => handleAddStep(si)}><BsPlus size={14} /> Add First Level</button></div>
+                          <div className={s.emptyBody}>
+                            <p>No approval levels configured</p>
+                            <button type="button" className={s.addBtn} onClick={() => handleAddStep(si)}><BsPlus size={14} /> Add First Level</button>
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
+                          </div>
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
                               <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
                           </>
                         )}
                       </div>

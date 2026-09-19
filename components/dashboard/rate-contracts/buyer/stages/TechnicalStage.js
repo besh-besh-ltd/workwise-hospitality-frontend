@@ -44,6 +44,29 @@ const fmtDate = (iso) => {
 };
 const clauseWeight = (cl) => Number(cl.weightage ?? cl.weight ?? 0);
 
+// The reference documents the buyer attached when writing this clause. Shown
+// to the evaluator because scoring "conforms to the attached drawing" without
+// the drawing on screen is guesswork. Proxied, never a raw S3 url.
+function ClauseRefs({ files = [] }) {
+  if (!files.length) return null;
+  return (
+    <span className="c-meta" style={{ gap: 6 }}>
+      {files.map((f) => (
+        <a
+          key={f.id}
+          className="c-type"
+          href={`/api/v1/arc-v2/evaluation/tech-eval/clause-file/${f.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={f.file_url}
+        >
+          Reference doc
+        </a>
+      ))}
+    </span>
+  );
+}
+
 export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const techPerms = permissions["arc-tech"] || [];
   const isAdmin = (permissions["arc"] || []).includes("admin");
@@ -476,6 +499,15 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     // Universal (ARC-wide) amends fold into the SAME decide call as amend.universal_marks.
     const universalAmendMarks = Object.entries(universalAmends).map(([response_id, v]) => ({ response_id: Number(response_id), ...v }));
     const hasAmends = amendMarks.length > 0 || universalAmendMarks.length > 0;
+    // Editing an evaluator's marks before approving overrides someone else's
+    // judgement, and the reason is what the edit-history row keeps. The server
+    // enforces this too (decideTechEval); mirrored here so the approver is told
+    // before the round trip, exactly as the reject rule above is.
+    if (decision === "approve" && hasAmends && !decideComment.trim()) {
+      setCommentError(true);
+      showToast("Add a reason for amending the marks");
+      return;
+    }
     setDecideBusy(true);
     try {
       await ArcApi.techEvalDecide(arc.id, {
@@ -762,6 +794,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                             <div className="clause-cell">
                               <span className="c-num">{idx + 1}</span>
                               <span className="c-text">{cl.clause_text || cl.text}</span>
+                              <ClauseRefs files={cl.reference_files} />
                               <div className="c-meta">
                                 <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
                                 <span className="c-type">{cl.clause_type || cl.type || "text"}</span>
@@ -992,6 +1025,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                         <div className="clause-cell">
                           <span className="c-num">{idx + 1}</span>
                           <span className="c-text">{cl.clause_text || cl.text}</span>
+                          <ClauseRefs files={cl.reference_files} />
                           <div className="c-meta">
                             <span className="c-weight">weight <span className="mono">{clauseWeight(cl)}</span> marks</span>
                             <span className="c-type">{cl.clause_type || cl.type || "text"}</span>

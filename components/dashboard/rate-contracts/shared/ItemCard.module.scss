@@ -30,3 +30,16 @@
 }
 
 .spec { color: #6b7280; font-style: italic; }
+
+/* "Sample required" — a requirement, not a description, so it reads as a chip
+   rather than as more grey meta text beside the quantity. */
+.sample {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 11px;
+  white-space: nowrap;
+}

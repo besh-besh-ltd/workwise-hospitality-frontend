@@ -27,6 +27,7 @@ import {
   Send,
 } from "lucide-react";
 import ReadMore from "@/components/shared/ReadMore";
+import InfoTip from "@/components/shared/InfoTip";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -46,6 +47,7 @@ import styles, {
   fmtDateTime,
   fmtDateOnly,
   fmtMaybeDate,
+  escapeHtml,
   Sk,
 } from "./shared";
 
@@ -105,13 +107,6 @@ const titleCaseStatus = (s) => {
    sites and is a separate cleanup, so the escaping happens here, at the
    boundary we own. Anything vendor-supplied that reaches `description` must go
    through this. */
-const escapeHtml = (s) =>
-  String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 /* ── Audit-trail approver vocabulary ─────────────────────────────────────
    The DB only ever stores PENDING / APPROVED / REJECTED / REMOVED on an
@@ -485,8 +480,24 @@ const PODetail = ({ id }) => {
   // Defaults to complete when the flag is absent (call-off POs, or an older
   // payload): the safe default is the plain confirmation, not a warning about a
   // condition we have not actually established.
+  // The rejecter's own words, already carried on the rejected workflow node
+  // (poDashboardModel surfaces the approval comment as the node's reason).
+  const rejectionReason =
+    (po?.workflow || []).find((n) => n.status === "rejected" && n.reason)?.reason || null;
+
   const coversAllProducts = po?.covers_all_products !== false;
   const isForceInitiate = !coversAllProducts;
+
+  /* What the button is about to do, in the buyer's words.
+     Deliberately does NOT say "sends it to the vendor": the PO reaches the
+     vendor only when the approval policy auto-approves (purchaseOrderModel
+     `initiatePurchaseOrder`); otherwise it goes to the approvers first. The
+     freeze and the split are the parts the buyer cannot see from this page. */
+  const initiateHelp = isForceInitiate
+    ? `Sends this purchase order for approval even though it covers only ${
+        po?.po_product_count ?? "some"
+      } of ${po?.rfq_product_count ?? "the"} products on this RFQ. Initiating freezes it — any product finalized afterwards is raised as a separate purchase order. The PO document is generated now and the approvers are notified. This cannot be undone.`
+    : "Sends this purchase order for approval. It covers every product finalized on this RFQ. The PO document is generated now, and the approvers are notified — or, if no approval step applies, it goes to the vendor for acceptance.";
   const [initiateOpen, setInitiateOpen] = useState(false);
 
   const handleInitiatePO = async () => {
@@ -498,7 +509,16 @@ const PODetail = ({ id }) => {
         res?.data?.message ||
         res?.message ||
         "Purchase Order initiated successfully";
-      toast.success(message);
+      /* The endpoint is idempotent: a PO already past draft answers
+         { already_initiated: true } and changes nothing. That is neither an
+         error (the PO IS initiated) nor a success (this click did not do it),
+         so it gets the neutral toast — a green one told people a double-click
+         had worked. */
+      if (res?.data?.already_initiated) {
+        toast.info(message);
+      } else {
+        toast.success(message);
+      }
       await fetchDetail();
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || "Failed to initiate Purchase Order";
@@ -778,6 +798,66 @@ const PODetail = ({ id }) => {
                 <WhoCanInitiate poId={id} />
               </>
             )}
+            {/* …and the other half of that sentence, which was missing. The
+                viewer who DOES hold the grant was told nothing at all: no
+                statement that the draft is theirs to move, no hint that
+                anything was waiting. Seven production drafts sat untouched
+                that way, the oldest for 32 days, every one of them with a
+                valid approval policy — nothing was blocking them, nobody was
+                told they were theirs.
+
+                Deliberately NOT accompanied by WhoCanInitiate: that block
+                answers "who can do this instead of me" and excludes the
+                viewer, so it would answer a question this reader does not
+                have. What the action will actually do is on the control's
+                own InfoTip. */}
+            {/* A rejected PO that came back to YOU. The reject dialog has
+                always promised "returned to the initiator" and nothing acted on
+                it: production carries 46 rejected PO approvals and exactly one
+                PO that was ever resubmitted. handleUpdatePO authorises only
+                `initiated_by` to edit, so this note appears for exactly the
+                person who can do something about it. Client feedback item 7. */}
+            {po.status === "rejected" && po.initiated_by === userProfile?.id && (
+              <div className={styles.heroPendingNote}>
+                <span className={styles.clockIc}>
+                  <AlertCircle size={14} />
+                </span>
+                <span>
+                  This purchase order was rejected and{" "}
+                  <strong>sent back to you</strong> — amend it and raise it again.
+                  {rejectionReason ? ` Reason: “${rejectionReason}”` : ""}
+                </span>
+              </div>
+            )}
+            {po.status === "draft" && canWrite && (
+              <div className={styles.heroPendingNote}>
+                <span className={styles.clockIc}>
+                  <AlertCircle size={14} />
+                </span>
+                <span>
+                  This purchase order is a draft and is{" "}
+                  <strong>waiting for you to initiate it</strong> — nothing else is
+                  blocking it.
+                  {/* Initiating is the point of no return: whatever is not on
+                      this PO becomes a separate one. Production RFQ 808 carries
+                      two drafts for the same vendor covering 1 and 2 of its 3
+                      products, and nothing said so — so the buyer initiated one
+                      and ended up with two purchase orders. */}
+                  {po.mergeable_draft_count > 0 && (
+                    <>
+                      {" "}
+                      There {po.mergeable_draft_count === 1 ? "is" : "are"}{" "}
+                      <strong>
+                        {po.mergeable_draft_count} other draft
+                        {po.mergeable_draft_count === 1 ? "" : "s"}
+                      </strong>{" "}
+                      for this vendor on the same RFQ — merge them first if this
+                      should be one order.
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
             {isPending && !awaitingMe && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
@@ -848,6 +928,16 @@ const PODetail = ({ id }) => {
                 <Send size={13} />
                 {initiating ? "Initiating…" : isForceInitiate ? "Force Initiate" : "Initiate"}
               </button>
+            )}
+            {po.status === "draft" && canWrite && (
+              <InfoTip
+                text={initiateHelp}
+                label={
+                  isForceInitiate
+                    ? "About force initiating this purchase order"
+                    : "About initiating this purchase order"
+                }
+              />
             )}
             {isPending && awaitingMe && canApprove && (
               <>

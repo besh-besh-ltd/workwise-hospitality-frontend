@@ -31,6 +31,7 @@ import styles, {
   inr,
   fmtDateTime,
   fmtMaybeDate,
+  escapeHtml,
   Sk,
 } from "@/components/dashboard/buyer/purchase-orders/shared";
 
@@ -52,6 +53,16 @@ const VENDOR_STATUS_LABELS = {
 
 const vendorStatusLabel = (po) =>
   VENDOR_STATUS_LABELS[po.status] || po.status_label || po.status || "—";
+
+/* "RFQ #536631 — ORCHID PASSAROS GOA - 5 WATT LED PANEL LIGHT", or just the
+   number when there is no title. tbl_rfq.title is nullable and blank in
+   practice, so the em-dash has to disappear with it rather than dangle.
+   Mirrors the wording already used on the buyer-facing emails. */
+const rfqIdentity = (rfq = {}) => {
+  if (!rfq.number) return "";
+  const title = String(rfq.title || "").trim();
+  return title ? `RFQ #${rfq.number} — ${title}` : `RFQ #${rfq.number}`;
+};
 
 const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   const router = useRouter();
@@ -250,7 +261,14 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
               {rfq.number && (
                 <>
                   <span className={styles.sep}>·</span>
+                  {/* The vendor may be quoting several RFQs for the same buyer;
+                      the number alone does not tell them which tender this
+                      order settles, and the card that carries the title sits
+                      below the items table. */}
                   <span className={`${styles.rfqLink} ${styles.mono}`}>RFQ #{rfq.number}</span>
+                  {String(rfq.title || "").trim() && (
+                    <span className={styles.rfqTitle}>{rfq.title}</span>
+                  )}
                 </>
               )}
               {isCallOff && (
@@ -703,7 +721,13 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         onClose={() => setAcceptOpen(false)}
         onConfirm={confirmAccept}
         title="Accept Purchase Order"
-        description={`Are you sure you want to accept PO #${po.po_number || ""}? This confirms your commitment to fulfill this order as per the specified terms.`}
+        /* description goes through dangerouslySetInnerHTML — the RFQ title is
+           free text, so it must be escaped (see escapeHtml in shared.js). */
+        description={`Are you sure you want to accept PO #${escapeHtml(
+          po.po_number || ""
+        )}${
+          rfqIdentity(rfq) ? ` for ${escapeHtml(rfqIdentity(rfq))}` : ""
+        }? This confirms your commitment to fulfill this order as per the specified terms.`}
         confirmButtonColor="success"
         confirmButtonText="Yes, Accept PO"
         cancelButtonText="Cancel"
@@ -714,7 +738,11 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         onClose={() => setRejectOpen(false)}
         onConfirm={confirmReject}
         title="Reject Purchase Order"
-        description={`Are you sure you want to reject PO #${po.po_number || ""}? The buyer will be notified and will need to finalize another vendor.`}
+        description={`Are you sure you want to reject PO #${escapeHtml(
+          po.po_number || ""
+        )}${
+          rfqIdentity(rfq) ? ` for ${escapeHtml(rfqIdentity(rfq))}` : ""
+        }? The buyer will be notified and will need to finalize another vendor.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject PO"
         cancelButtonText="Cancel"
