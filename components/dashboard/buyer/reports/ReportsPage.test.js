@@ -39,6 +39,7 @@ jest.mock("@/services/reports", () => ({
   getReportCatalogue: jest.fn(),
   previewReport: jest.fn(),
   downloadReport: jest.fn(() => Promise.resolve()),
+  getExportHistory: jest.fn(),
 }));
 
 import fs from "fs";
@@ -46,7 +47,9 @@ import path from "path";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import ReportsPage from "./ReportsPage";
-import { getReportCatalogue, previewReport, downloadReport } from "@/services/reports";
+import {
+  getReportCatalogue, previewReport, downloadReport, getExportHistory,
+} from "@/services/reports";
 
 const SPEND_BY_VENDOR = {
   key: "spend_by_vendor",
@@ -93,6 +96,7 @@ const PREVIEW = {
 beforeEach(() => {
   jest.clearAllMocks();
   previewReport.mockResolvedValue({ data: PREVIEW });
+  getExportHistory.mockResolvedValue({ data: { exports: [] } });
 });
 
 describe("ReportsPage — the catalogue", () => {
@@ -222,5 +226,53 @@ describe("the arc_v2 classes this page leans on actually exist", () => {
     ]) {
       expect(css).toContain(cls);
     }
+  });
+});
+
+describe("Recent downloads", () => {
+  beforeEach(() => {
+    getReportCatalogue.mockResolvedValue({ data: { reports: [SPEND_BY_VENDOR] } });
+  });
+
+  it("shows nothing at all until the user has downloaded something", async () => {
+    getExportHistory.mockResolvedValue({ data: { exports: [] } });
+    render(<ReportsPage />);
+
+    await screen.findByText("Spend by Vendor");
+    // An empty panel would just be a box explaining that a box is empty.
+    expect(screen.queryByText(/Your recent downloads/i)).not.toBeInTheDocument();
+  });
+
+  it("names the report and the filters it was built with", async () => {
+    getExportHistory.mockResolvedValue({
+      data: {
+        exports: [
+          {
+            id: 7,
+            report_key: "spend_by_vendor",
+            filters: { fy: "2026-27", hotel_ids: [1, 2] },
+            status: "READY",
+            row_count: 1200,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    render(<ReportsPage />);
+
+    expect(await screen.findByText(/Your recent downloads/i)).toBeInTheDocument();
+    // The history endpoint returns keys; the title comes from the catalogue.
+    expect(screen.getAllByText("Spend by Vendor").length).toBeGreaterThan(1);
+    expect(screen.getByText(/FY 2026-27 · 2 business units/)).toBeInTheDocument();
+    expect(screen.getByText(/1,200 rows/)).toBeInTheDocument();
+  });
+
+  it("does not take the page down when the history call fails", async () => {
+    getExportHistory.mockRejectedValue(new Error("boom"));
+    render(<ReportsPage />);
+
+    // The reports still render; the panel is a convenience, not a dependency.
+    expect(await screen.findByText("Spend by Vendor")).toBeInTheDocument();
+    expect(screen.queryByText(/Your recent downloads/i)).not.toBeInTheDocument();
   });
 });

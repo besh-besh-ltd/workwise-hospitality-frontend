@@ -3,6 +3,7 @@ import { FileBarChart, Lock, ChevronRight } from "lucide-react";
 import { getReportCatalogue } from "@/services/reports";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReportRunner from "./ReportRunner";
+import RecentDownloads from "./RecentDownloads";
 
 /* ─────────────────────────────────────────────────────────────────────────
    The report catalogue.
@@ -121,6 +122,13 @@ export default function ReportsPage() {
     }));
   }, [reports]);
 
+  // The history endpoint returns report KEYS; the catalogue is where their
+  // titles live, and we already have it.
+  const titleFor = useMemo(() => {
+    const byKey = new Map(reports.map((r) => [r.key, r.title]));
+    return (key) => byKey.get(key) || null;
+  }, [reports]);
+
   if (selected) {
     return <ReportRunner report={selected} onBack={() => setSelected(null)} />;
   }
@@ -173,6 +181,9 @@ export default function ReportsPage() {
           </div>
         </section>
       ))}
+
+      {/* Renders nothing until this user has actually downloaded something. */}
+      <RecentDownloads titleFor={titleFor} />
     </main>
   );
 }
