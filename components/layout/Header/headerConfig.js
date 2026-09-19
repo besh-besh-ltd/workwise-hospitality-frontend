@@ -89,6 +89,11 @@ export const roleMenus = {
     { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking",  targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
     { href: "/dashboard/buyer/purchase-orders/analytics",label: "Analytics", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
 
+    // ── INSIGHTS — cross-module reporting. Its own phase rather than a section
+    // under Purchase Orders: the pack spans spend, vendors, approvals and
+    // compliance, so filing it under any one module would hide most of it.
+    { href: "/dashboard/buyer/reports", label: "Reports", targetMenu: "nav", group: "Insights", section: null },
+
     // ── INBOX
     { href: "/dashboard/notifications", label: "Notifications", targetMenu: "nav", group: "Inbox", section: null },
     { href: "/dashboard/buyer/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },

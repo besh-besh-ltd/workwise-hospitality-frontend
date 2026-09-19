@@ -29,6 +29,7 @@ import {
   KeyRound,
   Stamp,
   History,
+  FileBarChart,
 } from "lucide-react";
 
 /**
@@ -106,6 +107,9 @@ export const NAV_ICONS = {
   "/dashboard/buyer/material-requisitions":        LayoutDashboard,
   "/dashboard/buyer/material-requisitions/all":    ClipboardList,
   "/dashboard/buyer/material-requisitions/create": ClipboardPlus,
+
+  // Insights — the downloadable report catalogue.
+  "/dashboard/buyer/reports": FileBarChart,
 
   // Rate Contracts (vendor) — dashboard, incoming, in-progress, active deals.
   "/dashboard/vendor/rate-contracts":                            LayoutDashboard,
