@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import * as ArcApi from "@/services/arc_v2";
 import { formatNegotiationDeadline } from "@/utils/negotiationTime";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const STATUS_MAP = {
   PENDING_APPROVAL: { cls: "warn", label: "Pending approval" },
@@ -63,7 +64,7 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
       const qData = quotesRes?.data || {};
       setQuotes(Array.isArray(qData.quotes) ? qData.quotes : []);
     } catch (err) {
-      setLoadError(err?.message || "Failed to load round data");
+      setLoadError(getApiErrorMessage(err, "Failed to load round data"));
     } finally {
       setLoading(false);
     }

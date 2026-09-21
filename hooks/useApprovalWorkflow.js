@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   getEntityApprovalInstances,
   getApprovalInstanceDetails,
@@ -88,7 +89,7 @@ export const useApprovalWorkflow = ({ entityType, entityId, allEntityIds, enable
       }
     } catch (err) {
       console.error("Failed to fetch approval instance:", err);
-      setError(err?.message || "Failed to fetch approval status");
+      setError(getApiErrorMessage(err, "Failed to fetch approval status"));
       setInstance(null);
       setAllInstances([]);
     } finally {

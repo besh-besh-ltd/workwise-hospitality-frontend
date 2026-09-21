@@ -27,6 +27,7 @@ import { useSelector } from 'react-redux';
 import storageInstance from '@/utils/storageInstance';
 import TenderSummary from '@/components/ui/TenderSummary';
 import { homepageData } from '@/components/constants/homepageData';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const AiToolPage = () => {
   const router = useRouter();
@@ -298,7 +299,7 @@ const AiToolPage = () => {
           break;
       }
     } catch (error) {
-      setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+      setFormError(getApiErrorMessage(error, "Something went wrong while uploading your file, please try again in sometime!"))
       toast.error(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
     } finally {
        setFile(null);

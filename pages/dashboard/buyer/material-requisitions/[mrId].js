@@ -4,6 +4,7 @@ import Link from "next/link";
 import * as MrApi from "@/services/mr";
 import { submitApprovalAction } from "@/services/approval";
 import { MrDetailSkeleton } from "@/components/dashboard/material-requisitions/MrSkeletons";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 // ---------- formatters ----------
 const fmtINR = (v) => {
@@ -174,7 +175,7 @@ export default function MrDetailPage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message || "Failed to load MR");
+        setError(getApiErrorMessage(err, "Failed to load MR"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

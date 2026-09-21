@@ -14,6 +14,7 @@ import StepReview from './StepReview';
 import { getProductDetails, getProductRoundStatus, roundCoversProduct } from './negotiationHelpers';
 import { formatNegotiationDeadline, parseNegotiationTime } from '@/utils/negotiationTime';
 import styles from './CreateRound.module.scss';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const STEPS = [
   { idx: 1, label: 'Product' },
@@ -138,7 +139,7 @@ const CreateRoundPage = () => {
         if (!cancelled) setQuoteApprovalStatuses(statuses);
       } catch (err) {
         console.error('CreateRoundPage load error:', err);
-        if (!cancelled) setLoadError(err?.message || 'Failed to load RFQ data');
+        if (!cancelled) setLoadError(getApiErrorMessage(err, 'Failed to load RFQ data'));
       } finally {
         if (!cancelled) setLoading(false);
       }
