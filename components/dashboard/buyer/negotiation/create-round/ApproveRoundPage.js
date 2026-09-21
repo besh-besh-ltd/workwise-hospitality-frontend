@@ -16,6 +16,7 @@ import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './CreateRound.module.scss';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 // This page carried the last of four private copies of the naive-UTC parser,
 // and it is the page that made the duplication visible: it parsed `created_at`
@@ -110,7 +111,7 @@ const ApproveRoundPage = () => {
       setChargeNamesList(Array.isArray(charges) ? charges : []);
     } catch (err) {
       console.error('ApproveRoundPage load error:', err);
-      setLoadError(err?.message || 'Failed to load approval data');
+      setLoadError(getApiErrorMessage(err, 'Failed to load approval data'));
     } finally {
       setLoading(false);
     }

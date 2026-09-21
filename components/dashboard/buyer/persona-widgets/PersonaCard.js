@@ -7,6 +7,7 @@ import { RefreshCw, AlertCircle } from "lucide-react";
 import InfoTip from "@/components/shared/InfoTip";
 import { DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
 import styles from "./PersonaCard.module.scss";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const DEFAULT_POLL_MS = DASHBOARD_POLL_MS;
 
@@ -56,7 +57,7 @@ const PersonaCard = ({
       setData(payload);
     } catch (err) {
       if (fetchIdRef.current !== id) return;
-      setError(err?.message || err?.response?.data?.message || "Failed to load");
+      setError(getApiErrorMessage(err, "Failed to load"));
       setData(null);
     } finally {
       if (fetchIdRef.current === id) {

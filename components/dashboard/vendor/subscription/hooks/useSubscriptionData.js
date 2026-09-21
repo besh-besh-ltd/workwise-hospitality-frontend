@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { getVendorSubscriptionSummary } from "@/services/subscription";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const useSubscriptionData = () => {
   const [data, setData] = useState(null);
@@ -17,7 +18,7 @@ const useSubscriptionData = () => {
         setError(res?.message || "Failed to load subscription data");
       }
     } catch (err) {
-      setError(err?.message || "Failed to load subscription data");
+      setError(getApiErrorMessage(err, "Failed to load subscription data"));
     } finally {
       setLoading(false);
     }

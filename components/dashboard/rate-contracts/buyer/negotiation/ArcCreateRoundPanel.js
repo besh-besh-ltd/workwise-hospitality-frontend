@@ -18,6 +18,7 @@ import { getChargeNames } from "@/services/rfq";
 import useCreateRoundState from "@/components/dashboard/buyer/negotiation/create-round/useCreateRoundState";
 import StepVendorsAndTargets from "@/components/dashboard/buyer/negotiation/create-round/StepVendorsAndTargets";
 import { normalizeArcProducts, buildArcCreatePayload } from "@/components/dashboard/buyer/negotiation/create-round/adapters/arcNegotiationAdapter";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const STEPS = [
   { idx: 1, label: "Scope" },
@@ -107,7 +108,7 @@ export default function ArcCreateRoundPanel({ arcId }) {
         const charges = chargesRes?.data || chargesRes || [];
         setChargeNamesList(Array.isArray(charges) ? charges : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err?.message || "Failed to load ARC data");
+        if (!cancelled) setLoadError(getApiErrorMessage(err, "Failed to load ARC data"));
       } finally {
         if (!cancelled) setLoading(false);
       }

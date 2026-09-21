@@ -23,6 +23,7 @@ import ModificationSuccessModal from "./ModificationSuccessModal";
 import OpenRfqsModal from "./OpenRfqsModal";
 import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
+import { hasRemovals } from "./previewRemovals";
 import styles from "./Subscription.module.css";
 
 const TABS = [
@@ -103,16 +104,14 @@ const SubscriptionPage = () => {
     setConfirmLoading(true);
 
     const { target_categories, target_subcategories, target_hotels, preview } = confirmData;
-    const hasRemovals =
-      (preview.diff?.removed_categories?.length || 0) +
-      (preview.diff?.removed_hotels?.length || 0) > 0;
+    const removing = hasRemovals(preview.diff);
 
     try {
       const res = await modifySubscription({
         target_categories,
         target_subcategories,
         target_hotels,
-        confirm_removals: hasRemovals ? true : undefined
+        confirm_removals: removing ? true : undefined
       });
 
       if (res?.status === 1 && res?.data) {

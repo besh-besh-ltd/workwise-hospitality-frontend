@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getTechEvalStatus } from "@/services/rfq";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   TECH_EVAL_WORKFLOW_STATES,
   TARGET_PASSED_VENDORS,
@@ -37,7 +38,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
       setData(responseData);
     } catch (err) {
       console.error("Failed to fetch tech eval workflow status:", err);
-      setError(err?.message || "Failed to fetch workflow status");
+      setError(getApiErrorMessage(err, "Failed to fetch workflow status"));
       setData(null);
     } finally {
       setLoading(false);

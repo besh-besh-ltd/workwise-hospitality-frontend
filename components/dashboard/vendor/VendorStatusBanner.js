@@ -6,6 +6,7 @@ import { getVendorStatusBanner } from "@/services/vendorDashboard";
 // Reuse the buyer-side banner SCSS — both surfaces share the same hero
 // visual language. If they ever diverge meaningfully, fork the file.
 import styles from "../buyer/BuyerStatusBanner.module.scss";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const MODE_THEME = {
   clear:         { className: "modeClear" },
@@ -163,7 +164,7 @@ const VendorStatusBanner = ({ filters }) => {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message || "Could not load banner");
+        setError(getApiErrorMessage(err, "Could not load banner"));
         setData(null);
       })
       .finally(() => {

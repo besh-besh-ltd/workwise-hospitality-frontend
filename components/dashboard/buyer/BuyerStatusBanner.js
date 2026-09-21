@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw } from "lucide-react";
 import { getBuyerStatusBanner } from "@/services/dashboard";
 import PendingApprovalsModal from "./dashboard-components/PendingApprovalsModal";
 import styles from "./BuyerStatusBanner.module.scss";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 // Mode → outer card variant. The base is a deep navy hero; criticality
 // just nudges the accents so the rest stays calm.
@@ -172,7 +173,7 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message || "Could not load banner");
+        setError(getApiErrorMessage(err, "Could not load banner"));
         setData(null);
       })
       .finally(() => {
