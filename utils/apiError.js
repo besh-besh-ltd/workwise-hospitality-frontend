@@ -28,6 +28,13 @@ const messageFromError = (err) => {
   return pickString(err?.message);
 };
 
+// The server's error body, wherever the wrap left it. Some endpoints put
+// instructions for the UI in there — `show_error_modal: true` asks for a
+// recovery dialog instead of a toast, because the change may have been
+// half-applied — and it always arrives on a 500, i.e. as a rejection.
+export const getApiErrorData = (err) =>
+  err?.response?.data || err?.message?.response?.data || null;
+
 export const getApiErrorMessage = (err, fallback = DEFAULT_MESSAGE) => {
   const safeFallback = pickString(fallback) || DEFAULT_MESSAGE;
 

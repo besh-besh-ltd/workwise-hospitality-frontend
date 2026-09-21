@@ -14,7 +14,7 @@
 // getApiErrorMessage has to read BOTH shapes and always return a string.
 
 import { AxiosError } from "axios";
-import { getApiErrorMessage } from "./apiError";
+import { getApiErrorMessage, getApiErrorData } from "./apiError";
 
 const SERVER_MSG = "One or more selected business units are no longer available.";
 
@@ -72,5 +72,34 @@ describe("getApiErrorMessage", () => {
     nasty.forEach((input) => {
       expect(typeof getApiErrorMessage(input, "fallback")).toBe("string");
     });
+  });
+});
+
+// Some endpoints put instructions for the UI in the error body — e.g.
+// `show_error_modal: true`, which asks for a recovery dialog rather than a
+// toast because the change may have been half-applied. The server always sends
+// it on a 500, so it arrives as a rejection and the services wrap hides
+// `err.response` — the branch reading it was dead. Same two shapes, one reader.
+describe("getApiErrorData", () => {
+  const withBody = (data) => {
+    const err = new AxiosError("Request failed with status code 500", "ERR_BAD_RESPONSE", {}, {});
+    err.response = { status: 500, data };
+    return err;
+  };
+
+  it("reads the error body through the services wrap", () => {
+    const body = { status: 3, show_error_modal: true };
+    expect(getApiErrorData({ message: withBody(body) })).toEqual(body);
+  });
+
+  it("reads the error body from an unwrapped AxiosError", () => {
+    const body = { status: 3, show_error_modal: true };
+    expect(getApiErrorData(withBody(body))).toEqual(body);
+  });
+
+  it("returns null when there is no error body", () => {
+    expect(getApiErrorData(new Error("boom"))).toBeNull();
+    expect(getApiErrorData(null)).toBeNull();
+    expect(getApiErrorData({})).toBeNull();
   });
 });

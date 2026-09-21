@@ -24,6 +24,7 @@ import OpenRfqsModal from "./OpenRfqsModal";
 import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
 import { hasRemovals } from "./previewRemovals";
+import { getApiErrorMessage, getApiErrorData } from "@/utils/apiError";
 import styles from "./Subscription.module.css";
 
 const TABS = [
@@ -136,18 +137,16 @@ const SubscriptionPage = () => {
           setConfirmData(null);
           setErrorModal(true);
         } else {
-          toast.error(res?.message || "Modification failed. Please try again.");
+          toast.error(getApiErrorMessage(res, "Modification failed. Please try again."));
         }
       }
     } catch (err) {
       setConfirmLoading(false);
       setConfirmData(null);
-      if (err?.response?.data?.show_error_modal) {
+      if (getApiErrorData(err)?.show_error_modal) {
         setErrorModal(true);
       } else {
-        toast.error(
-          err?.response?.data?.message || err?.message || "Modification failed. Please try again."
-        );
+        toast.error(getApiErrorMessage(err, "Modification failed. Please try again."));
       }
     }
   };
@@ -165,12 +164,10 @@ const SubscriptionPage = () => {
       if (res?.status === 1 && res?.data?.order_id) {
         await openPayment(res.data);
       } else {
-        toast.error(res?.message || "Unable to initiate renewal.");
+        toast.error(getApiErrorMessage(res, "Unable to initiate renewal."));
       }
     } catch (err) {
-      toast.error(
-        err?.response?.data?.message || err?.message || "Renewal failed. Please try again."
-      );
+      toast.error(getApiErrorMessage(err, "Renewal failed. Please try again."));
     }
   };
 
@@ -187,12 +184,10 @@ const SubscriptionPage = () => {
       if (res?.status === 1 && res?.data?.order_id) {
         await openPayment(res.data);
       } else {
-        toast.error(res?.message || "Unable to initiate extension.");
+        toast.error(getApiErrorMessage(res, "Unable to initiate extension."));
       }
     } catch (err) {
-      toast.error(
-        err?.response?.data?.message || err?.message || "Extension failed. Please try again."
-      );
+      toast.error(getApiErrorMessage(err, "Extension failed. Please try again."));
     }
   };
 
