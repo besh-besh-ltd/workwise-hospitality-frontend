@@ -79,7 +79,7 @@ describe("payloads", () => {
     expect(buildItemsPayload({
       isGroup: false, selectedItemIds: [11],
       itemSpecs: { 11: "white" }, itemQtys: { 11: "12" }, itemUoms: { 11: "pcs" },
-    })).toEqual([{ product_variant_id: 11, spec_text: "white", indicative_qty: 12, uom: "pcs" }]);
+    })).toEqual([{ product_variant_id: 11, spec_text: "white", indicative_qty: 12, uom: "pcs", sample_required: false }]);
   });
 
   test("group items carry a quantity per covered hotel (blank → 0) and no client total", () => {
@@ -87,9 +87,20 @@ describe("payloads", () => {
       isGroup: true, selectedItemIds: [11], groupHotelIds: [3, 4],
       itemSpecs: { 11: "white" }, itemUoms: { 11: "pcs" }, hotelQtys: { 11: { 3: "400", 4: "" } },
     })).toEqual([{
-      product_variant_id: 11, spec_text: "white", uom: "pcs",
+      product_variant_id: 11, spec_text: "white", uom: "pcs", sample_required: false,
       hotel_qtys: [{ hotel_id: 3, qty: 400 }, { hotel_id: 4, qty: 0 }],
     }]);
+  });
+
+  test("a sample requirement is carried per item, group or not", () => {
+    const [single] = buildItemsPayload({
+      isGroup: false, selectedItemIds: [11], itemQtys: { 11: "12" }, itemSamples: { 11: true },
+    });
+    const [group] = buildItemsPayload({
+      isGroup: true, selectedItemIds: [11], groupHotelIds: [3], hotelQtys: { 11: { 3: "400" } }, itemSamples: { 11: true },
+    });
+    expect(single.sample_required).toBe(true);
+    expect(group.sample_required).toBe(true);
   });
 
   test("splitFromItems rebuilds the wizard's split from a saved draft", () => {

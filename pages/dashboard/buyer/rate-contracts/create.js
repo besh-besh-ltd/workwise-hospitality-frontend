@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import { handleFileUpload } from "@/utils/sharedFunctions";
 import { getUnits, addCustomUnit } from "@/services/units";
 import GroupHotelPicker from "@/components/dashboard/rate-contracts/buyer/create/GroupHotelPicker";
 import HotelQtySplit from "@/components/dashboard/rate-contracts/buyer/create/HotelQtySplit";
@@ -209,6 +210,14 @@ export default function CreateRateContractPage() {
   // (the browse list only holds the current pages; variantById falls back here).
   const [selectedMeta, setSelectedMeta] = useState({});
   const [itemSpecs, setItemSpecs] = useState({});
+  // Sampling is per ITEM, not per contract: a rate contract routinely mixes
+  // items where a physical sample is meaningful with items where it is not.
+  // `arc.sample_required` survives as the rollup of these (see
+  // arcModel.syncSampleRequiredRollup). Client feedback item 3.
+  const [itemSamples, setItemSamples] = useState({});
+  // How many of the selected items need a sample — drives the Terms read-back
+  // and the contract-level rollup we send.
+  const sampleItemCount = selectedItemIds.filter((id) => !!itemSamples[id]).length;
   const [itemQtys, setItemQtys] = useState({});
   const [itemUoms, setItemUoms] = useState({});
   // Sr 5 — ids whose selected-item detail (qty/UOM/spec) is minimised. Default
@@ -231,7 +240,6 @@ export default function CreateRateContractPage() {
   const [paymentTerms, setPaymentTerms] = useState("Net 30");
   const [deliveryTerms, setDeliveryTerms] = useState("Within 2 days of each released PO");
   const [penalty, setPenalty] = useState("1.5% LD per week of delay, capped at 7.5% of PO value");
-  const [samplesRequired, setSamplesRequired] = useState(false);
 
   // Step 5 — Tech eval + vendors. Technical evaluation is configured PER ITEM:
   // techByItem[itemId] toggles whether that product is technically evaluated
@@ -345,6 +353,7 @@ export default function CreateRateContractPage() {
         setItemSpecs(Object.fromEntries(items.map((it) => [it.product_variant_id, it.spec_text || ""])));
         setItemQtys(Object.fromEntries(items.map((it) => [it.product_variant_id, it.indicative_qty != null ? String(it.indicative_qty) : ""])));
         setItemUoms(Object.fromEntries(items.map((it) => [it.product_variant_id, it.uom || ""])));
+        setItemSamples(Object.fromEntries(items.map((it) => [it.product_variant_id, !!it.sample_required])));
 
         // ── Step 4 — Terms ──
         setSubmissionStart(isoDateTime(arc.submission_start_at));
@@ -357,7 +366,6 @@ export default function CreateRateContractPage() {
         setPaymentTerms(arc.payment_terms_expected || "");
         setDeliveryTerms(arc.delivery_expected || "");
         setPenalty(arc.penalty_clause || "");
-        setSamplesRequired(!!arc.sample_required);
 
         // ── Step 5 — Tech eval (per item) + vendors ──
         // Default every selected item's tech toggle ON (the wizard's rule), then
@@ -375,7 +383,7 @@ export default function CreateRateContractPage() {
               text: cl.clause_text || "",
               weight: Number(cl.weightage) || 0,
               type: cl.clause_type || "spec",
-              file: "",
+              files: (cl.reference_files || []).map((f) => f.file_url),
               mandatory: !!cl.is_mandatory,
             }));
           } else {
@@ -685,7 +693,7 @@ export default function CreateRateContractPage() {
     setCategoryTitle(c.title || "");
     setSelectedSubCats([]);
     setSelectedItemIds([]);
-    setItemSpecs({}); setItemQtys({}); setItemUoms({});
+    setItemSpecs({}); setItemQtys({}); setItemUoms({}); setItemSamples({});
     setClausesByItem({}); setMinPassByItem({}); setTechByItem({});
   }
   function pickType(t) {
@@ -747,10 +755,47 @@ export default function CreateRateContractPage() {
   function toggleVendor(id) {
     setInvitedVendorIds((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   }
+  // The buyer's reference document for a clause — the drawing or datasheet the
+  // vendor is being asked to comply with. The storage tables have existed
+  // since the ARC core migration; until now the wizard rendered a dead
+  // "Attach reference document" span with no handler, so nothing ever wrote to
+  // them. The RFQ side has had this working all along (AddClause.js).
+  const [clauseUploading, setClauseUploading] = useState(null);
+
+  async function attachClauseFile(iid, idx, e) {
+    const key = `${iid}:${idx}`;
+    setClauseUploading(key);
+    try {
+      const url = await handleFileUpload(e, undefined, { allowAllTypes: true });
+      if (url) {
+        setClausesByItem((m) => {
+          const list = [...(m[iid] || [])];
+          const cur = list[idx];
+          if (!cur) return m;
+          list[idx] = { ...cur, files: [...(cur.files || []), url] };
+          return { ...m, [iid]: list };
+        });
+      }
+    } finally {
+      setClauseUploading(null);
+      if (e?.target) e.target.value = "";
+    }
+  }
+
+  function removeClauseFile(iid, idx, url) {
+    setClausesByItem((m) => {
+      const list = [...(m[iid] || [])];
+      const cur = list[idx];
+      if (!cur) return m;
+      list[idx] = { ...cur, files: (cur.files || []).filter((u) => u !== url) };
+      return { ...m, [iid]: list };
+    });
+  }
+
   function addClause(iid) {
     setClausesByItem((cl) => ({
       ...cl,
-      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", file: "", mandatory: false }],
+      [iid]: [...(cl[iid] || []), { text: "", weight: 20, type: "spec", files: [], mandatory: false }],
     }));
   }
   function removeClause(iid, idx) {
@@ -783,7 +828,7 @@ export default function CreateRateContractPage() {
   function buildPayload() {
     // A group item carries a quantity per covered hotel instead of one total.
     const items = buildItemsPayload({
-      isGroup, selectedItemIds, itemSpecs, itemQtys, itemUoms, hotelQtys, groupHotelIds,
+      isGroup, selectedItemIds, itemSpecs, itemQtys, itemUoms, itemSamples, hotelQtys, groupHotelIds,
     });
     return {
       title,
@@ -802,7 +847,9 @@ export default function CreateRateContractPage() {
       // True if ANY item is technically evaluated → vendors must seal a
       // technical envelope (for the items that have clauses) before quoting.
       technical_response_required: anyTechRequired,
-      sample_required:     samplesRequired,
+      // Derived: the buyer answers per item now, and the server
+      // re-derives this the same way (syncSampleRequiredRollup).
+      sample_required:     sampleItemCount > 0,
       escalation_clause_json: {
         type: escalation,
         cap_pct: Number(escalationCap) || null,
@@ -847,6 +894,9 @@ export default function CreateRateContractPage() {
           weightage: Number(c.weight) || 0,
           clause_type: c.type || null,
           is_mandatory: !!c.mandatory,
+          // Re-sent on every save: the server clears and re-inserts the whole
+          // clause set, and the files table cascades from the clause.
+          file_urls: c.files || [],
         })),
       });
     }
@@ -1246,6 +1296,19 @@ export default function CreateRateContractPage() {
                         </div>
                         <label className="label" style={{ marginTop: 11 }}>Specification <span className="req">*</span></label>
                         <textarea className="textarea" value={itemSpecs[id] ?? ""} onChange={(e) => setItemSpecs((m) => ({ ...m, [id]: e.target.value }))} placeholder="Describe the spec, grade, quality requirements…" />
+                        {/* Asked here rather than once on the Terms step: the
+                            answer is a property of the item, and the buyer is
+                            already looking at this item's specification. */}
+                        <label className="cbx" style={{ marginTop: 11 }}>
+                          <input
+                            type="checkbox"
+                            data-item-sample={id}
+                            checked={!!itemSamples[id]}
+                            onChange={(e) => setItemSamples((m) => ({ ...m, [id]: e.target.checked }))}
+                          />
+                          <span className="cbx-box" />
+                          <span>Require a sample of this item before tech evaluation</span>
+                        </label>
                       </div>
                       )}
                     </div>
@@ -1386,11 +1449,14 @@ export default function CreateRateContractPage() {
               <label className="label">Penalty / LD clause</label>
               <textarea className="textarea" value={penalty} onChange={(e) => setPenalty(e.target.value)} placeholder="e.g. 1.5% LD per week of delay, capped at 7.5% of PO value" />
             </div>
-            <label className="cbx" style={{ marginTop: 18 }}>
-              <input type="checkbox" checked={samplesRequired} onChange={(e) => setSamplesRequired(e.target.checked)} />
-              <span className="cbx-box" />
-              <span>Require sample submission before tech evaluation</span>
-            </label>
+            {/* This used to be the ONLY place sampling could be asked, and it
+                asked it for the whole basket. It is now a read-back of the
+                per-item answers given on the Items step. */}
+            <div className="hint" style={{ marginTop: 18 }}>
+              {sampleItemCount === 0
+                ? "No item requires a sample. Ask for one per item on the Items step."
+                : `${sampleItemCount} of ${selectedItemIds.length} item${selectedItemIds.length === 1 ? "" : "s"} require a sample before tech evaluation.`}
+            </div>
           </div>
         </section>
       )}
@@ -1543,7 +1609,31 @@ export default function CreateRateContractPage() {
                                   />
                                   Mandatory (pass/fail gate)
                                 </label>
-                                <span className="tcr-attach"><PaperclipIcon /> Attach reference document</span>
+                                <label className="tcr-attach" style={{ cursor: "pointer" }}>
+                                  <PaperclipIcon />{" "}
+                                  {clauseUploading === `${iid}:${idx}` ? "Uploading…" : "Attach reference document"}
+                                  <input
+                                    type="file"
+                                    data-clause-file={`${iid}:${idx}`}
+                                    style={{ display: "none" }}
+                                    onChange={(e) => attachClauseFile(iid, idx, e)}
+                                  />
+                                </label>
+                                {(cl.files || []).map((u) => (
+                                  <span key={u} className="clause-type-mini" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <a href={u} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
+                                      {u.split("/").pop().slice(0, 28)}
+                                    </a>
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove ${u.split("/").pop()}`}
+                                      onClick={() => removeClauseFile(iid, idx, u)}
+                                      style={{ border: 0, background: "transparent", color: "var(--danger, #b91c1c)", cursor: "pointer", fontWeight: 700, lineHeight: 1 }}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
                                 <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--fg-4)" }}>Vendors must respond &amp; upload evidence</span>
                               </div>
                             </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getBulkPermissions } from "@/services/rbac";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 /**
  * Custom hook for managing module-specific permissions
@@ -74,7 +75,7 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
     } catch (err) {
       if (fetchIdRef.current !== currentFetchId) return;
       console.error(`Failed to fetch ${moduleKey} permissions:`, err);
-      setError(err?.message || "Failed to fetch permissions");
+      setError(getApiErrorMessage(err, "Failed to fetch permissions"));
       setPermissions([]);
       setScope(null);
     } finally {

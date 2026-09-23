@@ -422,3 +422,172 @@ describe("POs the backend returns without a hotel", () => {
     expect(initiatePO()).toBeEnabled();
   });
 });
+
+// ── Guiding whoever CAN move the draft ──────────────────────────────────────
+//
+// The page had a well-reasoned note for the viewer who cannot initiate — it
+// names the missing permission and then lists the colleagues who hold it. The
+// viewer who CAN initiate got nothing at all: no statement that the draft is
+// theirs to move, and no hint that anything is waiting.
+//
+// That is why 7 production drafts sat untouched, the oldest for 32 days, every
+// one of them with a valid approval policy. Nothing was blocking them; nobody
+// was told they were theirs. Client feedback item 10.
+//
+// Note the asymmetry deliberately kept here: WhoCanInitiate answers "who can
+// do this INSTEAD of me" and excludes the viewer, so showing it to someone who
+// already holds the grant would answer a question they did not ask. They get a
+// positive note instead.
+
+const heroNote = () =>
+  screen.queryByText(/waiting for you to initiate it/i);
+
+describe("the draft note shown to someone who CAN initiate", () => {
+  beforeEach(() => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+    state.mappings = [{ hospitality_hotel_id: PO_HOTEL }];
+  });
+
+  it("tells them the draft is waiting on them", async () => {
+    await mount();
+    expect(heroNote()).toBeInTheDocument();
+  });
+
+  it("does not also list the other people who could initiate it", async () => {
+    // They hold the grant; "who can do this instead of you" is noise.
+    await mount();
+    expect(screen.queryByText(/Who can initiate this purchase order/i)).not.toBeInTheDocument();
+  });
+
+  it("warns when sibling drafts could be merged first", async () => {
+    await mount({ mergeable_draft_count: 2 });
+    expect(screen.getByText(/2 other drafts/i)).toBeInTheDocument();
+    expect(screen.getByText(/merge them first/i)).toBeInTheDocument();
+  });
+
+  it("uses the singular for one sibling draft", async () => {
+    await mount({ mergeable_draft_count: 1 });
+    expect(screen.getByText(/1 other draft$/i)).toBeInTheDocument();
+  });
+
+  it("says nothing about merging when there is nothing to merge", async () => {
+    await mount({ mergeable_draft_count: 0 });
+    expect(heroNote()).toBeInTheDocument();
+    expect(screen.queryByText(/merge them first/i)).not.toBeInTheDocument();
+  });
+
+  it("does not appear once the PO has left draft", async () => {
+    await mount({ status: "pending_approval", status_label: "Pending approval" });
+    expect(heroNote()).not.toBeInTheDocument();
+  });
+
+  it("does not replace the note for someone who CANNOT initiate", async () => {
+    // The existing branch must survive untouched: it names the permission and
+    // lists the holders.
+    state.grants = { [PO_HOTEL]: ["read"] };
+    await mount();
+
+    expect(heroNote()).not.toBeInTheDocument();
+    expect(screen.getByText(/cannot initiate it/i)).toBeInTheDocument();
+    expect(screen.getByText(/Who can initiate this purchase order/i)).toBeInTheDocument();
+  });
+});
+
+describe("initiating a PO that was already initiated", () => {
+  beforeEach(() => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+    state.mappings = [{ hospitality_hotel_id: PO_HOTEL }];
+  });
+
+  it("does not congratulate the user on an action that did nothing", async () => {
+    // The server now answers { already_initiated: true } for a PO that has
+    // already moved past draft — a double-click, or a PO auto-initiate already
+    // claimed. It is not an error, so it must not be a red toast; it is also
+    // not a success, so it must not be a green one.
+    const { toast } = require("react-toastify");
+    handlePOInitialization.mockResolvedValueOnce({
+      status: 1,
+      message: "Purchase Order already initiated (status=pending_approval)",
+      data: { already_initiated: true },
+    });
+
+    await mount();
+    clickInitiateAndConfirm();
+
+    await waitFor(() => expect(toast.info).toHaveBeenCalled());
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("still reports a real initiation as a success", async () => {
+    const { toast } = require("react-toastify");
+    handlePOInitialization.mockResolvedValueOnce({
+      status: 1,
+      message: "Purchase order has been initiated",
+      data: { already_initiated: false, approval_required: true },
+    });
+
+    await mount();
+    clickInitiateAndConfirm();
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(toast.info).not.toHaveBeenCalled();
+  });
+});
+
+// ── A rejected PO that came back to you ─────────────────────────────────────
+//
+// The reject dialog has always promised "will be rejected and returned to the
+// initiator". Nothing acted on it: production carries 46 rejected PO approvals
+// and exactly ONE PO that was ever resubmitted. handleUpdatePO authorises only
+// `initiated_by` to edit, so the note appears for exactly the person who can do
+// something about it. Client feedback item 7.
+
+const VIEWER = 407; // the id the redux mock above reports
+
+describe("the note on a rejected PO", () => {
+  beforeEach(() => {
+    state.grants = { [PO_HOTEL]: ["read", "create"] };
+    state.mappings = [{ hospitality_hotel_id: PO_HOTEL }];
+  });
+
+  const rejected = (over = {}) => ({
+    status: "rejected",
+    status_label: "Rejected",
+    initiated_by: VIEWER,
+    workflow: [
+      { status: "rejected", title: "Commercial approval", by: "A. Approver", reason: "Freight is double the quote" },
+    ],
+    ...over,
+  });
+
+  it("tells the originator it is theirs to amend", async () => {
+    await mount(rejected());
+    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+  });
+
+  it("carries the rejecter's reason", async () => {
+    await mount(rejected());
+    // The reason also appears in the audit trail below, correctly — scope to
+    // the note so this asserts the note and not the trail.
+    const note = screen.getByText(/sent back to you/i).closest("span").parentElement;
+    expect(note).toHaveTextContent(/Freight is double the quote/);
+  });
+
+  it("says nothing to someone who is not the originator", async () => {
+    // They cannot edit it, so "amend it and raise it again" would be a lie.
+    await mount(rejected({ initiated_by: 999 }));
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+  });
+
+  it("does not appear on a PO that was not rejected", async () => {
+    await mount({ status: "approved", status_label: "Approved", initiated_by: VIEWER, workflow: [] });
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+  });
+
+  it("survives a rejection recorded without a reason", async () => {
+    await mount(rejected({ workflow: [{ status: "rejected", title: "Commercial approval" }] }));
+    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Reason:/i)).not.toBeInTheDocument();
+  });
+});

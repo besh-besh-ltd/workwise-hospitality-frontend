@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { previewSubscriptionModification } from "@/services/subscription";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const useSubscriptionPreview = (targetCategories, targetSubcategories, targetHotels, enabled) => {
   const [preview, setPreview] = useState(null);
@@ -37,12 +38,12 @@ const useSubscriptionPreview = (targetCategories, targetSubcategories, targetHot
           setError(null);
         } else {
           setPreview(null);
-          setError(res?.message || "Preview failed");
+          setError(getApiErrorMessage(res, "Preview failed"));
         }
       } catch (err) {
         if (err?.name !== "AbortError") {
           setPreview(null);
-          setError(err?.response?.data?.message || err?.message || "Preview failed");
+          setError(getApiErrorMessage(err, "Preview failed"));
         }
       } finally {
         setLoading(false);

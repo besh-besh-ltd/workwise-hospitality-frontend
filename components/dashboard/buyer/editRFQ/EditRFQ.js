@@ -41,6 +41,7 @@ import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import FormikField from "@/components/shared/FormikField";
 import { findIncompleteProducts, describeIncomplete } from "@/utils/productCompleteness";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -512,7 +513,7 @@ const EditRFQ = () => {
         setInitialDataLoaded(true);
       }
     } catch (error) {
-      setDataFetchError(error.message || `Failed to load ${getEntityLabel(rfqData?.is_tender)} data`);
+      setDataFetchError(getApiErrorMessage(error, `Failed to load ${getEntityLabel(rfqData?.is_tender)} data`));
       toast.error(`Failed to load ${getEntityLabel(rfqData?.is_tender)} data. Please try again.`);
       console.error("Error loading RFQ data:", error);
     } finally {

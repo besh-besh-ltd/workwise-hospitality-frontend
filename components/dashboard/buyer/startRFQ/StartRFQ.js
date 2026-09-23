@@ -35,6 +35,15 @@ const VIEW = {
   PRODUCTS: "products",
 };
 
+// Below this many mappings the list fits on screen and a search box is just
+// noise: 172 of the 198 users who hold any business-unit mapping hold exactly
+// one. Above it, the box earns its place — 17 users are mapped to 17-19 units.
+const BU_SEARCH_THRESHOLD = 6;
+
+// One place decides what a mapping is called, so the label the user reads is
+// the same string we sort and filter on.
+const buLabel = (m) => m.hotel_name || m.name || "Business Unit";
+
 const StartRFQ = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
@@ -48,6 +57,7 @@ const StartRFQ = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [searchProduct, setSearchProduct] = useState("");
+  const [buQuery, setBuQuery] = useState("");
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -131,6 +141,21 @@ const StartRFQ = () => {
     if (!advancedToProducts || selectedHotelIds.length === 0) return VIEW.BU;
     return VIEW.PRODUCTS;
   }, [queryMeta.rfq_id, queryMeta.orderType, advancedToProducts, selectedHotelIds]);
+
+  const showBuSearch = userHotelMappings.length >= BU_SEARCH_THRESHOLD;
+
+  // Sorted whether or not the box is shown — the list arrived in mapping-row
+  // order, which is meaningless to the person reading it.
+  const visibleHotelMappings = useMemo(() => {
+    const sorted = [...userHotelMappings].sort((a, b) =>
+      buLabel(a).localeCompare(buLabel(b))
+    );
+    const q = buQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((m) =>
+      `${buLabel(m)} ${m.company_name || ""}`.toLowerCase().includes(q)
+    );
+  }, [userHotelMappings, buQuery]);
 
   // ── Effects ────────────────────────────────
   useEffect(() => {
@@ -341,6 +366,7 @@ const StartRFQ = () => {
     setAdvancedToProducts(false);
     setStagedItems([]);
     setSearchProduct("");
+    setBuQuery("");
     setSuggestions([]);
   };
 
@@ -756,33 +782,63 @@ const StartRFQ = () => {
           </div>
         </div>
       ) : (
-        <div className={styles.buList}>
-          {userHotelMappings.map((m) => {
-            const id = m.hospitality_hotel_id || m.hotel_id;
-            const isActive = selectedHotelIds.includes(id);
-            return (
-              <button
-                type="button"
-                key={id}
-                className={`${styles.buRow} ${isActive ? styles.buRowActive : ""}`}
-                onClick={() => handleSelectHotel(id)}
-              >
-                <span className={`${styles.buCheck} ${isTender ? styles.buCheckSquare : ""}`}>
-                  {isActive && <Check size={12} strokeWidth={3} />}
-                </span>
-                <Building2 size={15} className={styles.buIcon} />
-                <span className={styles.buInfo}>
-                  <span className={styles.buName}>
-                    {m.hotel_name || m.name || "Business Unit"}
-                  </span>
-                  {m.company_name && (
-                    <span className={styles.buMeta}>{m.company_name}</span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {showBuSearch && (
+            <div className={styles.buSearchBox}>
+              <Search size={14} className={styles.searchIcon} />
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder={`Search business units (${userHotelMappings.length})\u2026`}
+                value={buQuery}
+                onChange={(e) => setBuQuery(e.target.value)}
+              />
+              {buQuery && (
+                <button
+                  type="button"
+                  className={styles.searchClear}
+                  onClick={() => setBuQuery("")}
+                  aria-label="Clear business unit search"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {visibleHotelMappings.length === 0 ? (
+            <div className={styles.buNoMatch}>
+              No business unit matches &ldquo;{buQuery.trim()}&rdquo;.
+            </div>
+          ) : (
+            <div className={styles.buList}>
+              {visibleHotelMappings.map((m) => {
+                const id = m.hospitality_hotel_id || m.hotel_id;
+                const isActive = selectedHotelIds.includes(id);
+                return (
+                  <button
+                    type="button"
+                    key={id}
+                    data-bu-selected={isActive ? "true" : "false"}
+                    className={`${styles.buRow} ${isActive ? styles.buRowActive : ""}`}
+                    onClick={() => handleSelectHotel(id)}
+                  >
+                    <span className={`${styles.buCheck} ${isTender ? styles.buCheckSquare : ""}`}>
+                      {isActive && <Check size={12} strokeWidth={3} />}
+                    </span>
+                    <Building2 size={15} className={styles.buIcon} />
+                    <span className={styles.buInfo}>
+                      <span className={styles.buName}>{buLabel(m)}</span>
+                      {m.company_name && (
+                        <span className={styles.buMeta}>{m.company_name}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       <div className={styles.stepActions}>

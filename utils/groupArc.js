@@ -73,10 +73,17 @@ export function buildScopePayload({ isGroup, hotelId, groupHotelIds = [], depart
  * covered hotel (blank → 0) and no total — the server derives it.
  */
 export function buildItemsPayload({
-  isGroup, selectedItemIds = [], itemSpecs = {}, itemQtys = {}, itemUoms = {}, hotelQtys = {}, groupHotelIds = [],
+  isGroup, selectedItemIds = [], itemSpecs = {}, itemQtys = {}, itemUoms = {}, itemSamples = {},
+  hotelQtys = {}, groupHotelIds = [],
 }) {
   return selectedItemIds.map((id) => {
-    const base = { product_variant_id: id, spec_text: itemSpecs[id] || "", uom: itemUoms[id] || null };
+    const base = {
+      product_variant_id: id,
+      spec_text: itemSpecs[id] || "",
+      uom: itemUoms[id] || null,
+      // Sampling is asked per product (client batch Sep 2026), group or not.
+      sample_required: !!itemSamples[id],
+    };
     if (!isGroup) return { ...base, indicative_qty: Number(itemQtys[id]) || 0 };
     const split = hotelQtys[id] || {};
     return {

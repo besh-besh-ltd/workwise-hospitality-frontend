@@ -12,6 +12,7 @@ import React, {
   useState,
 } from "react";
 import { getDashboardPermissions } from "@/services/rbac";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   DASHBOARD_WIDGETS,
   getRenderableWidgets,
@@ -82,7 +83,7 @@ export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
       // Real network errors still get logged for diagnostics.
       // eslint-disable-next-line no-console
       console.warn("Failed to fetch dashboard permissions:", err);
-      setError(err?.message || err);
+      setError(getApiErrorMessage(err, "Failed to load dashboard data"));
       setPermissions([]);
     } finally {
       if (fetchIdRef.current === currentFetchId) {

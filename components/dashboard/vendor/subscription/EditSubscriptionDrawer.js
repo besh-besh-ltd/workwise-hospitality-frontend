@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Select from "react-select";
 import { FiX, FiAlertTriangle } from "react-icons/fi";
 import { nestedCategoryData } from "@/services/products";
@@ -46,9 +46,21 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
   const [selectedSubs, setSelectedSubs] = useState([]);
   const [selectedHotels, setSelectedHotels] = useState([]);
 
+  // The pre-selection seeds the form from the vendor's current subscription and
+  // must run exactly once per opening. Re-running it after sub-categories load
+  // would discard whatever the vendor had picked in the meantime.
+  const preselectedRef = useRef(false);
+  // Parents whose children we have already requested, so selecting a category
+  // does not re-fetch on every render.
+  const fetchedParentsRef = useRef(new Set());
+
   // Load available options
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      preselectedRef.current = false;
+      fetchedParentsRef.current = new Set();
+      return;
+    }
     const load = async () => {
       setLoadingOptions(true);
       try {
@@ -58,23 +70,28 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
         ]);
 
         const cats = [];
-        const subs = [];
         const catData = catRes?.data || catRes || [];
         (Array.isArray(catData) ? catData : []).forEach((c) => {
           cats.push({ value: c.id, label: c.title || c.name, fee: c.fee_amount || 500 });
-          if (Array.isArray(c.subcategories || c.children)) {
-            (c.subcategories || c.children || []).forEach((sc) => {
-              subs.push({
-                value: sc.id,
-                label: sc.title || sc.name,
-                parentId: c.id,
-                parentName: c.title || c.name
-              });
-            });
-          }
         });
         setAllCategories(cats);
-        setAllSubcategories(subs);
+
+        // Seed the sub-category list from what the vendor already holds.
+        // products/nested-category-list answers parent_id=0 with a FLAT list of
+        // top-level categories — no children — so the vendor's own sub-
+        // categories would otherwise be unresolvable, and the cleanup effect
+        // below would read that gap as "remove them all". Children of the
+        // selected categories are fetched separately, one parent at a time.
+        setAllSubcategories(
+          (currentData?.subscription?.categories || []).flatMap((c) =>
+            (c.sub_categories || []).map((sc) => ({
+              value: sc.id,
+              label: sc.name,
+              parentId: c.id,
+              parentName: c.name
+            }))
+          )
+        );
 
         const hotelData = hotelRes?.data || hotelRes || [];
         setAllHotels(
@@ -91,11 +108,12 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
       }
     };
     load();
-  }, [open]);
+  }, [open, currentData]);
 
   // Pre-select current items when options loaded
   useEffect(() => {
-    if (!currentData?.subscription || loadingOptions) return;
+    if (!currentData?.subscription || loadingOptions || preselectedRef.current) return;
+    preselectedRef.current = true;
     const sub = currentData.subscription;
 
     setSelectedCats(
@@ -124,7 +142,7 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
         return found || { value: h.id, label: h.name };
       })
     );
-  }, [currentData, loadingOptions, allCategories, allSubcategories, allHotels]);
+  }, [currentData, loadingOptions, allCategories, allHotels]);
 
   const targetCatIds = useMemo(() => selectedCats.map((c) => c.value), [selectedCats]);
   const targetSubIds = useMemo(() => selectedSubs.map((s) => s.value), [selectedSubs]);
@@ -161,13 +179,63 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
     return allSubcategories.filter((sc) => catIds.has(sc.parentId));
   }, [allSubcategories, targetCatIds]);
 
+  // Load the sub-categories of each selected category. parent_id=0 returns only
+  // the top level, so children have to be asked for one parent at a time.
+  useEffect(() => {
+    if (!open || loadingOptions) return;
+    const missing = targetCatIds.filter((id) => !fetchedParentsRef.current.has(id));
+    if (missing.length === 0) return;
+    missing.forEach((id) => fetchedParentsRef.current.add(id));
+
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        missing.map((id) =>
+          nestedCategoryData(id, "", false)
+            .then((res) => ({ id, rows: res?.type === "category" ? res.data || [] : [] }))
+            .catch(() => ({ id, rows: [] }))
+        )
+      );
+      if (cancelled) return;
+      setAllSubcategories((prev) => {
+        const byId = new Map(prev.map((s) => [s.value, s]));
+        results.forEach(({ id, rows }) => {
+          const parent = allCategories.find((c) => c.value === id);
+          (Array.isArray(rows) ? rows : []).forEach((sc) => {
+            byId.set(sc.id, {
+              value: sc.id,
+              label: sc.title || sc.name,
+              parentId: sc.parent_id ?? id,
+              parentName: parent?.label
+            });
+          });
+        });
+        return Array.from(byId.values());
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loadingOptions, targetCatIds, allCategories]);
+
   // When a category is deselected, auto-remove its orphaned subcategories
   useEffect(() => {
+    // Nothing to reconcile against yet. This effect also runs in the same
+    // commit as the pre-selection, where the freshly queued sub-categories are
+    // already in the update buffer but targetCatIds is still the stale empty
+    // array — reconciling there would orphan every one of them. The UI does not
+    // allow clearing the last category, so an empty list only means "not ready".
+    if (targetCatIds.length === 0) return;
     const catIds = new Set(targetCatIds);
     setSelectedSubs((prev) =>
       prev.filter((s) => {
         const meta = allSubcategories.find((as) => as.value === s.value);
-        return meta ? catIds.has(meta.parentId) : false;
+        // A sub-category we cannot resolve is KEPT. Missing category metadata
+        // is not the vendor asking to delete it — reading it that way silently
+        // offered to drop every sub-category 154 vendors had. The server
+        // validates the parent link anyway.
+        return meta ? catIds.has(meta.parentId) : true;
       })
     );
   }, [targetCatIds, allSubcategories]);
@@ -225,6 +293,11 @@ const EditSubscriptionDrawer = ({ open, onClose, currentData, onSubmit }) => {
           {availableSubs.length > 0 && (
             <div className={styles.drawerSection}>
               <label className={styles.drawerLabel}>Sub-categories (Free)</label>
+              <p className={styles.drawerHint}>
+                These record what you specialise in. They do not limit the
+                products you receive — your categories above already cover
+                every product within them.
+              </p>
               <Select
                 isMulti
                 options={availableSubs}

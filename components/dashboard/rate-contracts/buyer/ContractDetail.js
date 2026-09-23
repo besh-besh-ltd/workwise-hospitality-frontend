@@ -143,7 +143,22 @@ export default function ContractDetail({ contractId }) {
           </div>
           <div className={styles.kv}><span>Eligibility</span><span>{arc.eligibility_type}</span></div>
           <div className={styles.kv}><span>Tech required</span><span>{arc.technical_response_required ? "Yes" : "No"}</span></div>
-          <div className={styles.kv}><span>Samples</span><span>{arc.sample_required ? "Yes" : "No"}</span></div>
+          {/* Sampling is per item now (client feedback item 3). The
+              contract-level flag is still the rollup the server maintains, but
+              "Yes" on its own no longer tells the reader WHICH items need one. */}
+          <div className={styles.kv}>
+            <span>Samples</span>
+            <span>
+              {(() => {
+                const n = items.filter((i) => i.sample_required).length;
+                if (!arc.sample_required && n === 0) return "No";
+                if (items.length === 0) return arc.sample_required ? "Yes" : "No";
+                return n === items.length
+                  ? `Yes — all ${items.length} item${items.length === 1 ? "" : "s"}`
+                  : `Yes — ${n} of ${items.length} items`;
+              })()}
+            </span>
+          </div>
         </section>
 
         <section className={styles.section}>

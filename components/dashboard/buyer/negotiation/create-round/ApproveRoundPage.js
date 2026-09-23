@@ -16,6 +16,7 @@ import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './CreateRound.module.scss';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 // This page carried the last of four private copies of the naive-UTC parser,
 // and it is the page that made the duplication visible: it parsed `created_at`
@@ -110,7 +111,7 @@ const ApproveRoundPage = () => {
       setChargeNamesList(Array.isArray(charges) ? charges : []);
     } catch (err) {
       console.error('ApproveRoundPage load error:', err);
-      setLoadError(err?.message || 'Failed to load approval data');
+      setLoadError(getApiErrorMessage(err, 'Failed to load approval data'));
     } finally {
       setLoading(false);
     }
@@ -142,6 +143,41 @@ const ApproveRoundPage = () => {
   const backToComparison = () =>
     router.push(`/dashboard/buyer/quote-comparison?rfq=${rfqId}`);
 
+  // Lines the approver is withholding from this round, keyed
+  // `${roundId}:${rfqProductId|RFQ_LEVEL}:${vendorId}`. A withheld line is sent
+  // as REJECTED and never reaches the vendor; the rest of the round goes live.
+  // Client feedback item 8.
+  const [withheld, setWithheld] = useState({});
+
+  const lineKey = (roundId, entry, vendorId) =>
+    `${roundId}:${entry.mode === 'rfq' ? 'RFQ_LEVEL' : entry.rfq_product_id}:${vendorId}`;
+
+  const toggleWithheld = (key) =>
+    setWithheld((m) => ({ ...m, [key]: !m[key] }));
+
+  /** The `lines` payload for a round: only what is being withheld. */
+  const withheldLinesFor = (round) => {
+    const out = [];
+    for (const entry of roundToReviewEntries(round, products)) {
+      for (const vt of (entry.vendor_targets || [])) {
+        if (!withheld[lineKey(round.id, entry, vt.vendor_id)]) continue;
+        out.push({
+          ...(entry.mode === 'rfq'
+            ? { is_rfq_level: true }
+            : { rfq_product_id: Number(entry.rfq_product_id) }),
+          vendor_id: Number(vt.vendor_id),
+          decision: 'REJECTED',
+        });
+      }
+    }
+    return out;
+  };
+
+  /** Every (line, vendor) pair on the round — the denominator for "all withheld". */
+  const totalLinesFor = (round) =>
+    roundToReviewEntries(round, products)
+      .reduce((n, e) => n + (e.vendor_targets || []).length, 0);
+
   const handleAction = async (comment) => {
     if (!actionState) return;
     const { round, actionType } = actionState;
@@ -151,7 +187,8 @@ const ApproveRoundPage = () => {
         await rejectNegotiationRound(round.id, comment);
         toast.success(`Round ${round.round_number} rejected`);
       } else {
-        const res = await approveNegotiationRound(round.id, comment || null);
+        const lines = withheldLinesFor(round);
+        const res = await approveNegotiationRound(round.id, comment || null, null, lines);
         const published = res?.data?.published;
         toast.success(published
           ? `Round ${round.round_number} approved — now live for vendors`
@@ -312,6 +349,39 @@ const ApproveRoundPage = () => {
                       </div>
                     )}
                   </div>
+                  {/* Per-line withholding. A round covers many line items but
+                      its approval was one yes/no: in production 22 approvals
+                      each decided 2-18 lines with a single verdict, so an
+                      approver happy with four of five targets had to reject the
+                      whole round and have it rebuilt. Client feedback item 8. */}
+                  <div className={styles.approveRoundLines}>
+                    {roundToReviewEntries(round, products).map((entry) => (
+                      (entry.vendor_targets || []).map((vt) => {
+                        const key = lineKey(round.id, entry, vt.vendor_id);
+                        const isOut = !!withheld[key];
+                        const lineLabel = entry.mode === 'rfq' ? 'RFQ_LEVEL' : entry.rfq_product_id;
+                        return (
+                          <label
+                            key={key}
+                            className={`${styles.approveRoundLine} ${isOut ? styles.approveRoundLineOut : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isOut}
+                              onChange={() => toggleWithheld(key)}
+                              aria-label={`Withhold line ${lineLabel} for vendor ${vt.vendor_id}`}
+                            />
+                            <span className={styles.approveRoundLineName}>{entry.productName}</span>
+                            <span className={styles.approveRoundLineVendor}>
+                              {(vt.fields || []).map((f) => `${f.name} ${f.target}`).join(' · ') || 'no target'}
+                            </span>
+                            {isOut && <span className={styles.approveRoundLineTag}>Withheld</span>}
+                          </label>
+                        );
+                      })
+                    ))}
+                  </div>
+
                   <div className={styles.approveRoundActions}>
                     <button
                       type="button"
@@ -326,7 +396,22 @@ const ApproveRoundPage = () => {
                       type="button"
                       className={styles.btnApprove}
                       disabled={actionLoading}
-                      onClick={() => setActionState({ round, actionType: 'APPROVE' })}
+                      onClick={() => {
+                        // Publishing a round with every line withheld would
+                        // invite the vendor to answer an empty negotiation.
+                        // The server refuses this too; saying so here saves the
+                        // round trip.
+                        if (
+                          totalLinesFor(round) > 0 &&
+                          withheldLinesFor(round).length >= totalLinesFor(round)
+                        ) {
+                          toast.error(
+                            'Every line on this round is withheld. Reject the round instead, so it is cancelled and the creator is told.'
+                          );
+                          return;
+                        }
+                        setActionState({ round, actionType: 'APPROVE' });
+                      }}
                     >
                       <ShieldCheck size={14} strokeWidth={2.5} />
                       Approve

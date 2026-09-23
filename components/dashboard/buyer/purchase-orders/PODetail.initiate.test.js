@@ -219,3 +219,79 @@ describe("when the server sends no coverage flag", () => {
     expect(dialogText()).not.toMatch(/separate purchase order/i);
   });
 });
+
+// ── The tooltip on the control ───────────────────────────────────────────
+//
+// The control already carried a `title`, but only on the branch where it is
+// DISABLED. Pressed by someone who holds the grant it explained nothing — and
+// this is the least reversible button on the page: it freezes the PO, renders
+// the PDF synchronously, and notifies every approver. Client feedback item 9.
+//
+// Two things the copy must NOT say: that it goes to the vendor (it only does
+// when the policy auto-approves; otherwise it goes to approvers first), and
+// anything that lands inside the button's accessible name — the tests above
+// match on /^(force initiate|initiate)$/ and the trigger is a sibling.
+
+const tipTrigger = () =>
+  screen.queryByRole("button", { name: /about (force initiating|initiating) this purchase order/i });
+
+const openTip = () => {
+  const t = tipTrigger();
+  expect(t).toBeInTheDocument();
+  fireEvent.click(t);
+  return screen.getByRole("tooltip");
+};
+
+describe("the explanation attached to the initiate control", () => {
+  const partial = { covers_all_products: false, rfq_product_count: 3, po_product_count: 1 };
+  const complete = { covers_all_products: true, rfq_product_count: 3, po_product_count: 3 };
+
+  it("explains what Force Initiate will do, including the coverage and the split", async () => {
+    await mount(partial);
+    const tip = openTip();
+
+    expect(tip).toHaveTextContent(/1 of 3/);
+    expect(tip).toHaveTextContent(/separate purchase order/i);
+    expect(tip).toHaveTextContent(/cannot be undone/i);
+  });
+
+  it("does not claim the purchase order goes to the vendor", async () => {
+    // It reaches the vendor only if the approval policy auto-approves; the
+    // default path is approvers first. Saying otherwise misleads the buyer
+    // about what they have just triggered.
+    await mount(partial);
+    expect(openTip()).not.toHaveTextContent(/to the vendor/i);
+  });
+
+  it("explains plain Initiate without the split warning", async () => {
+    await mount(complete);
+    const tip = openTip();
+
+    expect(tip).toHaveTextContent(/every product/i);
+    expect(tip).not.toHaveTextContent(/separate purchase order/i);
+  });
+
+  it("leaves the button's accessible name alone", async () => {
+    await mount(partial);
+    openTip();
+    // the sibling trigger must not have been absorbed into the control
+    expect(control()).toHaveAccessibleName(/^Force Initiate$/);
+  });
+
+  it("opens on focus, so it is reachable without a mouse", async () => {
+    await mount(partial);
+    fireEvent.focus(tipTrigger());
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/separate purchase order/i);
+  });
+
+  it("is not offered when the control is disabled — that case already has its own note", async () => {
+    // A viewer without `awarding.create` gets the permission `title` plus the
+    // WhoCanInitiate block; a second explanation of an action they cannot take
+    // is noise.
+    state.grants = { [PO_HOTEL]: ["read"] };
+    await mount(partial);
+
+    expect(control()).toBeDisabled();
+    expect(tipTrigger()).not.toBeInTheDocument();
+  });
+});

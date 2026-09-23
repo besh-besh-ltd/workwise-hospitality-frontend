@@ -30,6 +30,7 @@ import {
   formatPrevDateValue,
 } from '@/utils/sharedFunctions';
 import styles from './RFQEditHistory.module.scss';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 // ── Field name → human label ──────────────────────────────────────────────
 // Mirrors RFQ_FIELD_LABELS in the backend rfqController. Anything missing
@@ -403,7 +404,7 @@ const RFQEditHistory = ({ rfqId, isOpen, onClose }) => {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message || 'Failed to load edit history');
+        setError(getApiErrorMessage(err, 'Failed to load edit history'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

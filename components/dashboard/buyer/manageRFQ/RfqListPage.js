@@ -104,7 +104,7 @@ const fmtDateTime = (d) => {
 /* ─── lifecycle hover tooltip (the RFQ-specific extra) — compact + theme-aligned ─── */
 const TONE_DOT = { draft: "#71717a", active: "#16a34a", expiring: "#b45309", eval: "#b45309", committee: "#7c3aed", awaiting: "#4338ca", floated: "#2563eb", expired: "#a1a1aa" };
 
-function LifecycleTooltip({ statusKey, actionHolders, anchor }) {
+function LifecycleTooltip({ statusKey, actionHolders, anchor, poRejection }) {
   if (!anchor || typeof document === "undefined") return null;
   const meta = metaFor(statusKey);
   const dot = TONE_DOT[meta.tone] || "#6366f1";
@@ -139,6 +139,31 @@ function LifecycleTooltip({ statusKey, actionHolders, anchor }) {
           </div>
         </div>
       )}
+      {/* Why the RFQ is at an earlier stage than it was. A rejected PO
+          de-finalizes its products and sends the RFQ back to commercial
+          evaluation; RFQ 536263 did that with nothing on the card to say so,
+          and the client read the new stage and new names as their approval
+          matrix changing. */}
+      {poRejection && (
+        <div style={{ padding: "9px 13px 10px", borderTop: "1px solid #f4f4f1", background: "#fef2f2" }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#b91c1c", marginBottom: 5 }}>
+            Sent back from PO approval
+          </div>
+          <div style={{ fontSize: 11.5, color: "#3f3f46", lineHeight: 1.45 }}>
+            PO #{poRejection.po_number} {poRejection.rejection_type === "vendor" ? "declined by " : "rejected by "}
+            <strong style={{ fontWeight: 600 }}>{poRejection.rejected_by_name || "an approver"}</strong>
+            {poRejection.rejected_at ? ` on ${fmtServerDate(poRejection.rejected_at)}` : ""}
+            {(poRejection.rejected_po_count || 1) > 1
+              ? ` · and ${poRejection.rejected_po_count - 1} other PO${poRejection.rejected_po_count - 1 === 1 ? "" : "s"}`
+              : ""}
+          </div>
+          {poRejection.rejection_reason && (
+            <div style={{ marginTop: 4, fontSize: 11.5, color: "#52525b", fontStyle: "italic", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              “{poRejection.rejection_reason}”
+            </div>
+          )}
+        </div>
+      )}
       {users.length > 0 && (
         <div style={{ padding: "9px 13px 11px", borderTop: "1px solid #f4f4f1" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa", marginBottom: 7 }}>
@@ -162,7 +187,7 @@ function LifecycleTooltip({ statusKey, actionHolders, anchor }) {
 }
 
 /* ─── status pill that opens the lifecycle tooltip on hover ─── */
-function StatusPill({ statusKey, actionHolders }) {
+function StatusPill({ statusKey, actionHolders, poRejection }) {
   const [anchor, setAnchor] = useState(null);
   const ref = useRef(null);
   const meta = metaFor(statusKey);
@@ -184,7 +209,7 @@ function StatusPill({ statusKey, actionHolders }) {
           </span>
         )}
       </span>
-      {anchor && <LifecycleTooltip statusKey={statusKey} actionHolders={actionHolders} anchor={anchor} />}
+      {anchor && <LifecycleTooltip statusKey={statusKey} actionHolders={actionHolders} anchor={anchor} poRejection={poRejection} />}
     </>
   );
 }
@@ -640,6 +665,17 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
               {extraReasons.map((r) => (
                 <span key={r.code} className="pending-extra">{r.label}</span>
               ))}
+              {/* Visible without a hover: this RFQ is at an earlier stage
+                  because a PO was rejected. Who, when and why are in the stage
+                  popover. */}
+              {row.po_rejection && (
+                <span
+                  className="po-rejected-pill"
+                  title={`PO #${row.po_rejection.po_number} ${row.po_rejection.rejection_type === "vendor" ? "declined by" : "rejected by"} ${row.po_rejection.rejected_by_name || "an approver"}`}
+                >
+                  PO rejected
+                </span>
+              )}
             </div>
             <div className="cc-sub">
               {cats.length > 0 && <><span className="em">{cats.map((c) => c.title).join(", ")}</span><span className="sep">·</span></>}
@@ -658,7 +694,7 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
         </div>
         {/* Status pill stays top-right; quotes + actions sit at the bottom-right. */}
         <div className="cc-right" style={{ alignSelf: "stretch", justifyContent: "space-between" }}>
-          <StatusPill statusKey={row.status_key} actionHolders={row.action_holders} />
+          <StatusPill statusKey={row.status_key} actionHolders={row.action_holders} poRejection={row.po_rejection} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
             <div style={{ fontSize: 12, color: "var(--fg-3, #71717a)" }}>
               <span className="mono fw-600">{row.submitted_count ?? 0}</span>/{row.invited_count ?? 0} quotes
