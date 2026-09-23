@@ -1256,7 +1256,19 @@ export default function VendorQuotePage() {
               <span>{arc.category_title || arc.category_id || "—"}</span>
               <span className="sep">·</span>
               <span>
-                <span className="em">{arc.hotel_name || "—"}</span>
+                {/* A group rate contract covers several hotels — naming only the
+                    lead here contradicted the invited-hotels list below. */}
+                <span className="em">
+                  {arc.is_group
+                    ? `Group · ${(arc.hotels || []).length} hotel${(arc.hotels || []).length === 1 ? "" : "s"}`
+                    : (arc.hotel_name || "—")}
+                </span>
+                {arc.is_group && (arc.hotels || []).length > 0 && (
+                  <>
+                    <span className="sep">·</span>
+                    <span>{(arc.hotels || []).map((h) => h.name).join(", ")}</span>
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -1294,7 +1306,11 @@ export default function VendorQuotePage() {
           <div className="cell"><div className="k">Submission closes</div><div className="v"><span className="em">{submissionEnd}</span></div></div>
           <div className="cell"><div className="k">Contract term</div><div className="v"><span>{termStart}</span> → <span>{termEnd}</span></div></div>
           <div className="cell"><div className="k">Items</div><div className="v"><span className="em">{items.length}</span> line item(s)</div></div>
-          <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_name || "—"}</span></div></div>
+          {arc.is_group ? (
+            <div className="cell"><div className="k">Hotels</div><div className="v"><span className="em">{(arc.hotels || []).map((h) => h.name).join(", ") || "—"}</span></div></div>
+          ) : (
+            <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_name || "—"}</span></div></div>
+          )}
           <div className="cell"><div className="k">Bid sealing</div><div className="v">Encrypted until close</div></div>
         </div>
       </section>
