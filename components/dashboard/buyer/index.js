@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo, useRef } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import moment from "moment";
 import { useSelector } from "react-redux";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, FileBarChart } from "lucide-react";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { Seg, SkeletonKpiGrid } from "@/components/dashboard/shared";
 import ActionCenter from "./dashboard-components/ActionCenter";
@@ -186,6 +187,17 @@ const BuyerPage = () => {
                 placeholder="All Business Units"
               />
             </div>
+            {/* Reports sits beside the refresh control rather than in a widget:
+                it is a destination, not a metric, and the dashboard is where
+                people look first when they want to take something away. */}
+            <Link
+              href="/dashboard/buyer/reports"
+              className={styles.refreshBtn}
+              title="Download reports"
+              aria-label="Reports"
+            >
+              <FileBarChart size={15} />
+            </Link>
             <button
               className={styles.refreshBtn}
               onClick={handleRefresh}

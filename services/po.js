@@ -1,5 +1,6 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
+import { saveBlob, stamp } from "@/utils/download";
 
 export const getPoData = async (rfq_id, params) => {
   const res = await axiosInstance.get(`/po/rfq/${rfq_id}`, { params });
@@ -210,21 +211,7 @@ export const getVendorPoListView  = (body) => axiosInstance.post(`/po/vendor/lis
    would silently degrade to the endpoint path.
    ───────────────────────────────────────────────────────────────────────── */
 
-const stamp = () => new Date().toISOString().slice(0, 10);
-
-// Turns a Blob into a save dialog. Kept here (not in a component) so every PO
-// surface downloads the same way.
-const saveBlob = (blob, filename) => {
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoking immediately can cancel the download in Safari; one tick is enough.
-  setTimeout(() => window.URL.revokeObjectURL(url), 0);
-};
+// saveBlob/stamp moved to utils/download.js — Reports downloads the same way.
 
 // GET /po/export — buyer "All purchase orders", honouring status/search/vendor/date.
 export const downloadPOListExcel = async (params) => {
