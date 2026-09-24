@@ -44,6 +44,7 @@ import {
   ClarificationDetailModal,
 } from "@/components/dashboard/buyer/clarification";
 import ClauseChatDrawer from "./ClauseChatDrawer";
+import BuyerAttachments from "./BuyerAttachments";
 
 import styles from "./SendQuoteWizard.module.scss";
 import {
@@ -2978,6 +2979,10 @@ const Step1Overview = ({ rfq, products, accepted, onToggleAccept, alreadyQuoted,
                       />
                     );
                   })()}
+                  {/* What the buyer attached to this product. Shown here as
+                      well as on the pricing line, because a vendor decides
+                      whether to quote at all from this panel. */}
+                  <BuyerAttachments product={p} />
                 </div>
               </div>
               <div className={styles.previewRight}>
@@ -3377,20 +3382,7 @@ const Step2TechEval = ({
                 <div className={styles.productSpec}>
                   {p.detailedSpec || p.product_description || "—"}
                 </div>
-                <div className={styles.productMetaRow}>
-                  {p.datasheet_file && (
-                    <a className={styles.fileChip} href={p.datasheet_file} target="_blank" rel="noopener">
-                      <Download size={11} />
-                      TDS · datasheet
-                    </a>
-                  )}
-                  {p.qap_file && (
-                    <a className={styles.fileChip} href={p.qap_file} target="_blank" rel="noopener">
-                      <Download size={11} />
-                      QAP · quality plan
-                    </a>
-                  )}
-                </div>
+                <BuyerAttachments product={p} />
               </div>
               <div className={styles.qtyBlock}>
                 <div className={styles.qtyLbl}>Quantity required</div>
@@ -4006,6 +3998,9 @@ const Step3Pricing = ({
                           {p.buyer_comment}
                         </div>
                       )}
+                      {/* The buyer's files belong with the requirement, above
+                          the vendor's own "Attach supporting documents". */}
+                      <BuyerAttachments product={p} />
                       <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {hasCharges && (
                           <span className={styles.pill}>
