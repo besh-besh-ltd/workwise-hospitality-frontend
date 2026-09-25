@@ -96,6 +96,8 @@ export default function VendorQuotePage() {
   const [lockedNote, setLockedNote] = useState("");
 
   // ── Technical envelope (two-envelope flow) ──
+  // GROUP rate contract: invited hotels whose subscription has lapsed.
+  const [renewalNeededHotelIds, setRenewalNeededHotelIds] = useState([]);
   const [techEnvelope, setTechEnvelope] = useState(null);  // { required, tech_submitted_at, clauses_total, clauses_answered }
   const [techItems, setTechItems] = useState([]);           // [{ arc_item_id, clauses:[...] }]
   const [techResponses, setTechResponses] = useState({});  // { [clauseId]: vendor_response }
@@ -273,6 +275,7 @@ export default function VendorQuotePage() {
 
         setArc(a);
         setItems(its);
+        setRenewalNeededHotelIds(d.renewal_needed_hotel_ids || []);
         setInvitation(inv);
         setQuote(qt);
         setTechEnvelope(te);
@@ -494,6 +497,7 @@ export default function VendorQuotePage() {
         const d = res?.data || {};
         setArc(d.arc || null);
         setItems(d.items || []);
+        setRenewalNeededHotelIds(d.renewal_needed_hotel_ids || []);
         setQuote(d.quote || null);
         const te = d.tech_envelope || null;
         setTechEnvelope(te);
@@ -1252,7 +1256,19 @@ export default function VendorQuotePage() {
               <span>{arc.category_title || arc.category_id || "—"}</span>
               <span className="sep">·</span>
               <span>
-                <span className="em">{arc.hotel_name || "—"}</span>
+                {/* A group rate contract covers several hotels — naming only the
+                    lead here contradicted the invited-hotels list below. */}
+                <span className="em">
+                  {arc.is_group
+                    ? `Group · ${(arc.hotels || []).length} hotel${(arc.hotels || []).length === 1 ? "" : "s"}`
+                    : (arc.hotel_name || "—")}
+                </span>
+                {arc.is_group && (arc.hotels || []).length > 0 && (
+                  <>
+                    <span className="sep">·</span>
+                    <span>{(arc.hotels || []).map((h) => h.name).join(", ")}</span>
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -1290,7 +1306,11 @@ export default function VendorQuotePage() {
           <div className="cell"><div className="k">Submission closes</div><div className="v"><span className="em">{submissionEnd}</span></div></div>
           <div className="cell"><div className="k">Contract term</div><div className="v"><span>{termStart}</span> → <span>{termEnd}</span></div></div>
           <div className="cell"><div className="k">Items</div><div className="v"><span className="em">{items.length}</span> line item(s)</div></div>
-          <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_name || "—"}</span></div></div>
+          {arc.is_group ? (
+            <div className="cell"><div className="k">Hotels</div><div className="v"><span className="em">{(arc.hotels || []).map((h) => h.name).join(", ") || "—"}</span></div></div>
+          ) : (
+            <div className="cell"><div className="k">Business unit</div><div className="v"><span className="em">{arc.hotel_name || "—"}</span></div></div>
+          )}
           <div className="cell"><div className="k">Bid sealing</div><div className="v">Encrypted until close</div></div>
         </div>
       </section>
@@ -1512,6 +1532,7 @@ export default function VendorQuotePage() {
           submissionEnd={submissionEnd}
           termStart={termStart}
           termEnd={termEnd}
+          renewalNeededHotelIds={renewalNeededHotelIds}
         />
       )}
 

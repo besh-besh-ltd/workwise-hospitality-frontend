@@ -73,7 +73,7 @@ const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
   );
 };
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
   const handleAddStep = (si) => {
@@ -144,7 +144,13 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
     <div>
       <h4 className={s.heading}>Configure approval stages</h4>
       <p className={s.subtext}>Set approvers for each stage. Click a stage to expand and add approval levels.</p>
-      {isArc ? (
+      {isArcGroup ? (
+        <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
+          Group ARC approvals apply to <strong>every hotel in the company</strong>. Pick approvers with company-level
+          access — an approver scoped to one hotel only counts when that hotel leads the group rate contract.
+          The <strong>Group ARC (Publish &amp; Base)</strong> stage is required; the rest are optional and fall back to it.
+        </p>
+      ) : isArc ? (
         <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
           ARC approvals are <strong>process-free</strong> — any eligible user in this business unit can be an approver.
           The <strong>ARC (Publish &amp; Base)</strong> stage is required; the rest are optional and fall back to it.

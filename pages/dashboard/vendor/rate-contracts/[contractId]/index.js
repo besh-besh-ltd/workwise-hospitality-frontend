@@ -187,6 +187,11 @@ export default function VendorContractDetailPage() {
   const contract   = data?.contract   || null;
   const arc        = data?.arc        || null;
   const lines      = data?.lines      || [];
+  // GROUP rate contract: the hotels this vendor supplies; lines[].hotels
+  // carries each line's committed and consumed quantity per hotel.
+  const hotels     = data?.hotels     || [];
+  const isGroup    = !!arc?.is_group;
+  const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
 
@@ -321,8 +326,10 @@ export default function VendorContractDetailPage() {
             <div className="sub">
               {arc?.buyer_name && <><span>Buyer: <span className="em">{arc.buyer_name}</span></span><span className="sep">·</span></>}
               {arc?.category_title && <><span>{arc.category_title}</span><span className="sep">·</span></>}
-              <span className="em">Single-BU award</span>
-              {arc?.hotel_name && <><span className="sep">·</span><span>{arc.hotel_name}{arc.hotel_city ? ` · ${arc.hotel_city}` : ""}</span></>}
+              <span className="em">{isGroup ? `Group award · ${hotels.length} hotel${hotels.length === 1 ? "" : "s"}` : "Single-BU award"}</span>
+              {isGroup
+                ? hotels.length > 0 && <><span className="sep">·</span><span>{hotels.map((h) => h.name).join(", ")}</span></>
+                : arc?.hotel_name && <><span className="sep">·</span><span>{arc.hotel_name}{arc.hotel_city ? ` · ${arc.hotel_city}` : ""}</span></>}
             </div>
           </div>
           <div className="hero-actions">
@@ -446,6 +453,16 @@ export default function VendorContractDetailPage() {
                             <td>
                               <div style={{ fontWeight: 600, color: "var(--fg)" }}>{l.variant_name}</div>
                               <div className="mono" style={{ marginTop: 2, fontSize: 10.5, color: "var(--fg-4)" }}>{l.variant_slug || l.arc_item_id}</div>
+                              {isGroup && (l.hotels || []).length > 0 && (
+                                <div className="flex flex-wrap gap-1" style={{ marginTop: 6 }}>
+                                  {l.hotels.map((h) => (
+                                    <span key={h.hotel_id} className="bu-tag" title={hotelNameOf(h.hotel_id)}>
+                                      {hotelNameOf(h.hotel_id)}{" "}
+                                      <span className="mono">{Number(h.consumed_qty || 0).toLocaleString("en-IN")} / {Number(h.committed_qty || 0).toLocaleString("en-IN")}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                             <td className="right">
                               {amended ? (
@@ -572,7 +589,11 @@ export default function VendorContractDetailPage() {
                       <div className="pb-label">Buyer (issuer)</div>
                       <div className="pb-name">{arc?.hotel_name || "Buyer"}</div>
                       <div className="pb-sub">Representative: {arc?.buyer_name || "—"}</div>
-                      <div className="pb-sub">Property: {arc?.hotel_name}{arc?.hotel_city ? ` · ${arc.hotel_city}` : ""}</div>
+                      <div className="pb-sub">
+                        {isGroup
+                          ? <>Properties: {hotels.map((h) => h.name).join(", ")}</>
+                          : <>Property: {arc?.hotel_name}{arc?.hotel_city ? ` · ${arc.hotel_city}` : ""}</>}
+                      </div>
                     </div>
                     <div className="party-block">
                       <div className="pb-label">Vendor (you)</div>

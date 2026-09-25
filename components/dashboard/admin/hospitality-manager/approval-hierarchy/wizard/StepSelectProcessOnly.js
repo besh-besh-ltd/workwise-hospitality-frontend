@@ -8,15 +8,22 @@ import s from "./StepSelectProcessOnly.module.scss";
 const processTypeLabel = (t) => { const u = (t || "").toUpperCase(); if (u === "RFQ") return "RFQ"; if (u === "TENDER" || u === "ARC") return "Tender / ARC"; return u; };
 const processTypeFlow = (t) => { const u = (t || "").toUpperCase(); return u === "RFQ" ? "RFQ > Tech > Negotiation > Neg. Quote > PO" : "Tender > Tech > Negotiation > Neg. Quote > ARC"; };
 
-const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreateProcess, isEditing = false, flowType = FLOW_TYPE.PROCESS, onFlowChange }) => {
+const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreateProcess, isEditing = false, flowType = FLOW_TYPE.PROCESS, onFlowChange, groupWorkflowExists = false }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [groupBlocked, setGroupBlocked] = useState(false);
   const isArc = flowType === FLOW_TYPE.ARC;
+  const isArcGroup = flowType === FLOW_TYPE.ARC_GROUP;
 
   const flowCard = (value, title, subtitle, accent) => {
     const active = flowType === value;
     return (
       <div
-        onClick={() => { if (!isEditing && onFlowChange) onFlowChange(value); }}
+        onClick={() => {
+          if (isEditing || !onFlowChange) return;
+          if (value === FLOW_TYPE.ARC_GROUP && groupWorkflowExists) { setGroupBlocked(true); return; }
+          setGroupBlocked(false);
+          onFlowChange(value);
+        }}
         style={{
           flex: 1, minWidth: 240, cursor: isEditing ? "default" : "pointer",
           border: `1.5px solid ${active ? accent : DS.border}`,
@@ -50,15 +57,35 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
       <h4 className={s.heading}>Select Workflow Type</h4>
       <p className={s.subtext}>
         Choose what this approval workflow governs. <strong>RFQ / Tender</strong> workflows are tied to a process;
-        <strong> ARC</strong> (Annual Rate Contracts) run without a process.
+        <strong> ARC</strong> (Annual Rate Contracts) and <strong>Group ARC</strong> run without a process.
       </p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         {flowCard(FLOW_TYPE.PROCESS, "RFQ / Tender (process-based)", "Configure a process and its RFQ→PO or Tender→ARC stages.", DS.primary)}
         {flowCard(FLOW_TYPE.ARC, "ARC — Rate Contracts (no process)", "Publish, tech-eval, negotiation, committee & amendment approvals. No process required.", "#db2777")}
+        {flowCard(FLOW_TYPE.ARC_GROUP, "Group ARC — covers several hotels (company-wide)", "One approval hierarchy for rate contracts that cover two or more hotels.", "#be185d")}
       </div>
       {isEditing && <small className="d-block mb-3" style={{ fontSize: 12, color: DS.muted }}>Workflow type cannot be changed when editing.</small>}
+      {groupBlocked && (
+        <div className={s.infoBox} role="alert">
+          <BsInfoCircle size={18} style={{ color: DS.error, flexShrink: 0, marginTop: 2 }} />
+          <p>
+            This company already has a Group ARC workflow. It applies company-wide, so edit it from the
+            <strong> Group ARC (company-wide)</strong> card instead of creating another.
+          </p>
+        </div>
+      )}
 
-      {isArc ? (
+      {isArcGroup ? (
+        <div className={s.infoBox}>
+          <BsInfoCircle size={18} style={{ color: "#be185d", flexShrink: 0, marginTop: 2 }} />
+          <p>
+            <strong>Group ARC approvals are company-wide:</strong> one approval hierarchy for every group rate
+            contract in the company, whichever hotel leads it. Group rate contracts never use a single hotel&apos;s
+            ARC workflow. The <strong>Group ARC (Publish &amp; Base)</strong> stage is required and is the default
+            for Technical, Negotiation, Committee and Amendment.
+          </p>
+        </div>
+      ) : isArc ? (
         <div className={s.infoBox}>
           <BsInfoCircle size={18} style={{ color: "#db2777", flexShrink: 0, marginTop: 2 }} />
           <p>

@@ -8,7 +8,7 @@ import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType } from "./constants";
+import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType, isArcGroupEntityType } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
@@ -53,9 +53,10 @@ const ApprovalHierarchyRedesigned = () => {
 
   const handleEditWorkflow = useCallback((process) => {
     if (!process?.id) return;
-    // ARC flow: process-free policies whose entity_type is an ARC stage.
+    // ARC / Group ARC flows: process-free policies of that flow's stage types.
     if (process.is_arc) {
-      const arcPolicies = policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type));
+      const isFlowType = process.is_arc_group ? isArcGroupEntityType : isArcEntityType;
+      const arcPolicies = policies.filter((p) => !p.process_id && isFlowType(p.entity_type));
       setEditingProcess(process);
       setEditingPolicies(arcPolicies);
       setViewMode("wizard");
@@ -73,7 +74,9 @@ const ApprovalHierarchyRedesigned = () => {
   const handleDeleteWorkflow = useCallback(
     async (process) => {
       if (!process?.id) return;
-      const toDelete = process.is_arc
+      const toDelete = process.is_arc_group
+        ? policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type))
+        : process.is_arc
         ? policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type))
         : policies.filter((p) => p.process_id === process.id);
       for (const policy of toDelete) {
@@ -194,6 +197,7 @@ const ApprovalHierarchyRedesigned = () => {
           onCreateProcess={handleCreateProcess}
           onSave={handleWizardSave}
           onCancel={handleWizardCancel}
+          groupWorkflowExists={policies.some((p) => !p.process_id && isArcGroupEntityType(p.entity_type))}
         />
       )}
     </div>

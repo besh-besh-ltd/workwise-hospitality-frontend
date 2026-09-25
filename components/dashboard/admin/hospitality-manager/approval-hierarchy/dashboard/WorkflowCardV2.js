@@ -26,9 +26,9 @@ const DeptList = ({ names }) => {
   );
 };
 
-const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC (Publish & Base)", ARC_TECH: "ARC Technical Evaluation", ARC_NEGOTIATION: "ARC Negotiation", ARC_COMMITTEE: "ARC Committee Award", ARC_AMENDMENT: "ARC Amendment" };
-const STAGE_DESCRIPTIONS = { RFQ: "Triggered when a new RFQ is submitted for approval", TECHNICAL: "Approves technical evaluation markings", NEGOTIATION: "Approves negotiation rounds", NEGOTIATION_QUOTE: "Final approval on vendor quotes after negotiation", PO: "Final sign-off before purchase order is issued", TENDER: "Approval gate when a tender is submitted", ARC: "Required — gates publishing a rate contract; default for every ARC stage", ARC_TECH: "Approves rate contract technical evaluation", ARC_NEGOTIATION: "Approves rate contract negotiation rounds", ARC_COMMITTEE: "ARC committee approval of finalised awards", ARC_AMENDMENT: "Approves post-award rate contract amendments" };
-const STAGE_SHORT = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Neg", NEGOTIATION_QUOTE: "NQ", PO: "PO", TENDER: "Tender", ARC: "ARC", ARC_TECH: "Tech", ARC_NEGOTIATION: "Neg", ARC_COMMITTEE: "Committee", ARC_AMENDMENT: "Amend" };
+const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC (Publish & Base)", ARC_TECH: "ARC Technical Evaluation", ARC_NEGOTIATION: "ARC Negotiation", ARC_COMMITTEE: "ARC Committee Award", ARC_AMENDMENT: "ARC Amendment", ARC_GROUP: "Group ARC (Publish & Base)", ARC_GROUP_TECH: "Group ARC Technical Evaluation", ARC_GROUP_NEGOTIATION: "Group ARC Negotiation", ARC_GROUP_COMMITTEE: "Group ARC Committee Award", ARC_GROUP_AMENDMENT: "Group ARC Amendment" };
+const STAGE_DESCRIPTIONS = { RFQ: "Triggered when a new RFQ is submitted for approval", TECHNICAL: "Approves technical evaluation markings", NEGOTIATION: "Approves negotiation rounds", NEGOTIATION_QUOTE: "Final approval on vendor quotes after negotiation", PO: "Final sign-off before purchase order is issued", TENDER: "Approval gate when a tender is submitted", ARC: "Required — gates publishing a rate contract; default for every ARC stage", ARC_TECH: "Approves rate contract technical evaluation", ARC_NEGOTIATION: "Approves rate contract negotiation rounds", ARC_COMMITTEE: "ARC committee approval of finalised awards", ARC_AMENDMENT: "Approves post-award rate contract amendments", ARC_GROUP: "Required — gates publishing a group rate contract; default for every group stage", ARC_GROUP_TECH: "Approves group rate contract technical evaluation", ARC_GROUP_NEGOTIATION: "Approves group rate contract negotiation rounds", ARC_GROUP_COMMITTEE: "Group committee approval of finalised awards", ARC_GROUP_AMENDMENT: "Approves post-award group rate contract amendments" };
+const STAGE_SHORT = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Neg", NEGOTIATION_QUOTE: "NQ", PO: "PO", TENDER: "Tender", ARC: "ARC", ARC_TECH: "Tech", ARC_NEGOTIATION: "Neg", ARC_COMMITTEE: "Committee", ARC_AMENDMENT: "Amend", ARC_GROUP: "Group", ARC_GROUP_TECH: "Tech", ARC_GROUP_NEGOTIATION: "Neg", ARC_GROUP_COMMITTEE: "Committee", ARC_GROUP_AMENDMENT: "Amend" };
 
 const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDisplayInfo }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -36,13 +36,14 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
   const [openUsers, setOpenUsers] = useState({});
 
   const processType = (process?.process_type || "RFQ").toUpperCase();
-  const isArc = !!process?.is_arc || processType === "ARC";
+  const isArcGroup = !!process?.is_arc_group || processType === "ARC_GROUP";
+  const isArc = !!process?.is_arc || processType === "ARC" || isArcGroup;
   // Canonical route first, then any reachable stage this process has a policy
   // for but its route does not name (an RFQ process carrying a TENDER policy,
   // say). ARC-flow stages are never appended — they are process-free and a
   // process-pinned ARC policy can never fire; DashboardView reports those.
   // Everything the card DOES show is counted in its own totals below.
-  const stageOrder = getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc);
+  const stageOrder = getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc, isArcGroup);
   const typeColor = PROCESS_TYPE_COLORS[processType] || DS.primary;
   const stages = stageOrder.map((et) => { const p = (policies || []).find((pol) => pol.entity_type === et); return { entity_type: et, steps: p?.steps || [] }; });
   const processName = process?.name || "Process";
@@ -68,7 +69,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
           <div style={{ flex: 1, minWidth: 0 }}>
             <div>
               <span className={s.title}>{processName}</span>
-              <span className={s.typePill} style={{ backgroundColor: typeColor + "12", color: typeColor }}>{processType}</span>
+              <span className={s.typePill} style={{ backgroundColor: typeColor + "12", color: typeColor }}>{isArcGroup ? "GROUP ARC" : processType}</span>
             </div>
             <div className={s.meta}>
               <span className={s.stat}><b>{configuredStages}</b>/{stages.length} stages</span>

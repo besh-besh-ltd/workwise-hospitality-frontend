@@ -152,6 +152,9 @@ const buildItems = ({ requests, pending, active }) => {
       invited_count: r.invited_count,
       submitted_count: r.submitted_count,
       invitation_status: r.invitation_status,
+      // Group rate contract: the hotels this vendor was invited for.
+      is_group: !!r.is_group,
+      hotel_count: (r.invited_hotel_ids || []).length,
       myStatus,
       stageLabel,
       stageNote,
@@ -512,6 +515,7 @@ export default function VendorRequestsPage() {
                         <div className="cc-sub">
                           <span className="em">Workwise Hospitality</span>
                           {k.category ? <><span className="sep">·</span><span>{k.category}</span></> : null}
+                          {k.is_group ? <><span className="sep">·</span><span>{`Group · ${k.hotel_count} hotel${k.hotel_count === 1 ? "" : "s"}`}</span></> : null}
                           {k.term_start ? (
                             <>
                               <span className="sep">·</span>

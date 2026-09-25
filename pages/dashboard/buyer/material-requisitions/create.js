@@ -303,6 +303,9 @@ export default function CreateMrPage() {
               arc_number: row.arc_number,
               arc_title: row.arc_title,
               remaining_qty: row.remaining_qty,
+              // Group rate contract: this hotel's own share of the line.
+              is_group: !!row.is_group,
+              hotel_remaining_qty: row.hotel_remaining_qty,
             }
           : r
       )
@@ -344,6 +347,16 @@ export default function CreateMrPage() {
     return !!r.product_variant_id && rem != null && Number(r.quantity) > rem;
   };
   const hasOverQty = items.some(rowOverQty);
+  // Group rate contract: a hotel's share is soft — past it the order still
+  // goes (the group total above is the hard cap) and head office is told.
+  const rowHotelRemaining = (r) =>
+    r && r.is_group && r.hotel_remaining_qty != null && Number.isFinite(Number(r.hotel_remaining_qty))
+      ? Number(r.hotel_remaining_qty)
+      : null;
+  const rowOverHotelShare = (r) => {
+    const rem = rowHotelRemaining(r);
+    return !!r.product_variant_id && rem != null && !rowOverQty(r) && Number(r.quantity) > rem;
+  };
 
   const canSubmit =
     !!form.title &&
@@ -425,10 +438,18 @@ export default function CreateMrPage() {
     try {
       const draft = await MrApi.createDraft(payloadFromState());
       const mrId = draft?.data?.mr?.id || draft?.mr?.id;
+      let warnings = [];
       if (!asDraft && mrId) {
-        await MrApi.submit(mrId);
+        const submitted = await MrApi.submit(mrId);
+        warnings = submitted?.data?.warnings || submitted?.warnings || [];
       }
-      showToast(asDraft ? "MR saved as draft" : "MR submitted · routed for Department approval");
+      showToast(
+        asDraft
+          ? "MR saved as draft"
+          : warnings.length > 0
+            ? `MR submitted · ${warnings.length} item${warnings.length === 1 ? " is" : "s are"} over this hotel's share — head office will be told`
+            : "MR submitted · routed for Department approval"
+      );
       setTimeout(() => {
         if (mrId) router.push(`/dashboard/buyer/material-requisitions/${mrId}`);
         else router.push(`/dashboard/buyer/material-requisitions`);
@@ -815,6 +836,11 @@ export default function CreateMrPage() {
                               Max {rowRemaining(row)} {row.uom} left on this contract
                             </div>
                           )}
+                          {rowOverHotelShare(row) && (
+                            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: "var(--warn)" }}>
+                              More than this hotel&apos;s share ({rowHotelRemaining(row)} {row.uom} left). The group has room, so you can order; head office will be told.
+                            </div>
+                          )}
                         </div>
 
                         {/* Note */}
@@ -857,7 +883,18 @@ export default function CreateMrPage() {
                               <strong className="mono">
                                 ₹{estCost.toLocaleString("en-IN")}
                               </strong>
-                              {rowRemaining(row) != null && (
+                              {rowHotelRemaining(row) != null ? (
+                                <>
+                                  {" · "}
+                                  <strong className="mono">{`${rowHotelRemaining(row)} ${row.uom} left for this hotel`}</strong>
+                                  {rowRemaining(row) != null && (
+                                    <>
+                                      {" · "}
+                                      <span className="mono">{`${rowRemaining(row)} ${row.uom} left in the group`}</span>
+                                    </>
+                                  )}
+                                </>
+                              ) : rowRemaining(row) != null && (
                                 <>
                                   {" · "}
                                   <strong className="mono">{rowRemaining(row)} {row.uom}</strong>

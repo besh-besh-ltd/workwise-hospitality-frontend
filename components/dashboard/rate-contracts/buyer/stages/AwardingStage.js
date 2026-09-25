@@ -10,6 +10,9 @@
 //     approval has reached and what previous approvers decided.
 // Decisions go through POST /committee/:arcId/decide — the engine re-validates
 // server-side regardless of what the UI shows.
+//
+// GROUP rate contract: each product also lists every hotel that needs it and
+// its supplier, including hotels left without one.
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
@@ -116,6 +119,7 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
         leadTime: snap.lead_time_days ?? null,
         allocatedQty: Number(a.allocated_qty ?? 0),
         isL1Default: !!a.is_l1_default,
+        hotels: Array.isArray(a.hotels) ? a.hotels : [],
       };
     });
   }, [data]);
@@ -162,6 +166,23 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
     return m;
   }, [data]);
   const itemName = (id) => itemById[id]?.variant_name || `Item #${id}`;
+  // GROUP: { itemId → [{ hotel_id, name, is_lead, qty, suppliers: [{ vendorId, vendorName, qty }] }] }
+  const isGroup = !!(data?.arc?.is_group || (data?.hotels || []).length);
+  const hotelSplitFor = (itemId) => {
+    const names = new Map((data?.hotels || []).map((h) => [Number(h.hotel_id), h]));
+    return ((data?.item_hotel_qtys || {})[String(itemId)] || [])
+      .filter((r) => Number(r.indicative_qty) > 0)
+      .map((r) => {
+        const hotelId = Number(r.hotel_id);
+        const suppliers = proposals
+          .filter((p) => Number(p.itemId) === Number(itemId))
+          .flatMap((p) => p.hotels
+            .filter((h) => Number(h.hotel_id) === hotelId)
+            .map((h) => ({ vendorId: p.vendorId, vendorName: p.vendorName, qty: Number(h.allocated_qty) })));
+        const hotel = names.get(hotelId) || {};
+        return { hotel_id: hotelId, name: hotel.name || `Hotel ${hotelId}`, is_lead: !!hotel.is_lead, qty: Number(r.indicative_qty), suppliers };
+      });
+  };
   const itemUom  = (id) => itemById[id]?.uom || "";
   const itemSlug = (id) => itemById[id]?.variant_slug || "";
 
@@ -458,6 +479,41 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
                           </div>
                         );
                       })}
+                      {isGroup && (
+                        <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                          <table className="bu-summary-table" aria-label={`${itemName(g.itemId)} by hotel`}>
+                            <thead>
+                              <tr><th>Hotel</th><th>Expected qty</th><th>Supplier</th></tr>
+                            </thead>
+                            <tbody>
+                              {hotelSplitFor(g.itemId).map((h) => (
+                                <tr key={h.hotel_id}>
+                                  <td>
+                                    <span className="fw-600">{h.name}</span>
+                                    {h.is_lead && <span style={{ fontSize: 11, color: "var(--fg-4)" }}> · Lead hotel</span>}
+                                  </td>
+                                  <td><span className="mono">{h.qty.toLocaleString("en-IN")}</span> {itemUom(g.itemId)}</td>
+                                  <td>
+                                    {h.suppliers.length === 0 ? (
+                                      <span className="pending-pill">No supplier</span>
+                                    ) : (
+                                      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+                                        {h.suppliers.map((sp) => (
+                                          <span key={sp.vendorId} className="award-pill">
+                                            <span className="av">{initials(sp.vendorName)}</span>
+                                            {sp.vendorName}
+                                            {h.suppliers.length > 1 && <span className="mono"> · {sp.qty.toLocaleString("en-IN")}</span>}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

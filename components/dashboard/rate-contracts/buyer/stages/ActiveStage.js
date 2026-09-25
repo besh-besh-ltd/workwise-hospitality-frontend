@@ -297,6 +297,12 @@ export default function ActiveStage({ arc: arcProp, stage }) {
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
   const addendums  = data?.addendums  || [];
+  // GROUP rate contract: usage per covered hotel, and the hotels with a share
+  // that have not ordered yet.
+  const hotelUsage = data?.hotel_usage || [];
+  const isGroup    = !!(arc?.is_group || hotelUsage.length > 0);
+  const notOrderingIds = (data?.not_ordering_hotel_ids || []).map(Number);
+  const notOrderingNames = hotelUsage.filter((h) => notOrderingIds.includes(Number(h.hotel_id))).map((h) => h.name);
   // Addenda grouped per contract for the documents tab (original + addenda).
   const addendaByContract = useMemo(() => {
     const m = {};
@@ -713,6 +719,17 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         </div>
       )}
 
+      {/* ═════ GROUP — hotels that have not ordered yet ═════ */}
+      {isGroup && !isEnded && notOrderingNames.length > 0 && (
+        <div className="guide warn" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}><I.info /></div>
+          <div>
+            <strong>{notOrderingNames.length} hotel{notOrderingNames.length === 1 ? " has" : "s have"} not ordered against this contract yet: {notOrderingNames.join(", ")}.</strong>{" "}
+            They may be buying these items outside the contract — see <strong>Hotel wise</strong> under Consumption.
+          </div>
+        </div>
+      )}
+
       {/* ═════ KPI STRIP ═════ */}
       <section className="stat-strip" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
         <div className="stat-card">
@@ -775,9 +792,64 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                   <button className={view === "sub" ? "is-active" : ""} onClick={() => setView("sub")}><I.list /> Sub-category wise</button>
                   <button className={view === "product" ? "is-active" : ""} onClick={() => setView("product")}><I.box /> Product wise</button>
                   <button className={view === "vendor" ? "is-active" : ""} onClick={() => setView("vendor")}><I.user /> Vendor wise</button>
+                  {isGroup && (
+                    <button className={view === "hotel" ? "is-active" : ""} onClick={() => setView("hotel")}><I.box /> Hotel wise</button>
+                  )}
                 </div>
-                <div className="fs-12 text-fg-3">Same data · 3 lenses</div>
+                <div className="fs-12 text-fg-3">Same data · {isGroup ? 4 : 3} lenses</div>
               </div>
+
+              {/* Hotel lens (group rate contract) — committed vs used per hotel,
+                  and how much of each hotel's spend on these items went through
+                  the contract. */}
+              {view === "hotel" && isGroup && (
+                <div className="section-card">
+                  <div className="section-body flush">
+                    <table className="bu-summary-table" aria-label="Usage by hotel">
+                      <thead>
+                        <tr>
+                          <th>Hotel</th>
+                          <th>Used / committed</th>
+                          <th>Utilisation</th>
+                          <th>Released POs</th>
+                          <th>On-contract spend</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hotelUsage.map((h) => {
+                          const notOrdering = notOrderingIds.includes(Number(h.hotel_id));
+                          return (
+                            <tr key={h.hotel_id}>
+                              <td>
+                                <span className="fw-600">{h.name}</span>
+                                {h.is_lead && <span className="fs-12 text-fg-4"> · Lead hotel</span>}
+                                {h.is_suspended && <span className="fs-12 text-fg-4"> · Paused</span>}
+                              </td>
+                              <td className="mono">{`${Number(h.consumed_qty || 0).toLocaleString("en-IN")} / ${Number(h.committed_qty || 0).toLocaleString("en-IN")}`}</td>
+                              <td className="mono">{`${Number(h.utilisation_pct || 0)}%`}</td>
+                              <td>
+                                {notOrdering
+                                  ? <span className="pending-pill">Not ordering</span>
+                                  : <span className="mono">{h.call_off_count}</span>}
+                              </td>
+                              <td>
+                                {h.on_contract_pct == null ? (
+                                  <span className="pending-pill">No spend yet</span>
+                                ) : (
+                                  <span title={`On contract ${fmtL(h.on_contract_value)} · outside ${fmtL(h.off_contract_value)}`}>
+                                    <span className="mono fw-600">{`${h.on_contract_pct}%`}</span>{" "}
+                                    <span className="fs-12 text-fg-4">of {fmtL(Number(h.on_contract_value || 0) + Number(h.off_contract_value || 0))}</span>
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Sub-category lens + Product lens share the matrix; only the
                   group header changes. */}
@@ -1118,6 +1190,9 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 500, color: "var(--fg)" }}>{co.variant_name || `Item #${co.arc_item_id}`}</div>
+                          {isGroup && co.hotel_name && (
+                            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 1 }}>{co.hotel_name}</div>
+                          )}
                           <div className="mono" style={{ fontSize: 10.5, color: "var(--fg-4)", marginTop: 1 }}>line #{co.arc_contract_line_id}</div>
                         </div>
                         <div className="po-num-mono" style={{ textAlign: "right" }}>

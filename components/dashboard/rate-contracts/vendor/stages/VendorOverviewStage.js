@@ -11,6 +11,10 @@ const safeNum = (v) => {
 //   • Shows an orange "action needed" callout when terms are not yet accepted.
 //   • Checkbox triggers the server-persist handler (not just local state).
 //   • Shows a sealed/completed green confirmation state when terms_accepted_at set.
+//
+// GROUP rate contract: lists the hotels this vendor was invited for, each
+// item's quantity at those hotels, and — up front, not at submit — the invited
+// hotels whose subscription has lapsed (renewalNeededHotelIds).
 export default function VendorOverviewStage({
   arc,
   items,
@@ -26,7 +30,13 @@ export default function VendorOverviewStage({
   submissionEnd,
   termStart,
   termEnd,
+  renewalNeededHotelIds = [],
 }) {
+  const isGroup = !!arc.is_group;
+  const hotels = isGroup ? (arc.hotels || []) : [];
+  const hotelName = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
+  const lapsedIds = isGroup ? (renewalNeededHotelIds || []).map(Number) : [];
+  const allLapsed = lapsedIds.length > 0 && hotels.every((h) => lapsedIds.includes(Number(h.hotel_id)));
   return (
         <div className="step-pane">
           <div className="q-section-head">
@@ -52,6 +62,25 @@ export default function VendorOverviewStage({
             </div>
           )}
 
+          {lapsedIds.length > 0 && (
+            <div className="guide warn" role="alert" style={{ alignItems: "flex-start" }}>
+              <div className="g-ic" style={{ marginTop: 2 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  Your subscription for {lapsedIds.map(hotelName).join(", ")} has lapsed
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--warn-fg, #92400e)" }}>
+                  {allLapsed
+                    ? "You can prepare your quote, but you can submit it only after you renew."
+                    : "You can still submit this quote, since your subscription is active for your other invited hotels."}{" "}
+                  <a href="/dashboard/vendor/subscription" style={{ fontWeight: 600 }}>Renew subscription</a>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="q-card">
             <div className="q-card-head">
               <h3>
@@ -62,14 +91,37 @@ export default function VendorOverviewStage({
             </div>
             <div className="q-detail-grid">
               <div className="detail-cell"><div className="k">Company</div><div className="v">Workwise Hospitality Pvt Ltd</div></div>
-              <div className="detail-cell"><div className="k">Business unit</div><div className="v">{arc.hotel_name || "—"}</div></div>
-              <div className="detail-cell"><div className="k">Location</div><div className="v">{arc.hotel_city || "—"}</div></div>
+              {isGroup ? (
+                <div className="detail-cell"><div className="k">Hotels</div><div className="v">{hotels.length} invited · group rate contract</div></div>
+              ) : (
+                <>
+                  <div className="detail-cell"><div className="k">Business unit</div><div className="v">{arc.hotel_name || "—"}</div></div>
+                  <div className="detail-cell"><div className="k">Location</div><div className="v">{arc.hotel_city || "—"}</div></div>
+                </>
+              )}
               <div className="detail-cell"><div className="k">Category</div><div className="v">{arc.category_title || arc.category_id || "—"}</div></div>
               <div className="detail-cell"><div className="k">Submission window</div><div className="v"><span className="mono">{submissionStart}</span> → <span className="mono">{submissionEnd}</span></div></div>
               <div className="detail-cell"><div className="k">Contract term</div><div className="v"><span className="mono">{termStart}</span> → <span className="mono">{termEnd}</span></div></div>
               <div className="detail-cell"><div className="k">Samples</div><div className="v">{arc.samples_required ? "Required" : "Not required"}</div></div>
               <div className="detail-cell"><div className="k">Price escalation</div><div className="v">{arc.escalation_policy || "Fixed for full contract term"}</div></div>
             </div>
+            {isGroup && hotels.length > 0 && (
+              <div className="q-card-section" style={{ borderTop: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--fg-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  Hotels you are invited for
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginBottom: 10 }}>
+                  Quote one rate per item that covers delivery to every hotel below.
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {hotels.map((h) => (
+                    <span key={h.hotel_id} className="bu-tag">
+                      {[h.name, [h.city, h.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Technical envelope notice when required */}
@@ -121,6 +173,15 @@ export default function VendorOverviewStage({
                           <span><span style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Indicative</span> <span className="mono">{safeNum(it.indicative_qty).toLocaleString("en-IN")} {it.uom || ""}</span></span>
                         )}
                       </div>
+                      {isGroup && Array.isArray(it.hotel_qtys) && it.hotel_qtys.length > 0 && (
+                        <div className="flex flex-wrap gap-1" style={{ marginTop: 6 }}>
+                          {it.hotel_qtys.map((hq) => (
+                            <span key={hq.hotel_id} className="bu-tag" title={hotelName(hq.hotel_id)}>
+                              {hotelName(hq.hotel_id)} <span className="mono">{safeNum(hq.indicative_qty).toLocaleString("en-IN")} {it.uom || ""}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right" style={{ flexShrink: 0 }}>

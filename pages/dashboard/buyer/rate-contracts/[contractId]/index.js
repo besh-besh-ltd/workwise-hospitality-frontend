@@ -23,6 +23,7 @@ import CommercialStage from "@/components/dashboard/rate-contracts/buyer/stages/
 import AwardingStage from "@/components/dashboard/rate-contracts/buyer/stages/AwardingStage";
 import ActiveStage from "@/components/dashboard/rate-contracts/buyer/stages/ActiveStage";
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
+import { coveredHotelsLabel } from "@/utils/groupArc";
 
 const STAGE_KEYS = ["overview", "technical", "commercial", "awarding", "active"];
 
@@ -182,7 +183,9 @@ export default function ArcLifecyclePage() {
         sub={
           <>
             {arc.category_title && (<><span>{arc.category_title}</span><span className="sep">·</span></>)}
-            {arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
+            {arc.is_group && (arc.hotels || []).length > 0
+              ? (<><span>{coveredHotelsLabel(arc.hotels)}</span><span className="sep">·</span></>)
+              : arc.hotel_name && (<><span>{arc.hotel_name}</span><span className="sep">·</span></>)}
             {arc.department_title && (<><span>{arc.department_title}</span><span className="sep">·</span></>)}
             <span>
               Created by <span className="em">{arc.created_by_name || `User #${arc.created_by}`}</span> · {fmtDate(arc.created_at)}
@@ -195,7 +198,7 @@ export default function ArcLifecyclePage() {
           { label: "Contract term", value: <><span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span></> },
           { label: "Eligibility", value: <span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span> },
           { label: "Lifecycle", value: <><span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete</> },
-          { label: "Scope", value: <span className="em">Single-BU</span> },
+          { label: "Scope", value: <span className="em">{arc.is_group ? `Group · ${(arc.hotels || []).length} hotels` : "Single hotel"}</span> },
         ]}
       />
 
