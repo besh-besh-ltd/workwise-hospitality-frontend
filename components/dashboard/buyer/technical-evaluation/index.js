@@ -39,7 +39,9 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = fal
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState((isEmbedded ? rfqIdProp : router.query.rfq_id) || null);
-  const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
+  // rfq_product_id from URL to auto-expand & highlight. `product_id` is accepted
+  // as an alias: older dashboard widgets emitted it, and the row stayed shut.
+  const targetProdId = router.query.prod_id || router.query.product_id || null;
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
