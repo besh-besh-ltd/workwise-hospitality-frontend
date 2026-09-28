@@ -2,6 +2,7 @@ import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight, FileText, AlertTriangle } from "lucide-react";
 import { getNoResponseDetail } from "@/services/dashboard";
+import { rfqDetail } from "@/components/dashboard/shared/dashboardLinks";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 import useDialogA11y from "@/hooks/useDialogA11y";
 import styles from "./PendingApprovalsModal.module.scss";
@@ -36,7 +37,7 @@ const Section = ({ items, label, color, onClose }) => {
         {items.map((item) => (
           <Link
             key={item.id}
-            href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${item.id}`}
+            href={rfqDetail(item.id)}
             className={styles.item}
             onClick={onClose}
           >
@@ -46,8 +47,10 @@ const Section = ({ items, label, color, onClose }) => {
               </span>
               <span className={styles.itemMetaLine}>
                 {item.invited_vendor_count
-                  ? <span>{item.invited_vendor_count} vendor(s) invited</span>
+                  ? <span>{item.invited_vendor_count} vendor{item.invited_vendor_count === 1 ? "" : "s"} invited</span>
                   : <span>No vendor responses yet</span>}
+                {item.regret_count > 0 && <span className={styles.sep}>·</span>}
+                {item.regret_count > 0 && <span>{item.regret_count} regret{item.regret_count === 1 ? "" : "s"}</span>}
                 {item.hotel_name && <span className={styles.sep}>·</span>}
                 {item.hotel_name && <span>{item.hotel_name}</span>}
                 {item.bid_end_date && <span className={styles.sep}>·</span>}

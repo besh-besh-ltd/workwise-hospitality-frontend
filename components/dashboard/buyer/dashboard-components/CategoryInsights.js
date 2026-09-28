@@ -11,18 +11,28 @@ import styles from "./CategoryInsights.module.scss";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Vibrant blue-led palette — restores visual identity while keeping the
-// minimal card chrome from PersonaCardShell.
-const CHART_COLORS = [
+// Twelve distinct hues — the backend returns up to 12 named buckets plus
+// "Others", so no two slices share a colour. "Others" is always neutral grey.
+export const CHART_COLORS = [
   "#2563eb",
-  "#3b82f6",
   "#15803d",
   "#b45309",
   "#b91c1c",
   "#7c3aed",
   "#0891b2",
   "#db2777",
+  "#65a30d",
+  "#ea580c",
+  "#4f46e5",
+  "#0d9488",
+  "#a16207",
 ];
+export const OTHERS_COLOR = "#a1a1aa";
+
+export const sliceColor = (cat, idx) =>
+  cat?.category_name === "Others" && cat?.bucket_count != null
+    ? OTHERS_COLOR
+    : CHART_COLORS[idx % CHART_COLORS.length];
 
 const chartOptions = {
   cutout: "62%",
@@ -39,8 +49,9 @@ const chartOptions = {
       callbacks: {
         label: (ctx) => {
           const label = ctx.label || "";
-          const value = ctx.raw || 0;
-          return `${label}: ${value.toFixed(1)}%`;
+          const total = ctx.dataset.data.reduce((sum, v) => sum + (v || 0), 0);
+          const pct = total > 0 ? ((ctx.raw || 0) / total) * 100 : 0;
+          return `${label}: ${formatCurrency(ctx.raw)} (${pct.toFixed(1)}%)`;
         },
       },
     },
@@ -58,9 +69,12 @@ const CategoryInsights = ({ filters }) => {
   const { data, loading, error, stale, refetch } = useDashboardQuery(getCategoryInsights, filters, { extraParams: { dimension } });
 
   const categories = data?.categories || [];
+  // The backend's committed-spend total (reconciles with Procurement snapshot).
   const totalSpend = useMemo(
-    () => categories.reduce((sum, cat) => sum + (cat.spend_amount || 0), 0),
-    [categories]
+    () => (data?.total_spend != null
+      ? data.total_spend
+      : categories.reduce((sum, cat) => sum + (cat.spend_amount || 0), 0)),
+    [data, categories]
   );
   const chartData = useMemo(() => {
     if (categories.length === 0) return null;
@@ -68,8 +82,9 @@ const CategoryInsights = ({ filters }) => {
       labels: categories.map((c) => c.category_name),
       datasets: [
         {
-          data: categories.map((c) => c.percentage || 0),
-          backgroundColor: categories.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+          // Plot rupees (the centre shows the rupee total); % is in the tooltip.
+          data: categories.map((c) => c.spend_amount || 0),
+          backgroundColor: categories.map((c, i) => sliceColor(c, i)),
           borderColor: "#fff",
           borderWidth: 2,
           hoverOffset: 6,
@@ -89,7 +104,7 @@ const CategoryInsights = ({ filters }) => {
     <PersonaCardShell
       title="Spend by category"
       icon={PieChart}
-      tooltip="Procurement spend split across product categories in this period."
+      tooltip="Committed spend (approved POs onwards, incl. GST) split by category, sub-category or item for the period. Sub-category is the most specific category each product is filed under."
       actions={
         <select
           className={styles.dimSelect}
@@ -118,7 +133,7 @@ const CategoryInsights = ({ filters }) => {
         <Pie data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
         <div className={styles.chartCenter}>
           <span className={styles.chartCenterValue}>{formatCurrency(totalSpend)}</span>
-          <span className={styles.chartCenterLabel}>Total spend</span>
+          <span className={styles.chartCenterLabel}>Committed spend</span>
         </div>
       </div>
       <div className={styles.categoryList}>
@@ -127,9 +142,12 @@ const CategoryInsights = ({ filters }) => {
             <div className={styles.categoryLeft}>
               <span
                 className={styles.categoryDot}
-                style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                style={{ backgroundColor: sliceColor(cat, idx) }}
               />
-              <span className={styles.categoryName}>{cat.category_name}</span>
+              <span className={styles.categoryName}>
+                {cat.category_name}
+                {cat.bucket_count != null ? ` (${cat.bucket_count} more)` : ""}
+              </span>
             </div>
             <div className={styles.categoryRight}>
               <span className={styles.categorySpend}>{formatCurrency(cat.spend_amount)}</span>

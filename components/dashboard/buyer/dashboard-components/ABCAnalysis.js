@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Layers } from "lucide-react";
 import { getAbcAnalysis } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
@@ -7,8 +7,6 @@ import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ABCAnalysis.module.scss";
-
-const formatNumber = (value) => Math.round(Number(value) || 0).toLocaleString("en-IN");
 
 // Tier presentation + the "so what" guidance procurement teams act on.
 const CLASS_META = {
@@ -35,19 +33,14 @@ const CLASS_META = {
   },
 };
 
-const METRIC_OPTIONS = [
-  { value: "value", label: "By value" },
-  { value: "volume", label: "By volume" },
-];
-
 const ABCAnalysis = ({ filters }) => {
-  const [metric, setMetric] = useState("value");
-  const { data, loading, error, stale, refetch } = useDashboardQuery(getAbcAnalysis, filters, { extraParams: { metric } });
+  // Value only: quantities are in mixed units (pcs, kg, litres…), so a
+  // "by volume" ranking would add unlike things together.
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getAbcAnalysis, filters);
 
-  const isVolume = metric === "volume";
-  const metricNoun = isVolume ? "volume" : "spend";
-  const fmtMetric = isVolume ? formatNumber : formatCurrency;
-  const metricOf = (x) => (isVolume ? x.volume : x.value);
+  const metricNoun = "committed spend";
+  const fmtMetric = formatCurrency;
+  const metricOf = (x) => x.value;
 
   // Order tiers A→B→C deterministically regardless of API order.
   const order = { A: 0, B: 1, C: 2 };
@@ -60,19 +53,7 @@ const ABCAnalysis = ({ filters }) => {
     <PersonaCardShell
       title="ABC analysis"
       icon={Layers}
-      tooltip="Pareto classification of procured items: A items drive most of your spend and deserve the most attention; C items are low-value and can be streamlined."
-      actions={
-        <select
-          className={styles.metricSelect}
-          value={metric}
-          onChange={(e) => setMetric(e.target.value)}
-          aria-label="ABC metric"
-        >
-          {METRIC_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      }
+      tooltip="Pareto classification of items by committed spend in the period: A items drive most of the value and deserve the most attention; C items are low-value and can be streamlined."
       loading={loading}
       error={error}
       stale={stale}

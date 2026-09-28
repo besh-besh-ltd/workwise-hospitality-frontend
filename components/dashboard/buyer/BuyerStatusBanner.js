@@ -4,6 +4,7 @@ import moment from "moment";
 import { Sparkles, RefreshCw, AlertCircle } from "lucide-react";
 import { getBuyerStatusBanner } from "@/services/dashboard";
 import PendingApprovalsModal from "./dashboard-components/PendingApprovalsModal";
+import { rfqList, rfqListView, poTracking } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./BuyerStatusBanner.module.scss";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 
@@ -19,13 +20,16 @@ const MODE_THEME = {
 // Targets a highlight can carry:
 //   - { href }       → renders as a Next <Link>
 //   - { modal: 'X' } → renders as a button that opens a banner-owned modal
-const TARGET = {
-  CLOSING_SOON:        { href: "/dashboard/buyer/rfq-management?tab=manage-rfq" },
-  CLOSED_NO_QUOTES:    { href: "/dashboard/buyer/rfq-management?ended_no_quotes=1" },
+// The RFQ counts are the user's OWN RFQs (backend `created_by = me`), so each
+// link opens the list narrowed to theirs (mine=1) — the list then shows the
+// same RFQs the sentence counted.
+export const TARGET = {
+  CLOSING_SOON:        { href: rfqListView("closing_soon", { mine: true }) },
+  CLOSED_NO_QUOTES:    { href: rfqListView("ended_no_quotes", { mine: true }) },
   APPROVALS:           { modal: "approvals" },
-  QUOTE_COMPARE:       { href: "/dashboard/buyer/quote-comparison" },
-  PO_VENDOR_PENDING:   { href: "/dashboard/buyer/purchase-orders/tracking" },
-  WEEKLY_PUBLISHED:    { href: "/dashboard/buyer/rfq-management?tab=manage-rfq" },
+  QUOTE_COMPARE:       { href: rfqListView("quote_compare", { mine: true }) },
+  PO_VENDOR_PENDING:   { href: poTracking({ tab: "active" }) },
+  WEEKLY_PUBLISHED:    { href: rfqList({ mine: true }) },
 };
 
 const greetingFor = (hour) => {
@@ -51,9 +55,11 @@ const poFragment = (n) => ({
   target: TARGET.PO_VENDOR_PENDING,
 });
 
-const buildNarrative = (data, mode) => {
+export const buildNarrative = (data, mode) => {
   const c = data?.counts || {};
-  const w = data?.weekly || {};
+  // `period` is the windowed part (the header range); `weekly` is its
+  // deprecated alias from older backends.
+  const w = data?.period || data?.weekly || {};
   const close = data?.soonest_closing;
 
   if (mode === "critical") {
@@ -69,9 +75,26 @@ const buildNarrative = (data, mode) => {
     } else {
       primary.push({ text: "A few items need your attention." });
     }
+    // Everything else still on the plate — critical mode must not hide it.
+    const others = [];
+    if (c.pending_approvals > 0) others.push(approvalsFragment(c.pending_approvals));
+    if (c.closing_soon > 0) {
+      others.push({ text: `${c.closing_soon} RFQ${c.closing_soon > 1 ? "s" : ""} closing soon`, highlight: true, target: TARGET.CLOSING_SOON });
+    }
+    if (c.quote_compare_ready > 0) {
+      others.push({ text: `${c.quote_compare_ready} ready to compare`, highlight: true, target: TARGET.QUOTE_COMPARE });
+    }
+    if (c.po_acceptance_pending > 0) {
+      others.push({ ...poFragment(c.po_acceptance_pending), text: `${c.po_acceptance_pending} PO${c.po_acceptance_pending > 1 ? "s" : ""} awaiting vendor` });
+    }
     const secondary = [];
-    if (c.pending_approvals > 0) {
-      secondary.push({ text: "You also have " }, approvalsFragment(c.pending_approvals), { text: " waiting on you." });
+    if (others.length) {
+      secondary.push({ text: "Also waiting: " });
+      others.forEach((f, i) => {
+        if (i > 0) secondary.push({ text: i === others.length - 1 ? " and " : ", " });
+        secondary.push(f);
+      });
+      secondary.push({ text: "." });
     }
     return { primary, secondary };
   }
@@ -139,6 +162,7 @@ const buildNarrative = (data, mode) => {
     secondary.push({ text: `${w.rfqs_published} RFQ${w.rfqs_published === 1 ? "" : "s"}`, highlight: true, target: TARGET.WEEKLY_PUBLISHED });
     secondary.push({ text: " in this period" });
     if (w.savings_pct > 0) {
+      // Awarded basis (SPEC D2) — the same figure as Negotiation savings.
       secondary.push({ text: " with " });
       secondary.push({ text: `${w.savings_pct}% savings`, highlight: true });
       secondary.push({ text: " from negotiation" });

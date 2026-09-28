@@ -177,3 +177,11 @@
   &.info   { background: #eff6ff; color: #1d4ed8; }
   &.muted  { background: #f4f4f5; color: #52525b; }
 }
+
+/* Breakdown under a tile's count (e.g. "2 by vendor · 1 in approval"). */
+.actionSub {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: #71717a;
+  text-align: left;
+}

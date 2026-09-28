@@ -131,11 +131,16 @@ const CostIntelligence = ({ filters }) => {
     label: p.product_name,
     value: p.product_variant_id,
   }));
-  const selectedProduct = pickedOption || productOptions[0] || null;
+  // Before the user picks, mirror the item the backend actually benchmarked.
+  const selectedProduct =
+    pickedOption ||
+    productOptions.find((o) => o.value === data?.selected_product_variant_id) ||
+    productOptions[0] ||
+    null;
 
   const priceTrend = data?.price_trend;
-  // Backend resolves day/month granularity (Sr 301 "month-wise" for long ranges).
-  const granularity = data?.granularity || (filters.duration_type === "past6months" ? "month" : "day");
+  // Backend resolves day/month granularity from the span (Sr 301 "month-wise" for long ranges).
+  const granularity = data?.granularity || "day";
   const chartLabels = (priceTrend?.labels || []).map((l) => {
     const d = new Date(l);
     if (granularity === "month") {
@@ -144,10 +149,15 @@ const CostIntelligence = ({ filters }) => {
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   });
 
-  // Benchmark = best unit price previously paid for the selected item.
+  // Benchmark = lowest unit price paid on committed POs for the selected item;
+  // "latest" = the most recent price paid (paid-vs-paid, SPEC).
   const bench = data?.benchmark && data.benchmark.benchmark_price != null ? data.benchmark : null;
+  // Different spec texts were bought under this catalogue item — the gap to
+  // the benchmark may be a different product, not over-paying.
+  const specVariation = Boolean(bench?.spec_variation);
 
-  const hasData = priceTrend?.avg?.some((v) => v > 0);
+  // Gaps arrive as null (no quotes that day/month) — never plot them as ₹0.
+  const hasData = (priceTrend?.avg || []).some((v) => v != null && v > 0);
   const chartData = priceTrend && hasData
     ? {
         labels: chartLabels,
@@ -163,7 +173,7 @@ const CostIntelligence = ({ filters }) => {
             pointHoverRadius: 4,
             pointBackgroundColor: "#b91c1c",
             tension: 0.3,
-            spanGaps: false,
+            spanGaps: true,
           },
           {
             label: "Avg",
@@ -176,7 +186,7 @@ const CostIntelligence = ({ filters }) => {
             pointBackgroundColor: "#18181b",
             tension: 0.3,
             fill: true,
-            spanGaps: false,
+            spanGaps: true,
           },
           {
             label: "Min",
@@ -189,7 +199,7 @@ const CostIntelligence = ({ filters }) => {
             pointHoverRadius: 4,
             pointBackgroundColor: "#15803d",
             tension: 0.3,
-            spanGaps: false,
+            spanGaps: true,
           },
           // Flat reference line at the benchmark (best price paid) so it's
           // obvious where the trend sits above/below it (Sr 302 demand flow).
@@ -216,6 +226,7 @@ const CostIntelligence = ({ filters }) => {
   // Accessible alternative to the canvas: a one-line summary for the chart's
   // label plus a visually-hidden table with every plotted point.
   const lastIdx = (priceTrend?.avg || []).reduce((acc, v, i) => (v != null && v > 0 ? i : acc), -1);
+  const priceCell = (v) => (v == null ? "no quotes" : formatCurrency(v));
   const chartSummary = chartData
     ? `Price trend for ${selectedProduct?.label || "the selected item"}` +
       (lastIdx >= 0
@@ -228,7 +239,7 @@ const CostIntelligence = ({ filters }) => {
     <PersonaCardShell
       title="Price benchmarking"
       icon={LineChart}
-      tooltip="High-value (A-class) items benchmarked against the best unit price you've previously paid. The dashed blue line marks that benchmark; the trend above/below it shows where you're over- or under-paying."
+      tooltip="Your highest-value items: the quoted price trend (regret quotes excluded) against the lowest unit price actually paid on a committed PO. The dashed blue line marks that benchmark."
       actions={
         <div className={styles.productSelector}>
           <Select
@@ -264,11 +275,11 @@ const CostIntelligence = ({ filters }) => {
           </div>
           {bench.current_price != null && (
             <div className={styles.benchItem}>
-              <span className={styles.benchLabel}>Latest avg</span>
+              <span className={styles.benchLabel}>Latest price paid</span>
               <span className={styles.benchValue}>{formatCurrency(bench.current_price)}</span>
             </div>
           )}
-          {bench.vs_benchmark_pct != null && (
+          {bench.vs_benchmark_pct != null && !specVariation && (
             <span
               className={`${styles.benchDelta} ${
                 bench.vs_benchmark_pct > 0 ? styles.over : bench.vs_benchmark_pct < 0 ? styles.under : styles.even
@@ -283,7 +294,9 @@ const CostIntelligence = ({ filters }) => {
       )}
       {bench && (
         <p className={styles.benchNote}>
-          Benchmark = best unit price previously paid for this item (value-based).
+          Benchmark = lowest unit price paid on a committed PO for this item.
+          {specVariation &&
+            " Specifications differ across these purchases, so the gap to the benchmark may reflect a different specification rather than over-paying."}
         </p>
       )}
       <div className={styles.chartContainer}>
@@ -304,9 +317,9 @@ const CostIntelligence = ({ filters }) => {
             {chartLabels.map((label, i) => (
               <tr key={i}>
                 <th scope="row">{label}</th>
-                <td>{formatCurrency(priceTrend.min?.[i])}</td>
-                <td>{formatCurrency(priceTrend.avg?.[i])}</td>
-                <td>{formatCurrency(priceTrend.max?.[i])}</td>
+                <td>{priceCell(priceTrend.min?.[i])}</td>
+                <td>{priceCell(priceTrend.avg?.[i])}</td>
+                <td>{priceCell(priceTrend.max?.[i])}</td>
               </tr>
             ))}
           </tbody>
@@ -315,7 +328,7 @@ const CostIntelligence = ({ filters }) => {
       {vendors.length > 0 && (
         <>
           <div className={styles.vendorSectionLabel}>
-            Top {vendors.length} vendors by avg price
+            Vendors by average quoted price (regret quotes excluded)
           </div>
           <div className={styles.vendorGrid}>
             {vendors.map((vendor, idx) => {
@@ -323,7 +336,7 @@ const CostIntelligence = ({ filters }) => {
               const rankClass = rank === 1 ? styles.rankGold : rank === 2 ? styles.rankSilver : styles.rankBase;
               return (
                 <div
-                  key={idx}
+                  key={vendor.vendor_id ?? idx}
                   className={`${styles.vendorCard} ${vendor.is_best ? styles.best : ""}`}
                 >
                   <div className={styles.vendorNameRow}>
@@ -337,6 +350,9 @@ const CostIntelligence = ({ filters }) => {
                       {formatCurrency(vendor.avg_price)}
                     </span>
                     {vendor.is_best && <span className={styles.bestBadge}>Best</span>}
+                  </div>
+                  <div className={styles.vendorMeta}>
+                    {vendor.quote_count ?? 0} quote{vendor.quote_count === 1 ? "" : "s"}
                   </div>
                 </div>
               );

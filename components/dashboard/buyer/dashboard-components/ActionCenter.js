@@ -9,15 +9,17 @@ import NoResponseModal from "./NoResponseModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
+import { rfqListView, poTracking } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./ActionCenter.module.scss";
 
-// Order follows client request (Sr 231): Pending approvals → PO rejected by
-// vendors (red, "To be Actioned") → No responses → RFQs ending → PO pending.
-const ACTION_CARDS = [
+// Order follows client request (Sr 231): Pending approvals → PO rejected
+// (red, "To be Actioned") → No responses → RFQs ending → PO pending.
+// Every tile is a live queue — none of them is filtered by the date range.
+export const ACTION_CARDS = [
   {
     key: "pending_approvals",
     label: "Pending approvals",
-    tooltip: "RFQs, ARCs, negotiations or POs waiting for your approval action",
+    tooltip: "Decisions waiting for you right now — RFQs, technical evaluations, negotiated quotes, POs, ARCs. Several approval steps on the same item count once.",
     icon: ClipboardCheck,
     accent: "danger",
     statusLabel: "Urgent",
@@ -25,9 +27,11 @@ const ACTION_CARDS = [
     modal: "approvals",
   },
   {
-    key: "rejected_vendors",
-    label: "PO rejected",
-    tooltip: "POs rejected by vendors that need to be reassigned",
+    key: "rejected_total",
+    value: (d) => (d?.rejected_vendors ?? 0) + (d?.rejected_in_approval ?? 0),
+    sub: (d) => `${d?.rejected_vendors ?? 0} by vendor · ${d?.rejected_in_approval ?? 0} in approval`,
+    label: "POs rejected",
+    tooltip: "Purchase orders rejected by the vendor or by an approver whose items have not been re-ordered yet.",
     icon: UserX,
     accent: "danger",
     statusLabel: "To be Actioned",
@@ -37,7 +41,7 @@ const ACTION_CARDS = [
   {
     key: "rfqs_awaiting",
     label: "No responses",
-    tooltip: "Published RFQs that haven't received any vendor quotes yet",
+    tooltip: "Open, published RFQs that have not received a real quote yet (a regret does not count).",
     icon: FileText,
     accent: "warn",
     statusLabel: "Action",
@@ -47,20 +51,20 @@ const ACTION_CARDS = [
   {
     key: "rfqs_ending_soon",
     label: "RFQs ending soon",
-    tooltip: "RFQs whose bid deadline is within the next 3 days",
+    tooltip: "RFQs still open for bidding whose deadline is within the next 72 hours.",
     icon: Clock,
     accent: "info",
     statusLabel: "Near",
-    href: "/dashboard/buyer/rfq-management",
+    href: rfqListView("closing_soon"),
   },
   {
     key: "pos_awaiting",
     label: "PO pending",
-    tooltip: "Purchase orders sent to vendors awaiting acceptance",
+    tooltip: "Approved purchase orders sent to vendors and waiting for them to accept.",
     icon: Package,
     accent: "muted",
     statusLabel: null,
-    href: "/dashboard/buyer/purchase-order",
+    href: poTracking({ tab: "active" }),
   },
 ];
 
@@ -71,14 +75,15 @@ const ActionCenter = ({ filters }) => {
   const [showRejectedModal, setShowRejectedModal] = useState(false);
   const [showNoResponseModal, setShowNoResponseModal] = useState(false);
 
-  const urgentCount = (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0);
+  const urgentCount =
+    (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0) + (data?.rejected_in_approval ?? 0);
 
   return (
     <>
       <PersonaCardShell
         title="Action centre"
         icon={Zap}
-        tooltip="Top-of-mind queue across approvals, vendor responses, and PO state."
+        tooltip="What needs attention now across approvals, vendor responses and purchase orders. These are live queues, not filtered by the date range."
         actions={
           <>
             {urgentCount > 0 && (
@@ -98,7 +103,8 @@ const ActionCenter = ({ filters }) => {
         <div className={styles.actionGrid}>
           {ACTION_CARDS.map((card) => {
             const IconComponent = card.icon;
-            const count = data?.[card.key] ?? 0;
+            const count = card.value ? card.value(data) : data?.[card.key] ?? 0;
+            const sub = card.sub && count > 0 ? card.sub(data) : null;
             const isAttention = count > 0;
 
             const inner = (
@@ -122,6 +128,7 @@ const ActionCenter = ({ filters }) => {
                     </span>
                   )}
                 </div>
+                {sub && <div className={styles.actionSub}>{sub}</div>}
               </>
             );
 

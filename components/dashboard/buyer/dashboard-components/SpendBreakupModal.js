@@ -1,11 +1,8 @@
 import React, { useId } from "react";
 import { X, Wallet } from "lucide-react";
 import useDialogA11y from "@/hooks/useDialogA11y";
+import { formatMoneyExact as formatExact } from "@/components/dashboard/shared/format";
 import styles from "./SpendBreakupModal.module.scss";
-
-// Exact INR amount (detail view) — e.g. ₹12,34,567.
-const formatExact = (value) =>
-  `₹${Math.round(Number(value) || 0).toLocaleString("en-IN")}`;
 
 const SpendBreakupModal = ({ onClose, breakup, posIssued }) => {
   const base = Number(breakup?.base_excl_gst) || 0;
@@ -43,7 +40,7 @@ const SpendBreakupModal = ({ onClose, breakup, posIssued }) => {
             <span className={styles.totalValue}>{formatExact(total)}</span>
             {posIssued != null && (
               <span className={styles.totalMeta}>
-                across {posIssued} purchase order{posIssued === 1 ? "" : "s"}
+                across {posIssued} committed purchase order{posIssued === 1 ? "" : "s"}
               </span>
             )}
           </div>
@@ -76,8 +73,9 @@ const SpendBreakupModal = ({ onClose, breakup, posIssued }) => {
           </div>
 
           <p className={styles.note}>
-            GST is derived from purchase-order line charges. Figures cover approved
-            POs in the selected business units and period.
+            Committed POs only — approved or further along; drafts, POs pending
+            approval, rejected and cancelled POs are excluded. GST is derived from
+            purchase-order line charges.
           </p>
         </div>
       </div>
