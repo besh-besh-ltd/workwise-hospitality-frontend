@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import moment from "moment";
 import { useSelector } from "react-redux";
-import { RefreshCw, FileBarChart } from "lucide-react";
+import { RefreshCw, FileBarChart, AlertCircle } from "lucide-react";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { Seg, SkeletonKpiGrid } from "@/components/dashboard/shared";
 import ActionCenter from "./dashboard-components/ActionCenter";
@@ -20,7 +20,7 @@ import {
   DashboardPermissionsProvider,
   useVisibleDashboardWidgets,
 } from "@/hooks/useDashboardWidgets";
-import { COLUMN } from "./DashboardRegistry";
+import { COLUMN, PERSONAS, PERSONA_LABELS } from "./DashboardRegistry";
 import { getDashboardConfig } from "@/services/dashboard";
 import { DashboardActivityContext, useDashboardActivity } from "@/hooks/useDashboardQuery";
 import styles from "../buyer/BuyerDashboard.module.scss";
@@ -63,14 +63,17 @@ export const getDateRange = (type) => {
  *  dashboard. Read at runtime from GET /dashboard-v2/config — a per-buyer-
  *  company flag — so a client can be switched on, or back off, without a
  *  rebuild. Any failure falls back to the legacy layout, which is the kill
- *  switch. Returns "loading" | "on" | "off". */
+ *  switch. Returns { state: "loading" | "on" | "off", config }. `config` may
+ *  also carry `admin_contact_email` for the empty-state "Contact admin" link. */
 export const useRoleAwareDashboardFlag = () => {
   const [state, setState] = useState("loading");
+  const [config, setConfig] = useState(null);
   useEffect(() => {
     let cancelled = false;
     getDashboardConfig()
       .then((res) => {
         if (cancelled) return;
+        setConfig(res?.data || null);
         setState(res?.data?.v3_enabled === true ? "on" : "off");
       })
       .catch(() => {
@@ -80,12 +83,12 @@ export const useRoleAwareDashboardFlag = () => {
       cancelled = true;
     };
   }, []);
-  return state;
+  return { state, config };
 };
 
 const BuyerPage = () => {
   const userProfile = useSelector((state) => state.userProfile);
-  const dashboardFlag = useRoleAwareDashboardFlag();
+  const { state: dashboardFlag, config: dashboardConfig } = useRoleAwareDashboardFlag();
   const { inFlight, tracker } = useDashboardActivity();
 
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
@@ -264,6 +267,7 @@ const BuyerPage = () => {
               filters={filters}
               selectedHotelLabel={selectedHotelLabel}
               onChangeBu={focusBuPicker}
+              contactAdminEmail={dashboardConfig?.admin_contact_email}
             />
           </DashboardPermissionsProvider>
         ) : (
@@ -300,9 +304,35 @@ const LegacyDashboard = ({ filters }) => (
 /* ────────────────────────────────────────────────────────────
    Role-aware dashboard — iterates the widget registry, renders
    only entries the user has permission for in the selected BU(s).
+   Layout adapts to what is actually visible:
+     • full-width cross-role cards first;
+     • cross-role left/right cards in the 2-col grid, collapsing to
+       one column when a side is empty (no dead two-thirds column);
+     • persona widgets grouped under their persona heading in a
+       responsive grid, so sparse and dense grant sets both read well.
    ──────────────────────────────────────────────────────────── */
-const RoleAwareDashboard = ({ filters, selectedHotelLabel, onChangeBu }) => {
-  const { widgets, isLoading } = useVisibleDashboardWidgets();
+export const planLayout = (widgets) => {
+  const sorted = [...widgets].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const isCross = (w) => !w.persona || w.persona === PERSONAS.CROSS_ROLE;
+  const cross = sorted.filter(isCross);
+  const full = cross.filter((w) => w.column === COLUMN.FULL);
+  const left = cross.filter((w) => w.column === COLUMN.LEFT);
+  const right = cross.filter((w) => w.column === COLUMN.RIGHT);
+
+  const groups = [];
+  sorted.filter((w) => !isCross(w)).forEach((w) => {
+    let g = groups.find((x) => x.persona === w.persona);
+    if (!g) {
+      g = { persona: w.persona, label: PERSONA_LABELS[w.persona] || w.persona, widgets: [] };
+      groups.push(g);
+    }
+    g.widgets.push(w);
+  });
+  return { full, left, right, groups };
+};
+
+const RoleAwareDashboard = ({ filters, selectedHotelLabel, onChangeBu, contactAdminEmail }) => {
+  const { widgets, isLoading, error, refetch } = useVisibleDashboardWidgets();
 
   if (isLoading) {
     // First-load only — show a soft page-level skeleton so the surface area
@@ -317,35 +347,64 @@ const RoleAwareDashboard = ({ filters, selectedHotelLabel, onChangeBu }) => {
     );
   }
 
+  // Could not load the grants at all — that is an outage, not "no access".
+  if (error && !widgets.length) {
+    return (
+      <div className={styles.permissionError} role="alert">
+        <AlertCircle size={16} />
+        <div>
+          <div className={styles.permissionErrorTitle}>We couldn't load your dashboard</div>
+          <div className={styles.permissionErrorText}>{error}</div>
+        </div>
+        {refetch && (
+          <button type="button" className={styles.permissionErrorBtn} onClick={() => refetch()}>
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
   if (!widgets.length) {
     return (
       <EmptyDashboard
         selectedHotelLabel={selectedHotelLabel}
         onChangeBu={onChangeBu}
+        contactAdminEmail={contactAdminEmail}
       />
     );
   }
 
-  // Partition by column with original registry ordering preserved.
-  const sortedByOrder = [...widgets].sort((a, b) => (a.order || 0) - (b.order || 0));
-  const fullWidth = sortedByOrder.filter((w) => w.column === COLUMN.FULL);
-  const left = sortedByOrder.filter((w) => w.column === COLUMN.LEFT);
-  const right = sortedByOrder.filter((w) => w.column === COLUMN.RIGHT);
+  const { full, left, right, groups } = planLayout(widgets);
 
   const renderWidget = (w) => {
     const Component = w.component;
     return <Component key={w.code} filters={filters} />;
   };
 
+  const twoColumns = left.length > 0 && right.length > 0;
+  const single = [...left, ...right];
+
   return (
     <>
-      {fullWidth.map(renderWidget)}
-      {(left.length > 0 || right.length > 0) && (
-        <div className={styles.mainContent}>
+      {full.map(renderWidget)}
+      {twoColumns && (
+        <div className={styles.mainContent} data-testid="cross-two-col">
           <div className={styles.leftColumn}>{left.map(renderWidget)}</div>
           <div className={styles.rightColumn}>{right.map(renderWidget)}</div>
         </div>
       )}
+      {!twoColumns && single.length > 0 && (
+        <div className={styles.singleColumn} data-testid="cross-one-col">
+          {single.map(renderWidget)}
+        </div>
+      )}
+      {groups.map((g) => (
+        <section key={g.persona} className={styles.personaSection} aria-label={g.label}>
+          <h2 className={styles.personaHeading}>{g.label}</h2>
+          <div className={styles.personaGrid}>{g.widgets.map(renderWidget)}</div>
+        </section>
+      ))}
     </>
   );
 };

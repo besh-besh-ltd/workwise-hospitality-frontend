@@ -62,7 +62,9 @@ jest.mock("./DashboardRegistry", () => ({
 }));
 
 jest.mock("./EmptyDashboard", () => {
-  const Empty = () => <div data-testid="empty-dashboard" />;
+  const Empty = ({ contactAdminEmail }) => (
+    <div data-testid="empty-dashboard">{contactAdminEmail || "no-contact"}</div>
+  );
   Empty.displayName = "EmptyDashboard";
   return Empty;
 });
@@ -70,7 +72,7 @@ jest.mock("./EmptyDashboard", () => {
 import React from "react";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import BuyerPage, { getDateRange } from "./index";
+import BuyerPage, { getDateRange, planLayout } from "./index";
 import { getDashboardConfig } from "@/services/dashboard";
 
 const flush = () => act(async () => {});
@@ -182,5 +184,81 @@ describe("page shell", () => {
     expect(last.filters.start_date).toBe("2026-05-01");
     expect(last.filters.end_date).toBe("2026-06-30");
     expect(screen.queryByText(/pick both dates/i)).not.toBeInTheDocument();
+  });
+});
+
+const W = (code, persona, column, order = 10) => {
+  const Comp = () => <div data-testid={`w-${code}`} />;
+  Comp.displayName = code;
+  return { code, persona, column, order, component: Comp };
+};
+
+describe("planLayout", () => {
+  it("splits cross-role cards by column and groups persona widgets by persona", () => {
+    const plan = planLayout([
+      W("a", "cross_role", "full"),
+      W("b", "cross_role", "left"),
+      W("c", "cross_role", "right"),
+      W("d", "rfq_creator", "left", 100),
+      W("e", "awarding", "right", 600),
+      W("f", "rfq_creator", "right", 105),
+    ]);
+    expect(plan.full.map((w) => w.code)).toEqual(["a"]);
+    expect(plan.left.map((w) => w.code)).toEqual(["b"]);
+    expect(plan.right.map((w) => w.code)).toEqual(["c"]);
+    expect(plan.groups.map((g) => [g.label, g.widgets.map((w) => w.code)])).toEqual([
+      ["RFQ Creator", ["d", "f"]],
+      ["Awarding P1 / P2", ["e"]],
+    ]);
+  });
+});
+
+describe("role-aware layout", () => {
+  beforeEach(() => {
+    getDashboardConfig.mockResolvedValue({
+      status: 1,
+      data: { v3_enabled: true, admin_contact_email: "admin@example.com" },
+    });
+  });
+
+  it("uses a single column when only right-column cards are visible", async () => {
+    mockVisible.widgets = [W("c1", "cross_role", "right"), W("c2", "cross_role", "right", 20)];
+    render(<BuyerPage />);
+    await flush();
+    expect(screen.getByTestId("cross-one-col")).toBeInTheDocument();
+    expect(screen.queryByTestId("cross-two-col")).not.toBeInTheDocument();
+    expect(screen.getByTestId("w-c1")).toBeInTheDocument();
+  });
+
+  it("uses two columns only when both sides have cards", async () => {
+    mockVisible.widgets = [W("l", "cross_role", "left"), W("r", "cross_role", "right")];
+    render(<BuyerPage />);
+    await flush();
+    expect(screen.getByTestId("cross-two-col")).toBeInTheDocument();
+  });
+
+  it("renders persona widgets under their persona heading", async () => {
+    mockVisible.widgets = [W("d", "rfq_creator", "left", 100)];
+    render(<BuyerPage />);
+    await flush();
+    expect(screen.getByRole("heading", { name: "RFQ Creator" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "RFQ Creator" })).toContainElement(screen.getByTestId("w-d"));
+  });
+
+  it("a permission-fetch failure renders a retry card, not the no-access state", async () => {
+    mockVisible.error = "Network down";
+    mockVisible.refetch = jest.fn();
+    render(<BuyerPage />);
+    await flush();
+    expect(screen.queryByTestId("empty-dashboard")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Network down");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(mockVisible.refetch).toHaveBeenCalled();
+  });
+
+  it("no grants renders the empty state with the admin contact from config", async () => {
+    render(<BuyerPage />);
+    await flush();
+    expect(screen.getByTestId("empty-dashboard")).toHaveTextContent("admin@example.com");
   });
 });

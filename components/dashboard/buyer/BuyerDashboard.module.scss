@@ -255,3 +255,66 @@
   flex-direction: column;
   gap: 24px;
 }
+
+/* Only one side of the cross-role grid has widgets for this user. */
+.singleColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Persona widgets: grouped under a heading, flowing in a responsive grid. */
+.personaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.personaHeading {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.personaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+/* Grants could not be fetched — distinct from "no widgets granted". */
+.permissionError {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  color: #b91c1c;
+}
+
+.permissionErrorTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.permissionErrorText {
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.permissionErrorBtn {
+  margin-left: auto;
+  background: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  color: #b91c1c;
+  cursor: pointer;
+}
