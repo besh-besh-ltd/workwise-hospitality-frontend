@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import moment from "moment";
@@ -21,6 +21,8 @@ import {
   useVisibleDashboardWidgets,
 } from "@/hooks/useDashboardWidgets";
 import { COLUMN } from "./DashboardRegistry";
+import { getDashboardConfig } from "@/services/dashboard";
+import { DashboardActivityContext, useDashboardActivity } from "@/hooks/useDashboardQuery";
 import styles from "../buyer/BuyerDashboard.module.scss";
 
 // FYTD is the default per client request (Sr 304): 1 Apr → today. "Custom"
@@ -32,16 +34,10 @@ const RANGE_OPTIONS = [
   { label: "Custom", value: "custom" },
 ];
 
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
-};
-
-// Resolve a Seg value to an inclusive { start_date, end_date } pair (YYYY-MM-DD).
-// FY = current financial year (Apr-Mar IST).
-const getDateRange = (type) => {
+// Resolve a Seg value to an inclusive { start_date, end_date } pair (YYYY-MM-DD,
+// IST calendar dates). FY = current financial year (Apr-Mar IST). "All" sends
+// no start date at all — the backend treats a missing bound as unbounded.
+export const getDateRange = (type) => {
   const today = moment().endOf("day");
   let start_date;
   switch (type) {
@@ -55,7 +51,7 @@ const getDateRange = (type) => {
       break;
     }
     case "allTime":
-      start_date = "2025-01-01";
+      start_date = undefined;
       break;
     default:
       start_date = moment().subtract(29, "days").startOf("day").format("YYYY-MM-DD");
@@ -63,24 +59,47 @@ const getDateRange = (type) => {
   return { start_date, end_date: today.format("YYYY-MM-DD") };
 };
 
-/** Feature flag: role-aware (registry-driven, permission-gated) dashboard.
- *  When false, the legacy unconditional 7-card layout renders.
- *  Set NEXT_PUBLIC_BUYER_DASHBOARD_V3=1 in the env to enable. */
-const ROLE_AWARE_DASHBOARD_ENABLED =
-  process.env.NEXT_PUBLIC_BUYER_DASHBOARD_V3 === "1" ||
-  process.env.NEXT_PUBLIC_BUYER_DASHBOARD_V3 === "true";
+/** Rollout switch for the role-aware (registry-driven, permission-gated)
+ *  dashboard. Read at runtime from GET /dashboard-v2/config — a per-buyer-
+ *  company flag — so a client can be switched on, or back off, without a
+ *  rebuild. Any failure falls back to the legacy layout, which is the kill
+ *  switch. Returns "loading" | "on" | "off". */
+export const useRoleAwareDashboardFlag = () => {
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    let cancelled = false;
+    getDashboardConfig()
+      .then((res) => {
+        if (cancelled) return;
+        setState(res?.data?.v3_enabled === true ? "on" : "off");
+      })
+      .catch(() => {
+        if (!cancelled) setState("off");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
+};
 
 const BuyerPage = () => {
   const userProfile = useSelector((state) => state.userProfile);
-  const firstName = userProfile?.name?.split(" ")?.[0] || "there";
+  const dashboardFlag = useRoleAwareDashboardFlag();
+  const { inFlight, tracker } = useDashboardActivity();
 
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [range, setRange] = useState("fy"); // FYTD default (Sr 304)
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshRequested, setRefreshRequested] = useState(false);
   const hotelFilterRef = useRef(null);
+  const lastAppliedRangeRef = useRef(null);
+
+  // A custom range only applies once BOTH dates are picked. Until then the
+  // widgets keep the previously applied range and the header says so.
+  const customIncomplete = range === "custom" && !(customStart && customEnd);
 
   // Today (YYYY-MM-DD) — upper bound for the custom date inputs.
   const todayStr = useMemo(() => moment().format("YYYY-MM-DD"), []);
@@ -88,19 +107,25 @@ const BuyerPage = () => {
   const filters = useMemo(() => {
     let start_date;
     let end_date;
+    let duration_type = range;
     if (range === "custom" && customStart && customEnd) {
       // Guard against an inverted range (swap if start > end).
       start_date = customStart <= customEnd ? customStart : customEnd;
       end_date = customStart <= customEnd ? customEnd : customStart;
+    } else if (range === "custom") {
+      // Incomplete custom range → keep whatever was applied last (FYTD on
+      // first load) rather than silently fetching FYTD under a Custom label.
+      const prev = lastAppliedRangeRef.current || { ...getDateRange("fy"), duration_type: "fy" };
+      ({ start_date, end_date, duration_type } = prev);
     } else {
-      // "custom" without both dates yet → fall back to FYTD so widgets still load.
-      ({ start_date, end_date } = getDateRange(range === "custom" ? "fy" : range));
+      ({ start_date, end_date } = getDateRange(range));
     }
+    lastAppliedRangeRef.current = { start_date, end_date, duration_type };
     return {
       hotel_ids: selectedHotelIds.join(","),
       start_date,
       end_date,
-      duration_type: range,
+      duration_type,
       _refresh: refreshKey,
     };
   }, [selectedHotelIds, range, customStart, customEnd, refreshKey]);
@@ -124,11 +149,21 @@ const BuyerPage = () => {
     setSelectedHotelIds(ids || []);
   }, []);
 
+  // Every widget (and the banner) refetches when `_refresh` changes; the
+  // spinner runs for exactly as long as any of those requests is in flight.
   const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
+    setRefreshRequested(true);
     setRefreshKey((k) => k + 1);
-    setTimeout(() => setIsRefreshing(false), 1200);
   }, []);
+  useEffect(() => {
+    if (refreshRequested && inFlight === 0) {
+      // Let the refetches register before deciding they are done.
+      const t = setTimeout(() => setRefreshRequested(false), 150);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [refreshRequested, inFlight]);
+  const isRefreshing = refreshRequested && inFlight > 0;
 
   const focusBuPicker = useCallback(() => {
     // The hotel filter renders a react-select; focus its input if mounted.
@@ -142,17 +177,17 @@ const BuyerPage = () => {
   }, []);
 
   return (
-    <>
+    <DashboardActivityContext.Provider value={tracker}>
       <Head>
         <title>Dashboard | Buyer</title>
       </Head>
       <div className={styles.dashboardContainer}>
-        {/* Header */}
+        {/* Header — the personal greeting lives in the status banner below. */}
         <div className={styles.pageHeader}>
           <div className={styles.greetingBlock}>
-            <h1 className={styles.greeting}>{getGreeting()}, {firstName}! 👋</h1>
+            <h1 className={styles.greeting}>Procurement dashboard</h1>
             <p className={styles.greetingSubtext}>
-              Here's your procurement overview and pending actions.
+              Your procurement overview and pending actions.
             </p>
           </div>
           <div className={styles.filterBar}>
@@ -177,6 +212,11 @@ const BuyerPage = () => {
                   onChange={(e) => setCustomEnd(e.target.value)}
                   aria-label="End date"
                 />
+                {customIncomplete && (
+                  <span className={styles.rangeHint} role="status">
+                    Pick both dates to apply — showing the previous range until then.
+                  </span>
+                )}
               </div>
             )}
             <div className={styles.filterItem} ref={hotelFilterRef}>
@@ -199,18 +239,26 @@ const BuyerPage = () => {
               <FileBarChart size={15} />
             </Link>
             <button
+              type="button"
               className={styles.refreshBtn}
               onClick={handleRefresh}
               title="Refresh all data"
+              aria-label="Refresh all data"
+              aria-busy={isRefreshing}
             >
               <RefreshCw size={15} className={isRefreshing ? styles.spinning : ""} />
             </button>
           </div>
         </div>
 
-        <BuyerStatusBanner hotelIds={selectedHotelIds} filters={filters} />
+        <BuyerStatusBanner filters={filters} />
 
-        {ROLE_AWARE_DASHBOARD_ENABLED ? (
+        {dashboardFlag === "loading" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }} aria-busy="true">
+            <SkeletonKpiGrid count={5} />
+            <SkeletonKpiGrid count={5} />
+          </div>
+        ) : dashboardFlag === "on" ? (
           <DashboardPermissionsProvider hotelIds={selectedHotelIds}>
             <RoleAwareDashboard
               filters={filters}
@@ -222,7 +270,7 @@ const BuyerPage = () => {
           <LegacyDashboard filters={filters} />
         )}
       </div>
-    </>
+    </DashboardActivityContext.Provider>
   );
 };
 
