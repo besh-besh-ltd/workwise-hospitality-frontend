@@ -22,6 +22,7 @@
  * declarative and the registry stays the only place to touch.
  */
 
+import { PERSONAS } from "./dashboardWidgetMeta";
 import ActionCenter from "./dashboard-components/ActionCenter";
 import ProcurementSnapshot from "./dashboard-components/ProcurementSnapshot";
 import NegotiationSavings from "./dashboard-components/NegotiationSavings";
@@ -61,27 +62,11 @@ import AwardValuePipeline from "./persona-widgets/awarding/AwardValuePipeline";
  *  i.e. `dashboard.action_center` → moduleKey "dashboard", permission "action_center". */
 export const DASHBOARD_MODULE_KEY = "dashboard";
 
-/** Persona groupings — used purely for admin documentation / UI grouping.
- *  Visibility is driven by permissions, NOT by persona membership. */
-export const PERSONAS = {
-  CROSS_ROLE: "cross_role",
-  RFQ_CREATOR: "rfq_creator",
-  TECH_EVALUATOR: "tech_evaluator",
-  TECH_APPROVER: "tech_approver",
-  COMMERCIAL_EVALUATOR: "commercial_evaluator",
-  COMMERCIAL_APPROVER: "commercial_approver",
-  AWARDING: "awarding",
-};
-
-export const PERSONA_LABELS = {
-  [PERSONAS.CROSS_ROLE]: "Cross-role",
-  [PERSONAS.RFQ_CREATOR]: "RFQ Creator",
-  [PERSONAS.TECH_EVALUATOR]: "Technical Evaluator",
-  [PERSONAS.TECH_APPROVER]: "Technical Approver",
-  [PERSONAS.COMMERCIAL_EVALUATOR]: "Commercial Evaluator / N1 Negotiator",
-  [PERSONAS.COMMERCIAL_APPROVER]: "Commercial Approver",
-  [PERSONAS.AWARDING]: "Awarding P1 / P2",
-};
+/** Persona groupings + labels live in dashboardWidgetMeta.js (no component
+ *  imports there, so admin screens can read them cheaply). Re-exported here so
+ *  existing imports keep working. Visibility is driven by permissions, NOT by
+ *  persona membership. */
+export { PERSONAS, PERSONA_LABELS, PERSONA_ORDER } from "./dashboardWidgetMeta";
 
 /** Column placement within the dashboard layout. */
 export const COLUMN = {
