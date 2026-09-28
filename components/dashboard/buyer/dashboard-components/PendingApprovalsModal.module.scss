@@ -117,6 +117,7 @@
 }
 .emptyTitle { font-size: 14px; font-weight: 600; color: #3f3f46; }
 .emptyHint  { margin-top: 4px; font-size: 12.5px; color: #a1a1aa; }
+.retryLink  { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 600; color: #2563eb; text-decoration: underline; cursor: pointer; }
 
 .group {
   &:not(:last-child) { margin-bottom: 18px; }

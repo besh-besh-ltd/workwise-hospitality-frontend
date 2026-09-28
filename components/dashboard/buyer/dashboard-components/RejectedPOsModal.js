@@ -1,18 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight, AlertTriangle } from "lucide-react";
 import { getRejectedPOsDetail } from "@/services/dashboard";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import useDialogA11y from "@/hooks/useDialogA11y";
+import { formatMoney } from "@/components/dashboard/shared/format";
 import styles from "./PendingApprovalsModal.module.scss";
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
 
 const formatTime = (dateStr) => {
   if (!dateStr) return "";
@@ -24,30 +17,30 @@ const formatTime = (dateStr) => {
   return `${Math.round(hours / 24)}d ago`;
 };
 
-const RejectedPOsModal = ({ onClose }) => {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getRejectedPOsDetail();
-        setItems(res.data || []);
-      } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+const RejectedPOsModal = ({ onClose, filters }) => {
+  // Same filters as the Action Centre count, so the list matches it.
+  const { data, loading, error, refetch } = useDashboardQuery(getRejectedPOsDetail, filters, {
+    errorMessage: "Could not load rejected POs",
+  });
+  const items = Array.isArray(data) ? data : [];
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
-          <h3 className={styles.title}>Rejected POs — Reassign Required</h3>
+          <h3 className={styles.title} id={titleId}>Rejected POs — Reassign Required</h3>
           <span className={styles.count}>{items.length}</span>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -55,6 +48,16 @@ const RejectedPOsModal = ({ onClose }) => {
         <div className={styles.body}>
           {loading ? (
             <div className={styles.emptyState}>Loading...</div>
+          ) : error ? (
+            <div className={styles.emptyState} role="alert">
+              <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>
+              <div className={styles.emptyHint}>
+                {error}{" "}
+                <button type="button" className={styles.retryLink} onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : items.length === 0 ? (
             <div className={styles.emptyState}>No rejected POs pending reassignment</div>
           ) : (
@@ -83,7 +86,7 @@ const RejectedPOsModal = ({ onClose }) => {
                     </div>
                     <div className={styles.itemMeta}>
                       <span className={styles.itemStep}>
-                        {formatCurrency(item.po_value)}
+                        {formatMoney(item.po_value)}
                       </span>
                       {item.rejected_at && (
                         <span className={styles.itemWait}>

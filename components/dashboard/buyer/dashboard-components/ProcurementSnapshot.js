@@ -95,7 +95,7 @@ const ProcurementSnapshot = ({ filters }) => {
                 )}
               </div>
               {sparklineData.length > 0 && (
-                <div className={styles.sparkline}>
+                <div className={styles.sparkline} aria-hidden="true">
                   {sparklineData.map((val, i) => (
                     <div
                       key={i}

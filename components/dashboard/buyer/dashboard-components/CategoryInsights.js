@@ -78,6 +78,13 @@ const CategoryInsights = ({ filters }) => {
     };
   }, [categories]);
 
+  // Screen-reader summary of the doughnut; the visible legend below carries
+  // the same figures as text.
+  const chartSummary = categories.length
+    ? `Spend by ${dimension}, total ${formatCurrency(totalSpend)}: ` +
+      categories.map((c) => `${c.category_name} ${(c.percentage || 0).toFixed(1)}%`).join(", ")
+    : "";
+
   return (
     <PersonaCardShell
       title="Spend by category"
@@ -108,7 +115,7 @@ const CategoryInsights = ({ filters }) => {
       onRefresh={refetch}
     >
       <div className={styles.chartWrapper}>
-        <Pie data={chartData} options={chartOptions} />
+        <Pie data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
         <div className={styles.chartCenter}>
           <span className={styles.chartCenterValue}>{formatCurrency(totalSpend)}</span>
           <span className={styles.chartCenterLabel}>Total spend</span>

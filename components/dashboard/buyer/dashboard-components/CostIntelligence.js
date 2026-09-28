@@ -213,6 +213,17 @@ const CostIntelligence = ({ filters }) => {
 
   const vendors = data?.vendor_comparison || [];
 
+  // Accessible alternative to the canvas: a one-line summary for the chart's
+  // label plus a visually-hidden table with every plotted point.
+  const lastIdx = (priceTrend?.avg || []).reduce((acc, v, i) => (v != null && v > 0 ? i : acc), -1);
+  const chartSummary = chartData
+    ? `Price trend for ${selectedProduct?.label || "the selected item"}` +
+      (lastIdx >= 0
+        ? `: latest average ${formatCurrency(priceTrend.avg[lastIdx])} on ${chartLabels[lastIdx]}`
+        : "") +
+      (bench ? `; best price paid ${formatCurrency(bench.benchmark_price)}` : "")
+    : "";
+
   return (
     <PersonaCardShell
       title="Price benchmarking"
@@ -276,8 +287,31 @@ const CostIntelligence = ({ filters }) => {
         </p>
       )}
       <div className={styles.chartContainer}>
-        <Line data={chartData} options={chartOptions} />
+        <Line data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
       </div>
+      {chartData && (
+        <table className="visually-hidden">
+          <caption>{chartSummary}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Period</th>
+              <th scope="col">Min</th>
+              <th scope="col">Avg</th>
+              <th scope="col">Max</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chartLabels.map((label, i) => (
+              <tr key={i}>
+                <th scope="row">{label}</th>
+                <td>{formatCurrency(priceTrend.min?.[i])}</td>
+                <td>{formatCurrency(priceTrend.avg?.[i])}</td>
+                <td>{formatCurrency(priceTrend.max?.[i])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {vendors.length > 0 && (
         <>
           <div className={styles.vendorSectionLabel}>

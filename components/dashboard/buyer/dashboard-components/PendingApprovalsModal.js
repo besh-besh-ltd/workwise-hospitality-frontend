@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight } from "lucide-react";
 import { getPendingApprovalsDetail } from "@/services/dashboard";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import useDialogA11y from "@/hooks/useDialogA11y";
 import styles from "./PendingApprovalsModal.module.scss";
 
 // Build the deep-link for an RFQ-lifecycle approval — they all now live as
@@ -77,24 +79,14 @@ const getNumber = (item) => {
 };
 
 const PendingApprovalsModal = ({ onClose, filters }) => {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getPendingApprovalsDetail({
-          start_date: filters?.start_date,
-          end_date: filters?.end_date,
-        });
-        setItems(res.data || []);
-      } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // Same filters as the card that opened it (BU included), so the list
+  // matches the count the user clicked on.
+  const { data, loading, error, refetch } = useDashboardQuery(getPendingApprovalsDetail, filters, {
+    errorMessage: "Could not load your approvals",
+  });
+  const items = Array.isArray(data) ? data : [];
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   // Preserve a stable, sensible group order (sourcing → contracts → orders).
   const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
@@ -109,14 +101,22 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
           <div className={styles.headerMain}>
-            <h3 className={styles.title}>Waiting on you</h3>
+            <h3 className={styles.title} id={titleId}>Waiting on you</h3>
             <p className={styles.sub}>Approvals and reviews where you&apos;re the current decision-maker.</p>
           </div>
           {items.length > 0 && <span className={styles.count}>{items.length}</span>}
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={17} />
           </button>
         </div>
@@ -142,6 +142,16 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                 </div>
               </div>
             ))
+          ) : error ? (
+            <div className={styles.emptyState} role="alert">
+              <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>
+              <div className={styles.emptyHint}>
+                {error}{" "}
+                <button type="button" className={styles.retryLink} onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : items.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyTitle}>Nothing needs you right now</div>

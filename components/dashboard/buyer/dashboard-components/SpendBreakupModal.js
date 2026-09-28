@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useId } from "react";
 import { X, Wallet } from "lucide-react";
+import useDialogA11y from "@/hooks/useDialogA11y";
 import styles from "./SpendBreakupModal.module.scss";
 
 // Exact INR amount (detail view) — e.g. ₹12,34,567.
@@ -12,16 +13,26 @@ const SpendBreakupModal = ({ onClose, breakup, posIssued }) => {
   const total = Number(breakup?.total_incl_gst) || 0;
   const basePct = total > 0 ? Math.round((base / total) * 100) : 0;
   const gstPct = total > 0 ? 100 - basePct : 0;
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
           <span className={styles.headIcon}>
             <Wallet size={15} />
           </span>
-          <h3 className={styles.title}>Total spend breakup</h3>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <h3 className={styles.title} id={titleId}>Total spend breakup</h3>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -38,7 +49,7 @@ const SpendBreakupModal = ({ onClose, breakup, posIssued }) => {
           </div>
 
           {/* Proportion bar: base vs GST */}
-          <div className={styles.bar}>
+          <div className={styles.bar} role="img" aria-label={`Base ${basePct}%, GST ${gstPct}% of total spend`}>
             <div className={styles.barBase} style={{ width: `${basePct}%` }} />
             <div className={styles.barGst} style={{ width: `${gstPct}%` }} />
           </div>
