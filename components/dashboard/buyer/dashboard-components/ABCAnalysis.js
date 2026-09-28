@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import { Layers } from "lucide-react";
 import { getAbcAnalysis } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ABCAnalysis.module.scss";
 
 // Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
@@ -49,31 +50,8 @@ const METRIC_OPTIONS = [
 ];
 
 const ABCAnalysis = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [metric, setMetric] = useState("value");
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getAbcAnalysis({ ...filters, metric });
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, metric]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, metric]);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getAbcAnalysis, filters, { extraParams: { metric } });
 
   const isVolume = metric === "volume";
   const metricNoun = isVolume ? "volume" : "spend";
@@ -106,6 +84,7 @@ const ABCAnalysis = ({ filters }) => {
       }
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonKpiGrid count={3} />}
       isEmpty={totalItems === 0}
       renderEmpty={() => (
@@ -113,10 +92,7 @@ const ABCAnalysis = ({ filters }) => {
           No procured items in the selected period to classify.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       {/* Headline Pareto takeaway — the core "hot spot" insight. */}
       {classA && (

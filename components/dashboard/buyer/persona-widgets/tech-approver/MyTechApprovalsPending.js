@@ -15,6 +15,7 @@ const MyTechApprovalsPending = ({ filters }) => (
     tooltip="Tech-evaluation results queued for your approval."
     filters={filters}
     fetcher={getMyTechApprovalsPending}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

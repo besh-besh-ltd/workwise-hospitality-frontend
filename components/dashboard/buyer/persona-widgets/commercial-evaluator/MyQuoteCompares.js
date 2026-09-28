@@ -15,6 +15,7 @@ const MyQuoteCompares = ({ filters }) => (
     tooltip="RFQs in quote-compare stage where you're the assigned evaluator."
     filters={filters}
     fetcher={getMyQuoteCompares}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

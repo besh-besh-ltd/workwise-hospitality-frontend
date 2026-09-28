@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React from "react";
 import { AlertTriangle, Workflow } from "lucide-react";
 import { getWorkflowEfficiency } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./WorkflowEfficiency.module.scss";
 
 const formatDwellTime = (hours) => {
@@ -26,30 +27,7 @@ const LIFECYCLE_STAGES = [
 ];
 
 const WorkflowEfficiency = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getWorkflowEfficiency(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getWorkflowEfficiency, filters);
 
   const rawStages = data?.stages || [];
   const stageMap = {};
@@ -79,6 +57,7 @@ const WorkflowEfficiency = ({ filters }) => {
       tooltip="Average time spent at each workflow stage. Bottleneck stage is highlighted."
       loading={loading}
       error={error}
+      stale={stale}
       isEmpty={lifecycleStages.length === 0}
       skeleton={<SkeletonKpiGrid count={5} />}
       renderEmpty={() => (
@@ -86,10 +65,7 @@ const WorkflowEfficiency = ({ filters }) => {
           No workflow data available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.stageList}>
         {lifecycleStages.map((stage, index) => {

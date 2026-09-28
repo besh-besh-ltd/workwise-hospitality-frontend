@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import { BarChart3, ArrowUpRight, ArrowDownRight, PieChart } from "lucide-react";
 import { getProcurementSnapshot } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
 import SpendBreakupModal from "./SpendBreakupModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ProcurementSnapshot.module.scss";
 
 // Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
@@ -49,31 +50,8 @@ const computeTrend = (sparklineData, trendKind) => {
 };
 
 const ProcurementSnapshot = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showBreakup, setShowBreakup] = useState(false);
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getProcurementSnapshot(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getProcurementSnapshot, filters);
 
   return (
     <PersonaCardShell
@@ -82,11 +60,9 @@ const ProcurementSnapshot = ({ filters }) => {
       tooltip="Headline counts and spend across the selected business units and period."
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonKpiGrid count={METRICS.length} />}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.snapshotGrid}>
         {METRICS.map((metric) => {

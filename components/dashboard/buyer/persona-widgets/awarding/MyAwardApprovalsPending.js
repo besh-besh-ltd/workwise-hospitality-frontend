@@ -23,6 +23,7 @@ const MyAwardApprovalsPending = ({ filters }) => (
     tooltip="Awards waiting on your approval — any step in the chain where you're next."
     filters={filters}
     fetcher={getMyAwardApprovalsPending}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

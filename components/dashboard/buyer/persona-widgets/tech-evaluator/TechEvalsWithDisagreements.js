@@ -15,6 +15,7 @@ const TechEvalsWithDisagreements = ({ filters }) => (
     tooltip="Tech-eval items where one or more vendors flagged disagree on clauses — extra analysis needed."
     filters={filters}
     fetcher={getTechEvalsWithDisagreements}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

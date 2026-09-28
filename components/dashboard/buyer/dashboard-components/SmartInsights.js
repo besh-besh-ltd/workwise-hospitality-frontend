@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { getSmartInsightsData } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonRankList, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonRankList } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./SmartInsights.module.scss";
 
 const INSIGHT_META = {
@@ -42,30 +43,7 @@ const pickTrendIcon = (insight) => {
 };
 
 const SmartInsights = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getSmartInsightsData(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getSmartInsightsData, filters);
 
   const insights = data?.insights || [];
 
@@ -76,6 +54,7 @@ const SmartInsights = ({ filters }) => {
       tooltip="AI-generated price alerts, vendor optimisation tips and spend trends."
       loading={loading}
       error={error}
+      stale={stale}
       isEmpty={insights.length === 0}
       skeleton={<SkeletonRankList rows={4} />}
       renderEmpty={() => (
@@ -83,10 +62,7 @@ const SmartInsights = ({ filters }) => {
           No insights available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.insightsBody}>
         {insights.map((insight, index) => {

@@ -14,6 +14,7 @@ const TechApprovalOldestPending = ({ filters }) => (
     tooltip="The 5 items that have been waiting on you the longest — proactive escalation list."
     filters={filters}
     fetcher={getTechApprovalOldestPending}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.items && d.items.length > 0)}
     renderEmpty={() => (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ClipboardCheck, FileText, Clock, Package, UserX, Zap } from "lucide-react";
 import { getActionCenterData } from "@/services/dashboard";
@@ -7,7 +7,8 @@ import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
 import NoResponseModal from "./NoResponseModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ActionCenter.module.scss";
 
 // Order follows client request (Sr 231): Pending approvals → PO rejected by
@@ -64,33 +65,11 @@ const ACTION_CARDS = [
 ];
 
 const ActionCenter = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // A work queue — polls while the tab is visible.
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getActionCenterData, filters, { poll: true });
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
   const [showNoResponseModal, setShowNoResponseModal] = useState(false);
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getActionCenterData(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
 
   const urgentCount = (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0);
 
@@ -112,11 +91,9 @@ const ActionCenter = ({ filters }) => {
         }
         loading={loading}
         error={error}
+        stale={stale}
         skeleton={<SkeletonKpiGrid count={ACTION_CARDS.length} />}
-        onRefresh={() => {
-          setLoading(true);
-          fetchData();
-        }}
+        onRefresh={refetch}
       >
         <div className={styles.actionGrid}>
           {ACTION_CARDS.map((card) => {
@@ -181,7 +158,7 @@ const ActionCenter = ({ filters }) => {
         <PendingApprovalsModal onClose={() => setShowApprovalModal(false)} filters={filters} />
       )}
       {showRejectedModal && (
-        <RejectedPOsModal onClose={() => setShowRejectedModal(false)} />
+        <RejectedPOsModal onClose={() => setShowRejectedModal(false)} filters={filters} />
       )}
       {showNoResponseModal && (
         <NoResponseModal onClose={() => setShowNoResponseModal(false)} filters={filters} />

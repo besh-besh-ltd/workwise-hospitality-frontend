@@ -23,6 +23,7 @@ const MyActiveRFQs = ({ filters }) => (
     tooltip="Your live RFQs grouped by where they are in the lifecycle."
     filters={filters}
     fetcher={getMyActiveRfqs}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.total > 0 || (d.stages && d.stages.length > 0))}
     renderEmpty={() => (

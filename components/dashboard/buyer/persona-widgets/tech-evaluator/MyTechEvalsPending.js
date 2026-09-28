@@ -15,6 +15,7 @@ const MyTechEvalsPending = ({ filters }) => (
     tooltip="Products awaiting your tech-eval clause responses, sorted by age."
     filters={filters}
     fetcher={getMyTechEvalsPending}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

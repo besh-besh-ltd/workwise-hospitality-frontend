@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import { Line } from "react-chartjs-2";
 import { LineChart } from "lucide-react";
@@ -14,7 +14,8 @@ import {
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonChart } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./CostIntelligence.module.scss";
 
 ChartJS.register(
@@ -113,60 +114,33 @@ const chartOptions = {
 };
 
 const CostIntelligence = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const intervalRef = useRef(null);
-  const currentProductRef = useRef(null);
+  // `requestedProductId` is only set when the user picks an item. Until then
+  // the backend benchmarks its own top item, which the selector mirrors, so
+  // the auto-selection never costs a second request.
+  const [requestedProductId, setRequestedProductId] = useState(null);
+  const [pickedOption, setPickedOption] = useState(null);
+  const filterKey = `${filters.hotel_ids}|${filters.start_date || ""}|${filters.end_date || ""}`;
 
-  const fetchData = useCallback(async (productId) => {
-    setError(null);
-    try {
-      const params = { ...filters };
-      if (productId) params.product_variant_id = productId;
-      const res = await getCostIntelligence(params);
-      setData(res.data);
-
-      if (!currentProductRef.current && res.data?.top_products?.length > 0) {
-        const first = {
-          label: res.data.top_products[0].product_name,
-          value: res.data.top_products[0].product_variant_id,
-        };
-        setSelectedProduct(first);
-        currentProductRef.current = first.value;
-      }
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
+  // A different BU / period has a different top-item list — drop the pick.
   useEffect(() => {
-    currentProductRef.current = null;
-    setSelectedProduct(null);
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(() => {
-      fetchData(currentProductRef.current);
-    }, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+    setRequestedProductId(null);
+    setPickedOption(null);
+  }, [filterKey]);
+
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getCostIntelligence, filters, {
+    extraParams: { product_variant_id: requestedProductId },
+  });
 
   const handleProductChange = (option) => {
-    setSelectedProduct(option);
-    currentProductRef.current = option?.value || null;
-    if (option?.value) {
-      fetchData(option.value);
-    }
+    setPickedOption(option);
+    setRequestedProductId(option?.value || null);
   };
 
   const productOptions = (data?.top_products || []).map((p) => ({
     label: p.product_name,
     value: p.product_variant_id,
   }));
+  const selectedProduct = pickedOption || productOptions[0] || null;
 
   const priceTrend = data?.price_trend;
   // Backend resolves day/month granularity (Sr 301 "month-wise" for long ranges).
@@ -270,6 +244,7 @@ const CostIntelligence = ({ filters }) => {
       }
       loading={loading}
       error={error}
+      stale={stale}
       isEmpty={!chartData}
       skeleton={<SkeletonChart legendCount={3} />}
       renderEmpty={() => (
@@ -277,10 +252,7 @@ const CostIntelligence = ({ filters }) => {
           No price benchmarking data available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData(currentProductRef.current);
-      }}
+      onRefresh={refetch}
     >
       {bench && (
         <div className={styles.benchmarkBar}>

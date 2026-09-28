@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import moment from "moment";
-import { Sparkles, RefreshCw } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle } from "lucide-react";
 import { getBuyerStatusBanner } from "@/services/dashboard";
 import PendingApprovalsModal from "./dashboard-components/PendingApprovalsModal";
 import styles from "./BuyerStatusBanner.module.scss";
-import { getApiErrorMessage } from "@/utils/apiError";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 
 // Mode → outer card variant. The base is a deep navy hero; criticality
 // just nudges the accents so the rest stays calm.
@@ -150,43 +150,15 @@ const buildNarrative = (data, mode) => {
   return { primary, secondary };
 };
 
-const BuyerStatusBanner = ({ hotelIds, filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+const BuyerStatusBanner = ({ filters }) => {
+  // The banner is a work queue (approvals, closing soon…) — it polls while
+  // the tab is visible and follows the page refresh button via filters._refresh.
+  const { data, loading, error, stale, refreshing, refetch } = useDashboardQuery(
+    getBuyerStatusBanner,
+    filters,
+    { poll: true, errorMessage: "Could not load your status summary" }
+  );
   const [openModal, setOpenModal] = useState(null); // null | 'approvals'
-
-  // Fetch on mount + whenever the BU filter, date range, or refresh changes.
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    const params = {};
-    if (hotelIds && hotelIds.length) params.hotel_ids = hotelIds.join(",");
-    if (filters?.start_date) params.start_date = filters.start_date;
-    if (filters?.end_date) params.end_date = filters.end_date;
-    getBuyerStatusBanner(params)
-      .then((res) => {
-        if (cancelled) return;
-        setData(res?.data?.data || res?.data || null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(getApiErrorMessage(err, "Could not load banner"));
-        setData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hotelIds?.join(","), filters?.start_date, filters?.end_date, refreshTick]);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshTick((n) => n + 1);
-  }, []);
 
   // Local-clock greeting + date subline. Visual touch only.
   const greetText = useMemo(() => greetingFor(new Date().getHours()), []);
@@ -201,7 +173,20 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
     );
   }
 
-  if (error || !data) {
+  // Never vanish silently: a failed first load gets a compact retry strip.
+  if (error && !stale) {
+    return (
+      <div className={`${styles.banner} ${styles.errorBanner}`} role="alert">
+        <AlertCircle size={14} />
+        <span>{error}</span>
+        <button type="button" className={styles.errorRetry} onClick={refetch}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!data) {
     return null;
   }
 
@@ -258,11 +243,11 @@ const BuyerStatusBanner = ({ hotelIds, filters }) => {
           <button
             type="button"
             className={styles.refreshBtn}
-            onClick={handleRefresh}
+            onClick={refetch}
             aria-label="Refresh status"
-            title="Refresh"
+            title={stale ? "Couldn't refresh — showing the last loaded status. Click to retry." : "Refresh"}
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={refreshing ? styles.spinning : ""} />
           </button>
         </div>
 

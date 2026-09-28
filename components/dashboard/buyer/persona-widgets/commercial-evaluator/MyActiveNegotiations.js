@@ -15,6 +15,7 @@ const MyActiveNegotiations = ({ filters }) => (
     tooltip="Negotiation rounds where you're the lead — silent vendors flagged."
     filters={filters}
     fetcher={getMyActiveNegotiations}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

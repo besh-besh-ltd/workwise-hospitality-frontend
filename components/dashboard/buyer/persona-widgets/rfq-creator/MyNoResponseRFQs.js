@@ -16,6 +16,7 @@ const MyNoResponseRFQs = ({ filters }) => (
     tooltip="Your live RFQs where one or more invited vendors haven't submitted a quote yet."
     filters={filters}
     fetcher={getMyNoResponseRfqs}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

@@ -17,6 +17,7 @@ const MyRfqsBidClosedNoQuotes = ({ filters }) => (
     tooltip="Your RFQs whose bid window has passed but no vendor responded. Re-publish, extend the bid, or escalate."
     filters={filters}
     fetcher={getMyRfqsBidClosedNoQuotes}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
     renderEmpty={() => (

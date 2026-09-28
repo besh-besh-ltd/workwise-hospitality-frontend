@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { PieChart } from "lucide-react";
 import { getCategoryInsights } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonChart } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./CategoryInsights.module.scss";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -62,31 +63,8 @@ const DIMENSION_OPTIONS = [
 ];
 
 const CategoryInsights = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [dimension, setDimension] = useState("category");
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getCategoryInsights({ ...filters, dimension });
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, dimension]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, dimension]);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getCategoryInsights, filters, { extraParams: { dimension } });
 
   const categories = data?.categories || [];
   const totalSpend = useMemo(
@@ -128,6 +106,7 @@ const CategoryInsights = ({ filters }) => {
       }
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonChart legendCount={4} />}
       isEmpty={!chartData}
       renderEmpty={() => (
@@ -135,10 +114,7 @@ const CategoryInsights = ({ filters }) => {
           No category spend data available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.chartWrapper}>
         <Pie data={chartData} options={chartOptions} />

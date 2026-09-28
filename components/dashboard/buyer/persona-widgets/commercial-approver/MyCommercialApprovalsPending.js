@@ -22,6 +22,7 @@ const MyCommercialApprovalsPending = ({ filters }) => (
     tooltip="Commercial approvals awaiting your sign-off — count, total ₹ value, and the top 3 by value."
     filters={filters}
     fetcher={getMyCommercialApprovalsPending}
+    poll
     skeleton={<SkeletonHeadline withSpark={false} />}
     isEmpty={(d) => !d || !(d.count > 0 || (d.top_by_value && d.top_by_value.length > 0))}
     renderEmpty={() => (
