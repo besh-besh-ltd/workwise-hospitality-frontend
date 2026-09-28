@@ -58,6 +58,14 @@ const FALLBACK_AVATARS = [styles.avIndigo, styles.avWarm, styles.avGreen, styles
 
 const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 
+/* Deep-link params → initial state; null when there is nothing to apply. */
+export const parsePoTrackingDeepLink = (q = {}) => {
+  const tab = TABS.some((t) => t.key === q.tab) ? q.tab : null;
+  const search = typeof q.search === "string" ? q.search.trim() : "";
+  if (!tab && !search) return null;
+  return { tab, search };
+};
+
 const POTracking = () => {
   const router = useRouter();
   const userProfile = useSelector((state) => state.userProfile);
@@ -101,6 +109,20 @@ const POTracking = () => {
     departmentId: null,
     enabled: hotelIds.length > 0,
   });
+
+  // Deep links (components/dashboard/shared/dashboardLinks.js):
+  //   ?tab=active|awaiting-grn|payment|completed|all  ?search=
+  const deepLinkApplied = useRef(null);
+  useEffect(() => {
+    if (!router?.isReady) return;
+    const link = parsePoTrackingDeepLink(router.query);
+    if (!link) return;
+    const key = JSON.stringify(link);
+    if (deepLinkApplied.current === key) return;
+    deepLinkApplied.current = key;
+    if (link.tab) setActiveTab(link.tab);
+    if (link.search) setSearchInput(link.search);
+  }, [router?.isReady, router?.query]);
 
   // Debounce search input
   useEffect(() => {

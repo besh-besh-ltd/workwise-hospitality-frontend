@@ -277,6 +277,23 @@ function FilterSkeleton() {
   );
 }
 
+/* ─── deep-link params → initial list state ─── */
+// Returns null when the URL carries no list filter (plain navigation keeps the
+// FY-default view). Unknown tabs / status keys are dropped, never sent.
+const csv = (v) => (Array.isArray(v) ? v.join(",") : typeof v === "string" ? v : "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+export function parseRfqListDeepLink(q = {}) {
+  const tabKeys = TABS.map((t) => t.key);
+  let status = csv(q.status).filter((s) => STATUS_META[s]);
+  if (q.ended_no_quotes === "1" && !status.includes("RFQ_STUCK_COMMERCIAL")) status = [...status, "RFQ_STUCK_COMMERCIAL"];
+  const tab = tabKeys.includes(q.tab) ? q.tab : "all";
+  const bu = csv(q.bu).filter((s) => /^\d+$/.test(s));
+  const search = typeof q.search === "string" ? q.search.trim() : "";
+  const sort = ["recent", "oldest", "deadline"].includes(q.sort) ? q.sort : null;
+  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort) return null;
+  return { tab, status, bu, search, sort };
+}
+
 /* ─── main page ─── */
 export default function RfqListPage() {
   const router = useRouter();
@@ -294,25 +311,30 @@ export default function RfqListPage() {
   const [cloneRfq, setCloneRfq] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
-  // Guard: apply deep-link params only once (on first ready router state).
-  const deepLinkApplied = useRef(false);
+  // Guard: apply each distinct set of deep-link params once. Keyed on the
+  // params themselves (not a boolean) so a second dashboard link opened while
+  // this page is mounted still applies, but ordinary re-renders don't reset
+  // the user's own filter changes.
+  const deepLinkApplied = useRef(null);
 
-  // One-shot effect: if the URL carries ?ended_no_quotes=1 (from the Wisely
-  // banner) or ?status=RFQ_STUCK_COMMERCIAL, pre-select the "Ended · No Quotes"
-  // filter so the list opens pre-filtered to match the banner count.
-  // Guarded by deepLinkApplied so it only runs once even if router re-renders.
+  // Deep links (built by components/dashboard/shared/dashboardLinks.js):
+  //   ?tab=<TABS key>  ?status=KEY[,KEY]  ?bu=<hotelId>[,…]  ?search=  ?sort=
+  // plus the legacy ?ended_no_quotes=1 from the Wisely banner. Any deep link is
+  // action-oriented, so it opens across all financial years (a queue must not
+  // hide older items behind the current-FY default) and syncs the FY display.
   useEffect(() => {
-    if (!router.isReady || deepLinkApplied.current) return;
-    deepLinkApplied.current = true;
-    const q = router.query;
-    if (q.ended_no_quotes === "1" || q.status === "RFQ_STUCK_COMMERCIAL") {
-      setTab("all");
-      // Action-oriented deep link: show stuck RFQs across all years (don't hide
-      // older ones behind the current-FY default), and sync the FY display.
-      setFilters({ ...EMPTY_FILTERS, status: ["RFQ_STUCK_COMMERCIAL"] });
-      setFy({ mode: "none", fy: "", from: "", to: "" });
-      setPage(1);
-    }
+    if (!router.isReady) return;
+    const link = parseRfqListDeepLink(router.query);
+    if (!link) return;
+    const key = JSON.stringify(link);
+    if (deepLinkApplied.current === key) return;
+    deepLinkApplied.current = key;
+    setTab(link.tab);
+    setFilters({ ...EMPTY_FILTERS, status: link.status, buId: link.bu });
+    setFy({ mode: "none", fy: "", from: "", to: "" });
+    if (link.search) setSearch(link.search);
+    if (link.sort) setSort(link.sort);
+    setPage(1);
   }, [router.isReady, router.query]);
 
   // Debounce the search box.
