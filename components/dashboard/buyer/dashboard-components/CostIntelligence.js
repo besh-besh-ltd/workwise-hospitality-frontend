@@ -13,6 +13,7 @@ import {
   Filler,
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
+import { formatMoney as formatCurrency, formatMoneyExact } from "@/components/dashboard/shared/format";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonChart } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
@@ -27,16 +28,6 @@ ChartJS.register(
   Legend,
   Filler
 );
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"\u2192"19.5", "20.00"\u2192"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "\u20B90";
-  if (value >= 10000000) return `\u20B9${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `\u20B9${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `\u20B9${(value / 1000).toFixed(1)}K`;
-  return `\u20B9${Math.round(value).toLocaleString("en-IN")}`;
-};
 
 const selectStyles = {
   control: (base, state) => ({
@@ -93,7 +84,7 @@ const chartOptions = {
       padding: 10,
       cornerRadius: 8,
       callbacks: {
-        label: (ctx) => `${ctx.dataset.label}: \u20B9${ctx.raw?.toLocaleString("en-IN") ?? ctx.raw}`,
+        label: (ctx) => `${ctx.dataset.label}: ${formatMoneyExact(ctx.raw)}`,
       },
     },
   },

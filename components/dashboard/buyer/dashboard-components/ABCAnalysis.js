@@ -2,20 +2,11 @@ import React, { useState } from "react";
 import { Layers } from "lucide-react";
 import { getAbcAnalysis } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ABCAnalysis.module.scss";
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
 
 const formatNumber = (value) => Math.round(Number(value) || 0).toLocaleString("en-IN");
 

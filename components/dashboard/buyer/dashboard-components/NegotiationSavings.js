@@ -4,7 +4,7 @@ import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonHeadline } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
-import { formatCurrencyShort as formatCurrency } from "@/utils/sharedFunctions";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import styles from "./NegotiationSavings.module.scss";
 
 const NegotiationSavings = ({ filters }) => {
