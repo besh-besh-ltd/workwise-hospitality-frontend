@@ -62,27 +62,28 @@ export const getMyActiveRfqs              = dashGet('my-active-rfqs');
 export const getMyNoResponseRfqs          = dashGet('my-no-response-rfqs');
 export const getMyRfqsBidClosedNoQuotes   = dashGet('my-rfqs-bid-closed-no-quotes');
 
+// RFQ Approver
+export const getMyRfqApprovalsPending     = dashGet('my-rfq-approvals-pending');
+
 // Technical Evaluator
 export const getMyTechEvalsPending           = dashGet('my-tech-evals-pending');
 export const getTechEvalsWithDisagreements   = dashGet('tech-evals-with-disagreements');
-export const getTechEvalThroughput           = dashGet('tech-eval-throughput');
 
 // Technical Approver
 export const getMyTechApprovalsPending      = dashGet('my-tech-approvals-pending');
-export const getTechApprovalOldestPending   = dashGet('tech-approval-oldest-pending');
-export const getTechApprovalThroughput      = dashGet('tech-approval-throughput');
 
 // Commercial Evaluator / N1
 export const getMyQuoteCompares          = dashGet('my-quote-compares');
 export const getMyActiveNegotiations     = dashGet('my-active-negotiations');
 export const getSavingsPipeline          = dashGet('savings-pipeline');
 
-// Commercial Approver
+// Commercial Approver — negotiated quotes (NEGOTIATION_QUOTE)
 export const getMyCommercialApprovalsPending  = dashGet('my-commercial-approvals-pending');
-export const getDealsWithPriceAnomalies       = dashGet('deals-with-price-anomalies');
-export const getCommercialApprovalThroughput  = dashGet('commercial-approval-throughput');
 
-// Awarding P1 / P2
+// Awarding — purchase orders (PO)
 export const getMyAwardApprovalsPending = dashGet('my-award-approvals-pending');
 export const getRecentAwards            = dashGet('recent-awards');
 export const getAwardValuePipeline      = dashGet('award-value-pipeline');
+
+// All approvers
+export const getApprovalTurnaround      = dashGet('approval-turnaround');

@@ -1,85 +1,85 @@
 import React from "react";
-import { Wallet, CheckCircle2, Clock4 } from "lucide-react";
+import Link from "next/link";
+import { Layers } from "lucide-react";
 import { getAwardValuePipeline } from "@/services/dashboard";
+import { poList, poTracking } from "@/components/dashboard/shared/dashboardLinks";
+import { formatMoney } from "@/components/dashboard/shared/format";
 import PersonaCard from "../PersonaCard";
-import { SkeletonStat2Up } from "@/components/dashboard/shared";
+import { SkeletonHeadline } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, plural } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-const fmtINR = (n) => {
-  const num = Number(n) || 0;
-  return num.toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+const copy = widgetCopy("award_value_pipeline");
+
+/** Where each stage row opens. Only stages with a matching list filter link. */
+const STAGE_HREF = {
+  in_approval: poList({ status: "action-required" }),
+  approved: poList({ status: "approved" }),
+  awaiting_acceptance: poTracking({ tab: "active" }),
+  in_fulfilment: poTracking({ tab: "active" }),
+  completed: poTracking({ tab: "completed" }),
+  rejected: poList({ status: "rejected" }),
 };
 
-/** Award-value pipeline split:
- *   Completed: PO approved + vendor accepted (across the line).
- *   Ongoing:   PO in approval / awaiting vendor acceptance.
- */
+/** Value of POs raised in the period, by stage. Committed = approved onwards
+ *  (the same basis as spend); pending = still in approval. */
 const AwardValuePipeline = ({ filters }) => (
   <PersonaCard
-    title="Award value pipeline"
-    icon={Wallet}
-    tooltip="₹ value of awards you've cleared — split between completed (PO approved + vendor accepted) and ongoing (in approval / awaiting vendor)."
+    title={copy.title}
+    icon={Layers}
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getAwardValuePipeline}
-    skeleton={<SkeletonStat2Up />}
-    isEmpty={(d) =>
-      !d || (d.completed_value == null && d.ongoing_value == null)
-    }
+    skeleton={<SkeletonHeadline withSpark={false} />}
+    isEmpty={(d) => !d || !(d.stages || []).some((s) => s.po_count > 0)}
+    renderEmpty={() => (
+      <div className={styles.emptyState}>
+        No purchase orders raised in this period.
+      </div>
+    )}
+    actions={<ViewAll href={poList()} />}
   >
     {(data) => {
-      const completed = Number(data?.completed_value) || 0;
-      const ongoing = Number(data?.ongoing_value) || 0;
-      const total = completed + ongoing;
-      const completedPct = total > 0 ? (completed / total) * 100 : 0;
+      const stages = (data.stages || []).filter((s) => s.po_count > 0);
+      const max = Math.max(1, ...stages.map((s) => Number(s.value) || 0));
       return (
         <>
           <div className={styles.pipelineGrid}>
             <div className={styles.pipelineCell}>
-              <div className={styles.pipelineCellLbl}>
-                <CheckCircle2 size={11} />
-                Completed
-              </div>
-              <div className={styles.pipelineCellNum}>₹{fmtINR(completed)}</div>
+              <div className={styles.pipelineCellLbl}>Committed</div>
+              <div className={styles.pipelineCellNum}>{formatMoney(data.committed_value)}</div>
               <div className={styles.pipelineCellMeta}>
-                {data?.completed_po_count ?? 0} PO{(data?.completed_po_count ?? 0) === 1 ? "" : "s"} accepted
+                {data.committed_po_count ?? 0} {plural(data.committed_po_count ?? 0, "PO")}
               </div>
             </div>
             <div className={styles.pipelineCell}>
-              <div className={styles.pipelineCellLbl}>
-                <Clock4 size={11} />
-                Ongoing
-              </div>
-              <div className={styles.pipelineCellNum}>₹{fmtINR(ongoing)}</div>
+              <div className={styles.pipelineCellLbl}>In approval</div>
+              <div className={styles.pipelineCellNum}>{formatMoney(data.pending_value)}</div>
               <div className={styles.pipelineCellMeta}>
-                {data?.ongoing_po_count ?? 0} in approval / awaiting vendor
+                {data.pending_po_count ?? 0} {plural(data.pending_po_count ?? 0, "PO")}
               </div>
             </div>
           </div>
-          {total > 0 && (
-            <div
-              style={{
-                marginTop: 10,
-                height: 5,
-                background: "#f4f4f1",
-                borderRadius: 99,
-                overflow: "hidden",
-              }}
-              title={`${completedPct.toFixed(0)}% completed`}
-            >
-              <div
-                style={{
-                  width: `${completedPct}%`,
-                  height: "100%",
-                  background: "#15803d",
-                  borderRadius: 99,
-                  transition: "width 0.4s ease",
-                }}
-              />
-            </div>
-          )}
+          <div className={styles.stageList} style={{ marginTop: 12 }}>
+            {stages.map((s) => {
+              const body = (
+                <>
+                  <span className={styles.stageLabel}>
+                    {s.label} · {s.po_count} {plural(s.po_count, "PO")}
+                  </span>
+                  <span className={styles.stageValue}>{formatMoney(s.value)}</span>
+                  <span className={styles.stageBar} aria-hidden="true">
+                    <span style={{ width: `${((Number(s.value) || 0) / max) * 100}%` }} />
+                  </span>
+                </>
+              );
+              return STAGE_HREF[s.key] ? (
+                <Link key={s.key} href={STAGE_HREF[s.key]} className={styles.stageRow}>{body}</Link>
+              ) : (
+                <div key={s.key} className={styles.stageRow}>{body}</div>
+              );
+            })}
+          </div>
         </>
       );
     }}

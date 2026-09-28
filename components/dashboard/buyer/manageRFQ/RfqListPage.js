@@ -290,8 +290,10 @@ export function parseRfqListDeepLink(q = {}) {
   const bu = csv(q.bu).filter((s) => /^\d+$/.test(s));
   const search = typeof q.search === "string" ? q.search.trim() : "";
   const sort = ["recent", "oldest", "deadline"].includes(q.sort) ? q.sort : null;
-  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort) return null;
-  return { tab, status, bu, search, sort };
+  // ?mine=1 — only RFQs the signed-in user created (list-view `filters.mine`).
+  const mine = q.mine === "1" || q.mine === "true";
+  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort && !mine) return null;
+  return { tab, status, bu, search, sort, mine };
 }
 
 /* ─── main page ─── */
@@ -318,7 +320,7 @@ export default function RfqListPage() {
   const deepLinkApplied = useRef(null);
 
   // Deep links (built by components/dashboard/shared/dashboardLinks.js):
-  //   ?tab=<TABS key>  ?status=KEY[,KEY]  ?bu=<hotelId>[,…]  ?search=  ?sort=
+  //   ?tab=<TABS key>  ?status=KEY[,KEY]  ?bu=<hotelId>[,…]  ?search=  ?sort=  ?mine=1
   // plus the legacy ?ended_no_quotes=1 from the Wisely banner. Any deep link is
   // action-oriented, so it opens across all financial years (a queue must not
   // hide older items behind the current-FY default) and syncs the FY display.
@@ -330,7 +332,7 @@ export default function RfqListPage() {
     if (deepLinkApplied.current === key) return;
     deepLinkApplied.current = key;
     setTab(link.tab);
-    setFilters({ ...EMPTY_FILTERS, status: link.status, buId: link.bu });
+    setFilters({ ...EMPTY_FILTERS, status: link.status, buId: link.bu, ...(link.mine ? { mine: true } : {}) });
     setFy({ mode: "none", fy: "", from: "", to: "" });
     if (link.search) setSearch(link.search);
     if (link.sort) setSort(link.sort);
@@ -372,7 +374,7 @@ export default function RfqListPage() {
   };
   const resetAll = () => { setFilters(DEFAULT_FILTERS); setFy(defaultFyState()); setSearch(""); setPage(1); };
   const activeCount = useMemo(
-    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0),
+    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0) + (filters.mine ? 1 : 0),
     [filters]
   );
   function applyFy(next) {
@@ -463,13 +465,21 @@ export default function RfqListPage() {
             </div>
           </div>
 
-          {(filters.dateFrom || filters.dateTo) && (
+          {(filters.dateFrom || filters.dateTo || filters.mine) && (
             <div className="active-filters">
               <span className="af-label">Filters</span>
-              <span className="af-chip">
-                <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
-                <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
-              </span>
+              {filters.mine && (
+                <span className="af-chip">
+                  <span>Created by me</span>
+                  <button type="button" className="x-btn" onClick={() => { setFilters((prev) => { const next = { ...prev }; delete next.mine; return next; }); setPage(1); }} aria-label="Remove created by me">×</button>
+                </span>
+              )}
+              {(filters.dateFrom || filters.dateTo) && (
+                <span className="af-chip">
+                  <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
+                  <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
+                </span>
+              )}
             </div>
           )}
 

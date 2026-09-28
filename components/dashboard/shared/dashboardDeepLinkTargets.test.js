@@ -123,7 +123,18 @@ describe("RFQ list deep links", () => {
 
   test("parser drops unknown tabs and status keys", () => {
     expect(parseRfqListDeepLink({ tab: "manage-rfq" })).toBeNull();
-    expect(parseRfqListDeepLink({ status: "BOGUS,CLOSED", bu: "10,x" })).toEqual({ tab: "all", status: ["CLOSED"], bu: ["10"], search: "", sort: null });
+    expect(parseRfqListDeepLink({ status: "BOGUS,CLOSED", bu: "10,x" })).toEqual({ tab: "all", status: ["CLOSED"], bu: ["10"], search: "", sort: null, mine: false });
+    expect(parseRfqListDeepLink({ mine: "1" })).toEqual({ tab: "all", status: [], bu: [], search: "", sort: null, mine: true });
+  });
+
+  test("?mine=1 (My-widget 'View all') narrows the list to the caller's own RFQs", async () => {
+    mockQuery = queryOf(rfqList({ tab: "drafts", mine: true }));
+    render(<RfqListPage />);
+    await waitFor(() => {
+      const req = lastCall(getRfqListView);
+      expect(req.tab).toBe("drafts");
+      expect(req.filters.mine).toBe(true);
+    });
   });
 });
 

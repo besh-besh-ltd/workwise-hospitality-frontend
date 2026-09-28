@@ -1,68 +1,53 @@
 import React from "react";
-import Link from "next/link";
-import { GitCompareArrows, ArrowUpRight } from "lucide-react";
-import moment from "moment";
+import { Scale } from "lucide-react";
 import { getMyQuoteCompares } from "@/services/dashboard";
+import { quoteCompare, rfqListView } from "@/components/dashboard/shared/dashboardLinks";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, Headline, ItemList, ItemLink, since, plural } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-/** RFQs in quote-compare stage awaiting my decision. */
+const copy = widgetCopy("my_quote_compares");
+const allReady = rfqListView("quote_compare");
+
+/** RFQs in Commercial Evaluation: bidding closed, real quotes in, no live
+ *  negotiation round. The same set as the RFQ list's facet. */
 const MyQuoteCompares = ({ filters }) => (
   <PersonaCard
-    title="My quote-compares"
-    icon={GitCompareArrows}
-    tooltip="RFQs in quote-compare stage where you're the assigned evaluator."
+    title={copy.title}
+    icon={Scale}
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getMyQuoteCompares}
     poll
     skeleton={<SkeletonRankList rows={4} />}
-    isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
+    isEmpty={(d) => !d || !(d.count > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>
-        No quote-compares awaiting your call.
+        No RFQs are waiting for quote comparison.
       </div>
     )}
-    actions={
-      <Link href="/dashboard/buyer/rfq-management?stage=quote_compare" className={styles.badge}>
-        View all <ArrowUpRight size={11} />
-      </Link>
-    }
+    actions={<ViewAll href={allReady} />}
   >
     {(data) => (
       <>
-        <div className={styles.headlineRow}>
-          <span className={styles.headlineNum}>{data?.count ?? 0}</span>
-          <span className={styles.headlineUnit}>
-            RFQ{(data?.count ?? 0) === 1 ? "" : "s"} to compare
-          </span>
-        </div>
-        {(data?.items || []).slice(0, 5).length > 0 && (
-          <div className={styles.itemList}>
-            {(data?.items || []).slice(0, 5).map((item) => (
-              <Link
-                key={item.id}
-                // quote-compare reads `?rfq`, not `?rfq_id` — with the wrong
-                // key it opened with no RFQ selected at all.
-                href={`/dashboard/buyer/quote-compare?rfq=${item.id}`}
-                className={styles.item}
-              >
-                <div className={styles.itemMain}>
-                  <div className={styles.itemTitle}>
-                    {item.title || `RFQ #${item.rfq_no || item.id}`}
-                  </div>
-                  <div className={styles.itemMeta}>
-                    <span>{item.vendor_count ?? 0} vendors</span>
-                    <span>{moment(item.entered_qc_at).fromNow()}</span>
-                  </div>
-                </div>
-                <div className={styles.itemRight}>
-                  <ArrowUpRight size={12} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        <Headline count={data.count} unit="RFQ" />
+        <ItemList
+          items={data.items}
+          count={data.count}
+          moreHref={allReady}
+          render={(item) => (
+            <ItemLink
+              key={item.id}
+              href={quoteCompare(item.id)}
+              title={item.title || `RFQ #${item.rfq_no || item.id}`}
+              meta={[
+                `${item.vendor_count ?? 0} ${plural(item.vendor_count ?? 0, "quote")}`,
+                item.bid_closed_at ? `bidding closed ${since(item.bid_closed_at)} ago` : null,
+              ]}
+            />
+          )}
+        />
       </>
     )}
   </PersonaCard>

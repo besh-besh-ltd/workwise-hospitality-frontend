@@ -89,10 +89,11 @@ export const resumeDraft = (rfqId) =>
  *   bu     array of hotel ids (Business Unit facet)
  *   search free text (rfq no / title)
  *   sort   recent | oldest | deadline
+ *   mine   true → only RFQs the signed-in user created (list-view filters.mine)
  * Any deep-link filter opens the list across all financial years (queues are
  * never date-filtered — SPEC rule 2).
  */
-export const rfqList = ({ tab, status, bu, search, sort } = {}) => {
+export const rfqList = ({ tab, status, bu, search, sort, mine } = {}) => {
   const statuses = (Array.isArray(status) ? status : status ? [status] : []).filter((s) => RFQ_STATUS_KEYS.includes(s));
   return `${BASE}/rfq-management${qs({
     tab: RFQ_LIST_TABS.includes(tab) ? tab : undefined,
@@ -100,6 +101,7 @@ export const rfqList = ({ tab, status, bu, search, sort } = {}) => {
     bu: Array.isArray(bu) ? bu : bu ? [bu] : undefined,
     search,
     sort: ["recent", "oldest", "deadline"].includes(sort) ? sort : undefined,
+    mine: mine ? true : undefined,
   })}`;
 };
 

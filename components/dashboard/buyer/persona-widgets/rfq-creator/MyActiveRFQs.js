@@ -1,74 +1,60 @@
 import React from "react";
 import Link from "next/link";
-import { Activity, ArrowUpRight } from "lucide-react";
+import { Activity } from "lucide-react";
 import { getMyActiveRfqs } from "@/services/dashboard";
+import { rfqList } from "@/components/dashboard/shared/dashboardLinks";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, Headline, plural } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-const STAGE_LABELS = {
-  awaiting_vendor_quotes: "Awaiting vendor quotes",
-  quote_compare: "Quote-compare in progress",
-  negotiation: "Under negotiation",
-  technical_evaluation: "Technical evaluation",
-  awaiting_approval: "Awaiting approval",
-  awarded: "Awarded — pending PO",
-};
+const copy = widgetCopy("my_active_rfqs");
+const allMine = rfqList({ tab: "ongoing", mine: true });
 
-/** Live RFQs you created, bucketed by lifecycle stage. */
+/** Live RFQs the user created, bucketed by lifecycle stage (the same stage keys
+ *  and labels the RFQ list uses, so each row opens that exact facet). */
 const MyActiveRFQs = ({ filters }) => (
   <PersonaCard
-    title="My active RFQs"
+    title={copy.title}
     icon={Activity}
-    tooltip="Your live RFQs grouped by where they are in the lifecycle."
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getMyActiveRfqs}
     poll
     skeleton={<SkeletonRankList rows={4} />}
-    isEmpty={(d) => !d || !(d.total > 0 || (d.stages && d.stages.length > 0))}
+    isEmpty={(d) => !d || !(d.total > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>
-        No active RFQs created by you in this period.
+        No live RFQs right now.
       </div>
     )}
-    actions={
-      <Link href="/dashboard/buyer/rfq-management" className={styles.badge}>
-        View all <ArrowUpRight size={11} />
-      </Link>
-    }
+    actions={<ViewAll href={allMine} />}
   >
-    {(data) => (
-      <>
-        <div className={styles.headlineRow}>
-          <span className={styles.headlineNum}>{data?.total ?? 0}</span>
-          <span className={styles.headlineUnit}>active RFQ{(data?.total ?? 0) === 1 ? "" : "s"}</span>
-        </div>
-        <div className={styles.itemList}>
-          {(data?.stages || []).map((s) => (
-            <Link
-              key={s.stage}
-              href={`/dashboard/buyer/rfq-management?stage=${encodeURIComponent(s.stage)}`}
-              className={styles.item}
-            >
-              <div className={styles.itemMain}>
-                <div className={styles.itemTitle}>
-                  {STAGE_LABELS[s.stage] || s.stage}
-                </div>
-                {s.oldest_age_days != null && (
-                  <div className={styles.itemMeta}>
-                    <span>Oldest: {s.oldest_age_days}d</span>
-                  </div>
-                )}
-              </div>
-              <div className={styles.itemRight}>
-                <span>{s.count}</span>
-                <ArrowUpRight size={12} />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </>
-    )}
+    {(data) => {
+      const stages = (data.stages || []).filter((s) => s.count > 0);
+      const max = Math.max(1, ...stages.map((s) => s.count));
+      return (
+        <>
+          <Headline count={data.total} unit="active RFQ" />
+          <div className={styles.stageList}>
+            {stages.map((s) => (
+              <Link
+                key={s.stage}
+                href={rfqList({ status: [s.stage], mine: true })}
+                className={styles.stageRow}
+                title={s.oldest_age_days != null ? `Oldest ${s.oldest_age_days} ${plural(s.oldest_age_days, "day")} in this stage` : undefined}
+              >
+                <span className={styles.stageLabel}>{s.label || s.stage}</span>
+                <span className={styles.stageValue}>{s.count}</span>
+                <span className={styles.stageBar} aria-hidden="true">
+                  <span style={{ width: `${(s.count / max) * 100}%` }} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
+      );
+    }}
   </PersonaCard>
 );
 
