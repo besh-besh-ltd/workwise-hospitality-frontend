@@ -107,22 +107,74 @@ export const buildDashboardQuery = ({ range, customStart, customEnd, hotelIds },
  *  rebuild. Any failure falls back to the legacy layout, which is the kill
  *  switch. Returns { state: "loading" | "on" | "off", config }. `config` may
  *  also carry `admin_contact_email` for the empty-state "Contact admin" link. */
+export const CONFIG_RETRY_BASE_MS = 5000;
+export const CONFIG_RETRY_MAX_MS = 5 * 60 * 1000;
+
+/** A failed /config is worth retrying only when the server did not answer
+ *  (network, timeout) or failed (5xx). A 4xx is a definitive answer. */
+const isTransientConfigError = (err) => {
+  const status = err?.status;
+  if (err?.canceled) return false;
+  return !status || status >= 500;
+};
+
 export const useRoleAwareDashboardFlag = () => {
   const [state, setState] = useState("loading");
   const [config, setConfig] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    getDashboardConfig()
-      .then((res) => {
-        if (cancelled) return;
-        setConfig(res?.data || null);
-        setState(res?.data?.v3_enabled === true ? "on" : "off");
-      })
-      .catch(() => {
-        if (!cancelled) setState("off");
-      });
+    let timer = null;
+    let attempt = 0;
+    let inFlight = false;
+    let settled = false; // a definitive answer arrived — stop retrying
+
+    const clearTimer = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+    const load = () => {
+      if (cancelled || settled || inFlight) return;
+      clearTimer();
+      inFlight = true;
+      getDashboardConfig()
+        .then((res) => {
+          if (cancelled) return;
+          settled = true;
+          setConfig(res?.data || null);
+          setState(res?.data?.v3_enabled === true ? "on" : "off");
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // Legacy is the safe fallback while the config is unknown…
+          setState((prev) => (prev === "on" ? prev : "off"));
+          if (!isTransientConfigError(err)) {
+            settled = true;
+            return;
+          }
+          // …but keep asking, so a cold load during an outage switches to the
+          // role-aware layout on its own once the server is back.
+          const delay = Math.min(CONFIG_RETRY_BASE_MS * 2 ** attempt, CONFIG_RETRY_MAX_MS);
+          attempt += 1;
+          timer = setTimeout(load, delay);
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+    const retryNow = () => {
+      if (settled || cancelled) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      load();
+    };
+
+    load();
+    if (typeof window !== "undefined") window.addEventListener("online", retryNow);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", retryNow);
     return () => {
       cancelled = true;
+      clearTimer();
+      if (typeof window !== "undefined") window.removeEventListener("online", retryNow);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", retryNow);
     };
   }, []);
   return { state, config };

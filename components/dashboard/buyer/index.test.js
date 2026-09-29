@@ -76,7 +76,7 @@ jest.mock("./EmptyDashboard", () => {
 import React from "react";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import BuyerPage, { getDateRange, planLayout, parseDashboardQuery, buildDashboardQuery } from "./index";
+import BuyerPage, { getDateRange, planLayout, parseDashboardQuery, buildDashboardQuery, CONFIG_RETRY_BASE_MS, CONFIG_RETRY_MAX_MS } from "./index";
 import { getDashboardConfig } from "@/services/dashboard";
 
 const flush = () => act(async () => {});
@@ -134,6 +134,54 @@ describe("rollout flag (runtime, per buyer company)", () => {
     render(<BuyerPage />);
     expect(screen.queryByTestId("card-action")).not.toBeInTheDocument();
     expect(screen.queryByTestId("role-aware")).not.toBeInTheDocument();
+  });
+
+  describe("recovering from a cold-load outage", () => {
+    beforeEach(() => { jest.useFakeTimers(); });
+    afterEach(() => { jest.useRealTimers(); });
+
+    it("keeps retrying the config with backoff and switches to the role-aware layout once it answers — no reload", async () => {
+      getDashboardConfig
+        .mockRejectedValueOnce({ status: null, network: true })
+        .mockRejectedValueOnce({ status: 503 })
+        .mockResolvedValue({ status: 1, data: { v3_enabled: true } });
+      render(<BuyerPage />);
+      await act(async () => {});
+      expect(screen.getByTestId("card-action")).toBeInTheDocument(); // legacy meanwhile
+      expect(getDashboardConfig).toHaveBeenCalledTimes(1);
+
+      await act(async () => { jest.advanceTimersByTime(CONFIG_RETRY_BASE_MS); });
+      expect(getDashboardConfig).toHaveBeenCalledTimes(2);
+      await act(async () => { jest.advanceTimersByTime(CONFIG_RETRY_BASE_MS); }); // backoff: 10s now
+      expect(getDashboardConfig).toHaveBeenCalledTimes(2);
+      await act(async () => { jest.advanceTimersByTime(CONFIG_RETRY_BASE_MS); });
+      expect(getDashboardConfig).toHaveBeenCalledTimes(3);
+      expect(screen.getByTestId("role-aware")).toBeInTheDocument();
+
+      await act(async () => { jest.advanceTimersByTime(CONFIG_RETRY_MAX_MS); });
+      expect(getDashboardConfig).toHaveBeenCalledTimes(3); // settled: no more polling
+    });
+
+    it("does not retry a definitive 4xx answer", async () => {
+      getDashboardConfig.mockRejectedValue({ status: 403 });
+      render(<BuyerPage />);
+      await act(async () => {});
+      await act(async () => { jest.advanceTimersByTime(CONFIG_RETRY_MAX_MS); });
+      expect(getDashboardConfig).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("card-action")).toBeInTheDocument();
+    });
+
+    it("retries immediately when the tab becomes visible or the browser comes back online", async () => {
+      getDashboardConfig
+        .mockRejectedValueOnce({ status: null, network: true })
+        .mockResolvedValue({ status: 1, data: { v3_enabled: true } });
+      render(<BuyerPage />);
+      await act(async () => {});
+      expect(getDashboardConfig).toHaveBeenCalledTimes(1);
+      await act(async () => { window.dispatchEvent(new Event("online")); });
+      expect(getDashboardConfig).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("role-aware")).toBeInTheDocument();
+    });
   });
 });
 
