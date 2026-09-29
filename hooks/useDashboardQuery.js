@@ -122,6 +122,8 @@ export default function useDashboardQuery(fetcher, filters, options = {}) {
   const hasDataRef = useRef(false);
   const loadedKeyRef = useRef(null);
   const runRef = useRef(null);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -202,7 +204,14 @@ export default function useDashboardQuery(fetcher, filters, options = {}) {
   // params → background refetch that keeps the current numbers on screen.
   useEffect(() => {
     if (!enabled) {
+      // Disabled mid-flight: nothing scheduled may fire later, and a late
+      // response must not land in state.
+      clearTimer();
+      dueWhileHiddenRef.current = false;
+      fetchIdRef.current += 1;
+      if (controllerRef.current) controllerRef.current.abort();
       setLoading(false);
+      setRefreshing(false);
       return undefined;
     }
     const sameParams = hasDataRef.current && loadedKeyRef.current === paramsKey;
@@ -216,7 +225,7 @@ export default function useDashboardQuery(fetcher, filters, options = {}) {
   useEffect(() => {
     if (!poll || typeof document === "undefined") return undefined;
     const onVisibility = () => {
-      if (isDocumentHidden()) return;
+      if (isDocumentHidden() || !enabledRef.current) return;
       const overdue = Date.now() - lastSuccessAtRef.current >= pollMs;
       if (dueWhileHiddenRef.current || overdue) runRef.current?.({ background: true });
     };

@@ -49,8 +49,10 @@ jest.mock("react-chartjs-2", () => ({
 
 // react-select is heavy in jsdom; a plain select is enough for these tests.
 jest.mock("react-select", () => {
-  const Select = ({ value, options }) => (
-    <div data-testid="product-select">{value ? value.label : ""}|{(options || []).length}</div>
+  const Select = ({ value, options, formatOptionLabel }) => (
+    <div data-testid="product-select">
+      {value ? (formatOptionLabel ? formatOptionLabel(value) : value.label) : ""}|{(options || []).length}
+    </div>
   );
   Select.displayName = "Select";
   return Select;
@@ -103,7 +105,7 @@ beforeEach(() => {
 describe("ActionCenter", () => {
   it("shows every queue count and adds vendor + approval rejections", async () => {
     await renderWith(ActionCenter, svc.getActionCenterData, F.ACTION_CENTER);
-    const tile = (label) => screen.getByText(label).closest("button, a");
+    const tile = (label) => screen.getByText(label).closest("[data-testid^='action-']");
     expect(within(tile("Pending approvals")).getByText("4")).toBeInTheDocument();
     expect(within(tile("POs rejected")).getByText("3")).toBeInTheDocument();
     expect(within(tile("POs rejected")).getByText("1 by vendor · 2 in approval")).toBeInTheDocument();
@@ -113,8 +115,33 @@ describe("ActionCenter", () => {
 
   it("link tiles point at the builder destinations", async () => {
     await renderWith(ActionCenter, svc.getActionCenterData, F.ACTION_CENTER);
-    expect(screen.getByText("RFQs ending soon").closest("a")).toHaveAttribute("href", L.rfqListView("closing_soon"));
-    expect(screen.getByText("PO pending").closest("a")).toHaveAttribute("href", L.poTracking({ tab: "active" }));
+    expect(screen.getByRole("link", { name: /^RFQs ending soon:/ })).toHaveAttribute("href", L.rfqListView("closing_soon"));
+    expect(screen.getByRole("link", { name: /^PO pending:/ })).toHaveAttribute("href", L.poTracking({ tab: "active" }));
+  });
+
+  it("never nests an interactive control inside a button or link", async () => {
+    const { container } = await renderWith(ActionCenter, svc.getActionCenterData, F.ACTION_CENTER);
+    expect(container.querySelectorAll("button button, button a, a button, a a")).toHaveLength(0);
+    // Each tile's info tip is a sibling control, not a descendant of the tile target.
+    const tile = screen.getByTestId("action-pending_approvals");
+    const target = within(tile).getByRole("button", { name: "Pending approvals: 4" });
+    expect(target).toBeEmptyDOMElement();
+  });
+
+  it("a modal tile opens by click and by keyboard", async () => {
+    svc.getPendingApprovalsDetail.mockReturnValue(new Promise(() => {}));
+    await renderWith(ActionCenter, svc.getActionCenterData, F.ACTION_CENTER);
+    const target = screen.getByRole("button", { name: "Pending approvals: 4" });
+    fireEvent.click(target);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await flush();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // A native <button> is keyboard-operable: focus it, then Enter/Space activate it.
+    target.focus();
+    expect(target).toHaveFocus();
+    expect(target.tagName).toBe("BUTTON");
+    expect(target).toHaveAttribute("type", "button");
   });
 
   it("polls as a queue (60s)", async () => {
@@ -227,6 +254,17 @@ describe("CostIntelligence", () => {
     });
     expect(screen.queryByText(/above benchmark/)).not.toBeInTheDocument();
     expect(screen.getByText(/Specifications differ across these purchases/)).toBeInTheDocument();
+  });
+
+  it("a long product name never truncates the card title and keeps its full name as a tooltip", async () => {
+    const longName = "STAINLESS STEEL COMMERCIAL KITCHEN EXHAUST HOOD WITH BAFFLE FILTERS 2400MM";
+    await renderWith(CostIntelligence, svc.getCostIntelligence, {
+      ...F.COST_INTELLIGENCE,
+      top_products: [{ ...F.COST_INTELLIGENCE.top_products[0], product_name: longName }],
+    });
+    // The product name lives in the selector, never in the title element.
+    expect(screen.getByText("Price benchmarking")).not.toHaveTextContent(longName);
+    expect(within(screen.getByTestId("product-select")).getByTitle(longName)).toHaveTextContent(longName);
   });
 
   it("vendors show quote counts", async () => {

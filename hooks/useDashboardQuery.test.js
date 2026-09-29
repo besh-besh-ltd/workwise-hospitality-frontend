@@ -196,6 +196,40 @@ describe("useDashboardQuery", () => {
     expect(end).toHaveBeenCalledTimes(1);
   });
 
+  it("a scheduled poll never fires once the query is disabled", async () => {
+    const fetcher = makeFetcher();
+    const { rerender } = render(
+      <Probe fetcher={fetcher} filters={{}} options={{ poll: true, pollMs: 1000 }} />
+    );
+    await act(async () => fetcher.calls[0].resolve({ status: 1, data: {} }));
+    rerender(
+      <Probe fetcher={fetcher} filters={{}} options={{ poll: true, pollMs: 1000, enabled: false }} />
+    );
+    await act(async () => jest.advanceTimersByTime(10 * 1000));
+    act(() => setHidden(true));
+    act(() => setHidden(false));
+    await flush();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("a pending backoff retry never fires once the query is disabled", async () => {
+    const fetcher = makeFetcher();
+    const { rerender } = render(<Probe fetcher={fetcher} filters={{}} />);
+    await act(async () => fetcher.calls[0].reject({ message: "x" }));
+    rerender(<Probe fetcher={fetcher} filters={{}} options={{ enabled: false }} />);
+    await act(async () => jest.advanceTimersByTime(60 * 1000));
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("disabling aborts the in-flight request and ignores its late response", async () => {
+    const fetcher = makeFetcher();
+    const { rerender } = render(<Probe fetcher={fetcher} filters={{}} />);
+    rerender(<Probe fetcher={fetcher} filters={{}} options={{ enabled: false }} />);
+    expect(fetcher.calls[0].signal.aborted).toBe(true);
+    await act(async () => fetcher.calls[0].resolve({ status: 1, data: { late: true } }));
+    expect(screen.getByTestId("data")).toHaveTextContent("none");
+  });
+
   it("aborts the in-flight request on unmount", () => {
     const fetcher = makeFetcher();
     const { unmount } = render(<Probe fetcher={fetcher} filters={{}} />);

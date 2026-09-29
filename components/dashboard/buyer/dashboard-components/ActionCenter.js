@@ -112,7 +112,10 @@ const ActionCenter = ({ filters }) => {
                 <div className={styles.actionHead}>
                   <div className={styles.actionLabel}>
                     {card.label}
-                    <InfoTip text={card.tooltip} />
+                    {/* Sits above the stretched card target so it stays its own control. */}
+                    <span className={styles.tipLayer}>
+                      <InfoTip text={card.tooltip} />
+                    </span>
                   </div>
                   <div className={`${styles.iconChip} ${styles[card.accent]}`}>
                     <IconComponent size={13} />
@@ -133,29 +136,38 @@ const ActionCenter = ({ filters }) => {
             );
 
             const itemClass = `${styles.actionItem} ${styles[card.accent]}`;
+            // The whole tile is clickable through one stretched target (its
+            // ::after covers the card) rather than by wrapping the tile in a
+            // button: the info tip is itself a button, and a button inside a
+            // button is invalid HTML that React flags on hydration.
+            const targetLabel = `${card.label}: ${count}`;
 
+            let target;
             if (!card.href) {
               const openModal = () => {
                 if (card.modal === "rejected") setShowRejectedModal(true);
                 else if (card.modal === "noresponse") setShowNoResponseModal(true);
                 else setShowApprovalModal(true);
               };
-              return (
+              target = (
                 <button
                   type="button"
-                  key={card.key}
-                  className={itemClass}
+                  className={styles.cardTarget}
                   onClick={openModal}
-                >
-                  {inner}
-                </button>
+                  aria-label={targetLabel}
+                />
+              );
+            } else {
+              target = (
+                <Link href={card.href} className={styles.cardTarget} aria-label={targetLabel} />
               );
             }
 
             return (
-              <Link key={card.key} href={card.href} className={itemClass}>
+              <div key={card.key} className={itemClass} data-testid={`action-${card.key}`}>
                 {inner}
-              </Link>
+                {target}
+              </div>
             );
           })}
         </div>

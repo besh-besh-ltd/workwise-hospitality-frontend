@@ -55,7 +55,9 @@
 }
 
 .productSelector {
-  min-width: 180px;
+  width: 220px;
+  min-width: 0;
+  max-width: 100%;
 
   :global(.react-select__indicator-separator) {
     display: none;

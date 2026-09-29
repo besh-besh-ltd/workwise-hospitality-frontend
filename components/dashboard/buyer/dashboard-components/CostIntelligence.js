@@ -250,6 +250,8 @@ const CostIntelligence = ({ filters }) => {
             styles={selectStyles}
             isClearable={false}
             isSearchable
+            formatOptionLabel={(opt) => <span title={opt.label}>{opt.label}</span>}
+            aria-label="Product"
             menuPortalTarget={typeof window !== "undefined" ? document.body : null}
             menuPosition="fixed"
           />

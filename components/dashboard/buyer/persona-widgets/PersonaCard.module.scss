@@ -23,6 +23,7 @@
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -36,6 +37,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  /* The title never gives way to header controls: when both don't fit, the
+     controls wrap onto their own line instead of clipping the title. */
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .iconWrap {
@@ -73,7 +78,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .refreshBtn {
