@@ -3,7 +3,7 @@
    widget shares.
    ──────────────────────────────────────────────────────────── */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { dashboardErrorMessage } from "@/components/dashboard/shared/errorCopy";
 
 /** Queue widgets (approvals, drafts, closing soon…) refresh on this cadence.
  *  Analytics widgets never poll — they refetch on filter change or on the
@@ -173,7 +173,7 @@ export default function useDashboardQuery(fetcher, filters, options = {}) {
       } catch (err) {
         if (id !== fetchIdRef.current || isCancelError(err)) return;
         failuresRef.current += 1;
-        setError(getApiErrorMessage(err, errorMessage));
+        setError(dashboardErrorMessage(err, errorMessage));
         // Keep the last good result only when it answers the SAME question.
         // Data for the previous BU / date range would be silently wrong.
         const sameParams = hasDataRef.current && loadedKeyRef.current === paramsKey;

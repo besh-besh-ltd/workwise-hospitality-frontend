@@ -438,6 +438,28 @@ describe("Drill-down modals", () => {
     expect(screen.getByText("Crockery").closest("a")).toHaveAttribute("href", L.rfqDetail(51));
     expect(screen.getByText("1 regret")).toBeInTheDocument();
   });
+
+  it.each([
+    ["no response", NoResponseModal, "getNoResponseDetail", /Loading RFQs awaiting a response/],
+    ["rejected POs", RejectedPOsModal, "getRejectedPOsDetail", /Loading rejected purchase orders/],
+  ])("%s: says it is loading while the list is fetched", async (_n, Modal, fn, text) => {
+    svc[fn].mockReturnValue(new Promise(() => {}));
+    render(<Modal filters={FILTERS} onClose={() => {}} />);
+    expect(screen.getByRole("status")).toHaveTextContent(text);
+  });
+});
+
+/* ─── Error copy ────────────────────────────────────────── */
+describe("friendly error copy", () => {
+  it("a card whose request never reached the server shows plain copy, not 'Network Error'", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    svc.getProcurementSnapshot.mockRejectedValue({ message: null, network: true, code: "ERR_NETWORK", detail: "Network Error" });
+    render(<ProcurementSnapshot filters={FILTERS} />);
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent("Can't reach the server right now");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Network Error");
+    warn.mockRestore();
+  });
 });
 
 /* ─── Status banner ─────────────────────────────────────── */

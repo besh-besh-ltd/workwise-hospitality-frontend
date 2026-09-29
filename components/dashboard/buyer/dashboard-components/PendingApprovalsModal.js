@@ -119,9 +119,14 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} aria-busy={loading}>
           {loading ? (
-            [0, 1].map((g) => (
+            <>
+            <div className={styles.loadingNote} role="status">
+              <span className={styles.loadingSpinner} aria-hidden="true" />
+              Loading your pending approvals…
+            </div>
+            {[0, 1].map((g) => (
               <div key={g} className={styles.group}>
                 <div className={styles.groupHeader}>
                   <span className={styles.skel} style={{ width: 7, height: 7, borderRadius: 99 }} />
@@ -139,7 +144,8 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                   ))}
                 </div>
               </div>
-            ))
+            ))}
+            </>
           ) : error ? (
             <div className={styles.emptyState} role="alert">
               <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>

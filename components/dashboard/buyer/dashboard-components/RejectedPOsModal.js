@@ -53,9 +53,12 @@ const RejectedPOsModal = ({ onClose, filters }) => {
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} aria-busy={loading}>
           {loading ? (
-            <div className={styles.emptyState}>Loading...</div>
+            <div className={styles.loadingNote} role="status">
+              <span className={styles.loadingSpinner} aria-hidden="true" />
+              Loading rejected purchase orders…
+            </div>
           ) : error ? (
             <div className={styles.emptyState} role="alert">
               <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>

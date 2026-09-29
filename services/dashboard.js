@@ -11,7 +11,16 @@ const dashGet = (path) => (params, { signal } = {}) =>
       resolve(response);
     } catch (error) {
       const canceled = error?.name === "CanceledError" || error?.code === "ERR_CANCELED";
-      reject({ message: error?.response?.data?.message || error.message, canceled });
+      // Keep the transport facts (status, network) so the dashboard can show
+      // plain copy; `detail` is the raw axios text, for the console only.
+      reject({
+        message: error?.response?.data?.message || null,
+        status: error?.response?.status || null,
+        network: !error?.response && !canceled,
+        code: error?.code || null,
+        detail: error?.message || null,
+        canceled,
+      });
     }
   });
 
