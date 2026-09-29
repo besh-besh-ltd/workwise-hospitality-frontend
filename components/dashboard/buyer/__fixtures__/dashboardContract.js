@@ -135,8 +135,8 @@ export const SMART_INSIGHTS = {
         { label: "Best paid", value: "₹22,550" },
         { label: "Latest", value: "₹29,500" },
       ],
-      action_label: "Find RFQs for this item",
-      action: { type: "rfqList", params: { search: "SMART TV 55" } },
+      action_label: "Open latest PO",
+      action: { type: "poDetail", params: { poId: 77 } },
     },
     {
       type: "vendor_optimization",

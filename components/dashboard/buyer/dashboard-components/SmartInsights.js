@@ -10,7 +10,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { getSmartInsightsData } from "@/services/dashboard";
-import { rfqList, poList, reports } from "@/components/dashboard/shared/dashboardLinks";
+import { rfqList, poList, reports, quoteCompare, poDetail } from "@/components/dashboard/shared/dashboardLinks";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
@@ -48,6 +48,8 @@ const ACTION_BUILDERS = {
   rfqList: (p = {}) => rfqList({ search: p.search }),
   poList: (p = {}) => poList({ search: p.search }),
   reports: () => reports(),
+  quoteCompare: (p = {}) => (p.rfqId ? quoteCompare(p.rfqId) : null),
+  poDetail: (p = {}) => (p.poId ? poDetail(p.poId) : null),
 };
 export const resolveInsightAction = (action) => {
   const build = action && ACTION_BUILDERS[action.type];

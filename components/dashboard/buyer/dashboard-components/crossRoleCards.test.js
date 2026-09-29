@@ -356,11 +356,14 @@ describe("WorkflowEfficiency (Stage turnaround)", () => {
 describe("SmartInsights", () => {
   it("resolves every action through the link builder; unknown types get no link", async () => {
     await renderWith(SmartInsights, svc.getSmartInsightsData, F.SMART_INSIGHTS);
-    expect(screen.getByText("Find RFQs for this item").closest("a")).toHaveAttribute("href", L.rfqList({ search: "SMART TV 55" }));
+    expect(screen.getByText("Open latest PO").closest("a")).toHaveAttribute("href", L.poDetail(77));
     expect(screen.getByText("View their POs").closest("a")).toHaveAttribute("href", L.poList({ search: "Alpha Electronics" }));
     expect(screen.getByText("Open spend reports").closest("a")).toHaveAttribute("href", L.reports());
     expect(screen.queryByText("Go somewhere")).not.toBeInTheDocument();
     expect(resolveInsightAction(undefined)).toBeNull();
+    expect(resolveInsightAction({ type: "quoteCompare", params: { rfqId: 9 } })).toBe(L.quoteCompare(9));
+    expect(resolveInsightAction({ type: "poDetail", params: { poId: 77 } })).toBe(L.poDetail(77));
+    expect(resolveInsightAction({ type: "quoteCompare", params: {} })).toBeNull();
   });
 
   it("renders description as text (no HTML injection) and details as a list", async () => {
