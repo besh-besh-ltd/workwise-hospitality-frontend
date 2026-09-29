@@ -361,11 +361,11 @@ const LegacyDashboard = ({ filters }) => (
       <div className={styles.leftColumn}>
         <NegotiationSavings filters={filters} />
         <CostIntelligence filters={filters} />
+        <WorkflowEfficiency filters={filters} />
       </div>
       <div className={styles.rightColumn}>
         <CategoryInsights filters={filters} />
         <ABCAnalysis filters={filters} />
-        <WorkflowEfficiency filters={filters} />
         <SmartInsights filters={filters} />
       </div>
     </div>

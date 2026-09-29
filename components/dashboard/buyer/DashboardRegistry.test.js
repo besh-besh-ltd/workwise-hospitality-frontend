@@ -118,3 +118,18 @@ describe("DashboardRegistry — integrity", () => {
     expect(groups[PERSONAS.APPROVER]).toHaveLength(1);
   });
 });
+
+describe("cross-role column balance", () => {
+  // Rough card heights at 1440px (px). The two columns of the full cross-role
+  // set should stay within ~250px of each other.
+  const APPROX_HEIGHT = {
+    negotiation_savings: 280, cost_intelligence: 620, workflow_efficiency: 360,
+    category_insights: 420, abc_analysis: 460, smart_insights: 520,
+  };
+  it("the full cross-role set splits into columns of similar height", () => {
+    const cross = DASHBOARD_WIDGETS.filter((w) => APPROX_HEIGHT[w.permission]);
+    expect(cross).toHaveLength(6);
+    const sum = (col) => cross.filter((w) => w.column === col).reduce((t, w) => t + APPROX_HEIGHT[w.permission], 0);
+    expect(Math.abs(sum(COLUMN.LEFT) - sum(COLUMN.RIGHT))).toBeLessThanOrEqual(250);
+  });
+});

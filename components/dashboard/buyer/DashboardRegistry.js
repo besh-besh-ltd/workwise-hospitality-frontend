@@ -117,7 +117,9 @@ export const DASHBOARD_WIDGETS = [
   entry("cost_intelligence", CostIntelligence, COLUMN.LEFT, 20),
   entry("category_insights", CategoryInsights, COLUMN.RIGHT, 10),
   entry("abc_analysis", ABCAnalysis, COLUMN.RIGHT, 15),
-  entry("workflow_efficiency", WorkflowEfficiency, COLUMN.RIGHT, 20),
+  // Stage turnaround sits under price benchmarking: with all eight cards the
+  // right column otherwise ran ~1,000px past the left at desktop widths.
+  entry("workflow_efficiency", WorkflowEfficiency, COLUMN.LEFT, 30),
   entry("smart_insights", SmartInsights, COLUMN.RIGHT, 30),
 
   // ───── RFQ creator ────────────────────────────────────────────────
