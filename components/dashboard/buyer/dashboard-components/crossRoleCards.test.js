@@ -267,10 +267,27 @@ describe("CostIntelligence", () => {
     expect(within(screen.getByTestId("product-select")).getByTitle(longName)).toHaveTextContent(longName);
   });
 
-  it("vendors show quote counts", async () => {
+  it("vendors show quote counts, with the full name as a tooltip", async () => {
     await renderWith(CostIntelligence, svc.getCostIntelligence, F.COST_INTELLIGENCE);
-    expect(screen.getByText("Alpha Electronics")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Electronics")).toHaveAttribute("title", "Alpha Electronics");
     expect(screen.getByText("3 quotes")).toBeInTheDocument();
+  });
+
+  it("labels the benchmark as the best price paid across all time", async () => {
+    await renderWith(CostIntelligence, svc.getCostIntelligence, F.COST_INTELLIGENCE);
+    expect(screen.getByText("Best price paid (all time)")).toBeInTheDocument();
+  });
+
+  // A <table> ignores the 1px width of .visually-hidden and renders at its
+  // natural width, pushing the page sideways on tablets and phones. The
+  // screen-reader table must sit inside a visually-hidden wrapper instead.
+  it("keeps the screen-reader price table inside a visually-hidden wrapper", async () => {
+    await renderWith(CostIntelligence, svc.getCostIntelligence, F.COST_INTELLIGENCE);
+    const wrapper = screen.getByTestId("price-trend-table");
+    expect(wrapper.tagName).toBe("DIV");
+    expect(wrapper).toHaveClass("visually-hidden");
+    expect(wrapper.querySelector("table")).not.toBeNull();
+    document.querySelectorAll("table").forEach((t) => expect(t).not.toHaveClass("visually-hidden"));
   });
 
   it("empty contract (no priced items) → empty state", async () => {

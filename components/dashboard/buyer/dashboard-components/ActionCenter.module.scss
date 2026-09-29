@@ -62,12 +62,12 @@
 
 .actionGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 
-  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 720px)  { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 460px)  { grid-template-columns: 1fr; }
+  @media (max-width: 1100px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 720px)  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 460px)  { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* KPI-tile look: card chrome + 3px accent top-stripe + corner icon chip. */

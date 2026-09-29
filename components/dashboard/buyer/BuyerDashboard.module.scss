@@ -3,6 +3,7 @@
   flex-direction: column;
   gap: 18px;
   min-height: calc(100vh - 80px);
+  min-width: 0;
 
   @media (max-width: 768px) {
     padding: 16px;
@@ -236,11 +237,11 @@
 /* ── Layout ── */
 .mainContent {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 24px;
 
   @media (max-width: 992px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -248,12 +249,14 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 .rightColumn {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 /* Only one side of the cross-role grid has widgets for this user. */
@@ -261,6 +264,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 /* Persona widgets: grouped under a heading, flowing in a responsive grid. */
@@ -281,7 +285,7 @@
 
 .personaGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: 24px;
   align-items: start;
 }

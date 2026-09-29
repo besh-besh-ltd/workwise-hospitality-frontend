@@ -272,7 +272,7 @@ const CostIntelligence = ({ filters }) => {
       {bench && (
         <div className={styles.benchmarkBar}>
           <div className={styles.benchItem}>
-            <span className={styles.benchLabel}>Best price paid</span>
+            <span className={styles.benchLabel}>Best price paid (all time)</span>
             <span className={styles.benchValue}>{formatCurrency(bench.benchmark_price)}</span>
           </div>
           {bench.current_price != null && (
@@ -305,7 +305,8 @@ const CostIntelligence = ({ filters }) => {
         <Line data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
       </div>
       {chartData && (
-        <table className="visually-hidden">
+        <div className="visually-hidden" data-testid="price-trend-table">
+        <table>
           <caption>{chartSummary}</caption>
           <thead>
             <tr>
@@ -326,6 +327,7 @@ const CostIntelligence = ({ filters }) => {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {vendors.length > 0 && (
         <>
@@ -343,7 +345,7 @@ const CostIntelligence = ({ filters }) => {
                 >
                   <div className={styles.vendorNameRow}>
                     <span className={`${styles.rankChip} ${rankClass}`}>#{rank}</span>
-                    <div className={styles.vendorName}>
+                    <div className={styles.vendorName} title={vendor.company_name || vendor.vendor_name || undefined}>
                       {vendor.company_name || vendor.vendor_name}
                     </div>
                   </div>
