@@ -5,6 +5,7 @@ import Select from 'react-select';
 import { BsExclamationCircleFill, BsHourglassSplit, BsInboxFill, BsCircle } from 'react-icons/bs';
 import { formatRFQNumber } from '@/utils/sharedFunctions';
 import styles from './RFQListSidebar.module.css';
+import MobileDrawerClose, { useEscapeToClose } from '@/components/shared/MobileDrawerClose';
 
 const DEFAULT_TAB_ICONS = {
   action_required: BsExclamationCircleFill,
@@ -162,6 +163,7 @@ const RFQListSidebar = ({
   };
 
   const isMobileDrawer = typeof mobileOpen === 'boolean';
+  useEscapeToClose(isMobileDrawer && mobileOpen, onMobileClose);
 
   // On mobile, the sidebar is inside a display:none parent (<aside>).
   // Portal the mobile drawer to document.body so it's always visible.
@@ -184,6 +186,7 @@ const RFQListSidebar = ({
         }}
       >
       <div className={styles.sidebar}>
+        {isMobileDrawer && mobileOpen && onMobileClose && <MobileDrawerClose onClose={onMobileClose} />}
         {/* Header — hidden when no title provided */}
         {title && (
           <div className={styles.sidebarHeader}>
