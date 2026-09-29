@@ -46,7 +46,7 @@ jest.mock("@/services/po", () => ({
 }));
 
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import { getRfqListView } from "@/services/rfq";
@@ -123,8 +123,8 @@ describe("RFQ list deep links", () => {
 
   test("parser drops unknown tabs and status keys", () => {
     expect(parseRfqListDeepLink({ tab: "manage-rfq" })).toBeNull();
-    expect(parseRfqListDeepLink({ status: "BOGUS,CLOSED", bu: "10,x" })).toEqual({ tab: "all", status: ["CLOSED"], bu: ["10"], search: "", sort: null, mine: false });
-    expect(parseRfqListDeepLink({ mine: "1" })).toEqual({ tab: "all", status: [], bu: [], search: "", sort: null, mine: true });
+    expect(parseRfqListDeepLink({ status: "BOGUS,CLOSED", bu: "10,x" })).toEqual({ tab: "all", status: ["CLOSED"], bu: ["10"], search: "", sort: null, mine: false, disagreements: false });
+    expect(parseRfqListDeepLink({ mine: "1" })).toEqual({ tab: "all", status: [], bu: [], search: "", sort: null, mine: true, disagreements: false });
   });
 
   test("?mine=1 (My-widget 'View all') narrows the list to the caller's own RFQs", async () => {
@@ -135,6 +135,20 @@ describe("RFQ list deep links", () => {
       expect(req.tab).toBe("drafts");
       expect(req.filters.mine).toBe(true);
     });
+  });
+
+  test("?disagreements=1 (Vendor disagreements 'View all') filters to disagreements, with a removable chip", async () => {
+    mockQuery = queryOf(rfqListView("vendor_disagreements"));
+    render(<RfqListPage />);
+    await waitFor(() => expect(lastCall(getRfqListView).filters.vendor_disagreement).toBe(true));
+    const remove = screen.getByRole("button", { name: "Remove vendor disagreements" });
+    expect(screen.getByText("Vendor disagreements")).toBeInTheDocument();
+    fireEvent.click(remove);
+    await waitFor(() => expect(lastCall(getRfqListView).filters.vendor_disagreement).toBeUndefined());
+  });
+
+  test("parses ?disagreements=1", () => {
+    expect(parseRfqListDeepLink({ disagreements: "1" })).toMatchObject({ disagreements: true, mine: false });
   });
 });
 

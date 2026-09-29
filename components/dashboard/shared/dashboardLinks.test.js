@@ -79,6 +79,7 @@ const SAMPLES = {
   rfqDetailStage: L.rfqDetail(512, { stage: "negotiation-award", focus: "approval" }),
   resumeDraft: L.resumeDraft(512),
   rfqListFull: L.rfqList({ tab: "pending", status: ["RFQ_APPROVAL"], bu: [10], search: "LOCKS", sort: "deadline", mine: true }),
+  rfqListDisagreements: L.rfqListView("vendor_disagreements"),
   techEval: L.techEval({ rfqId: 9, rfqProductId: 4 }),
   techEvalBare: L.techEval(),
   quoteCompare: L.quoteCompare(9, { rfqProductId: 4 }),

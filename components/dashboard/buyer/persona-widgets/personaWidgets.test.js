@@ -97,7 +97,7 @@ const CASES = [
   },
   {
     code: "tech_evals_with_vendor_disagreements", fetcher: "getTechEvalsWithDisagreements", poll: true,
-    viewAll: L.rfqListView("tech_evaluation"),
+    viewAll: L.rfqListView("vendor_disagreements"),
     item: ["Washer", L.techEval({ rfqId: 50, rfqProductId: 5001 })],
     count: "3",
   },

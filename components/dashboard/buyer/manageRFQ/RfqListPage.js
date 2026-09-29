@@ -292,8 +292,11 @@ export function parseRfqListDeepLink(q = {}) {
   const sort = ["recent", "oldest", "deadline"].includes(q.sort) ? q.sort : null;
   // ?mine=1 — only RFQs the signed-in user created (list-view `filters.mine`).
   const mine = q.mine === "1" || q.mine === "true";
-  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort && !mine) return null;
-  return { tab, status, bu, search, sort, mine };
+  // ?disagreements=1 — only RFQs where a vendor disagreed with a technical
+  // clause (list-view `filters.vendor_disagreement`).
+  const disagreements = q.disagreements === "1" || q.disagreements === "true";
+  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort && !mine && !disagreements) return null;
+  return { tab, status, bu, search, sort, mine, disagreements };
 }
 
 /* ─── main page ─── */
@@ -332,7 +335,13 @@ export default function RfqListPage() {
     if (deepLinkApplied.current === key) return;
     deepLinkApplied.current = key;
     setTab(link.tab);
-    setFilters({ ...EMPTY_FILTERS, status: link.status, buId: link.bu, ...(link.mine ? { mine: true } : {}) });
+    setFilters({
+      ...EMPTY_FILTERS,
+      status: link.status,
+      buId: link.bu,
+      ...(link.mine ? { mine: true } : {}),
+      ...(link.disagreements ? { vendor_disagreement: true } : {}),
+    });
     setFy({ mode: "none", fy: "", from: "", to: "" });
     if (link.search) setSearch(link.search);
     if (link.sort) setSort(link.sort);
@@ -374,7 +383,7 @@ export default function RfqListPage() {
   };
   const resetAll = () => { setFilters(DEFAULT_FILTERS); setFy(defaultFyState()); setSearch(""); setPage(1); };
   const activeCount = useMemo(
-    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0) + (filters.mine ? 1 : 0),
+    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0) + (filters.mine ? 1 : 0) + (filters.vendor_disagreement ? 1 : 0),
     [filters]
   );
   function applyFy(next) {
@@ -465,13 +474,19 @@ export default function RfqListPage() {
             </div>
           </div>
 
-          {(filters.dateFrom || filters.dateTo || filters.mine) && (
+          {(filters.dateFrom || filters.dateTo || filters.mine || filters.vendor_disagreement) && (
             <div className="active-filters">
               <span className="af-label">Filters</span>
               {filters.mine && (
                 <span className="af-chip">
                   <span>Created by me</span>
                   <button type="button" className="x-btn" onClick={() => { setFilters((prev) => { const next = { ...prev }; delete next.mine; return next; }); setPage(1); }} aria-label="Remove created by me">×</button>
+                </span>
+              )}
+              {filters.vendor_disagreement && (
+                <span className="af-chip">
+                  <span>Vendor disagreements</span>
+                  <button type="button" className="x-btn" onClick={() => { setFilters((prev) => { const next = { ...prev }; delete next.vendor_disagreement; return next; }); setPage(1); }} aria-label="Remove vendor disagreements">×</button>
                 </span>
               )}
               {(filters.dateFrom || filters.dateTo) && (

@@ -8,7 +8,8 @@ import { widgetCopy, ViewAll, Headline, ItemList, ItemLink, plural, rfqLabel } f
 import styles from "../PersonaCard.module.scss";
 
 const copy = widgetCopy("tech_evals_with_vendor_disagreements");
-const allEvals = rfqListView("tech_evaluation");
+// "View all" opens the RFQs where a vendor disagreed, not every evaluation.
+const allEvals = rfqListView("vendor_disagreements");
 
 /** Products on open RFQs where a vendor answered "I don't agree" to a
  *  technical clause — worth a clarification before scoring. */
