@@ -16,6 +16,7 @@ import ABCAnalysis from "./dashboard-components/ABCAnalysis";
 import WorkflowEfficiency from "./dashboard-components/WorkflowEfficiency";
 import SmartInsights from "./dashboard-components/SmartInsights";
 import EmptyDashboard from "./EmptyDashboard";
+import BalancedColumns from "@/components/dashboard/shared/BalancedColumns";
 import BuyerStatusBanner from "./BuyerStatusBanner";
 import {
   DashboardPermissionsProvider,
@@ -357,18 +358,17 @@ const LegacyDashboard = ({ filters }) => (
   <>
     <ActionCenter filters={filters} />
     <ProcurementSnapshot filters={filters} />
-    <div className={styles.mainContent}>
-      <div className={styles.leftColumn}>
-        <NegotiationSavings filters={filters} />
-        <CostIntelligence filters={filters} />
-        <WorkflowEfficiency filters={filters} />
-      </div>
-      <div className={styles.rightColumn}>
-        <CategoryInsights filters={filters} />
-        <ABCAnalysis filters={filters} />
-        <SmartInsights filters={filters} />
-      </div>
-    </div>
+    <BalancedColumns
+      testId="legacy-two-col"
+      items={[
+        { key: "negotiation_savings", defaultColumn: "left", node: <NegotiationSavings filters={filters} /> },
+        { key: "cost_intelligence", defaultColumn: "left", node: <CostIntelligence filters={filters} /> },
+        { key: "workflow_efficiency", defaultColumn: "left", node: <WorkflowEfficiency filters={filters} /> },
+        { key: "category_insights", defaultColumn: "right", node: <CategoryInsights filters={filters} /> },
+        { key: "abc_analysis", defaultColumn: "right", node: <ABCAnalysis filters={filters} /> },
+        { key: "smart_insights", defaultColumn: "right", node: <SmartInsights filters={filters} /> },
+      ]}
+    />
   </>
 );
 
@@ -460,10 +460,13 @@ const RoleAwareDashboard = ({ filters, selectedHotelLabel, onChangeBu, contactAd
     <>
       {full.map(renderWidget)}
       {twoColumns && (
-        <div className={styles.mainContent} data-testid="cross-two-col">
-          <div className={styles.leftColumn}>{left.map(renderWidget)}</div>
-          <div className={styles.rightColumn}>{right.map(renderWidget)}</div>
-        </div>
+        <BalancedColumns
+          testId="cross-two-col"
+          items={[
+            ...left.map((w) => ({ key: w.code, defaultColumn: "left", node: renderWidget(w) })),
+            ...right.map((w) => ({ key: w.code, defaultColumn: "right", node: renderWidget(w) })),
+          ]}
+        />
       )}
       {!twoColumns && single.length > 0 && (
         <div className={styles.singleColumn} data-testid="cross-one-col">
