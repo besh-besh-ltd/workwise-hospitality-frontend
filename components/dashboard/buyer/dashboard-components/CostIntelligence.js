@@ -18,6 +18,7 @@ import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonChart } from "@/components/dashboard/shared";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./CostIntelligence.module.scss";
+import { withFocusRing } from "@/components/shared/selectFocusRing";
 
 ChartJS.register(
   CategoryScale,
@@ -30,15 +31,15 @@ ChartJS.register(
 );
 
 const selectStyles = {
-  control: (base, state) => ({
-    ...base,
-    minHeight: 30,
-    fontSize: 12,
-    borderColor: state.isFocused ? "#18181b" : "#e8e8e3",
-    boxShadow: state.isFocused ? "0 0 0 2px rgba(24,24,27,0.08)" : "none",
-    borderRadius: 8,
-    "&:hover": { borderColor: "#d6d6cf" },
-  }),
+  control: (base, state) =>
+    withFocusRing(base, state, {
+      minHeight: 30,
+      fontSize: 12,
+      borderColor: "#e8e8e3",
+      boxShadow: "none",
+      borderRadius: 8,
+      "&:hover": { borderColor: "#d6d6cf" },
+    }),
   option: (base, state) => ({
     ...base,
     fontSize: 12,

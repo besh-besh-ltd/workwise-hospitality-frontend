@@ -242,6 +242,18 @@ describe("list capping", () => {
     expect(screen.getAllByText(/^Draft \d+$/)).toHaveLength(5);
     expect(screen.getByText("+52 more")).toHaveAttribute("href", L.rfqList({ tab: "drafts", mine: true }));
   });
+
+  it("a long item title keeps its full text as a hover tooltip", async () => {
+    const long = "FORT JADHAVGADH :- ENGINEERING OPRATIONAL ELECTRICAL CONSUMABLES FOR Q3";
+    svc.getMyDrafts.mockResolvedValue(envelope({
+      count: 1, oldest_created_at: null,
+      items: [{ id: 901, rfq_no: 537001, title: long, product_count: 1, created_at: "2026-09-20T10:00:00Z" }],
+    }));
+    const Comp = component("my_drafts");
+    render(<Comp filters={FILTERS} />);
+    await flush();
+    expect(screen.getByText(long)).toHaveAttribute("title", long);
+  });
 });
 
 describe("approval queues", () => {

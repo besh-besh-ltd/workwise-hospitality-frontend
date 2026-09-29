@@ -50,7 +50,8 @@ export const Headline = ({ count, unit, units }) => (
 export const ItemLink = ({ href, title, meta = [], right }) => (
   <Link href={href} className={styles.item}>
     <div className={styles.itemMain}>
-      <div className={styles.itemTitle}>{title}</div>
+      {/* Titles are clamped to one line; the full text stays on hover. */}
+      <div className={styles.itemTitle} title={typeof title === "string" ? title : undefined}>{title}</div>
       {meta.filter(Boolean).length > 0 && (
         <div className={styles.itemMeta}>
           {meta.filter(Boolean).map((m, i) => (
