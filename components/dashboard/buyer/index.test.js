@@ -10,6 +10,10 @@ jest.mock("next/link", () => {
   Link.displayName = "Link";
   return Link;
 });
+// Filters are kept in the URL; the router mock records replace() calls and
+// reflects the new query back, as Next does after a shallow replace.
+const mockRouter = { isReady: true, pathname: "/dashboard/buyer", query: {}, replace: jest.fn() };
+jest.mock("next/router", () => ({ useRouter: () => mockRouter }));
 jest.mock("next/head", () => {
   const Head = () => null;
   Head.displayName = "Head";
@@ -72,12 +76,19 @@ jest.mock("./EmptyDashboard", () => {
 import React from "react";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import BuyerPage, { getDateRange, planLayout } from "./index";
+import BuyerPage, { getDateRange, planLayout, parseDashboardQuery, buildDashboardQuery } from "./index";
 import { getDashboardConfig } from "@/services/dashboard";
 
 const flush = () => act(async () => {});
 
 beforeEach(() => {
+  mockRouter.isReady = true;
+  mockRouter.query = {};
+  mockRouter.replace.mockReset();
+  mockRouter.replace.mockImplementation((url) => {
+    mockRouter.query = url.query;
+    return Promise.resolve(true);
+  });
   mockRenders.length = 0;
   getDashboardConfig.mockReset();
   mockVisible.widgets = [];
@@ -260,5 +271,64 @@ describe("role-aware layout", () => {
     render(<BuyerPage />);
     await flush();
     expect(screen.getByTestId("empty-dashboard")).toHaveTextContent("admin@example.com");
+  });
+});
+
+/* ─── Filters in the URL ───────────────────────────────── */
+describe("dashboard filters in the URL", () => {
+  const TODAY = "2026-09-29";
+
+  it("parses a valid query and ignores malformed parts", () => {
+    expect(parseDashboardQuery({ range: "custom", from: "2026-05-01", to: "2026-06-30", bu: "4,5,4" }, TODAY)).toEqual({
+      range: "custom", customStart: "2026-05-01", customEnd: "2026-06-30", hotelIds: [4, 5],
+    });
+    expect(parseDashboardQuery({ range: "bogus", bu: "abc,-1,7" }, TODAY)).toEqual({
+      range: "fy", customStart: "", customEnd: "", hotelIds: [7],
+    });
+    // Future or impossible dates are dropped; dates only count for Custom.
+    expect(parseDashboardQuery({ range: "custom", from: "2026-02-31", to: "2099-01-01" }, TODAY)).toMatchObject({ customStart: "", customEnd: "" });
+    expect(parseDashboardQuery({ range: "past30days", from: "2026-05-01" }, TODAY).customStart).toBe("");
+  });
+
+  it("builds a clean query: defaults omitted, other keys kept", () => {
+    expect(buildDashboardQuery({ range: "fy", hotelIds: [] }, { tab: "x", range: "allTime" })).toEqual({ tab: "x" });
+    expect(buildDashboardQuery({ range: "custom", customStart: "2026-05-01", customEnd: "2026-06-30", hotelIds: [4] })).toEqual({
+      range: "custom", from: "2026-05-01", to: "2026-06-30", bu: "4",
+    });
+  });
+
+  it("restores the view from the URL without first fetching FYTD", async () => {
+    mockRouter.query = { range: "custom", from: "2026-05-01", to: "2026-06-30", bu: "4,5" };
+    getDashboardConfig.mockResolvedValue({ data: { v3_enabled: false } });
+    render(<BuyerPage />);
+    await flush();
+    expect(mockRenders.length).toBeGreaterThan(0);
+    mockRenders.forEach((r) => {
+      expect(r.filters.start_date).toBe("2026-05-01");
+      expect(r.filters.end_date).toBe("2026-06-30");
+      expect(r.filters.hotel_ids).toBe("4,5");
+    });
+  });
+
+  it("waits for the router before fetching", async () => {
+    mockRouter.isReady = false;
+    getDashboardConfig.mockResolvedValue({ data: { v3_enabled: false } });
+    render(<BuyerPage />);
+    await flush();
+    expect(mockRenders).toHaveLength(0);
+  });
+
+  it("changing the range writes it to the URL with a shallow replace", async () => {
+    getDashboardConfig.mockResolvedValue({ data: { v3_enabled: false } });
+    render(<BuyerPage />);
+    await flush();
+    expect(mockRouter.replace).not.toHaveBeenCalled(); // FYTD default: nothing to write
+    fireEvent.click(screen.getByText("30D"));
+    await flush();
+    expect(mockRouter.replace).toHaveBeenLastCalledWith(
+      { pathname: "/dashboard/buyer", query: { range: "past30days" } },
+      undefined,
+      { shallow: true, scroll: false }
+    );
   });
 });
