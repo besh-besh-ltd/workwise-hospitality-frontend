@@ -321,6 +321,11 @@ export default function RfqListPage() {
   // this page is mounted still applies, but ordinary re-renders don't reset
   // the user's own filter changes.
   const deepLinkApplied = useRef(null);
+  // The first list request waits until the URL has been read, so a deep link
+  // fetches once with its own filters instead of first with the FY default.
+  const [routeResolved, setRouteResolved] = useState(false);
+  // Key of the last request sent — identical query states are not re-fetched.
+  const lastRequestKey = useRef(null);
 
   // Deep links (built by components/dashboard/shared/dashboardLinks.js):
   //   ?tab=<TABS key>  ?status=KEY[,KEY]  ?bu=<hotelId>[,…]  ?search=  ?sort=  ?mine=1
@@ -329,6 +334,7 @@ export default function RfqListPage() {
   // hide older items behind the current-FY default) and syncs the FY display.
   useEffect(() => {
     if (!router.isReady) return;
+    setRouteResolved(true);
     const link = parseRfqListDeepLink(router.query);
     if (!link) return;
     const key = JSON.stringify(link);
@@ -343,7 +349,7 @@ export default function RfqListPage() {
       ...(link.disagreements ? { vendor_disagreement: true } : {}),
     });
     setFy({ mode: "none", fy: "", from: "", to: "" });
-    if (link.search) setSearch(link.search);
+    if (link.search) { setSearch(link.search); setDebounced(link.search); }
     if (link.sort) setSort(link.sort);
     setPage(1);
   }, [router.isReady, router.query]);
@@ -356,9 +362,14 @@ export default function RfqListPage() {
 
   // Fetch whenever any query input changes (server is authoritative).
   useEffect(() => {
+    if (!routeResolved) return;
+    const payload = { tab, search: debounced, sort, filters, page, limit: 20 };
+    const key = JSON.stringify([payload, reloadKey]);
+    if (lastRequestKey.current === key) return;
+    lastRequestKey.current = key;
     const id = ++seq.current;
     setLoading(true);
-    getRfqListView({ tab, search: debounced, sort, filters, page, limit: 20 })
+    getRfqListView(payload)
       .then((res) => {
         if (id !== seq.current) return;
         const d = res?.data || {};
@@ -372,7 +383,7 @@ export default function RfqListPage() {
       })
       .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
       .finally(() => { if (id === seq.current) setLoading(false); });
-  }, [tab, debounced, sort, filters, page, reloadKey]);
+  }, [routeResolved, tab, debounced, sort, filters, page, reloadKey]);
 
   const toggle = (group, key) => {
     setPage(1);
