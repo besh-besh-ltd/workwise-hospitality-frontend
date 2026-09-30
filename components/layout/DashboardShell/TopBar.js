@@ -406,7 +406,11 @@ const TopBar = ({
         {currentUserType === "vendor" && <VendorSubscriptionPill />}
 
         {showBuBadge && (
-          <div className={styles.buBadge}>
+          <div
+            className={styles.buBadge}
+            tabIndex={0}
+            aria-label={`${uniqueBUs.length} business units mapped`}
+          >
             <Building2 size={14} strokeWidth={1.75} className={styles.buBadgeIcon} />
             <span className={styles.buBadgeLabel}>Business Units</span>
             <span className={styles.buBadgeCount}>{uniqueBUs.length}</span>

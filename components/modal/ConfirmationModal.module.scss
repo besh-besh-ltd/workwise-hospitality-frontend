@@ -317,5 +317,7 @@
   .commentGroup { padding-left: 0; }
   .footer { padding-left: 0; }
   .actions { flex-direction: column-reverse; gap: 6px; }
-  .btn { width: 100%; justify-content: center; }
+  .btn { width: 100%; justify-content: center; min-height: 44px; font-size: 15px; }
+  /* 16px stops iOS Safari zooming the page when the reason field focuses. */
+  .commentTextarea { font-size: 16px; }
 }
