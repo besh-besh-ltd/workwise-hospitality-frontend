@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
+import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import AddendumSignModal from "@/components/dashboard/rate-contracts/vendor/AddendumSignModal";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ export default function VendorMyAmendmentsPage() {
 
         {/* RIGHT — listing */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-          <div className="list-toolbar">
+          <div className={`list-toolbar ${phone.toolbar}`}>
             <div className="lt-left">
               <span className="em mono">{filtered.length}</span> of <span className="mono">{tabRows.length}</span> amendments
             </div>

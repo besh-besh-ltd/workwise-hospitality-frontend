@@ -1,0 +1,32 @@
+// Phone layer for the vendor technical-evaluation response table.
+// Desktop is untouched: the wrapper is a plain block until <=768px.
+@media (max-width: 768px) {
+  // Five columns (clause, files, response, cross-ref upload, comment) never
+  // fit a phone; scroll them sideways inside the card instead of clipping.
+  .scroller {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+
+    :global(.table) {
+      min-width: 720px;
+      margin-bottom: 0;
+    }
+  }
+
+  // I Agree / I Dont Agree were ~26px tall; make them real touch targets.
+  .responseBtns {
+    flex-wrap: wrap;
+
+    button {
+      min-height: 40px;
+      min-width: 88px;
+      padding: 8px 12px !important;
+    }
+  }
+
+  .submitRow :global(.btn) {
+    width: 100%;
+    min-height: 44px;
+  }
+}

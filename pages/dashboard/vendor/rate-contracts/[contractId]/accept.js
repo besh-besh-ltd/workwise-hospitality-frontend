@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
+import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 
 // ---------------- helpers ----------------
 const fmtINR = (n) => {
@@ -159,6 +160,7 @@ export default function VendorAcceptPage() {
   // OTP flow
   const [showOtp, setShowOtp] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
+  const otpGridRef = useRef(null);
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
@@ -348,7 +350,9 @@ export default function VendorAcceptPage() {
     await sendOtp();
   };
   const onOtpInput = (i, e) => {
-    const v = (e.target.value || "").replace(/[^0-9]/g, "").slice(-1);
+    const raw = (e.target.value || "").replace(/[^0-9]/g, "");
+    if (raw.length > 1 && !otpDigits[i] && fillOtpFrom(i, raw)) return;
+    const v = raw.slice(-1);
     setOtpDigits((s) => {
       const n = [...s];
       n[i] = v;
@@ -359,6 +363,31 @@ export default function VendorAcceptPage() {
     }
     // clear previous verification — must re-verify
     if (otpVerified) setOtpVerified(false);
+  };
+  // Paste (or an SMS one-time-code autofill that lands several digits in
+  // one box) fills the boxes from the one pasted into, instead of keeping
+  // only the first digit.
+  const fillOtpFrom = (i, digits) => {
+    const clean = (digits || "").replace(/[^0-9]/g, "").slice(0, 6 - i);
+    if (!clean) return false;
+    setOtpDigits((s) => {
+      const n = [...s];
+      for (let k = 0; k < clean.length; k++) n[i + k] = clean[k];
+      return n;
+    });
+    if (otpVerified) setOtpVerified(false);
+    const grid = otpGridRef.current;
+    const boxes = grid ? grid.querySelectorAll(".otp-input") : [];
+    const next = boxes[Math.min(i + clean.length, 5)];
+    if (next) next.focus();
+    return true;
+  };
+  const onOtpPaste = (i, e) => {
+    const text = e.clipboardData ? e.clipboardData.getData("text") : "";
+    if ((text || "").replace(/[^0-9]/g, "").length > 1) {
+      e.preventDefault();
+      fillOtpFrom(i, text);
+    }
   };
   const onOtpKeyDown = (i, e) => {
     if (e.key === "Backspace" && !otpDigits[i] && e.target.previousElementSibling && e.target.previousElementSibling.classList.contains("otp-input")) {
@@ -595,7 +624,7 @@ export default function VendorAcceptPage() {
           </div>
         </section>
       ) : (
-        <section className="action-center">
+        <section className={`action-center ${phone.actionCenter}`}>
           <div className="ac-icon">
             <Icon w={22} d={currentStep === 4 ? ICONS.check : currentStep === 3 ? ICONS.pen : ICONS.doc} />
           </div>
@@ -633,7 +662,7 @@ export default function VendorAcceptPage() {
       )}
 
       {/* TWO COLUMN BODY */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 18, alignItems: "flex-start" }}>
+      <div className={phone.twoCol} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 18, alignItems: "flex-start" }}>
 
         {/* LEFT: contract document */}
         <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
@@ -716,7 +745,7 @@ export default function VendorAcceptPage() {
 
             {/* Items / Lines — STEP 1: confirm each line */}
             <div className={`doc-section ${stepCls(1)}`} style={{ position: "relative", zIndex: 1 }}>
-              <div className="doc-h flex items-center justify-between" style={{ display: "flex" }}>
+              <div className={`doc-h flex items-center justify-between ${phone.docHead}`} style={{ display: "flex" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                   <span className="dh-num">2</span> Awarded Line Items · rates &amp; quantities
                   <StepBadge n={1} />
@@ -743,7 +772,7 @@ export default function VendorAcceptPage() {
 
                   return (
                     <div key={line.id} className={rowClass}>
-                      <div className="lr-top">
+                      <div className={`lr-top ${phone.lineTop}`}>
                         <div className="lr-name">
                           <div className="lr-ic">
                             <Icon w={18} d={ICONS.box} />
@@ -825,7 +854,7 @@ export default function VendorAcceptPage() {
                           <div className="lc-k">Committed value</div>
                           <div className="lc-v">{fmtLakh(lineValue)}</div>
                         </div>
-                        <div className="lr-cell" style={{ gridColumn: "span 5" }}>
+                        <div className={`lr-cell ${phone.fullRow}`} style={{ gridColumn: "span 5" }}>
                           <div className="lc-k">Annual committed quantity</div>
                           <div className="lr-bu-list" style={{ marginTop: 5 }}>
                             {isGroup && Array.isArray(line.hotels) && line.hotels.length > 0 ? (
@@ -936,7 +965,7 @@ export default function VendorAcceptPage() {
 
             {/* Commercial terms — STEP 2: accept each clause */}
             <div ref={termsRef} className={`doc-section ${stepCls(2)}`} style={{ position: "relative", zIndex: 1 }}>
-              <div className="doc-h flex items-center justify-between" style={{ display: "flex" }}>
+              <div className={`doc-h flex items-center justify-between ${phone.docHead}`} style={{ display: "flex" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                   <span className="dh-num">3</span> Commercial Terms · accept each clause
                   <StepBadge n={2} />
@@ -975,7 +1004,7 @@ export default function VendorAcceptPage() {
 
             {/* STEP 3 · Sign & activate — the final action, on the page itself */}
             <div ref={signRef} className={`doc-section sign-section ${stepCls(3)}`} style={{ position: "relative", zIndex: 1 }}>
-              <div className="doc-h flex items-center justify-between" style={{ display: "flex" }}>
+              <div className={`doc-h flex items-center justify-between ${phone.docHead}`} style={{ display: "flex" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                   <span className="dh-num">4</span> Sign &amp; activate
                   <StepBadge n={3} />
@@ -1048,7 +1077,7 @@ export default function VendorAcceptPage() {
                         {!otpVerified && otpVerifying && <span className="fs-11 text-fg-3">Verifying…</span>}
                         {otpVerified && <span className="fs-11 text-success fw-600"><Icon w={11} sw={3} d={ICONS.check} /> Verified</span>}
                       </div>
-                      <div className="otp-grid">
+                      <div className={`otp-grid ${phone.otpGrid}`} ref={otpGridRef}>
                         {otpDigits.map((d, i) => (
                           <input
                             key={i}
@@ -1057,9 +1086,12 @@ export default function VendorAcceptPage() {
                             maxLength={1}
                             inputMode="numeric"
                             pattern="[0-9]*"
+                            autoComplete={i === 0 ? "one-time-code" : "off"}
+                            aria-label={`OTP digit ${i + 1}`}
                             value={d}
                             onChange={(e) => onOtpInput(i, e)}
                             onKeyDown={(e) => onOtpKeyDown(i, e)}
+                            onPaste={(e) => onOtpPaste(i, e)}
                           />
                         ))}
                       </div>
@@ -1358,7 +1390,7 @@ function AcceptSkeleton() {
       </section>
 
       {/* 2-col: contract paper + sign aside */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 18, alignItems: "flex-start" }}>
+      <div className={phone.twoCol} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 18, alignItems: "flex-start" }}>
         <div className="arc-sk-tile">
           <ASk w={250} h={16} style={{ marginBottom: 18 }} />
           {Array.from({ length: 3 }).map((_, s) => (

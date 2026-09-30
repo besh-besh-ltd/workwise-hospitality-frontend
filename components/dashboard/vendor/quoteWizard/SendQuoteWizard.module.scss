@@ -3553,3 +3553,108 @@
   color: #fff;
 }
 .ddCustomBtnOk:hover { background: var(--accent-hover); color: #fff; }
+
+/* ═════════════════════════════════════════════════════════════
+   Phone layer
+   Vendors open this wizard from email / WhatsApp links, ~12% of them on a
+   phone. Everything below sits behind a max-width query, so the desktop
+   (>=992px) layout is untouched.
+   ═════════════════════════════════════════════════════════════ */
+
+/* Phone-only nodes rendered by ActionBar; invisible everywhere else. */
+.phoneExtras { display: none; }
+
+/* The shell's .content padding drops from 20/24px to 16px below 992px; the
+   -20px/-24px bleed then pushed the wizard 8px past each side. */
+@media (max-width: 991px) {
+  .root { margin: -16px; }
+}
+
+@media (max-width: 768px) {
+  /* iOS repaints a fixed background on every scroll frame. */
+  .root { background-attachment: scroll; }
+
+  /* Header: title first, then the RFQ# / deadline / Queries pills on
+     their own wrapping row (they used to refuse to shrink and crush the
+     title into a one-word column). */
+  .headerStrip { padding: 14px 16px 16px; }
+  .headerInner { flex-direction: column; gap: 12px; }
+  .headerMeta { flex-wrap: wrap; flex-shrink: 1; gap: 8px; }
+  .pageTitle { font-size: 21px; }
+  .pageSub { font-size: 13px; }
+  .backBtn { min-height: 36px; padding: 6px 12px 6px 10px; margin-bottom: 12px; }
+  .queryBtn { min-height: 36px; }
+  .pill { white-space: normal; }
+
+  .stepperWrap { padding: 12px 16px 0; }
+  .content { padding: 16px 16px 20px; }
+
+  .sectionHead { flex-wrap: wrap; gap: 12px; }
+  .sectionHead > * { min-width: 0; max-width: 100%; }
+  .sectionTitle { font-size: 17px; }
+
+  .cardSection { padding: 16px; }
+  .cardHead { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .detailCell { padding: 14px 16px; }
+
+  /* Pricing: one field per row so MRP/discount and the tax input with its
+     %/₹ toggle each get the full width. */
+  .priceGrid { grid-template-columns: 1fr; gap: 12px; }
+  .taxInput { width: auto; }
+  .modeSeg { height: 40px; }
+  .modeSeg button { min-width: 40px; padding: 0 12px; font-size: 13px; }
+
+  /* Payment-term rows (24px 1fr 100px 130px 32px ≈ 342px) restack:
+     # · type · delete on top, % and days/note below. */
+  .payRow {
+    grid-template-columns: 24px 1fr 1fr 40px;
+    row-gap: 8px;
+  }
+  .payRow > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .payRow > :nth-child(2) { grid-column: 2 / 4; grid-row: 1; min-width: 0; }
+  .payRow > :nth-child(3) { grid-column: 2; grid-row: 2; min-width: 0; }
+  .payRow > :nth-child(4) { grid-column: 3 / 5; grid-row: 2; min-width: 0; }
+  .payRow > :nth-child(5) { grid-column: 4; grid-row: 1; }
+
+  /* Review: label above value; totals card scrolls with the page. */
+  .reviewKv { grid-template-columns: 1fr; gap: 2px; padding: 10px 16px; }
+  .reviewTotalsCard { position: static; }
+
+  /* Touch targets */
+  .iconBtn { min-width: 40px; min-height: 40px; }
+  .radioChip { min-height: 40px; padding: 8px 14px; }
+  .uploadMini { min-height: 40px; padding: 8px 12px; }
+  .btnSm { min-height: 36px; }
+
+  /* Modals: full height of the visible screen (dvh, so the iOS toolbar
+     doesn't hide the footer buttons). */
+  .modalBackdrop { padding: 12px; }
+  .modal {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+  .modalHead { padding: 14px 16px; }
+  .modalBody { padding: 16px; }
+  .modalFoot { padding: 12px 16px; flex-wrap: wrap; }
+
+  /* The desktop sticky footer is replaced by MobileActionBar. */
+  .actionBar { display: none; }
+
+  .phoneExtras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 16px 16px;
+
+    .btn { flex: 1 1 0; min-height: 44px; }
+  }
+  .phoneBarStep {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .phoneBarStep .accent { color: var(--fg, #18181b); font-weight: 500; }
+  .phoneBarHelper { font-size: 12px; color: #9a3412; }
+  .phoneBarMain { flex-grow: 2 !important; }
+}
