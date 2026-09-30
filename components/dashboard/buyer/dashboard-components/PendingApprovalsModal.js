@@ -1,41 +1,40 @@
-import React, { useEffect, useState } from "react";
+import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight } from "lucide-react";
 import { getPendingApprovalsDetail } from "@/services/dashboard";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import useDialogA11y from "@/hooks/useDialogA11y";
+import { approvalHref } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./PendingApprovalsModal.module.scss";
 
-// Build the deep-link for an RFQ-lifecycle approval — they all now live as
-// stage tabs on the single rfq-management-details page. `focus=approval` tells
-// ViewRFQ to scroll its Approve/Reject decision card into view, so an approver
-// arriving from this queue lands on the control instead of hunting for it (the
-// card sits beside the stage rail and renders on every stage).
-const rfqStage = (stage) => (e) => {
-  const rfqId = e.metadata?.rfq_id || e.entity_id;
-  return `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqId}&stage=${stage}&focus=approval`;
-};
-// Build the deep-link for an ARC (rate contract) approval — stage tabs on the
-// single rate-contracts/[id] page. arc_id is resolved server-side (an
-// amendment's entity_id is the amendment, not the contract).
-const arcStage = (stage, tab) => (e) => {
-  const arcId = e.arc_id || e.entity_id;
-  return `/dashboard/buyer/rate-contracts/${arcId}?stage=${stage}${tab ? `&tab=${tab}` : ""}`;
-};
+// Every row links through approvalHref — the one place that knows where an
+// approver acts on each approval type (RFQ detail stage + decision card, PO
+// detail, negotiation round approve page, rate-contract stage, MR page). The
+// backend resolves rfq_id / po_id / arc_id per type (SPEC rule 6), so no id is
+// ever guessed from entity_id here.
+export const approvalRowHref = (item) =>
+  approvalHref(item.entity_type, {
+    rfqId: item.rfq_id ?? item.rfq_ref_id,
+    poId: item.po_id,
+    arcId: item.arc_id,
+    mrId: item.entity_type === "MR" ? item.entity_id : undefined,
+    entityId: item.entity_id,
+  });
 
-// One config per approval type the engine can raise. `tone` keys a small colour
-// dot so the queue is scannable; `getUrl` lands the user on the exact tab where
-// they act.
+// One label + tone per approval type the engine can raise; `tone` keys a small
+// colour dot so the queue is scannable.
 const ENTITY_CONFIG = {
-  RFQ:               { label: "RFQ approval",            tone: "blue",   getUrl: rfqStage("overview") },
-  TENDER:            { label: "Tender approval",         tone: "green",  getUrl: rfqStage("overview") },
-  TECHNICAL:         { label: "Technical evaluation",    tone: "slate",  getUrl: rfqStage("technical") },
-  NEGOTIATION:       { label: "Negotiation approval",    tone: "amber",  getUrl: rfqStage("negotiation-award") },
-  NEGOTIATION_QUOTE: { label: "Award approval",          tone: "violet", getUrl: rfqStage("negotiation-award") },
-  PO:                { label: "Purchase order approval", tone: "rose",   getUrl: rfqStage("purchase-order") },
-  ARC_PUBLISH:       { label: "Rate contract — publish",   tone: "blue",   getUrl: arcStage("overview") },
-  ARC_TECH:          { label: "Rate contract — technical", tone: "cyan",   getUrl: arcStage("technical") },
-  ARC_COMMITTEE:     { label: "Rate contract — committee", tone: "violet", getUrl: arcStage("awarding") },
-  ARC_AMENDMENT:     { label: "Rate contract — amendment", tone: "amber",  getUrl: arcStage("active", "amendments") },
-  MR:                { label: "Material requisition",      tone: "green",  getUrl: (e) => `/dashboard/buyer/material-requisitions/${e.entity_id}` },
+  RFQ:               { label: "RFQ approval",            tone: "blue" },
+  TENDER:            { label: "Tender approval",         tone: "green" },
+  TECHNICAL:         { label: "Technical evaluation",    tone: "slate" },
+  NEGOTIATION:       { label: "Negotiation round",       tone: "amber" },
+  NEGOTIATION_QUOTE: { label: "Negotiated quote",        tone: "violet" },
+  PO:                { label: "Purchase order approval", tone: "rose" },
+  ARC_PUBLISH:       { label: "Rate contract — publish",   tone: "blue" },
+  ARC_TECH:          { label: "Rate contract — technical", tone: "cyan" },
+  ARC_COMMITTEE:     { label: "Rate contract — committee", tone: "violet" },
+  ARC_AMENDMENT:     { label: "Rate contract — amendment", tone: "amber" },
+  MR:                { label: "Material requisition",      tone: "green" },
 };
 
 const TONE_DOT = {
@@ -56,6 +55,7 @@ const getTitle = (item) => {
     return item.arc_title || item.arc_number || `Rate contract #${item.arc_id || item.entity_id}`;
   }
   if (item.entity_type === "MR") return m.mr_number || `Requisition #${item.entity_id}`;
+  if (item.entity_type === "PO" && item.po_number) return `PO ${item.po_number}`;
   if (item.entity_title) return item.entity_title;
   if (m.rfq_title) return m.rfq_title;
   if (m.rfq_number) return `RFQ #${m.rfq_number}`;
@@ -77,24 +77,14 @@ const getNumber = (item) => {
 };
 
 const PendingApprovalsModal = ({ onClose, filters }) => {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getPendingApprovalsDetail({
-          start_date: filters?.start_date,
-          end_date: filters?.end_date,
-        });
-        setItems(res.data || []);
-      } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // Same filters as the card that opened it (BU included), so the list
+  // matches the count the user clicked on.
+  const { data, loading, error, refetch } = useDashboardQuery(getPendingApprovalsDetail, filters, {
+    errorMessage: "Could not load your approvals",
+  });
+  const items = Array.isArray(data) ? data : [];
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   // Preserve a stable, sensible group order (sourcing → contracts → orders).
   const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
@@ -109,21 +99,34 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
           <div className={styles.headerMain}>
-            <h3 className={styles.title}>Waiting on you</h3>
+            <h3 className={styles.title} id={titleId}>Waiting on you</h3>
             <p className={styles.sub}>Approvals and reviews where you&apos;re the current decision-maker.</p>
           </div>
           {items.length > 0 && <span className={styles.count}>{items.length}</span>}
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={17} />
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} aria-busy={loading}>
           {loading ? (
-            [0, 1].map((g) => (
+            <>
+            <div className={styles.loadingNote} role="status">
+              <span className={styles.loadingSpinner} aria-hidden="true" />
+              Loading your pending approvals…
+            </div>
+            {[0, 1].map((g) => (
               <div key={g} className={styles.group}>
                 <div className={styles.groupHeader}>
                   <span className={styles.skel} style={{ width: 7, height: 7, borderRadius: 99 }} />
@@ -141,7 +144,18 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                   ))}
                 </div>
               </div>
-            ))
+            ))}
+            </>
+          ) : error ? (
+            <div className={styles.emptyState} role="alert">
+              <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>
+              <div className={styles.emptyHint}>
+                {error}{" "}
+                <button type="button" className={styles.retryLink} onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : items.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyTitle}>Nothing needs you right now</div>
@@ -153,7 +167,6 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
               const config = ENTITY_CONFIG[type] || {
                 label: type.replace(/_/g, " "),
                 tone: "neutral",
-                getUrl: () => "/dashboard/buyer",
               };
               return (
                 <div key={type} className={styles.group}>
@@ -165,8 +178,8 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                   <div className={styles.groupItems}>
                     {entries.map((item) => (
                       <Link
-                        key={item.approval_id}
-                        href={config.getUrl(item)}
+                        key={item.item_key || item.approval_id}
+                        href={approvalRowHref(item)}
                         className={styles.item}
                         onClick={onClose}
                       >
@@ -178,6 +191,8 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
                             {item.hotel_name && <span>{item.hotel_name}</span>}
                             {item.hotel_name && <span className={styles.sep}>·</span>}
                             <span className={styles.itemWait}><Clock size={11} />{formatWait(item.waiting_hours)}</span>
+                            {item.instance_count > 1 && <span className={styles.sep}>·</span>}
+                            {item.instance_count > 1 && <span>{item.instance_count} products</span>}
                           </span>
                         </div>
                         {item.total_steps > 1 && (

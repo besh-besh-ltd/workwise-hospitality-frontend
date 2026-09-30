@@ -11,13 +11,54 @@ import {
   getRenderableWidgets,
   groupByPersona,
 } from "./DashboardRegistry";
+import { DASHBOARD_WIDGET_META, getWidgetMeta } from "./dashboardWidgetMeta";
 
-describe("DashboardRegistry — integrity", () => {
-  it("declares 27 widgets (8 cross-role incl. workflow-efficiency + 19 persona)", () => {
-    expect(DASHBOARD_WIDGETS).toHaveLength(27);
+// Catalogue v1 — backend docs/dashboard_v3/SPEC.md "Widget catalogue v1".
+// The backend seeds exactly these `dashboard.*` permission rows.
+const CATALOGUE_V1 = [
+  "action_center", "procurement_snapshot", "negotiation_savings", "cost_intelligence",
+  "category_insights", "abc_analysis", "workflow_efficiency", "smart_insights",
+  "my_drafts", "my_active_rfqs", "my_no_response_rfqs", "my_rfqs_bid_closed_no_quotes",
+  "my_tech_evals_pending", "tech_evals_with_vendor_disagreements",
+  "my_tech_approvals_pending",
+  "my_quote_compares", "my_active_negotiations", "savings_pipeline",
+  "my_commercial_approvals_pending",
+  "my_award_approvals_pending", "recent_awards", "award_value_pipeline",
+  "my_rfq_approvals_pending", "approval_turnaround",
+];
+const CUT_IN_V1 = [
+  "tech_approval_oldest_pending", "deals_with_price_anomalies", "tech_eval_throughput",
+  "tech_approval_throughput", "commercial_approval_throughput",
+];
+
+describe("DashboardRegistry — catalogue v1", () => {
+  it("registry codes === widget meta codes === SPEC catalogue v1", () => {
+    const sorted = (a) => [...a].sort();
+    expect(sorted(ALL_WIDGET_PERMISSIONS)).toEqual(sorted(CATALOGUE_V1));
+    expect(sorted(DASHBOARD_WIDGET_META.map((m) => m.code))).toEqual(sorted(CATALOGUE_V1));
+  });
+
+  it("no widget cut in v1 is registered", () => {
+    CUT_IN_V1.forEach((code) => expect(getWidgetByPermission(code)).toBeNull());
+  });
+
+  it("persona, title and description come from the meta catalogue", () => {
+    DASHBOARD_WIDGETS.forEach((w) => {
+      const meta = getWidgetMeta(w.permission);
+      expect(meta).not.toBeNull();
+      expect(w.persona).toBe(meta.persona);
+      expect(w.label).toBe(meta.title);
+      expect(w.description).toBe(meta.description);
+    });
+  });
+
+  it("8 cross-role cards", () => {
     const crossRole = DASHBOARD_WIDGETS.filter((w) => w.persona === PERSONAS.CROSS_ROLE);
     expect(crossRole).toHaveLength(8);
   });
+});
+
+describe("DashboardRegistry — integrity", () => {
 
   it("every entry has the required fields", () => {
     DASHBOARD_WIDGETS.forEach((w) => {
@@ -57,7 +98,6 @@ describe("DashboardRegistry — integrity", () => {
   it("getRenderableWidgets returns only entries with a component function", () => {
     const renderable = getRenderableWidgets();
     renderable.forEach((w) => expect(typeof w.component).toBe("function"));
-    // All 25 widgets have components wired now
     expect(renderable.length).toBe(DASHBOARD_WIDGETS.length);
   });
 
@@ -68,11 +108,28 @@ describe("DashboardRegistry — integrity", () => {
       total += entries.length;
     });
     expect(total).toBe(DASHBOARD_WIDGETS.length);
-    expect(groups[PERSONAS.RFQ_CREATOR]).toHaveLength(4); // incl. urgent-attention
-    expect(groups[PERSONAS.TECH_EVALUATOR]).toHaveLength(3);
-    expect(groups[PERSONAS.TECH_APPROVER]).toHaveLength(3);
+    expect(groups[PERSONAS.RFQ_CREATOR]).toHaveLength(4);
+    expect(groups[PERSONAS.RFQ_APPROVER]).toHaveLength(1);
+    expect(groups[PERSONAS.TECH_EVALUATOR]).toHaveLength(2);
+    expect(groups[PERSONAS.TECH_APPROVER]).toHaveLength(1);
     expect(groups[PERSONAS.COMMERCIAL_EVALUATOR]).toHaveLength(3);
-    expect(groups[PERSONAS.COMMERCIAL_APPROVER]).toHaveLength(3);
+    expect(groups[PERSONAS.COMMERCIAL_APPROVER]).toHaveLength(1);
     expect(groups[PERSONAS.AWARDING]).toHaveLength(3);
+    expect(groups[PERSONAS.APPROVER]).toHaveLength(1);
+  });
+});
+
+describe("cross-role column balance", () => {
+  // Rough card heights at 1440px (px). The two columns of the full cross-role
+  // set should stay within ~250px of each other.
+  const APPROX_HEIGHT = {
+    negotiation_savings: 280, cost_intelligence: 620, workflow_efficiency: 360,
+    category_insights: 420, abc_analysis: 460, smart_insights: 520,
+  };
+  it("the full cross-role set splits into columns of similar height", () => {
+    const cross = DASHBOARD_WIDGETS.filter((w) => APPROX_HEIGHT[w.permission]);
+    expect(cross).toHaveLength(6);
+    const sum = (col) => cross.filter((w) => w.column === col).reduce((t, w) => t + APPROX_HEIGHT[w.permission], 0);
+    expect(Math.abs(sum(COLUMN.LEFT) - sum(COLUMN.RIGHT))).toBeLessThanOrEqual(250);
   });
 });

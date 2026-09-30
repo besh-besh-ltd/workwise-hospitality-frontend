@@ -77,14 +77,14 @@ export const DashboardPermissionsProvider = ({ hotelIds, children }) => {
       setPermissions(Array.isArray(list) ? list : []);
     } catch (err) {
       if (fetchIdRef.current !== currentFetchId) return;
-      // Backend may not yet expose dashboard.* codes — treat as "no grants"
-      // rather than surfacing an error. The UI will fall through to the
-      // empty-state card explaining the user has no widget access.
-      // Real network errors still get logged for diagnostics.
+      // A failed fetch is an outage, not "no access": surface `error` so the
+      // page renders a retry card instead of the "no widgets assigned" empty
+      // state. On a refetch (BU change) keep the previously granted list so
+      // the widgets already on screen don't vanish.
       // eslint-disable-next-line no-console
       console.warn("Failed to fetch dashboard permissions:", err);
       setError(getApiErrorMessage(err, "Failed to load dashboard data"));
-      setPermissions([]);
+      if (!firstLoadDoneRef.current) setPermissions([]);
     } finally {
       if (fetchIdRef.current === currentFetchId) {
         setIsLoading(false);
@@ -141,7 +141,7 @@ export const useHasDashboardWidget = (code) => {
 /** Convenience: lookup the registry entries the user should see, in
  *  declaration order. Used by the renderer to materialise the layout. */
 export const useVisibleDashboardWidgets = () => {
-  const { visibleCodes, isLoading, error } = useContext(
+  const { visibleCodes, isLoading, error, refetch } = useContext(
     DashboardPermissionsContext
   );
   const widgets = useMemo(() => {
@@ -150,5 +150,5 @@ export const useVisibleDashboardWidgets = () => {
       (w) => set.has(w.code) && typeof w.component === "function"
     );
   }, [visibleCodes]);
-  return { widgets, isLoading, error };
+  return { widgets, isLoading, error, refetch };
 };

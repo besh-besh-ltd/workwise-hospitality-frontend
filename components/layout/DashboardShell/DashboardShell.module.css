@@ -2329,3 +2329,23 @@
     width: 100%;
   }
 }
+
+/* Phones: the top bar ran ~28px past a 390px viewport. Let the right cluster
+   shrink, tighten gaps and keep only the BU icon + count (the full list stays
+   in the hover tooltip). */
+@media (max-width: 480px) {
+  .topBar {
+    gap: 8px;
+    padding-right: 8px;
+  }
+
+  .topBarRight {
+    gap: 6px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .buBadgeLabel {
+    display: none;
+  }
+}

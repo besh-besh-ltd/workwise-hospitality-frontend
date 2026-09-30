@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { useSelector } from 'react-redux';
+import { withFocusRing } from './selectFocusRing';
 
 /**
  * Reusable Business Unit/Company Filter Component
@@ -77,10 +78,7 @@ const HotelFilter = ({
         )}
         getOptionValue={(option) => option.hospitality_hotel_id}
         styles={{
-          control: (base) => ({
-            ...base,
-            minWidth: '200px',
-          }),
+          control: (base, state) => withFocusRing(base, state, { minWidth: '200px' }),
         }}
       />
     </div>

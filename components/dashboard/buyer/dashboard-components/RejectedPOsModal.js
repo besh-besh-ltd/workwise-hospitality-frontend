@@ -1,18 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight, AlertTriangle } from "lucide-react";
 import { getRejectedPOsDetail } from "@/services/dashboard";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import useDialogA11y from "@/hooks/useDialogA11y";
+import { formatMoney } from "@/components/dashboard/shared/format";
+import { poDetail } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./PendingApprovalsModal.module.scss";
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
 
 const formatTime = (dateStr) => {
   if (!dateStr) return "";
@@ -24,79 +18,108 @@ const formatTime = (dateStr) => {
   return `${Math.round(hours / 24)}d ago`;
 };
 
-const RejectedPOsModal = ({ onClose }) => {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+// The Action Centre tile counts both; the list shows them apart because the
+// fix differs (re-order from another vendor vs revise and resubmit).
+const REJECTION_GROUPS = [
+  { key: "vendor", label: "Rejected by vendor" },
+  { key: "approval", label: "Rejected in approval" },
+];
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getRejectedPOsDetail();
-        setItems(res.data || []);
-      } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+const RejectedPOsModal = ({ onClose, filters }) => {
+  // Same filters as the Action Centre count, so the list matches it.
+  const { data, loading, error, refetch } = useDashboardQuery(getRejectedPOsDetail, filters, {
+    errorMessage: "Could not load rejected POs",
+  });
+  const items = Array.isArray(data) ? data : [];
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
-          <h3 className={styles.title}>Rejected POs — Reassign Required</h3>
+          <h3 className={styles.title} id={titleId}>Rejected POs — action required</h3>
           <span className={styles.count}>{items.length}</span>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} aria-busy={loading}>
           {loading ? (
-            <div className={styles.emptyState}>Loading...</div>
+            <div className={styles.loadingNote} role="status">
+              <span className={styles.loadingSpinner} aria-hidden="true" />
+              Loading rejected purchase orders…
+            </div>
+          ) : error ? (
+            <div className={styles.emptyState} role="alert">
+              <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>
+              <div className={styles.emptyHint}>
+                {error}{" "}
+                <button type="button" className={styles.retryLink} onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : items.length === 0 ? (
             <div className={styles.emptyState}>No rejected POs pending reassignment</div>
           ) : (
-            <div className={styles.group}>
-              <div className={styles.groupHeader}>
-                <AlertTriangle size={14} style={{ color: "#db0a0a" }} />
-                <span className={styles.groupLabel}>Vendor Rejected</span>
-                <span className={styles.groupCount}>{items.length}</span>
-              </div>
-              <div className={styles.groupItems}>
-                {items.map((item) => (
-                  <Link
-                    key={item.po_id}
-                    href={`/dashboard/buyer/purchase-order?rfq=${item.rfq_id}&po=${item.po_id}`}
-                    className={styles.item}
-                    onClick={onClose}
-                  >
-                    <div className={styles.itemInfo}>
-                      <span className={styles.itemTitle}>
-                        {item.rfq_title || `RFQ #${item.rfq_no}`}
-                      </span>
-                      <span className={styles.itemHotel}>
-                        {item.vendor_company || item.vendor_name}
-                        {item.hotel_name ? ` · ${item.hotel_name}` : ""}
-                      </span>
-                    </div>
-                    <div className={styles.itemMeta}>
-                      <span className={styles.itemStep}>
-                        {formatCurrency(item.po_value)}
-                      </span>
-                      {item.rejected_at && (
-                        <span className={styles.itemWait}>
-                          <Clock size={11} />
-                          {formatTime(item.rejected_at)}
-                        </span>
-                      )}
-                    </div>
-                    <ArrowRight size={14} className={styles.itemArrow} />
-                  </Link>
-                ))}
-              </div>
-            </div>
+            REJECTION_GROUPS.map((group) => {
+              const entries = items.filter((i) => (i.rejection_source || "vendor") === group.key);
+              if (!entries.length) return null;
+              return (
+                <div key={group.key} className={styles.group}>
+                  <div className={styles.groupHeader}>
+                    <AlertTriangle size={14} style={{ color: "#db0a0a" }} />
+                    <span className={styles.groupLabel}>{group.label}</span>
+                    <span className={styles.groupCount}>{entries.length}</span>
+                  </div>
+                  <div className={styles.groupItems}>
+                    {entries.map((item) => (
+                      <Link
+                        key={item.po_id}
+                        href={poDetail(item.po_id)}
+                        className={styles.item}
+                        onClick={onClose}
+                      >
+                        <div className={styles.itemInfo}>
+                          <span className={styles.itemTitle}>
+                            {item.po_number ? `PO ${item.po_number}` : item.rfq_title || `RFQ #${item.rfq_no}`}
+                          </span>
+                          <span className={styles.itemHotel}>
+                            {item.vendor_company || item.vendor_name}
+                            {item.hotel_name ? ` · ${item.hotel_name}` : ""}
+                          </span>
+                          {item.rejection_reason && (
+                            <span className={styles.itemHotel}>Reason: {item.rejection_reason}</span>
+                          )}
+                        </div>
+                        <div className={styles.itemMeta}>
+                          <span className={styles.itemStep}>
+                            {formatMoney(item.po_value)}
+                          </span>
+                          {item.rejected_at && (
+                            <span className={styles.itemWait}>
+                              <Clock size={11} />
+                              {formatTime(item.rejected_at)}
+                            </span>
+                          )}
+                        </div>
+                        <ArrowRight size={14} className={styles.itemArrow} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

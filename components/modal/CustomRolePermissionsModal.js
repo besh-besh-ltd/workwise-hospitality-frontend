@@ -15,6 +15,9 @@ import {
   getActionLabel,
   getActionHelp,
 } from "@/components/dashboard/admin/shared/permissionLabels";
+import { groupDashboardPermissions, getWidgetMeta } from "@/components/dashboard/buyer/dashboardWidgetMeta";
+
+const isDashboardResource = (resource = "") => resource.toString().trim().toLowerCase() === "dashboard";
 
 const modalStyle = {
   overlay: {
@@ -88,6 +91,7 @@ const CustomRolePermissionsModal = ({ isOpen, onClose, initialAction = null, ini
           return (
             getActionLabel(perm.action).toLowerCase().includes(query) ||
             perm.action.toLowerCase().includes(query) ||
+            (getWidgetMeta(perm.action)?.title || "").toLowerCase().includes(query) ||
             getResourceLabel(group.resource).toLowerCase().includes(query) ||
             group.resource.toLowerCase().includes(query)
           );
@@ -134,6 +138,17 @@ const CustomRolePermissionsModal = ({ isOpen, onClose, initialAction = null, ini
             }
           : group
       )
+    );
+  };
+
+  // Select / clear one persona's widgets inside the dashboard resource.
+  const handleTogglePermissionIds = (ids, enabled) => {
+    const idSet = new Set(ids);
+    setPermissions((prev) =>
+      prev.map((group) => ({
+        ...group,
+        items: group.items.map((perm) => (idSet.has(perm.id) ? { ...perm, enabled } : perm)),
+      }))
     );
   };
 
@@ -548,28 +563,70 @@ const CustomRolePermissionsModal = ({ isOpen, onClose, initialAction = null, ini
                               </div>
                             </div>
 
-                            <div className={styles.permissionGrid}>
-                              {group.items.map((perm) => (
-                                <label
-                                  key={perm.id}
-                                  className={`${styles.permissionCard} ${perm.enabled ? styles.permissionCardActive : ""}`}
-                                  htmlFor={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
-                                >
-                                  <input
-                                    id={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    checked={perm.enabled}
-                                    onChange={() => handleTogglePermission(perm.id)}
-                                  />
-                                  <div className={styles.permissionText}>
-                                    <p className={styles.permissionName}>{getActionLabel(perm.action)}</p>
-                                    <p className={styles.permissionHelp}>{getActionHelp(perm.action)}</p>
-                                    <small className={styles.permissionKey}>Key: {perm.action}</small>
+                            {isDashboardResource(group.resource) ? (
+                              groupDashboardPermissions(group.items).map((personaGroup) => (
+                                <div className={styles.personaGroup} key={personaGroup.persona} data-testid={`dashboard-persona-${personaGroup.persona}`}>
+                                  <div className={styles.personaHeader}>
+                                    <span className={styles.personaLabel}>{personaGroup.label}</span>
+                                    <span className={styles.resourceCount}>
+                                      {personaGroup.items.filter((item) => item.enabled).length} / {personaGroup.items.length}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-link p-0"
+                                      onClick={() => handleTogglePermissionIds(personaGroup.items.map((item) => item.id), !personaGroup.items.every((item) => item.enabled))}
+                                    >
+                                      {personaGroup.items.every((item) => item.enabled) ? "Clear" : "Select all"}
+                                    </button>
                                   </div>
-                                </label>
-                              ))}
-                            </div>
+                                  <div className={styles.permissionGrid}>
+                                    {personaGroup.items.map((perm) => (
+                                      <label
+                                        key={perm.id}
+                                        className={`${styles.permissionCard} ${perm.enabled ? styles.permissionCardActive : ""}`}
+                                        htmlFor={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
+                                      >
+                                        <input
+                                          id={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
+                                          className="form-check-input"
+                                          type="checkbox"
+                                          checked={perm.enabled}
+                                          onChange={() => handleTogglePermission(perm.id)}
+                                        />
+                                        <div className={styles.permissionText}>
+                                          <p className={styles.permissionName}>{perm.meta ? perm.meta.title : getActionLabel(perm.action)}</p>
+                                          <p className={styles.permissionHelp}>{perm.meta ? perm.meta.description : getActionHelp(perm.action)}</p>
+                                          <small className={styles.permissionKey}>Key: {perm.action}</small>
+                                        </div>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className={styles.permissionGrid}>
+                                {group.items.map((perm) => (
+                                  <label
+                                    key={perm.id}
+                                    className={`${styles.permissionCard} ${perm.enabled ? styles.permissionCardActive : ""}`}
+                                    htmlFor={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
+                                  >
+                                    <input
+                                      id={`permission_${group.resource}_${perm.id}-checkbox-custom_roles_permissions_modal`}
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      checked={perm.enabled}
+                                      onChange={() => handleTogglePermission(perm.id)}
+                                    />
+                                    <div className={styles.permissionText}>
+                                      <p className={styles.permissionName}>{getActionLabel(perm.action)}</p>
+                                      <p className={styles.permissionHelp}>{getActionHelp(perm.action)}</p>
+                                      <small className={styles.permissionKey}>Key: {perm.action}</small>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
                           </section>
                         );
                       })

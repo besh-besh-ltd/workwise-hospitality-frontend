@@ -3,6 +3,7 @@
   flex-direction: column;
   gap: 18px;
   min-height: calc(100vh - 80px);
+  min-width: 0;
 
   @media (max-width: 768px) {
     padding: 16px;
@@ -83,6 +84,14 @@
 .dateSep {
   color: #a1a1aa;
   font-size: 13px;
+}
+
+/* Incomplete custom range — the widgets keep the previous range meanwhile. */
+.rangeHint {
+  font-size: 11.5px;
+  color: #92400e;
+  max-width: 220px;
+  line-height: 1.3;
 }
 
 .filterItem {
@@ -228,11 +237,11 @@
 /* ── Layout ── */
 .mainContent {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 24px;
 
   @media (max-width: 992px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -240,10 +249,76 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 .rightColumn {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
+}
+
+/* Only one side of the cross-role grid has widgets for this user. */
+.singleColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* Persona widgets: grouped under a heading, flowing in a responsive grid. */
+.personaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.personaHeading {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.personaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+/* Grants could not be fetched — distinct from "no widgets granted". */
+.permissionError {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  color: #b91c1c;
+}
+
+.permissionErrorTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.permissionErrorText {
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.permissionErrorBtn {
+  margin-left: auto;
+  background: #ffffff;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  color: #b91c1c;
+  cursor: pointer;
 }
