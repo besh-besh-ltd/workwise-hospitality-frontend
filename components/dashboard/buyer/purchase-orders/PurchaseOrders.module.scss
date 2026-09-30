@@ -373,6 +373,11 @@
 }
 @media (max-width: 1200px) { .kpiStrip { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px)  { .kpiStrip { grid-template-columns: 1fr 1fr; } }
+/* Four-card strip (vendor dashboard). Holds 4 columns wherever the 5-card
+   strip would drop to 3 — it used to be an inline style, which also beat the
+   phone rule below and left four ~80px cards on a 390px screen. */
+.kpiStrip.kpiStrip4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 720px) { .kpiStrip.kpiStrip4 { grid-template-columns: 1fr 1fr; } }
 .kpiCard {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1945,4 +1950,380 @@
   font-weight: 600;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   Everything below is scoped to the shell's mobile breakpoints (≤991px /
+   ≤768px), so desktop (≥992px) never reaches it. Shared by the buyer PO
+   dashboard + detail and the vendor PO pages, which import this module too.
+
+   Approvers open PO emails on their phones; the detail page is where every
+   approval notification lands, so it is the first thing this layer fixes:
+   the hero no longer crushes the PO number to 0px, the items / quote tables
+   restack as cards so the per-line amount and the grand total are readable
+   without horizontal hunting, and Approve / Reject move into the sticky
+   MobileActionBar (see PODetail.js). */
+
+/* Optional comment inside the phone approve confirmation (PODetail). The
+   modal renders outside .page, so the tokens are spelled out. */
+.approveComment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3f3f46;
+  textarea {
+    width: 100%;
+    min-height: 72px;
+    border: 1px solid #d4d4d0;
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #18181b;
+    resize: vertical;
+    outline: none;
+    &:focus { border-color: #1f2937; box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14); }
+  }
+}
+
+@media (max-width: 991px) {
+  /* DashboardShell.content drops to 16px padding here; cancelling the
+     desktop 20px/24px made the page 16px wider than the screen. */
+  .page { margin: -16px; }
+}
+
+@media (max-width: 768px) {
+  /* The bar carries a summary row (PO total) above its 44px buttons, so it
+     is taller than MobileActionBar's default spacer assumes. The spacer
+     reads this custom property and it inherits from here. */
+  .page { --mobile-action-bar-h: 104px; }
+
+  /* ── Breadcrumb: 44px targets ── */
+  .breadcrumbStrip { padding: 0 6px; }
+  .breadcrumbInner { gap: 0; font-size: 13px; min-width: 0; }
+  .breadcrumbInner a,
+  .crumbBack {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    flex-shrink: 0;
+  }
+  .crumbCurrent { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Detail hero: stack id block over actions ── */
+  .detailHero { padding: 16px; }
+  .detailHeroInner { flex-direction: column; align-items: stretch; gap: 14px; }
+  .heroIdBlock {
+    h1 { font-size: 24px; gap: 8px; }
+    .hSub {
+      gap: 4px 8px;
+      .rfqTitle { max-width: 100%; }
+    }
+  }
+  .heroWaiting,
+  .heroPendingNote { align-items: flex-start; padding: 10px 12px; }
+  .heroActions {
+    width: 100%;
+    flex-shrink: 1;
+    justify-content: flex-start;
+    .btn { flex: 1 1 auto; min-height: 44px; }
+  }
+  /* Approve / Reject live in the sticky MobileActionBar on phones. */
+  .heroDecisionBtn { display: none !important; }
+
+  /* ── Page body ── */
+  .pageBody { padding: 14px 12px 24px; }
+  .pageBodyAside { gap: 14px; }
+  .sectionStack { gap: 14px; }
+  .sectionHead {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    .hLeft { min-width: 0; flex-wrap: wrap; }
+    .hRight { flex-wrap: wrap; }
+    .hRight .btn { min-height: 40px; }
+  }
+
+  /* ── Decision summary: one check per row ── */
+  .decisionGrid { grid-template-columns: minmax(0, 1fr); }
+  .decisionCell {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    &:last-child { border-bottom: none; }
+  }
+
+  /* ── Items & pricing: every line restacks as a card ──
+     The <thead> goes; each value cell prints its own column name from
+     data-label, so Qty / Unit price / GST / Amount read top to bottom and the
+     amount is never clipped off the right edge. .num / .subtotal / .total are
+     plain (unhashed) classes in the JSX, hence :global. */
+  .itemsTable {
+    display: block;
+    thead { display: none; }
+    tbody, tfoot { display: block; }
+    tbody tr {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      column-gap: 10px;
+      row-gap: 5px;
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      &:last-child { border-bottom: none; }
+    }
+    tbody td { display: block; padding: 0; border-bottom: none; min-width: 0; }
+    tbody td.itIdx { grid-column: 1; grid-row: 1; line-height: 1.5; }
+    tbody td:nth-child(2) { grid-column: 2; grid-row: 1; margin-bottom: 4px; overflow-wrap: anywhere; }
+    tbody td[data-label] {
+      grid-column: 2;
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      column-gap: 2px;
+      text-align: right;
+      font-size: 12.5px;
+      /* margin-right:auto on the label, not space-between: the value can be
+         several flex items ("2" + a unit span) that must stay together. */
+      &::before {
+        content: attr(data-label);
+        margin-right: auto;
+        padding-right: 12px;
+        flex-shrink: 0;
+        text-align: left;
+        font-family: 'Geist', -apple-system, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+    }
+    tbody td.itAmountCell {
+      margin-top: 3px;
+      padding-top: 7px;
+      border-top: 1px dashed var(--border);
+      font-size: 14px;
+      color: var(--fg);
+    }
+    tfoot tr {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 11px 14px;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+    }
+    tfoot td { display: block; padding: 0; border-top: none; background: none; }
+    tfoot td:last-child { text-align: right; white-space: nowrap; font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
+    /* Subtotal keeps its label + amount; the per-column averages have no
+       column to sit under once the table is a card list. */
+    tfoot tr:not(.breakdownRow) td:not(:first-child):not(:last-child) { display: none; }
+    tfoot tr:global(.total) { border-top: 2px solid var(--border-strong); }
+    tfoot tr:global(.total) td { font-size: 15px; font-weight: 700; color: var(--fg); }
+    .sectionHeadRow td { padding: 0; border-top: none; background: none; }
+    .breakdownRow { flex-wrap: wrap; row-gap: 2px; padding: 7px 14px; }
+    .breakdownRow td { padding: 0 !important; border-bottom: none; background: none; }
+    .breakdownLabel { flex: 1 1 100%; }
+    .breakdownMeta { margin-left: auto; }
+    .taxNote { white-space: normal; }
+  }
+  .itAmountCell { font-weight: 700; }
+
+  /* ── Quote comparison: one bidder per card ── */
+  .compareTable {
+    display: block;
+    thead { display: none; }
+    tbody { display: block; }
+    tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 5px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      &:last-child { border-bottom: none; }
+    }
+    tbody td { display: block; padding: 0; border-bottom: none; min-width: 0; }
+    tbody td:first-child { margin-bottom: 3px; }
+    tbody td[data-label] {
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      column-gap: 2px;
+      text-align: right;
+      &::before {
+        content: attr(data-label);
+        margin-right: auto;
+        padding-right: 12px;
+        flex-shrink: 0;
+        text-align: left;
+        font-family: 'Geist', -apple-system, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+    }
+    .vCell { flex-wrap: wrap; }
+    .gstinCell { overflow-wrap: anywhere; }
+  }
+
+  /* ── Technical evaluation ── */
+  .teList { padding: 12px; }
+  .teProductHead { flex-wrap: wrap; }
+  .teClauseTable {
+    thead th, tbody td { padding-left: 10px; padding-right: 10px; }
+  }
+
+  /* ── Vendor / buyer profile ── */
+  .vendorProfile {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px 14px;
+    padding: 14px;
+    .vLogo { width: 44px; height: 44px; font-size: 15px; border-radius: 10px; }
+    .vMain {
+      .vName { font-size: 15px; overflow-wrap: anywhere; }
+      .vMeta {
+        grid-template-columns: minmax(0, 1fr);
+        .row { align-items: flex-start; }
+        .row .v { white-space: normal; overflow-wrap: anywhere; }
+      }
+    }
+    .vStats { grid-column: 1 / -1; text-align: left; }
+  }
+  .vendorFlags { padding: 0 14px 14px; }
+
+  /* ── RFQ context ── */
+  .rfqContext { padding: 14px; align-items: flex-start; }
+  .rfqFinalized { padding: 14px; }
+
+  /* ── Documents ── */
+  .docGroup { padding: 12px 14px; }
+  .docGroupGrid,
+  .docsList { grid-template-columns: minmax(0, 1fr); }
+  .docsList { padding: 12px 14px 14px; }
+  .docItem { min-height: 52px; }
+
+  /* ── Payment milestones: name + amount on top, % + status below ── */
+  .milestoneRow {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 12px 14px;
+    .mNum { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+    > :nth-child(2) { grid-column: 2; grid-row: 1; min-width: 0; }
+    .mAmt { grid-column: 3; grid-row: 1; }
+    .mPct { grid-column: 2; grid-row: 2; font-size: 12px; color: var(--fg-3); }
+    > :last-child { grid-column: 3; grid-row: 2; justify-self: end; }
+  }
+
+  /* ── Aside ── */
+  /* The action card's buttons are the sticky bar's on phones; its comment box
+     stays, and the phone approve dialog reads the same text. */
+  .actionCard .acCta { display: none; }
+  .wfStep { padding: 12px 14px; }
+  .wfStep::before { left: 24.25px; }
+
+  /* ── Skeletons never wider than the screen ── */
+  .sk { max-width: 100%; }
+
+  /* ═════ Dashboards / lists ═════ */
+  .pageHeader { padding: 16px 16px 14px; }
+  .pageTitleRow { flex-wrap: wrap; gap: 12px; }
+  .pageTitle { font-size: 21px; }
+  .headerActions .btn { min-height: 40px; }
+
+  .awaitingGrid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .awaitingCard .aCta .btn { min-height: 40px; padding-left: 14px; padding-right: 14px; }
+
+  /* Inline search boxes (style={{ width: 240 }}) take the full row. */
+  .sectionHead .hRight:has(.searchInput) { flex: 1 1 100%; }
+  .sectionHead .searchInput { width: 100% !important; flex: 1 1 auto; }
+  .searchInput input { min-height: 42px; }
+
+  .filterBar {
+    padding: 10px 12px;
+    .left { flex: 1 1 100%; }
+    .right { flex-wrap: wrap; flex-shrink: 1; }
+    .right .btn { min-height: 40px; }
+  }
+  .statusTabs button { min-height: 36px; }
+
+  .pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    .pages { flex-wrap: wrap; justify-content: center; }
+    .pages button { width: 40px; height: 40px; font-size: 13px; }
+  }
+  .iconBtn { min-width: 40px; min-height: 40px; }
+
+  /* Filter popovers (FilterMenus.js + the vendor Type menu) open as a bottom
+     sheet: absolutely-positioned right:0 panels ran off the left edge. */
+  .filterMenu {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    min-width: 0 !important;
+    max-height: 60vh !important;
+    z-index: 1060 !important;
+    padding: 8px !important;
+    button { min-height: 44px; font-size: 14px !important; }
+    input { min-height: 40px; }
+  }
+
+  /* ── PO list tables → tap-to-open cards ──
+     Row cells by position (see PODashboard / VendorPoOrders); the header row
+     is hidden and each row becomes a two-column card. */
+  .poTableWrap { overflow-x: visible; }
+  .poCards {
+    display: block;
+    thead { display: none; }
+    tbody { display: block; }
+    tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 12px;
+      row-gap: 6px;
+      align-items: center;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      &:last-child { border-bottom: none; }
+    }
+    tbody td { display: block; padding: 0; border-bottom: none; white-space: normal; min-width: 0; }
+    .vendorCell .vName { white-space: normal; }
+  }
+  /* Buyer: Status · PO # · RFQ · Vendor · Items · Value · Initiator · Created · Actions */
+  .poCardsBuyer tbody {
+    td:nth-child(2) { grid-column: 1; grid-row: 1; }
+    td:nth-child(6) { grid-column: 2; grid-row: 1; text-align: right; }
+    td:nth-child(4) { grid-column: 1 / -1; grid-row: 2; }
+    td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; }
+    td:nth-child(1) { grid-column: 1; grid-row: 4; }
+    td:nth-child(8) { grid-column: 2; grid-row: 4; text-align: right; }
+    td:nth-child(3),
+    td:nth-child(7),
+    td:nth-child(9) { display: none; }
+  }
+  /* Vendor: Status · PO # · Buyer / Hotel · Value · Created · Actions */
+  .poCardsVendor tbody {
+    td:nth-child(2) { grid-column: 1; grid-row: 1; }
+    td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+    td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+    td:nth-child(1) { grid-column: 1; grid-row: 3; }
+    td:nth-child(5) { grid-column: 2; grid-row: 3; text-align: right; }
+    td:nth-child(6) { display: none; }
+  }
+  /* Loading / empty rows are one full-width cell. */
+  .poCards tbody td[colspan] { grid-column: 1 / -1; grid-row: auto; display: block; }
+
+  /* ── Vendor dashboard ── */
+  .vAttnList,
+  .vBuyerList { padding: 12px; }
+  .vAttnRow { flex-wrap: wrap; align-items: flex-start; }
+  .vAttnRight { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
 }

@@ -57,7 +57,7 @@ const RecentAwards = ({ filters }) => (
                 <span>₹{fmtINR(item.value)}</span>
                 {item.po_id ? (
                   <Link
-                    href={`/dashboard/buyer/purchase-order?id=${item.po_id}`}
+                    href={`/dashboard/buyer/purchase-orders/${item.po_id}`}
                     className={`${styles.badge} ${styles.badgeSuccess}`}
                     title="View PO"
                   >

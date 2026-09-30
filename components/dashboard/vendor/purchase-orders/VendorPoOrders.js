@@ -256,6 +256,7 @@ const VendorPoOrders = () => {
                 </button>
                 {typeOpen && (
                   <div
+                    className={styles.filterMenu}
                     style={{
                       position: "absolute",
                       top: "calc(100% + 6px)",
@@ -298,7 +299,7 @@ const VendorPoOrders = () => {
 
           {/* Table */}
           <div className={styles.poTableWrap}>
-            <table className={styles.poTable}>
+            <table className={`${styles.poTable} ${styles.poCards} ${styles.poCardsVendor}`}>
               <thead>
                 <tr>
                   <th>Status</th>

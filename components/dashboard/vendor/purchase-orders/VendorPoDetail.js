@@ -23,6 +23,8 @@ import {
   getVendorPoPdf,
 } from "@/services/po";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
+import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
 import RaiseInvoiceModal from "@/components/dashboard/vendor/order-book/RaiseInvoiceModal";
 import styles, {
   avatarClass,
@@ -85,6 +87,14 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
   const refresh = async () => {
     if (typeof onRefresh === "function") await onRefresh();
+  };
+
+  // Both Reject controls (hero on desktop, sticky bar on phones) open the
+  // same modal with a fresh reason field.
+  const openReject = () => {
+    setRejectionReason("");
+    setRejectionError("");
+    setRejectOpen(true);
   };
 
   const confirmAccept = async () => {
@@ -306,21 +316,19 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
             {awaitingMe && (
               <>
+                {/* heroDecisionBtn: hidden on phones, where the sticky bar
+                    at the bottom carries the same actions. */}
                 <button
-                  className={`${styles.btn} ${styles.btnDangerStrong}`}
+                  className={`${styles.btn} ${styles.btnDangerStrong} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={submitting}
-                  onClick={() => {
-                    setRejectionReason("");
-                    setRejectionError("");
-                    setRejectOpen(true);
-                  }}
+                  onClick={openReject}
                 >
                   <X size={13} />
                   Reject
                 </button>
                 <button
-                  className={`${styles.btn} ${styles.btnSuccess}`}
+                  className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={submitting}
                   onClick={() => setAcceptOpen(true)}
@@ -333,7 +341,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
             {canDispatch && (
               <button
-                className={`${styles.btn} ${styles.btnSuccess}`}
+                className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                 type="button"
                 disabled={submitting}
                 onClick={() => setDispatchOpen(true)}
@@ -344,7 +352,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
             )}
             {canInvoice && (
               <button
-                className={`${styles.btn} ${styles.btnSuccess}`}
+                className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                 type="button"
                 disabled={submitting}
                 onClick={() => setInvoiceOpen(true)}
@@ -394,14 +402,16 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                       <div className={styles.itName}>{it.name}</div>
                       {it.spec && <div className={styles.itSpec}>{it.spec}</div>}
                     </td>
-                    <td className={styles.itHsn}>{it.hsn || "—"}</td>
-                    <td className="num">
+                    {/* data-label: the column name each cell shows when the row
+                        restacks as a card on phones. Invisible on desktop. */}
+                    <td className={styles.itHsn} data-label="HSN">{it.hsn || "—"}</td>
+                    <td className="num" data-label="Qty">
                       {it.quantity}
                       {it.unit && <span className={styles.itUnit}>{it.unit}</span>}
                     </td>
-                    <td className="num">{inr(it.unit_price)}</td>
-                    <td className="num">{it.gst != null ? `${it.gst}%` : "—"}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>
+                    <td className="num" data-label="Unit price">{inr(it.unit_price)}</td>
+                    <td className="num" data-label="GST">{it.gst != null ? `${it.gst}%` : "—"}</td>
+                    <td className={`num ${styles.itAmountCell}`} data-label="Amount" style={{ fontWeight: 600 }}>
                       {inr(it.amount)}
                     </td>
                   </tr>
@@ -798,6 +808,65 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         onClose={() => setInvoiceOpen(false)}
         onAction={confirmInvoice}
       />
+
+      {/* Phone action bar — the vendor's next step, pinned under the thumb.
+          display:none above 768px, where the hero buttons are used instead.
+          Every action still goes through its confirmation modal. */}
+      {(awaitingMe || canDispatch || canInvoice) && (
+        <MobileActionBar
+          label="Purchase order actions"
+          summary={
+            <>
+              <span>
+                PO <span className={styles.mono}>#{po.po_number || po.id}</span> total
+              </span>
+              <strong>{inr(pricing.total ?? po.total_value)}</strong>
+            </>
+          }
+        >
+          {awaitingMe && (
+            <>
+              <MobileActionButton
+                variant="reject"
+                disabled={submitting}
+                onClick={openReject}
+              >
+                <X size={16} />
+                Reject
+              </MobileActionButton>
+              <MobileActionButton
+                variant="approve"
+                className={mobileBarStyles.wide}
+                disabled={submitting}
+                onClick={() => setAcceptOpen(true)}
+              >
+                <Check size={17} strokeWidth={2.4} />
+                Accept PO
+              </MobileActionButton>
+            </>
+          )}
+          {canDispatch && (
+            <MobileActionButton
+              variant="approve"
+              disabled={submitting}
+              onClick={() => setDispatchOpen(true)}
+            >
+              <Truck size={16} />
+              Mark dispatched
+            </MobileActionButton>
+          )}
+          {canInvoice && (
+            <MobileActionButton
+              variant="approve"
+              disabled={submitting}
+              onClick={() => setInvoiceOpen(true)}
+            >
+              <Send size={16} />
+              Raise invoice
+            </MobileActionButton>
+          )}
+        </MobileActionBar>
+      )}
     </div>
   );
 };

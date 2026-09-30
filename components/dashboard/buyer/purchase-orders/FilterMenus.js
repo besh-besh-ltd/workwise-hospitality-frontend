@@ -110,7 +110,7 @@ export function VendorFilter({ styles, vendors = [], value, onChange }) {
         <ChevronDown size={12} />
       </button>
       {open && (
-        <div style={menuStyle}>
+        <div className={styles?.filterMenu || undefined} style={menuStyle}>
           <Option
             label="All vendors"
             active={!value}
@@ -188,7 +188,7 @@ export function DateFilter({ styles, value = EMPTY_DATE_FILTER, onChange }) {
         <ChevronDown size={12} />
       </button>
       {open && (
-        <div style={menuStyle}>
+        <div className={styles?.filterMenu || undefined} style={menuStyle}>
           <Option
             label="All time"
             active={mode === "none"}

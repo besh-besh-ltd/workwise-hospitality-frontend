@@ -143,7 +143,7 @@ const DashboardSkeleton = () => (
       </div>
     </section>
     <main className={styles.pageBody}>
-      <section className={styles.kpiStrip} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <section className={`${styles.kpiStrip} ${styles.kpiStrip4}`}>
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className={styles.kpiCard}>
             <Sk w={90} h={11} style={{ marginBottom: 12 }} />
@@ -230,7 +230,7 @@ const VendorPoDashboard = ({ data, loading }) => {
       {/* Body */}
       <main className={styles.pageBody}>
         {/* KPI strip — 4 cards */}
-        <section className={styles.kpiStrip} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+        <section className={`${styles.kpiStrip} ${styles.kpiStrip4}`}>
           <Kpi
             urgent={Number(awaiting.count) > 0}
             label="Awaiting your action"
