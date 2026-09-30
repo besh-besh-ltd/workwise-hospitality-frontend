@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Router from "next/router";
 import { toast } from "react-toastify";
 import {
   BarChart3,
@@ -49,7 +50,8 @@ import RoundLinesTable from "./RoundLinesTable";
 import VendorPanel from "./VendorPanel";
 import ApprovalPanel from "./ApprovalPanel";
 import RoundHistoryPanel from "./RoundHistoryPanel";
-import RoundActions from "./RoundActions";
+import RoundActions, { resolveActionHref } from "./RoundActions";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import RoundDetailSkeleton from "./RoundDetailSkeleton";
 
 function SectionCard({ title, sub, icon, right, children, testId, flush }) {
@@ -183,6 +185,11 @@ export default function NegotiationRoundDetailPage({ roundId }) {
   const locked = meta.quoteVisibilityLocked;
   const scopeLabel = scopeLabelText(activeScope, round.roundNumber);
   const chip = round.statusPresentation;
+
+  // Phone decision bar: the hero's "Review and approve" sits among up to five
+  // other buttons at the top of a long page. Same server gate, same screen.
+  const approveAction = actions.find((a) => a.key === "approve" && !a.disabled);
+  const approveHref = approveAction ? resolveActionHref(approveAction, round) : null;
 
   // ── where "back" goes ──
   // A round is one of N on its parent — 138 of them on RFQ 512 — so the useful
@@ -402,6 +409,26 @@ export default function NegotiationRoundDetailPage({ roundId }) {
       >
         <RoundHistoryPanel history={history} currentRoundId={round.roundId} locked={locked} />
       </SectionCard>
+
+      {approveHref && (
+        <MobileActionBar
+          label="Negotiation round decision"
+          summary={
+            <>
+              <strong>Round {round.roundNumber}</strong>
+              <span>{chip.label}</span>
+            </>
+          }
+        >
+          <MobileActionButton
+            variant="approve"
+            data-testid="mobile-review-approve"
+            onClick={() => Router.push(approveHref)}
+          >
+            Review &amp; approve
+          </MobileActionButton>
+        </MobileActionBar>
+      )}
     </main>
   );
 }

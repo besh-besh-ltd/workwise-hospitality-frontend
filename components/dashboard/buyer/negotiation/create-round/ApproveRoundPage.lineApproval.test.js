@@ -43,7 +43,7 @@ jest.mock("react-toastify", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import {
@@ -129,7 +129,9 @@ const renderPage = async () => {
   approveNegotiationRound.mockResolvedValue({ status: 1, data: { published: true } });
 
   const utils = render(<ApproveRoundPage />);
-  await screen.findByText(/Round 2/);
+  // Scoped to the page: the phone action bar (portalled to <body>) repeats
+  // "Round 2" and the Approve / Reject buttons.
+  await within(utils.container).findByText(/Round 2/);
   return utils;
 };
 
@@ -143,9 +145,14 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+/** The in-page Approve button (not the phone action bar's copy). */
+const pageApproveButton = () =>
+  screen.getAllByRole("button", { name: /^approve$/i })
+    .find((b) => !b.closest("[data-mobile-action-bar]"));
+
 /** Confirm the approval through the reason modal the page opens. */
 const confirmApprove = async () => {
-  fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
+  fireEvent.click(pageApproveButton());
   // The modal's own button reads "Confirm Approval"; the page button behind it
   // still reads "Approve", so match the modal's wording exactly.
   const confirm = await screen.findByRole("button", { name: /confirm approval/i });
@@ -226,7 +233,7 @@ describe("withholding a line while approving the round", () => {
     fireEvent.click(withholdToggle(LINE_A, VENDOR_B));
     fireEvent.click(withholdToggle(LINE_B, VENDOR_A));
 
-    fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
+    fireEvent.click(pageApproveButton());
 
     expect(approveNegotiationRound).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/every line|reject the round/i));

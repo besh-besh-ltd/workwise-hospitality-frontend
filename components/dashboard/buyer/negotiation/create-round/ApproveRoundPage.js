@@ -14,6 +14,7 @@ import { getChargeNames } from '@/services/rfq';
 import { formatNegotiationDateTime, parseNegotiationTime } from '@/utils/negotiationTime';
 import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
+import MobileActionBar, { MobileActionButton } from '@/components/shared/mobile/MobileActionBar';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import styles from './CreateRound.module.scss';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -66,6 +67,15 @@ const roundToReviewEntries = (round, productsList = []) => {
     })),
     productName: round.product_name || nameOf(round.rfq_product_id),
   }];
+};
+
+// MRP (tax-inclusive) rounds store the ask as `tax_demand`, not `target`
+// (46 stored fields at the time of writing); reading only `target` printed
+// "base_price undefined" to the approver.
+export const fieldTargetLabel = (f) => {
+  if (f?.target !== undefined && f?.target !== null && f?.target !== '') return `${f.name} ${f.target}`;
+  if (f?.tax_demand !== undefined && f?.tax_demand !== null && f?.tax_demand !== '') return `${f.name} ${f.tax_demand} (incl. tax)`;
+  return `${f?.name}`;
 };
 
 const ApproveRoundPage = () => {
@@ -177,6 +187,25 @@ const ApproveRoundPage = () => {
   const totalLinesFor = (round) =>
     roundToReviewEntries(round, products)
       .reduce((n, e) => n + (e.vendor_targets || []).length, 0);
+
+  // One Approve path for the in-page button and the phone action bar, so the
+  // "everything withheld" guard can never be skipped from either.
+  const requestApprove = (round) => {
+    // Publishing a round with every line withheld would
+    // invite the vendor to answer an empty negotiation.
+    // The server refuses this too; saying so here saves the
+    // round trip.
+    if (
+      totalLinesFor(round) > 0 &&
+      withheldLinesFor(round).length >= totalLinesFor(round)
+    ) {
+      toast.error(
+        'Every line on this round is withheld. Reject the round instead, so it is cancelled and the creator is told.'
+      );
+      return;
+    }
+    setActionState({ round, actionType: 'APPROVE' });
+  };
 
   const handleAction = async (comment) => {
     if (!actionState) return;
@@ -307,7 +336,7 @@ const ApproveRoundPage = () => {
             return (
               <div key={round.id} className={styles.approveRoundBlock}>
                 <div className={styles.approveRoundHead}>
-                  <div>
+                  <div className={styles.approveRoundHeadMain}>
                     <p className={styles.approveRoundTitle}>
                       Round {round.round_number}
                       <span className={styles.approveRoundMeta}>
@@ -373,7 +402,7 @@ const ApproveRoundPage = () => {
                             />
                             <span className={styles.approveRoundLineName}>{entry.productName}</span>
                             <span className={styles.approveRoundLineVendor}>
-                              {(vt.fields || []).map((f) => `${f.name} ${f.target}`).join(' · ') || 'no target'}
+                              {(vt.fields || []).map(fieldTargetLabel).join(' · ') || 'no target'}
                             </span>
                             {isOut && <span className={styles.approveRoundLineTag}>Withheld</span>}
                           </label>
@@ -396,22 +425,7 @@ const ApproveRoundPage = () => {
                       type="button"
                       className={styles.btnApprove}
                       disabled={actionLoading}
-                      onClick={() => {
-                        // Publishing a round with every line withheld would
-                        // invite the vendor to answer an empty negotiation.
-                        // The server refuses this too; saying so here saves the
-                        // round trip.
-                        if (
-                          totalLinesFor(round) > 0 &&
-                          withheldLinesFor(round).length >= totalLinesFor(round)
-                        ) {
-                          toast.error(
-                            'Every line on this round is withheld. Reject the round instead, so it is cancelled and the creator is told.'
-                          );
-                          return;
-                        }
-                        setActionState({ round, actionType: 'APPROVE' });
-                      }}
+                      onClick={() => requestApprove(round)}
                     >
                       <ShieldCheck size={14} strokeWidth={2.5} />
                       Approve
@@ -443,7 +457,7 @@ const ApproveRoundPage = () => {
       {/* Footer dock — mounted into DashboardShell's main column. */}
       {(() => {
         const footerEl = (
-          <footer className={styles.footer}>
+          <footer className={`${styles.footer} ${pendingRounds.length > 0 ? styles.footerPhoneHidden : ''}`}>
             <div className={styles.footerInner}>
               <div className={styles.footerStepInfo}>
                 <span className={styles.footerStepNum}>
@@ -464,6 +478,48 @@ const ApproveRoundPage = () => {
           </footer>
         );
         return shellMainEl ? createPortal(footerEl, shellMainEl) : footerEl;
+      })()}
+
+      {/* Phone decision bar (<=768px only). A long read-only review sits
+          under the in-page Reject / Approve, so an approver on a phone would
+          otherwise scroll back up to decide. It acts on the first (newest)
+          pending round through the same handlers and modal as the page. */}
+      {pendingRounds.length > 0 && (() => {
+        const round = pendingRounds[0];
+        const total = totalLinesFor(round);
+        const out = withheldLinesFor(round).length;
+        return (
+          <MobileActionBar
+            label="Negotiation round decision"
+            summary={
+              <>
+                <strong>Round {round.round_number}</strong>
+                <span>
+                  {total} line{total === 1 ? '' : 's'}
+                  {out > 0 ? ` · ${out} withheld` : ''}
+                  {pendingRounds.length > 1 ? ` · +${pendingRounds.length - 1} more below` : ''}
+                </span>
+              </>
+            }
+          >
+            <MobileActionButton
+              variant="reject"
+              disabled={actionLoading}
+              onClick={() => setActionState({ round, actionType: 'REJECT' })}
+            >
+              <ShieldX size={16} strokeWidth={2.5} />
+              Reject
+            </MobileActionButton>
+            <MobileActionButton
+              variant="approve"
+              disabled={actionLoading}
+              onClick={() => requestApprove(round)}
+            >
+              <ShieldCheck size={16} strokeWidth={2.5} />
+              Approve
+            </MobileActionButton>
+          </MobileActionBar>
+        );
       })()}
 
       <ApprovalActionModal

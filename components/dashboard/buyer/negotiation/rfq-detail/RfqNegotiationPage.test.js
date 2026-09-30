@@ -568,3 +568,26 @@ describe("Next deadline — an instruction, not a record", () => {
     expect(formatNegotiationDate("2026-01-04 10:00:00")).toBe("04 Jan 2026");
   });
 });
+
+describe("phone — the round waiting on me, one thumb away", () => {
+  afterEach(() => document.body.classList.remove("has-mobile-action-bar"));
+
+  it("offers 'Review & approve' going to the approval page, like the row", async () => {
+    await renderPage({
+      rounds: [
+        roundRow(12, { action_required: true, action_label: "Approval needed", neg_status: "awaiting_approval" }),
+        roundRow(11),
+      ],
+    });
+    const bar = await screen.findByRole("region", { name: "Round awaiting your approval" });
+    expect(bar).toHaveTextContent("Round 12");
+    pushMock.mockClear();
+    fireEvent.click(within(bar).getByRole("button", { name: /review & approve/i }));
+    expect(pushMock).toHaveBeenCalledWith("/dashboard/buyer/negotiation/512/approve");
+  });
+
+  it("renders no bar when no round on the page needs me", async () => {
+    await renderPage({ rounds: [roundRow(12), roundRow(11)] });
+    expect(screen.queryByRole("region", { name: "Round awaiting your approval" })).not.toBeInTheDocument();
+  });
+});
