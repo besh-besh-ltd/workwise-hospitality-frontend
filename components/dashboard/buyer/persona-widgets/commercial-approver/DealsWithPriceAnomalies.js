@@ -5,6 +5,8 @@ import { getDealsWithPriceAnomalies } from "@/services/dashboard";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
 import styles from "../PersonaCard.module.scss";
+// Rows are pending PO approvals (item.id = po_id); see MyCommercialApprovalsPending.
+import { pendingApprovalHref, PO_AWAITING_HREF } from "./MyCommercialApprovalsPending";
 
 const fmtINR = (n) => {
   const num = Number(n) || 0;
@@ -32,7 +34,7 @@ const DealsWithPriceAnomalies = ({ filters }) => (
       </div>
     )}
     actions={
-      <Link href="/dashboard/buyer/approval?filter=price_anomalies" className={styles.badge}>
+      <Link href={PO_AWAITING_HREF} className={styles.badge}>
         View all <ArrowUpRight size={11} />
       </Link>
     }
@@ -56,7 +58,7 @@ const DealsWithPriceAnomalies = ({ filters }) => (
               return (
                 <Link
                   key={item.id}
-                  href={`/dashboard/buyer/approval?id=${item.id}`}
+                  href={pendingApprovalHref({ po_id: item.id, rfq_id: item.rfq_id })}
                   className={styles.item}
                 >
                   <div className={styles.itemMain}>

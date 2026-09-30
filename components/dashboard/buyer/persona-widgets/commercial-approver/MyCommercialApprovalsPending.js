@@ -14,6 +14,21 @@ const fmtINR = (n) => {
   });
 };
 
+// These rows are PENDING *PO* approval instances (dashboardModel
+// getMyCommercialApprovalsPendingData: entity_type = 'PO', one row per PO).
+// They used to link to /dashboard/buyer/approval, which does not exist (404).
+// A PO is approved on its detail page, where the lines, rates and trail sit
+// next to Approve / Reject — the same destination RfqApprovalDecisionCard's PO
+// banner uses. No PO id → the RFQ workspace's purchase-order stage.
+export const PO_AWAITING_HREF = "/dashboard/buyer/purchase-orders#awaiting";
+export const pendingApprovalHref = (item) => {
+  if (item?.po_id != null) return `/dashboard/buyer/purchase-orders/${item.po_id}`;
+  if (item?.rfq_id != null) {
+    return `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${item.rfq_id}&stage=purchase-order&focus=approval`;
+  }
+  return PO_AWAITING_HREF;
+};
+
 /** Pending commercial approvals — count, total ₹ value, and top-3 by ₹. */
 const MyCommercialApprovalsPending = ({ filters }) => (
   <PersonaCard
@@ -30,7 +45,7 @@ const MyCommercialApprovalsPending = ({ filters }) => (
       </div>
     )}
     actions={
-      <Link href="/dashboard/buyer/approval?type=commercial" className={styles.badge}>
+      <Link href={PO_AWAITING_HREF} className={styles.badge}>
         View all <ArrowUpRight size={11} />
       </Link>
     }
@@ -61,7 +76,7 @@ const MyCommercialApprovalsPending = ({ filters }) => (
             {(data?.top_by_value || []).slice(0, 3).map((item) => (
               <Link
                 key={item.id}
-                href={`/dashboard/buyer/approval?id=${item.id}`}
+                href={pendingApprovalHref(item)}
                 className={styles.item}
               >
                 <div className={styles.itemMain}>

@@ -15,6 +15,15 @@ const fmtINR = (n) => {
   });
 };
 
+// Rows are pending NEGOTIATION_QUOTE (vendor award) approvals. They used to
+// link to /dashboard/buyer/approval, which does not exist (404). The award is
+// decided on the RFQ workspace's Negotiation & Award stage — the same URL the
+// RFQ list's Approve CTA builds (RfqListPage APPROVAL_STAGE_BY_ENTITY).
+export const awardApprovalHref = (item) =>
+  item?.rfq_id != null
+    ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${item.rfq_id}&stage=negotiation-award&focus=approval`
+    : "/dashboard/buyer/rfq-management";
+
 /** Awards waiting on me — at any step in the chain where I'm next. */
 const MyAwardApprovalsPending = ({ filters }) => (
   <PersonaCard
@@ -31,7 +40,7 @@ const MyAwardApprovalsPending = ({ filters }) => (
       </div>
     )}
     actions={
-      <Link href="/dashboard/buyer/approval?type=award" className={styles.badge}>
+      <Link href="/dashboard/buyer/rfq-management" className={styles.badge}>
         View all <ArrowUpRight size={11} />
       </Link>
     }
@@ -53,7 +62,7 @@ const MyAwardApprovalsPending = ({ filters }) => (
             {(data?.items || []).slice(0, 5).map((item) => (
               <Link
                 key={item.id}
-                href={`/dashboard/buyer/approval?id=${item.id}`}
+                href={awardApprovalHref(item)}
                 className={styles.item}
               >
                 <div className={styles.itemMain}>

@@ -1141,3 +1141,19 @@
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
+
+/* ─────────────────────────────  Phone  ─────────────────────────────
+   Below 991px the shell's .content padding is 16px (not 20px 24px), so the
+   full-bleed page must cancel 16px or it runs 16px past the screen. On a
+   phone the hero / timeline / stage bands drop their 24px gutters (set
+   inline for desktop, hence !important) to 12px. */
+.bandWrap { min-width: 0; }
+
+@media (max-width: 991px) {
+  .page { margin: -16px; }
+}
+
+@media (max-width: 768px) {
+  .bandWrap { padding: 0 12px !important; }
+  .pageBody { padding: 12px 12px 24px; gap: 16px; }
+}
