@@ -94,6 +94,36 @@ export const inr = (n) => {
   return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+/* One PO line's GST in rupees. The detail endpoint sends `gst` (always a rate)
+   AND `gst_amount` (rupees) because a vendor may have entered GST as a flat
+   amount; the rupee figure is authoritative. Recomputing it from `gst` is only
+   a fallback for a reply that predates gst_amount. Before this existed the page
+   multiplied by `gst` blindly, and a ₹49,500 GST arriving as gst=49500 rendered
+   "49500%" and a ₹13.6Cr line on a ₹3.24L PO (RFQ 536645 / 536651). */
+export const lineGstAmount = (it = {}) => {
+  if (it.gst_amount != null && isFinite(Number(it.gst_amount))) return Number(it.gst_amount);
+  return ((Number(it.quantity) || 0) * (Number(it.unit_price) || 0) * (Number(it.gst) || 0)) / 100;
+};
+
+/* Basic + GST for one line — the Amount column. */
+export const lineAmount = (it = {}) =>
+  (Number(it.quantity) || 0) * (Number(it.unit_price) || 0) + lineGstAmount(it);
+
+/* A PO line as the pricing preview expects it. The vendor's own tax_mode is
+   forwarded: hard-coding "percentage" turned an absolute ₹49,500 GST into a
+   49,500% rate on the server too, and lost the engine's rule that an absolute
+   base GST is not inherited by the line's other charges. */
+export const previewLineFromPoItem = (it = {}) => {
+  const absolute = it.tax_mode === "absolute";
+  return {
+    unit_price: it.unit_price,
+    quantity: it.quantity,
+    tax: absolute ? lineGstAmount(it) : it.gst ?? 0,
+    tax_mode: absolute ? "absolute" : "percentage",
+    other_charges: it.charges_meta?.other_charges || [],
+  };
+};
+
 /* Lakh display for the KPI total-value card: value/100000 with "L" suffix. */
 export const toLakh = (n) => {
   const num = Number(n) || 0;
