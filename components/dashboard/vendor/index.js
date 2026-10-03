@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getVendorOpportunities, getVendorPerformance, getVendorInsights } from "@/services/vendorDashboard";
 import VendorStatusBanner from "./VendorStatusBanner";
+import usePolling from "@/hooks/usePolling";
 import { PersonaCardShell } from "../buyer/persona-widgets/PersonaCard";
 import {
   Seg,
@@ -54,6 +55,10 @@ const getDateRange = (type) => {
   }
 };
 
+// Background refresh for an open vendor dashboard (was 30 s, never paused).
+// Policy: hooks/usePolling.js.
+const VENDOR_DASHBOARD_POLL_MS = 2 * 60 * 1000;
+
 const formatCurrency = (v) => {
   if (!v || v === 0) return "₹0";
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(1)}Cr`;
@@ -73,33 +78,38 @@ const Vendor = () => {
   const [loadingOpp, setLoadingOpp] = useState(true);
   const [loadingPerf, setLoadingPerf] = useState(true);
   const [loadingInsights, setLoadingInsights] = useState(true);
-  const intervalRef = useRef(null);
 
   const filters = useMemo(() => getDateRange(range), [range]);
 
   const fetchOpp = useCallback(() => {
     setLoadingOpp(true);
-    getVendorOpportunities(filters).then((r) => setOpp(r.data)).catch(() => {}).finally(() => setLoadingOpp(false));
+    return getVendorOpportunities(filters).then((r) => setOpp(r.data)).catch(() => {}).finally(() => setLoadingOpp(false));
   }, [filters]);
   const fetchPerf = useCallback(() => {
     setLoadingPerf(true);
-    getVendorPerformance(filters).then((r) => setPerf(r.data)).catch(() => {}).finally(() => setLoadingPerf(false));
+    return getVendorPerformance(filters).then((r) => setPerf(r.data)).catch(() => {}).finally(() => setLoadingPerf(false));
   }, [filters]);
   const fetchInsights = useCallback(() => {
     setLoadingInsights(true);
-    getVendorInsights(filters).then((r) => setInsights(r.data)).catch(() => {}).finally(() => setLoadingInsights(false));
+    return getVendorInsights(filters).then((r) => setInsights(r.data)).catch(() => {}).finally(() => setLoadingInsights(false));
   }, [filters]);
 
-  const fetchAll = useCallback(() => {
-    fetchOpp(); fetchPerf(); fetchInsights();
-  }, [fetchOpp, fetchPerf, fetchInsights]);
+  // Returns one promise so usePolling never overlaps a slow round.
+  const fetchAll = useCallback(
+    () => Promise.all([fetchOpp(), fetchPerf(), fetchInsights()]),
+    [fetchOpp, fetchPerf, fetchInsights]
+  );
 
-  useEffect(() => {
-    if (!userProfile) return;
-    fetchAll();
-    intervalRef.current = setInterval(fetchAll, 30000);
-    return () => clearInterval(intervalRef.current);
-  }, [userProfile, fetchAll]);
+  // 2 min, paused while hidden, one refetch on tab return. Keyed on the user
+  // id and range, NOT the userProfile object: every profile re-dispatch
+  // produced a new object and restarted (and refetched) the old 30 s loop.
+  const hasProfile = !!userProfile;
+  const userKey = userProfile?.id ?? userProfile?.user_id ?? null;
+  usePolling(fetchAll, {
+    interval: VENDOR_DASHBOARD_POLL_MS,
+    enabled: hasProfile,
+    resetKey: [userKey, range],
+  });
 
   const getGreeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
 

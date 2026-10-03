@@ -416,3 +416,46 @@ describe("the risk summary and the feed agree on a period", () => {
     expect(screen.getByText(/summary/i)).toBeInTheDocument();
   });
 });
+
+// ── Refresh cadence ─────────────────────────────────────────────────────────
+// The socket is the live path; the poll is the floor. Was a 30 s poll that
+// never paused. Now: 2 min, paused while hidden, one silent refresh on return.
+describe("background refresh", () => {
+  let hidden = false;
+  beforeAll(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+  });
+  const setHidden = (value) => {
+    hidden = value;
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+  };
+  const flush = () => act(async () => {});
+  const advance = (ms) => act(async () => { jest.advanceTimersByTime(ms); });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    hidden = false;
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("refreshes every 2 min, not 30 s", async () => {
+    render(<ActivityPage />);
+    await flush();
+    expect(getActivity).toHaveBeenCalledTimes(1);
+    await advance(100 * 1000);
+    expect(getActivity).toHaveBeenCalledTimes(1);
+    await advance(40 * 1000);
+    expect(getActivity).toHaveBeenCalledTimes(2);
+  });
+
+  it("makes no calls while hidden; one silent refresh on tab return", async () => {
+    render(<ActivityPage />);
+    await flush();
+    setHidden(true);
+    await advance(60 * 60 * 1000);
+    expect(getActivity).toHaveBeenCalledTimes(1);
+    setHidden(false);
+    await flush();
+    expect(getActivity).toHaveBeenCalledTimes(2);
+  });
+});
