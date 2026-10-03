@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axios";
+import { notifyApprovalsChanged } from "@/utils/approvalEvents";
 
 export const createApprovalPolicy = (payload) =>
   new Promise(async (resolve, reject) => {
@@ -135,6 +136,7 @@ export const submitApprovalAction = (payload) =>
         `/general/hospitality/approval/action`,
         payload
       );
+      notifyApprovalsChanged();
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -152,6 +154,7 @@ export const cancelApproval = (payload) =>
         `/general/hospitality/approval/cancel`,
         payload
       );
+      notifyApprovalsChanged();
       resolve(response);
     } catch (error) {
       reject({ message: error });

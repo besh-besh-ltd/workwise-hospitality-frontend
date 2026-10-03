@@ -15,6 +15,7 @@ import {
 import { getCostIntelligence } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import usePolling from "@/hooks/usePolling";
 import styles from "./CostIntelligence.module.scss";
 
 ChartJS.register(
@@ -117,7 +118,6 @@ const CostIntelligence = ({ filters }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const intervalRef = useRef(null);
   const currentProductRef = useRef(null);
 
   const fetchData = useCallback(async (productId) => {
@@ -143,17 +143,20 @@ const CostIntelligence = ({ filters }) => {
     }
   }, [filters]);
 
+  // Filter / manual-refresh change: reset the product pick and show the
+  // skeleton. usePolling below then fetches immediately (product ref is null,
+  // so the first top product is picked) and restarts the 5 min cadence
+  // (paused while hidden, one refetch on tab return).
   useEffect(() => {
     currentProductRef.current = null;
     setSelectedProduct(null);
     setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(() => {
-      fetchData(currentProductRef.current);
-    }, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  usePolling(() => fetchData(currentProductRef.current), {
+    interval: DASHBOARD_POLL_MS,
+    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh],
+  });
 
   const handleProductChange = (option) => {
     setSelectedProduct(option);

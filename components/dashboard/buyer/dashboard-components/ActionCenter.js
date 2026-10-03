@@ -8,6 +8,7 @@ import RejectedPOsModal from "./RejectedPOsModal";
 import NoResponseModal from "./NoResponseModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import usePolling from "@/hooks/usePolling";
 import styles from "./ActionCenter.module.scss";
 
 // Order follows client request (Sr 231): Pending approvals → PO rejected by
@@ -70,7 +71,6 @@ const ActionCenter = ({ filters }) => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
   const [showNoResponseModal, setShowNoResponseModal] = useState(false);
-  const intervalRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -84,13 +84,17 @@ const ActionCenter = ({ filters }) => {
     }
   }, [filters]);
 
+  // Filter / manual-refresh change: show the skeleton. usePolling below then
+  // fetches immediately and restarts the 5 min cadence (paused while hidden,
+  // one refetch on tab return).
   useEffect(() => {
     setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  usePolling(fetchData, {
+    interval: DASHBOARD_POLL_MS,
+    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh],
+  });
 
   const urgentCount = (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0);
 
