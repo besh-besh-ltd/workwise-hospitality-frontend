@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import InfoTip from "@/components/shared/InfoTip";
 import { DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import usePolling from "@/hooks/usePolling";
 import styles from "./PersonaCard.module.scss";
 import { getApiErrorMessage } from "@/utils/apiError";
 
@@ -21,7 +22,7 @@ const DEFAULT_POLL_MS = DASHBOARD_POLL_MS;
  *   tooltip        string                — explanatory tooltip
  *   filters        object                — passed straight to fetcher
  *   fetcher        (filters) => Promise  — service method returning {data}
- *   pollMs         number                — poll interval, default 20s
+ *   pollMs         number                — poll interval, default DASHBOARD_POLL_MS (5 min); 0 = no poll
  *   children       (data, ctx) => node   — render-prop receives engine data
  *   renderEmpty    ({onRetry}) => node   — optional empty-state override
  *   actions        node                  — top-right action node (e.g. link)
@@ -46,6 +47,7 @@ const PersonaCard = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const fetchIdRef = useRef(0);
+  const filtersKey = JSON.stringify(filters || {});
 
   const fetchData = useCallback(async () => {
     const id = ++fetchIdRef.current;
@@ -65,18 +67,17 @@ const PersonaCard = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher, JSON.stringify(filters || {})]);
+  }, [fetcher, filtersKey]);
 
+  // Filter change: show the skeleton. usePolling then fetches immediately and
+  // restarts the cadence (default 5 min, paused while hidden, one refetch on
+  // tab return). `fetcher` is always a module-level service function, so the
+  // filters are the only thing that changes what we fetch.
   useEffect(() => {
     setLoading(true);
-    fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (!pollMs) return undefined;
-    const t = setInterval(() => fetchData(), pollMs);
-    return () => clearInterval(t);
-  }, [fetchData, pollMs]);
+  usePolling(fetchData, { interval: pollMs || 0, resetKey: filtersKey });
 
   const handleRetry = () => {
     setLoading(true);
