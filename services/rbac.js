@@ -125,6 +125,11 @@ export const getMyPermissions = () =>
     }
   });
 
+// Several components on one page routinely ask the identical question in the
+// same tick (two useModulePermissions hooks for the same module and hotel, a
+// page and its embedded stage, ...). Identical concurrent requests share ONE
+// in-flight POST; nothing is kept once it settles, so every page load still
+// gets fresh grants.
 export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null) =>
   new Promise(async (resolve, reject) => {
     try {
@@ -133,7 +138,11 @@ export const getBulkPermissions = (moduleKey, hotelIds = [], departmentId = null
         hotel_ids: hotelIds
       };
       if (departmentId) payload.department_id = departmentId;
-      const response = await axiosInstance.post(`/rbac/me/permissions/bulk`, payload);
+      const hotelKey = [...(hotelIds || [])].map(String).sort().join(",");
+      const response = await dedupeInFlight(
+        `permissions-bulk|${sessionScopeKey()}|${moduleKey}|${hotelKey}|${departmentId || ""}`,
+        () => axiosInstance.post(`/rbac/me/permissions/bulk`, payload)
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
