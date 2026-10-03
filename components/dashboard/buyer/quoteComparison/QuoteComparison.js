@@ -136,8 +136,12 @@ export const QUOTE_SHEET_ANCHOR_ID = "qc-comparison-sheet";
 // id comes from the prop instead of the URL. Negotiation deep-links are kept
 // (the user wants the negotiation module reused).
 // `focusAwardToken` — see the award-focus effect below.
+// `rfq` (embedded only) is the host page's already-loaded RFQ payload; when it
+// matches `rfqId` the sheet uses it for its RBAC context instead of fetching
+// the same RFQ a second time.
 const QuoteComparison = ({
   rfqId: rfqIdProp,
+  rfq: preloadedRfq = null,
   embedded: isEmbedded = false,
   focusAwardToken = 0,
 } = {}) => {
@@ -377,6 +381,12 @@ const QuoteComparison = ({
     setCurrentRFQMeta(null);
     if (!rfq || rfq === "undefined" || rfq === "null") return undefined;
     const fetchRfq = String(rfq);
+    // Embedded in the RFQ page: the host already holds this RFQ (a superset of
+    // what we need here — hotel/department), so don't fetch it again.
+    if (isEmbedded && preloadedRfq && String(preloadedRfq.id) === fetchRfq) {
+      setCurrentRFQMeta(preloadedRfq);
+      return undefined;
+    }
     getRFQById(fetchRfq)
       .then((res) => {
         if (cancelled || latestRfqRef.current !== fetchRfq) return;
@@ -387,7 +397,7 @@ const QuoteComparison = ({
     return () => {
       cancelled = true;
     };
-  }, [rfq]);
+  }, [rfq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotelIdsKey =
     currentRFQMeta?.hotel_ids?.join(",") || currentRFQMeta?.hotel_id || "";
