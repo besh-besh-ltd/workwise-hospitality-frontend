@@ -9,7 +9,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { clearUserProfile } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { BsPerson } from "react-icons/bs";
-import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import dynamic from "next/dynamic";
+// The login/register modal (formik + yup + Google OAuth flow) is only needed
+// once someone clicks Log in, so it is split out of the shared bundle and not
+// mounted until the modal is first opened. Header never renders on the server
+// (it sits under PersistGate), so ssr:false changes nothing there.
+const LoginContainer = dynamic(() => import("@/components/AuthContainer/LoginContainer"), { ssr: false });
 import DropdownMenu from "@/components/shared/DropdownMenu";
 import HospitalityContextModal from "@/components/hospitality/HospitalityContextModal";
 import {
@@ -34,6 +39,12 @@ const Header = () => {
 
   // ── UI state ──────────────────────────────────
   const [openAuthModal, setOpenAuthModal] = useState(false);
+  // Stays true after the first open so the follow-up "logged in on another
+  // device" modal inside LoginContainer survives the auth modal closing.
+  const [authModalMounted, setAuthModalMounted] = useState(false);
+  useEffect(() => {
+    if (openAuthModal) setAuthModalMounted(true);
+  }, [openAuthModal]);
   const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
@@ -425,14 +436,16 @@ const Header = () => {
       </header>
 
       {/* ── Modals ── */}
-      <LoginContainer
-        openAuthModal={openAuthModal}
-        setOpenAuthModal={setOpenAuthModal}
-        activeAuthTab={activeAuthTab}
-        setActiveAuthTab={setActiveAuthTab}
-        loading={loading}
-        setloading={setLoading}
-      />
+      {(openAuthModal || authModalMounted) && (
+        <LoginContainer
+          openAuthModal={openAuthModal}
+          setOpenAuthModal={setOpenAuthModal}
+          activeAuthTab={activeAuthTab}
+          setActiveAuthTab={setActiveAuthTab}
+          loading={loading}
+          setloading={setLoading}
+        />
+      )}
       <HospitalityContextModal
         isOpen={contextModalOpen}
         onClose={() => setContextModalOpen(false)}
