@@ -136,8 +136,12 @@ export const QUOTE_SHEET_ANCHOR_ID = "qc-comparison-sheet";
 // id comes from the prop instead of the URL. Negotiation deep-links are kept
 // (the user wants the negotiation module reused).
 // `focusAwardToken` — see the award-focus effect below.
+// `rfq` (embedded only) is the host page's already-loaded RFQ payload; when it
+// matches `rfqId` the sheet uses it for its RBAC context instead of fetching
+// the same RFQ a second time.
 const QuoteComparison = ({
   rfqId: rfqIdProp,
+  rfq: preloadedRfq = null,
   embedded: isEmbedded = false,
   focusAwardToken = 0,
 } = {}) => {
@@ -193,7 +197,10 @@ const QuoteComparison = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [rfq, view]);
+    // Keyed on the RFQ only. It used to depend on `view` too, which fired it
+    // twice on mount (view null → loaded) and again after every silent refetch
+    // — none of which can change which rounds await this user.
+  }, [rfq]);
 
   // workspace UI state
   const TABS = { product: "product", category: "category", cost: "overall" };
@@ -377,6 +384,12 @@ const QuoteComparison = ({
     setCurrentRFQMeta(null);
     if (!rfq || rfq === "undefined" || rfq === "null") return undefined;
     const fetchRfq = String(rfq);
+    // Embedded in the RFQ page: the host already holds this RFQ (a superset of
+    // what we need here — hotel/department), so don't fetch it again.
+    if (isEmbedded && preloadedRfq && String(preloadedRfq.id) === fetchRfq) {
+      setCurrentRFQMeta(preloadedRfq);
+      return undefined;
+    }
     getRFQById(fetchRfq)
       .then((res) => {
         if (cancelled || latestRfqRef.current !== fetchRfq) return;
@@ -387,7 +400,7 @@ const QuoteComparison = ({
     return () => {
       cancelled = true;
     };
-  }, [rfq]);
+  }, [rfq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hotelIdsKey =
     currentRFQMeta?.hotel_ids?.join(",") || currentRFQMeta?.hotel_id || "";
@@ -410,6 +423,11 @@ const QuoteComparison = ({
     enabled: !!currentRFQMeta,
   });
 
+  // Once the grants say "no read", nothing fetched for this RFQ may be kept.
+  const readDenied = !!currentRFQMeta && !permsLoading && !canRead;
+  const readDeniedRef = useRef(readDenied);
+  readDeniedRef.current = readDenied;
+
   const isRfqClosed = view ? String(view.rfq?.status).toUpperCase() === "CLOSED" : false;
   const canWrite = (canUpdate || canCreate) && !isRfqClosed;
 
@@ -424,6 +442,7 @@ const QuoteComparison = ({
         // finalize identifiers + quote history per cell (no second round-trip).
         const viewRes = await getQuoteComparisonView(rfq, { freight: freightOn });
         if (latestRfqRef.current !== fetchRfq) return;
+        if (readDeniedRef.current) return;
         setView(viewRes || null);
       } catch (e) {
         if (latestRfqRef.current !== fetchRfq) return;
@@ -437,13 +456,21 @@ const QuoteComparison = ({
     [rfq, freightOn]
   );
 
+  // The view no longer waits for getRFQById → permissions/bulk to finish: it
+  // starts as soon as the RFQ id is known, in parallel with them. The server
+  // scopes the endpoint itself; the client-side read gate still decides what
+  // renders (isAccessDenied below), and a denied view is dropped, never shown.
   useEffect(() => {
-    if (!rfq || !canRead) {
+    if (!rfq) {
       setView(null);
       return;
     }
     fetchView();
-  }, [rfq, canRead, freightOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rfq, freightOn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (readDenied) setView(null);
+  }, [readDenied]);
 
   // Reset transient UI when switching RFQs
   useEffect(() => {

@@ -54,6 +54,7 @@ import { buildComparisonContextTables } from "@/utils/quoteCompareTableViewModel
 import QuoteCompareHeaderCard from "@/components/dashboard/buyer/quoteCompare/QuoteCompareHeaderCard";
 import NoTechClausesBanner from "@/components/shared/NoTechClausesBanner";
 import QuoteCompareKpiStrip from "@/components/dashboard/buyer/quoteCompare/QuoteCompareKpiStrip";
+import QuoteLockCountdownBanner from "@/components/dashboard/buyer/quoteCompare/QuoteLockCountdownBanner";
 import ApprovalProgressCard from "@/components/dashboard/buyer/quoteCompare/ApprovalProgressCard";
 import ComparisonTabs from "@/components/dashboard/buyer/quoteCompare/ComparisonTabs";
 import ProductComparisonTab from "@/components/dashboard/buyer/quoteCompare/ProductComparisonTab";
@@ -169,6 +170,10 @@ const QuoteCompare = () => {
     return {
       locked: quoteVisibilityLocked,
       deadline,
+      // Live countdowns run inside the leaf components that show them
+      // (QuoteLockCountdownBanner / QuoteVisibilityLockPanel) off this epoch;
+      // `remainingMs` is only a snapshot as of the last clock update.
+      deadlineEpoch: localBidEndEpoch,
       remainingMs,
       message:
         quoteVisibilityMeta?.message ||
@@ -183,13 +188,20 @@ const QuoteCompare = () => {
     currentRFQ?.bid_end_date,
   ]);
 
+  // The page only needs to know WHEN the lock lifts, not every second until
+  // then. A 1 s interval here re-rendered the whole products × vendors
+  // workspace every second while quotes were locked; one timeout at the
+  // deadline flips the lock instead (re-armed if the browser caps the delay or
+  // fires a hair early), and the visible countdowns tick in their own leaves.
   useEffect(() => {
-    if (!quoteVisibilityLocked) return undefined;
-    const timer = setInterval(() => {
+    if (!quoteVisibilityLocked || localBidEndEpoch == null) return undefined;
+    const MAX_TIMEOUT_MS = 2147483647; // setTimeout's 32-bit ceiling (~24.8 days)
+    const delay = Math.min(Math.max(localBidEndEpoch - Date.now() + 1, 0), MAX_TIMEOUT_MS);
+    const timer = setTimeout(() => {
       setQuoteVisibilityClock(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [quoteVisibilityLocked]);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [quoteVisibilityLocked, localBidEndEpoch, quoteVisibilityClock]);
 
   // Derive negotiation data from embedded quote fields (populated when include_negotiation=true)
   const productNegotiationData = useMemo(() => {
@@ -420,8 +432,26 @@ const QuoteCompare = () => {
     setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
 
     try {
+      // The three reads this needs are independent of each other — the quote
+      // view does not take the TE flag, and the RFQ detail is only read for
+      // vendor rejections + comment — so start them together instead of one
+      // after another. They are still consumed in the original order below,
+      // so state lands exactly as before.
+      const clausePromise = getAllClauses(rfq);
+      const quotesPromise = getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
+      const rfqDetailPromise = getRFQById(fetchRfq);
+      // Each is awaited (and its failure handled) below; these no-op handlers
+      // only stop an early exit from leaving the others as unhandled rejections.
+      [clausePromise, quotesPromise, rfqDetailPromise].forEach((p) => p.catch(() => {}));
+
       // Step 1: Check if tech evaluation exists
-      const clauseRes = await getAllClauses(rfq);
+      const clauseRes = await clausePromise;
       if (latestRfqRef.current !== fetchRfq) return;
 
       let hasTechEval = false;
@@ -434,13 +464,7 @@ const QuoteCompare = () => {
       // Step 2: Fetch the server-computed quote-compare view model.
       // Engine output is attached per quote_details row; normalisation is
       // applied server-side when normalize=1 (no local handleNormalize needed).
-      const quotesRes = await getQuoteComparison(rfq, {
-        normalize: !!normalizeFilter,
-        freightFilter: !!freightFilter,
-        rfq_product_id,
-        pageSource: 'quote_compare',
-        include_negotiation: true,
-      });
+      const quotesRes = await quotesPromise;
       if (latestRfqRef.current !== fetchRfq) return;
 
       const visibility = quotesRes?.meta?.quoteVisibility || null;
@@ -470,9 +494,9 @@ const QuoteCompare = () => {
         loadNegotiationData();
       }
 
-      // Fetch full RFQ detail (vendor rejections + fields not included in the list endpoint, e.g. comment)
+      // Full RFQ detail (vendor rejections + fields not included in the list endpoint, e.g. comment)
       try {
-        const rfqDetailRes = await getRFQById(fetchRfq);
+        const rfqDetailRes = await rfqDetailPromise;
         const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
         if (latestRfqRef.current === fetchRfq && rfqDetail) {
           if (rfqDetail.vendor_rejections) {
@@ -2129,16 +2153,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 <div className={revampStyles.workspaceStack}>
 
                 {!isRfqClosed && currentRFQ && effectiveQuoteVisibility.locked && (
-                  <ReadOnlyBanner
-                    title="Quote Comparison Locked Until Deadline"
-                    message={`Quotes will appear after the quote submission deadline passes. Deadline: ${formatDisplayDate(
-                      effectiveQuoteVisibility.deadline,
-                      { includeTime: true }
-                    )}. Time remaining: ${formatRemainingDuration(
-                      effectiveQuoteVisibility.remainingMs
-                    )}.`}
-                    badgeText="View Only"
-                    className="mt-0"
+                  <QuoteLockCountdownBanner
+                    deadline={effectiveQuoteVisibility.deadline}
+                    deadlineEpoch={effectiveQuoteVisibility.deadlineEpoch}
+                    fallbackRemainingMs={effectiveQuoteVisibility.remainingMs}
                   />
                 )}
 

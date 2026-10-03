@@ -1,5 +1,6 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
+import { cachedRequest, invalidateRequestCache, sessionScopeKey } from "@/utils/requestCache";
 import axios from "axios";
 
 // This is the base URL for the AI server
@@ -1541,10 +1542,16 @@ export const submitRFQApprovalAction = (rfqId, payload) => {
 };
 
 // Charge Names CRUD
+const CHARGE_NAMES_CACHE_PREFIX = "charge-names|";
+
 export const getChargeNames = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/charge-names`);
+      // Shared per session for the TTL; create/update/delete below invalidate.
+      let response = await cachedRequest(
+        `${CHARGE_NAMES_CACHE_PREFIX}${sessionScopeKey()}`,
+        () => axiosInstance.get(`/rfq/charge-names`)
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -1567,6 +1574,7 @@ export const createChargeName = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/charge-names`, payload);
+      invalidateRequestCache(CHARGE_NAMES_CACHE_PREFIX);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -1578,6 +1586,7 @@ export const updateChargeName = (id, payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.put(`/rfq/charge-names/${id}`, payload);
+      invalidateRequestCache(CHARGE_NAMES_CACHE_PREFIX);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -1589,6 +1598,7 @@ export const deleteChargeName = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.delete(`/rfq/charge-names/${id}`);
+      invalidateRequestCache(CHARGE_NAMES_CACHE_PREFIX);
       resolve(response);
     } catch (error) {
       reject({ message: error });

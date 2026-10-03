@@ -30,7 +30,7 @@ export default function NegotiationAwardStage({ rfq, stage, focusAwardToken = 0 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="rfq-stage-embed">
-        <QuoteComparison rfqId={String(rfq.id)} embedded focusAwardToken={focusAwardToken} />
+        <QuoteComparison rfqId={String(rfq.id)} rfq={rfq} embedded focusAwardToken={focusAwardToken} />
       </div>
     </div>
   );

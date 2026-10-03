@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axios";
+import { dedupeInFlight, sessionScopeKey } from "@/utils/requestCache";
 
 /**
  * Create a new negotiation round (product-specific)
@@ -95,6 +96,53 @@ export const getNegotiationRounds = (rfq_id, rfq_product_id = null, token = null
       reject(error.response?.data || { message: error.message });
     }
   });
+};
+
+/**
+ * Does `round` cover `rfqProductId`? Mirrors the server's coversProductSql
+ * (negotiationModel.js): a legacy round names the product in rfq_product_id,
+ * a multi-product round lists it in products[].rfq_product_id. This is exactly
+ * the filter GET /negotiation/rounds/:rfq_id?rfq_product_id= applies, so
+ * filtering the unfiltered list client-side gives the same rounds, in the same
+ * order, as the per-product call.
+ */
+export const roundCoversRfqProduct = (round, rfqProductId) => {
+  if (round?.rfq_product_id != null && String(round.rfq_product_id) === String(rfqProductId)) return true;
+  if (Array.isArray(round?.products)) {
+    return round.products.some(p => p?.rfq_product_id != null && String(p.rfq_product_id) === String(rfqProductId));
+  }
+  return false;
+};
+
+/**
+ * All rounds of an RFQ, distributed per product: ONE request instead of one
+ * per product. Resolves to { [rfqProductId]: rounds[] } with an entry (possibly
+ * empty) for every id in `rfqProductIds`.
+ */
+export const getNegotiationRoundsByProduct = async (rfq_id, rfqProductIds = [], token = null) => {
+  const res = await getNegotiationRounds(rfq_id, null, token);
+  const rounds = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  const byProduct = {};
+  rfqProductIds.forEach((pid) => {
+    byProduct[pid] = rounds.filter((r) => roundCoversRfqProduct(r, pid));
+  });
+  return byProduct;
+};
+
+/**
+ * Per-product view for components that render one cell per product (e.g. the
+ * vendor RFQ table's NegotiationColumnCell). Every cell mounting together
+ * shares ONE in-flight request for the whole RFQ; nothing is kept once it
+ * settles, so a later remount still sees fresh rounds. Same response shape as
+ * getNegotiationRounds(rfq_id, rfq_product_id): { status, data: rounds[] }.
+ */
+export const getNegotiationRoundsForProduct = async (rfq_id, rfq_product_id, token = null) => {
+  const res = await dedupeInFlight(
+    `negotiation-rounds|${sessionScopeKey()}|${rfq_id}|${token || ""}`,
+    () => getNegotiationRounds(rfq_id, null, token)
+  );
+  const rounds = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+  return { ...(res && !Array.isArray(res) ? res : { status: 1 }), data: rounds.filter((r) => roundCoversRfqProduct(r, rfq_product_id)) };
 };
 
 /**
