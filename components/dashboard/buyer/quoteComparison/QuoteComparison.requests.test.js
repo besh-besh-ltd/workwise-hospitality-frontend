@@ -1,6 +1,11 @@
 // QuoteComparison — what it asks the server for, and when.
 //
-// Embedded in the RFQ page it re-fetched the RFQ the host already held.
+// Three defects, all request-shaped:
+//   1. A serial waterfall: getRFQById → permissions/bulk → quote-comparison-view.
+//      The view (the slow one) only started once both had returned.
+//   2. The approval-bundle effect depended on [rfq, view], so it fired twice on
+//      mount (view null → loaded) and again after every silent refetch.
+//   3. Embedded in the RFQ page it re-fetched the RFQ the host already held.
 //
 // The permission hook is mocked the way the real one behaves: it answers only
 // once it is enabled (i.e. once the RFQ's hotel is known).
@@ -95,6 +100,45 @@ beforeEach(() => {
   window.HTMLElement.prototype.scrollIntoView = jest.fn();
   getQuoteComparisonView.mockResolvedValue(payload());
   getRFQById.mockResolvedValue({ data: RFQ_META });
+});
+
+describe("request waterfall", () => {
+  it("starts the comparison view without waiting for the RFQ and its permissions", async () => {
+    getRFQById.mockReturnValue(new Promise(() => {})); // RFQ (→ permissions) still in flight
+    render(<QuoteComparison rfqId={RFQ_ID} embedded />);
+    await waitFor(() => expect(getQuoteComparisonView).toHaveBeenCalledTimes(1));
+    expect(getRFQById).toHaveBeenCalledTimes(1);
+  });
+
+  it("still renders nothing it fetched when the read grant is missing", async () => {
+    mockPerms.read = false;
+    render(<QuoteComparison rfqId={RFQ_ID} embedded />);
+    expect(await screen.findByText("access denied")).toBeInTheDocument();
+    expect(screen.queryByText("LAPTOP SCREEN")).not.toBeInTheDocument();
+  });
+});
+
+describe("approval bundle", () => {
+  it("is requested once on mount, and not again after a silent refetch", async () => {
+    render(<QuoteComparison rfqId={RFQ_ID} embedded />);
+    await screen.findByText("LAPTOP SCREEN");
+    expect(getNegotiationApprovalBundle).toHaveBeenCalledTimes(1);
+
+    // Finalise one line: the sheet POSTs, then silently refetches the view.
+    fireEvent.click(
+      within(document.getElementById(awardCellAnchorId(SCREEN.id, ACME)))
+        .getByRole("button", { name: /select for this item/i })
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Finalise \d+ ·/ }));
+    await screen.findByText("Finalise vendor selection");
+    fireEvent.change(screen.getByLabelText(/comment/i), { target: { value: "Lowest landed cost." } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /confirm & create po draft/i }));
+    });
+    await waitFor(() => expect(finalizeQuotation).toHaveBeenCalled());
+    await waitFor(() => expect(getQuoteComparisonView.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(getNegotiationApprovalBundle).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("embedded in the RFQ page", () => {
