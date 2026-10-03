@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
-import posthog from "posthog-js";
+import posthog from "@/lib/analytics";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { clearUserProfile } from "@/redux/slice";
 import { getUserDetails } from "@/services/Auth";
