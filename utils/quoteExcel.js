@@ -24,7 +24,10 @@
      grand_total          = ROUND(grand_subtotal + global_charges_total, 2)
    ──────────────────────────────────────────────────────────────────────── */
 
-import * as XLSX from "xlsx-js-style";
+import { loadXlsx } from "@/utils/xlsx";
+// SheetJS is fetched on the first export, not shipped with the quote wizard.
+// The exported entry points await it; every helper below runs inside them.
+let XLSX = null;
 import { saveAs } from "file-saver";
 
 const MONEY_FMT = '"₹"#,##0.00';   // rupee amounts, e.g. ₹20,000.00
@@ -99,7 +102,7 @@ const computedStyle = (align = "right") => style({ fill: FILL.computed, align })
 const helperStyle = () => style({ fill: FILL.helper, align: "right", color: "94A3B8", size: 9 });
 
 /* ── main entry ──────────────────────────────────────────────────────── */
-export function buildQuoteWorkbook({
+export async function buildQuoteWorkbook({
   rfq,
   products = [],
   globalCharges = [],
@@ -107,6 +110,7 @@ export function buildQuoteWorkbook({
   vendorGSTIN = "",
   showTechEvalRestrictions = false,
 }) {
+  XLSX = await loadXlsx();
   const wb = XLSX.utils.book_new();
   const calc = buildCalcSheet({
     rfq,
@@ -122,10 +126,10 @@ export function buildQuoteWorkbook({
 }
 
 /**
- * Build, then download the workbook. Returns the suggested filename.
+ * Build, then download the workbook. Resolves to the suggested filename.
  */
-export function downloadQuoteExcel(args) {
-  const wb = buildQuoteWorkbook(args);
+export async function downloadQuoteExcel(args) {
+  const wb = await buildQuoteWorkbook(args);
   // File name = <rfq_title>_<rfq_no>.xlsx (filesystem-safe). Falls back to the
   // RFQ number alone when no title is available.
   const slug = (s) => String(s ?? "").trim().replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "");

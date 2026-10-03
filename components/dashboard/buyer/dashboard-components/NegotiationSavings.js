@@ -3,6 +3,7 @@ import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
 import { SkeletonHeadline, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import usePolling from "@/hooks/usePolling";
 import { formatCurrencyShort as formatCurrency } from "@/utils/sharedFunctions";
 import styles from "./NegotiationSavings.module.scss";
 
@@ -10,7 +11,6 @@ const NegotiationSavings = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const intervalRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -24,13 +24,17 @@ const NegotiationSavings = ({ filters }) => {
     }
   }, [filters]);
 
+  // Filter / manual-refresh change: show the skeleton. usePolling below then
+  // fetches immediately and restarts the 5 min cadence (paused while hidden,
+  // one refetch on tab return).
   useEffect(() => {
     setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+  usePolling(fetchData, {
+    interval: DASHBOARD_POLL_MS,
+    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh],
+  });
 
   const baseline = data?.market_baseline || 0;
   const negotiated = data?.negotiated_total || 0;

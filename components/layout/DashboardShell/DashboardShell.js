@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
-import posthog from "posthog-js";
+import posthog from "@/lib/analytics";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { clearUserProfile } from "@/redux/slice";
 import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { ApprovalIndicatorsProvider } from "@/hooks/usePendingApprovalIndicators";
 import SideNav from "./SideNav";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
@@ -100,6 +101,9 @@ const DashboardShell = ({ children }) => {
   ) : null;
 
   return (
+    // One approval-count poller + socket subscription for the whole shell.
+    // SideNav and MobileNav both read it; before, each mounted its own 5 s poll.
+    <ApprovalIndicatorsProvider enabled={!!loggedinUser}>
     <TwoPanelContext.Provider value={twoPanelCtx}>
       <div className={styles.shell}>
         <TopBar
@@ -144,6 +148,7 @@ const DashboardShell = ({ children }) => {
       />
 
     </TwoPanelContext.Provider>
+    </ApprovalIndicatorsProvider>
   );
 };
 

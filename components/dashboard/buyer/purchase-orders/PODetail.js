@@ -365,6 +365,12 @@ const PODetail = ({ id }) => {
     // asks about the PO's department too — a grant scoped to some other
     // department is not a grant on this PO.
     departmentId: po?.department_id ?? null,
+    // Ask once, about the right scope: wait until the PO is known (or its
+    // fetch has failed, which leaves the viewer-mapping fallback). Asking
+    // during the load sent a permissions/bulk for the viewer's hotels and then
+    // a second one for the PO's hotel the moment it arrived. This still runs
+    // alongside the pricing preview — setPo lands before that request.
+    enabled: !!po || !loading,
   });
   // Same predicate as the legacy listing page (PurchaseOrders.js), deliberately:
   // two pages offering the same action must not disagree about who may take it.

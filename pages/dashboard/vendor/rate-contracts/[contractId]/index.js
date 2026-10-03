@@ -11,7 +11,7 @@ import Link from "next/link";
 import AddendumSignModal from "@/components/dashboard/rate-contracts/vendor/AddendumSignModal";
 import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/amendmentRate";
 import { useRouter } from "next/router";
-import * as XLSX from "xlsx";
+import { loadXlsx } from "@/utils/xlsx";
 import * as ArcApi from "@/services/arc_v2";
 
 // ── format helpers ───────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ export default function VendorContractDetailPage() {
   }, [lines]);
 
   // ── downloads (client-side) ──────────────────────────────────────────────
-  const dlAnnexure = () => {
+  const dlAnnexure = async () => {
     if (!contract) return;
     const rows = lines.map((l, i) => {
       const amended = l.amendment_id && Number(l.effective_unit_rate) !== Number(l.unit_rate);
@@ -234,6 +234,7 @@ export default function VendorContractDetailPage() {
         "Line value (₹)": Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)),
       };
     });
+    const XLSX = await loadXlsx();
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 13 }, { wch: 14 }, { wch: 20 }, { wch: 8 }, { wch: 7 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();

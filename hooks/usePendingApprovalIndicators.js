@@ -1,10 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getPendingApprovalCounts } from "@/services/approval";
 import storageInstance from "@/utils/storageInstance";
 import {
   getStoredHospitalityContext,
   subscribeHospitalityContext,
 } from "@/utils/hospitalityContext";
+import { subscribeApprovalsChanged } from "@/utils/approvalEvents";
+import usePolling from "@/hooks/usePolling";
+import { useRealtimeEvent } from "@/hooks/useRealtime";
 
 // Every approval entity type the engine can raise, mapped to the nav module
 // (landing href) where the user goes to act. The /counts endpoint groups by
@@ -35,25 +46,39 @@ const ENTITY_TYPE_TO_HREF = {
   PO: "/dashboard/buyer/purchase-orders",
 };
 
-const POLL_INTERVAL_MS = 5000;
+// Approval badges are pushed, not polled. The server emits `approval:changed`
+// to `user:<id>` after any instance/step/approver change, and we refetch on
+// that frame. The 60 s poll only backs up a dropped socket or a missed frame,
+// so it runs at the same rate whether the socket is up or not. It pauses in
+// hidden tabs. Until Oct 2026 this was a 5 s poll, mounted twice per
+// dashboard page and never paused: 32.7k calls/day, 45% of backend time.
+// See hooks/usePolling.js for the portal-wide cadence policy.
+export const APPROVAL_POLL_INTERVAL_MS = 60 * 1000;
 
-export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
+const EMPTY_MAP = new Map();
+
+/**
+ * The single source of approval counts. Mount this exactly once per page:
+ * DashboardShell does it through <ApprovalIndicatorsProvider>. The legacy
+ * Header (never mounted together with DashboardShell) falls back to its own
+ * instance through usePendingApprovalIndicators below.
+ */
+const useApprovalIndicatorsSource = ({ enabled = true } = {}) => {
   // Map<href, count> — how many items at that nav module need the user's action.
-  const [countsByHref, setCountsByHref] = useState(() => new Map());
+  const [countsByHref, setCountsByHref] = useState(EMPTY_MAP);
   const [loading, setLoading] = useState(false);
-  const intervalRef = useRef(null);
   const fetchIdRef = useRef(0);
 
   const fetchCounts = useCallback(async () => {
     if (!enabled || !storageInstance.getStorage("token")) {
-      setCountsByHref(new Map());
+      setCountsByHref(EMPTY_MAP);
       return;
     }
 
     // Approval counts are buyer-only — skip for vendors (user_type=3)
     const userType = storageInstance.getStorage("current-user-type");
     if (userType === "vendor") {
-      setCountsByHref(new Map());
+      setCountsByHref(EMPTY_MAP);
       return;
     }
 
@@ -91,36 +116,32 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
     }
   }, [enabled]);
 
-  // Initial fetch + polling
+  // Mount fetch + 60 s fallback poll, paused while hidden, one refetch on
+  // tab return. Overlapping triggers collapse into one trailing request.
+  const { refetch } = usePolling(fetchCounts, {
+    interval: APPROVAL_POLL_INTERVAL_MS,
+    enabled,
+  });
+
+  // Logging out (or a vendor session) must not leave stale badges behind.
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) setCountsByHref(EMPTY_MAP);
+  }, [enabled]);
 
-    fetchCounts();
-    intervalRef.current = setInterval(fetchCounts, POLL_INTERVAL_MS);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchCounts, enabled]);
+  // Push: the server says something about my approvals changed.
+  useRealtimeEvent("approval:changed", refetch, { enabled });
 
   // Re-fetch on hospitality context change
   useEffect(() => {
-    const unsubscribe = subscribeHospitalityContext(() => {
-      fetchCounts();
-    });
-    return () => unsubscribe();
-  }, [fetchCounts]);
+    if (!enabled) return undefined;
+    return subscribeHospitalityContext(() => refetch());
+  }, [enabled, refetch]);
 
-  // Re-fetch on tab visibility change
+  // The user approved/rejected/cancelled something in this tab.
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchCounts();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [fetchCounts]);
+    if (!enabled) return undefined;
+    return subscribeApprovalsChanged(() => refetch());
+  }, [enabled, refetch]);
 
   // How many items at this exact nav href need my action.
   const pendingCountFor = useCallback(
@@ -132,7 +153,37 @@ export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
     [countsByHref]
   );
 
-  return { countsByHref, pendingCountFor, hasPendingApproval, loading, refetch: fetchCounts };
+  return useMemo(
+    () => ({ countsByHref, pendingCountFor, hasPendingApproval, loading, refetch }),
+    [countsByHref, pendingCountFor, hasPendingApproval, loading, refetch]
+  );
+};
+
+const ApprovalIndicatorsContext = createContext(null);
+
+/**
+ * One poller + one socket subscription for every badge on the page
+ * (SideNav, MobileNav, ...). Consumers call usePendingApprovalIndicators().
+ */
+export const ApprovalIndicatorsProvider = ({ enabled = true, children }) => {
+  const value = useApprovalIndicatorsSource({ enabled });
+  return (
+    <ApprovalIndicatorsContext.Provider value={value}>
+      {children}
+    </ApprovalIndicatorsContext.Provider>
+  );
+};
+
+/**
+ * Read approval badge counts. Inside <ApprovalIndicatorsProvider> this reads
+ * the shared instance and makes no requests of its own (the provider's
+ * `enabled` wins). Outside a provider (the legacy Header) it runs its own
+ * instance, as before.
+ */
+export const usePendingApprovalIndicators = ({ enabled = true } = {}) => {
+  const shared = useContext(ApprovalIndicatorsContext);
+  const own = useApprovalIndicatorsSource({ enabled: enabled && !shared });
+  return shared || own;
 };
 
 export default usePendingApprovalIndicators;
