@@ -83,5 +83,14 @@
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "ts-node": "^10.9.2"
-  }
+  },
+  "browserslist": [
+    "chrome >= 100",
+    "edge >= 100",
+    "firefox >= 100",
+    "safari >= 15.4",
+    "ios_saf >= 15.4",
+    "samsung >= 18",
+    "and_chr >= 100"
+  ]
 }
