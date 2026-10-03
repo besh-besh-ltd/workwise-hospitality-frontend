@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import * as XLSX from "xlsx";
+import { loadXlsx } from "@/utils/xlsx";
 import {
   ArrowLeft, ShieldCheck, BadgeCheck, Crown, MapPin, Calendar, Users,
   Building2, Globe, Phone, Mail, Download, Package, Layers, Landmark,
@@ -164,7 +164,7 @@ export default function VendorProfileView() {
     else if (typeof window !== "undefined") window.close();
   }
 
-  function downloadDossier() {
+  async function downloadDossier() {
     if (!vendor) return;
     const rows = [
       ["Field", "Value"],
@@ -191,6 +191,7 @@ export default function VendorProfileView() {
       ["Account Number (masked)", bank.account_number_masked || ""],
       ["IFSC Code", bank.ifsc_code || ""],
     ];
+    const XLSX = await loadXlsx();
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [{ wch: 30 }, { wch: 60 }];
     const wb = XLSX.utils.book_new();

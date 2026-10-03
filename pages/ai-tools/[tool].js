@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faCloudArrowUp, faPlay, faLock, faEyeSlash, faUsers, faListAlt, faFileAlt, faCalculator } from '@fortawesome/free-solid-svg-icons';
 import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
 import Slider from 'react-slick';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/utils/xlsx';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
@@ -1201,7 +1201,8 @@ const AiToolPage = () => {
                   id={`download_excel-technical_summary-${pageIdSuffix}`}
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => {
+                  onClick={async () => {
+                    const XLSX = await loadXlsx();
                     const dataArray = technicalSummary.structuredData.technicalSpecifications;
                     const ws = XLSX.utils.json_to_sheet(dataArray);
 

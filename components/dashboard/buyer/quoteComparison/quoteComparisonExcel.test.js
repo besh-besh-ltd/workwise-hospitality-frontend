@@ -105,13 +105,13 @@ const findRow = (g, text) => g.find((row) => row.some((c) => c && String(c.v).tr
 const rowValues = (row) => row.map((c) => (c ? c.v : null));
 
 describe("Comparison workbook", () => {
-  test("ships the sheets a reviewer and a machine each need", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("ships the sheets a reviewer and a machine each need", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     expect(wb.SheetNames).toEqual(["Cover", "Comparison", "Line Detail", "Negotiation Log", "Notes"]);
   });
 
-  test("writes money as real numbers with a format, not text", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("writes money as real numbers with a format, not text", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Comparison"]);
     const row = findRow(g, "Bed linen");
 
@@ -123,9 +123,9 @@ describe("Comparison workbook", () => {
     expect(row.every((c) => !(c && typeof c.v === "string" && c.v.includes("₹")))).toBe(true);
   });
 
-  test("a line total in the sheet equals what the screen computes", () => {
+  test("a line total in the sheet equals what the screen computes", async () => {
     const view = makeView();
-    const wb = roundTrip(buildComparisonWorkbook(view));
+    const wb = roundTrip(await buildComparisonWorkbook(view));
     const g = grid(wb.Sheets["Comparison"]);
     const row = findRow(g, "Bed linen");
 
@@ -134,8 +134,8 @@ describe("Comparison workbook", () => {
     expect(rowValues(row)).toContain(expected);
   });
 
-  test("a vendor that did not quote reads NO BID, never zero", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("a vendor that did not quote reads NO BID, never zero", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Comparison"]);
     const row = findRow(g, "Bath towels");
 
@@ -148,18 +148,18 @@ describe("Comparison workbook", () => {
     expect(block.every((c) => !c || c.t !== "n")).toBe(true);
   });
 
-  test("resolves the category id to its name, as the screen does", () => {
+  test("resolves the category id to its name, as the screen does", async () => {
     // `product.category` is an ID in the real payload; printing it raw puts a
     // bare number where the page shows "Linen".
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Comparison"]);
     const row = findRow(g, "Bed linen");
     expect(rowValues(row)).toContain("Linen");
     expect(rowValues(row)).not.toContain(388);
   });
 
-  test("writes delivery lead time as a number so it can be sorted", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("writes delivery lead time as a number so it can be sorted", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Line Detail"]);
     const hdr = g[0].map((c) => (c ? c.v : null));
     const at = hdr.indexOf("Delivery (days)");
@@ -168,8 +168,8 @@ describe("Comparison workbook", () => {
     expect(row[at].v).toBe(7);
   });
 
-  test("marks the winner with a rank, not colour alone", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("marks the winner with a rank, not colour alone", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Comparison"]);
     const row = findRow(g, "Bed linen");
     // Metro is cheaper on this line.
@@ -177,16 +177,16 @@ describe("Comparison workbook", () => {
     expect(rowValues(row)).toContain("L2");
   });
 
-  test("uses no merged cells anywhere — merges break sort and filter", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("uses no merged cells anywhere — merges break sort and filter", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     for (const name of wb.SheetNames) {
       expect(wb.Sheets[name]["!merges"] || []).toHaveLength(0);
     }
   });
 
-  test("Line Detail is one tidy row per product x vendor", () => {
+  test("Line Detail is one tidy row per product x vendor", async () => {
     const view = makeView();
-    const wb = roundTrip(buildComparisonWorkbook(view));
+    const wb = roundTrip(await buildComparisonWorkbook(view));
     const g = grid(wb.Sheets["Line Detail"]);
     // header + (3 products x 2 vendors)
     expect(g.length).toBe(1 + 6);
@@ -196,14 +196,14 @@ describe("Comparison workbook", () => {
     expect(towelsRows.some((r) => rowValues(r).includes("NO BID"))).toBe(true);
   });
 
-  test("Negotiation Log opens at round 0 = the original quote, with deltas", () => {
+  test("Negotiation Log opens at round 0 = the original quote, with deltas", async () => {
     const view = makeView();
     // The server emits `price` as a UNIT RATE and the line total separately.
     view.products[0].quotes[11].history = [
       { round: 1, price: 150, total_price: 1500, date: "2026-04-01T00:00:00Z", note: "opening" },
       { round: 2, price: 125, total_price: 1250, date: "2026-05-01T00:00:00Z", note: "revised" },
     ];
-    const wb = roundTrip(buildComparisonWorkbook(view));
+    const wb = roundTrip(await buildComparisonWorkbook(view));
     const g = grid(wb.Sheets["Negotiation Log"]);
 
     const original = findRow(g, "Original quote");
@@ -220,21 +220,21 @@ describe("Comparison workbook", () => {
     expect(rowValues(revised)).not.toContain(-25);
   });
 
-  test("says so plainly when there was no negotiation", () => {
-    const wb = roundTrip(buildComparisonWorkbook(makeView()));
+  test("says so plainly when there was no negotiation", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(makeView()));
     const g = grid(wb.Sheets["Negotiation Log"]);
     expect(g.some((r) => r.some((c) => c && String(c.v).startsWith("No negotiation rounds")))).toBe(true);
   });
 });
 
 describe("Summary workbook", () => {
-  test("carries the metrics and the definitions that make them defensible", () => {
-    const wb = roundTrip(buildSummaryWorkbook(makeView()));
+  test("carries the metrics and the definitions that make them defensible", async () => {
+    const wb = roundTrip(await buildSummaryWorkbook(makeView()));
     expect(wb.SheetNames).toEqual(["Summary", "Definitions"]);
   });
 
-  test("reports the audited negotiation gain from the server metrics", () => {
-    const wb = roundTrip(buildSummaryWorkbook(makeView()));
+  test("reports the audited negotiation gain from the server metrics", async () => {
+    const wb = roundTrip(await buildSummaryWorkbook(makeView()));
     const g = grid(wb.Sheets["Summary"]);
 
     expect(rowValues(findRow(g, "Negotiation gain"))).toContain(600);
@@ -244,7 +244,7 @@ describe("Summary workbook", () => {
     expect(rowValues(findRow(g, "Negotiation gain (awarded lines only)"))).toContain(300);
   });
 
-  test("shows a dash, not zero, when the gain is not measurable", () => {
+  test("shows a dash, not zero, when the gain is not measurable", async () => {
     const view = makeView({
       negotiation_metrics: {
         available: false, rounds_created: 2, rounds_ran: 2, rounds_cancelled: 0,
@@ -253,7 +253,7 @@ describe("Summary workbook", () => {
         gain_value_awarded: null, gain_pct_awarded: null,
       },
     });
-    const wb = roundTrip(buildSummaryWorkbook(view));
+    const wb = roundTrip(await buildSummaryWorkbook(view));
     const g = grid(wb.Sheets["Summary"]);
 
     // "₹0 saved" and "we cannot measure this" are indistinguishable in a
@@ -265,8 +265,8 @@ describe("Summary workbook", () => {
     expect(rowValues(findRow(g, "Rounds run"))).toContain(2);
   });
 
-  test("refuses to name an overall L1 when nobody quoted every line", () => {
-    const wb = roundTrip(buildSummaryWorkbook(makeView()));
+  test("refuses to name an overall L1 when nobody quoted every line", async () => {
+    const wb = roundTrip(await buildSummaryWorkbook(makeView()));
     const g = grid(wb.Sheets["Summary"]);
     // Sharma skipped a line, so no vendor has full coverage. A fabricated
     // overall L1 here would read as a decision that nobody made.
@@ -275,16 +275,16 @@ describe("Summary workbook", () => {
     expect(findRow(g, "Lowest achievable (basket L1)")).toBeTruthy();
   });
 
-  test("names the overall L1 once a vendor has quoted everything", () => {
+  test("names the overall L1 once a vendor has quoted everything", async () => {
     const view = makeView();
     view.products[2].quotes[11] = cell({ base: 30, subtotal: 450, tax_amt: 81, total: 560 });
-    const wb = roundTrip(buildSummaryWorkbook(view));
+    const wb = roundTrip(await buildSummaryWorkbook(view));
     const g = grid(wb.Sheets["Summary"]);
     expect(rowValues(findRow(g, "Overall L1 vendor"))).toContain("Metro Supplies");
   });
 
-  test("grades each metric so an indicative number is not read as a hard saving", () => {
-    const wb = roundTrip(buildSummaryWorkbook(makeView()));
+  test("grades each metric so an indicative number is not read as a hard saving", async () => {
+    const wb = roundTrip(await buildSummaryWorkbook(makeView()));
     const g = grid(wb.Sheets["Definitions"]);
     const gain = findRow(g, "Negotiation gain");
     expect(rowValues(gain).some((v) => String(v).includes("not P&L savings"))).toBe(true);
@@ -322,8 +322,8 @@ describe("at production scale", () => {
     return makeView({ vendors, products });
   };
 
-  test("builds a correctly-shaped workbook for 46 products x 5 vendors", () => {
-    const wb = roundTrip(buildComparisonWorkbook(bigView()));
+  test("builds a correctly-shaped workbook for 46 products x 5 vendors", async () => {
+    const wb = roundTrip(await buildComparisonWorkbook(bigView()));
 
     const cmp = grid(wb.Sheets["Comparison"]);
     // 2 header rows + 46 products + spacer + 3 vendor footers + basket L1
@@ -337,9 +337,9 @@ describe("at production scale", () => {
     expect(grid(wb.Sheets["Negotiation Log"]).length).toBe(1 + 46 * 5 * 2);
   });
 
-  test("still names no overall L1 when coverage is complete but ranks exist", () => {
+  test("still names no overall L1 when coverage is complete but ranks exist", async () => {
     // Every vendor quoted every line here, so an overall L1 IS nameable.
-    const wb = roundTrip(buildSummaryWorkbook(bigView()));
+    const wb = roundTrip(await buildSummaryWorkbook(bigView()));
     const g = grid(wb.Sheets["Summary"]);
     expect(rowValues(findRow(g, "Overall L1 vendor"))).toContain("Vendor 1");
   });

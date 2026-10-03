@@ -14,6 +14,17 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   reactStrictMode: false,
+  experimental: {
+    // Rewrite barrel imports (`import { faX } from "@fortawesome/free-solid-svg-icons"`)
+    // to per-icon module imports so only the icons used are compiled and bundled.
+    // lucide-react, react-icons/* and lodash are already on Next's built-in list.
+    optimizePackageImports: [
+      '@fortawesome/free-solid-svg-icons',
+      '@fortawesome/free-regular-svg-icons',
+      '@fortawesome/free-brands-svg-icons',
+      '@fortawesome/react-fontawesome',
+    ],
+  },
   skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [

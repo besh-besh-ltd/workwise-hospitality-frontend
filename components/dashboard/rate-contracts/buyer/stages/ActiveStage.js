@@ -27,8 +27,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import * as XLSX from "xlsx";
-import JSZip from "jszip";
+import { loadXlsx, loadJSZip } from "@/utils/xlsx";
 import { saveAs } from "file-saver";
 import * as ArcApi from "@/services/arc_v2";
 import { StageReadOnlyBanner } from "./StageShared";
@@ -579,7 +578,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
     .sort((a, b) => (vendorAvgRank[a.vendorId] ?? 99) - (vendorAvgRank[b.vendorId] ?? 99));
 
   // ── downloads (client-side, no backend round-trip) ──────────────────────
-  const dlAnnexure = (b) => {
+  const dlAnnexure = async (b) => {
     const rows = (b.docLines || b.lines).map((ln, i) => ({
       "#": i + 1,
       Item: ln.variant_name || `Item #${ln.arc_item_id}`,
@@ -595,6 +594,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
       "Payment terms": ln.payment_terms || "Net 30",
       "Line value (₹)": Math.round(Number(ln.lineBase || 0)),
     }));
+    const XLSX = await loadXlsx();
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [{ wch: 4 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 }, { wch: 14 }, { wch: 20 }, { wch: 6 }, { wch: 7 }, { wch: 14 }, { wch: 16 }, { wch: 15 }];
     const wb = XLSX.utils.book_new();
@@ -664,6 +664,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
         setTimeout(() => setToast(""), 4500);
         return;
       }
+      const JSZip = await loadJSZip();
       const zip = new JSZip();
       ok.forEach((f) => zip.file(f.filename, f.content_base64, { base64: true }));
       const blob = await zip.generateAsync({ type: "blob" });
