@@ -24,7 +24,7 @@ import { initialMainNavs, visibleRoleMenu, websiteMenu, ANNOUNCEMENT_TEXT } from
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
 import styles from "./Header.module.css";
-import posthog from 'posthog-js';
+import posthog from '@/lib/analytics';
 
 const Header = () => {
   const router = useRouter();
