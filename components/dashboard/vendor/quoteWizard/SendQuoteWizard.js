@@ -748,9 +748,9 @@ const SendQuoteWizard = () => {
   // Export the live pricing calculation to Excel. Driven by the engine response
   // (pricingTotals) so the file matches the on-screen totals exactly, with live
   // formulas seeded from those cached values. See utils/quoteExcel.js.
-  const handleDownloadExcel = useCallback(() => {
+  const handleDownloadExcel = useCallback(async () => {
     try {
-      downloadQuoteExcel({
+      await downloadQuoteExcel({
         rfq,
         products,
         globalCharges,

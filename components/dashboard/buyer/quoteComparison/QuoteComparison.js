@@ -503,8 +503,8 @@ const QuoteComparison = ({
     setDownloading(kind);
     try {
       await new Promise((r) => setTimeout(r, 0));
-      if (kind === "summary") downloadSummaryWorkbook(view);
-      else downloadComparisonWorkbook(view);
+      if (kind === "summary") await downloadSummaryWorkbook(view);
+      else await downloadComparisonWorkbook(view);
     } catch (e) {
       showToast("Could not build the Excel file.");
     } finally {

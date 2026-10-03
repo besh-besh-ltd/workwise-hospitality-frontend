@@ -1,8 +1,7 @@
 import { useCallback, useState } from "react";
 import Modal from "react-modal";
 import Select, { components } from 'react-select';
-import * as XLSX from "xlsx";
-import JSZip from "jszip";
+import { loadXlsx, loadJSZip } from "@/utils/xlsx";
 import { saveAs } from "file-saver";
 import {
   getProductReportData,
@@ -18,6 +17,9 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { approvedProductList } from "@/services/products";
 import { debounce } from "lodash";
+// SheetJS is fetched when a report is generated, not when the modal loads;
+// the async entry points assign it before calling the sync sheet builders.
+let XLSX = null;
 
 
 // Custom styles for Product Select Component
@@ -231,6 +233,7 @@ const DownloadReportsForBuyer = (props) => {
           setLoadingState("done")
           return;
         }
+        XLSX = await loadXlsx();
         const fileBlob = createProductWiseExcelReport(res);
         setLatestReportFile(fileBlob); // Store Excel Blob in state
         toast.success("Product report successfully generated");
@@ -410,6 +413,8 @@ const DownloadReportsForBuyer = (props) => {
 
   // handel create zip file for projectm rfqDetails and project excel file - part of project report
   const createProjectReportZip = async (projectDetailsData) => {
+    const [JSZip, xlsx] = await Promise.all([loadJSZip(), loadXlsx()]);
+    XLSX = xlsx;
     const zip = new JSZip();
 
     // Create folders within the ZIP

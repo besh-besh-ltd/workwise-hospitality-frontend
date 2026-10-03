@@ -15,7 +15,9 @@ import {
 } from "@/services/rfq";
 import { getQuoteComparison } from "@/services/pricing";
 import { useRouter } from "next/router";
-import * as XLSX from "xlsx-js-style";
+import { loadXlsx } from "@/utils/xlsx";
+// SheetJS (~850 KB decoded) is fetched on the first download click; see utils/xlsx.js.
+let XLSX = null;
 import Loader from "@/components/shared/Loader";
 import {
   addCommasToNumber,
@@ -919,6 +921,7 @@ const handleCloseNormalizeModal = () => {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter, undefined, undefined, !!normalizeFilter);
       const quoteData = res.data;
 
+      XLSX = await loadXlsx();
       const [excelBuffer, fileName] = generateExcelFile(quoteData);
 
       if (excelBuffer) {
