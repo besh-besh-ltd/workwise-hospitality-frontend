@@ -1,9 +1,12 @@
-// Quote Compare (legacy /dashboard/buyer/quote-compare):
+// Quote Compare (legacy /dashboard/buyer/quote-compare) — two request/render
+// defects on the page component:
 //
 //   1. While quotes are locked until the bid deadline, the page held a 1 s
 //      clock in state, so the WHOLE workspace (products × vendors grid and
 //      every tab) re-rendered every second. The countdown now ticks inside the
 //      banner/panel that shows it; the page only re-renders when the lock lifts.
+//   2. initializeRfqData ran get-clauses → quote-compare → getRfqById one after
+//      another although none needs another's result. They now start together.
 
 const mockQuery = { rfq: "363", tab: "product" };
 jest.mock("next/router", () => ({
@@ -114,6 +117,19 @@ describe("locked-until-deadline clock", () => {
 
     await act(async () => { jest.advanceTimersByTime(6_000); });
     await waitFor(() => expect(screen.getByTestId("grid")).toHaveTextContent(/^unlocked$/));
+  });
+});
+
+describe("initial load", () => {
+  it("starts get-clauses, quote-compare and getRfqById together", async () => {
+    getAllClauses.mockReturnValue(new Promise(() => {})); // clauses still in flight
+    getQuoteComparison.mockResolvedValue(quotesPayload("2020-01-01 00:00:00"));
+
+    render(<QuoteCompare />);
+    await waitFor(() => expect(getAllClauses).toHaveBeenCalledTimes(1));
+    // Pre-fix neither of these started until get-clauses had returned.
+    await waitFor(() => expect(getQuoteComparison).toHaveBeenCalledTimes(1));
+    expect(getRFQById).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -432,8 +432,26 @@ const QuoteCompare = () => {
     setNegotiationApprovalBundle({ negotiation_instances: {}, negotiation_quote_instances: {}, rounds_history: [] });
 
     try {
+      // The three reads this needs are independent of each other — the quote
+      // view does not take the TE flag, and the RFQ detail is only read for
+      // vendor rejections + comment — so start them together instead of one
+      // after another. They are still consumed in the original order below,
+      // so state lands exactly as before.
+      const clausePromise = getAllClauses(rfq);
+      const quotesPromise = getQuoteComparison(rfq, {
+        normalize: !!normalizeFilter,
+        freightFilter: !!freightFilter,
+        rfq_product_id,
+        pageSource: 'quote_compare',
+        include_negotiation: true,
+      });
+      const rfqDetailPromise = getRFQById(fetchRfq);
+      // Each is awaited (and its failure handled) below; these no-op handlers
+      // only stop an early exit from leaving the others as unhandled rejections.
+      [clausePromise, quotesPromise, rfqDetailPromise].forEach((p) => p.catch(() => {}));
+
       // Step 1: Check if tech evaluation exists
-      const clauseRes = await getAllClauses(rfq);
+      const clauseRes = await clausePromise;
       if (latestRfqRef.current !== fetchRfq) return;
 
       let hasTechEval = false;
@@ -446,13 +464,7 @@ const QuoteCompare = () => {
       // Step 2: Fetch the server-computed quote-compare view model.
       // Engine output is attached per quote_details row; normalisation is
       // applied server-side when normalize=1 (no local handleNormalize needed).
-      const quotesRes = await getQuoteComparison(rfq, {
-        normalize: !!normalizeFilter,
-        freightFilter: !!freightFilter,
-        rfq_product_id,
-        pageSource: 'quote_compare',
-        include_negotiation: true,
-      });
+      const quotesRes = await quotesPromise;
       if (latestRfqRef.current !== fetchRfq) return;
 
       const visibility = quotesRes?.meta?.quoteVisibility || null;
@@ -482,9 +494,9 @@ const QuoteCompare = () => {
         loadNegotiationData();
       }
 
-      // Fetch full RFQ detail (vendor rejections + fields not included in the list endpoint, e.g. comment)
+      // Full RFQ detail (vendor rejections + fields not included in the list endpoint, e.g. comment)
       try {
-        const rfqDetailRes = await getRFQById(fetchRfq);
+        const rfqDetailRes = await rfqDetailPromise;
         const rfqDetail = rfqDetailRes?.data || rfqDetailRes;
         if (latestRfqRef.current === fetchRfq && rfqDetail) {
           if (rfqDetail.vendor_rejections) {
