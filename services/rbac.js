@@ -1,9 +1,18 @@
 import axiosInstance from "@/lib/axios";
+import { cachedRequest, dedupeInFlight, sessionScopeKey } from "@/utils/requestCache";
 
+// The unscoped call is the department master list (the same for every page in
+// a session) — cache it for the TTL. A scoped call (hotel_id + resource) is
+// answered from the user's role scopes, which an admin can change, so it is
+// only de-duplicated while in flight, never kept.
 export const getDepartments = (params = {}) =>
   new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get(`/rbac/departments`, { params });
+      const hasParams = params && Object.keys(params).length > 0;
+      const fetcher = () => axiosInstance.get(`/rbac/departments`, { params });
+      const response = hasParams
+        ? await dedupeInFlight(`departments|${sessionScopeKey()}|${JSON.stringify(params)}`, fetcher)
+        : await cachedRequest(`departments|${sessionScopeKey()}`, fetcher);
       resolve(response);
     } catch (error) {
       reject({ message: error });
