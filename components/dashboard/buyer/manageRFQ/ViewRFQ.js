@@ -639,19 +639,33 @@ const ViewRFQ = ({
   // (tender / draft / error) so the OLD two-column body + journey never flash
   // while the new navigator loads — we show a skeleton instead.
   const [lifecycleLoading, setLifecycleLoading] = useState(true);
+  // Fetched ONCE per RFQ id. The id is known from the URL before the RFQ
+  // payload lands, so the request starts immediately; keying on the
+  // normalised id string (not data?.id / data?.is_tender separately) is what
+  // stops the payload's arrival from firing an identical second request.
+  const lifecycleRid = String(data?.id || router.query.id || "");
+  const lifecycleIsTender = Number(data?.is_tender) === 1;
+  const isTenderRef = useRef(lifecycleIsTender);
+  isTenderRef.current = lifecycleIsTender;
   useEffect(() => {
-    const rid = data?.id || router.query.id;
-    if (!rid) return;
+    if (!lifecycleRid) return undefined;
     // Tenders keep the legacy journey (no horizontal lifecycle) — not loading.
-    if (Number(data?.is_tender) === 1) { setLifecycleLoading(false); return; }
+    if (isTenderRef.current) { setLifecycleLoading(false); return undefined; }
     let cancelled = false;
     setLifecycleLoading(true);
-    getRfqLifecycle(rid)
-      .then((res) => { if (!cancelled) setLifecycle(res?.data || null); })
+    getRfqLifecycle(lifecycleRid)
+      .then((res) => { if (!cancelled && !isTenderRef.current) setLifecycle(res?.data || null); })
       .catch(() => { if (!cancelled) setLifecycle(null); })
       .finally(() => { if (!cancelled) setLifecycleLoading(false); });
     return () => { cancelled = true; };
-  }, [data?.id, data?.is_tender, router.query.id]);
+  }, [lifecycleRid]);
+  // The payload can reveal a tender after the fetch above started: drop to the
+  // legacy journey without waiting on (or using) that response.
+  useEffect(() => {
+    if (!lifecycleIsTender) return;
+    setLifecycle(null);
+    setLifecycleLoading(false);
+  }, [lifecycleIsTender]);
 
   // Re-pull the lifecycle after an approve/reject so the timeline, the context
   // strip and the decision card all reflect the new state without a reload.

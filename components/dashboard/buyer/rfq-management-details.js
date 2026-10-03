@@ -49,7 +49,10 @@ const RfqManagementDetails = () => {
         console.error("Error fetching RFQ:", err);
       })
     }
-  }, [router])
+    // Keyed on the RFQ id only. `router` is a new object on every route change,
+    // including the shallow ?stage= replace ViewRFQ does on each stage click,
+    // and depending on it refetched the whole RFQ every time a stage was opened.
+  }, [id])
 
   const handleCloseRFQ = async (comment) => {
     setCloseLoading(true);
