@@ -258,6 +258,23 @@ describe("stability", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  it("changing the interval does not refetch; the new cadence applies from the next tick", async () => {
+    const fn = jest.fn();
+    const { rerender } = render(<Probe fn={fn} opts={{ interval: 60000, jitter: 0 }} />);
+    await flush();
+    rerender(<Probe fn={fn} opts={{ interval: 120000, jitter: 0 }} />);
+    await flush();
+    expect(fn).toHaveBeenCalledTimes(1);
+    // Tick already scheduled at the old cadence...
+    await act(async () => { jest.advanceTimersByTime(60000); });
+    expect(fn).toHaveBeenCalledTimes(2);
+    // ...then the new one.
+    await act(async () => { jest.advanceTimersByTime(119999); });
+    expect(fn).toHaveBeenCalledTimes(2);
+    await act(async () => { jest.advanceTimersByTime(1); });
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
   it("refetch runs now and resets the interval", async () => {
     const fn = jest.fn();
     let api;

@@ -28,8 +28,9 @@ import { useCallback, useEffect, useRef } from "react";
  *   is still picked up. Interval ticks that land mid-request are dropped.
  *   The next tick is scheduled only after the current run settles.
  * - Stable: `fn` is read through a ref, so a new callback identity on every
- *   render does not restart the timer. Only `interval`, `enabled`, `resetKey`
- *   (compared by value) and the pause/jitter options restart it.
+ *   render does not restart the timer. A new `interval` value applies from
+ *   the next tick, with no restart and no extra fetch. Only `enabled`,
+ *   `resetKey` (compared by value) and the pause/jitter options restart it.
  * - `resetKey` change (for example dashboard filters, `_refresh`) runs
  *   immediately and restarts the cadence.
  * - Returns `refetch()`, which runs now and resets the interval.
@@ -79,6 +80,11 @@ export const usePolling = (
 ) => {
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  // Read at schedule time, so a cadence change (socket connected vs not)
+  // applies from the next tick without restarting and refetching.
+  const intervalRef = useRef(interval);
+  intervalRef.current = interval;
+  const timerEnabled = interval > 0;
 
   // The live controller for the current effect. refetch() talks to it so it
   // stays a stable function across renders and effect restarts.
@@ -113,12 +119,12 @@ export const usePolling = (
     const nextDelay = () => {
       const spread = Math.max(0, Math.min(jitter || 0, 0.5));
       const factor = 1 + (Math.random() * 2 - 1) * spread;
-      return Math.max(1, Math.round(interval * factor));
+      return Math.max(1, Math.round(intervalRef.current * factor));
     };
 
     const schedule = (delay) => {
       clearTimer();
-      if (disposed || !(interval > 0) || isHidden()) return;
+      if (disposed || !(intervalRef.current > 0) || isHidden()) return;
       timer = setTimeout(() => {
         timer = null;
         run({ fromTimer: true });
@@ -177,9 +183,9 @@ export const usePolling = (
       const elapsed = Date.now() - lastRunAt;
       if (refetchOnVisible && elapsed >= minGapMs) {
         run();
-      } else if (interval > 0) {
+      } else if (intervalRef.current > 0) {
         // Just back from a very short hide: resume the remaining time.
-        schedule(Math.max(1, interval - elapsed));
+        schedule(Math.max(1, intervalRef.current - elapsed));
       }
     };
 
@@ -206,7 +212,7 @@ export const usePolling = (
         document.removeEventListener("visibilitychange", onVisibilityChange);
       }
     };
-  }, [enabled, interval, immediate, jitter, pauseWhenHidden, refetchOnVisible, minGapMs, keyString]);
+  }, [enabled, timerEnabled, immediate, jitter, pauseWhenHidden, refetchOnVisible, minGapMs, keyString]);
 
   const refetch = useCallback(() => {
     if (controllerRef.current) controllerRef.current.refetch();
