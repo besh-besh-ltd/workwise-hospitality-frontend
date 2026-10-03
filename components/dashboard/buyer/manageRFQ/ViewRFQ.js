@@ -51,7 +51,7 @@ import {
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import { getTechEvalStatus } from "@/services/rfq";
-import { getNegotiationRounds } from "@/services/negotiation";
+import { getNegotiationRoundsByProduct } from "@/services/negotiation";
 import { buildBuyerTechEvalProductSummary } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import NegotiationRoundsModal from "./NegotiationRoundsModal";
 import RfqCopiesModal from "./RfqCopiesModal";
@@ -250,7 +250,7 @@ const ProductCard = ({
   /* ── Commercial negotiation state ──
      finalization_status is a buyer-view string; lowest_quotation.total_price is
      the only ₹ amount on the payload. The negotiation round list (`negRounds`)
-     is fetched per-product by ViewRFQ via getNegotiationRounds — it backs the
+     is fetched once per RFQ by ViewRFQ and split per product — it backs the
      round count, the "finalized by" actor, and the clickable history modal. */
   const finalizationStatus = product?.finalization_status;
   const finalized =
@@ -843,9 +843,11 @@ const ViewRFQ = ({
   }, [rfqId]);
 
   /* ── Per-product Negotiation rounds ──
-     Fetched eagerly per product so the card's round count + "finalized by"
-     actor are accurate and the history modal opens with data immediately.
-     Buyer view relies on the JWT (no magic-link token). */
+     Fetched eagerly so the card's round count + "finalized by" actor are
+     accurate and the history modal opens with data immediately. ONE request
+     for the whole RFQ, distributed per product with the server's own coverage
+     rule (getNegotiationRoundsByProduct) — it used to be one request per
+     product. Buyer view relies on the JWT (no magic-link token). */
   const [negRoundsByProduct, setNegRoundsByProduct] = useState({});
   const [negLoading, setNegLoading] = useState({});
   const negReqRef = useRef(0);
@@ -867,22 +869,18 @@ const ViewRFQ = ({
     );
 
     (async () => {
-      const results = await Promise.all(
-        products.map(async (p) => {
-          try {
-            const res = await getNegotiationRounds(rfqId, p.id);
-            return { id: p.id, rounds: res?.data || [] };
-          } catch (err) {
-            console.error(`Error fetching negotiation rounds for product ${p.id}:`, err);
-            return { id: p.id, rounds: [] };
-          }
-        }),
-      );
+      const ids = products.map((p) => p.id);
+      let byProduct = {};
+      try {
+        byProduct = await getNegotiationRoundsByProduct(rfqId, ids);
+      } catch (err) {
+        console.error(`Error fetching negotiation rounds for RFQ ${rfqId}:`, err);
+      }
       if (negReqRef.current !== reqId) return; // stale
       const nextRounds = {};
       const nextLoading = {};
-      results.forEach(({ id, rounds }) => {
-        nextRounds[id] = rounds;
+      ids.forEach((id) => {
+        nextRounds[id] = byProduct[id] || [];
         nextLoading[id] = false;
       });
       setNegRoundsByProduct(nextRounds);

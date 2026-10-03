@@ -127,3 +127,20 @@ describe("lifecycle", () => {
     expect(getRfqLifecycle).not.toHaveBeenCalled();
   });
 });
+
+describe("negotiation rounds", () => {
+  it("N products → one rounds request for the whole RFQ, split per product", async () => {
+    render(<ViewRFQ data={RFQ} />);
+    await screen.findByText("HINGE");
+
+    await waitFor(() => expect(roundsCalls()).toHaveLength(1));
+    // No rfq_product_id filter — the server returns every round of the RFQ.
+    expect(roundsCalls()[0][0]).toBe("/negotiation/rounds/720");
+
+    // HINGE is covered by all three rounds, HANDLE by the multi round only,
+    // LATCH by none — exactly what the per-product filter used to return.
+    expect(await screen.findByText("Round 3")).toBeInTheDocument();
+    expect(screen.getByText("Round 1")).toBeInTheDocument();
+    expect(screen.getByText("No negotiation rounds")).toBeInTheDocument();
+  });
+});
