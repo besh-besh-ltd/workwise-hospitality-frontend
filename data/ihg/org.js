@@ -1,22 +1,23 @@
 /**
  * ── SWAP SURFACE 2 of 2 ──────────────────────────────────────────────
- * IHG's properties and IHG's people. Every name, title, email and hotel
- * shown anywhere in the demo resolves through this file.
+ * The demo tenant's properties and people. Every name, title, email and
+ * hotel shown anywhere in the demo resolves through this file.
  *
- * PLACEHOLDER NOTICE: the properties are real IHG brands in real Indian
- * cities, but the key counts are illustrative and every person below is
- * invented. Replace `people` with the names and titles the client gave
- * us and the entire demo re-personalises — approval chains, evaluator
- * initials, SPOC blocks, "created by" lines, the lot.
+ * PLACEHOLDER NOTICE: the properties are unbranded hotels in real Indian
+ * cities, and the key counts and every person below are invented. To
+ * re-skin the demo for a named client, replace `people` and `properties`
+ * with the names they give us and the whole thing re-personalises —
+ * approval chains, evaluator initials, SPOC blocks, "created by" lines,
+ * the lot.
  * ─────────────────────────────────────────────────────────────────────
  */
 
 export const company = {
-  id: "ihg-in",
-  name: "IHG Hotels & Resorts",
-  legalName: "IHG Hotels & Resorts — India",
-  region: "South West Asia",
-  procurementEmail: "procurement.sea@ihg.com",
+  id: "wwh-in",
+  name: "Workwise Hospitality",
+  legalName: "Workwise Hospitality Group — India",
+  region: "India",
+  procurementEmail: "procurement@letsworkwise.com",
   fy: "FY 2026-27",
 };
 
@@ -25,9 +26,9 @@ export const properties = [
   {
     id: "ic-mumbai",
     numericId: 501,
-    name: "InterContinental Marine Drive",
-    shortName: "IC Marine Drive",
-    brand: "InterContinental",
+    name: "The Grand Marine Drive",
+    shortName: "The Grand Marine Drive",
+    brand: "The Grand",
     city: "Mumbai",
     state: "Maharashtra",
     keys: 220,
@@ -37,9 +38,9 @@ export const properties = [
   {
     id: "cp-noida",
     numericId: 502,
-    name: "Crowne Plaza Greater Noida",
-    shortName: "CP Greater Noida",
-    brand: "Crowne Plaza",
+    name: "Metro Business Hotel Greater Noida",
+    shortName: "Metro Greater Noida",
+    brand: "Metro Business Hotel",
     city: "Greater Noida",
     state: "Uttar Pradesh",
     keys: 180,
@@ -49,9 +50,9 @@ export const properties = [
   {
     id: "hie-blr",
     numericId: 503,
-    name: "Holiday Inn Express Whitefield",
-    shortName: "HIE Whitefield",
-    brand: "Holiday Inn Express",
+    name: "City Express Whitefield",
+    shortName: "City Express Whitefield",
+    brand: "City Express",
     city: "Bengaluru",
     state: "Karnataka",
     keys: 150,
@@ -61,9 +62,9 @@ export const properties = [
   {
     id: "voco-corb",
     numericId: 504,
-    name: "voco Jim Corbett",
-    shortName: "voco Corbett",
-    brand: "voco",
+    name: "Riverside Retreat Jim Corbett",
+    shortName: "Riverside Corbett",
+    brand: "Riverside Retreat",
     city: "Ramnagar",
     state: "Uttarakhand",
     keys: 90,
@@ -73,9 +74,9 @@ export const properties = [
   {
     id: "ss-barwara",
     numericId: 505,
-    name: "Six Senses Fort Barwara",
-    shortName: "Six Senses Barwara",
-    brand: "Six Senses",
+    name: "Fort Barwara Heritage Resort",
+    shortName: "Fort Barwara",
+    brand: "Heritage Resorts",
     city: "Sawai Madhopur",
     state: "Rajasthan",
     keys: 48,
@@ -96,7 +97,7 @@ export const departments = [
  * cookie; `approvalLimit` is in rupees and gates the approve button.
  */
 export const people = [
-  // The four people IHG named. The `id`s below are the demo's capability
+  // The four demo identities. The `id`s below are the demo's capability
   // slots and are referenced across every fixture (approval chains, RFQ
   // ownership, MR raisers) — they stay put; only the identities change.
   //
@@ -105,11 +106,11 @@ export const people = [
   {
     id: "housekeeping",
     numericId: 901,
-    name: "Gilles Galloni",
-    initials: "GG",
-    title: "IT · South West Asia",
-    email: "gilles.galloni@ihg.com",
-    phone: "+65 6395 0100",
+    name: "Rohan Mehta",
+    initials: "RM",
+    title: "IT · India",
+    email: "rohan.mehta@letsworkwise.com",
+    phone: "+91 22 6195 0100",
     propertyIds: ["ic-mumbai"],
     department: "housekeeping",
     approvalLimit: 0,
@@ -121,11 +122,11 @@ export const people = [
   {
     id: "purchase",
     numericId: 902,
-    name: "Vivek Jaiswal",
-    initials: "VJ",
-    title: "Procurement Lead · South West Asia",
-    email: "vivek.jaiswal@ihg.com",
-    phone: "+65 6395 0101",
+    name: "Ananya Rao",
+    initials: "AR",
+    title: "Procurement Lead · India",
+    email: "ananya.rao@letsworkwise.com",
+    phone: "+91 22 6195 0101",
     propertyIds: ["ic-mumbai", "cp-noida", "hie-blr", "voco-corb", "ss-barwara"],
     department: "housekeeping",
     approvalLimit: 0,
@@ -135,25 +136,25 @@ export const people = [
   {
     id: "finance",
     numericId: 903,
-    name: "Nicolas Mastronardi",
-    initials: "NM",
-    title: "IT · South West Asia",
-    email: "nicolas.mastronardi@ihg.com",
-    phone: "+65 6395 0102",
+    name: "Karan Bhatia",
+    initials: "KB",
+    title: "IT · India",
+    email: "karan.bhatia@letsworkwise.com",
+    phone: "+91 22 6195 0102",
     propertyIds: ["ic-mumbai"],
     department: "finance",
     approvalLimit: 2500000,
-    blurb: "Approver view — approves purchase orders up to ₹25L for InterContinental Marine Drive.",
+    blurb: "Approver view — approves purchase orders up to ₹25L for The Grand Marine Drive.",
     can: { raiseMR: false, runSourcing: false, approvePO: true, awardContract: false },
   },
   {
     id: "regional",
     numericId: 904,
-    name: "Vipin Khandelwal",
-    initials: "VK",
-    title: "Head of IT · South West Asia",
-    email: "vipin.khandelwal@ihg.com",
-    phone: "+65 6395 0103",
+    name: "Sameer Nair",
+    initials: "SN",
+    title: "Head of IT · India",
+    email: "sameer.nair@letsworkwise.com",
+    phone: "+91 22 6195 0103",
     propertyIds: ["ic-mumbai", "cp-noida", "hie-blr", "voco-corb", "ss-barwara"],
     department: "procurement",
     approvalLimit: 100000000,

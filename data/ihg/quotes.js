@@ -43,7 +43,7 @@ export const quotes = Object.entries(RATES).map(([vendorId, rates]) => {
       rate,
       qty,
       value: rate * qty,
-      // Movement against what IHG last paid — the number a buyer actually reads.
+      // Movement against what the group last paid — the number a buyer actually reads.
       vsLastPct: Number((((rate - base) / base) * 100).toFixed(1)),
     };
   });

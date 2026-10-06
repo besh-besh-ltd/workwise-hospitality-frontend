@@ -1,46 +1,47 @@
 /**
  * ── SWAP SURFACE 1 of 2 ──────────────────────────────────────────────
- * Everything that makes this portal look like IHG's rather than anyone
- * else's. Change these values and the whole product re-brands; no other
- * file hard-codes a colour, a name or a logo.
+ * Everything that makes this portal look like Workwise's rather than
+ * anyone else's. Change these values and the whole product re-brands; no
+ * other file hard-codes a colour, a name or a logo.
  *
- * PLACEHOLDER NOTICE: the palette below is an IHG-plausible navy/gold,
- * not values taken from IHG's brand guide, and the logo is a wordmark we
- * drew. Replace `logo.src` with the supplied asset and the palette with
- * the official hexes when they arrive — nothing else needs to move.
+ * To re-skin the demo for a named client, replace `logo.src` with their
+ * supplied asset and the palette with their official hexes — nothing
+ * else needs to move.
  * ─────────────────────────────────────────────────────────────────────
  */
 
 export const brand = {
   // What the client sees this product called.
-  clientName: "IHG Hotels & Resorts",
-  clientShortName: "IHG",
+  clientName: "Workwise",
+  clientShortName: "Workwise",
   productName: "Procurement",
   // Shown under the logo in the sidebar footer and on the login screen.
-  poweredBy: "Powered by Workwise",
+  poweredBy: "Hospitality Procurement Suite",
 
   logo: {
-    // The official secondary horizontal mark, taken from ihgplc.com. Two
-    // variants because the login's left panel is navy: the supplied asset is
-    // a single-fill SVG, so `white` is the same file with fill:#000 → #fff.
-    src: "/ihg/ihg-logo.svg",
-    srcLight: "/ihg/ihg-logo-white.svg",
-    alt: "IHG Hotels & Resorts",
-    // Native viewBox is 300×60; width is derived from the rendered height.
-    width: 300,
-    height: 60,
+    // The Workwise wordmark. Two variants because the login's left panel is
+    // navy: the gold-on-transparent mark carries the light surfaces, the
+    // reversed white mark carries the navy ones.
+    src: "/assets/images/logo-workwise-gold.png",
+    srcLight: "/assets/images/logo-workwise-white.png",
+    alt: "Workwise",
+    // Native pixel size is 865×184; width is derived from the rendered height.
+    width: 865,
+    height: 184,
   },
 
   // Drives --primary / --primary-2 etc. in styles/tokens.css, which in turn
-  // drives every accent in the copied portal shell.
+  // drives every accent in the copied portal shell. These are Workwise's own
+  // navy and gold, the same values the public landing page uses — see
+  // components/landing/theme.js.
   palette: {
-    navy: "#00205B",       // deep brand navy — sidebar accents, headings
-    primary: "#0B4DA2",    // the working accent: links, active nav, buttons
-    primary2: "#2E7BD6",   // lighter accent: hovers, focus rings, chart line 2
-    gold: "#B8893B",       // warm secondary — awards, savings, premium states
+    navy: "#0B1F3A",       // deep brand navy — sidebar accents, headings
+    primary: "#13315B",    // the working accent: links, active nav, buttons
+    primary2: "#2E6DB4",   // lighter accent: hovers, focus rings, chart line 2
+    gold: "#C9A227",       // warm secondary — awards, savings, premium states
     goldSoft: "#FBF6EC",
-    primarySoft: "#EEF4FC",
-    primaryTint: "#F6FAFF",
+    primarySoft: "#EEF3FA",
+    primaryTint: "#F6F9FD",
   },
 
   login: {
