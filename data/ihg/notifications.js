@@ -12,7 +12,7 @@ export const notifications = [
   {
     id: "n1",
     title: `${po.ref} needs your approval`,
-    message: `Housekeeping linen call-off against ${contract.ref}, raised for InterContinental Marine Drive. Waiting ${po.pendingDays} days.`,
+    message: `Housekeeping linen call-off against ${contract.ref}, raised for The Grand Marine Drive. Waiting ${po.pendingDays} days.`,
     time: "2 hours ago",
     read: false,
     forPersona: ["finance", "regional"],

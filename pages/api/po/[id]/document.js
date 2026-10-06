@@ -181,10 +181,10 @@ export default function handler(req, res) {
 
 <div class="sheet">
   <div class="top">
-    <img class="logo" src="/ihg/ihg-logo.svg" alt="IHG Hotels &amp; Resorts">
+    <img class="logo" src="/assets/images/logo-workwise-gold.png" alt="${esc(company?.name || "")}">
     <div class="co">
-      <strong>IHG Hotels &amp; Resorts</strong>
-      ${esc(company?.region || "South West Asia")}<br>
+      <strong>${esc(company?.name || "")}</strong>
+      ${esc(company?.region || "India")}<br>
       Procurement — Shared Services
     </div>
   </div>
@@ -245,11 +245,11 @@ export default function handler(req, res) {
 
   <div class="sign">
     <div>Prepared by — ${esc(model.b)}</div>
-    <div>For IHG Hotels &amp; Resorts — Authorised signatory</div>
+    <div>For ${esc(company?.name || "")} — Authorised signatory</div>
   </div>
 
   <div class="foot">
-    This is a system-generated purchase order from the IHG Procurement portal.
+    This is a system-generated purchase order from the Workwise Procurement portal.
   </div>
 </div>
 </body>

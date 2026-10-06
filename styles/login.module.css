@@ -18,9 +18,9 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(120% 90% at 82% -10%, rgba(184,137,59,0.20), transparent 58%),
-    radial-gradient(90% 70% at 8% 108%, rgba(46,123,214,0.20), transparent 60%),
-    linear-gradient(168deg, #041233 0%, var(--navy) 46%, #011029 100%);
+    radial-gradient(120% 90% at 82% -10%, rgba(201,162,39,0.20), transparent 58%),
+    radial-gradient(90% 70% at 8% 108%, rgba(46,109,180,0.20), transparent 60%),
+    linear-gradient(168deg, #061324 0%, var(--navy) 46%, #030A16 100%);
   color: #fff;
   padding: 56px 64px 48px;
   display: flex;
@@ -49,7 +49,7 @@
 .brandPanel > * { position: relative; z-index: 1; }
 
 .brandTop { display: flex; align-items: center; gap: 14px; }
-.rule { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(184,137,59,0.85), rgba(255,255,255,0.06)); }
+.rule { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(201,162,39,0.85), rgba(255,255,255,0.06)); }
 
 .eyebrow {
   font-size: 12px;
@@ -252,7 +252,7 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .input:hover { border-color: var(--border-strong); }
-.input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(0,32,91,0.12); }
+.input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(11,31,58,0.12); }
 
 .submit {
   width: 100%;

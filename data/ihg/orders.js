@@ -137,7 +137,7 @@ export const purchaseOrders = [
   {
     id: "108250",
     ref: "PO #108250",
-    title: "Bed linen replenishment — Crowne Plaza Greater Noida",
+    title: "Bed linen replenishment — Metro Business Hotel Greater Noida",
     contractId: "ARC-2627-0009",
     propertyId: "cp-noida",
     vendorId: "trident",
