@@ -27,7 +27,7 @@ export const vendors = [
       onTimePct: 96,
       responseHours: 14,
       qualityRejectPct: 0.7,
-      priceIndex: 94,          // 100 = parity with IHG's last awarded rate
+      priceIndex: 94,          // 100 = parity with the group's last awarded rate
       propertiesServed: 5,     // of the 5 in scope
       priorSpend: 31400000,
       contractsWon: 4,
@@ -103,7 +103,7 @@ export const vendors = [
     risk: { level: "low", note: "Steady performer. No adverse findings." },
     concessionPattern: "Moves once, 3–4%, then holds firm.",
     strengths: ["Competitive on bed linen specifically"],
-    watchOuts: ["Cannot serve Six Senses Fort Barwara — no Rajasthan logistics"],
+    watchOuts: ["Cannot serve Fort Barwara Heritage Resort — no Rajasthan logistics"],
   },
   {
     id: "aarvi",
@@ -135,7 +135,7 @@ export const vendors = [
       note: "GST returns filed late in two of the last four quarters; OEKO-TEX lapsed in March.",
     },
     concessionPattern: "Concedes fast and deep — 9% in a single round — which usually signals the opening was padded.",
-    strengths: ["Local to InterContinental Marine Drive"],
+    strengths: ["Local to The Grand Marine Drive"],
     watchOuts: [
       "OEKO-TEX certificate expired 31 Mar 2026",
       "On-time delivery 82% — lowest in the base",
@@ -171,7 +171,7 @@ export const vendors = [
     risk: { level: "low", note: "Newer to the base but clean on every measure." },
     concessionPattern: "Two small moves of 2% each. Patient negotiator.",
     strengths: ["Strong on terry specifically", "Best price-to-quality on bath mats"],
-    watchOuts: ["Only three years of history with IHG"],
+    watchOuts: ["Only three years of history with the group"],
   },
   {
     id: "greenleaf",
@@ -202,7 +202,7 @@ export const vendors = [
     risk: { level: "low", note: "Specialist supplier, consistently clean record." },
     concessionPattern: "Holds on unit price but will fund freight and packaging changes.",
     strengths: [
-      "Only supplier meeting IHG's paraben-free and FSC carton spec without substitution",
+      "Only supplier meeting the group's paraben-free and FSC carton spec without substitution",
       "Lowest quality reject rate in the base",
     ],
     watchOuts: ["Amenities only — cannot bid the linen lines"],

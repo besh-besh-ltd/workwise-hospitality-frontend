@@ -153,7 +153,7 @@ export default function App({ Component, pageProps }) {
           height: 3.5px;
           background: linear-gradient(90deg, var(--navy), var(--primary-2), var(--navy));
           z-index: 99999;
-          box-shadow: 0 0 8px rgba(0, 32, 91, 0.5);
+          box-shadow: 0 0 8px rgba(11, 31, 58, 0.5);
           pointer-events: none;
         }
       `}</style>

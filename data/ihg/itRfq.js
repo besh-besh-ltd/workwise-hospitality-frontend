@@ -31,7 +31,7 @@ export const itRfq = {
   ownerId: "regional",
 };
 
-/** Five lines, priced per unit. `lastRate` is what IHG last paid, all-in ex-GST. */
+/** Five lines, priced per unit. `lastRate` is what the group last paid, all-in ex-GST. */
 export const itLineItems = [
   {
     id: "wifi-ap-6e",

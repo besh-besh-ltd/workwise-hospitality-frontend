@@ -6,7 +6,7 @@
  * with each other wherever they appear. Later phases extend these objects
  * rather than inventing parallel data.
  *
- *   MR-2627-0881  raised at InterContinental Marine Drive
+ *   MR-2627-0881  raised at The Grand Marine Drive
  *     → RFQ #535944       consolidated across 5 properties   (AI Vendor Match)
  *     → Negotiation R1                                        (AI Negotiator)
  *     → ARC-2627-0014     rate contract, technical evaluation (AI Tech Eval)

@@ -50,7 +50,7 @@ ENV PORT=3000
 # Baked in deliberately: this session carries a persona id and nothing else,
 # there is no real account or data behind it, and a broken login is worse.
 # Override at `docker run -e SESSION_SECRET=...` to rotate.
-ENV SESSION_SECRET=ihg-demo-session-key-2026-rotate-me
+ENV SESSION_SECRET=demo-session-key-2026-rotate-me
 
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid nodejs nextjs
