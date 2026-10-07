@@ -8,6 +8,7 @@ import { setUserProfile } from "@/redux/slice";
 import { persistor } from "@/redux/store";
 import storageInstance from "@/utils/storageInstance";
 import { hardNavigate } from "@/utils/hardNavigate";
+import { markEntitySwitchDone } from "@/utils/sessionSync";
 
 const RELATIONSHIP_LABEL = {
   PRINCIPAL: "Principal",
@@ -88,10 +89,13 @@ const EntitySwitcher = () => {
         if (previousToken) storageInstance.setStorage("token", previousToken);
         else storageInstance.removeStorege("token");
         dispatch(setUserProfile(profile));
+        try { await persistor.flush(); } catch (_) {}
         toast.error("Could not switch entity. Please try again.");
         setSwitching(false);
         return;
       }
+      // Only now tell other tabs: token and persisted profile are both in place.
+      markEntitySwitchDone();
       hardNavigate("/dashboard/vendor");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Could not switch entity. Please try again.");

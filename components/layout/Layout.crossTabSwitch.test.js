@@ -1,8 +1,8 @@
-// Cross-tab: when another tab switches the vendor-network acting entity, the
-// shared `token` changes under this tab. A tab showing a network profile
-// reloads (so it rehydrates the persisted profile) instead of running with a
-// new token and an old profile. Wired into the layout's existing storage
-// listener, not a competing one.
+// Cross-tab: when another tab FINISHES switching the vendor-network acting
+// entity (token + persisted profile, signalled by `entity-switch-done`), a tab
+// showing a network profile reloads to pick both up. The bare token write is
+// not the signal: it lands before the new profile is persisted. Wired into the
+// layout's existing storage listener, not a competing one.
 
 const mockReload = jest.fn();
 jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardReload: () => mockReload(), hardNavigate: jest.fn() }));
@@ -33,18 +33,23 @@ beforeEach(() => {
   mockProfile = null;
 });
 
-test("a token swapped by another tab reloads a tab showing a network profile", () => {
+test("a token-only change from another tab does NOT reload (its profile may not be persisted yet)", () => {
   mockProfile = { id: 10, network: { role: "ORG_ADMIN", acting_entity_id: 10 } };
   render(<Layout><div /></Layout>);
   fireStorage({ key: "token", oldValue: "tok-hq", newValue: "tok-up" });
+  expect(mockReload).not.toHaveBeenCalled();
+});
+
+test("another tab's completed switch (entity-switch-done) reloads a tab showing a network profile", () => {
+  mockProfile = { id: 10, network: { role: "ORG_ADMIN", acting_entity_id: 10 } };
+  render(<Layout><div /></Layout>);
+  fireStorage({ key: "entity-switch-done", oldValue: null, newValue: "1700000000000-abc" });
   expect(mockReload).toHaveBeenCalledTimes(1);
 });
 
-test("a vendor in no network, and a logout elsewhere, do not reload", () => {
+test("a completed switch elsewhere leaves a no-network tab alone", () => {
   mockProfile = { id: 10, network: null };
   render(<Layout><div /></Layout>);
-  fireStorage({ key: "token", oldValue: "tok-a", newValue: "tok-b" });
-  mockProfile = { id: 10, network: { role: "ORG_ADMIN" } };
-  fireStorage({ key: "token", oldValue: "tok-a", newValue: null });
+  fireStorage({ key: "entity-switch-done", oldValue: null, newValue: "1700000000000-abc" });
   expect(mockReload).not.toHaveBeenCalled();
 });

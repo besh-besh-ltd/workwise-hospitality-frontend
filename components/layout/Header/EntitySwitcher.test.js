@@ -120,6 +120,13 @@ test("shows the acting entity and org; switching stores the token, persists the 
   expect(tokenAt).toBeLessThan(getProfile.mock.invocationCallOrder[0]);
   expect(tokenAt).toBeLessThan(navAt);
   expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(navAt);
+
+  // Other tabs are told only once token + profile + flush all succeeded.
+  const doneIdx = storageInstance.setStorage.mock.calls.findIndex(([k]) => k === "entity-switch-done");
+  expect(doneIdx).toBeGreaterThan(-1);
+  const doneAt = storageInstance.setStorage.mock.invocationCallOrder[doneIdx];
+  expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(doneAt);
+  expect(doneAt).toBeLessThan(navAt);
 });
 
 test("a failed profile refresh rolls back to the previous token and profile and does not navigate", async () => {
@@ -138,11 +145,32 @@ test("a failed profile refresh rolls back to the previous token and profile and 
     ["token", "tok-hq"],
   ]);
   expect(store.getState().userProfile).toEqual(before);
+  // The restored profile is persisted again, and other tabs are never told to reload.
+  expect(mockFlush).toHaveBeenCalledTimes(1);
+  expect(storageInstance.setStorage.mock.calls.some(([k]) => k === "entity-switch-done")).toBe(false);
   expect(mockAssign).not.toHaveBeenCalled();
   // Switching state cleared: the trigger is usable again and shows the old entity.
   const trigger = screen.getByRole("button", { name: /Acting as/ });
   expect(trigger).not.toBeDisabled();
   expect(trigger).toHaveTextContent("Acting as Daikin HQ · Daikin India");
+});
+
+test("a failing persist flush rolls back too, and the rollback's own failing flush does not throw", async () => {
+  switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
+  getProfile.mockResolvedValue({ status: 1, data: { id: 11, network: network({ acting_entity_id: 11 }) } });
+  mockFlush.mockRejectedValue(new Error("quota"));
+  const before = { id: 10, name: "Daikin HQ", network: network() };
+  const store = renderWith(before);
+  fireEvent.click(screen.getByRole("button", { name: /Acting as/ }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: /Daikin UP/ }));
+
+  const { toast } = require("react-toastify");
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not switch entity. Please try again."));
+  expect(mockFlush).toHaveBeenCalledTimes(2); // the switch's flush, then the rollback's
+  expect(storageInstance.setStorage.mock.calls).toEqual([["token", "tok-up"], ["token", "tok-hq"]]);
+  expect(store.getState().userProfile).toEqual(before);
+  expect(mockAssign).not.toHaveBeenCalled();
+  mockFlush.mockImplementation(() => Promise.resolve());
 });
 
 test("keyboard: opening focuses the first entity, arrows move focus, Enter selects", async () => {

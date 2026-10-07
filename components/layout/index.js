@@ -12,7 +12,7 @@ import { toast } from "react-toastify";
 import GuestAccessModal from "@/components/shared/GuestAccessModal";
 import PushPermissionPrompt from "@/components/shared/PushPermissionPrompt";
 import { store } from "@/redux/store";
-import { tokenSwapNeedsReload } from "@/utils/sessionSync";
+import { entitySwitchNeedsReload } from "@/utils/sessionSync";
 import { hardReload } from "@/utils/hardNavigate";
 // import Footer from "./Footer/newFooter";
 
@@ -89,9 +89,10 @@ const Layout = (props) => {
     checkLoginStatus();
 
     const handleStorageChange = (e) => {
-      // Another tab switched the vendor-network acting entity: this tab would
-      // otherwise send the new token while showing the old entity's profile.
-      if (tokenSwapNeedsReload(e, store.getState()?.userProfile)) {
+      // Another tab finished switching the vendor-network acting entity (token
+      // AND persisted profile): reload to pick both up. Keyed on the completion
+      // signal, never on the token write, which lands before the profile.
+      if (entitySwitchNeedsReload(e, store.getState()?.userProfile)) {
         hardReload();
         return;
       }
