@@ -10,8 +10,9 @@ import { fmtDate } from "./networkFormat";
 
 /**
  * null when `cov` is absent; otherwise
- * { key: "covered" | "seat_expired" | "suspended" | "not_active" | "lapsed", label, detail }
- * where `label` is the short pill text and `detail` the sentence for banners.
+ * { key: "covered" | "seat_expired" | "suspended" | "not_active" | "lapsed", label, short, detail }
+ * where `label` is the pill text, `short` its one-word form for phones and `detail`
+ * the sentence for banners.
  * Members never get a buy/renew action: anything wrong is for the network admin.
  */
 export function networkCoverageView(cov) {
@@ -22,6 +23,7 @@ export function networkCoverageView(cov) {
     return {
       key: "suspended",
       label: "Network access suspended",
+      short: "Suspended",
       detail: `Your access in ${org} is suspended — ask your network admin.`,
     };
   }
@@ -29,6 +31,7 @@ export function networkCoverageView(cov) {
     return {
       key: "not_active",
       label: "Entity not active yet — invitation pending",
+      short: "Not active",
       detail: `This entity is not active yet in ${org} — ask your network admin.`,
     };
   }
@@ -36,6 +39,7 @@ export function networkCoverageView(cov) {
     return {
       key: "not_active",
       label: "Entity not active",
+      short: "Not active",
       detail: `This entity is not active in ${org} — ask your network admin.`,
     };
   }
@@ -43,6 +47,7 @@ export function networkCoverageView(cov) {
     return {
       key: "seat_expired",
       label: "Seat expired",
+      short: "Seat expired",
       detail: cov.seat_expired_on
         ? `Seat expired on ${fmtDate(cov.seat_expired_on)} — ask your network admin.`
         : "Seat expired — ask your network admin.",
@@ -52,12 +57,14 @@ export function networkCoverageView(cov) {
     return {
       key: "lapsed",
       label: "Network subscription inactive",
+      short: "Inactive",
       detail: `${org}'s subscription is not active — ask your network admin.`,
     };
   }
   return {
     key: "covered",
     label: `Covered by ${org}`,
+    short: "Covered",
     detail: cov.seat_valid_until ? `Seat active · till ${fmtDate(cov.seat_valid_until)}` : "Seat active",
   };
 }

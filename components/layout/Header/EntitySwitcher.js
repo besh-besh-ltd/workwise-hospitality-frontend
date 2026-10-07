@@ -9,6 +9,8 @@ import { persistor } from "@/redux/store";
 import storageInstance from "@/utils/storageInstance";
 import { hardNavigate } from "@/utils/hardNavigate";
 import { markEntitySwitchDone } from "@/utils/sessionSync";
+// Narrow-screen rules for the top bar live with it (entitySwitcherText, entityStaticLabel).
+import shellStyles from "@/components/layout/DashboardShell/DashboardShell.module.css";
 
 /** 340px on desktop, 40% of the viewport on a phone (156px at 390px). */
 const CHIP_MAX_WIDTH = "min(340px, 40vw)";
@@ -81,6 +83,7 @@ const EntitySwitcher = () => {
     const name = acting?.name || entities[0]?.name || profile?.name || "Your entity";
     return (
       <span
+        className={shellStyles.entityStaticLabel}
         aria-label="Acting entity"
         title="The entity you are acting for"
         style={{
@@ -178,6 +181,7 @@ const EntitySwitcher = () => {
         disabled={switching}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={switching ? "Switching entity" : `Acting as ${actingName}${network.org_name ? ` · ${network.org_name}` : ""}. Switch entity`}
         title="Switch the entity you are acting for"
         style={{
           display: "inline-flex",
@@ -197,7 +201,7 @@ const EntitySwitcher = () => {
         }}
       >
         <ArrowLeftRight size={13} strokeWidth={1.75} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span className={shellStyles.entitySwitcherText} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {switching ? "Switching…" : (
             <>
               Acting as <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{actingName}</strong>

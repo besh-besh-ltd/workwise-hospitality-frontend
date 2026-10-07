@@ -26,6 +26,7 @@ const resolveState = (data) => {
       key: `network_${network.key}`,
       network,
       label: network.label,
+      short: network.short,
       Icon: network.key === "covered" ? Shield : AlertTriangle,
       cardClassName: NETWORK_PILL_CLASS[network.key],
     };
@@ -38,6 +39,7 @@ const resolveState = (data) => {
       return {
         key: "expiring",
         label: `Expiring · ${daysLeft}d`,
+        short: `${daysLeft}d`,
         Icon: AlertTriangle,
         cardClassName: styles.subPillWarn,
       };
@@ -45,6 +47,7 @@ const resolveState = (data) => {
     return {
       key: "active",
       label: `Active · ${daysLeft}d`,
+      short: `${daysLeft}d`,
       Icon: Shield,
       cardClassName: styles.subPillActive,
     };
@@ -54,6 +57,7 @@ const resolveState = (data) => {
     return {
       key: "expired",
       label: "Expired",
+      short: "Expired",
       Icon: XCircle,
       cardClassName: styles.subPillDanger,
     };
@@ -63,6 +67,7 @@ const resolveState = (data) => {
     return {
       key: "pending",
       label: "Payment Pending",
+      short: "Pending",
       Icon: Clock,
       cardClassName: styles.subPillPending,
     };
@@ -71,6 +76,7 @@ const resolveState = (data) => {
   return {
     key: "none",
     label: "Subscribe",
+    short: "Subscribe",
     Icon: Shield,
     cardClassName: styles.subPillMuted,
   };
@@ -198,9 +204,12 @@ const VendorSubscriptionPill = () => {
       className={`${styles.subPill} ${state.cardClassName}`}
       onClick={handleClick}
       aria-label={`Subscription: ${state.label}`}
+      title={state.label}
     >
       <state.Icon size={13} className={styles.subPillIcon} />
       <span className={styles.subPillLabel}>{state.label}</span>
+      {/* Phones (< 576px) show this one-word form instead (DashboardShell.module.css). */}
+      <span className={styles.subPillShort} aria-hidden="true">{state.short || state.label}</span>
 
       <div className={styles.subTooltip} role="tooltip">
         <div className={styles.subTooltipHead}>
