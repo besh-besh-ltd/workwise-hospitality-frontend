@@ -33,7 +33,8 @@ jest.mock("@/utils/storageInstance", () => ({
 }));
 jest.mock("@/utils/hospitalityContext", () => ({ __esModule: true, setStoredHospitalityContext: jest.fn() }));
 jest.mock("@/lib/analytics", () => ({ __esModule: true, default: { reset: jest.fn() } }));
-jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
+// next/head renders its children inline, so the page's <meta> tags are queryable.
+jest.mock("next/head", () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
 
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -197,4 +198,13 @@ test("an invite that expires before submit shows the server's reason and removes
   expect(await screen.findByText("This invitation has expired. Ask your network admin to resend it.")).toBeInTheDocument();
   expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
   expect(mockReplace).not.toHaveBeenCalledWith("/?login=true");
+});
+
+test("the page sends no Referer: the token in its URL never leaks to asset or analytics requests", async () => {
+  previewMemberInvite.mockResolvedValue(openInvite);
+  render(<AcceptInvitePage />);
+  const meta = document.querySelector('meta[name="referrer"]');
+  expect(meta).not.toBeNull();
+  expect(meta.getAttribute("content")).toBe("no-referrer");
+  await screen.findByText(/Daikin India/);
 });

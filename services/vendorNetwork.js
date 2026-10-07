@@ -57,10 +57,11 @@ export const inviteMember = (payload = {}) => axiosInstance.post(`${BASE}/member
 export const updateMember = (id, payload = {}) => axiosInstance.patch(`${BASE}/members/${id}`, payload);
 export const resendMemberInvite = (id) => axiosInstance.post(`${BASE}/members/${id}/resend`);
 
-// PUBLIC (no session): the emailed token is the credential.
+// PUBLIC (no session): the emailed token is the credential, so it travels in a
+// POST body, never in a URL (access logs, Referer).
 // Preview → { email, org_name, entity_name, expired } or HTTP 410.
 export const previewMemberInvite = (token) =>
-  axiosInstance.get(`${BASE}/member-invites/${encodeURIComponent(token)}`);
+  axiosInstance.post(`${BASE}/member-invites/preview`, { token });
 // → 200, or HTTP 410 when expired / already used.
 export const acceptMemberInvite = ({ token, password } = {}) =>
   axiosInstance.post(`${BASE}/member-invites/accept`, { token, password });

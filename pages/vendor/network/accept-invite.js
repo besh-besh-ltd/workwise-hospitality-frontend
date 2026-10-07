@@ -172,6 +172,8 @@ const AcceptInvitePage = () => {
     <>
       <Head>
         <title>Workwise | Accept invitation</title>
+        {/* The first render's URL still holds ?token=: send no Referer with it. */}
+        <meta name="referrer" content="no-referrer" />
       </Head>
       <div style={{ display: "flex", justifyContent: "center", padding: "56px 16px 72px", background: "var(--bg)" }}>
         <div className="section-card" style={{ width: "100%", maxWidth: 440 }}>
