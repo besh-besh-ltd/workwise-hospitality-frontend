@@ -158,8 +158,11 @@ describe("phone CSS contract", () => {
 
 describe("Recent awards widget links to the PO detail page", () => {
   it("uses /dashboard/buyer/purchase-orders/<id>, not the legacy ?id= route that lands on an empty state", () => {
+    // Dashboard V3 routes widget links through the shared dashboardLinks helpers.
+    const { poDetail } = require("@/components/dashboard/shared/dashboardLinks");
+    expect(poDetail(4410)).toBe("/dashboard/buyer/purchase-orders/4410");
     const src = read("../persona-widgets/awarding/RecentAwards.js");
-    expect(src).toMatch(/href=\{`\/dashboard\/buyer\/purchase-orders\/\$\{item\.po_id\}`\}/);
+    expect(src).toMatch(/poDetail\(/);
     expect(src).not.toMatch(/purchase-order\?id=/);
   });
 });
