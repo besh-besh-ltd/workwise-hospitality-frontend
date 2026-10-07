@@ -66,6 +66,8 @@ const assignment = (over) => ({
   ...over,
 });
 
+const daysAgo = (n) => new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
+
 const QUEUE = {
   status: 1,
   data: {
@@ -93,7 +95,9 @@ const QUEUE = {
     ],
     pending: [assignment({})],
     accepted: [
-      assignment({ id: 905, subject_type: "ARC_HOTEL", subject_id: 78, hotel_id: 503, status: "ACCEPTED", assigned_vendor_id: 12, assignee_name: "Cool Dealers", acted_at: "2026-10-06T10:00:00.000Z", title: "Rate contract ARC-13 · Orchid Goa" }),
+      assignment({ id: 905, subject_type: "ARC_HOTEL", subject_id: 78, hotel_id: 503, status: "ACCEPTED", assigned_vendor_id: 12, assignee_name: "Cool Dealers", acted_at: daysAgo(1), title: "Rate contract ARC-13 · Orchid Goa" }),
+      // accepted 40 days ago: live, but not "recent"
+      assignment({ id: 906, subject_id: 4009, status: "ACCEPTED", assigned_vendor_id: 12, assignee_name: "Cool Dealers", acted_at: daysAgo(40), title: "RFQ #536709 · Old pumps" }),
     ],
     declined: [
       assignment({
@@ -251,6 +255,28 @@ test("a declined item that was already re-routed shows who has it now instead of
   expect(within(timedOut).getByText("Timed out")).toBeInTheDocument();
   expect(timedOut).toHaveTextContent("Now with Daikin UP (pending)");
   expect(within(timedOut).queryByRole("button", { name: /Assign/ })).toBeNull();
+});
+
+test("recently accepted shows only items accepted in the last 30 days", async () => {
+  const QUEUE_WITH_OLD_DECLINE = {
+    ...QUEUE,
+    data: {
+      ...QUEUE.data,
+      declined: [
+        ...QUEUE.data.declined,
+        assignment({ id: 907, subject_id: 4009, status: "DECLINED", decline_reason: "NO_STOCK", acted_at: daysAgo(2), title: "RFQ #536709 · Old pumps", candidates: [] }),
+      ],
+    },
+  };
+  api.getRoutingQueue.mockResolvedValue(QUEUE_WITH_OLD_DECLINE);
+  renderPage();
+  const recent = await list("Recently accepted");
+  expect(within(recent).getByText("Rate contract ARC-13 · Orchid Goa")).toBeInTheDocument();
+  expect(within(recent).queryByText("RFQ #536709 · Old pumps")).toBeNull();
+  expect(within(recent).getAllByRole("listitem")).toHaveLength(1);
+  // The older acceptance still counts as live for a declined row of the same subject
+  const declined = await itemOf("Declined & timed out", "RFQ #536709 · Old pumps");
+  expect(declined).toHaveTextContent("Now with Cool Dealers (accepted)");
 });
 
 test("routing settings use the exact mode values and validate the hours", async () => {

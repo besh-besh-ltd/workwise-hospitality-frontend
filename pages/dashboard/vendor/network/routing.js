@@ -71,6 +71,14 @@ function Section({ title, count, empty, children }) {
   );
 }
 
+// "Recently accepted" shows assignments accepted (acted_at) in the last 30 days;
+// older ones still count as live for the "Now with" line on declined items.
+const RECENT_ACCEPTED_DAYS = 30;
+const acceptedRecently = (row, now = Date.now()) => {
+  const at = row.acted_at ? new Date(row.acted_at).getTime() : NaN;
+  return Number.isFinite(at) && now - at <= RECENT_ACCEPTED_DAYS * 24 * 3600 * 1000;
+};
+
 const rowStyle = { padding: "14px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "space-between" };
 
 function RoutingView() {
@@ -182,7 +190,8 @@ function RoutingView() {
     );
   };
 
-  const { unrouted, pending, accepted, declined } = queue;
+  const { unrouted, pending, declined } = queue;
+  const accepted = queue.accepted.filter((row) => acceptedRecently(row));
 
   return (
     <main className="main-body">
@@ -300,7 +309,7 @@ function RoutingView() {
             })}
           </Section>
 
-          <Section title="Recently accepted" count={accepted.length} empty="No entity holds an accepted assignment.">
+          <Section title="Recently accepted" count={accepted.length} empty="Nothing was accepted in the last 30 days.">
             {accepted.map((row) => (
               <li key={row.id} style={rowStyle}>
                 <div style={{ flex: "1 1 280px" }}>

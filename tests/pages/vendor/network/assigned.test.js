@@ -156,6 +156,19 @@ test("a late reply (409 EXPIRED) explains it went back to the admin and reloads"
   await waitFor(() => expect(api.getAssignedToMe).toHaveBeenCalledTimes(2));
 });
 
+test("a 404 says the assignment was withdrawn or reassigned and reloads", async () => {
+  api.respondToAssignment.mockRejectedValue({
+    response: { status: 404, data: { status: 0, message: "Assignment not found", reason: "NOT_FOUND" } },
+  });
+  renderPage();
+  const rfq = await itemOf("Waiting for your reply", "RFQ #536700 · Chillers");
+  fireEvent.click(within(rfq).getByRole("button", { name: "Accept" }));
+  await waitFor(() =>
+    expect(toast.error).toHaveBeenCalledWith("This assignment is no longer available — it may have been withdrawn or reassigned.")
+  );
+  await waitFor(() => expect(api.getAssignedToMe).toHaveBeenCalledTimes(2));
+});
+
 test("a server refusal of the decline note keeps the modal open with the message", async () => {
   api.respondToAssignment.mockRejectedValue({
     response: { status: 400, data: { status: 0, message: "A note is required when the reason is OTHER" } },

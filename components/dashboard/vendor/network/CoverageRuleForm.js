@@ -190,6 +190,9 @@ export default function CoverageRuleForm({ states, categories, onAdd }) {
               <option key={c.id} value={c.id}>{c.title}</option>
             ))}
           </select>
+          <div className="help-text">
+            Category-specific rules are used for rate-contract (ARC) hotel suggestions. RFQ suggestions use rules without a category.
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3">

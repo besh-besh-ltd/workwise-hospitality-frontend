@@ -19,6 +19,7 @@ import { SUBJECT_LABEL, fmtDateTime } from "@/components/dashboard/vendor/networ
 
 const RESPOND_OVERRIDES = {
   EXPIRED: "This assignment expired before you replied, so it went back to your network admin.",
+  NOT_FOUND: "This assignment is no longer available — it may have been withdrawn or reassigned.",
 };
 
 const titleOf = (row) => row.title || `${SUBJECT_LABEL[row.subject_type] || row.subject_type} #${row.subject_id}`;

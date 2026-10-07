@@ -158,6 +158,16 @@ test("adds a city rule, a category-scoped hotel rule, and saves the whole set wi
   await waitFor(() => expect(api.getCoverage).toHaveBeenCalledTimes(2));
 });
 
+test("the category field explains which suggestions use category-specific rules", async () => {
+  renderPage();
+  await rulesTable();
+  expect(
+    screen.getByText(
+      "Category-specific rules are used for rate-contract (ARC) hotel suggestions. RFQ suggestions use rules without a category."
+    )
+  ).toBeInTheDocument();
+});
+
 test("a second rule for the same place and category is refused before saving", async () => {
   renderPage();
   await rulesTable();
