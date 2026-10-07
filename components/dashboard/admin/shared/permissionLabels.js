@@ -21,6 +21,7 @@ export const RESOURCE_LABELS = {
   "ARC-COMM": "ARC Commercial Evaluation",
   "ARC-COMMITTEE": "ARC Committee",
   AWARDING: "PO Awarding",
+  DASHBOARD: "Dashboard widgets",
 };
 
 export const RESOURCE_DESCRIPTIONS = {
@@ -32,6 +33,7 @@ export const RESOURCE_DESCRIPTIONS = {
   "ARC-COMM": "Run commercial evaluation and reconcile awards on rate contracts.",
   "ARC-COMMITTEE": "Sit on the ARC committee that approves finalised awards and amendments.",
   AWARDING: "Manage purchase-order awarding on finalised RFQs.",
+  DASHBOARD: "Choose which widgets appear on the buyer dashboard. Each widget only shows data from the business units this role can already see.",
 };
 
 export const ACTION_LABELS = {

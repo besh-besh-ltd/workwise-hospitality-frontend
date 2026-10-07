@@ -1,4 +1,5 @@
-import React, { useEffect, useLayoutEffect } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTwoPanelContext } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
 
@@ -16,28 +17,39 @@ const TwoPanelPage = ({
   mobileToggleLabel = "Select from list",
   children,
 }) => {
-  const { setSubSidebar, setMobileRfqToggle } = useTwoPanelContext();
+  const { registerSubSidebar, subSidebarNode, setMobileRfqToggle } = useTwoPanelContext();
+  const hasSidebar = !!sidebar;
 
-  // useLayoutEffect so the sub-sidebar is set before the browser paints,
-  // preventing a flash of expanded nav items in the collapsed rail.
+  // useLayoutEffect so the sidebar slot exists before the browser paints,
+  // preventing a flash of expanded nav items in the collapsed rail. Depends on
+  // presence only — the sidebar element itself is new on every render and is
+  // rendered through the portal below, never pushed into shell state.
   useIsomorphicLayoutEffect(() => {
-    setSubSidebar(sidebar);
-    return () => setSubSidebar(null);
-  }, [sidebar]);
+    if (!hasSidebar) return undefined;
+    return registerSubSidebar();
+  }, [hasSidebar, registerSubSidebar]);
+
+  // Pages pass an inline arrow here; route it through a ref so a new function
+  // identity on each render doesn't re-publish the toggle to the shell.
+  const toggleRef = useRef(onMobileSidebarToggle);
+  toggleRef.current = onMobileSidebarToggle;
+  const hasToggle = !!onMobileSidebarToggle;
+  const stableToggle = useCallback((...args) => toggleRef.current?.(...args), []);
 
   useIsomorphicLayoutEffect(() => {
-    if (onMobileSidebarToggle) {
-      setMobileRfqToggle({
-        callback: onMobileSidebarToggle,
-        label: mobileToggleLabel,
-        isOpen: mobileSidebarOpen,
-      });
-    }
+    if (!hasToggle) return undefined;
+    setMobileRfqToggle({
+      callback: stableToggle,
+      label: mobileToggleLabel,
+      isOpen: mobileSidebarOpen,
+    });
     return () => setMobileRfqToggle(null);
-  }, [onMobileSidebarToggle, mobileToggleLabel, mobileSidebarOpen]);
+  }, [hasToggle, stableToggle, mobileToggleLabel, mobileSidebarOpen, setMobileRfqToggle]);
 
   return (
     <div className={styles.pageRoot}>
+      {hasSidebar && subSidebarNode && createPortal(sidebar, subSidebarNode)}
+
       {/* Fixed top: header + filters */}
       <div className={styles.pageTopSection}>
         <header className={styles.pageHeader}>

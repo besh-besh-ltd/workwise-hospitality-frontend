@@ -1,110 +1,95 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { BarChart3, ArrowUpRight, ArrowDownRight, PieChart } from "lucide-react";
+import React, { useState } from "react";
+import { BarChart3, PieChart } from "lucide-react";
 import { getProcurementSnapshot } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import SpendBreakupModal from "./SpendBreakupModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
-import usePolling from "@/hooks/usePolling";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ProcurementSnapshot.module.scss";
 
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${value.toLocaleString("en-IN")}`;
-};
-
-// `accent` drives each card's top-bar colour. The four context cards share one
+// `accent` drives each card's top-bar colour. The context cards share one
 // deep, muted green accent (rendered at low opacity, see scss) — subtle and easy
-// on the eye; Total spend uses a brighter green at full opacity + green tint so
-// it still stands out as the headline figure.
+// on the eye; Committed spend uses a brighter green at full opacity + green tint
+// so it still stands out as the headline figure.
 const CARD_ACCENT = "#166534"; // deep muted green for context cards
-const METRICS = [
-  { key: "active_rfqs",     label: "Active RFQs",     tooltip: "Currently live, published RFQs open for vendor bidding", format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
-  { key: "closed_rfqs",     label: "Closed RFQs",     tooltip: "RFQs closed in the selected period",                   format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
-  { key: "pos_issued",      label: "POs issued against RFQs", tooltip: "Purchase orders created in the selected period", format: (v) => v ?? 0, trendKind: "neutral", accent: CARD_ACCENT },
-  { key: "total_spend",     label: "Total spend",     tooltip: "Sum of all approved PO values including taxes",       format: formatCurrency, highlighted: true, trendKind: "spend", accent: "#15803d" },
-  { key: "avg_turnaround",  label: "Average Turnaround Time", tooltip: "Avg days from RFQ publish to finalisation",     format: (v) => v ? `${parseFloat(v).toFixed(1)} Days` : "0 Days", trendKind: "lower-better", accent: CARD_ACCENT },
+
+const formatDays = (v) => (v == null ? "—" : `${Number(v).toFixed(1)} days`);
+const plural = (n, one, many = `${one}s`) => (Number(n) === 1 ? one : many);
+
+// Definitions mirror backend dashboardMetrics (SPEC "Cross-role cards"): RFQs
+// are live queues (not dated); POs, spend and turnaround are for the period.
+export const METRICS = [
+  {
+    key: "active_rfqs",
+    label: "Open for bidding",
+    tooltip: "Published RFQs whose bid window is still open right now.",
+    format: (v) => v ?? 0,
+    accent: CARD_ACCENT,
+  },
+  {
+    key: "in_progress_rfqs",
+    label: "Bidding closed, in progress",
+    tooltip: "Published RFQs whose bidding has closed and that are still being evaluated, negotiated or awarded.",
+    format: (v) => v ?? 0,
+    accent: CARD_ACCENT,
+  },
+  {
+    key: "pos_issued",
+    label: "POs committed",
+    tooltip: "Purchase orders raised in the period that are approved or further along (drafts, pending, rejected and cancelled POs are excluded).",
+    format: (v) => v ?? 0,
+    accent: CARD_ACCENT,
+  },
+  {
+    key: "total_spend",
+    label: "Committed spend",
+    tooltip: "Value of committed purchase orders raised in the period, including GST — the same figure as the Spend Summary report.",
+    format: formatCurrency,
+    highlighted: true,
+    accent: "#15803d",
+  },
+  {
+    key: "turnaround",
+    label: "Median turnaround",
+    tooltip: "Days from publishing an RFQ to its first finalised quote, for RFQs finalised in the period. Half take less than this.",
+    value: (d) => d?.turnaround_days?.median,
+    format: formatDays,
+    sub: (d) => {
+      const t = d?.turnaround_days;
+      if (!t || !(t.n > 0)) return "No RFQs finalised in the period";
+      return `P90 ${formatDays(t.p90)} · ${t.n} ${plural(t.n, "RFQ")}`;
+    },
+    accent: CARD_ACCENT,
+  },
 ];
 
-// Compute % change from first non-zero sparkline point to the last value.
-// Returns { delta: signed percentage, sentiment: 'good' | 'bad' | 'neutral' }.
-const computeTrend = (sparklineData, trendKind) => {
-  if (!sparklineData || sparklineData.length < 2) return null;
-  const last = sparklineData[sparklineData.length - 1];
-  const first = sparklineData.find((v) => v > 0);
-  if (!first || first === 0) return null;
-  const delta = ((last - first) / first) * 100;
-  if (Math.abs(delta) < 1) return null;
-  let sentiment = "neutral";
-  if (trendKind === "lower-better") {
-    sentiment = delta < 0 ? "good" : "bad";
-  } else if (trendKind === "spend") {
-    sentiment = delta > 0 ? "good" : "bad";
-  }
-  return { delta, sentiment };
-};
-
 const ProcurementSnapshot = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showBreakup, setShowBreakup] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getProcurementSnapshot(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  // Filter / manual-refresh change: show the skeleton. usePolling below then
-  // fetches immediately and restarts the 5 min cadence (paused while hidden,
-  // one refetch on tab return).
-  useEffect(() => {
-    setLoading(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
-  usePolling(fetchData, {
-    interval: DASHBOARD_POLL_MS,
-    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh],
-  });
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getProcurementSnapshot, filters);
 
   return (
     <PersonaCardShell
       title="Procurement (Products & Services) snapshot"
       icon={BarChart3}
-      tooltip="Headline counts and spend across the selected business units and period."
+      tooltip="Live RFQ counts, and committed POs, spend and turnaround for the selected business units and period."
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonKpiGrid count={METRICS.length} />}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.snapshotGrid}>
         {METRICS.map((metric) => {
-          const value = data?.[metric.key];
-          const sparklineData = data?.sparklines?.[metric.key] || [];
-          const maxSpark = Math.max(...sparklineData, 1);
-          const trend = computeTrend(sparklineData, metric.trendKind);
-          const TrendIcon = trend && trend.delta >= 0 ? ArrowUpRight : ArrowDownRight;
-
+          const value = metric.value ? metric.value(data) : data?.[metric.key];
+          const sub = metric.sub ? metric.sub(data) : null;
           return (
             <div
               key={metric.key}
               className={`${styles.metricItem} ${metric.highlighted ? styles.highlighted : ""}`}
               style={{ "--metric-accent": metric.accent }}
+              data-testid={`snapshot-${metric.key}`}
             >
               <div className={styles.metricLabel}>
                 {metric.label}
@@ -114,12 +99,6 @@ const ProcurementSnapshot = ({ filters }) => {
                 <div className={styles.metricValue}>
                   {loading ? "–" : metric.format(value)}
                 </div>
-                {trend && !loading && (
-                  <span className={`${styles.trendChip} ${styles[trend.sentiment]}`}>
-                    <TrendIcon size={9} strokeWidth={2.6} />
-                    {Math.abs(trend.delta).toFixed(0)}%
-                  </span>
-                )}
                 {metric.key === "total_spend" && !loading && data?.spend_breakup && (
                   <button
                     type="button"
@@ -131,17 +110,7 @@ const ProcurementSnapshot = ({ filters }) => {
                   </button>
                 )}
               </div>
-              {sparklineData.length > 0 && (
-                <div className={styles.sparkline}>
-                  {sparklineData.map((val, i) => (
-                    <div
-                      key={i}
-                      className={`${styles.sparkBar} ${i === sparklineData.length - 1 ? styles.active : ""}`}
-                      style={{ height: `${Math.max((val / maxSpark) * 100, 8)}%` }}
-                    />
-                  ))}
-                </div>
-              )}
+              {sub && !loading && <div className={styles.metricSub}>{sub}</div>}
             </div>
           );
         })}

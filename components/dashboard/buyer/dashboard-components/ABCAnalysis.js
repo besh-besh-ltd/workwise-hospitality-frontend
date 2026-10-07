@@ -1,23 +1,12 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React from "react";
 import { Layers } from "lucide-react";
 import { getAbcAnalysis } from "@/services/dashboard";
 import InfoTip from "@/components/shared/InfoTip";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
-import usePolling from "@/hooks/usePolling";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./ABCAnalysis.module.scss";
-
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
-
-const formatNumber = (value) => Math.round(Number(value) || 0).toLocaleString("en-IN");
 
 // Tier presentation + the "so what" guidance procurement teams act on.
 const CLASS_META = {
@@ -44,45 +33,14 @@ const CLASS_META = {
   },
 };
 
-const METRIC_OPTIONS = [
-  { value: "value", label: "By value" },
-  { value: "volume", label: "By volume" },
-];
-
 const ABCAnalysis = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [metric, setMetric] = useState("value");
+  // Value only: quantities are in mixed units (pcs, kg, litres…), so a
+  // "by volume" ranking would add unlike things together.
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getAbcAnalysis, filters);
 
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getAbcAnalysis({ ...filters, metric });
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, metric]);
-
-  // Filter / manual-refresh change: show the skeleton. usePolling below then
-  // fetches immediately and restarts the 5 min cadence (paused while hidden,
-  // one refetch on tab return).
-  useEffect(() => {
-    setLoading(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, metric]);
-  usePolling(fetchData, {
-    interval: DASHBOARD_POLL_MS,
-    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, metric],
-  });
-
-  const isVolume = metric === "volume";
-  const metricNoun = isVolume ? "volume" : "spend";
-  const fmtMetric = isVolume ? formatNumber : formatCurrency;
-  const metricOf = (x) => (isVolume ? x.volume : x.value);
+  const metricNoun = "committed spend";
+  const fmtMetric = formatCurrency;
+  const metricOf = (x) => x.value;
 
   // Order tiers A→B→C deterministically regardless of API order.
   const order = { A: 0, B: 1, C: 2 };
@@ -95,21 +53,10 @@ const ABCAnalysis = ({ filters }) => {
     <PersonaCardShell
       title="ABC analysis"
       icon={Layers}
-      tooltip="Pareto classification of procured items: A items drive most of your spend and deserve the most attention; C items are low-value and can be streamlined."
-      actions={
-        <select
-          className={styles.metricSelect}
-          value={metric}
-          onChange={(e) => setMetric(e.target.value)}
-          aria-label="ABC metric"
-        >
-          {METRIC_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      }
+      tooltip="Pareto classification of items by committed spend in the period: A items drive most of the value and deserve the most attention; C items are low-value and can be streamlined."
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonKpiGrid count={3} />}
       isEmpty={totalItems === 0}
       renderEmpty={() => (
@@ -117,10 +64,7 @@ const ABCAnalysis = ({ filters }) => {
           No procured items in the selected period to classify.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       {/* Headline Pareto takeaway — the core "hot spot" insight. */}
       {classA && (

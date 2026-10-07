@@ -18,6 +18,7 @@
 // `groupBy: 'round'`, and it is what the per-RFQ page (level 2) renders.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { getNegotiationListView } from "@/services/negotiation";
 import {
   NEG_STATE_PRESENTATION,
@@ -162,6 +163,16 @@ function totalLabel(total, source) {
   return one ? "RFQ or rate contract" : "RFQs & rate contracts";
 }
 
+// ── deep-link params → initial list state ──────────────────────────────────
+// null when the URL carries no list filter. Unknown tabs are dropped.
+export function parseNegotiationListDeepLink(q = {}) {
+  const tab = TABS.some((t) => t.key === q.tab) ? q.tab : null;
+  const needsMyApproval = q.needs_my_approval === "1" || q.needs_my_approval === "true";
+  const search = typeof q.search === "string" ? q.search.trim() : "";
+  if (!tab && !needsMyApproval && !search) return null;
+  return { tab, needsMyApproval, search };
+}
+
 // ── page ────────────────────────────────────────────────────────────────────
 export default function NegotiationListPage() {
   const [tab, setTab] = useState("all");
@@ -181,6 +192,24 @@ export default function NegotiationListPage() {
   const [resp, setResp] = useState({ rows: [], facets: {}, tab_counts: {}, source_counts: { all: 0, RFQ: 0, ARC: 0 }, total: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
   const seq = useRef(0);
+
+  // Deep links (components/dashboard/shared/dashboardLinks.js):
+  //   ?tab=all|needs_attention|closed  ?needs_my_approval=1  ?search=
+  // Applied once per distinct set of params, so the user's own changes stick.
+  const router = useRouter();
+  const deepLinkApplied = useRef(null);
+  useEffect(() => {
+    if (!router?.isReady) return;
+    const link = parseNegotiationListDeepLink(router.query);
+    if (!link) return;
+    const key = JSON.stringify(link);
+    if (deepLinkApplied.current === key) return;
+    deepLinkApplied.current = key;
+    if (link.tab) setTab(link.tab);
+    setNeedsMyApproval(link.needsMyApproval);
+    if (link.search) setSearch(link.search);
+    setPage(1);
+  }, [router?.isReady, router?.query]);
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 400);

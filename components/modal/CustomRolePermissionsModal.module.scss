@@ -407,6 +407,33 @@
   gap: 8px;
 }
 
+.personaGroup {
+  margin-bottom: 12px;
+}
+
+.personaGroup:last-child {
+  margin-bottom: 0;
+}
+
+.personaHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.personaLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.personaHeader .resourceCount {
+  margin: 0;
+}
+
 .permissionGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

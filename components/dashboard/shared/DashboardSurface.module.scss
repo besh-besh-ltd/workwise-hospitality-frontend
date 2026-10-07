@@ -362,7 +362,7 @@
 .rankList { display: flex; flex-direction: column; gap: 10px; }
 .rankRow {
   display: grid;
-  grid-template-columns: 32px 1fr auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
@@ -435,7 +435,7 @@
 }
 .activityItem {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: flex-start;
   padding: 10px 0;
@@ -487,7 +487,7 @@
 /* ── Lifecycle donut (conic-gradient + legend) ─────────── */
 .donutWrap {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 20px;
   align-items: center;
 }
@@ -759,7 +759,7 @@
 }
 .skRankRow {
   display: grid;
-  grid-template-columns: 32px 1fr auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
@@ -798,7 +798,7 @@
 }
 .skActivityItem {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: flex-start;
   padding: 9px 0;

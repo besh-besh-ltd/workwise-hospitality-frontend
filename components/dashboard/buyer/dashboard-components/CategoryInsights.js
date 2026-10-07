@@ -1,37 +1,38 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { PieChart } from "lucide-react";
 import { getCategoryInsights } from "@/services/dashboard";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
-import usePolling from "@/hooks/usePolling";
+import { SkeletonChart } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./CategoryInsights.module.scss";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Vibrant blue-led palette — restores visual identity while keeping the
-// minimal card chrome from PersonaCardShell.
-const CHART_COLORS = [
+// Twelve distinct hues — the backend returns up to 12 named buckets plus
+// "Others", so no two slices share a colour. "Others" is always neutral grey.
+export const CHART_COLORS = [
   "#2563eb",
-  "#3b82f6",
   "#15803d",
   "#b45309",
   "#b91c1c",
   "#7c3aed",
   "#0891b2",
   "#db2777",
+  "#65a30d",
+  "#ea580c",
+  "#4f46e5",
+  "#0d9488",
+  "#a16207",
 ];
+export const OTHERS_COLOR = "#a1a1aa";
 
-// Trim trailing zeros from a fixed-decimal string: "19.50"→"19.5", "20.00"→"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "₹0";
-  if (value >= 10000000) return `₹${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `₹${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-};
+export const sliceColor = (cat, idx) =>
+  cat?.category_name === "Others" && cat?.bucket_count != null
+    ? OTHERS_COLOR
+    : CHART_COLORS[idx % CHART_COLORS.length];
 
 const chartOptions = {
   cutout: "62%",
@@ -48,8 +49,9 @@ const chartOptions = {
       callbacks: {
         label: (ctx) => {
           const label = ctx.label || "";
-          const value = ctx.raw || 0;
-          return `${label}: ${value.toFixed(1)}%`;
+          const total = ctx.dataset.data.reduce((sum, v) => sum + (v || 0), 0);
+          const pct = total > 0 ? ((ctx.raw || 0) / total) * 100 : 0;
+          return `${label}: ${formatCurrency(ctx.raw)} (${pct.toFixed(1)}%)`;
         },
       },
     },
@@ -63,39 +65,16 @@ const DIMENSION_OPTIONS = [
 ];
 
 const CategoryInsights = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [dimension, setDimension] = useState("category");
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getCategoryInsights({ ...filters, dimension });
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, dimension]);
-
-  // Filter / manual-refresh change: show the skeleton. usePolling below then
-  // fetches immediately and restarts the 5 min cadence (paused while hidden,
-  // one refetch on tab return).
-  useEffect(() => {
-    setLoading(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, dimension]);
-  usePolling(fetchData, {
-    interval: DASHBOARD_POLL_MS,
-    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh, dimension],
-  });
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getCategoryInsights, filters, { extraParams: { dimension } });
 
   const categories = data?.categories || [];
+  // The backend's committed-spend total (reconciles with Procurement snapshot).
   const totalSpend = useMemo(
-    () => categories.reduce((sum, cat) => sum + (cat.spend_amount || 0), 0),
-    [categories]
+    () => (data?.total_spend != null
+      ? data.total_spend
+      : categories.reduce((sum, cat) => sum + (cat.spend_amount || 0), 0)),
+    [data, categories]
   );
   const chartData = useMemo(() => {
     if (categories.length === 0) return null;
@@ -103,8 +82,9 @@ const CategoryInsights = ({ filters }) => {
       labels: categories.map((c) => c.category_name),
       datasets: [
         {
-          data: categories.map((c) => c.percentage || 0),
-          backgroundColor: categories.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+          // Plot rupees (the centre shows the rupee total); % is in the tooltip.
+          data: categories.map((c) => c.spend_amount || 0),
+          backgroundColor: categories.map((c, i) => sliceColor(c, i)),
           borderColor: "#fff",
           borderWidth: 2,
           hoverOffset: 6,
@@ -113,11 +93,18 @@ const CategoryInsights = ({ filters }) => {
     };
   }, [categories]);
 
+  // Screen-reader summary of the doughnut; the visible legend below carries
+  // the same figures as text.
+  const chartSummary = categories.length
+    ? `Spend by ${dimension}, total ${formatCurrency(totalSpend)}: ` +
+      categories.map((c) => `${c.category_name} ${(c.percentage || 0).toFixed(1)}%`).join(", ")
+    : "";
+
   return (
     <PersonaCardShell
       title="Spend by category"
       icon={PieChart}
-      tooltip="Procurement spend split across product categories in this period."
+      tooltip="Committed spend (approved POs onwards, incl. GST) split by category, sub-category or item for the period. Sub-category is the most specific category each product is filed under."
       actions={
         <select
           className={styles.dimSelect}
@@ -132,6 +119,7 @@ const CategoryInsights = ({ filters }) => {
       }
       loading={loading}
       error={error}
+      stale={stale}
       skeleton={<SkeletonChart legendCount={4} />}
       isEmpty={!chartData}
       renderEmpty={() => (
@@ -139,16 +127,13 @@ const CategoryInsights = ({ filters }) => {
           No category spend data available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.chartWrapper}>
-        <Pie data={chartData} options={chartOptions} />
+        <Pie data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
         <div className={styles.chartCenter}>
           <span className={styles.chartCenterValue}>{formatCurrency(totalSpend)}</span>
-          <span className={styles.chartCenterLabel}>Total spend</span>
+          <span className={styles.chartCenterLabel}>Committed spend</span>
         </div>
       </div>
       <div className={styles.categoryList}>
@@ -157,9 +142,12 @@ const CategoryInsights = ({ filters }) => {
             <div className={styles.categoryLeft}>
               <span
                 className={styles.categoryDot}
-                style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                style={{ backgroundColor: sliceColor(cat, idx) }}
               />
-              <span className={styles.categoryName}>{cat.category_name}</span>
+              <span className={styles.categoryName}>
+                {cat.category_name}
+                {cat.bucket_count != null ? ` (${cat.bucket_count} more)` : ""}
+              </span>
             </div>
             <div className={styles.categoryRight}>
               <span className={styles.categorySpend}>{formatCurrency(cat.spend_amount)}</span>
