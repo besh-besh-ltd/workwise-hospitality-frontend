@@ -17,7 +17,6 @@ function validate(form) {
   if (!GSTIN_RE.test(form.gstin.trim())) errors.gstin = "Enter a valid 15-character GSTIN (e.g. 27ABCDE1234F1Z5).";
   if (!EMAIL_RE.test(form.email.trim())) errors.email = "Enter a valid email address.";
   if (!form.state_id) errors.state_id = "Pick a state.";
-  if (!form.address.trim()) errors.address = "Enter the address.";
   return errors;
 }
 
@@ -75,7 +74,7 @@ export default function CreateEntityModal({ onClose, onCreated }) {
         email: form.email.trim(),
         state_id: Number(form.state_id),
         city_id: form.city_id ? Number(form.city_id) : null,
-        address: form.address.trim(),
+        address: form.address.trim() || null,
         relationship: form.relationship,
       });
       toast.success(res?.message || "Entity created");
@@ -151,9 +150,8 @@ export default function CreateEntityModal({ onClose, onCreated }) {
           </select>
         </div>
         <div className="span-2">
-          <label className="label" htmlFor="vn-ce-address">Address</label>
+          <label className="label" htmlFor="vn-ce-address">Address (optional)</label>
           <textarea id="vn-ce-address" className="textarea" value={form.address} onChange={set("address")} />
-          {fieldError("address")}
         </div>
         <div>
           <label className="label" htmlFor="vn-ce-rel">Relationship</label>

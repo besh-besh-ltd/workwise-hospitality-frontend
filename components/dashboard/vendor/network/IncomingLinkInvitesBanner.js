@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { Network } from "lucide-react";
@@ -8,17 +8,19 @@ import { refreshNetworkProfile } from "./networkProfile";
 import { RELATIONSHIP_LABEL, fmtDate } from "./networkFormat";
 
 /**
- * Pending network invitations addressed to this vendor account (spec §5), on
- * the vendor dashboard home. Only a vendor in no network is asked: one that is
- * already in a network could not accept. Accepting joins the network, so the
- * persisted profile is refetched (it now carries `network`) and the banner
- * goes away with it.
+ * Pending network invitations addressed to this vendor account (spec §5).
+ * Only a vendor in no network is asked: one already in a network could not
+ * accept. Accepting joins the network, so the persisted profile is refetched
+ * (it now carries `network`); `onAccepted` runs after that refetch.
+ *
+ * Shared by the dashboard banner and the /dashboard/vendor/network/invites page.
  */
-export default function IncomingLinkInvitesBanner() {
+export function useIncomingLinkInvites({ onAccepted } = {}) {
   const dispatch = useDispatch();
   const profile = useSelector((state) => state.userProfile);
   const eligible = !!profile && profile.network === null && Number(profile.user_type) === 3;
   const [invites, setInvites] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
@@ -26,7 +28,8 @@ export default function IncomingLinkInvitesBanner() {
     let cancelled = false;
     listIncomingLinkInvites()
       .then((res) => !cancelled && setInvites(res?.data || []))
-      .catch(() => !cancelled && setInvites([]));
+      .catch(() => !cancelled && setInvites([]))
+      .finally(() => !cancelled && setLoaded(true));
     return () => {
       cancelled = true;
     };
@@ -34,7 +37,7 @@ export default function IncomingLinkInvitesBanner() {
 
   const drop = (id) => setInvites((list) => list.filter((i) => i.id !== id));
 
-  const accept = async (invite) => {
+  const accept = useCallback(async (invite) => {
     setBusyId(invite.id);
     try {
       const res = await acceptLinkInvite(invite.id);
@@ -48,15 +51,16 @@ export default function IncomingLinkInvitesBanner() {
       } catch (_) {
         toast.info("Sign out and back in to see your network.");
       }
+      onAccepted?.(invite);
     } catch (err) {
       toast.error(networkErrorMessage(err, "Could not accept the invitation."));
       if (err?.response?.status === 410) drop(invite.id);
     } finally {
       setBusyId(null);
     }
-  };
+  }, [dispatch, onAccepted]);
 
-  const decline = async (invite) => {
+  const decline = useCallback(async (invite) => {
     setBusyId(invite.id);
     try {
       const res = await declineLinkInvite(invite.id);
@@ -68,12 +72,15 @@ export default function IncomingLinkInvitesBanner() {
     } finally {
       setBusyId(null);
     }
-  };
+  }, []);
 
-  if (!eligible || invites.length === 0) return null;
+  return { eligible, loaded: eligible ? loaded : true, invites: eligible ? invites : [], busyId, accept, decline };
+}
 
+/** One card per invitation, with Accept / Decline. */
+export function IncomingInviteCards({ invites, busyId, onAccept, onDecline }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {invites.map((invite) => {
         const relationship = (RELATIONSHIP_LABEL[invite.relationship] || invite.relationship || "").toLowerCase();
         const busy = busyId === invite.id;
@@ -106,16 +113,27 @@ export default function IncomingLinkInvitesBanner() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => decline(invite)}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onDecline(invite)}>
                 Decline
               </button>
-              <button type="button" className="btn btn-blue btn-sm" disabled={busy} onClick={() => accept(invite)}>
+              <button type="button" className="btn btn-blue btn-sm" disabled={busy} onClick={() => onAccept(invite)}>
                 Accept
               </button>
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** The dashboard-home banner: renders nothing unless an invitation is pending. */
+export default function IncomingLinkInvitesBanner() {
+  const { invites, busyId, accept, decline } = useIncomingLinkInvites();
+  if (invites.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <IncomingInviteCards invites={invites} busyId={busyId} onAccept={accept} onDecline={decline} />
     </div>
   );
 }

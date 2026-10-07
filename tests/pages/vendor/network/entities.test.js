@@ -176,7 +176,7 @@ test("a link refusal is explained from its reason code", async () => {
   expect(toast.error.mock.calls[0][0]).toMatch(/already waiting for a reply/);
 });
 
-const fillCreateForm = async ({ gstin = "09AAACD1234E1Z5" } = {}) => {
+const fillCreateForm = async ({ gstin = "09AAACD1234E1Z5", address = "Hazratganj" } = {}) => {
   fireEvent.click(screen.getByRole("button", { name: "Create branch / distributor" }));
   const state = await screen.findByLabelText("State");
   await screen.findByRole("option", { name: "Uttar Pradesh" });
@@ -186,7 +186,7 @@ const fillCreateForm = async ({ gstin = "09AAACD1234E1Z5" } = {}) => {
   fireEvent.change(state, { target: { value: "33" } });
   await screen.findByRole("option", { name: "Lucknow" });
   fireEvent.change(screen.getByLabelText(/City/), { target: { value: "501" } });
-  fireEvent.change(screen.getByLabelText("Address"), { target: { value: "Hazratganj" } });
+  if (address) fireEvent.change(screen.getByLabelText(/Address/), { target: { value: address } });
   fireEvent.change(screen.getByLabelText("Relationship"), { target: { value: "DEALER" } });
 };
 
@@ -216,6 +216,18 @@ test("creates a branch with the validated payload", async () => {
   );
   expect(api.lookupCoverageCities).toHaveBeenCalledWith(33);
   expect(toast.success).toHaveBeenCalledWith("Entity created");
+});
+
+test("the address is optional and is sent as null when left empty", async () => {
+  api.lookupCoverageStates.mockResolvedValue({ status: 1, data: [{ id: 33, name: "Uttar Pradesh" }] });
+  api.lookupCoverageCities.mockResolvedValue({ status: 1, data: [{ id: 501, name: "Lucknow" }] });
+  api.createEntity.mockResolvedValue({ status: 1, message: "Entity created", data: { vendor_id: 31, seat: { status: "active", payable: false } } });
+  renderPage();
+  await rowOf("Daikin UP");
+  await fillCreateForm({ address: "" });
+  fireEvent.click(screen.getByRole("button", { name: "Create entity" }));
+  await waitFor(() => expect(api.createEntity).toHaveBeenCalledTimes(1));
+  expect(api.createEntity.mock.calls[0][0]).toMatchObject({ address: null, state_id: 33, city_id: 501 });
 });
 
 test("an invalid GSTIN is refused before calling the server", async () => {
