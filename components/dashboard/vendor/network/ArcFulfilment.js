@@ -92,7 +92,14 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
         const unrouted = find(queue.unrouted);
         // The server's effective-supplier rule: an accepted entity supplies only while ACTIVE.
         const supplier = accepted && accepted.assignee_entity_status === "ACTIVE" ? accepted : null;
-        return { hotel: h, accepted, pending, refused, supplier, candidates: unrouted?.candidates || refused?.candidates || [] };
+        // Suggestions: the queued item's, else the refusal's or the pending row's (the server
+        // computes them for those); an accepted-only hotel has none (null), only a manual pick.
+        const suggested = unrouted || refused || pending;
+        return {
+          hotel: h, accepted, pending, refused, supplier,
+          candidates: suggested ? suggested.candidates || [] : null,
+          excluded: suggested?.excluded || [],
+        };
       }),
     [hotels, queue, contractId]
   );
@@ -147,7 +154,7 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
 
   const nameOf = (vendorId, candidates) =>
     entities.find((e) => Number(e.vendor_id) === Number(vendorId))?.name ||
-    candidates.find((c) => Number(c.vendor_id) === Number(vendorId))?.name ||
+    (candidates || []).find((c) => Number(c.vendor_id) === Number(vendorId))?.name ||
     "the selected entity";
 
   return (
@@ -172,7 +179,7 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
         <div className="section-body" style={{ color: "var(--fg-3)", fontSize: 13 }}>Loading…</div>
       ) : (
         <ul aria-label="Hotel fulfilment" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {rows.map(({ hotel, accepted, pending, refused, supplier, candidates }) => {
+          {rows.map(({ hotel, accepted, pending, refused, supplier, candidates, excluded }) => {
             const liveRows = [pending, accepted].filter(Boolean);
             const status = pending ? "PENDING" : accepted ? "ACCEPTED" : refused ? refused.status : null;
             const excludeIds = liveRows.map((r) => r.assigned_vendor_id);
@@ -218,8 +225,10 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
                 <div style={{ flex: "1 1 320px", maxWidth: 480 }}>
                   <RoutingCandidates
                     candidates={candidates}
+                    excluded={excluded}
                     entities={entities}
                     excludeIds={excludeIds}
+                    liveAssignee={pending || accepted ? { name: (pending || accepted).assignee_name, status: (pending || accepted).status } : null}
                     label={hotel.name}
                     actionLabel={liveRows.length ? "Reassign" : "Assign"}
                     busy={busy}

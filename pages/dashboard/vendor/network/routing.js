@@ -195,9 +195,11 @@ function RoutingView() {
         </div>
         {reassigning === row.id && (
           <RoutingCandidates
-            candidates={[]}
+            candidates={row.candidates ?? null}
+            excluded={row.excluded}
             entities={entities}
             excludeIds={[row.assigned_vendor_id]}
+            liveAssignee={{ name: row.assignee_name || `#${row.assigned_vendor_id}`, status: row.status }}
             label={titleOf(row)}
             actionLabel="Reassign"
             busy={busy}
@@ -254,6 +256,7 @@ function RoutingView() {
                   <div style={{ flex: "1 1 340px", maxWidth: 520 }}>
                     <RoutingCandidates
                       candidates={item.candidates}
+                      excluded={item.excluded}
                       totalHotels={totalHotelsOf(item)}
                       entities={entities}
                       label={titleOf(item)}
@@ -314,6 +317,7 @@ function RoutingView() {
                     ) : (
                       <RoutingCandidates
                         candidates={row.candidates}
+                        excluded={row.excluded}
                         totalHotels={totalHotelsOf(row)}
                         entities={entities}
                         excludeIds={[row.assigned_vendor_id]}

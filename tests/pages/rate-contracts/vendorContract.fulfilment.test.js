@@ -166,6 +166,26 @@ describe("the principal's network admin — Fulfilled by panel", () => {
     expect(pune).toHaveTextContent("Waiting for Linen Dealers to accept");
   });
 
+  // Task 20 / D3: a hotel whose matches are excluded is not described as matching nobody.
+  test("a pending hotel says who it waits for; a refused match is named with its reason", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    NetApi.getRoutingQueue.mockResolvedValue({
+      status: 1,
+      data: {
+        ...QUEUE.data,
+        unrouted: [{ ...QUEUE.data.unrouted[0], candidates: [], excluded: [{ vendor_id: 12, name: "Linen Dealers", reason: "DECLINED" }] }],
+        pending: [{ ...QUEUE.data.pending[0], candidates: [{ vendor_id: 12, name: "Linen Dealers", specificity: 3, preference_rank: 1, covers_all_hotels: true, hotels_covered: [PUNE] }], excluded: [] }],
+      },
+    });
+    renderWith(VendorContractPage);
+
+    const goa = await hotelRow("Goa Resort");
+    expect(within(goa).getByText(/Coverage matches Linen Dealers \(declined\), so it is not suggested/)).toBeInTheDocument();
+    const pune = await hotelRow("Pune Inn");
+    expect(within(pune).getByText("Already pending with Linen Dealers — waiting for a reply.")).toBeInTheDocument();
+    for (const li of [goa, pune]) expect(within(li).queryByText("No entity's coverage matches this item.")).toBeNull();
+  });
+
   test("assigning a hotel posts an ARC_HOTEL assignment for this contract and reloads the state", async () => {
     ArcApi.vendorGetContract.mockResolvedValue(principalContract());
     renderWith(VendorContractPage);

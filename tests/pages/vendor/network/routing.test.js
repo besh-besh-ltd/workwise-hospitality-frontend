@@ -456,3 +456,67 @@ test("Refresh is disabled and says so while the queue reloads", async () => {
   });
   expect(await screen.findByRole("button", { name: "Refresh" })).toBeEnabled();
 });
+
+// Task 20 / D3: "No entity's coverage matches" only when nothing matches; otherwise say who
+// matched and why they are not suggested.
+describe("why nobody is suggested", () => {
+  const withQueue = (data) => api.getRoutingQueue.mockResolvedValue({ status: 1, data: { ...QUEUE.data, ...data } });
+
+  test("all coverage matches refused: names them with the reason and offers a manual pick", async () => {
+    withQueue({
+      unrouted: [
+        {
+          ...QUEUE.data.unrouted[0],
+          candidates: [],
+          excluded: [
+            { vendor_id: 11, name: "Daikin UP", reason: "DECLINED" },
+            { vendor_id: 12, name: "Cool Dealers", reason: "TIMED_OUT" },
+          ],
+        },
+      ],
+    });
+    renderPage();
+    const rfq = await itemOf("Needs routing", "RFQ #536701 · AC units");
+    expect(
+      within(rfq).getByText(
+        "Coverage matches Daikin UP (declined) and Cool Dealers (did not reply in time), so they are not suggested. Pick an entity below to send it anyway."
+      )
+    ).toBeInTheDocument();
+    expect(within(rfq).queryByText("No entity's coverage matches this item.")).not.toBeInTheDocument();
+    const other = within(rfq).getByLabelText("Other entity for RFQ #536701 · AC units");
+    expect(within(other).getAllByRole("option").map((o) => o.textContent)).toEqual(["Another entity…", "Daikin UP", "Cool Dealers"]);
+  });
+
+  test("a refused match beside live suggestions is listed as not suggested", async () => {
+    withQueue({
+      unrouted: [{ ...QUEUE.data.unrouted[0], candidates: [cand({ vendor_id: 12, name: "Cool Dealers" })], excluded: [{ vendor_id: 11, name: "Daikin UP", reason: "DECLINED" }] }],
+    });
+    renderPage();
+    const rfq = await itemOf("Needs routing", "RFQ #536701 · AC units");
+    expect(within(rfq).getByText("Not suggested: Daikin UP (declined).")).toBeInTheDocument();
+  });
+
+  test("reassigning a pending item whose only match is the assignee says it is already pending with it", async () => {
+    withQueue({ pending: [assignment({ candidates: [cand({})], excluded: [] })] });
+    renderPage();
+    const pending = await itemOf("Pending", "RFQ #536700 · Chillers");
+    fireEvent.click(within(pending).getByRole("button", { name: "Reassign" }));
+    expect(within(pending).getByText("Already pending with Daikin UP — waiting for a reply.")).toBeInTheDocument();
+    expect(within(pending).queryByText("No entity's coverage matches this item.")).not.toBeInTheDocument();
+  });
+
+  test("reassigning an accepted item without server suggestions shows only the manual pick", async () => {
+    withQueue({ accepted: [assignment({ id: 907, status: "ACCEPTED", acted_at: daysAgo(1), title: "RFQ #536710 · Ducts" })] });
+    renderPage();
+    const acc = await itemOf("Recently accepted", "RFQ #536710 · Ducts");
+    fireEvent.click(within(acc).getByRole("button", { name: "Reassign" }));
+    expect(within(acc).queryByText("No entity's coverage matches this item.")).not.toBeInTheDocument();
+    expect(within(acc).getByLabelText("Other entity for RFQ #536710 · Ducts")).toBeInTheDocument();
+  });
+
+  test("nothing matches at all: the plain message stays", async () => {
+    renderPage();
+    const arc = await itemOf("Needs routing", "Rate contract ARC-12 · HVAC · Lotus Nashik");
+    expect(within(arc).getByText("No entity's coverage matches this item.")).toBeInTheDocument();
+  });
+});
