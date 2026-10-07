@@ -87,7 +87,7 @@ const EntitySwitcher = () => {
         aria-label="Acting entity"
         title="The entity you are acting for"
         style={{
-          display: "inline-flex",
+          // display lives in the class so the phone rule can hide it.
           alignItems: "center",
           height: 32,
           padding: "0 10px",

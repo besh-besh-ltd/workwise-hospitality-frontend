@@ -2353,6 +2353,11 @@
   }
 }
 
+/* A networked member's static "entity · network" label (EntitySwitcher). */
+.entityStaticLabel {
+  display: inline-flex;
+}
+
 /* Phones (< 576px), vendor top bar: the entity switcher, the subscription pill, the
    bell and the avatar must share one line without overlapping. The switcher goes
    icon-only (its aria-label and menu keep the full names), a member's static entity
