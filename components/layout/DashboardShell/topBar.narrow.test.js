@@ -67,6 +67,8 @@ describe("stylesheet: the narrow block", () => {
     const block = narrowBlock();
     expect(ruleOf(block, "entitySwitcherText")).toMatch(/display:\s*none/);
     expect(ruleOf(block, "entityStaticLabel")).toMatch(/display:\s*none/);
+    // its desktop display comes from the class too, never inline
+    expect(CSS).toMatch(/\.entityStaticLabel\s*\{[^}]*display:\s*inline-flex/);
   });
 
   test("swaps the pill's full label for its short one and keeps the pill on one line", () => {
@@ -83,7 +85,10 @@ describe("entity switcher", () => {
   test("its accessible name carries the full 'Acting as' text, so icon-only still reads right", () => {
     renderSwitcher({ id: 10, name: "Daikin HQ (E2E)", network: network() });
     const btn = screen.getByRole("button", { name: "Acting as Daikin HQ (E2E) · Daikin Network (E2E). Switch entity" });
-    expect(btn.querySelector(".entitySwitcherText")).toHaveTextContent("Acting as Daikin HQ (E2E) · Daikin Network (E2E)");
+    const text = btn.querySelector(".entitySwitcherText");
+    expect(text).toHaveTextContent("Acting as Daikin HQ (E2E) · Daikin Network (E2E)");
+    // An inline display would beat the phone rule's display:none.
+    expect(text.style.display).toBe("");
   });
 
   test("the static single-entity label is marked so phones can drop it", () => {
@@ -92,7 +97,10 @@ describe("entity switcher", () => {
       name: "Daikin UP (E2E)",
       network: network({ role: "ENTITY_MEMBER", acting_entity_id: 11, is_principal: false, actable_entities: [{ vendor_id: 11, name: "Daikin UP (E2E)", relationship: "BRANCH", org_id: 7 }] }),
     });
-    expect(screen.getByLabelText("Acting entity")).toHaveClass("entityStaticLabel");
+    const label = screen.getByLabelText("Acting entity");
+    expect(label).toHaveClass("entityStaticLabel");
+    // An inline display would beat the phone rule's display:none (it did once).
+    expect(label.style.display).toBe("");
   });
 });
 
@@ -111,6 +119,8 @@ describe("subscription pill short label", () => {
     expect(pill).toHaveAttribute("title", "Covered by Daikin Network (E2E)");
     expect(pill.querySelector(".subPillShort")).toHaveTextContent(/^Covered$/);
     expect(pill.querySelector(".subPillLabel")).toHaveTextContent("Covered by Daikin Network (E2E)");
+    expect(pill.querySelector(".subPillLabel").style.display).toBe("");
+    expect(pill.querySelector(".subPillShort").style.display).toBe("");
   });
 
   test("an active subscription: short label is the days left", async () => {
