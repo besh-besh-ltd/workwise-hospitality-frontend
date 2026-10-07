@@ -20,7 +20,9 @@ const RELATIONSHIP_LABEL = {
 /**
  * "Acting as {entity} · {org}" — the vendor-network entity switcher (spec §9).
  *
- * Rendered only for a person who can act for more than one entity. Switching
+ * A menu for a person who can act for more than one entity; a static
+ * "{entity} · {org}" label for a networked person with one entity; nothing for a
+ * vendor in no network. Switching
  * asks the server for a token bound to the chosen entity, stores it, then does
  * a HARD navigation to the vendor dashboard: every page state and entity-scoped
  * cache starts over, and the fresh page load opens the realtime socket with the
@@ -62,11 +64,41 @@ const EntitySwitcher = () => {
     };
   }, [open]);
 
-  const entities = network?.actable_entities || [];
-  if (entities.length <= 1) return null;
+  // A vendor in no network: nothing, exactly as before networks.
+  if (!network) return null;
 
+  const entities = network.actable_entities || [];
   const actingId = Number(network.acting_entity_id);
   const acting = entities.find((e) => Number(e.vendor_id) === actingId);
+
+  // One entity to act for: nothing to switch, but say who and where.
+  if (entities.length <= 1) {
+    const name = acting?.name || entities[0]?.name || profile?.name || "Your entity";
+    return (
+      <span
+        aria-label="Acting entity"
+        title="The entity you are acting for"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          height: 32,
+          padding: "0 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface-2)",
+          color: "var(--fg-2)",
+          fontSize: 12.5,
+          maxWidth: 340,
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{name}</strong>
+          {network.org_name ? <span style={{ color: "var(--fg-3)" }}> · {network.org_name}</span> : null}
+        </span>
+      </span>
+    );
+  }
+
   const actingName = acting?.name || "Unknown entity";
 
   const handleSelect = async (vendorId) => {

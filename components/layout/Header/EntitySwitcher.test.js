@@ -77,13 +77,20 @@ const renderWith = (profile) => {
 beforeEach(() => jest.clearAllMocks());
 
 test("hidden for a vendor in no network", () => {
-  renderWith({ id: 10, name: "Solo Vendor", network: null });
-  expect(screen.queryByText(/Acting as/)).not.toBeInTheDocument();
+  const { container } = (() => {
+    const store = configureStore({ reducer });
+    store.dispatch(setUserProfile({ id: 10, name: "Solo Vendor", network: null }));
+    return render(<Provider store={store}><EntitySwitcher /></Provider>);
+  })();
+  expect(container).toBeEmptyDOMElement();
 });
 
-test("hidden when the person can act for a single entity only", () => {
+// Task 20 / D7: a member of one entity still sees which entity and network it acts for,
+// as a static label with nothing to open.
+test("a person who can act for a single entity sees a static 'entity · network' label", () => {
   renderWith({
     id: 11,
+    name: "Daikin UP",
     network: network({
       role: "ENTITY_MEMBER",
       acting_entity_id: 11,
@@ -91,7 +98,15 @@ test("hidden when the person can act for a single entity only", () => {
       actable_entities: [{ vendor_id: 11, name: "Daikin UP", relationship: "BRANCH", org_id: 7 }],
     }),
   });
+  const label = screen.getByLabelText("Acting entity");
+  expect(label).toHaveTextContent("Daikin UP · Daikin India");
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
   expect(screen.queryByText(/Acting as/)).not.toBeInTheDocument();
+});
+
+test("the static label falls back to the profile's name when the entity list is empty", () => {
+  renderWith({ id: 11, name: "Daikin UP", network: network({ acting_entity_id: 11, is_principal: false, actable_entities: [] }) });
+  expect(screen.getByLabelText("Acting entity")).toHaveTextContent("Daikin UP · Daikin India");
 });
 
 test("shows the acting entity and org; switching stores the token, persists the profile, then hard-navigates", async () => {
