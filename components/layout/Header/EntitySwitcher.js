@@ -10,6 +10,9 @@ import storageInstance from "@/utils/storageInstance";
 import { hardNavigate } from "@/utils/hardNavigate";
 import { markEntitySwitchDone } from "@/utils/sessionSync";
 
+/** 340px on desktop, 40% of the viewport on a phone (156px at 390px). */
+const CHIP_MAX_WIDTH = "min(340px, 40vw)";
+
 const RELATIONSHIP_LABEL = {
   PRINCIPAL: "Principal",
   BRANCH: "Branch",
@@ -90,10 +93,12 @@ const EntitySwitcher = () => {
           background: "var(--surface-2)",
           color: "var(--fg-2)",
           fontSize: 12.5,
-          maxWidth: 340,
+          // Phones: capped to the viewport so the pill and bell stay on screen.
+          maxWidth: CHIP_MAX_WIDTH,
+          minWidth: 0,
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{name}</strong>
           {network.org_name ? <span style={{ color: "var(--fg-3)" }}> · {network.org_name}</span> : null}
         </span>
@@ -166,7 +171,7 @@ const EntitySwitcher = () => {
   };
 
   return (
-    <div ref={rootRef} style={{ position: "relative" }}>
+    <div ref={rootRef} style={{ position: "relative", minWidth: 0 }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -185,12 +190,14 @@ const EntitySwitcher = () => {
           background: "var(--surface)",
           color: "var(--fg-2)",
           fontSize: 12.5,
-          maxWidth: 340,
+          // Phones: capped to the viewport so the pill and bell stay on screen.
+          maxWidth: CHIP_MAX_WIDTH,
+          minWidth: 0,
           cursor: switching ? "progress" : "pointer",
         }}
       >
         <ArrowLeftRight size={13} strokeWidth={1.75} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {switching ? "Switching…" : (
             <>
               Acting as <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{actingName}</strong>
@@ -210,7 +217,8 @@ const EntitySwitcher = () => {
             position: "absolute",
             right: 0,
             top: "calc(100% + 6px)",
-            minWidth: 260,
+            minWidth: "min(260px, calc(100vw - 24px))",
+            maxWidth: "calc(100vw - 24px)",
             maxHeight: 360,
             overflowY: "auto",
             background: "var(--surface)",

@@ -241,3 +241,26 @@ test("a refused switch keeps the current session untouched", async () => {
   expect(storageInstance.setStorage).not.toHaveBeenCalled();
   expect(mockAssign).not.toHaveBeenCalled();
 });
+
+// Phone widths (390px): the chip sits next to the subscription pill and bell, so it is
+// capped relative to the viewport and its text truncates instead of pushing them out.
+test("the chip and the static label are capped to the viewport and truncate", () => {
+  renderWith({ id: 10, name: "Daikin HQ", network: network() });
+  const trigger = screen.getByRole("button", { name: /Acting as/ });
+  expect(trigger.style.maxWidth).toBe("min(340px, 40vw)");
+  expect(trigger.style.minWidth).toBe("0");
+  const text = trigger.querySelector("span");
+  expect(text.style.minWidth).toBe("0");
+  expect(text.style.textOverflow).toBe("ellipsis");
+});
+
+test("the static label is capped the same way", () => {
+  renderWith({
+    id: 11,
+    name: "Daikin UP",
+    network: network({ acting_entity_id: 11, actable_entities: [{ vendor_id: 11, name: "Daikin UP", relationship: "BRANCH", org_id: 7 }] }),
+  });
+  const label = screen.getByLabelText("Acting entity");
+  expect(label.style.maxWidth).toBe("min(340px, 40vw)");
+  expect(label.style.minWidth).toBe("0");
+});
