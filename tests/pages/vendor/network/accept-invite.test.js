@@ -13,12 +13,26 @@ jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn() },
 }));
 const TOKEN = "a".repeat(64);
-const mockReplace = jest.fn();
+const PATH = "/vendor/network/accept-invite";
 let mockQuery = { token: TOKEN };
+// Like Next: replacing with a bare pathname drops the query on the next render.
+const mockReplace = jest.fn((url) => {
+  if (url && typeof url === "object") mockQuery = {};
+});
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ isReady: true, query: mockQuery, replace: mockReplace, push: jest.fn() }),
+  useRouter: () => ({ isReady: true, pathname: PATH, query: mockQuery, replace: mockReplace, push: jest.fn() }),
 }));
+const mockDispatch = jest.fn();
+jest.mock("react-redux", () => ({ __esModule: true, useDispatch: () => mockDispatch }));
+const mockFlush = jest.fn(() => Promise.resolve());
+jest.mock("@/redux/store", () => ({ __esModule: true, persistor: { flush: (...a) => mockFlush(...a) } }));
+jest.mock("@/utils/storageInstance", () => ({
+  __esModule: true,
+  default: { removeStorege: jest.fn(), getStorage: jest.fn(() => null), setStorage: jest.fn() },
+}));
+jest.mock("@/utils/hospitalityContext", () => ({ __esModule: true, setStoredHospitalityContext: jest.fn() }));
+jest.mock("@/lib/analytics", () => ({ __esModule: true, default: { reset: jest.fn() } }));
 jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
 
 import React from "react";
@@ -26,6 +40,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
+import storageInstance from "@/utils/storageInstance";
+import { clearUserProfile } from "@/redux/slice";
 import AcceptInvitePage from "@/pages/vendor/network/accept-invite";
 
 const gone = (message) => ({ response: { status: 410, data: { status: 0, message } } });
@@ -76,6 +92,23 @@ test("rejects a confirmation that does not match", async () => {
   expect(acceptMemberInvite).not.toHaveBeenCalled();
 });
 
+test("the token is stripped from the address bar at once; preview and accept use the stored copy", async () => {
+  previewMemberInvite.mockResolvedValue(openInvite);
+  acceptMemberInvite.mockResolvedValue({ status: 1, message: "ok" });
+  render(<AcceptInvitePage />);
+  await screen.findByText("Daikin India");
+
+  expect(mockReplace).toHaveBeenCalledTimes(1);
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: PATH }, undefined, { shallow: true });
+  expect(JSON.stringify(mockReplace.mock.calls)).not.toContain(TOKEN);
+  expect(mockQuery).toEqual({}); // the URL no longer carries it
+  expect(previewMemberInvite).toHaveBeenCalledTimes(1);
+  expect(previewMemberInvite).toHaveBeenCalledWith(TOKEN);
+
+  fill("secret123");
+  await waitFor(() => expect(acceptMemberInvite).toHaveBeenCalledWith({ token: TOKEN, password: "secret123" }));
+});
+
 test("a valid password activates the account and sends the person to sign in", async () => {
   previewMemberInvite.mockResolvedValue(openInvite);
   acceptMemberInvite.mockResolvedValue({
@@ -90,6 +123,32 @@ test("a valid password activates the account and sends the person to sign in", a
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/?login=true"));
   expect(acceptMemberInvite).toHaveBeenCalledWith({ token: TOKEN, password: "secret123" });
   expect(toast.success).toHaveBeenCalledWith("Your account is ready. Sign in with your email and new password.");
+});
+
+test("accepting ends any session already in this browser before going to sign in", async () => {
+  previewMemberInvite.mockResolvedValue(openInvite);
+  acceptMemberInvite.mockResolvedValue({ status: 1, message: "ok" });
+  render(<AcceptInvitePage />);
+  await screen.findByText("Daikin India");
+  fill("secret123");
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/?login=true"));
+
+  expect(storageInstance.removeStorege).toHaveBeenCalledWith("token");
+  expect(storageInstance.removeStorege).toHaveBeenCalledWith("current-user-type");
+  expect(mockDispatch).toHaveBeenCalledWith(clearUserProfile());
+  const loginAt = mockReplace.mock.invocationCallOrder[mockReplace.mock.calls.findIndex(([u]) => u === "/?login=true")];
+  expect(storageInstance.removeStorege.mock.invocationCallOrder[0]).toBeLessThan(loginAt);
+  expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(loginAt);
+});
+
+test("a rejected accept leaves the existing session alone", async () => {
+  previewMemberInvite.mockResolvedValue(openInvite);
+  acceptMemberInvite.mockRejectedValue(gone("This invitation is invalid or has already been used"));
+  render(<AcceptInvitePage />);
+  await screen.findByText("Daikin India");
+  fill("secret123");
+  await screen.findByText("This invitation is invalid or has already been used");
+  expect(storageInstance.removeStorege).not.toHaveBeenCalled();
 });
 
 test("an expired invite says so and offers no form", async () => {
@@ -121,5 +180,5 @@ test("an invite that expires before submit shows the server's reason and removes
   fill("secret123");
   expect(await screen.findByText("This invitation has expired. Ask your network admin to resend it.")).toBeInTheDocument();
   expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
-  expect(mockReplace).not.toHaveBeenCalled();
+  expect(mockReplace).not.toHaveBeenCalledWith("/?login=true");
 });

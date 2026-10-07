@@ -26,7 +26,11 @@ jest.mock("@/redux/store", () => ({
 }));
 jest.mock("@/utils/storageInstance", () => ({
   __esModule: true,
-  default: { setStorage: jest.fn(), getStorage: jest.fn(() => null) },
+  default: {
+    setStorage: jest.fn(),
+    removeStorege: jest.fn(),
+    getStorage: jest.fn((key) => (key === "token" ? "tok-hq" : null)),
+  },
 }));
 jest.mock("react-toastify", () => ({
   __esModule: true,
@@ -118,14 +122,48 @@ test("shows the acting entity and org; switching stores the token, persists the 
   expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(navAt);
 });
 
-test("a failed profile refresh still navigates: the token is already switched", async () => {
+test("a failed profile refresh rolls back to the previous token and profile and does not navigate", async () => {
   switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
   getProfile.mockRejectedValue(new Error("network"));
-  renderWith({ id: 10, network: network() });
+  const before = { id: 10, name: "Daikin HQ", network: network() };
+  const store = renderWith(before);
   fireEvent.click(screen.getByRole("button", { name: /Acting as/ }));
   fireEvent.click(screen.getByRole("menuitemradio", { name: /Daikin UP/ }));
+
+  const { toast } = require("react-toastify");
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not switch entity. Please try again."));
+  // New token stored, then the previous one put back: the session is never half-switched.
+  expect(storageInstance.setStorage.mock.calls).toEqual([
+    ["token", "tok-up"],
+    ["token", "tok-hq"],
+  ]);
+  expect(store.getState().userProfile).toEqual(before);
+  expect(mockAssign).not.toHaveBeenCalled();
+  // Switching state cleared: the trigger is usable again and shows the old entity.
+  const trigger = screen.getByRole("button", { name: /Acting as/ });
+  expect(trigger).not.toBeDisabled();
+  expect(trigger).toHaveTextContent("Acting as Daikin HQ · Daikin India");
+});
+
+test("keyboard: opening focuses the first entity, arrows move focus, Enter selects", async () => {
+  switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
+  getProfile.mockResolvedValue({ status: 1, data: { id: 11, network: network({ acting_entity_id: 11 }) } });
+  renderWith({ id: 10, network: network() });
+  fireEvent.click(screen.getByRole("button", { name: /Acting as/ }));
+
+  const [hq, up] = screen.getAllByRole("menuitemradio");
+  expect(hq).toHaveFocus();
+  const menu = screen.getByRole("menu");
+  fireEvent.keyDown(menu, { key: "ArrowDown" });
+  expect(up).toHaveFocus();
+  fireEvent.keyDown(menu, { key: "ArrowDown" });
+  expect(hq).toHaveFocus(); // wraps
+  fireEvent.keyDown(menu, { key: "ArrowUp" });
+  expect(up).toHaveFocus(); // wraps backwards
+
+  fireEvent.keyDown(menu, { key: "Enter" });
   await waitFor(() => expect(mockAssign).toHaveBeenCalledWith("/dashboard/vendor"));
-  expect(storageInstance.setStorage).toHaveBeenCalledWith("token", "tok-up");
+  expect(switchEntity).toHaveBeenCalledWith(11);
 });
 
 test("picking the entity already acted as does nothing", () => {

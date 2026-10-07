@@ -6,3 +6,8 @@
 export const hardNavigate = (url) => {
   window.location.assign(url);
 };
+
+/** Full reload of the current page. */
+export const hardReload = () => {
+  window.location.reload();
+};

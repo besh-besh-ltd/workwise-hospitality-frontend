@@ -1,12 +1,23 @@
 // Public: a person invited into a vendor network sets their password here.
 // The backend emails exactly /vendor/network/accept-invite?token=… — the
 // 256-bit token is the credential, so this page needs no session.
+//
+// The token can set a password for 72 hours, so it must not linger in the URL
+// (analytics $current_url / replay, the canonical <link>, browser history). It
+// is copied into state on first render and stripped from the address bar
+// straight away; the preview and accept calls use only the stored copy.
 
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
+import { clearUserProfile } from "@/redux/slice";
+import { persistor } from "@/redux/store";
+import storageInstance from "@/utils/storageInstance";
+import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
+import posthog from "@/lib/analytics";
 
 const GENERIC_GONE = "This invitation is invalid or has already been used";
 const EXPIRED = "This invitation has expired. Ask your network admin to resend it.";
@@ -42,9 +53,27 @@ const Row = ({ k, v }) => (
   </div>
 );
 
+/**
+ * End whatever session this browser holds (e.g. an admin opening the link to
+ * test it), so "/?login=true" offers the sign-in form instead of bouncing to
+ * that account's dashboard. Same keys as the DashboardShell logout.
+ */
+const endExistingSession = async (dispatch) => {
+  try { posthog.reset(); } catch (_) {}
+  dispatch(clearUserProfile());
+  ["token", "current-user-type", "current-user-name", "current-user-email", "user-permissions", "guest-session"].forEach(
+    (key) => storageInstance.removeStorege(key)
+  );
+  setStoredHospitalityContext(null);
+  try { await persistor.flush(); } catch (_) {}
+  window.dispatchEvent(new Event("loginStatusChanged"));
+};
+
 const AcceptInvitePage = () => {
   const router = useRouter();
-  const token = typeof router.query?.token === "string" ? router.query.token.trim() : "";
+  const dispatch = useDispatch();
+  // null until captured from the URL on the first ready render.
+  const [token, setToken] = useState(null);
 
   // 'loading' | 'open' | 'gone'
   const [phase, setPhase] = useState("loading");
@@ -55,8 +84,16 @@ const AcceptInvitePage = () => {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Capture the token once, then drop it from the address bar.
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || token !== null) return;
+    const raw = router.query?.token;
+    setToken(typeof raw === "string" ? raw.trim() : "");
+    if (raw !== undefined) router.replace({ pathname: router.pathname }, undefined, { shallow: true });
+  }, [router.isReady, router.query, token]);
+
+  useEffect(() => {
+    if (token === null) return;
     if (!token) {
       setGoneMessage("This invitation link is incomplete. Open the link from your invitation email again.");
       setPhase("gone");
@@ -92,7 +129,7 @@ const AcceptInvitePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [router.isReady, token]);
+  }, [token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -106,6 +143,7 @@ const AcceptInvitePage = () => {
     setSubmitting(true);
     try {
       const res = await acceptMemberInvite({ token, password });
+      await endExistingSession(dispatch);
       toast.success(res?.message || "Your account is ready. Sign in with your email and new password.");
       router.replace("/?login=true");
     } catch (err) {

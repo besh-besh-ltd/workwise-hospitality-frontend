@@ -27,14 +27,23 @@ const RELATIONSHIP_LABEL = {
  *
  * The profile is the one thing a page load does not refetch: it is persisted by
  * redux-persist and only fetched at login. So it is reloaded (its `id` is now
- * the new acting entity) and flushed to storage before navigating.
+ * the new acting entity) and flushed to storage before navigating. If that
+ * fails, the previous token and profile are put back and nothing navigates, so
+ * the session is never half-switched (server acting as B, UI showing A).
  */
 const EntitySwitcher = () => {
   const dispatch = useDispatch();
-  const network = useSelector((state) => state.userProfile?.network);
+  const profile = useSelector((state) => state.userProfile);
+  const network = profile?.network;
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const rootRef = useRef(null);
+  const itemRefs = useRef([]);
+
+  // Keyboard: the first entity takes focus when the menu opens.
+  useEffect(() => {
+    if (open) itemRefs.current[0]?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -67,18 +76,42 @@ const EntitySwitcher = () => {
       const res = await switchEntity(Number(vendorId));
       const token = res?.data?.token;
       if (!token) throw new Error("No token");
+      const previousToken = storageInstance.getStorage("token");
       storageInstance.setStorage("token", token);
       try {
         const profileRes = await getProfile();
-        if (profileRes?.data) dispatch(setUserProfile(profileRes.data));
+        if (!profileRes?.data) throw new Error("No profile");
+        dispatch(setUserProfile(profileRes.data));
         await persistor.flush();
       } catch (_) {
-        // The token is already switched; the dashboard still loads as the new entity.
+        // Roll back: keep acting as the entity the UI still shows.
+        if (previousToken) storageInstance.setStorage("token", previousToken);
+        else storageInstance.removeStorege("token");
+        dispatch(setUserProfile(profile));
+        toast.error("Could not switch entity. Please try again.");
+        setSwitching(false);
+        return;
       }
       hardNavigate("/dashboard/vendor");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Could not switch entity. Please try again.");
       setSwitching(false);
+    }
+  };
+
+  // ArrowUp/ArrowDown move focus between entities; Enter picks the focused one.
+  const handleMenuKeyDown = (e) => {
+    const items = itemRefs.current.filter(Boolean);
+    if (!items.length) return;
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      const next = idx < 0 ? 0 : (idx + step + items.length) % items.length;
+      items[next].focus();
+    } else if (e.key === "Enter" && idx >= 0) {
+      e.preventDefault();
+      handleSelect(entities[idx].vendor_id);
     }
   };
 
@@ -122,6 +155,7 @@ const EntitySwitcher = () => {
         <div
           role="menu"
           aria-label="Act as entity"
+          onKeyDown={handleMenuKeyDown}
           style={{
             position: "absolute",
             right: 0,
@@ -138,11 +172,12 @@ const EntitySwitcher = () => {
           }}
         >
           <div className="section-label" style={{ padding: "6px 8px 4px" }}>Act as</div>
-          {entities.map((e) => {
+          {entities.map((e, i) => {
             const selected = Number(e.vendor_id) === actingId;
             return (
               <button
                 key={e.vendor_id}
+                ref={(el) => { itemRefs.current[i] = el; }}
                 type="button"
                 role="menuitemradio"
                 aria-checked={selected}
