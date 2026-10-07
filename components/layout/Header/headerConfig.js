@@ -152,25 +152,31 @@ export const roleMenus = {
  * hospitality-only entry had to be remembered in three places. Items now
  * declare `hospitalityOnly` and the rule lives here once.
  */
-export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, network } = {}) => {
+export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession } = {}) => {
   const baseMenu = roleMenus[currentUserType] || [];
   return baseMenu.filter((item) => {
     if (item.hospitalityOnly && !isHospitalityCompany) return false;
-    if (!networkAllows(item, network)) return false;
+    if (!networkAllows(item, profile, isGuestSession)) return false;
     return true;
   });
 };
 
 /**
- * Vendor-network gates, read from get-profile's `network` block (null for a
- * vendor in no network). Admin items need the ORG_ADMIN role; member items
- * need a network and an acting entity that is not the principal; "Set up
- * network" shows only when there is no network at all.
+ * Vendor-network gates, read from the loaded get-profile (`profile`; null or
+ * undefined while it is still loading). Admin items need the ORG_ADMIN role;
+ * member items need a network and an acting entity that is not the principal.
+ * "Set up network" needs a loaded vendor (user_type 3) profile whose `network`
+ * is explicitly null (the server's "in no network"), outside a guest
+ * emailed-link session, so it never flashes before the profile arrives.
  */
-const networkAllows = (item, network) => {
+const networkAllows = (item, profile, isGuestSession) => {
+  const network = profile?.network;
   if (item.requiresNetworkAdmin && network?.role !== "ORG_ADMIN") return false;
   if (item.requiresNetworkMember && !(network && !network.is_principal)) return false;
-  if (item.requiresNoNetwork && network) return false;
+  if (item.requiresNoNetwork) {
+    const isPlainVendor = !!profile && Number(profile.user_type) === 3 && network === null;
+    if (!isPlainVendor || isGuestSession) return false;
+  }
   return true;
 };
 

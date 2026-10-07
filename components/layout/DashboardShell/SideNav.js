@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { ChevronDown, LogOut, Search, X } from "lucide-react";
 import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
+import { isGuestSession } from "@/utils/guestSession";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import SideNavItem from "./SideNavItem";
 import { getNavIcon } from "./navIcons";
@@ -45,8 +46,8 @@ const SideNav = ({
   );
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, network: userProfile?.network }),
-    [currentUserType, isHospitalityCompany, userProfile?.network]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession() }),
+    [currentUserType, isHospitalityCompany, userProfile]
   );
 
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");

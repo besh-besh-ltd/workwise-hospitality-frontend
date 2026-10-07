@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { ArrowLeftRight, Check, ChevronDown } from "lucide-react";
 import { switchEntity } from "@/services/vendorNetwork";
 import { getProfile } from "@/services/Auth";
-import { reconnectRealtimeSocket } from "@/lib/realtimeSocket";
 import { setUserProfile } from "@/redux/slice";
+import { persistor } from "@/redux/store";
 import storageInstance from "@/utils/storageInstance";
+import { hardNavigate } from "@/utils/hardNavigate";
 
 const RELATIONSHIP_LABEL = {
   PRINCIPAL: "Principal",
@@ -20,14 +20,16 @@ const RELATIONSHIP_LABEL = {
  * "Acting as {entity} · {org}" — the vendor-network entity switcher (spec §9).
  *
  * Rendered only for a person who can act for more than one entity. Switching
- * asks the server for a token bound to the chosen entity, then, in this order:
- * stores it (so every later request and the socket use it), reconnects the
- * realtime socket (the server joins `user:<entity>` at handshake), reloads the
- * profile (whose `id` is now the new acting entity) and lands on the vendor
- * dashboard so no page keeps showing the previous entity's data.
+ * asks the server for a token bound to the chosen entity, stores it, then does
+ * a HARD navigation to the vendor dashboard: every page state and entity-scoped
+ * cache starts over, and the fresh page load opens the realtime socket with the
+ * new token (the server joins `user:<entity>` at handshake).
+ *
+ * The profile is the one thing a page load does not refetch: it is persisted by
+ * redux-persist and only fetched at login. So it is reloaded (its `id` is now
+ * the new acting entity) and flushed to storage before navigating.
  */
 const EntitySwitcher = () => {
-  const router = useRouter();
   const dispatch = useDispatch();
   const network = useSelector((state) => state.userProfile?.network);
   const [open, setOpen] = useState(false);
@@ -66,13 +68,16 @@ const EntitySwitcher = () => {
       const token = res?.data?.token;
       if (!token) throw new Error("No token");
       storageInstance.setStorage("token", token);
-      reconnectRealtimeSocket();
-      const profileRes = await getProfile();
-      if (profileRes?.data) dispatch(setUserProfile(profileRes.data));
-      router.replace("/dashboard/vendor");
+      try {
+        const profileRes = await getProfile();
+        if (profileRes?.data) dispatch(setUserProfile(profileRes.data));
+        await persistor.flush();
+      } catch (_) {
+        // The token is already switched; the dashboard still loads as the new entity.
+      }
+      hardNavigate("/dashboard/vendor");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Could not switch entity. Please try again.");
-    } finally {
       setSwitching(false);
     }
   };

@@ -26,6 +26,7 @@ import {
 
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import { initialMainNavs, visibleRoleMenu, websiteMenu, ANNOUNCEMENT_TEXT } from "./headerConfig";
+import { isGuestSession } from "@/utils/guestSession";
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
 import styles from "./Header.module.css";
@@ -101,8 +102,8 @@ const Header = () => {
   });
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, network: userProfile?.network }),
-    [currentUserType, isHospitalityCompany, userProfile?.network]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession() }),
+    [currentUserType, isHospitalityCompany, userProfile]
   );
 
   // ── Subscription guard: redirect from locked pages ──
