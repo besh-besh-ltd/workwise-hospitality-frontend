@@ -10,7 +10,7 @@ import { fmtDate } from "./networkFormat";
 
 /**
  * null when `cov` is absent; otherwise
- * { key: "covered" | "seat_expired" | "suspended" | "lapsed", label, detail }
+ * { key: "covered" | "seat_expired" | "suspended" | "not_active" | "lapsed", label, detail }
  * where `label` is the short pill text and `detail` the sentence for banners.
  * Members never get a buy/renew action: anything wrong is for the network admin.
  */
@@ -18,11 +18,25 @@ export function networkCoverageView(cov) {
   if (!cov) return null;
   const org = cov.org_name || "your network";
 
-  if (cov.entity_status && cov.entity_status !== "ACTIVE") {
+  if (cov.entity_status === "SUSPENDED") {
     return {
       key: "suspended",
       label: "Network access suspended",
       detail: `Your access in ${org} is suspended — ask your network admin.`,
+    };
+  }
+  if (cov.entity_status === "INVITED") {
+    return {
+      key: "not_active",
+      label: "Entity not active yet — invitation pending",
+      detail: `This entity is not active yet in ${org} — ask your network admin.`,
+    };
+  }
+  if (cov.entity_status && cov.entity_status !== "ACTIVE") {
+    return {
+      key: "not_active",
+      label: "Entity not active",
+      detail: `This entity is not active in ${org} — ask your network admin.`,
     };
   }
   if (!cov.seat_active) {

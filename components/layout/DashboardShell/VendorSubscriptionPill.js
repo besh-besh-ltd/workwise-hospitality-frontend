@@ -14,6 +14,7 @@ const NETWORK_PILL_CLASS = {
   covered: styles.subPillActive,
   seat_expired: styles.subPillDanger,
   suspended: styles.subPillDanger,
+  not_active: styles.subPillWarn,
   lapsed: styles.subPillWarn,
 };
 

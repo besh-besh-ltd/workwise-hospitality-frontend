@@ -53,7 +53,14 @@ describe("networkCoverageView", () => {
   test("seat expired / suspended / lapsed all point at the network admin", () => {
     expect(networkCoverageView(SEAT_EXPIRED)).toMatchObject({ key: "seat_expired", label: "Seat expired" });
     expect(networkCoverageView(SEAT_EXPIRED).detail).toMatch(/ask your network admin/);
-    expect(networkCoverageView({ ...COVERED, entity_status: "SUSPENDED", covered: false }).key).toBe("suspended");
+    expect(networkCoverageView({ ...COVERED, entity_status: "SUSPENDED", covered: false })).toMatchObject({
+      key: "suspended",
+      label: "Network access suspended",
+    });
+    // Fix round 1: an INVITED entity is not suspended, it is not active yet.
+    const invited = networkCoverageView({ ...COVERED, entity_status: "INVITED", covered: false });
+    expect(invited).toMatchObject({ key: "not_active", label: "Entity not active yet — invitation pending" });
+    expect(invited.detail).toMatch(/not active yet in Daikin Network/);
     expect(networkCoverageView({ ...COVERED, subscription_active: false, covered: false }).key).toBe("lapsed");
   });
 });
