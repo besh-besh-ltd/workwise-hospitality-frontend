@@ -1147,15 +1147,6 @@ const PODetail = ({ id }) => {
                   <td className="num">{inr(computedSubtotal)}</td>
                 </tr>
 
-                {/* Call-off POs: the GST inside the subtotal, split as CGST + SGST
-                    (or UTGST) within a state or IGST across states. */}
-                {gstSplit && gstSplit.map((row) => (
-                  <tr key={row.key} className={styles.breakdownRow}>
-                    <td colSpan={5} className={styles.breakdownLabel}>Incl. {row.label}</td>
-                    <td className={`num ${styles.breakdownAmt}`}>{inr(row.amount)}</td>
-                  </tr>
-                ))}
-
                 {/* Other charges — accordion, one row per charge + tax sub-row */}
                 {showOtherCharges && (
                   <>
@@ -1230,6 +1221,26 @@ const PODetail = ({ id }) => {
                     <td colSpan={5}>Freight + insurance</td>
                     <td className="num">{inr(freightInsurance)}</td>
                   </tr>
+                )}
+
+                {/* Call-off POs: the GST split as CGST + SGST (or UTGST) within a
+                    state or IGST across states. tax_breakdown is the whole PO's
+                    tax, other charges' tax included, so it is its own block after
+                    the charges (not "Incl." under the product subtotal, which
+                    holds less GST than that). Already inside the grand total. */}
+                {gstSplit && (
+                  <>
+                    <tr className={styles.sectionHeadRow}>
+                      <td colSpan={5}>GST on items and charges (included in the total)</td>
+                      <td className="num">{inr(gstSplit.reduce((sum, row) => sum + row.amount, 0))}</td>
+                    </tr>
+                    {gstSplit.map((row) => (
+                      <tr key={row.key} className={styles.breakdownRow}>
+                        <td colSpan={5} className={styles.breakdownLabel}>{row.label}</td>
+                        <td className={`num ${styles.breakdownAmt}`}>{inr(row.amount)}</td>
+                      </tr>
+                    ))}
+                  </>
                 )}
 
                 {/* Grand total — label leftmost like Subtotal. The qty / unit
