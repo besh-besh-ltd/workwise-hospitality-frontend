@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { BsArrowUp, BsDownload } from "react-icons/bs";
 import { getActivity, getActivityFacets } from "@/services/activity";
 import useActivityStream from "@/hooks/useActivityStream";
+import usePolling from "@/hooks/usePolling";
 import Loader from "@/components/shared/Loader";
 import ActivityFilters from "./ActivityFilters";
 import ActivityRow from "./ActivityRow";
@@ -11,7 +12,11 @@ import ActivityRiskBar from "./ActivityRiskBar";
 import { groupByDay } from "./activityPresentation";
 import styles from "./Activity.module.css";
 
-const POLL_MS = 30000;
+// The socket (useActivityStream) is the live path. This poll is the floor
+// for wherever websockets are not proxied: 2 min, paused while the tab is
+// hidden, one silent refresh on tab return. Was 30 s, never paused.
+// Policy: hooks/usePolling.js.
+const POLL_MS = 2 * 60 * 1000;
 const PAGE_SIZE = 50;
 
 // Mirrors the backend's facet window (activityModel: `occurred_at >= now() -
@@ -105,12 +110,11 @@ const ActivityPage = () => {
   // The floor. The socket below is an enhancement on top of this, not a
   // replacement — wherever websockets are not proxied through, the feed still
   // updates, just not instantly.
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (queryRef.current.page === 1) load({ silent: true });
-    }, POLL_MS);
-    return () => clearInterval(id);
-  }, [load]);
+  // The initial load is the router.isReady effect above, hence immediate:false.
+  usePolling(
+    () => (queryRef.current.page === 1 ? load({ silent: true }) : undefined),
+    { interval: POLL_MS, immediate: false }
+  );
 
   useActivityStream(
     useCallback(() => setPending((n) => n + 1), []),

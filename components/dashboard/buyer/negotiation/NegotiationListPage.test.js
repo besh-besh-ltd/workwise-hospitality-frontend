@@ -23,6 +23,12 @@ jest.mock("@/services/negotiation", () => ({
   __esModule: true,
   getNegotiationListView: jest.fn(),
 }));
+// The page reads dashboard deep links (?tab, ?needs_my_approval, ?search) from
+// the router; a plain visit carries none.
+jest.mock("next/router", () => ({
+  __esModule: true,
+  useRouter: () => ({ query: {}, pathname: "/dashboard/buyer/negotiation", push: jest.fn(), replace: jest.fn(), isReady: true }),
+}));
 
 import React from "react";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";

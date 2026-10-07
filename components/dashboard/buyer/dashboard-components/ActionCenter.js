@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ClipboardCheck, FileText, Clock, Package, UserX, Zap } from "lucide-react";
 import { getActionCenterData } from "@/services/dashboard";
@@ -7,16 +7,19 @@ import PendingApprovalsModal from "./PendingApprovalsModal";
 import RejectedPOsModal from "./RejectedPOsModal";
 import NoResponseModal from "./NoResponseModal";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import { rfqListView, poTracking } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./ActionCenter.module.scss";
 
-// Order follows client request (Sr 231): Pending approvals → PO rejected by
-// vendors (red, "To be Actioned") → No responses → RFQs ending → PO pending.
-const ACTION_CARDS = [
+// Order follows client request (Sr 231): Pending approvals → PO rejected
+// (red, "To be Actioned") → No responses → RFQs ending → PO pending.
+// Every tile is a live queue — none of them is filtered by the date range.
+export const ACTION_CARDS = [
   {
     key: "pending_approvals",
     label: "Pending approvals",
-    tooltip: "RFQs, ARCs, negotiations or POs waiting for your approval action",
+    tooltip: "Decisions waiting for you right now — RFQs, technical evaluations, negotiated quotes, POs, ARCs. Several approval steps on the same item count once.",
     icon: ClipboardCheck,
     accent: "danger",
     statusLabel: "Urgent",
@@ -24,9 +27,11 @@ const ACTION_CARDS = [
     modal: "approvals",
   },
   {
-    key: "rejected_vendors",
-    label: "PO rejected",
-    tooltip: "POs rejected by vendors that need to be reassigned",
+    key: "rejected_total",
+    value: (d) => (d?.rejected_vendors ?? 0) + (d?.rejected_in_approval ?? 0),
+    sub: (d) => `${d?.rejected_vendors ?? 0} by vendor · ${d?.rejected_in_approval ?? 0} in approval`,
+    label: "POs rejected",
+    tooltip: "Purchase orders rejected by the vendor or by an approver whose items have not been re-ordered yet.",
     icon: UserX,
     accent: "danger",
     statusLabel: "To be Actioned",
@@ -36,7 +41,7 @@ const ACTION_CARDS = [
   {
     key: "rfqs_awaiting",
     label: "No responses",
-    tooltip: "Published RFQs that haven't received any vendor quotes yet",
+    tooltip: "Open, published RFQs that have not received a real quote yet (a regret does not count).",
     icon: FileText,
     accent: "warn",
     statusLabel: "Action",
@@ -46,60 +51,39 @@ const ACTION_CARDS = [
   {
     key: "rfqs_ending_soon",
     label: "RFQs ending soon",
-    tooltip: "RFQs whose bid deadline is within the next 3 days",
+    tooltip: "RFQs still open for bidding whose deadline is within the next 72 hours.",
     icon: Clock,
     accent: "info",
     statusLabel: "Near",
-    href: "/dashboard/buyer/rfq-management",
+    href: rfqListView("closing_soon"),
   },
   {
     key: "pos_awaiting",
     label: "PO pending",
-    tooltip: "Purchase orders sent to vendors awaiting acceptance",
+    tooltip: "Approved purchase orders sent to vendors and waiting for them to accept.",
     icon: Package,
     accent: "muted",
     statusLabel: null,
-    href: "/dashboard/buyer/purchase-order",
+    href: poTracking({ tab: "active" }),
   },
 ];
 
 const ActionCenter = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // A work queue — polls while the tab is visible.
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getActionCenterData, filters, { poll: true });
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectedModal, setShowRejectedModal] = useState(false);
   const [showNoResponseModal, setShowNoResponseModal] = useState(false);
-  const intervalRef = useRef(null);
 
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getActionCenterData(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
-
-  const urgentCount = (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0);
+  const urgentCount =
+    (data?.pending_approvals ?? 0) + (data?.rejected_vendors ?? 0) + (data?.rejected_in_approval ?? 0);
 
   return (
     <>
       <PersonaCardShell
         title="Action centre"
         icon={Zap}
-        tooltip="Top-of-mind queue across approvals, vendor responses, and PO state."
+        tooltip="What needs attention now across approvals, vendor responses and purchase orders. These are live queues, not filtered by the date range."
         actions={
           <>
             {urgentCount > 0 && (
@@ -112,16 +96,15 @@ const ActionCenter = ({ filters }) => {
         }
         loading={loading}
         error={error}
+        stale={stale}
         skeleton={<SkeletonKpiGrid count={ACTION_CARDS.length} />}
-        onRefresh={() => {
-          setLoading(true);
-          fetchData();
-        }}
+        onRefresh={refetch}
       >
         <div className={styles.actionGrid}>
           {ACTION_CARDS.map((card) => {
             const IconComponent = card.icon;
-            const count = data?.[card.key] ?? 0;
+            const count = card.value ? card.value(data) : data?.[card.key] ?? 0;
+            const sub = card.sub && count > 0 ? card.sub(data) : null;
             const isAttention = count > 0;
 
             const inner = (
@@ -129,7 +112,10 @@ const ActionCenter = ({ filters }) => {
                 <div className={styles.actionHead}>
                   <div className={styles.actionLabel}>
                     {card.label}
-                    <InfoTip text={card.tooltip} />
+                    {/* Sits above the stretched card target so it stays its own control. */}
+                    <span className={styles.tipLayer}>
+                      <InfoTip text={card.tooltip} />
+                    </span>
                   </div>
                   <div className={`${styles.iconChip} ${styles[card.accent]}`}>
                     <IconComponent size={13} />
@@ -145,33 +131,43 @@ const ActionCenter = ({ filters }) => {
                     </span>
                   )}
                 </div>
+                {sub && <div className={styles.actionSub}>{sub}</div>}
               </>
             );
 
             const itemClass = `${styles.actionItem} ${styles[card.accent]}`;
+            // The whole tile is clickable through one stretched target (its
+            // ::after covers the card) rather than by wrapping the tile in a
+            // button: the info tip is itself a button, and a button inside a
+            // button is invalid HTML that React flags on hydration.
+            const targetLabel = `${card.label}: ${count}`;
 
+            let target;
             if (!card.href) {
               const openModal = () => {
                 if (card.modal === "rejected") setShowRejectedModal(true);
                 else if (card.modal === "noresponse") setShowNoResponseModal(true);
                 else setShowApprovalModal(true);
               };
-              return (
+              target = (
                 <button
                   type="button"
-                  key={card.key}
-                  className={itemClass}
+                  className={styles.cardTarget}
                   onClick={openModal}
-                >
-                  {inner}
-                </button>
+                  aria-label={targetLabel}
+                />
+              );
+            } else {
+              target = (
+                <Link href={card.href} className={styles.cardTarget} aria-label={targetLabel} />
               );
             }
 
             return (
-              <Link key={card.key} href={card.href} className={itemClass}>
+              <div key={card.key} className={itemClass} data-testid={`action-${card.key}`}>
                 {inner}
-              </Link>
+                {target}
+              </div>
             );
           })}
         </div>
@@ -181,7 +177,7 @@ const ActionCenter = ({ filters }) => {
         <PendingApprovalsModal onClose={() => setShowApprovalModal(false)} filters={filters} />
       )}
       {showRejectedModal && (
-        <RejectedPOsModal onClose={() => setShowRejectedModal(false)} />
+        <RejectedPOsModal onClose={() => setShowRejectedModal(false)} filters={filters} />
       )}
       {showNoResponseModal && (
         <NoResponseModal onClose={() => setShowNoResponseModal(false)} filters={filters} />

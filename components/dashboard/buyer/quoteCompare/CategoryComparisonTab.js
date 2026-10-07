@@ -28,6 +28,7 @@ const CategoryComparisonTab = ({
           message="Category totals and vendor rankings stay hidden until the quote submission deadline has fully passed in IST."
           deadline={visibility.deadline}
           remainingMs={visibility.remainingMs}
+          deadlineEpoch={visibility.deadlineEpoch ?? null}
         />
       </div>
     );

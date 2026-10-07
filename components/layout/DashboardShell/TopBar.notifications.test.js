@@ -388,3 +388,83 @@ describe("keyboard", () => {
     expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/rate-contracts/12?stage=overview");
   });
 });
+
+// ── Unread-count cadence ────────────────────────────────────────────────────
+// Was: a flat 30 s poll that kept running in hidden tabs and fired TWICE on
+// every tab switch (focus + visibilitychange). 9.4k calls/day in prod.
+describe("unread-count polling", () => {
+  const realtime = require("@/lib/realtimeSocket");
+  const useNotificationStream = require("@/hooks/useNotificationStream").default;
+
+  let hidden = false;
+  beforeAll(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (hidden ? "hidden" : "visible"),
+    });
+  });
+  const setHidden = (value) => {
+    hidden = value;
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+  };
+  const flush = () => act(async () => {});
+  const advance = (ms) => act(async () => { jest.advanceTimersByTime(ms); });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    hidden = false;
+    realtime.__resetRealtimeForTests();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    realtime.__resetRealtimeForTests();
+  });
+
+  it("polls every 60 s while the socket is down", async () => {
+    renderBar();
+    await flush();
+    expect(getUnreadCount).toHaveBeenCalledTimes(1);
+    await advance(53000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(1);
+    await advance(14000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(2);
+  });
+
+  it("backs off to 120 s while the socket is connected, without an extra fetch on connect", async () => {
+    renderBar();
+    await flush();
+    act(() => realtime.__setRealtimeConnectedForTests(true));
+    await flush();
+    expect(getUnreadCount).toHaveBeenCalledTimes(1);
+    // First tick was scheduled at the offline cadence...
+    await advance(66000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(2);
+    // ...after that, 120 s +/-10%.
+    await advance(107000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(2);
+    await advance(26000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(3);
+  });
+
+  it("makes no calls while hidden, and exactly ONE on tab return (not focus + visibilitychange)", async () => {
+    renderBar();
+    await flush();
+    setHidden(true);
+    await advance(30 * 60 * 1000);
+    expect(getUnreadCount).toHaveBeenCalledTimes(1);
+
+    setHidden(false);
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await flush();
+    expect(getUnreadCount).toHaveBeenCalledTimes(2);
+  });
+
+  it("still refetches on a live notification:new", async () => {
+    renderBar();
+    await flush();
+    const onLive = useNotificationStream.mock.calls.at(-1)[0];
+    await act(async () => { onLive({ id: 99 }); });
+    expect(getUnreadCount).toHaveBeenCalledTimes(2);
+  });
+});

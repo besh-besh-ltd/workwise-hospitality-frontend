@@ -1,77 +1,56 @@
 import React from "react";
-import Link from "next/link";
-import { FilePlus, ArrowUpRight } from "lucide-react";
-import moment from "moment";
+import { FilePlus } from "lucide-react";
 import { getMyDrafts } from "@/services/dashboard";
+import { resumeDraft, rfqList } from "@/components/dashboard/shared/dashboardLinks";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, Headline, ItemList, ItemLink, relative, plural } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-/** RFQs the user started but hasn't published yet — sorted by most recently edited. */
+const copy = widgetCopy("my_drafts");
+const allDrafts = rfqList({ tab: "drafts", mine: true });
+
+/** RFQs the user started but hasn't published yet. Queue — undated. */
 const MyDrafts = ({ filters }) => (
   <PersonaCard
-    title="My drafts"
+    title={copy.title}
     icon={FilePlus}
-    tooltip="RFQs you started but haven't published. Resume editing or publish."
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getMyDrafts}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
-    isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
+    isEmpty={(d) => !d || !(d.count > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>
         No drafts open — looks like you've shipped everything.
       </div>
     )}
-    actions={
-      <Link
-        href="/dashboard/buyer/rfq-management?status=draft"
-        className={styles.badge}
-        title="See all drafts"
-      >
-        View all <ArrowUpRight size={11} />
-      </Link>
-    }
+    actions={<ViewAll href={allDrafts} />}
   >
     {(data) => (
       <>
-        <div className={styles.headlineRow}>
-          <span className={styles.headlineNum}>{data?.count ?? 0}</span>
-          <span className={styles.headlineUnit}>
-            draft{(data?.count ?? 0) === 1 ? "" : "s"}
-          </span>
-        </div>
+        <Headline count={data.count} unit="draft" />
         <div className={styles.subline}>
-          Oldest:{" "}
-          <span className={styles.subValue}>
-            {data?.oldest_updated_at
-              ? moment(data.oldest_updated_at).fromNow()
-              : "—"}
-          </span>
+          Oldest started:{" "}
+          <span className={styles.subValue}>{relative(data.oldest_created_at)}</span>
         </div>
-        {(data?.items || []).slice(0, 5).length > 0 && (
-          <div className={styles.itemList}>
-            {(data?.items || []).slice(0, 5).map((item) => (
-              <Link
-                key={item.id}
-                href={`/dashboard/buyer/rfq-management?id=${item.id}`}
-                className={styles.item}
-              >
-                <div className={styles.itemMain}>
-                  <div className={styles.itemTitle}>
-                    {item.title || `Draft #${item.rfq_no || item.id}`}
-                  </div>
-                  <div className={styles.itemMeta}>
-                    <span>{item.product_count ?? 0} products</span>
-                    <span>{moment(item.updated_at).fromNow()}</span>
-                  </div>
-                </div>
-                <div className={styles.itemRight}>
-                  <ArrowUpRight size={12} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        <ItemList
+          items={data.items}
+          count={data.count}
+          moreHref={allDrafts}
+          render={(item) => (
+            <ItemLink
+              key={item.id}
+              href={resumeDraft(item.id)}
+              title={item.title || `Draft #${item.rfq_no || item.id}`}
+              meta={[
+                `${item.product_count ?? 0} ${plural(item.product_count ?? 0, "product")}`,
+                `started ${relative(item.created_at)}`,
+              ]}
+            />
+          )}
+        />
       </>
     )}
   </PersonaCard>

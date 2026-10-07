@@ -4,6 +4,8 @@
 //   return <Component {...pageProps} />
 // }
 
+// Installs error listeners now; the OpenTelemetry SDK itself is dynamic-imported
+// once the page is idle (lib/otel.js), so it is not part of this chunk.
 import { initOtel } from '@/lib/otel';
 if (typeof window !== 'undefined') {
   initOtel();
@@ -28,12 +30,14 @@ import { useRouter } from "next/router";
 import { ToastContainer } from "react-toastify";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Providers } from "@/redux/provider";
-import posthog from 'posthog-js';
-import { PostHogProvider } from 'posthog-js/react';
+import dynamic from "next/dynamic";
+import posthog, { initAnalytics } from '@/lib/analytics';
 import storageInstance from "@/utils/storageInstance";
 import { getUserDetails } from "@/services/Auth";
 import Head from "next/head";
-import WizardChat from "../components/shared/WizardChat/WizardChat";
+// Floating AI-assistant button: never needed for first paint, so it gets its
+// own chunk. SSR is kept as before (it renders outside the PersistGate).
+const WizardChat = dynamic(() => import("../components/shared/WizardChat/WizardChat"));
 
 
 // Tell Font Awesome to skip adding the CSS automatically
@@ -110,10 +114,8 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
-      posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
-        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
-        defaults: '2026-01-30',
-      });
+      // posthog-js loads after the page is idle; identify() is queued until then.
+      initAnalytics();
       const user = getUserDetails();
       const userType = storageInstance.getStorage('current-user-type');
       const email = storageInstance.getStorage('current-user-email');
@@ -129,7 +131,7 @@ export default function App({ Component, pageProps }) {
 
 
   return (
-    <PostHogProvider client={posthog}>
+    <>
       <Head />
 
       <ToastContainer
@@ -176,6 +178,6 @@ export default function App({ Component, pageProps }) {
         </Providers>
         <WizardChat />
       </ErrorBoundary>
-    </PostHogProvider>
+    </>
   );
 }

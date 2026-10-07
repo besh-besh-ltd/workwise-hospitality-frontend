@@ -37,6 +37,7 @@ jest.mock("@/services/rfq", () => ({
 jest.mock("@/services/negotiation", () => ({
   __esModule: true,
   getNegotiationRounds: jest.fn(() => Promise.resolve({ data: [] })),
+  getNegotiationRoundsByProduct: jest.fn(() => Promise.resolve({})),
 }));
 jest.mock("@/services/approval", () => ({
   __esModule: true,

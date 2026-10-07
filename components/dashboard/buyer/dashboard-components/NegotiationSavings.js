@@ -1,89 +1,89 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { PiggyBank, TrendingUp, TrendingDown } from "lucide-react";
+import React from "react";
+import { PiggyBank, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { getNegotiationSavings } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonHeadline, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
-import { formatCurrencyShort as formatCurrency } from "@/utils/sharedFunctions";
+import { SkeletonHeadline } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import { formatMoney as formatCurrency } from "@/components/dashboard/shared/format";
 import styles from "./NegotiationSavings.module.scss";
 
+const plural = (n, one, many = `${one}s`) => (Number(n) === 1 ? one : many);
+
+/**
+ * Savings realised on AWARDED quotes (SPEC D2): the headline is what the
+ * company actually saves on the vendors it bought from. All-vendor savings
+ * (including price cuts from vendors who did not win) is shown as context only.
+ * Values are signed — a negative total means awarded prices ended above the
+ * pre-negotiation baseline.
+ */
+export const savingsState = (data) => {
+  const baseline = Number(data?.market_baseline) || 0;
+  const negotiated = Number(data?.negotiated_total) || 0;
+  const savings = Number(data?.total_savings) || 0;
+  const count = Number(data?.negotiation_count) || 0;
+  if (!(count > 0) && !(baseline > 0)) return { kind: "empty" };
+  const pct = data?.savings_pct != null
+    ? Number(data.savings_pct)
+    : baseline > 0 ? (savings / baseline) * 100 : 0;
+  const kind = Math.abs(savings) < 0.5 ? "flat" : savings > 0 ? "win" : "loss";
+  return { kind, baseline, negotiated, savings, count, pct };
+};
+
 const NegotiationSavings = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const intervalRef = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getNegotiationSavings(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(fetchData, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
-
-  const baseline = data?.market_baseline || 0;
-  const negotiated = data?.negotiated_total || 0;
-  const savings = data?.total_savings || 0;
-  const isLoss = savings < 0;
-  const negotiatedPct = baseline > 0 ? Math.round((negotiated / baseline) * 100) : 0;
-  const savedPct = baseline > 0 ? Math.round((Math.abs(savings) / baseline) * 100) : 0;
-  const hasData = baseline > 0 && savings !== 0;
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getNegotiationSavings, filters);
+  const st = savingsState(data);
+  const isLoss = st.kind === "loss";
+  const isFlat = st.kind === "flat";
+  const absPct = Math.abs(st.pct || 0).toFixed(1);
+  // Capped: a negotiated total above the baseline (a loss) must not overflow the bar.
+  const negotiatedPct = st.baseline > 0 ? Math.min(100, Math.round((st.negotiated / st.baseline) * 100)) : 0;
+  const allVendors = data?.all_vendors;
+  const Icon = isLoss ? TrendingDown : isFlat ? Minus : TrendingUp;
 
   return (
     <PersonaCardShell
       title="Negotiation savings"
       icon={PiggyBank}
-      tooltip="Direct value impact from strategic vendor negotiations in this period."
+      tooltip="Savings realised through negotiation on the quotes that were awarded, for negotiations in the selected period."
       actions={
-        hasData ? (
+        st.kind !== "empty" && !loading ? (
           <span className={`${styles.headerPill} ${isLoss ? styles.lossPill : styles.winPill}`}>
-            {isLoss ? <TrendingDown size={10} strokeWidth={2.4} /> : <TrendingUp size={10} strokeWidth={2.4} />}
-            {isLoss ? "Loss" : "Win"} · {savedPct}%
+            <Icon size={10} strokeWidth={2.4} />
+            {isLoss ? "Loss" : isFlat ? "No change" : "Saved"} · {absPct}%
           </span>
         ) : null
       }
       loading={loading}
       error={error}
-      isEmpty={!hasData}
+      stale={stale}
+      isEmpty={st.kind === "empty"}
       skeleton={<SkeletonHeadline withSpark={false} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
-          No price reductions recorded through negotiations in this period.
+          No negotiations on awarded quotes in this period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.headlineRow}>
         <div>
-          <div className={styles.headlineLbl}>{isLoss ? "Total lost" : "Total saved"}</div>
+          <div className={styles.headlineLbl}>
+            {isLoss ? "Awarded above baseline" : "Saved on awarded quotes"}
+          </div>
           <div className={`${styles.headlineNum} ${isLoss ? styles.lossNum : ""}`}>
-            {isLoss ? "−" : ""}{formatCurrency(Math.abs(savings))}
+            {formatCurrency(st.savings)}
           </div>
         </div>
         <span className={`${styles.savedPill} ${isLoss ? styles.lossSavedPill : ""}`}>
-          {savedPct}% {isLoss ? "lost" : "saved"}
+          {isFlat ? "No change" : `${absPct}% ${isLoss ? "above" : "saved"}`}
         </span>
       </div>
 
       <div className={styles.bars}>
         <div className={styles.barGroup}>
           <div className={styles.barLabel}>
-            <span>Total quoted before negotiation</span>
-            <span className={styles.mono}>{formatCurrency(baseline)}</span>
+            <span>Awarded vendors' price before negotiation</span>
+            <span className={styles.mono}>{formatCurrency(st.baseline)}</span>
           </div>
           <div className={styles.barTrack}>
             <div className={`${styles.barFill} ${styles.grey}`} style={{ width: "100%" }} />
@@ -91,8 +91,8 @@ const NegotiationSavings = ({ filters }) => {
         </div>
         <div className={styles.barGroup}>
           <div className={styles.barLabel}>
-            <span>Total finalised after negotiation</span>
-            <span className={styles.mono}>{formatCurrency(negotiated)}</span>
+            <span>Awarded price after negotiation</span>
+            <span className={styles.mono}>{formatCurrency(st.negotiated)}</span>
           </div>
           <div className={styles.barTrack}>
             <div className={`${styles.barFill} ${styles.green}`} style={{ width: `${negotiatedPct}%` }} />
@@ -101,7 +101,12 @@ const NegotiationSavings = ({ filters }) => {
       </div>
 
       <div className={styles.exclusionNote}>
-        Terminated or rejected RFQs (by us or by vendors) are excluded from these figures.
+        {st.count} {plural(st.count, "negotiated item")}
+        {data?.rfq_count != null ? ` across ${data.rfq_count} ${plural(data.rfq_count, "RFQ")}` : ""}.
+        {allVendors && allVendors.total_savings != null && (
+          <> Across all vendors, including those not awarded: {formatCurrency(allVendors.total_savings)}.</>
+        )}
+        {" "}Terminated or rejected RFQs are excluded.
       </div>
     </PersonaCardShell>
   );

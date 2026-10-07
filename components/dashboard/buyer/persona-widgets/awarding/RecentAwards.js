@@ -1,76 +1,60 @@
 import React from "react";
-import Link from "next/link";
-import { History, ArrowUpRight, FileCheck } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import moment from "moment";
 import { getRecentAwards } from "@/services/dashboard";
+import { poDetail, poList } from "@/components/dashboard/shared/dashboardLinks";
+import { formatMoney } from "@/components/dashboard/shared/format";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, ItemList, ItemLink, plural } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-const fmtINR = (n) => {
-  const num = Number(n) || 0;
-  return num.toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-};
+const copy = widgetCopy("recent_awards");
+const allApproved = poList({ status: "approved" });
 
-/** Recently cleared awards, with links to the resulting POs. */
+/** POs in the user's business units whose approval completed in the period. */
 const RecentAwards = ({ filters }) => (
   <PersonaCard
-    title="Recent awards"
-    icon={History}
-    tooltip="What you've cleared recently, with links to the generated POs."
+    title={copy.title}
+    icon={BadgeCheck}
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getRecentAwards}
     skeleton={<SkeletonRankList rows={4} />}
-    isEmpty={(d) => !d || !(d.items && d.items.length > 0)}
+    isEmpty={(d) => !d || !(d.count > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>
-        No recent awards in this period.
+        No purchase orders were approved in this period.
       </div>
     )}
+    actions={<ViewAll href={allApproved} />}
   >
     {(data) => (
       <>
         <div className={styles.headlineRow}>
-          <span className={styles.headlineNum}>{data?.items?.length ?? 0}</span>
-          <span className={styles.headlineUnit}>recent award{(data?.items?.length ?? 0) === 1 ? "" : "s"}</span>
+          <span className={styles.headlineNum}>{data.count ?? 0}</span>
+          <span className={styles.headlineUnit}>
+            {plural(data.count ?? 0, "PO")} · {formatMoney(data.total_value)}
+          </span>
         </div>
-        <div className={styles.subline}>
-          Total cleared:{" "}
-          <span className={styles.subValue}>₹{fmtINR(data?.total_value)}</span>
-        </div>
-        <div className={styles.itemList}>
-          {(data?.items || []).slice(0, 5).map((item) => (
-            <div key={item.id} className={styles.item} style={{ cursor: "default" }}>
-              <div className={styles.itemMain}>
-                <div className={styles.itemTitle}>
-                  {item.title || `RFQ #${item.rfq_no || item.rfq_id}`}
-                </div>
-                <div className={styles.itemMeta}>
-                  <span>{item.vendor_name}</span>
-                  <span>{moment(item.awarded_at).fromNow()}</span>
-                </div>
-              </div>
-              <div className={styles.itemRight}>
-                <span>₹{fmtINR(item.value)}</span>
-                {item.po_id ? (
-                  <Link
-                    href={`/dashboard/buyer/purchase-orders/${item.po_id}`}
-                    className={`${styles.badge} ${styles.badgeSuccess}`}
-                    title="View PO"
-                  >
-                    <FileCheck size={11} />
-                    PO
-                  </Link>
-                ) : (
-                  <span className={`${styles.badge} ${styles.badgeWarn}`}>No PO</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ItemList
+          items={data.items}
+          count={data.count}
+          moreHref={allApproved}
+          render={(item) => (
+            <ItemLink
+              key={item.po_id}
+              href={poDetail(item.po_id)}
+              title={item.po_number ? `PO ${item.po_number}` : item.rfq_title || `RFQ #${item.rfq_no}`}
+              meta={[
+                item.vendor_name,
+                item.approved_at ? moment(item.approved_at).format("DD MMM") : null,
+                item.approved_by_me ? "approved by you" : null,
+              ]}
+              right={<span>{formatMoney(item.value)}</span>}
+            />
+          )}
+        />
       </>
     )}
   </PersonaCard>

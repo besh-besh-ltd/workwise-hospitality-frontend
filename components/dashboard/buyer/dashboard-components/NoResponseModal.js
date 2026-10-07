@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useId } from "react";
 import Link from "next/link";
 import { X, Clock, ArrowRight, FileText, AlertTriangle } from "lucide-react";
 import { getNoResponseDetail } from "@/services/dashboard";
+import { rfqDetail } from "@/components/dashboard/shared/dashboardLinks";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
+import useDialogA11y from "@/hooks/useDialogA11y";
 import styles from "./PendingApprovalsModal.module.scss";
 
 // Format a bid_end_date string into a short relative hint.
@@ -34,7 +37,7 @@ const Section = ({ items, label, color, onClose }) => {
         {items.map((item) => (
           <Link
             key={item.id}
-            href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${item.id}`}
+            href={rfqDetail(item.id)}
             className={styles.item}
             onClick={onClose}
           >
@@ -44,8 +47,10 @@ const Section = ({ items, label, color, onClose }) => {
               </span>
               <span className={styles.itemMetaLine}>
                 {item.invited_vendor_count
-                  ? <span>{item.invited_vendor_count} vendor(s) invited</span>
+                  ? <span>{item.invited_vendor_count} vendor{item.invited_vendor_count === 1 ? "" : "s"} invited</span>
                   : <span>No vendor responses yet</span>}
+                {item.regret_count > 0 && <span className={styles.sep}>·</span>}
+                {item.regret_count > 0 && <span>{item.regret_count} regret{item.regret_count === 1 ? "" : "s"}</span>}
                 {item.hotel_name && <span className={styles.sep}>·</span>}
                 {item.hotel_name && <span>{item.hotel_name}</span>}
                 {item.bid_end_date && <span className={styles.sep}>·</span>}
@@ -66,45 +71,45 @@ const Section = ({ items, label, color, onClose }) => {
 };
 
 const NoResponseModal = ({ onClose, filters }) => {
-  const [data, setData] = useState({ active: [], expired: [] });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getNoResponseDetail({
-          hotel_ids: filters?.hotel_ids,
-          start_date: filters?.start_date,
-          end_date: filters?.end_date,
-        });
-        setData(res.data || { active: [], expired: [] });
-      } catch {
-        setData({ active: [], expired: [] });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data: payload, loading, error, refetch } = useDashboardQuery(getNoResponseDetail, filters, {
+    errorMessage: "Could not load RFQs awaiting a response",
+  });
+  const data = payload || { active: [], expired: [] };
+  const dialogRef = useDialogA11y(onClose);
+  const titleId = useId();
 
   const total = (data.active?.length || 0) + (data.expired?.length || 0);
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
           <div className={styles.headerMain}>
-            <h3 className={styles.title}>RFQs Awaiting Vendor Response</h3>
+            <h3 className={styles.title} id={titleId}>RFQs Awaiting Vendor Response</h3>
             <p className={styles.sub}>Published RFQs that haven&apos;t received any vendor quotes yet.</p>
           </div>
           {total > 0 && <span className={styles.count}>{total}</span>}
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={17} />
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className={styles.body} aria-busy={loading}>
           {loading ? (
-            [0, 1].map((g) => (
+            <>
+            <div className={styles.loadingNote} role="status">
+              <span className={styles.loadingSpinner} aria-hidden="true" />
+              Loading RFQs awaiting a response…
+            </div>
+            {[0, 1].map((g) => (
               <div key={g} className={styles.group}>
                 <div className={styles.groupHeader}>
                   <span className={styles.skel} style={{ width: 7, height: 7, borderRadius: 99 }} />
@@ -122,7 +127,18 @@ const NoResponseModal = ({ onClose, filters }) => {
                   ))}
                 </div>
               </div>
-            ))
+            ))}
+            </>
+          ) : error ? (
+            <div className={styles.emptyState} role="alert">
+              <div className={styles.emptyTitle}>Couldn&apos;t load this list</div>
+              <div className={styles.emptyHint}>
+                {error}{" "}
+                <button type="button" className={styles.retryLink} onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : total === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyTitle}>No RFQs awaiting a response</div>

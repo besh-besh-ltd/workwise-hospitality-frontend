@@ -1,0 +1,39 @@
+// Two balanced dashboard columns. Before heights are measured (and wherever
+// ResizeObserver is missing) rows are auto-sized; once measured, each card
+// spans 8px rows so the two columns pack independently (dense masonry).
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  column-gap: 24px;
+  row-gap: 24px;
+  grid-auto-flow: row dense;
+  align-items: start;
+  min-width: 0;
+
+  @media (max-width: 992px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.masonry {
+  grid-auto-rows: 8px;
+  row-gap: 0;
+}
+
+.left {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.right {
+  grid-column: 2;
+  min-width: 0;
+
+  @media (max-width: 992px) {
+    grid-column: 1;
+  }
+}
+
+.inner {
+  min-width: 0;
+}

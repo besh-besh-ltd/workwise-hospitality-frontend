@@ -1,71 +1,57 @@
 import React from "react";
-import Link from "next/link";
-import { ClipboardCheck, ArrowUpRight } from "lucide-react";
-import moment from "moment";
+import { ClipboardCheck } from "lucide-react";
 import { getMyTechEvalsPending } from "@/services/dashboard";
+import { techEval, rfqListView } from "@/components/dashboard/shared/dashboardLinks";
 import PersonaCard from "../PersonaCard";
 import { SkeletonRankList } from "@/components/dashboard/shared";
+import { widgetCopy, ViewAll, Headline, ItemList, ItemLink, since, rfqLabel } from "../parts";
 import styles from "../PersonaCard.module.scss";
 
-/** Products awaiting MY tech-eval clause responses, sorted oldest-first. */
+const copy = widgetCopy("my_tech_evals_pending");
+const allEvals = rfqListView("tech_evaluation");
+
+/** Technical evaluations that can be done now in the user's business units
+ *  (a shared queue — there is no per-user assignment). Oldest first. */
 const MyTechEvalsPending = ({ filters }) => (
   <PersonaCard
-    title="My tech-evals pending"
+    title={copy.title}
     icon={ClipboardCheck}
-    tooltip="Products awaiting your tech-eval clause responses, sorted by age."
+    tooltip={copy.tooltip}
     filters={filters}
     fetcher={getMyTechEvalsPending}
+    poll
     skeleton={<SkeletonRankList rows={4} />}
-    isEmpty={(d) => !d || !(d.count > 0 || (d.items && d.items.length > 0))}
+    isEmpty={(d) => !d || !(d.count > 0)}
     renderEmpty={() => (
       <div className={styles.emptyState}>
-        Your tech-eval queue is empty — caught up.
+        No technical evaluations waiting.
       </div>
     )}
-    actions={
-      <Link href="/dashboard/buyer/technical-evaluation" className={styles.badge}>
-        View all <ArrowUpRight size={11} />
-      </Link>
-    }
+    actions={<ViewAll href={allEvals} />}
   >
     {(data) => (
       <>
-        <div className={styles.headlineRow}>
-          <span className={styles.headlineNum}>{data?.count ?? 0}</span>
-          <span className={styles.headlineUnit}>
-            item{(data?.count ?? 0) === 1 ? "" : "s"} pending
-          </span>
-        </div>
+        <Headline count={data.count} unit="evaluation" />
         <div className={styles.subline}>
-          Oldest in queue:{" "}
-          <span className={styles.subValue}>
-            {data?.oldest_opened_at
-              ? moment(data.oldest_opened_at).fromNow(true) + " ago"
-              : "—"}
-          </span>
+          Oldest waiting:{" "}
+          <span className={styles.subValue}>{since(data.oldest_waiting_since)}</span>
         </div>
-        {(data?.items || []).slice(0, 5).length > 0 && (
-          <div className={styles.itemList}>
-            {(data?.items || []).slice(0, 5).map((item) => (
-              <Link
-                key={item.id}
-                href={`/dashboard/buyer/technical-evaluation?rfq_id=${item.rfq_id}&product_id=${item.product_id}`}
-                className={styles.item}
-              >
-                <div className={styles.itemMain}>
-                  <div className={styles.itemTitle}>{item.product_name}</div>
-                  <div className={styles.itemMeta}>
-                    <span>RFQ #{item.rfq_no || item.rfq_id}</span>
-                    <span>{moment(item.opened_at).fromNow(true)} ago</span>
-                  </div>
-                </div>
-                <div className={styles.itemRight}>
-                  <ArrowUpRight size={12} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        <ItemList
+          items={data.items}
+          count={data.count}
+          moreHref={allEvals}
+          render={(item) => (
+            <ItemLink
+              key={item.id}
+              href={techEval({ rfqId: item.rfq_id, rfqProductId: item.rfq_product_id })}
+              title={item.product_name || rfqLabel(item)}
+              meta={[
+                item.rfq_no ? `RFQ #${item.rfq_no}` : null,
+                `waiting ${since(item.waiting_since)}`,
+              ]}
+            />
+          )}
+        />
       </>
     )}
   </PersonaCard>

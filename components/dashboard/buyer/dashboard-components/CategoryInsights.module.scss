@@ -15,6 +15,7 @@
 
   &:hover { border-color: #d6d6cf; }
   &:focus { outline: none; border-color: #2563eb; }
+  &:focus-visible { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35); }
 }
 
 .chartWrapper {

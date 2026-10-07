@@ -4,6 +4,7 @@ import {
   formatDisplayDate,
   formatRemainingDuration,
 } from "@/utils/sharedFunctions";
+import useRemainingMs from "@/hooks/useRemainingMs";
 import styles from "./QuoteCompareRevamp.module.scss";
 
 const QuoteVisibilityLockPanel = ({
@@ -11,8 +12,13 @@ const QuoteVisibilityLockPanel = ({
   message = "Quotes will appear after the quote submission deadline passes.",
   deadline,
   remainingMs = 0,
+  // When given, the panel runs its own countdown to this epoch (ms) — the page
+  // no longer ticks a clock for it. `remainingMs` stays as the static fallback.
+  deadlineEpoch = null,
   compact = false,
 }) => {
+  const liveRemainingMs = useRemainingMs(compact ? null : deadlineEpoch);
+
   if (compact) {
     return (
       <div className={styles.quoteLockInline}>
@@ -24,7 +30,7 @@ const QuoteVisibilityLockPanel = ({
     );
   }
 
-  const remainingLabel = formatRemainingDuration(remainingMs);
+  const remainingLabel = formatRemainingDuration(deadlineEpoch != null ? liveRemainingMs : remainingMs);
 
   return (
     <div className={`${styles.quoteLockPanel} ${compact ? styles.quoteLockPanelCompact : ""}`}>

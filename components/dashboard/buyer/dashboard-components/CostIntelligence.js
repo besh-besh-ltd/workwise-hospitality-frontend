@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import { Line } from "react-chartjs-2";
 import { LineChart } from "lucide-react";
@@ -13,9 +13,12 @@ import {
   Filler,
 } from "chart.js";
 import { getCostIntelligence } from "@/services/dashboard";
+import { formatMoney as formatCurrency, formatMoneyExact } from "@/components/dashboard/shared/format";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonChart, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import { SkeletonChart } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./CostIntelligence.module.scss";
+import { withFocusRing } from "@/components/shared/selectFocusRing";
 
 ChartJS.register(
   CategoryScale,
@@ -27,26 +30,16 @@ ChartJS.register(
   Filler
 );
 
-// Trim trailing zeros from a fixed-decimal string: "19.50"\u2192"19.5", "20.00"\u2192"20".
-const trimZeros = (s) => s.replace(/\.?0+$/, "");
-const formatCurrency = (value) => {
-  if (!value || value === 0) return "\u20B90";
-  if (value >= 10000000) return `\u20B9${trimZeros((value / 10000000).toFixed(2))}Cr`;
-  if (value >= 100000) return `\u20B9${trimZeros((value / 100000).toFixed(2))}L`;
-  if (value >= 1000) return `\u20B9${(value / 1000).toFixed(1)}K`;
-  return `\u20B9${Math.round(value).toLocaleString("en-IN")}`;
-};
-
 const selectStyles = {
-  control: (base, state) => ({
-    ...base,
-    minHeight: 30,
-    fontSize: 12,
-    borderColor: state.isFocused ? "#18181b" : "#e8e8e3",
-    boxShadow: state.isFocused ? "0 0 0 2px rgba(24,24,27,0.08)" : "none",
-    borderRadius: 8,
-    "&:hover": { borderColor: "#d6d6cf" },
-  }),
+  control: (base, state) =>
+    withFocusRing(base, state, {
+      minHeight: 30,
+      fontSize: 12,
+      borderColor: "#e8e8e3",
+      boxShadow: "none",
+      borderRadius: 8,
+      "&:hover": { borderColor: "#d6d6cf" },
+    }),
   option: (base, state) => ({
     ...base,
     fontSize: 12,
@@ -92,7 +85,7 @@ const chartOptions = {
       padding: 10,
       cornerRadius: 8,
       callbacks: {
-        label: (ctx) => `${ctx.dataset.label}: \u20B9${ctx.raw?.toLocaleString("en-IN") ?? ctx.raw}`,
+        label: (ctx) => `${ctx.dataset.label}: ${formatMoneyExact(ctx.raw)}`,
       },
     },
   },
@@ -113,64 +106,42 @@ const chartOptions = {
 };
 
 const CostIntelligence = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const intervalRef = useRef(null);
-  const currentProductRef = useRef(null);
+  // `requestedProductId` is only set when the user picks an item. Until then
+  // the backend benchmarks its own top item, which the selector mirrors, so
+  // the auto-selection never costs a second request.
+  const [requestedProductId, setRequestedProductId] = useState(null);
+  const [pickedOption, setPickedOption] = useState(null);
+  const filterKey = `${filters.hotel_ids}|${filters.start_date || ""}|${filters.end_date || ""}`;
 
-  const fetchData = useCallback(async (productId) => {
-    setError(null);
-    try {
-      const params = { ...filters };
-      if (productId) params.product_variant_id = productId;
-      const res = await getCostIntelligence(params);
-      setData(res.data);
-
-      if (!currentProductRef.current && res.data?.top_products?.length > 0) {
-        const first = {
-          label: res.data.top_products[0].product_name,
-          value: res.data.top_products[0].product_variant_id,
-        };
-        setSelectedProduct(first);
-        currentProductRef.current = first.value;
-      }
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
+  // A different BU / period has a different top-item list — drop the pick.
   useEffect(() => {
-    currentProductRef.current = null;
-    setSelectedProduct(null);
-    setLoading(true);
-    fetchData();
-    intervalRef.current = setInterval(() => {
-      fetchData(currentProductRef.current);
-    }, DASHBOARD_POLL_MS);
-    return () => clearInterval(intervalRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
+    setRequestedProductId(null);
+    setPickedOption(null);
+  }, [filterKey]);
+
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getCostIntelligence, filters, {
+    extraParams: { product_variant_id: requestedProductId },
+  });
 
   const handleProductChange = (option) => {
-    setSelectedProduct(option);
-    currentProductRef.current = option?.value || null;
-    if (option?.value) {
-      fetchData(option.value);
-    }
+    setPickedOption(option);
+    setRequestedProductId(option?.value || null);
   };
 
   const productOptions = (data?.top_products || []).map((p) => ({
     label: p.product_name,
     value: p.product_variant_id,
   }));
+  // Before the user picks, mirror the item the backend actually benchmarked.
+  const selectedProduct =
+    pickedOption ||
+    productOptions.find((o) => o.value === data?.selected_product_variant_id) ||
+    productOptions[0] ||
+    null;
 
   const priceTrend = data?.price_trend;
-  // Backend resolves day/month granularity (Sr 301 "month-wise" for long ranges).
-  const granularity = data?.granularity || (filters.duration_type === "past6months" ? "month" : "day");
+  // Backend resolves day/month granularity from the span (Sr 301 "month-wise" for long ranges).
+  const granularity = data?.granularity || "day";
   const chartLabels = (priceTrend?.labels || []).map((l) => {
     const d = new Date(l);
     if (granularity === "month") {
@@ -179,10 +150,15 @@ const CostIntelligence = ({ filters }) => {
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   });
 
-  // Benchmark = best unit price previously paid for the selected item.
+  // Benchmark = lowest unit price paid on committed POs for the selected item;
+  // "latest" = the most recent price paid (paid-vs-paid, SPEC).
   const bench = data?.benchmark && data.benchmark.benchmark_price != null ? data.benchmark : null;
+  // Different spec texts were bought under this catalogue item — the gap to
+  // the benchmark may be a different product, not over-paying.
+  const specVariation = Boolean(bench?.spec_variation);
 
-  const hasData = priceTrend?.avg?.some((v) => v > 0);
+  // Gaps arrive as null (no quotes that day/month) — never plot them as ₹0.
+  const hasData = (priceTrend?.avg || []).some((v) => v != null && v > 0);
   const chartData = priceTrend && hasData
     ? {
         labels: chartLabels,
@@ -198,7 +174,7 @@ const CostIntelligence = ({ filters }) => {
             pointHoverRadius: 4,
             pointBackgroundColor: "#b91c1c",
             tension: 0.3,
-            spanGaps: false,
+            spanGaps: true,
           },
           {
             label: "Avg",
@@ -211,7 +187,7 @@ const CostIntelligence = ({ filters }) => {
             pointBackgroundColor: "#18181b",
             tension: 0.3,
             fill: true,
-            spanGaps: false,
+            spanGaps: true,
           },
           {
             label: "Min",
@@ -224,7 +200,7 @@ const CostIntelligence = ({ filters }) => {
             pointHoverRadius: 4,
             pointBackgroundColor: "#15803d",
             tension: 0.3,
-            spanGaps: false,
+            spanGaps: true,
           },
           // Flat reference line at the benchmark (best price paid) so it's
           // obvious where the trend sits above/below it (Sr 302 demand flow).
@@ -248,11 +224,23 @@ const CostIntelligence = ({ filters }) => {
 
   const vendors = data?.vendor_comparison || [];
 
+  // Accessible alternative to the canvas: a one-line summary for the chart's
+  // label plus a visually-hidden table with every plotted point.
+  const lastIdx = (priceTrend?.avg || []).reduce((acc, v, i) => (v != null && v > 0 ? i : acc), -1);
+  const priceCell = (v) => (v == null ? "no quotes" : formatCurrency(v));
+  const chartSummary = chartData
+    ? `Price trend for ${selectedProduct?.label || "the selected item"}` +
+      (lastIdx >= 0
+        ? `: latest average ${formatCurrency(priceTrend.avg[lastIdx])} on ${chartLabels[lastIdx]}`
+        : "") +
+      (bench ? `; best price paid ${formatCurrency(bench.benchmark_price)}` : "")
+    : "";
+
   return (
     <PersonaCardShell
       title="Price benchmarking"
       icon={LineChart}
-      tooltip="High-value (A-class) items benchmarked against the best unit price you've previously paid. The dashed blue line marks that benchmark; the trend above/below it shows where you're over- or under-paying."
+      tooltip="Your highest-value items: the quoted price trend (regret quotes excluded) against the lowest unit price actually paid on a committed PO. The dashed blue line marks that benchmark."
       actions={
         <div className={styles.productSelector}>
           <Select
@@ -263,6 +251,8 @@ const CostIntelligence = ({ filters }) => {
             styles={selectStyles}
             isClearable={false}
             isSearchable
+            formatOptionLabel={(opt) => <span title={opt.label}>{opt.label}</span>}
+            aria-label="Product"
             menuPortalTarget={typeof window !== "undefined" ? document.body : null}
             menuPosition="fixed"
           />
@@ -270,6 +260,7 @@ const CostIntelligence = ({ filters }) => {
       }
       loading={loading}
       error={error}
+      stale={stale}
       isEmpty={!chartData}
       skeleton={<SkeletonChart legendCount={3} />}
       renderEmpty={() => (
@@ -277,24 +268,21 @@ const CostIntelligence = ({ filters }) => {
           No price benchmarking data available for the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData(currentProductRef.current);
-      }}
+      onRefresh={refetch}
     >
       {bench && (
         <div className={styles.benchmarkBar}>
           <div className={styles.benchItem}>
-            <span className={styles.benchLabel}>Best price paid</span>
+            <span className={styles.benchLabel}>Best price paid (all time)</span>
             <span className={styles.benchValue}>{formatCurrency(bench.benchmark_price)}</span>
           </div>
           {bench.current_price != null && (
             <div className={styles.benchItem}>
-              <span className={styles.benchLabel}>Latest avg</span>
+              <span className={styles.benchLabel}>Latest price paid</span>
               <span className={styles.benchValue}>{formatCurrency(bench.current_price)}</span>
             </div>
           )}
-          {bench.vs_benchmark_pct != null && (
+          {bench.vs_benchmark_pct != null && !specVariation && (
             <span
               className={`${styles.benchDelta} ${
                 bench.vs_benchmark_pct > 0 ? styles.over : bench.vs_benchmark_pct < 0 ? styles.under : styles.even
@@ -309,16 +297,43 @@ const CostIntelligence = ({ filters }) => {
       )}
       {bench && (
         <p className={styles.benchNote}>
-          Benchmark = best unit price previously paid for this item (value-based).
+          Benchmark = lowest unit price paid on a committed PO for this item.
+          {specVariation &&
+            " Specifications differ across these purchases, so the gap to the benchmark may reflect a different specification rather than over-paying."}
         </p>
       )}
       <div className={styles.chartContainer}>
-        <Line data={chartData} options={chartOptions} />
+        <Line data={chartData} options={chartOptions} role="img" aria-label={chartSummary} />
       </div>
+      {chartData && (
+        <div className="visually-hidden" data-testid="price-trend-table">
+        <table>
+          <caption>{chartSummary}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Period</th>
+              <th scope="col">Min</th>
+              <th scope="col">Avg</th>
+              <th scope="col">Max</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chartLabels.map((label, i) => (
+              <tr key={i}>
+                <th scope="row">{label}</th>
+                <td>{priceCell(priceTrend.min?.[i])}</td>
+                <td>{priceCell(priceTrend.avg?.[i])}</td>
+                <td>{priceCell(priceTrend.max?.[i])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      )}
       {vendors.length > 0 && (
         <>
           <div className={styles.vendorSectionLabel}>
-            Top {vendors.length} vendors by avg price
+            Vendors by average quoted price (regret quotes excluded)
           </div>
           <div className={styles.vendorGrid}>
             {vendors.map((vendor, idx) => {
@@ -326,12 +341,12 @@ const CostIntelligence = ({ filters }) => {
               const rankClass = rank === 1 ? styles.rankGold : rank === 2 ? styles.rankSilver : styles.rankBase;
               return (
                 <div
-                  key={idx}
+                  key={vendor.vendor_id ?? idx}
                   className={`${styles.vendorCard} ${vendor.is_best ? styles.best : ""}`}
                 >
                   <div className={styles.vendorNameRow}>
                     <span className={`${styles.rankChip} ${rankClass}`}>#{rank}</span>
-                    <div className={styles.vendorName}>
+                    <div className={styles.vendorName} title={vendor.company_name || vendor.vendor_name || undefined}>
                       {vendor.company_name || vendor.vendor_name}
                     </div>
                   </div>
@@ -340,6 +355,9 @@ const CostIntelligence = ({ filters }) => {
                       {formatCurrency(vendor.avg_price)}
                     </span>
                     {vendor.is_best && <span className={styles.bestBadge}>Best</span>}
+                  </div>
+                  <div className={styles.vendorMeta}>
+                    {vendor.quote_count ?? 0} quote{vendor.quote_count === 1 ? "" : "s"}
                   </div>
                 </div>
               );

@@ -33,7 +33,7 @@ export default function TechnicalStage({ rfq, stage }) {
 
   return (
     <div className="rfq-stage-embed">
-      <BuyerTechnicalEvaluation rfqId={String(rfq.id)} embedded />
+      <BuyerTechnicalEvaluation rfqId={String(rfq.id)} rfq={rfq} embedded />
     </div>
   );
 }

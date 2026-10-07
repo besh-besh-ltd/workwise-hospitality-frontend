@@ -771,9 +771,9 @@ const SendQuoteWizard = () => {
   // Export the live pricing calculation to Excel. Driven by the engine response
   // (pricingTotals) so the file matches the on-screen totals exactly, with live
   // formulas seeded from those cached values. See utils/quoteExcel.js.
-  const handleDownloadExcel = useCallback(() => {
+  const handleDownloadExcel = useCallback(async () => {
     try {
-      downloadQuoteExcel({
+      await downloadQuoteExcel({
         rfq,
         products,
         globalCharges,
@@ -1367,10 +1367,28 @@ const SendQuoteWizard = () => {
         // this async handler is not readable again until the next render.
         const fullyAnsweredAtLoad = {};
         const evalable = built.filter((p) => p.has_tech_eval);
+
+        // The negotiation rounds fetch further down depends only on the RFQ id
+        // and the bid deadline, not on anything the tech-eval loads produce —
+        // start it now so it runs alongside them instead of after them. It is
+        // still awaited (and its result applied) at the same point as before.
+        const bidExpiredAtLoad = data.bid_end_date ? checkBidExpired(data.bid_end_date) : false;
+        const activeRoundsPromise = bidExpiredAtLoad
+          ? getAllActiveNegotiationRounds(parseInt(id), token)
+          : null;
+        // Awaited below; this only keeps an early exit from leaving it unhandled.
+        if (activeRoundsPromise) activeRoundsPromise.catch(() => {});
+
         if (evalable.length > 0) {
           setTechLoading(true);
           await Promise.all(
             evalable.map(async (p) => {
+              // The clause rows and the chat-count previews for a product are
+              // independent reads — request both at once (they used to run one
+              // after the other, per product). The preview is still only
+              // applied once the clauses loaded, as before.
+              const previewPromise = fetchDeviationPreviews(p.id, userProfile?.id, token);
+              previewPromise.catch(() => {}); // handled where it is awaited
               try {
                 const respRes = await fetchVendorAgreement({
                   rfq_id: parseInt(id),
@@ -1429,11 +1447,7 @@ const SendQuoteWizard = () => {
                 // Prefetch chat message counts so the per-clause "Chat (N)"
                 // pill renders correctly on first paint.
                 try {
-                  const devRes = await fetchDeviationPreviews(
-                    p.id,
-                    userProfile?.id,
-                    token
-                  );
+                  const devRes = await previewPromise;
                   if (!cancelled && Array.isArray(devRes?.data)) {
                     const counts = {};
                     devRes.data.forEach((m) => {
@@ -1482,7 +1496,9 @@ const SendQuoteWizard = () => {
         if (expired) {
           setNegotiationLoading(true);
           try {
-            const resp = await getAllActiveNegotiationRounds(parseInt(id), token);
+            // Normally already in flight (started above); if the deadline only
+            // passed while the tech-eval loads ran, ask now, as before.
+            const resp = await (activeRoundsPromise || getAllActiveNegotiationRounds(parseInt(id), token));
             const now = new Date();
             const activeRounds = (resp?.data || []).filter((r) => {
               if (r.status !== "ACTIVE" || !r.end_date) return false;

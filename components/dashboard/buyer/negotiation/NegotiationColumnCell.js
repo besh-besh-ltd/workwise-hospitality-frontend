@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Modal, Spinner } from 'react-bootstrap';
-import { getNegotiationRounds } from '@/services/negotiation';
+import { getNegotiationRoundsForProduct } from '@/services/negotiation';
 import moment from 'moment';
 import styles from './NegotiationUI.module.scss';
 
@@ -67,7 +67,10 @@ const NegotiationColumnCell = ({ rfq_id, rfq_product_id, productName, onStatusLo
   const loadNegotiationData = async () => {
     try {
       setLoading(true);
-      const response = await getNegotiationRounds(rfq_id, rfq_product_id, token);
+      // One cell is rendered per product row; every cell mounting together
+      // shares ONE request for the whole RFQ and keeps the rounds covering its
+      // product (same result as the old per-product call).
+      const response = await getNegotiationRoundsForProduct(rfq_id, rfq_product_id, token);
       let roundsList = [];
       if (response) {
         if (response.status === 1 && Array.isArray(response.data)) {

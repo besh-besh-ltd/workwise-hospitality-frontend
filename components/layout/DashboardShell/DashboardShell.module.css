@@ -2339,11 +2339,12 @@
 
 /* ── Phone (≤576px) ─────────────────────────────
    The top bar has to fit a 360-390px screen. The left block drops its
-   fixed 248px desktop width, and the three labelled chips (Business Units,
-   vendor subscription, "Select RFQ") go icon-only; each keeps its
-   aria-label so the meaning isn't lost. The notification popover is
-   anchored to the viewport instead of the bell, which sits ~50px from
-   the right edge and pushed a 343px panel past the left edge. */
+   fixed 248px desktop width, the right cluster may shrink, and the three
+   labelled chips (Business Units, vendor subscription, "Select RFQ") go
+   icon-only; each keeps its aria-label so the meaning isn't lost. The
+   notification popover is anchored to the viewport instead of the bell,
+   which sits ~50px from the right edge and pushed a 343px panel past the
+   left edge. (Supersedes main's narrower ≤480px top-bar rule.) */
 @media (max-width: 576px) {
   .topBar {
     gap: 8px;
@@ -2360,6 +2361,8 @@
 
   .topBarRight {
     gap: 6px;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .topBarLogoImg {

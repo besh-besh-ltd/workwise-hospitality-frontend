@@ -51,7 +51,7 @@ import {
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import { getTechEvalStatus } from "@/services/rfq";
-import { getNegotiationRounds } from "@/services/negotiation";
+import { getNegotiationRoundsByProduct } from "@/services/negotiation";
 import { buildBuyerTechEvalProductSummary } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import NegotiationRoundsModal from "./NegotiationRoundsModal";
 import RfqCopiesModal from "./RfqCopiesModal";
@@ -250,7 +250,7 @@ const ProductCard = ({
   /* ── Commercial negotiation state ──
      finalization_status is a buyer-view string; lowest_quotation.total_price is
      the only ₹ amount on the payload. The negotiation round list (`negRounds`)
-     is fetched per-product by ViewRFQ via getNegotiationRounds — it backs the
+     is fetched once per RFQ by ViewRFQ and split per product — it backs the
      round count, the "finalized by" actor, and the clickable history modal. */
   const finalizationStatus = product?.finalization_status;
   const finalized =
@@ -639,19 +639,33 @@ const ViewRFQ = ({
   // (tender / draft / error) so the OLD two-column body + journey never flash
   // while the new navigator loads — we show a skeleton instead.
   const [lifecycleLoading, setLifecycleLoading] = useState(true);
+  // Fetched ONCE per RFQ id. The id is known from the URL before the RFQ
+  // payload lands, so the request starts immediately; keying on the
+  // normalised id string (not data?.id / data?.is_tender separately) is what
+  // stops the payload's arrival from firing an identical second request.
+  const lifecycleRid = String(data?.id || router.query.id || "");
+  const lifecycleIsTender = Number(data?.is_tender) === 1;
+  const isTenderRef = useRef(lifecycleIsTender);
+  isTenderRef.current = lifecycleIsTender;
   useEffect(() => {
-    const rid = data?.id || router.query.id;
-    if (!rid) return;
+    if (!lifecycleRid) return undefined;
     // Tenders keep the legacy journey (no horizontal lifecycle) — not loading.
-    if (Number(data?.is_tender) === 1) { setLifecycleLoading(false); return; }
+    if (isTenderRef.current) { setLifecycleLoading(false); return undefined; }
     let cancelled = false;
     setLifecycleLoading(true);
-    getRfqLifecycle(rid)
-      .then((res) => { if (!cancelled) setLifecycle(res?.data || null); })
+    getRfqLifecycle(lifecycleRid)
+      .then((res) => { if (!cancelled && !isTenderRef.current) setLifecycle(res?.data || null); })
       .catch(() => { if (!cancelled) setLifecycle(null); })
       .finally(() => { if (!cancelled) setLifecycleLoading(false); });
     return () => { cancelled = true; };
-  }, [data?.id, data?.is_tender, router.query.id]);
+  }, [lifecycleRid]);
+  // The payload can reveal a tender after the fetch above started: drop to the
+  // legacy journey without waiting on (or using) that response.
+  useEffect(() => {
+    if (!lifecycleIsTender) return;
+    setLifecycle(null);
+    setLifecycleLoading(false);
+  }, [lifecycleIsTender]);
 
   // Re-pull the lifecycle after an approve/reject so the timeline, the context
   // strip and the decision card all reflect the new state without a reload.
@@ -829,9 +843,11 @@ const ViewRFQ = ({
   }, [rfqId]);
 
   /* ── Per-product Negotiation rounds ──
-     Fetched eagerly per product so the card's round count + "finalized by"
-     actor are accurate and the history modal opens with data immediately.
-     Buyer view relies on the JWT (no magic-link token). */
+     Fetched eagerly so the card's round count + "finalized by" actor are
+     accurate and the history modal opens with data immediately. ONE request
+     for the whole RFQ, distributed per product with the server's own coverage
+     rule (getNegotiationRoundsByProduct) — it used to be one request per
+     product. Buyer view relies on the JWT (no magic-link token). */
   const [negRoundsByProduct, setNegRoundsByProduct] = useState({});
   const [negLoading, setNegLoading] = useState({});
   const negReqRef = useRef(0);
@@ -853,22 +869,18 @@ const ViewRFQ = ({
     );
 
     (async () => {
-      const results = await Promise.all(
-        products.map(async (p) => {
-          try {
-            const res = await getNegotiationRounds(rfqId, p.id);
-            return { id: p.id, rounds: res?.data || [] };
-          } catch (err) {
-            console.error(`Error fetching negotiation rounds for product ${p.id}:`, err);
-            return { id: p.id, rounds: [] };
-          }
-        }),
-      );
+      const ids = products.map((p) => p.id);
+      let byProduct = {};
+      try {
+        byProduct = await getNegotiationRoundsByProduct(rfqId, ids);
+      } catch (err) {
+        console.error(`Error fetching negotiation rounds for RFQ ${rfqId}:`, err);
+      }
       if (negReqRef.current !== reqId) return; // stale
       const nextRounds = {};
       const nextLoading = {};
-      results.forEach(({ id, rounds }) => {
-        nextRounds[id] = rounds;
+      ids.forEach((id) => {
+        nextRounds[id] = byProduct[id] || [];
         nextLoading[id] = false;
       });
       setNegRoundsByProduct(nextRounds);

@@ -25,7 +25,7 @@ import { getCountryCodes } from "@/services/cms";
 import MediaRender from "@/components/shared/MediaRender";
 import { PiCrownSimpleFill } from "react-icons/pi";
 import { BiFile, BiLinkExternal, BiDownload } from "react-icons/bi";
-import * as XLSX from "xlsx";
+import { loadXlsx } from "@/utils/xlsx";
 
 
 const VendorProfile = () => {
@@ -147,7 +147,7 @@ useEffect(() => {
     }
   };
 
-  const handleDownloadVendorData = () => {
+  const handleDownloadVendorData = async () => {
     if (!vendorDetails) return;
 
     const docByType = (type) =>
@@ -193,6 +193,7 @@ useEffect(() => {
       ["Cancelled Cheque", chequeDoc?.document_url || ""],
     ];
 
+    const XLSX = await loadXlsx();
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [{ wch: 32 }, { wch: 70 }];
 

@@ -19,10 +19,18 @@ import {
 } from "@/services/Notifications";
 import { navigateToNotification } from "@/utils/notificationNavigation";
 import useNotificationStream from "@/hooks/useNotificationStream";
+import usePolling from "@/hooks/usePolling";
+import { useRealtimeConnected } from "@/hooks/useRealtime";
 import VendorSubscriptionPill from "./VendorSubscriptionPill";
 import styles from "./DashboardShell.module.css";
 
-const NOTIF_POLL_MS = 30 * 1000;
+// While the socket is up, `notification:new` drives the badge live and the
+// poll is only a safety net. When the socket is down, the poll is the only
+// signal, so it runs twice as often. Both pause in hidden tabs. This was a
+// flat 30 s poll that also fired twice on every tab switch (focus +
+// visibilitychange): 9.4k calls/day. Policy: hooks/usePolling.js.
+export const NOTIF_POLL_MS_LIVE = 120 * 1000;
+export const NOTIF_POLL_MS_OFFLINE = 60 * 1000;
 
 const formatNotifTime = (iso) => {
   if (!iso) return "";
@@ -104,21 +112,13 @@ const TopBar = ({
     }
   }, [isLoggedIn]);
 
-  useEffect(() => {
-    if (!isLoggedIn()) return;
-    refreshNotifCount();
-    const id = setInterval(refreshNotifCount, NOTIF_POLL_MS);
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshNotifCount();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", refreshNotifCount);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", refreshNotifCount);
-    };
-  }, [refreshNotifCount, isLoggedIn]);
+  // Mount fetch, then the poll. usePolling refetches ONCE on tab return
+  // (visibilitychange only) and makes no calls while the tab is hidden.
+  const socketConnected = useRealtimeConnected();
+  usePolling(refreshNotifCount, {
+    interval: socketConnected ? NOTIF_POLL_MS_LIVE : NOTIF_POLL_MS_OFFLINE,
+    enabled: isLoggedIn(),
+  });
 
   // Live delivery, layered over the poll above rather than replacing it. The
   // socket is only a signal: we refetch instead of trusting the payload, so a

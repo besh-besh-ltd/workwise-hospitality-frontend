@@ -32,14 +32,19 @@ import { summariseEvaluationProgress } from "@/utils/techEvalScoring";
 // `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
 // page, locked to one RFQ: the RFQ-list sidebar, the page chrome and the RFQ
 // hero are all suppressed, and the id comes from the prop instead of the URL.
-const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
+// `rfq` (embedded only) is the host page's already-loaded RFQ payload
+// (getRFQById with includeVendors — a superset of what this page reads); when it
+// matches `rfqId` it is used instead of fetching the same RFQ again.
+const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, embedded: isEmbedded = false } = {}) => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
   const reduxUserProfile = useSelector((state) => state.userProfile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rfq_id, setRfqId] = useState((isEmbedded ? rfqIdProp : router.query.rfq_id) || null);
-  const targetProdId = router.query.prod_id || null; // rfq_product_id from URL to auto-expand & highlight
+  // rfq_product_id from URL to auto-expand & highlight. `product_id` is accepted
+  // as an alias: older dashboard widgets emitted it, and the row stayed shut.
+  const targetProdId = router.query.prod_id || router.query.product_id || null;
   const activeRfqRef = useRef(rfq_id); // Track active rfq_id to prevent stale updates
   const [loading, setLoading] = useState(false); // sidebar RFQ list loading only
   const [contentLoading, setContentLoading] = useState(false); // right section loading
@@ -289,7 +294,10 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = fal
       setClauseInfo(null); // Clear previous evaluation data immediately
       setExpandedProducts(new Set());
       setProductEvaluationStatus(new Map());
-      const rfqDetailsRes = await getRFQById(rfq_id);
+      const preloaded = isEmbedded && preloadedRfq && String(preloadedRfq.id) === String(rfq_id)
+        ? preloadedRfq
+        : null;
+      const rfqDetailsRes = preloaded ? { data: preloaded } : await getRFQById(rfq_id);
 
       // Stale check — if user clicked another RFQ while this was loading, discard
       if (activeRfqRef.current !== requestId) return;

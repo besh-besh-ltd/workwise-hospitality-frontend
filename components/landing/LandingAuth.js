@@ -3,8 +3,14 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useSelector, useDispatch } from 'react-redux';
-import RegisterUserModal from '../modal/RegisterUserModal';
-import AuthModal from '../modal/AuthModal';
+import dynamic from 'next/dynamic';
+// The login and registration modals carry formik + yup; split them out of the
+// landing page's first-load JS. They start loading as soon as LandingAuth
+// mounts (they are always rendered, hidden), so they are ready long before a
+// click. The landing page is client-rendered (PersistGate), so ssr:false
+// changes nothing on the server.
+const RegisterUserModal = dynamic(() => import('../modal/RegisterUserModal'), { ssr: false });
+const AuthModal = dynamic(() => import('../modal/AuthModal'), { ssr: false });
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import MembershipInfoModal from '../modal/MembershipInfoModal';
 import PostPaymentFlow from '../register/PostPaymentFlow';

@@ -93,7 +93,7 @@
    keeps its shape while the request resolves. */
 .skel {
   display: block;
-  background: linear-gradient(90deg, #f4f4f1 25%, #ededea 37%, #f4f4f1 63%);
+  background: linear-gradient(90deg, #ebebe6 25%, #dededa 37%, #ebebe6 63%);
   background-size: 400% 100%;
   animation: pmShimmer 1.4s ease infinite;
   border-radius: 6px;
@@ -101,6 +101,25 @@
 @keyframes pmShimmer {
   0%   { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
+}
+.loadingNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px 12px;
+  font-size: 13px;
+  color: #52525b;
+}
+.loadingSpinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #d4d4d8;
+  border-top-color: #2563eb;
+  animation: pmSpin 0.8s linear infinite;
+}
+@keyframes pmSpin {
+  to { transform: rotate(360deg); }
 }
 .itemSkel {
   display: flex;
@@ -117,6 +136,7 @@
 }
 .emptyTitle { font-size: 14px; font-weight: 600; color: #3f3f46; }
 .emptyHint  { margin-top: 4px; font-size: 12.5px; color: #a1a1aa; }
+.retryLink  { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 600; color: #2563eb; text-decoration: underline; cursor: pointer; }
 
 .group {
   &:not(:last-child) { margin-bottom: 18px; }
@@ -244,4 +264,5 @@
   .modal { animation: none; }
   .reviewBtn svg { transition: none; }
   .skel { animation: none; }
+  .loadingSpinner { animation: none; }
 }

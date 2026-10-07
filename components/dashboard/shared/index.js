@@ -22,6 +22,10 @@ export {
 
 export { default as surfaceStyles } from "./DashboardSurface.module.scss";
 
-/* Dashboard live-refresh cadence. Client asked for ~10s updates (Sr 232).
- * Single source of truth so every widget + PersonaCard stay in sync. */
-export const DASHBOARD_POLL_MS = 10000;
+/* Dashboard refresh cadence lives with the shared data hook: queue widgets
+ * poll every 5 min while the tab is visible (portal policy, hooks/usePolling.js)
+ * and refetch on tab return; analytics never poll. */
+export {
+  DASHBOARD_QUEUE_POLL_MS,
+  DASHBOARD_QUEUE_POLL_MS as DASHBOARD_POLL_MS,
+} from "@/hooks/useDashboardQuery";

@@ -48,6 +48,14 @@ const STATUS_TABS = [
   { key: "rejected", label: "Rejected", count: "rejected" },
 ];
 
+/* Deep-link params → initial list state; null when there is nothing to apply. */
+export const parsePoListDeepLink = (q = {}) => {
+  const status = STATUS_TABS.some((t) => t.key === q.status) ? q.status : null;
+  const search = typeof q.search === "string" ? q.search.trim() : "";
+  if (!status && !search) return null;
+  return { status, search };
+};
+
 const PODashboard = () => {
   const router = useRouter();
   const userProfile = useSelector((state) => state.userProfile);
@@ -95,6 +103,21 @@ const PODashboard = () => {
     }),
     [activeTab, debouncedSearch, vendorId, dateRange.from, dateRange.to]
   );
+
+  // Deep links (components/dashboard/shared/dashboardLinks.js):
+  //   ?status=all|action-required|draft|approved|rejected  ?search=
+  // Applied once per distinct set of params so the user's own clicks stick.
+  const deepLinkApplied = useRef(null);
+  useEffect(() => {
+    if (!router?.isReady) return;
+    const link = parsePoListDeepLink(router.query);
+    if (!link) return;
+    const key = JSON.stringify(link);
+    if (deepLinkApplied.current === key) return;
+    deepLinkApplied.current = key;
+    if (link.status) setActiveTab(link.status);
+    if (link.search) setSearch(link.search);
+  }, [router?.isReady, router?.query]);
 
   // Debounce the search box.
   useEffect(() => {

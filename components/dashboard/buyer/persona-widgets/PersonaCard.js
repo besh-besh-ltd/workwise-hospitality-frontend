@@ -2,26 +2,38 @@
    PersonaCard — shared shell for role-targeted dashboard widgets
    ──────────────────────────────────────────────────────────── */
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import InfoTip from "@/components/shared/InfoTip";
-import { DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./PersonaCard.module.scss";
-import { getApiErrorMessage } from "@/utils/apiError";
 
-const DEFAULT_POLL_MS = DASHBOARD_POLL_MS;
+/* Inline notice rendered above still-valid content when the latest refresh
+   failed: the numbers stay on screen, the user is told they may be old. */
+export const StaleNotice = ({ onRetry }) => (
+  <div className={styles.staleBar} role="status">
+    <AlertCircle size={12} />
+    <span>Couldn't refresh — showing the last loaded figures.</span>
+    {onRetry && (
+      <button type="button" className={styles.staleRetry} onClick={onRetry}>
+        Retry
+      </button>
+    )}
+  </div>
+);
 
 /**
- * Common layout for persona widgets — title bar, polling, loading,
+ * Common layout for persona widgets — title bar, data lifecycle, loading,
  * error and empty handling. Children render the actual data view.
  *
  * Props:
  *   title          string                — card title (required)
  *   icon           component             — Lucide icon
  *   tooltip        string                — explanatory tooltip
- *   filters        object                — passed straight to fetcher
- *   fetcher        (filters) => Promise  — service method returning {data}
- *   pollMs         number                — poll interval, default 20s
+ *   filters        object                — page filters (hotel_ids, dates, _refresh)
+ *   fetcher        (params, {signal}) => Promise — service method returning {data}
+ *   poll           boolean               — queue widget: refresh every 5 min while visible, and on tab return.
+ *                                          Analytics widgets leave this off.
  *   children       (data, ctx) => node   — render-prop receives engine data
  *   renderEmpty    ({onRetry}) => node   — optional empty-state override
  *   actions        node                  — top-right action node (e.g. link)
@@ -33,7 +45,8 @@ const PersonaCard = ({
   tooltip,
   filters,
   fetcher,
-  pollMs = DEFAULT_POLL_MS,
+  poll = false,
+  pollMs,
   children,
   renderEmpty,
   actions,
@@ -42,50 +55,18 @@ const PersonaCard = ({
   isEmpty,
   skeleton,
 }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const fetchIdRef = useRef(0);
-
-  const fetchData = useCallback(async () => {
-    const id = ++fetchIdRef.current;
-    setError(null);
-    try {
-      const response = await fetcher(filters);
-      if (fetchIdRef.current !== id) return; // stale
-      const payload = response?.data?.data ?? response?.data ?? response ?? null;
-      setData(payload);
-    } catch (err) {
-      if (fetchIdRef.current !== id) return;
-      setError(getApiErrorMessage(err, "Failed to load"));
-      setData(null);
-    } finally {
-      if (fetchIdRef.current === id) {
-        setLoading(false);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher, JSON.stringify(filters || {})]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    if (!pollMs) return undefined;
-    const t = setInterval(() => fetchData(), pollMs);
-    return () => clearInterval(t);
-  }, [fetchData, pollMs]);
-
+  const { data, loading, error, stale, refetch } = useDashboardQuery(fetcher, filters, {
+    poll,
+    ...(pollMs ? { pollMs } : {}),
+  });
   const handleRetry = () => {
-    setLoading(true);
-    fetchData();
+    refetch();
   };
 
   // Empty check — caller may override via isEmpty(data) or via renderEmpty.
+  const showError = Boolean(error) && !stale;
   const dataIsEmpty = (() => {
-    if (loading || error) return false;
+    if (loading || showError) return false;
     if (typeof isEmpty === "function") return isEmpty(data);
     if (data == null) return true;
     if (Array.isArray(data) && data.length === 0) return true;
@@ -134,8 +115,8 @@ const PersonaCard = ({
           )
         )}
 
-        {!loading && error && (
-          <div className={styles.errorState}>
+        {!loading && showError && (
+          <div className={styles.errorState} role="alert">
             <AlertCircle size={14} />
             <span>{error}</span>
             <button
@@ -148,13 +129,15 @@ const PersonaCard = ({
           </div>
         )}
 
-        {!loading && !error && dataIsEmpty && (
+        {!loading && stale && <StaleNotice onRetry={handleRetry} />}
+
+        {!loading && !showError && dataIsEmpty && (
           renderEmpty ? renderEmpty({ onRetry: handleRetry }) : (
             <div className={styles.emptyState}>Nothing to show right now.</div>
           )
         )}
 
-        {!loading && !error && !dataIsEmpty && (
+        {!loading && !showError && !dataIsEmpty && (
           typeof children === "function" ? children(data, { onRetry: handleRetry }) : children
         )}
       </div>
@@ -181,6 +164,7 @@ export const PersonaCardShell = ({
   onRefresh,
   loading = false,
   error = null,
+  stale = false,
   isEmpty = false,
   renderEmpty,
   children,
@@ -228,8 +212,8 @@ export const PersonaCardShell = ({
             </div>
           )
         )}
-        {!loading && error && (
-          <div className={styles.errorState}>
+        {!loading && error && !stale && (
+          <div className={styles.errorState} role="alert">
             <AlertCircle size={14} />
             <span>{error}</span>
             {onRefresh && (
@@ -239,12 +223,13 @@ export const PersonaCardShell = ({
             )}
           </div>
         )}
-        {!loading && !error && isEmpty && (
+        {!loading && stale && <StaleNotice onRetry={onRefresh} />}
+        {!loading && (!error || stale) && isEmpty && (
           renderEmpty ? renderEmpty() : (
             <div className={styles.emptyState}>Nothing to show right now.</div>
           )
         )}
-        {!loading && !error && !isEmpty && children}
+        {!loading && (!error || stale) && !isEmpty && children}
       </div>
       {foot && <div className={styles.foot}>{foot}</div>}
     </div>

@@ -51,6 +51,9 @@ import styles, {
   fmtMaybeDate,
   escapeHtml,
   Sk,
+  lineGstAmount,
+  lineAmount,
+  previewLineFromPoItem,
 } from "./shared";
 
 const PO_ROUTE = "/dashboard/buyer/purchase-orders";
@@ -368,6 +371,12 @@ const PODetail = ({ id }) => {
     // asks about the PO's department too — a grant scoped to some other
     // department is not a grant on this PO.
     departmentId: po?.department_id ?? null,
+    // Ask once, about the right scope: wait until the PO is known (or its
+    // fetch has failed, which leaves the viewer-mapping fallback). Asking
+    // during the load sent a permissions/bulk for the viewer's hotels and then
+    // a second one for the PO's hotel the moment it arrived. This still runs
+    // alongside the pricing preview — setPo lands before that request.
+    enabled: !!po || !loading,
   });
   // Same predicate as the legacy listing page (PurchaseOrders.js), deliberately:
   // two pages offering the same action must not disagree about who may take it.
@@ -404,13 +413,7 @@ const PODetail = ({ id }) => {
               ? (() => { try { return JSON.parse(rawGlobal); } catch (_) { return []; } })()
               : []);
         const prev = await previewTotals({
-          items: (data.items || []).map((it) => ({
-            unit_price: it.unit_price,
-            quantity: it.quantity,
-            tax: it.gst ?? 0,
-            tax_mode: "percentage",
-            other_charges: it.charges_meta?.other_charges || [],
-          })),
+          items: (data.items || []).map(previewLineFromPoItem),
           global_charges: globalCharges,
         });
         setPreview(prev?.data || prev);
@@ -622,7 +625,7 @@ const PODetail = ({ id }) => {
 
   const freightInsurance = (Number(pricing.freight) || 0) + (Number(pricing.insurance) || 0);
 
-  const itemAmount = (it) => it.quantity * it.unit_price * (1 + (it.gst || 0) / 100);
+  const itemAmount = lineAmount;
 
   // All breakdown values come from the pricing/preview response — no client math.
   const previewLines = preview?.lines || null;
@@ -646,10 +649,7 @@ const PODetail = ({ id }) => {
     : items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
   const totalLineTax = previewLines
     ? previewLines.reduce((s, l) => s + (l.base_tax || 0), 0)
-    : items.reduce(
-        (s, it) => s + ((Number(it.quantity) || 0) * (Number(it.unit_price) || 0) * (Number(it.gst) || 0)) / 100,
-        0
-      );
+    : items.reduce((s, it) => s + lineGstAmount(it), 0);
   const totalQty = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
 
   // A quantity sum only carries a unit when every line shares it — "58 kg + 4
@@ -1086,7 +1086,7 @@ const PODetail = ({ id }) => {
                     <td className="num" data-label="Unit price">{inr(it.unit_price)}</td>
                     <td className="num" data-label="GST">
                       {it.gst != null
-                        ? `${it.gst}% (${inr((it.quantity * it.unit_price * it.gst) / 100)})`
+                        ? `${it.gst}% (${inr(lineGstAmount(it))})`
                         : "—"}
                     </td>
                     <td className={`num ${styles.itAmountCell}`} data-label="Amount" style={{ fontWeight: 600 }}>
