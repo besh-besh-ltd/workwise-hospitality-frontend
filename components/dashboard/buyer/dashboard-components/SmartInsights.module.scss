@@ -31,6 +31,7 @@
   }
 
   &.price_alert::before        { background: #dc2626; }
+  &.benchmark_alert::before    { background: #b45309; }
   &.vendor_optimization::before{ background: #15803d; }
   &.spend_trend::before        { background: #2563eb; }
   &.general::before            { background: #a1a1aa; }
@@ -88,6 +89,7 @@
   line-height: 1.25;
 
   .price_alert &        { background: #fee2e2; color: #b91c1c; }
+  .benchmark_alert &    { background: #fef3c7; color: #92400e; }
   .vendor_optimization &{ background: #dcfce7; color: #166534; }
   .spend_trend &        { background: #dbeafe; color: #1d4ed8; }
   .general &            { background: #f4f4f5; color: #52525b; }
@@ -131,4 +133,17 @@
   font-size: 12.5px;
   color: #a1a1aa;
   font-style: italic;
+}
+
+/* Label/value pairs under the description (e.g. Best paid · Latest). */
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #71717a;
+
+  dt { display: inline; font-weight: 500; }
+  dd { display: inline; margin: 0 0 0 4px; color: #18181b; font-family: 'Geist Mono', ui-monospace, monospace; }
 }

@@ -1,17 +1,19 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React from "react";
 import { AlertTriangle, Workflow } from "lucide-react";
 import { getWorkflowEfficiency } from "@/services/dashboard";
 import { PersonaCardShell } from "../persona-widgets/PersonaCard";
-import { SkeletonKpiGrid, DASHBOARD_POLL_MS } from "@/components/dashboard/shared";
-import usePolling from "@/hooks/usePolling";
+import { SkeletonKpiGrid } from "@/components/dashboard/shared";
+import useDashboardQuery from "@/hooks/useDashboardQuery";
 import styles from "./WorkflowEfficiency.module.scss";
 
-const formatDwellTime = (hours) => {
-  if (!hours || hours === 0) return "0h";
-  if (hours < 1) return `${Math.round(hours * 60)}m`;
-  if (hours < 24) return `${parseFloat(hours).toFixed(1)}h`;
-  const days = hours / 24;
-  return `${parseFloat(days).toFixed(1)}d`;
+export const formatDwellTime = (hours) => {
+  if (hours === null || hours === undefined) return "—";
+  const h = Number(hours);
+  if (!Number.isFinite(h)) return "—";
+  if (h === 0) return "0h";
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+  if (h < 24) return `${h.toFixed(1)}h`;
+  return `${(h / 24).toFixed(1)}d`;
 };
 
 const LIFECYCLE_STAGES = [
@@ -26,38 +28,19 @@ const LIFECYCLE_STAGES = [
   { key: "vendor_action", label: "Vendor action" },
 ];
 
+const plural = (n, one, many = `${one}s`) => (Number(n) === 1 ? one : many);
+
+/**
+ * Stage turnaround — for RFQs created in the period, the typical (median) time
+ * each stage took, with the 90th percentile and how many RFQs it's based on.
+ * Cancelled and rejected approvals are excluded; decisions made within a minute
+ * are reported separately as "instant" so they don't flatter the median.
+ */
 const WorkflowEfficiency = ({ filters }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, error, stale, refetch } = useDashboardQuery(getWorkflowEfficiency, filters);
 
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await getWorkflowEfficiency(filters);
-      setData(res.data);
-    } catch (e) {
-      setError(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  // Filter / manual-refresh change: show the skeleton. usePolling below then
-  // fetches immediately and restarts the 5 min cadence (paused while hidden,
-  // one refetch on tab return).
-  useEffect(() => {
-    setLoading(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh]);
-  usePolling(fetchData, {
-    interval: DASHBOARD_POLL_MS,
-    resetKey: [filters.hotel_ids, filters.start_date, filters.end_date, filters._refresh],
-  });
-
-  const rawStages = data?.stages || [];
   const stageMap = {};
-  rawStages.forEach((s) => { stageMap[s.stage_name] = s; });
+  (data?.stages || []).forEach((s) => { stageMap[s.stage_name] = s; });
 
   const lifecycleStages = LIFECYCLE_STAGES
     .filter((lc) => stageMap[lc.key])
@@ -66,45 +49,45 @@ const WorkflowEfficiency = ({ filters }) => {
       return {
         key: lc.key,
         label: lc.label,
-        avg_dwell_time_hours: s.avg_dwell_time_hours || 0,
+        median_hours: s.median_hours ?? null,
+        p90_hours: s.p90_hours ?? null,
         rfq_count: s.rfq_count || 0,
+        instant_count: s.instant_count || 0,
       };
     });
 
-  const maxHours = Math.max(...lifecycleStages.map((s) => s.avg_dwell_time_hours), 1);
+  const maxHours = Math.max(...lifecycleStages.map((s) => s.median_hours || 0), 1);
   const bottleneckIdx = lifecycleStages.length > 0
     ? lifecycleStages.reduce((maxIdx, s, i, arr) =>
-        s.avg_dwell_time_hours > arr[maxIdx].avg_dwell_time_hours ? i : maxIdx, 0)
+        (s.median_hours || 0) > (arr[maxIdx].median_hours || 0) ? i : maxIdx, 0)
     : -1;
   return (
     <PersonaCardShell
-      title="Efficiency funnel"
+      title="Stage turnaround"
       icon={Workflow}
-      tooltip="Average time spent at each workflow stage. Bottleneck stage is highlighted."
+      tooltip="For RFQs created in the period: the median time each stage took (half took less), with the 90th percentile. Cancelled and rejected approvals are excluded; the longest stage is highlighted."
       loading={loading}
       error={error}
+      stale={stale}
       isEmpty={lifecycleStages.length === 0}
       skeleton={<SkeletonKpiGrid count={5} />}
       renderEmpty={() => (
         <div className={styles.emptyState}>
-          No workflow data available for the selected period.
+          No completed stages for RFQs created in the selected period.
         </div>
       )}
-      onRefresh={() => {
-        setLoading(true);
-        fetchData();
-      }}
+      onRefresh={refetch}
     >
       <div className={styles.stageList}>
         {lifecycleStages.map((stage, index) => {
-          const isBottleneck = index === bottleneckIdx && stage.avg_dwell_time_hours > 0;
-          const pct = Math.max((stage.avg_dwell_time_hours / maxHours) * 100, 4);
+          const isBottleneck = index === bottleneckIdx && (stage.median_hours || 0) > 0;
+          const pct = Math.max(((stage.median_hours || 0) / maxHours) * 100, 4);
           return (
             <div key={stage.key} className={styles.stageItem}>
               <div className={styles.stageHeader}>
                 <span className={styles.stageName}>{stage.label}</span>
                 <span className={`${styles.stageTime} ${isBottleneck ? styles.bottleneck : ""}`}>
-                  {formatDwellTime(stage.avg_dwell_time_hours)}
+                  {formatDwellTime(stage.median_hours)}
                 </span>
               </div>
               <div className={styles.progressTrack}>
@@ -112,6 +95,10 @@ const WorkflowEfficiency = ({ filters }) => {
                   className={`${styles.progressFill} ${isBottleneck ? styles.bottleneck : ""}`}
                   style={{ width: `${pct}%` }}
                 />
+              </div>
+              <div className={styles.stageMeta}>
+                P90 {formatDwellTime(stage.p90_hours)} · {stage.rfq_count} {plural(stage.rfq_count, "RFQ")}
+                {stage.instant_count > 0 ? ` · ${stage.instant_count} instant` : ""}
               </div>
               {isBottleneck && (
                 <div className={styles.bottleneckWarning}>

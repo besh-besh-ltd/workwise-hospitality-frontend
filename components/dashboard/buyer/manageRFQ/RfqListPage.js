@@ -277,6 +277,28 @@ function FilterSkeleton() {
   );
 }
 
+/* ─── deep-link params → initial list state ─── */
+// Returns null when the URL carries no list filter (plain navigation keeps the
+// FY-default view). Unknown tabs / status keys are dropped, never sent.
+const csv = (v) => (Array.isArray(v) ? v.join(",") : typeof v === "string" ? v : "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+export function parseRfqListDeepLink(q = {}) {
+  const tabKeys = TABS.map((t) => t.key);
+  let status = csv(q.status).filter((s) => STATUS_META[s]);
+  if (q.ended_no_quotes === "1" && !status.includes("RFQ_STUCK_COMMERCIAL")) status = [...status, "RFQ_STUCK_COMMERCIAL"];
+  const tab = tabKeys.includes(q.tab) ? q.tab : "all";
+  const bu = csv(q.bu).filter((s) => /^\d+$/.test(s));
+  const search = typeof q.search === "string" ? q.search.trim() : "";
+  const sort = ["recent", "oldest", "deadline"].includes(q.sort) ? q.sort : null;
+  // ?mine=1 — only RFQs the signed-in user created (list-view `filters.mine`).
+  const mine = q.mine === "1" || q.mine === "true";
+  // ?disagreements=1 — only RFQs where a vendor disagreed with a technical
+  // clause (list-view `filters.vendor_disagreement`).
+  const disagreements = q.disagreements === "1" || q.disagreements === "true";
+  if (!tabKeys.includes(q.tab) && !status.length && !bu.length && !search && !sort && !mine && !disagreements) return null;
+  return { tab, status, bu, search, sort, mine, disagreements };
+}
+
 /* ─── main page ─── */
 export default function RfqListPage() {
   const router = useRouter();
@@ -294,25 +316,42 @@ export default function RfqListPage() {
   const [cloneRfq, setCloneRfq] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
-  // Guard: apply deep-link params only once (on first ready router state).
-  const deepLinkApplied = useRef(false);
+  // Guard: apply each distinct set of deep-link params once. Keyed on the
+  // params themselves (not a boolean) so a second dashboard link opened while
+  // this page is mounted still applies, but ordinary re-renders don't reset
+  // the user's own filter changes.
+  const deepLinkApplied = useRef(null);
+  // The first list request waits until the URL has been read, so a deep link
+  // fetches once with its own filters instead of first with the FY default.
+  const [routeResolved, setRouteResolved] = useState(false);
+  // Key of the last request sent — identical query states are not re-fetched.
+  const lastRequestKey = useRef(null);
 
-  // One-shot effect: if the URL carries ?ended_no_quotes=1 (from the Wisely
-  // banner) or ?status=RFQ_STUCK_COMMERCIAL, pre-select the "Ended · No Quotes"
-  // filter so the list opens pre-filtered to match the banner count.
-  // Guarded by deepLinkApplied so it only runs once even if router re-renders.
+  // Deep links (built by components/dashboard/shared/dashboardLinks.js):
+  //   ?tab=<TABS key>  ?status=KEY[,KEY]  ?bu=<hotelId>[,…]  ?search=  ?sort=  ?mine=1
+  // plus the legacy ?ended_no_quotes=1 from the Wisely banner. Any deep link is
+  // action-oriented, so it opens across all financial years (a queue must not
+  // hide older items behind the current-FY default) and syncs the FY display.
   useEffect(() => {
-    if (!router.isReady || deepLinkApplied.current) return;
-    deepLinkApplied.current = true;
-    const q = router.query;
-    if (q.ended_no_quotes === "1" || q.status === "RFQ_STUCK_COMMERCIAL") {
-      setTab("all");
-      // Action-oriented deep link: show stuck RFQs across all years (don't hide
-      // older ones behind the current-FY default), and sync the FY display.
-      setFilters({ ...EMPTY_FILTERS, status: ["RFQ_STUCK_COMMERCIAL"] });
-      setFy({ mode: "none", fy: "", from: "", to: "" });
-      setPage(1);
-    }
+    if (!router.isReady) return;
+    setRouteResolved(true);
+    const link = parseRfqListDeepLink(router.query);
+    if (!link) return;
+    const key = JSON.stringify(link);
+    if (deepLinkApplied.current === key) return;
+    deepLinkApplied.current = key;
+    setTab(link.tab);
+    setFilters({
+      ...EMPTY_FILTERS,
+      status: link.status,
+      buId: link.bu,
+      ...(link.mine ? { mine: true } : {}),
+      ...(link.disagreements ? { vendor_disagreement: true } : {}),
+    });
+    setFy({ mode: "none", fy: "", from: "", to: "" });
+    if (link.search) { setSearch(link.search); setDebounced(link.search); }
+    if (link.sort) setSort(link.sort);
+    setPage(1);
   }, [router.isReady, router.query]);
 
   // Debounce the search box.
@@ -323,9 +362,14 @@ export default function RfqListPage() {
 
   // Fetch whenever any query input changes (server is authoritative).
   useEffect(() => {
+    if (!routeResolved) return;
+    const payload = { tab, search: debounced, sort, filters, page, limit: 20 };
+    const key = JSON.stringify([payload, reloadKey]);
+    if (lastRequestKey.current === key) return;
+    lastRequestKey.current = key;
     const id = ++seq.current;
     setLoading(true);
-    getRfqListView({ tab, search: debounced, sort, filters, page, limit: 20 })
+    getRfqListView(payload)
       .then((res) => {
         if (id !== seq.current) return;
         const d = res?.data || {};
@@ -339,7 +383,7 @@ export default function RfqListPage() {
       })
       .catch(() => { if (id === seq.current) setResp({ rows: [], facets: {}, tab_counts: {}, total: 0, limit: 20 }); })
       .finally(() => { if (id === seq.current) setLoading(false); });
-  }, [tab, debounced, sort, filters, page, reloadKey]);
+  }, [routeResolved, tab, debounced, sort, filters, page, reloadKey]);
 
   const toggle = (group, key) => {
     setPage(1);
@@ -350,7 +394,7 @@ export default function RfqListPage() {
   };
   const resetAll = () => { setFilters(DEFAULT_FILTERS); setFy(defaultFyState()); setSearch(""); setPage(1); };
   const activeCount = useMemo(
-    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0),
+    () => Object.entries(filters).reduce((n, [, v]) => n + (Array.isArray(v) ? v.length : 0), 0) + (filters.dateFrom || filters.dateTo ? 1 : 0) + (filters.mine ? 1 : 0) + (filters.vendor_disagreement ? 1 : 0),
     [filters]
   );
   function applyFy(next) {
@@ -441,13 +485,27 @@ export default function RfqListPage() {
             </div>
           </div>
 
-          {(filters.dateFrom || filters.dateTo) && (
+          {(filters.dateFrom || filters.dateTo || filters.mine || filters.vendor_disagreement) && (
             <div className="active-filters">
               <span className="af-label">Filters</span>
-              <span className="af-chip">
-                <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
-                <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
-              </span>
+              {filters.mine && (
+                <span className="af-chip">
+                  <span>Created by me</span>
+                  <button type="button" className="x-btn" onClick={() => { setFilters((prev) => { const next = { ...prev }; delete next.mine; return next; }); setPage(1); }} aria-label="Remove created by me">×</button>
+                </span>
+              )}
+              {filters.vendor_disagreement && (
+                <span className="af-chip">
+                  <span>Vendor disagreements</span>
+                  <button type="button" className="x-btn" onClick={() => { setFilters((prev) => { const next = { ...prev }; delete next.vendor_disagreement; return next; }); setPage(1); }} aria-label="Remove vendor disagreements">×</button>
+                </span>
+              )}
+              {(filters.dateFrom || filters.dateTo) && (
+                <span className="af-chip">
+                  <span>{fy.mode === "fy" ? "FY " + fy.fy : "Created: " + (filters.dateFrom || "…") + " → " + (filters.dateTo || "…")}</span>
+                  <button type="button" className="x-btn" onClick={() => applyFy({ mode: "none", fy: "", from: "", to: "" })} aria-label="Remove">×</button>
+                </span>
+              )}
             </div>
           )}
 

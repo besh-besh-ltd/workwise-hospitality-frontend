@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HiPlus } from "react-icons/hi";
 import { BsBuilding, BsSearch } from "react-icons/bs";
 import styles from "./HospitalityManager.module.css";
+import MobileDrawerClose, { useEscapeToClose } from "@/components/shared/MobileDrawerClose";
 
 const CompanyListSidebar = ({
   companies,
@@ -15,6 +16,7 @@ const CompanyListSidebar = ({
 }) => {
   const [search, setSearch] = useState("");
   const isMobileDrawer = typeof mobileOpen === "boolean";
+  useEscapeToClose(isMobileDrawer && mobileOpen, onMobileClose);
 
   const filtered = search.trim()
     ? companies.filter((c) =>
@@ -32,6 +34,7 @@ const CompanyListSidebar = ({
         <div className={styles.companySidebarOverlay} onClick={onMobileClose} />
       )}
       <div className={`${styles.companySidebar} ${isMobileDrawer ? styles.companySidebarMobile : ""} ${isMobileDrawer && mobileOpen ? styles.companySidebarMobileOpen : ""}`}>
+      {isMobileDrawer && mobileOpen && onMobileClose && <MobileDrawerClose onClose={onMobileClose} />}
       {/* Search */}
       <div className={styles.companySidebarSearch}>
         <BsSearch size={13} className={styles.companySidebarSearchIcon} />

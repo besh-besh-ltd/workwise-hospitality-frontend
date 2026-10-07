@@ -75,6 +75,9 @@ describe("DashboardPermissionsProvider + hooks", () => {
     getDashboardPermissions.mockResolvedValue([
       "action_center",
       "my_drafts",
+      "approval_turnaround",
+      // A code cut in catalogue v1 that a stale backend might still return —
+      // it has no registry entry, so it must never render.
       "tech_eval_throughput",
     ]);
     await act(async () => {
@@ -90,9 +93,10 @@ describe("DashboardPermissionsProvider + hooks", () => {
       expect.arrayContaining([
         "dashboard.action_center",
         "dashboard.my_drafts",
-        "dashboard.tech_eval_throughput",
+        "dashboard.approval_turnaround",
       ])
     );
+    expect(codes).not.toContain("dashboard.tech_eval_throughput");
     // Should not include codes the user doesn't have
     expect(codes).not.toContain("dashboard.negotiation_savings");
   });

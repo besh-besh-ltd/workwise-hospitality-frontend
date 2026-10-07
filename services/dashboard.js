@@ -1,187 +1,98 @@
 import axiosInstance from "@/lib/axios";
 
-export const getActionCenterData = (params) => {
-  return new Promise(async (resolve, reject) => {
+/* Every buyer-dashboard endpoint is a GET against /dashboard-v2/<path> with
+ * `?hotel_ids&start_date&end_date` (+ widget-local params). The second
+ * argument carries an AbortSignal so superseded requests are cancelled
+ * (hooks/useDashboardQuery). A cancelled call rejects with `canceled: true`. */
+const dashGet = (path) => (params, { signal } = {}) =>
+  new Promise(async (resolve, reject) => {
     try {
-      const response = await axiosInstance.get('/dashboard-v2/action-center', { params });
+      const response = await axiosInstance.get(`/dashboard-v2/${path}`, { params, signal });
       resolve(response);
     } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
+      const canceled = error?.name === "CanceledError" || error?.code === "ERR_CANCELED";
+      // Keep the transport facts (status, network) so the dashboard can show
+      // plain copy; `detail` is the raw axios text, for the console only.
+      reject({
+        message: error?.response?.data?.message || null,
+        status: error?.response?.status || null,
+        network: !error?.response && !canceled,
+        code: error?.code || null,
+        detail: error?.message || null,
+        canceled,
+      });
     }
   });
-};
+
+// Runtime rollout switch for the role-aware dashboard (per buyer company).
+// Returns { status, data: { v3_enabled: boolean } }.
+export const getDashboardConfig = dashGet('config');
+
+export const getActionCenterData = dashGet('action-center');
 
 // Status banner hero on /dashboard/buyer. Returns
 // { mode, counts, soonest_closing, weekly, greeting }.
-export const getBuyerStatusBanner = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/buyer-status-banner', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getBuyerStatusBanner = dashGet('buyer-status-banner');
 
-export const getProcurementSnapshot = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/procurement-snapshot', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getProcurementSnapshot = dashGet('procurement-snapshot');
 
-export const getNegotiationSavings = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/negotiation-savings', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getNegotiationSavings = dashGet('negotiation-savings');
 
-export const getCostIntelligence = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/cost-intelligence', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getCostIntelligence = dashGet('cost-intelligence');
 
-export const getCategoryInsights = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/category-insights', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getCategoryInsights = dashGet('category-insights');
 
-// ABC (Pareto) analysis — classify items into A/B/C tiers by value or volume.
-// params: { hotel_ids, start_date, end_date, metric: 'value' | 'volume' }
-export const getAbcAnalysis = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/abc-analysis', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+// ABC (Pareto) analysis — classify items into A/B/C tiers by value.
+// params: { hotel_ids, start_date, end_date, metric }
+export const getAbcAnalysis = dashGet('abc-analysis');
 
-export const getWorkflowEfficiency = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/workflow-efficiency', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getWorkflowEfficiency = dashGet('workflow-efficiency');
 
-export const getSmartInsightsData = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/smart-insights', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getSmartInsightsData = dashGet('smart-insights');
 
-export const getRejectedPOsDetail = () => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/rejected-pos');
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+// Drill-downs behind Action Centre / banner. They take the same page filters
+// as the card that opened them so the list matches the count.
+export const getRejectedPOsDetail = dashGet('rejected-pos');
 
-export const getPendingApprovalsDetail = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/pending-approvals', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getPendingApprovalsDetail = dashGet('pending-approvals');
 
 // No-response drill-down: published RFQs with zero quotes, split into
 // { active, expired } by bid window (Sr 228).
-export const getNoResponseDetail = (params) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get('/dashboard-v2/no-response', { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-};
+export const getNoResponseDetail = dashGet('no-response');
 
 /* ────────────────────────────────────────────────────────────
    Persona-targeted widget endpoints — role-aware dashboard v3.
-   Each method mirrors the convention above: GET against
-   /dashboard-v2/<path>?hotel_ids&start_date&end_date — backend
-   enforces user×department×permission scoping.
+   Backend enforces user×department×permission scoping.
    ──────────────────────────────────────────────────────────── */
 
-const personaGet = (path) => (params) =>
-  new Promise(async (resolve, reject) => {
-    try {
-      const response = await axiosInstance.get(`/dashboard-v2/${path}`, { params });
-      resolve(response);
-    } catch (error) {
-      reject({ message: error?.response?.data?.message || error.message });
-    }
-  });
-
 // RFQ Creator
-export const getMyDrafts                  = personaGet('my-drafts');
-export const getMyActiveRfqs              = personaGet('my-active-rfqs');
-export const getMyNoResponseRfqs          = personaGet('my-no-response-rfqs');
-export const getMyRfqsBidClosedNoQuotes   = personaGet('my-rfqs-bid-closed-no-quotes');
+export const getMyDrafts                  = dashGet('my-drafts');
+export const getMyActiveRfqs              = dashGet('my-active-rfqs');
+export const getMyNoResponseRfqs          = dashGet('my-no-response-rfqs');
+export const getMyRfqsBidClosedNoQuotes   = dashGet('my-rfqs-bid-closed-no-quotes');
+
+// RFQ Approver
+export const getMyRfqApprovalsPending     = dashGet('my-rfq-approvals-pending');
 
 // Technical Evaluator
-export const getMyTechEvalsPending           = personaGet('my-tech-evals-pending');
-export const getTechEvalsWithDisagreements   = personaGet('tech-evals-with-disagreements');
-export const getTechEvalThroughput           = personaGet('tech-eval-throughput');
+export const getMyTechEvalsPending           = dashGet('my-tech-evals-pending');
+export const getTechEvalsWithDisagreements   = dashGet('tech-evals-with-disagreements');
 
 // Technical Approver
-export const getMyTechApprovalsPending      = personaGet('my-tech-approvals-pending');
-export const getTechApprovalOldestPending   = personaGet('tech-approval-oldest-pending');
-export const getTechApprovalThroughput      = personaGet('tech-approval-throughput');
+export const getMyTechApprovalsPending      = dashGet('my-tech-approvals-pending');
 
-// Commercial Evaluator / N1 Negotiator
-export const getMyQuoteCompares          = personaGet('my-quote-compares');
-export const getMyActiveNegotiations     = personaGet('my-active-negotiations');
-export const getSavingsPipeline          = personaGet('savings-pipeline');
+// Commercial Evaluator / N1
+export const getMyQuoteCompares          = dashGet('my-quote-compares');
+export const getMyActiveNegotiations     = dashGet('my-active-negotiations');
+export const getSavingsPipeline          = dashGet('savings-pipeline');
 
-// Commercial Approver
-export const getMyCommercialApprovalsPending  = personaGet('my-commercial-approvals-pending');
-export const getDealsWithPriceAnomalies       = personaGet('deals-with-price-anomalies');
-export const getCommercialApprovalThroughput  = personaGet('commercial-approval-throughput');
+// Commercial Approver — negotiated quotes (NEGOTIATION_QUOTE)
+export const getMyCommercialApprovalsPending  = dashGet('my-commercial-approvals-pending');
 
-// Awarding P1 / P2
-export const getMyAwardApprovalsPending = personaGet('my-award-approvals-pending');
-export const getRecentAwards            = personaGet('recent-awards');
-export const getAwardValuePipeline      = personaGet('award-value-pipeline');
+// Awarding — purchase orders (PO)
+export const getMyAwardApprovalsPending = dashGet('my-award-approvals-pending');
+export const getRecentAwards            = dashGet('recent-awards');
+export const getAwardValuePipeline      = dashGet('award-value-pipeline');
+
+// All approvers
+export const getApprovalTurnaround      = dashGet('approval-turnaround');

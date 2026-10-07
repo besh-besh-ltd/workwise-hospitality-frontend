@@ -13,7 +13,8 @@ const COLLAPSED_SECTIONS_KEY = "ww:sidebar:collapsedSections";
 const SideNav = ({
   user,
   currentUserType,
-  subSidebar,
+  hasSubSidebar = false,
+  subSidebarRef,
   collapsed = false,
   onLogoutRequest,
 }) => {
@@ -21,7 +22,6 @@ const SideNav = ({
   const { pathname } = router;
   const userProfile = useSelector((state) => state.userProfile);
 
-  const hasSubSidebar = !!subSidebar;
   const isCompact = hasSubSidebar || collapsed;
 
   const { pendingCountFor } = usePendingApprovalIndicators({
@@ -333,9 +333,7 @@ const SideNav = ({
         </div>
 
         {hasSubSidebar && (
-          <div className={styles.subSidebar}>
-            {subSidebar}
-          </div>
+          <div className={styles.subSidebar} ref={subSidebarRef} />
         )}
       </aside>
     </>

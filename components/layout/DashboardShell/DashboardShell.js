@@ -13,7 +13,7 @@ import { ApprovalIndicatorsProvider } from "@/hooks/usePendingApprovalIndicators
 import SideNav from "./SideNav";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
-import { TwoPanelContext } from "./TwoPanelContext";
+import { TwoPanelContext, useTwoPanelHost } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
 
 const DashboardShell = ({ children }) => {
@@ -34,9 +34,13 @@ const DashboardShell = ({ children }) => {
     }
   }, []);
 
-  // Sub-sidebar state (set by TwoPanelPage via context)
-  const [subSidebar, setSubSidebar] = useState(null);
-  const [mobileRfqToggle, setMobileRfqToggle] = useState(null);
+  // Sub-sidebar slot + mobile toggle (registered by TwoPanelPage via context)
+  const {
+    ctx: twoPanelCtx,
+    hasSubSidebar,
+    subSidebarRef,
+    mobileRfqToggle,
+  } = useTwoPanelHost();
 
   // Load user
   useEffect(() => {
@@ -59,12 +63,6 @@ const DashboardShell = ({ children }) => {
     router.events.on("routeChangeStart", handleRoute);
     return () => router.events.off("routeChangeStart", handleRoute);
   }, [router.events]);
-
-  // Context for TwoPanelPage
-  const twoPanelCtx = useMemo(
-    () => ({ setSubSidebar, setMobileRfqToggle }),
-    []
-  );
 
   // Open the confirmation modal instead of logging out immediately
   const handleLogoutRequest = useCallback(() => {
@@ -117,7 +115,8 @@ const DashboardShell = ({ children }) => {
           <SideNav
             user={loggedinUser}
             currentUserType={currentUserType}
-            subSidebar={subSidebar}
+            hasSubSidebar={hasSubSidebar}
+            subSidebarRef={subSidebarRef}
             collapsed={sidebarCollapsed}
             onLogoutRequest={handleLogoutRequest}
           />
