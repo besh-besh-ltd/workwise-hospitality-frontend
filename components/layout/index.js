@@ -75,10 +75,11 @@ const Layout = (props) => {
   };
 
 
-  // One-time per load: a vendor profile persisted before vendor networks has
-  // no `network` key. Refetch it so the nav and network pages read the truth.
-  // Whatever the outcome, mark it settled (not persisted): the network pages
-  // then stop waiting, and a failed refetch is simply tried again next load.
+  // One-time per load: a vendor profile persisted before vendor networks (no
+  // `network` key), or a networked profile (its role / entities may have
+  // changed since login), is refetched so the nav and network pages read the
+  // truth. Whatever the outcome, mark it settled (not persisted): the network
+  // pages then stop waiting, and a failed refetch is simply tried again next load.
   const networkProfileRefreshed = useRef(false);
   useEffect(() => {
     if (networkProfileRefreshed.current) return;

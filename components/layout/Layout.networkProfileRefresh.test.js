@@ -81,3 +81,30 @@ test("a buyer profile without the key is not refetched", async () => {
   await Promise.resolve();
   expect(mockGetProfile).not.toHaveBeenCalled();
 });
+
+test("a networked profile is refetched once per load, so role and entity changes reach the UI", async () => {
+  mockProfile = { id: 10, user_type: 3, network: { org_id: 7, role: "ENTITY_MEMBER", actable_entities: [] } };
+  const promoted = { ...mockProfile, network: { ...mockProfile.network, role: "ORG_ADMIN" } };
+  mockGetProfile.mockResolvedValue({ status: 1, data: promoted });
+  const { rerender } = render(<Layout><div /></Layout>);
+  rerender(<Layout><div /></Layout>);
+  await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setUserProfile(promoted)));
+  expect(mockGetProfile).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setNetworkProfileRefreshSettled()));
+});
+
+test("a failed refetch of a networked profile is silent and keeps the stored profile", async () => {
+  mockProfile = { id: 10, user_type: 3, network: { org_id: 7, role: "ORG_ADMIN" } };
+  mockGetProfile.mockRejectedValue(new Error("offline"));
+  render(<Layout><div /></Layout>);
+  await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setNetworkProfileRefreshSettled()));
+  expect(mockDispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: setUserProfile.type }));
+});
+
+test("a guest session with a networked profile is not refetched", async () => {
+  mockGuest = true;
+  mockProfile = { id: 10, user_type: 3, network: { org_id: 7 } };
+  render(<Layout><div /></Layout>);
+  await Promise.resolve();
+  expect(mockGetProfile).not.toHaveBeenCalled();
+});
