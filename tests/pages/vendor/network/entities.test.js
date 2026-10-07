@@ -275,6 +275,17 @@ test("reactivates a suspended entity", async () => {
   await waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith(12, { status: "ACTIVE" }));
 });
 
+test("an INVITED entity offers only Remove: it is not active yet, so there is nothing to suspend", async () => {
+  api.getOrg.mockResolvedValue(
+    orgPayload([...DEFAULT_ENTITIES, entity({ vendor_id: 13, name: "Daikin Goa", status: "INVITED", seat_id: null, seat_status: null })])
+  );
+  renderPage();
+  const goa = await rowOf("Daikin Goa");
+  expect(within(goa).getByText("Invited")).toBeInTheDocument();
+  expect(within(goa).queryByRole("button", { name: /Suspend|Reactivate/ })).toBeNull();
+  expect(within(goa).getByRole("button", { name: "Remove" })).toBeInTheDocument();
+});
+
 test("removes an entity after confirming", async () => {
   api.deleteEntity.mockResolvedValue({ status: 1, message: "Entity removed", data: { vendor_id: 11 } });
   renderPage();
