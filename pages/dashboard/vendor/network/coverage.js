@@ -4,8 +4,9 @@
 // set), and see which of the network's hotels the saved rules cover. The
 // principal is never offered: it is the fallback, not a routing candidate.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Trash2 } from "lucide-react";
 import { getCoverage, getOrg, lookupCoverageStates, putCoverage } from "@/services/vendorNetwork";
@@ -41,6 +42,7 @@ function CoverageView() {
   const [rules, setRules] = useState([]);
   const [preview, setPreview] = useState(null);
   const [previewCategory, setPreviewCategory] = useState("");
+  const [previewError, setPreviewError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -70,32 +72,88 @@ function CoverageView() {
       .catch(() => setCategories([]));
   }, [load]);
 
-  // Rules and preview of the selected entity. The preview always reflects the SAVED rules.
-  const loadCoverage = useCallback(async (vendorId, categoryId, { keepRules = false } = {}) => {
+  // Responses can arrive out of order (entity A, then B, picked quickly). Each
+  // request carries the entity it was for and a sequence number; a response
+  // for an entity that is no longer selected, or older than the latest request
+  // of its kind, is dropped. Otherwise A's rules could land in B's editor and
+  // the next save would PUT (replace-all) them onto B.
+  const selectedRef = useRef("");
+  const rulesSeq = useRef(0);
+  const previewSeq = useRef(0);
+
+  /** Rules + preview of an entity (fresh selection). */
+  const loadRules = useCallback(async (vendorId) => {
     if (!vendorId) return;
-    if (!keepRules) setRulesLoading(true);
+    const mine = ++rulesSeq.current;
+    const minePreview = ++previewSeq.current;
+    setRulesLoading(true);
     setRulesError("");
+    setPreviewError("");
     try {
-      const res = await getCoverage(Number(vendorId), { category_id: categoryId ? Number(categoryId) : undefined });
-      if (!keepRules) {
-        const loaded = res?.data?.rules || [];
-        setSavedRules(loaded);
-        setRules(loaded);
-      }
-      setPreview(res?.data?.preview || null);
+      const res = await getCoverage(Number(vendorId), { category_id: undefined });
+      if (selectedRef.current !== vendorId || mine !== rulesSeq.current) return;
+      const loaded = res?.data?.rules || [];
+      setSavedRules(loaded);
+      setRules(loaded);
+      if (minePreview === previewSeq.current) setPreview(res?.data?.preview || null);
     } catch (err) {
+      if (selectedRef.current !== vendorId || mine !== rulesSeq.current) return;
       setRulesError(networkErrorMessage(err, "Could not load this entity's coverage."));
     } finally {
-      setRulesLoading(false);
+      if (mine === rulesSeq.current) setRulesLoading(false);
+    }
+  }, []);
+
+  /** Preview only (category change, after a save). Never touches the rules being edited. Resolves true on success. */
+  const loadPreview = useCallback(async (vendorId, categoryId) => {
+    if (!vendorId) return false;
+    const mine = ++previewSeq.current;
+    setPreviewError("");
+    try {
+      const res = await getCoverage(Number(vendorId), { category_id: categoryId ? Number(categoryId) : undefined });
+      if (selectedRef.current !== vendorId || mine !== previewSeq.current) return true;
+      setPreview(res?.data?.preview || null);
+      return true;
+    } catch (err) {
+      if (selectedRef.current === vendorId && mine === previewSeq.current) {
+        setPreviewError(networkErrorMessage(err, "Could not load the covered-hotels preview."));
+      }
+      return false;
     }
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadCoverage(selectedId, "");
+    selectedRef.current = selectedId;
+    setRules([]);
+    setSavedRules([]);
+    setPreview(null);
     setPreviewCategory("");
-  }, [selectedId, loadCoverage]);
+    if (selectedId) loadRules(selectedId);
+  }, [selectedId, loadRules]);
 
   const dirty = useMemo(() => !sameRules(rules, savedRules), [rules, savedRules]);
+
+  // Unsaved edits: confirm before an in-app navigation, and let the browser warn on unload.
+  const router = useRouter();
+  useEffect(() => {
+    if (!dirty || !router?.events) return undefined;
+    const onRouteChangeStart = () => {
+      if (window.confirm("You have unsaved coverage changes. Leave this page without saving?")) return;
+      router.events.emit("routeChangeError");
+      // Next.js has no cancellable route event; throwing is the documented way to abort.
+      throw new Error("Route change aborted: unsaved coverage changes");
+    };
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    router.events.on("routeChangeStart", onRouteChangeStart);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      router.events.off("routeChangeStart", onRouteChangeStart);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [dirty, router]);
 
   const pickEntity = (value) => {
     if (value === selectedId) return;
@@ -116,14 +174,19 @@ function CoverageView() {
   const removeRule = (key) => setRules((cur) => cur.filter((r) => ruleKey(r) !== key));
 
   const save = async () => {
+    const vendorId = selectedId;
     setSaving(true);
     try {
-      const res = await putCoverage(Number(selectedId), { rules: toPayload(rules) });
+      const res = await putCoverage(Number(vendorId), { rules: toPayload(rules) });
       toast.success(res?.message || "Coverage saved");
+      if (selectedRef.current !== vendorId) return;
       const saved = res?.data?.rules || rules;
       setSavedRules(saved);
       setRules(saved);
-      await loadCoverage(selectedId, previewCategory, { keepRules: true });
+      const refreshed = await loadPreview(vendorId, previewCategory);
+      if (!refreshed && selectedRef.current === vendorId) {
+        setPreviewError("Coverage saved, but the preview could not be refreshed.");
+      }
     } catch (err) {
       toast.error(networkErrorMessage(err, "Could not save the coverage."));
     } finally {
@@ -133,7 +196,7 @@ function CoverageView() {
 
   const changePreviewCategory = (value) => {
     setPreviewCategory(value);
-    loadCoverage(selectedId, value, { keepRules: true });
+    loadPreview(selectedId, value);
   };
 
   const selected = entities.find((e) => String(e.vendor_id) === String(selectedId));
@@ -172,7 +235,7 @@ function CoverageView() {
             <div className="section-body">
               <div style={{ maxWidth: 420 }}>
                 <label className="label" htmlFor="vn-cov-entity">Entity</label>
-                <select id="vn-cov-entity" className="select" value={selectedId} onChange={(e) => pickEntity(e.target.value)}>
+                <select id="vn-cov-entity" className="select" value={selectedId} disabled={saving} onChange={(e) => pickEntity(e.target.value)}>
                   {entities.map((e) => (
                     <option key={e.vendor_id} value={e.vendor_id}>
                       {e.name} · {RELATIONSHIP_LABEL[e.relationship] || e.relationship}
@@ -191,7 +254,7 @@ function CoverageView() {
             <div className="section-card">
               <div className="section-body flex items-center justify-between gap-3">
                 <span style={{ color: "var(--danger)", fontSize: 13 }}>{rulesError}</span>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => loadCoverage(selectedId, "")}>Retry</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => loadRules(selectedId)}>Retry</button>
               </div>
             </div>
           ) : (
@@ -289,6 +352,14 @@ function CoverageView() {
                     </select>
                   </div>
                 </div>
+                {previewError && (
+                  <div className="section-body flex items-center justify-between gap-3" style={{ paddingBottom: 0 }}>
+                    <span style={{ color: "var(--warn)", fontSize: 12.5 }}>{previewError}</span>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => loadPreview(selectedId, previewCategory)}>
+                      Retry preview
+                    </button>
+                  </div>
+                )}
                 <div className="section-body" style={{ fontSize: 12.5, color: "var(--fg-3)", paddingBottom: 0 }}>
                   Of the {preview?.hotels_considered ?? 0} hotels your network has been invited to quote for, based on the saved rules.
                   {preview?.truncated ? " Only the first 2,000 hotels are checked." : ""}

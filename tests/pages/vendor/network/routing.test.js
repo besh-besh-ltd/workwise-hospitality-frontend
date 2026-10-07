@@ -21,7 +21,7 @@ jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
 import React from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import reducer, { setUserProfile } from "@/redux/slice";
@@ -68,6 +68,14 @@ const assignment = (over) => ({
 
 const daysAgo = (n) => new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
 
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+};
+
 const QUEUE = {
   status: 1,
   data: {
@@ -76,7 +84,7 @@ const QUEUE = {
         subject_type: "RFQ",
         subject_id: 4002,
         hotel_id: null,
-        hotel_ids: [500],
+        hotel_ids: [500, 501],
         category_id: 4,
         title: "RFQ #536701 · AC units",
         meta: { rfq_no: 536701, bid_end_date: "2026-10-12 18:00:00", hotel_id: 500, hotel_name: "Orchid Mumbai" },
@@ -316,4 +324,116 @@ test("a member who is not an admin gets the notice and the queue is not loaded",
   renderPage({ ...adminNetwork, role: "ENTITY_MEMBER", is_principal: false, acting_entity_id: 11 });
   expect(await screen.findByText("Network admins only")).toBeInTheDocument();
   expect(api.getRoutingQueue).not.toHaveBeenCalled();
+});
+
+test("assignment titles link to the subject using the server's action_url", async () => {
+  renderPage();
+  const pending = await itemOf("Pending", "RFQ #536700 · Chillers");
+  expect(within(pending).getByRole("link", { name: "RFQ #536700 · Chillers" })).toHaveAttribute(
+    "href",
+    "/dashboard/vendor/inquiries-details?id=4001"
+  );
+  const declinedRfq = await itemOf("Declined & timed out", "RFQ #536702 · Fans");
+  expect(within(declinedRfq).getByRole("link", { name: "RFQ #536702 · Fans" })).toBeInTheDocument();
+  // No action_url → plain text
+  const arcQueue = {
+    ...QUEUE,
+    data: { ...QUEUE.data, accepted: QUEUE.data.accepted.map((r) => ({ ...r, action_url: null })) },
+  };
+  api.getRoutingQueue.mockResolvedValue(arcQueue);
+  fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
+  await waitFor(() => expect(api.getRoutingQueue).toHaveBeenCalledTimes(2));
+  const accepted = await itemOf("Recently accepted", "Rate contract ARC-13 · Orchid Goa");
+  await waitFor(() => expect(within(accepted).queryByRole("link")).toBeNull());
+});
+
+test("a declined item back in the queue explains coverage against all its hotels", async () => {
+  api.getRoutingQueue.mockResolvedValue({
+    ...QUEUE,
+    data: {
+      ...QUEUE.data,
+      declined: [
+        assignment({
+          id: 908,
+          subject_id: 4002,
+          status: "DECLINED",
+          decline_reason: "NO_STOCK",
+          acted_at: daysAgo(1),
+          title: "RFQ #536701 · AC units",
+          candidates: [cand({ vendor_id: 12, name: "Cool Dealers", specificity: 2, covers_all_hotels: false, hotels_covered: [500], preference_rank: null })],
+        }),
+      ],
+    },
+  });
+  renderPage();
+  const declined = await itemOf("Declined & timed out", "RFQ #536701 · AC units");
+  expect(declined).toHaveTextContent("City rule · covers 1 of 2 hotels");
+});
+
+test("while an assign is in flight its buttons are disabled, and another row finishing does not re-enable them", async () => {
+  const first = deferred();
+  const second = deferred();
+  api.assignSubject.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  renderPage();
+  const rfq = await itemOf("Needs routing", "RFQ #536701 · AC units");
+  const arc = await itemOf("Needs routing", "Rate contract ARC-12 · HVAC · Lotus Nashik");
+
+  fireEvent.click(within(rfq).getByRole("button", { name: "Assign to Daikin UP" }));
+  // A second click on the same row is ignored
+  fireEvent.click(within(rfq).getByRole("button", { name: "Assign to Daikin UP" }));
+  expect(api.assignSubject).toHaveBeenCalledTimes(1);
+  expect(within(rfq).getByRole("button", { name: "Assign to Daikin UP" })).toBeDisabled();
+  expect(within(rfq).getByRole("button", { name: "Assign to Cool Dealers" })).toBeDisabled();
+
+  fireEvent.change(within(arc).getByLabelText(/Other entity for/), { target: { value: "11" } });
+  fireEvent.click(within(arc).getByRole("button", { name: "Assign to the selected entity" }));
+  expect(api.assignSubject).toHaveBeenCalledTimes(2);
+  expect(within(arc).getByRole("button", { name: "Assign to the selected entity" })).toBeDisabled();
+
+  await act(async () => {
+    second.resolve({ status: 1, message: "Assigned", data: {} });
+  });
+  await waitFor(() => expect(api.getRoutingQueue).toHaveBeenCalledTimes(2));
+  const rfqNow = await itemOf("Needs routing", "RFQ #536701 · AC units");
+  expect(within(rfqNow).getByRole("button", { name: "Assign to Daikin UP" })).toBeDisabled();
+
+  await act(async () => {
+    first.resolve({ status: 1, message: "Assigned", data: {} });
+  });
+  await waitFor(() =>
+    expect(within(screen.getByRole("list", { name: "Needs routing" })).getByRole("button", { name: "Assign to Daikin UP" })).toBeEnabled()
+  );
+});
+
+test("revoke's confirm button is disabled while the revoke is in flight", async () => {
+  const pendingRevoke = deferred();
+  api.revokeAssignment.mockReturnValueOnce(pendingRevoke.promise);
+  renderPage();
+  const pending = await itemOf("Pending", "RFQ #536700 · Chillers");
+  fireEvent.click(within(pending).getByRole("button", { name: "Revoke" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
+  expect(api.revokeAssignment).toHaveBeenCalledTimes(1);
+  expect(within(dialog).getByRole("button", { name: "Revoke" })).toBeDisabled();
+  expect(within(pending).getByRole("button", { name: "Reassign" })).toBeDisabled();
+  await act(async () => {
+    pendingRevoke.resolve({ status: 1, message: "Assignment revoked", data: {} });
+  });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("Refresh is disabled and says so while the queue reloads", async () => {
+  renderPage();
+  await list("Needs routing");
+  const reload = deferred();
+  api.getRoutingQueue.mockReturnValueOnce(reload.promise);
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  const busy = await screen.findByRole("button", { name: "Refreshing…" });
+  expect(busy).toBeDisabled();
+  expect(screen.getByRole("list", { name: "Needs routing" })).toBeInTheDocument();
+  await act(async () => {
+    reload.resolve(QUEUE);
+  });
+  expect(await screen.findByRole("button", { name: "Refresh" })).toBeEnabled();
 });

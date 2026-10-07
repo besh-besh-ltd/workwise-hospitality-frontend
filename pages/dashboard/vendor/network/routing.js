@@ -6,8 +6,9 @@
 // assigns, reassigns or revokes from here, and sets the routing mode and the
 // response time (PATCH /org).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { toast } from "react-toastify";
 import { RefreshCw } from "lucide-react";
 import { assignSubject, getOrg, getRoutingQueue, revokeAssignment } from "@/services/vendorNetwork";
@@ -45,6 +46,18 @@ function SubjectMeta({ item }) {
     <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
       <span className="pill outline" style={{ marginRight: 6 }}>{SUBJECT_LABEL[item.subject_type] || item.subject_type}</span>
       {parts.join(" · ")}
+    </div>
+  );
+}
+
+/** An assignment's title, linked to the subject when the server gave an action_url. */
+function SubjectTitle({ row }) {
+  const style = { fontWeight: 600, color: "var(--fg)" };
+  const href = typeof row.action_url === "string" && row.action_url.startsWith("/") ? row.action_url : null;
+  if (!href) return <div style={style}>{titleOf(row)}</div>;
+  return (
+    <div style={style}>
+      <Link href={href} style={{ color: "inherit" }}>{titleOf(row)}</Link>
     </div>
   );
 }
@@ -87,14 +100,34 @@ function RoutingView() {
   const [queue, setQueue] = useState({ unrouted: [], pending: [], accepted: [], declined: [] });
   const [org, setOrg] = useState(null);
   const [entities, setEntities] = useState([]);
-  const [busyKey, setBusyKey] = useState(null);
+  const [reloading, setReloading] = useState(false);
+  // Keys of the rows with an action in flight. A Set, so one row finishing never
+  // re-enables another; the ref also refuses a second click on the same row
+  // before React re-renders.
+  const busyRef = useRef(new Set());
+  const [busyKeys, setBusyKeys] = useState(() => new Set());
+  const beginBusy = (key) => {
+    if (busyRef.current.has(key)) return false;
+    busyRef.current.add(key);
+    setBusyKeys(new Set(busyRef.current));
+    return true;
+  };
+  const endBusy = (key) => {
+    busyRef.current.delete(key);
+    setBusyKeys(new Set(busyRef.current));
+  };
+  const isBusy = (key) => busyKeys.has(key);
+  const loadSeq = useRef(0);
   const [reassigning, setReassigning] = useState(null); // assignment id with the picker open
   const [revoking, setRevoking] = useState(null); // assignment row
 
   const load = useCallback(async () => {
+    const mine = ++loadSeq.current;
     setLoadError("");
+    setReloading(true);
     try {
       const [queueRes, orgRes] = await Promise.all([getRoutingQueue(), getOrg()]);
+      if (mine !== loadSeq.current) return; // a newer load is in flight
       const q = queueRes?.data || {};
       setQueue({ unrouted: q.unrouted || [], pending: q.pending || [], accepted: q.accepted || [], declined: q.declined || [] });
       const o = orgRes?.data?.org || null;
@@ -105,9 +138,12 @@ function RoutingView() {
         )
       );
     } catch (err) {
-      setLoadError(networkErrorMessage(err, "Could not load the routing queue."));
+      if (mine === loadSeq.current) setLoadError(networkErrorMessage(err, "Could not load the routing queue."));
     } finally {
-      setLoading(false);
+      if (mine === loadSeq.current) {
+        setLoading(false);
+        setReloading(false);
+      }
     }
   }, []);
 
@@ -122,8 +158,16 @@ function RoutingView() {
     return map;
   }, [queue.pending, queue.accepted]);
 
+  // Hotels of an item when known: its own list, or the queue entry of the same subject.
+  const unroutedByKey = useMemo(() => new Map(queue.unrouted.map((u) => [keyOfItem(u), u])), [queue.unrouted]);
+  const totalHotelsOf = (row) => {
+    const ids = row.hotel_ids || unroutedByKey.get(keyOfItem(row))?.hotel_ids;
+    if (Array.isArray(ids) && ids.length) return ids.length;
+    return row.hotel_id != null ? 1 : undefined;
+  };
+
   const assign = async (item, vendorId, busyId) => {
-    setBusyKey(busyId);
+    if (!beginBusy(busyId)) return;
     try {
       const payload = { subject_type: item.subject_type, subject_id: item.subject_id, assignee_vendor_id: Number(vendorId) };
       if (item.hotel_id != null) payload.hotel_id = item.hotel_id;
@@ -136,13 +180,14 @@ function RoutingView() {
       const http = err?.response?.status;
       if (http === 404 || http === 409) await load();
     } finally {
-      setBusyKey(null);
+      endBusy(busyId);
     }
   };
 
   const confirmRevoke = async () => {
     const row = revoking;
-    setBusyKey(`a:${row.id}`);
+    const key = `a:${row.id}`;
+    if (!beginBusy(key)) return;
     try {
       const res = await revokeAssignment(row.id);
       toast.success(res?.message || "Assignment revoked");
@@ -154,12 +199,12 @@ function RoutingView() {
       const http = err?.response?.status;
       if (http === 404 || http === 409) await load();
     } finally {
-      setBusyKey(null);
+      endBusy(key);
     }
   };
 
   const assignmentActions = (row) => {
-    const busy = busyKey === `a:${row.id}`;
+    const busy = isBusy(`a:${row.id}`);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", minWidth: 260 }}>
         <div className="flex items-center gap-2">
@@ -200,8 +245,8 @@ function RoutingView() {
           <h1 className="page-h1">Routing</h1>
           <p className="page-sub">Send each RFQ and contract hotel to the entity that should serve it. Suggestions come from each entity's coverage.</p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={load} disabled={loading}>
-          <RefreshCw size={15} /> Refresh
+        <button type="button" className="btn btn-secondary" onClick={load} disabled={loading || reloading}>
+          <RefreshCw size={15} /> {reloading && !loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
@@ -236,10 +281,10 @@ function RoutingView() {
                   <div style={{ flex: "1 1 340px", maxWidth: 520 }}>
                     <RoutingCandidates
                       candidates={item.candidates}
-                      totalHotels={item.hotel_ids?.length}
+                      totalHotels={totalHotelsOf(item)}
                       entities={entities}
                       label={titleOf(item)}
-                      busy={busyKey === key}
+                      busy={isBusy(key)}
                       onAssign={(vendorId) => assign(item, vendorId, key)}
                     />
                   </div>
@@ -252,7 +297,7 @@ function RoutingView() {
             {pending.map((row) => (
               <li key={row.id} style={rowStyle}>
                 <div style={{ flex: "1 1 280px" }}>
-                  <div style={{ fontWeight: 600, color: "var(--fg)" }}>{titleOf(row)}</div>
+                  <SubjectTitle row={row} />
                   <div style={{ fontSize: 12.5, color: "var(--fg-2)", marginTop: 4 }}>
                     With <strong>{row.assignee_name || `#${row.assigned_vendor_id}`}</strong>
                     {row.auto_routed && <span className="pill indigo" style={{ marginLeft: 6 }}>Auto-routed</span>}
@@ -273,7 +318,7 @@ function RoutingView() {
               return (
                 <li key={row.id} style={rowStyle}>
                   <div style={{ flex: "1 1 280px" }}>
-                    <div style={{ fontWeight: 600, color: "var(--fg)" }}>{titleOf(row)}</div>
+                    <SubjectTitle row={row} />
                     <div style={{ fontSize: 12.5, color: "var(--fg-2)", marginTop: 4 }} className="flex items-center gap-2">
                       <StatusPill map={ASSIGNMENT_STATUS} status={row.status} />
                       <span>
@@ -296,10 +341,11 @@ function RoutingView() {
                     ) : (
                       <RoutingCandidates
                         candidates={row.candidates}
+                        totalHotels={totalHotelsOf(row)}
                         entities={entities}
                         excludeIds={[row.assigned_vendor_id]}
                         label={titleOf(row)}
-                        busy={busyKey === key}
+                        busy={isBusy(key)}
                         onAssign={(vendorId) => assign(row, vendorId, key)}
                       />
                     )}
@@ -313,7 +359,7 @@ function RoutingView() {
             {accepted.map((row) => (
               <li key={row.id} style={rowStyle}>
                 <div style={{ flex: "1 1 280px" }}>
-                  <div style={{ fontWeight: 600, color: "var(--fg)" }}>{titleOf(row)}</div>
+                  <SubjectTitle row={row} />
                   <div style={{ fontSize: 12.5, color: "var(--fg-2)", marginTop: 4 }}>
                     Accepted by <strong>{row.assignee_name || `#${row.assigned_vendor_id}`}</strong> · {fmtDateTime(row.acted_at)}
                   </div>
@@ -334,7 +380,7 @@ function RoutingView() {
               : `${revoking.assignee_name || "The entity"} can no longer accept it, and it returns to the queue.`
           }
           confirmLabel="Revoke"
-          busy={busyKey === `a:${revoking.id}`}
+          busy={isBusy(`a:${revoking.id}`)}
           onConfirm={confirmRevoke}
           onCancel={() => setRevoking(null)}
         />

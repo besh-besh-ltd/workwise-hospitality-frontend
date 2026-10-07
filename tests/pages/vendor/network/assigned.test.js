@@ -17,7 +17,7 @@ jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
 import React from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import reducer, { setUserProfile } from "@/redux/slice";
@@ -158,7 +158,8 @@ test("a late reply (409 EXPIRED) explains it went back to the admin and reloads"
 
 test("a 404 says the assignment was withdrawn or reassigned and reloads", async () => {
   api.respondToAssignment.mockRejectedValue({
-    response: { status: 404, data: { status: 0, message: "Assignment not found", reason: "NOT_FOUND" } },
+    // What the server really sends: NetworkHttpError(404, "Assignment not found"), no reason code
+    response: { status: 404, data: { status: 0, message: "Assignment not found" } },
   });
   renderPage();
   const rfq = await itemOf("Waiting for your reply", "RFQ #536700 · Chillers");
@@ -201,4 +202,23 @@ test("a vendor in no network gets the set-up notice", async () => {
   renderPage(null);
   expect(await screen.findByText("You are not in a vendor network")).toBeInTheDocument();
   expect(api.getAssignedToMe).not.toHaveBeenCalled();
+});
+
+test("while a reply is in flight, Accept and Decline are disabled and a second click sends nothing", async () => {
+  let resolve;
+  api.respondToAssignment.mockReturnValueOnce(new Promise((res) => (resolve = res)));
+  renderPage();
+  const rfq = await itemOf("Waiting for your reply", "RFQ #536700 · Chillers");
+  const accept = within(rfq).getByRole("button", { name: "Accept" });
+  fireEvent.click(accept);
+  fireEvent.click(accept);
+  expect(api.respondToAssignment).toHaveBeenCalledTimes(1);
+  expect(accept).toBeDisabled();
+  expect(within(rfq).getByRole("button", { name: "Decline" })).toBeDisabled();
+  const arc = await itemOf("Waiting for your reply", "Rate contract ARC-12 · HVAC · Lotus Nashik");
+  expect(within(arc).getByRole("button", { name: "Accept" })).toBeDisabled();
+  await act(async () => {
+    resolve({ status: 1, message: "Assignment accepted", data: {} });
+  });
+  await waitFor(() => expect(api.getAssignedToMe).toHaveBeenCalledTimes(2));
 });

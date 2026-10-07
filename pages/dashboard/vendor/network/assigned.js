@@ -5,7 +5,7 @@
 // while pending, and quote once accepted); a rate-contract hotel opens on the
 // contract page once accepted.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -19,8 +19,13 @@ import { SUBJECT_LABEL, fmtDateTime } from "@/components/dashboard/vendor/networ
 
 const RESPOND_OVERRIDES = {
   EXPIRED: "This assignment expired before you replied, so it went back to your network admin.",
-  NOT_FOUND: "This assignment is no longer available — it may have been withdrawn or reassigned.",
 };
+// The server answers a 404 with no reason code (another entity's or a withdrawn assignment),
+// so this page maps on the HTTP status.
+const GONE_MESSAGE = "This assignment is no longer available — it may have been withdrawn or reassigned.";
+
+const respondErrorMessage = (err) =>
+  err?.response?.status === 404 ? GONE_MESSAGE : networkErrorMessage(err, "Could not send your reply.", RESPOND_OVERRIDES);
 
 const titleOf = (row) => row.title || `${SUBJECT_LABEL[row.subject_type] || row.subject_type} #${row.subject_id}`;
 
@@ -66,7 +71,11 @@ function AssignedView() {
     load();
   }, [load]);
 
+  // One reply in flight at a time; the ref refuses a second click before React re-renders.
+  const inFlight = useRef(false);
   const respond = async (row, payload) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusyId(row.id);
     try {
       const res = await respondToAssignment(row.id, payload);
@@ -74,13 +83,14 @@ function AssignedView() {
       setDeclining(null);
       await load();
     } catch (err) {
-      toast.error(networkErrorMessage(err, "Could not send your reply.", RESPOND_OVERRIDES));
+      toast.error(respondErrorMessage(err));
       const http = err?.response?.status;
       if (http === 404 || http === 409) {
         setDeclining(null);
         await load();
       }
     } finally {
+      inFlight.current = false;
       setBusyId(null);
     }
   };
@@ -126,7 +136,7 @@ function AssignedView() {
             ) : (
               <ul aria-label="Waiting for your reply" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {pending.map((row) => {
-                  const busy = busyId === row.id;
+                  const busy = busyId !== null; // one reply at a time
                   return (
                     <li key={row.id} style={rowStyle}>
                       <div style={{ flex: "1 1 300px" }}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { lookupCoverageCities, lookupCoverageHotels } from "@/services/vendorNetwork";
 import { MODE_LABEL, SCOPE_LABEL, SCOPE_TYPES } from "./routingFormat";
@@ -28,7 +28,9 @@ export default function CoverageRuleForm({ states, categories, onAdd }) {
       setCities([]);
       return undefined;
     }
+    // A newer state (or scope) cancels this request's result: no out-of-order city lists.
     let cancelled = false;
+    setCities([]);
     lookupCoverageCities(Number(form.state_id))
       .then((res) => !cancelled && setCities(res?.data || []))
       .catch(() => !cancelled && setCities([]));
@@ -37,16 +39,22 @@ export default function CoverageRuleForm({ states, categories, onAdd }) {
     };
   }, [form.scope_type, form.state_id]);
 
+  // Only the latest search may fill the list: an older, slower response is dropped.
+  const hotelSearchSeq = useRef(0);
   const searchHotels = async (q) => {
+    const mine = ++hotelSearchSeq.current;
     setHotelsLoading(true);
+    let found = [];
     try {
       const res = await lookupCoverageHotels(q.trim());
-      setHotels(res?.data || []);
+      found = res?.data || [];
     } catch {
-      setHotels([]);
-    } finally {
-      setHotelsLoading(false);
+      found = [];
     }
+    if (mine !== hotelSearchSeq.current) return;
+    setHotels(found);
+    setForm((f) => ({ ...f, hotel_id: "" }));
+    setHotelsLoading(false);
   };
 
   useEffect(() => {
