@@ -10,6 +10,10 @@ import * as ArcApi from "@/services/arc_v2";
 import FulfilledByPanel, { FulfillingForNote } from "@/components/dashboard/vendor/network/ArcFulfilment";
 
 // ---------------- helpers ----------------
+// HTML-escapes a value interpolated into the document.write preview below.
+const esc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const fmtINR = (n) => {
   const v = Number(n || 0);
   return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
@@ -421,13 +425,13 @@ export default function VendorAcceptPage() {
     const win = window.open("", "_blank");
     if (!win) return;
     const linesHtml = lines.map((l) => `<tr>
-        <td>${l.variant_name || ""}<div class="sub">${l.variant_slug || l.arc_item_id}</div></td>
-        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${l.uom || ""}</td>
+        <td>${esc(l.variant_name)}<div class="sub">${esc(l.variant_slug || l.arc_item_id)}</div></td>
+        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${esc(l.uom)}</td>
         <td class="r mono">${Number(l.gst_pct ?? 0)}%</td>
-        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${l.uom || ""}</td>
+        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${esc(l.uom)}</td>
         <td class="r mono">₹${Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)).toLocaleString("en-IN")}</td>
       </tr>`).join("");
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>UNSIGNED · ${a.arc_number || ""}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>UNSIGNED · ${esc(a.arc_number)}</title>
       <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;position:relative;}
       .wm{position:fixed;top:46%;left:50%;transform:translate(-50%,-50%) rotate(-22deg);font-size:84px;font-weight:800;color:rgba(180,83,9,.08);letter-spacing:.1em;pointer-events:none;}
       h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:6px;}
@@ -438,17 +442,17 @@ export default function VendorAcceptPage() {
       .sig{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:16px;} .sigbox{border:1px dashed #d6d6d0;border-radius:8px;padding:14px 16px;} .pending{color:#9a4708;font-style:italic;font-size:11px;margin-top:8px;}</style></head>
       <body>
       <div class="wm">UNSIGNED</div>
-      <h1>Rate Contract — ${a.title || ""}</h1>
-      <div class="meta">${a.arc_number || ""} · ${contract.vendor_name || ""}</div>
+      <h1>Rate Contract — ${esc(a.title)}</h1>
+      <div class="meta">${esc(a.arc_number)} · ${esc(contract.vendor_name)}</div>
       <div class="draftnote">Unsigned draft — your signature is generated only after OTP verification</div>
       <div class="grid">
-        <div><div class="k">Buyer</div><div class="v">${a.company_name || ""}${a.hotel_name ? " · " + a.hotel_name : ""}</div><div class="sub">GSTIN: ${a.purchaser_gstin || "N/A"}</div></div>
-        <div><div class="k">Term</div><div class="v">${fmtDate(a.contract_start_at)} → ${fmtDate(a.contract_end_at)}</div></div>
+        <div><div class="k">Buyer</div><div class="v">${esc(a.company_name)}${a.hotel_name ? " · " + esc(a.hotel_name) : ""}</div><div class="sub">GSTIN: ${esc(a.purchaser_gstin || "N/A")}</div></div>
+        <div><div class="k">Term</div><div class="v">${esc(fmtDate(a.contract_start_at))} → ${esc(fmtDate(a.contract_end_at))}</div></div>
       </div>
       <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
       <div class="sig">
-        <div class="sigbox"><div class="k">For buyer</div><div class="v">${a.buyer_name || "Procurement Lead"}</div></div>
-        <div class="sigbox"><div class="k">For vendor</div><div class="v">${contract.vendor_name || ""}</div><div class="sub">GSTIN: ${contract.vendor_gstin || "N/A"}</div><div class="pending">— signature pending OTP verification —</div></div>
+        <div class="sigbox"><div class="k">For buyer</div><div class="v">${esc(a.buyer_name || "Procurement Lead")}</div></div>
+        <div class="sigbox"><div class="k">For vendor</div><div class="v">${esc(contract.vendor_name)}</div><div class="sub">GSTIN: ${esc(contract.vendor_gstin || "N/A")}</div><div class="pending">— signature pending OTP verification —</div></div>
       </div>
       </body></html>`);
     win.document.close();

@@ -82,3 +82,27 @@ test("the parties block shows the buyer's and the vendor's GSTIN, N/A only when 
   render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
   expect(await screen.findAllByText("GSTIN: N/A")).toHaveLength(2);
 });
+
+// Fix round 1: the unsigned preview is written with document.write, so every interpolated
+// server value is HTML-escaped.
+test("the unsigned preview escapes interpolated values", async () => {
+  const written = [];
+  const fakeWin = { document: { write: (h) => written.push(h), close: jest.fn() }, focus: jest.fn() };
+  const openSpy = jest.spyOn(window, "open").mockReturnValue(fakeWin);
+  ArcApi.vendorGetContract.mockResolvedValue({
+    data: {
+      contract: { id: 77, status: "awaiting_acceptance", vendor_name: "<b>Alpha</b>", vendor_gstin: "<img src=x onerror=1>" },
+      arc: { arc_number: "ARC-<1>", title: "T&C", is_group: false, hotel_name: "Goa", company_name: "<script>x</script>", purchaser_gstin: "\"><svg>", buyer_name: "<i>B</i>" },
+      hotels: [],
+      lines: [{ id: 1, variant_name: "<u>Towel</u>", uom: "pcs", unit_rate: 1, gst_pct: 5, committed_qty: 1 }],
+      clarifications: [],
+    },
+  });
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  fireEvent.click(await screen.findByRole("button", { name: /preview/i }));
+  const html = written.join("");
+  for (const raw of ["<img src=x", "<script>x", "<svg>", "<b>Alpha", "<i>B", "<u>Towel", "ARC-<1>"]) expect(html).not.toContain(raw);
+  expect(html).toContain("&lt;img src=x onerror=1&gt;");
+  expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
+  openSpy.mockRestore();
+});
