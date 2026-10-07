@@ -442,13 +442,13 @@ export default function VendorAcceptPage() {
       <div class="meta">${a.arc_number || ""} · ${contract.vendor_name || ""}</div>
       <div class="draftnote">Unsigned draft — your signature is generated only after OTP verification</div>
       <div class="grid">
-        <div><div class="k">Buyer</div><div class="v">${a.company_name || ""}${a.hotel_name ? " · " + a.hotel_name : ""}</div></div>
+        <div><div class="k">Buyer</div><div class="v">${a.company_name || ""}${a.hotel_name ? " · " + a.hotel_name : ""}</div><div class="sub">GSTIN: ${a.purchaser_gstin || "N/A"}</div></div>
         <div><div class="k">Term</div><div class="v">${fmtDate(a.contract_start_at)} → ${fmtDate(a.contract_end_at)}</div></div>
       </div>
       <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
       <div class="sig">
         <div class="sigbox"><div class="k">For buyer</div><div class="v">${a.buyer_name || "Procurement Lead"}</div></div>
-        <div class="sigbox"><div class="k">For vendor</div><div class="v">${contract.vendor_name || ""}</div><div class="pending">— signature pending OTP verification —</div></div>
+        <div class="sigbox"><div class="k">For vendor</div><div class="v">${contract.vendor_name || ""}</div><div class="sub">GSTIN: ${contract.vendor_gstin || "N/A"}</div><div class="pending">— signature pending OTP verification —</div></div>
       </div>
       </body></html>`);
     win.document.close();
@@ -480,6 +480,10 @@ export default function VendorAcceptPage() {
   const buFull     = isGroup ? hotels.map((h) => h.name).join(", ") : hotelName + (hotelCity ? ` · ${hotelCity}` : "");
   const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const companyName = A.company_name || "Workwise Hospitality";
+  // Same GSTINs the contract PDF prints: the vendor's quoted (else registered) GSTIN and
+  // the lead hotel's (else its company's) for the buyer.
+  const vendorGstin = contract.vendor_gstin || null;
+  const buyerGstin  = A.purchaser_gstin || null;
   const buyerName  = A.buyer_name || "Buyer Procurement Lead";
   const buyerRole  = A.buyer_designation || "Procurement Lead";
   const category   = A.category_title || "";
@@ -679,7 +683,7 @@ export default function VendorAcceptPage() {
                     <br />Authorised signatory: <strong style={{ color: "var(--fg)" }}>{buyerName}</strong>
                     {buyerRole ? ` · ${buyerRole}` : ""}
                   </div>
-                  <div className="p-gst">GSTIN: N/A</div>
+                  <div className="p-gst">GSTIN: {buyerGstin || "N/A"}</div>
                 </div>
                 <div className="vs-chip">VS</div>
                 <div className="party-card" style={{ borderColor: "rgba(67,56,202,0.28)", background: "var(--indigo-soft)" }}>
@@ -689,7 +693,7 @@ export default function VendorAcceptPage() {
                     Awarded vendor
                     <br />Authorised signatory: <strong style={{ color: "var(--fg)" }}>{vendorSignatory}</strong>
                   </div>
-                  <div className="p-gst">GSTIN: {contract.vendor_gstin || "N/A"}</div>
+                  <div className="p-gst">GSTIN: {vendorGstin || "N/A"}</div>
                 </div>
               </div>
               <div className="term-grid" style={{ marginTop: 16 }}>

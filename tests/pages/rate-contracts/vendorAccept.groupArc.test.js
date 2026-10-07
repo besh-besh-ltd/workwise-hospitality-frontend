@@ -57,3 +57,28 @@ test("a group award names its hotels, splits each line by hotel and keeps quanti
   expect(within(select).queryByRole("option", { name: "Committed quantity" })).not.toBeInTheDocument();
   expect(within(select).getByRole("option", { name: "Base price / unit rate" })).toBeInTheDocument();
 });
+
+// Task 20 / D2: the parties block shows the same GSTINs the contract PDF prints
+// (contract.vendor_gstin, arc.purchaser_gstin from the vendor contract detail API).
+test("the parties block shows the buyer's and the vendor's GSTIN, N/A only when unknown", async () => {
+  const payload = (contract, arc) => ({
+    data: {
+      contract: { id: 77, status: "awaiting_acceptance", vendor_name: "Alpha Linen", ...contract },
+      arc: { arc_number: "ARC-1", title: "Linen", is_group: false, hotel_name: "Goa Resort", ...arc },
+      hotels: [],
+      lines: [],
+      clarifications: [],
+    },
+  });
+
+  ArcApi.vendorGetContract.mockResolvedValue(payload({ vendor_gstin: "27AABCH0971F1ZW" }, { purchaser_gstin: "30AAACH1234F1ZW" }));
+  const { unmount } = render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  expect(await screen.findByText("GSTIN: 30AAACH1234F1ZW")).toBeInTheDocument();
+  expect(screen.getByText("GSTIN: 27AABCH0971F1ZW")).toBeInTheDocument();
+  expect(screen.queryByText("GSTIN: N/A")).not.toBeInTheDocument();
+  unmount();
+
+  ArcApi.vendorGetContract.mockResolvedValue(payload({}, {}));
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  expect(await screen.findAllByText("GSTIN: N/A")).toHaveLength(2);
+});
