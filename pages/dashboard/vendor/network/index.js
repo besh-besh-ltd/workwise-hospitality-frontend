@@ -21,6 +21,12 @@ import { vendorStatusLabel } from "@/components/dashboard/vendor/purchase-orders
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { RELATIONSHIP_LABEL, ENTITY_STATUS, StatusPill } from "@/components/dashboard/vendor/network/networkFormat";
 
+// The network view of a PO status: as vendorStatusLabel, except that a PO waiting to be
+// accepted waits for its supplier entity, which is not necessarily the HQ reading this.
+const AWAITING_SUPPLIER = new Set(["sent", "acceptance_pending"]);
+const networkPoStatusLabel = (status) =>
+  AWAITING_SUPPLIER.has(status) ? "Awaiting supplier acceptance" : vendorStatusLabel(status);
+
 const Tile = ({ id, icon: Icon, tone, value, label }) => (
   <div className="stat-card" data-testid={`tile-${id}`}>
     <div className={`s-ic ${tone}`}>
@@ -57,12 +63,13 @@ function NetworkDashboard({ network }) {
 
   const entities = useMemo(() => data?.entities || [], [data]);
   const routing = data?.routing || {};
-  // Several raw statuses share a vendor-facing label (sent / acceptance_pending
-  // are both "Awaiting you"), so counts are summed per label.
+  // Several raw statuses share a label (sent / acceptance_pending), so counts are
+  // summed per label. These POs are spread across the network's entities, so the
+  // single-vendor "Awaiting you" would mislabel a PO awaiting a member's acceptance.
   const poByStatus = useMemo(() => {
     const byLabel = new Map();
     for (const [status, n] of Object.entries(data?.pos?.by_status || {})) {
-      const label = vendorStatusLabel(status);
+      const label = networkPoStatusLabel(status);
       byLabel.set(label, (byLabel.get(label) || 0) + Number(n || 0));
     }
     return [...byLabel.entries()];

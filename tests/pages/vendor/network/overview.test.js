@@ -149,7 +149,10 @@ test("an admin sees the summary tiles, routing counts and the entity table", asy
   // Vendor-facing PO labels; statuses sharing a label are summed.
   const accepted = screen.getByText("Accepted").closest(".pill");
   expect(accepted).toHaveTextContent("6");
-  expect(screen.getByText("Awaiting you").closest(".pill")).toHaveTextContent("3");
+  // Task 20 / D5: across the network a sent PO awaits whichever entity it was issued
+  // to (often a member), not "you" (the HQ admin reading this page).
+  expect(screen.getByText("Awaiting supplier acceptance").closest(".pill")).toHaveTextContent("3");
+  expect(screen.queryByText("Awaiting you")).toBeNull();
   expect(screen.getByText("Completed").closest(".pill")).toHaveTextContent("4");
   expect(screen.queryByText("acceptance_pending")).toBeNull();
 });
