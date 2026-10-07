@@ -157,6 +157,17 @@ test("an admin sees the summary tiles, routing counts and the entity table", asy
   expect(screen.queryByText("acceptance_pending")).toBeNull();
 });
 
+// Task 22 / 5c: at 390px a fixed 3-column inline grid made the page 462px wide. The
+// strip uses the ARC v2 three-tile variant, which collapses to one column below 880px.
+test("the summary tiles use the responsive three-tile strip, with no fixed inline grid", async () => {
+  getNetworkDashboardSummary.mockResolvedValue(summary);
+  renderWith({ id: 10, user_type: 3, network: adminNetwork });
+  const tile = await screen.findByTestId("tile-entities");
+  const strip = tile.closest(".stat-strip");
+  expect(strip).toHaveClass("cols-3");
+  expect(strip.style.gridTemplateColumns).toBe("");
+});
+
 test("an entity member (not an admin) gets a notice and no dashboard call", () => {
   renderWith({
     id: 11,

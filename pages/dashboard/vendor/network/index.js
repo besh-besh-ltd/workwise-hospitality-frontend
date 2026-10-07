@@ -112,7 +112,7 @@ function NetworkDashboard({ network }) {
         </div>
       ) : data ? (
         <>
-          <section className="stat-strip" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+          <section className="stat-strip cols-3">
             <Tile id="entities" icon={Building2} tone="indigo" value={entities.length} label="Entities" />
             <Tile id="pending-seats" icon={CreditCard} tone="violet" value={pendingSeats} label="Seats awaiting payment" />
             <Tile id="unrouted" icon={Inbox} tone="blue" value={routing.unrouted ?? 0} label="Not yet routed" />
