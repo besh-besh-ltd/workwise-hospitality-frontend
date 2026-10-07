@@ -125,7 +125,13 @@ const Header = () => {
       pathname?.startsWith("/dashboard/vendor/inquiries-details");
 
     if (isOnLockedRoute || isOnChildLockedRoute) {
-      toast.warning("Subscription is required to access this page. Please renew your subscription.");
+      // A network member's subscription is its network's: only the admin can renew it.
+      const isNetworkMember = !!userProfile?.network && !userProfile.network.is_principal;
+      toast.warning(
+        isNetworkMember
+          ? "Your network's subscription is not active. Ask your network admin to renew it."
+          : "Subscription is required to access this page. Please renew your subscription."
+      );
       router.replace("/dashboard/vendor");
     }
   }, [pathname, userProfile, currentUserType, currentRoleMenu]);

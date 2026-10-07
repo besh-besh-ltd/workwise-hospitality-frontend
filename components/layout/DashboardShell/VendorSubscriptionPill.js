@@ -3,12 +3,32 @@ import { useRouter } from "next/router";
 import moment from "moment";
 import { Shield, AlertTriangle, XCircle, Clock, ArrowRight } from "lucide-react";
 import { getVendorSubscriptionStatus } from "@/services/subscription";
+import { networkCoverageView } from "@/components/dashboard/vendor/network/networkCoverage";
 import styles from "./DashboardShell.module.css";
 
 // Resolve which visual state the pill should render in. Keeps the rendering
 // branchless below — we just look up { className, label, Icon, sub }.
+// A network member's standing comes from its network (covered_by_network), never
+// from rows of its own: it is covered or it asks its network admin, it never buys.
+const NETWORK_PILL_CLASS = {
+  covered: styles.subPillActive,
+  seat_expired: styles.subPillDanger,
+  suspended: styles.subPillDanger,
+  lapsed: styles.subPillWarn,
+};
+
 const resolveState = (data) => {
   if (!data) return null;
+  const network = networkCoverageView(data.covered_by_network);
+  if (network) {
+    return {
+      key: `network_${network.key}`,
+      network,
+      label: network.label,
+      Icon: network.key === "covered" ? Shield : AlertTriangle,
+      cardClassName: NETWORK_PILL_CLASS[network.key],
+    };
+  }
   const { has_active_subscription, subscription, is_expired, has_pending } = data;
 
   if (has_active_subscription && subscription) {
@@ -86,6 +106,9 @@ const VendorSubscriptionPill = () => {
   // Build the tooltip body for each state. Kept inline so the popover and
   // the pill stay in sync — both read the same `data` snapshot.
   const renderTooltipBody = () => {
+    if (state.network) {
+      return <div className={styles.subTooltipMsg}>{state.network.detail}</div>;
+    }
     if (state.key === "active" || state.key === "expiring") {
       const sub = data.subscription;
       const endDate = moment(sub.end_date);
@@ -156,8 +179,9 @@ const VendorSubscriptionPill = () => {
     );
   };
 
-  const ctaLabel =
-    state.key === "active" || state.key === "expiring"
+  const ctaLabel = state.network
+    ? "View details"
+    : state.key === "active" || state.key === "expiring"
       ? state.key === "expiring"
         ? "Renew now"
         : "Manage"
