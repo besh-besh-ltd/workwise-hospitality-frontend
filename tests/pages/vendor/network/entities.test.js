@@ -388,7 +388,7 @@ describe("seat payment", () => {
     expect(screen.getByText(/Payment pending/)).toBeInTheDocument();
   });
 
-  test("a verify failure shows an error toast, reloads, and the seats stay unpaid", async () => {
+  test("a definitive verify refusal shows an error toast, does not reload, and the seats stay unpaid", async () => {
     api.paySeats.mockResolvedValue(ORDER);
     api.verifySeatsPayment.mockRejectedValue({
       response: { status: 400, data: { status: 0, message: "Payment verification failed - invalid signature" } },
@@ -401,8 +401,8 @@ describe("seat payment", () => {
     );
     expect(toast.error).toHaveBeenCalledWith("Payment verification failed - invalid signature");
     expect(toast.success).not.toHaveBeenCalled();
-    await waitFor(() => expect(api.getOrg).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText(/Payment pending/)).toBeInTheDocument();
+    expect(api.getOrg).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Payment pending/)).toBeInTheDocument();
   });
 });
 
@@ -507,6 +507,40 @@ describe("paid but unconfirmed seat payments", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Seat payment confirmed"));
     expect(api.paySeats).not.toHaveBeenCalled();
     expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  const seed = () =>
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+
+  test.each([
+    ["400 {status:0} (invalid signature)", { response: { status: 400, data: { status: 0, message: "Payment verification failed - invalid signature" } } }],
+    ["404 {status:0} (payment record not found)", { response: { status: 404, data: { status: 0, message: "Payment record not found" } } }],
+  ])("a definitive business refusal, %s, clears the payload", async (_label, err) => {
+    seed();
+    api.verifySeatsPayment.mockRejectedValueOnce(err);
+    renderPage();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(err.response.data.message));
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(await screen.findByRole("button", { name: /Pay for seats/ })).toBeInTheDocument();
+  });
+
+  test.each([
+    ["400 {status:3} (unexpected server error)", { response: { status: 400, data: { status: 3, message: "Something went wrong" } } }],
+    ["401 (session)", { response: { status: 401, data: { status: 0, message: "Unauthorized" } } }],
+    ["403 (role changed)", { response: { status: 403, data: { status: 0, message: "Only network admins can do this" } } }],
+    ["408 (timeout)", { response: { status: 408, data: {} } }],
+    ["429 (rate limited)", { response: { status: 429, data: {} } }],
+    ["503", { response: { status: 503, data: {} } }],
+    ["no response (network)", { message: "Network Error", isAxiosError: true }],
+  ])("a retryable failure, %s, keeps the payload, offers Retry confirmation and does not reload", async (_label, err) => {
+    seed();
+    api.verifySeatsPayment.mockRejectedValueOnce(err);
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Retry confirmation" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry confirmation" })).not.toBeDisabled());
+    expect(stored()).toMatchObject(IDS);
+    expect(api.getOrg).toHaveBeenCalledTimes(1);
+    expect(api.paySeats).not.toHaveBeenCalled();
   });
 
   test("another org's pending payment is ignored", async () => {

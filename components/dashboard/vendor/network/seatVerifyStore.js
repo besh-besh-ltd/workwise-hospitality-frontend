@@ -40,8 +40,16 @@ export function clearPendingSeatVerify(orgId) {
   }
 }
 
-/** A refusal the server will repeat on every replay (bad signature, not found…). */
+/**
+ * A refusal the server will repeat on every replay: a business refusal from
+ * verify (NetworkHttpError → `{ status: 0 }`) with HTTP 400 (invalid signature)
+ * or 404 (payment record not found). Nothing else is definitive: the backend
+ * answers ANY unexpected error (DB failure, lock timeout, deadlock) as
+ * `400 { status: 3 }`, and 401 / 403 / 408 / 429 / 5xx / no response are all
+ * transient or session problems. Those keep the paid ids for a retry.
+ */
 export const isDefinitiveRefusal = (err) => {
-  const status = err?.response?.status;
-  return Number.isInteger(status) && status >= 400 && status < 500;
+  const http = err?.response?.status;
+  const body = err?.response?.data;
+  return (http === 400 || http === 404) && body?.status === 0;
 };

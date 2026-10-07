@@ -55,6 +55,8 @@ const useSeatPayment = ({ orgId, onSuccess } = {}) => {
       clearPendingSeatVerify(orgId);
       setPendingVerify(null);
       toast.success(replay ? "Seat payment confirmed" : res?.message || "Seats activated");
+      // Only a confirmed payment changes the seats; a failed attempt needs no reload.
+      if (onSuccess) onSuccess();
     } catch (err) {
       if (isDefinitiveRefusal(err)) {
         clearPendingSeatVerify(orgId);
@@ -67,7 +69,6 @@ const useSeatPayment = ({ orgId, onSuccess } = {}) => {
     } finally {
       confirmingRef.current = false;
       setConfirming(false);
-      if (onSuccess) onSuccess();
     }
   }, [orgId, onSuccess]);
 
