@@ -3,16 +3,17 @@ import storageInstance from "@/utils/storageInstance";
 /**
  * Cross-tab session sync for vendor networks.
  *
- * Switching the acting entity in one tab rewrites the shared `token` and, once
- * the new profile is fetched and persisted, the shared redux-persist profile.
- * Other tabs showing a network profile must then reload to pick both up.
+ * Switching the acting entity in one tab fetches the new profile with the new
+ * token (explicit header), then rewrites the shared `token` and the shared
+ * redux-persist profile back to back. Other tabs showing a network profile must
+ * then reload to pick both up.
  *
- * They must NOT reload on the token change itself: the token is written before
- * the profile is fetched and flushed, so a reload at that moment would
- * rehydrate the OLD persisted profile with the NEW token. The switching tab
- * therefore writes a separate completion signal, ENTITY_SWITCH_DONE_KEY, only
- * after token + profile + flush all succeeded (never on rollback), and other
- * tabs reload on a change to that key alone.
+ * They must NOT reload on the token change itself: the token lands just before
+ * the profile is flushed, so a reload at that moment could rehydrate the OLD
+ * persisted profile with the NEW token. The switching tab therefore writes a
+ * separate completion signal, ENTITY_SWITCH_DONE_KEY, only after token +
+ * profile + flush all succeeded (never on rollback), and other tabs reload on a
+ * change to that key alone.
  */
 export const ENTITY_SWITCH_DONE_KEY = "entity-switch-done";
 

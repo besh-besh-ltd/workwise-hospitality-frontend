@@ -1,8 +1,9 @@
 // "Acting as {entity} · {org}" (spec §4, §9). Only a person who can act for
-// more than one entity gets the switcher. Switching swaps the session token,
-// reloads and persists the profile (whose `id` is now the new acting entity),
-// then HARD-navigates to the vendor dashboard so every page, cache and the
-// realtime socket (room bound to the entity at handshake) start over.
+// more than one entity gets the switcher. Switching fetches the new entity's
+// profile WITH the new token (explicit header) while the shared token is still
+// the old one, then stores token, profile (flushed) and the cross-tab done
+// signal back to back, and HARD-navigates to the vendor dashboard so every
+// page, cache and the realtime socket start over.
 
 jest.mock("@/services/vendorNetwork", () => ({
   __esModule: true,
@@ -10,7 +11,7 @@ jest.mock("@/services/vendorNetwork", () => ({
 }));
 jest.mock("@/services/Auth", () => ({
   __esModule: true,
-  getProfile: jest.fn(),
+  getProfileAs: jest.fn(),
 }));
 // The hard navigation is window.location.assign behind a one-line seam
 // (jsdom's location is non-configurable).
@@ -44,7 +45,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import reducer, { setUserProfile } from "@/redux/slice";
 import { switchEntity } from "@/services/vendorNetwork";
-import { getProfile } from "@/services/Auth";
+import { getProfileAs as getProfile } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import EntitySwitcher from "./EntitySwitcher";
 
@@ -109,7 +110,7 @@ test("the static label falls back to the profile's name when the entity list is 
   expect(screen.getByLabelText("Acting entity")).toHaveTextContent("Daikin UP · Daikin India");
 });
 
-test("shows the acting entity and org; switching stores the token, persists the profile, then hard-navigates", async () => {
+test("shows the acting entity and org; switching fetches the profile with the new token, then stores token, profile and done signal, then hard-navigates", async () => {
   switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
   const switched = { id: 11, name: "Daikin UP", network: network({ acting_entity_id: 11, is_principal: false }) };
   getProfile.mockResolvedValue({ status: 1, data: switched });
@@ -125,26 +126,28 @@ test("shows the acting entity and org; switching stores the token, persists the 
   await waitFor(() => expect(mockAssign).toHaveBeenCalledWith("/dashboard/vendor"));
   expect(mockAssign).toHaveBeenCalledTimes(1);
   expect(switchEntity).toHaveBeenCalledWith(11);
+  // The new entity's profile is fetched with the new token itself.
+  expect(getProfile).toHaveBeenCalledWith("tok-up");
   expect(storageInstance.setStorage).toHaveBeenCalledWith("token", "tok-up");
   expect(store.getState().userProfile).toEqual(switched);
 
-  // Token first (so the profile fetch and the next page run as the new entity),
-  // the persisted profile flushed, and only then the navigation.
-  const tokenAt = storageInstance.setStorage.mock.invocationCallOrder[0];
+  // Cross-tab ordering: other tabs read the shared token, so it is written only AFTER the
+  // new profile is in hand, then the profile is flushed, then the done signal, then the
+  // navigation.
+  const tokenIdx = storageInstance.setStorage.mock.calls.findIndex(([k]) => k === "token");
+  const tokenAt = storageInstance.setStorage.mock.invocationCallOrder[tokenIdx];
   const navAt = mockAssign.mock.invocationCallOrder[0];
-  expect(tokenAt).toBeLessThan(getProfile.mock.invocationCallOrder[0]);
-  expect(tokenAt).toBeLessThan(navAt);
-  expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(navAt);
-
-  // Other tabs are told only once token + profile + flush all succeeded.
+  const flushAt = mockFlush.mock.invocationCallOrder[0];
+  expect(getProfile.mock.invocationCallOrder[0]).toBeLessThan(tokenAt);
+  expect(tokenAt).toBeLessThan(flushAt);
   const doneIdx = storageInstance.setStorage.mock.calls.findIndex(([k]) => k === "entity-switch-done");
   expect(doneIdx).toBeGreaterThan(-1);
   const doneAt = storageInstance.setStorage.mock.invocationCallOrder[doneIdx];
-  expect(mockFlush.mock.invocationCallOrder[0]).toBeLessThan(doneAt);
+  expect(flushAt).toBeLessThan(doneAt);
   expect(doneAt).toBeLessThan(navAt);
 });
 
-test("a failed profile refresh rolls back to the previous token and profile and does not navigate", async () => {
+test("a failed profile fetch never touches the stored token or profile and does not navigate", async () => {
   switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
   getProfile.mockRejectedValue(new Error("network"));
   const before = { id: 10, name: "Daikin HQ", network: network() };
@@ -154,15 +157,10 @@ test("a failed profile refresh rolls back to the previous token and profile and 
 
   const { toast } = require("react-toastify");
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not switch entity. Please try again."));
-  // New token stored, then the previous one put back: the session is never half-switched.
-  expect(storageInstance.setStorage.mock.calls).toEqual([
-    ["token", "tok-up"],
-    ["token", "tok-hq"],
-  ]);
+  // Other tabs never saw the new token: nothing was written.
+  expect(storageInstance.setStorage).not.toHaveBeenCalled();
   expect(store.getState().userProfile).toEqual(before);
-  // The restored profile is persisted again, and other tabs are never told to reload.
-  expect(mockFlush).toHaveBeenCalledTimes(1);
-  expect(storageInstance.setStorage.mock.calls.some(([k]) => k === "entity-switch-done")).toBe(false);
+  expect(mockFlush).not.toHaveBeenCalled();
   expect(mockAssign).not.toHaveBeenCalled();
   // Switching state cleared: the trigger is usable again and shows the old entity.
   const trigger = screen.getByRole("button", { name: /Acting as/ });
@@ -170,7 +168,7 @@ test("a failed profile refresh rolls back to the previous token and profile and 
   expect(trigger).toHaveTextContent("Acting as Daikin HQ · Daikin India");
 });
 
-test("a failing persist flush rolls back too, and the rollback's own failing flush does not throw", async () => {
+test("a failing persist flush rolls back token and profile, and the rollback's own failing flush does not throw", async () => {
   switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
   getProfile.mockResolvedValue({ status: 1, data: { id: 11, network: network({ acting_entity_id: 11 }) } });
   mockFlush.mockRejectedValue(new Error("quota"));
@@ -186,6 +184,22 @@ test("a failing persist flush rolls back too, and the rollback's own failing flu
   expect(store.getState().userProfile).toEqual(before);
   expect(mockAssign).not.toHaveBeenCalled();
   mockFlush.mockImplementation(() => Promise.resolve());
+});
+
+test("a throwing done signal (storage blocked) still navigates: token and profile are already the new entity's", async () => {
+  switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
+  getProfile.mockResolvedValue({ status: 1, data: { id: 11, network: network({ acting_entity_id: 11 }) } });
+  storageInstance.setStorage.mockImplementation((key) => {
+    if (key === "entity-switch-done") throw new Error("QuotaExceededError");
+  });
+  renderWith({ id: 10, name: "Daikin HQ", network: network() });
+  fireEvent.click(screen.getByRole("button", { name: /Acting as/ }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name: /Daikin UP/ }));
+
+  await waitFor(() => expect(mockAssign).toHaveBeenCalledWith("/dashboard/vendor"));
+  const { toast } = require("react-toastify");
+  expect(toast.error).not.toHaveBeenCalled();
+  storageInstance.setStorage.mockImplementation(() => {});
 });
 
 test("keyboard: opening focuses the first entity, arrows move focus, Enter selects", async () => {
