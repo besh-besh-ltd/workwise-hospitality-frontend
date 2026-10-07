@@ -335,14 +335,99 @@ describe("seat payment", () => {
     await waitFor(() => expect(api.getOrg).toHaveBeenCalledTimes(2));
   });
 
-  test("a payment already in progress shows the server's message", async () => {
+  const ORDER = {
+    status: 1,
+    data: { order: { id: "order_X", amount: 150000, currency: "INR" }, payment_id: 9, amount: 1500, razorpay_key: "rzp_test_key" },
+  };
+  const startCheckout = async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Pay for seats/ }));
+    await waitFor(() => expect(rzpInstance.open).toHaveBeenCalledTimes(1));
+  };
+
+  test("a checkout started elsewhere (409 with no order here) explains the 30-minute wait", async () => {
     api.paySeats.mockRejectedValue(conflict("A payment for these seats is already in progress", "PAYMENT_IN_PROGRESS"));
     renderPage();
     await rowOf("Cool Distributors");
     fireEvent.click(screen.getByRole("button", { name: /Pay for seats/ }));
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith("A payment for these seats is already in progress")
+      expect(toast.error).toHaveBeenCalledWith(
+        "A checkout for these seats was started in the last 30 minutes. Complete it from the original window, or retry after 30 minutes."
+      )
     );
     expect(window.Razorpay).not.toHaveBeenCalled();
   });
+
+  test("dismissing the checkout keeps the seats unpaid; a retry reopens the SAME order without a new paySeats", async () => {
+    api.paySeats.mockResolvedValue(ORDER);
+    renderPage();
+    await rowOf("Cool Distributors");
+    await startCheckout();
+
+    act(() => rzpInstance.options.modal.ondismiss());
+    expect(toast.info).toHaveBeenCalledWith("Payment cancelled. You can retry when ready.");
+    expect(api.verifySeatsPayment).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Pay for seats/ })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: /Pay for seats/ }));
+    await waitFor(() => expect(window.Razorpay).toHaveBeenCalledTimes(2));
+    expect(api.paySeats).toHaveBeenCalledTimes(1);
+    expect(window.Razorpay.mock.calls[1][0]).toMatchObject({ order_id: "order_X", key: "rzp_test_key", amount: 150000 });
+  });
+
+  test("a failed payment shows an error toast and the seats stay unpaid", async () => {
+    api.paySeats.mockResolvedValue(ORDER);
+    renderPage();
+    await rowOf("Cool Distributors");
+    await startCheckout();
+    const [event, onFailed] = rzpInstance.on.mock.calls[0];
+    expect(event).toBe("payment.failed");
+    act(() => onFailed({ error: { description: "Card declined" } }));
+    expect(toast.error).toHaveBeenCalledWith("Payment failed: Card declined");
+    expect(api.verifySeatsPayment).not.toHaveBeenCalled();
+    expect(screen.getByText(/Payment pending/)).toBeInTheDocument();
+  });
+
+  test("a verify failure shows an error toast, reloads, and the seats stay unpaid", async () => {
+    api.paySeats.mockResolvedValue(ORDER);
+    api.verifySeatsPayment.mockRejectedValue({
+      response: { status: 400, data: { status: 0, message: "Payment verification failed - invalid signature" } },
+    });
+    renderPage();
+    await rowOf("Cool Distributors");
+    await startCheckout();
+    await act(() =>
+      rzpInstance.options.handler({ razorpay_order_id: "order_X", razorpay_payment_id: "pay_Y", razorpay_signature: "bad" })
+    );
+    expect(toast.error).toHaveBeenCalledWith("Payment verification failed - invalid signature");
+    expect(toast.success).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.getOrg).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Payment pending/)).toBeInTheDocument();
+  });
+});
+
+test("a 403 loading the network shows the error and Retry, not the table", async () => {
+  api.getOrg.mockRejectedValueOnce({ response: { status: 403, data: { status: 0, message: "Only network admins can do this" } } });
+  renderPage();
+  expect(await screen.findByText("Only network admins can do this")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByRole("table", { name: "Network entities" })).toBeInTheDocument();
+});
+
+test("cancelling an outgoing invite is guarded against a double click", async () => {
+  api.getOrg.mockResolvedValue(
+    orgPayload(DEFAULT_ENTITIES, [
+      { id: 91, target_vendor_id: 20, target_name: "Daikin Pune", target_email: null, addressed_by: "ID", relationship: "BRANCH", status: "PENDING", expires_at: "2026-10-14T00:00:00Z" },
+    ])
+  );
+  let resolveCancel;
+  api.cancelLinkInvite.mockImplementation(() => new Promise((r) => { resolveCancel = r; }));
+  renderPage();
+  const btn = await screen.findByRole("button", { name: "Cancel invitation" });
+  fireEvent.click(btn);
+  fireEvent.click(btn);
+  expect(api.cancelLinkInvite).toHaveBeenCalledTimes(1);
+  expect(btn).toBeDisabled();
+  await act(async () => resolveCancel({ status: 1, message: "Invitation cancelled" }));
+  expect(api.cancelLinkInvite).toHaveBeenCalledWith(91);
 });

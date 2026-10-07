@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { getVendorPoListView, downloadVendorPoExcel } from "@/services/po";
 import styles, { inr, fmtDateTime, relAgo, Sk } from "@/components/dashboard/buyer/purchase-orders/shared";
+import { vendorStatusLabel } from "./vendorPoStatus";
 
 const PO_ROUTE = "/dashboard/vendor/purchase-orders";
 const PAGE_LIMIT = 20;
@@ -32,25 +33,6 @@ const TABS = [
   { key: "completed", label: "Completed", count: "completed" },
   { key: "rejected", label: "Rejected", count: "rejected" },
 ];
-
-/* Vendor-friendly status labels for the pill (distinct from the buyer copy). */
-const VENDOR_STATUS_LABELS = {
-  acceptance_pending: "Awaiting you",
-  sent: "Awaiting you",
-  approved: "Accepted",
-  dispatched: "Dispatched",
-  invoice_raised: "Invoice raised",
-  GRN: "Received",
-  delivered: "Received",
-  completed: "Completed",
-  rejected_by_vendor: "Rejected",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-  draft: "Draft",
-  pending: "Pending",
-  pending_approval: "Pending",
-};
-const vendorStatusLabel = (s) => VENDOR_STATUS_LABELS[s] || (s ? String(s) : "—");
 
 /* Map each raw status to one of the statusPill tone classes that exist in
    PurchaseOrders.module.scss (warn=pending, success=approved/completed, etc.). */

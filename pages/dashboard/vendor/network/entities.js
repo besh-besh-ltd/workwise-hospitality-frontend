@@ -59,6 +59,7 @@ function EntitiesView() {
   const [modal, setModal] = useState(null); // 'link' | 'create'
   const [confirm, setConfirm] = useState(null); // { action, entity }
   const [busy, setBusy] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoadError("");
@@ -101,12 +102,16 @@ function EntitiesView() {
   };
 
   const cancelInvite = async (invite) => {
+    if (cancellingId != null) return;
+    setCancellingId(invite.id);
     try {
       const res = await cancelLinkInvite(invite.id);
       toast.success(res?.message || "Invitation cancelled");
       await load();
     } catch (err) {
       toast.error(networkErrorMessage(err, "Could not cancel the invitation."));
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -175,6 +180,7 @@ function EntitiesView() {
         </div>
       )}
 
+      {!loadError && (
       <div className="section-card">
         <div className="section-head">
           <div className="h-left">
@@ -247,8 +253,9 @@ function EntitiesView() {
           )}
         </div>
       </div>
+      )}
 
-      {invites.length > 0 && (
+      {!loadError && invites.length > 0 && (
         <div className="section-card">
           <div className="section-head">
             <div className="h-left">
@@ -277,7 +284,7 @@ function EntitiesView() {
                     </td>
                     <td>{fmtDate(i.expires_at)}</td>
                     <td style={{ textAlign: "right" }}>
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => cancelInvite(i)}>
+                      <button type="button" className="btn btn-ghost btn-sm" disabled={cancellingId != null} onClick={() => cancelInvite(i)}>
                         Cancel invitation
                       </button>
                     </td>

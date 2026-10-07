@@ -16,6 +16,8 @@ jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
+let mockGuest = false;
+jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () => mockGuest }));
 
 import React from "react";
 import { Provider } from "react-redux";
@@ -63,7 +65,7 @@ const summary = {
       },
     ],
     routing: { unrouted: 4, pending: 5, declined_7d: 1, timed_out_7d: 2 },
-    pos: { by_status: { Approved: 6, Accepted: 2 } },
+    pos: { by_status: { approved: 6, sent: 2, acceptance_pending: 1, completed: 4 } },
   },
 };
 
@@ -78,7 +80,10 @@ const renderWith = (profile) => {
   return store;
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGuest = false;
+});
 
 test("a vendor in no network sees the set-up form and no dashboard call", () => {
   renderWith({ id: 10, user_type: 3, name: "Daikin HQ", network: null });
@@ -141,7 +146,12 @@ test("an admin sees the summary tiles, routing counts and the entity table", asy
   expect(screen.getByTestId("tile-timed_out_7d")).toHaveTextContent("2");
   expect(screen.getByTestId("tile-entities")).toHaveTextContent("3");
   expect(screen.getByTestId("tile-pending-seats")).toHaveTextContent("1");
-  expect(screen.getByText("Approved")).toBeInTheDocument();
+  // Vendor-facing PO labels; statuses sharing a label are summed.
+  const accepted = screen.getByText("Accepted").closest(".pill");
+  expect(accepted).toHaveTextContent("6");
+  expect(screen.getByText("Awaiting you").closest(".pill")).toHaveTextContent("3");
+  expect(screen.getByText("Completed").closest(".pill")).toHaveTextContent("4");
+  expect(screen.queryByText("acceptance_pending")).toBeNull();
 });
 
 test("an entity member (not an admin) gets a notice and no dashboard call", () => {
@@ -151,5 +161,37 @@ test("an entity member (not an admin) gets a notice and no dashboard call", () =
     network: { ...adminNetwork, role: "ENTITY_MEMBER", is_principal: false, acting_entity_id: 11 },
   });
   expect(screen.getByText(/Only network admins/)).toBeInTheDocument();
+  expect(getNetworkDashboardSummary).not.toHaveBeenCalled();
+});
+
+test("a 403 loading the dashboard shows the error and Retry, not the table", async () => {
+  getNetworkDashboardSummary.mockRejectedValueOnce({
+    response: { status: 403, data: { status: 0, message: "Only network admins can do this" } },
+  });
+  getNetworkDashboardSummary.mockResolvedValueOnce(summary);
+  renderWith({ id: 10, user_type: 3, network: adminNetwork });
+  expect(await screen.findByText("Only network admins can do this")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByRole("table", { name: "Network entities" })).toBeInTheDocument();
+});
+
+test("a guest emailed-link session gets a notice, not the set-up form", () => {
+  mockGuest = true;
+  renderWith({ id: 10, user_type: 3, network: null });
+  expect(screen.queryByLabelText("Network name")).toBeNull();
+  expect(screen.getByText("Vendor networks need your own sign-in")).toBeInTheDocument();
+});
+
+test("a non-vendor in no network gets a notice, not the set-up form", () => {
+  renderWith({ id: 5, user_type: 2, network: null });
+  expect(screen.queryByLabelText("Network name")).toBeNull();
+  expect(screen.getByText("Vendor networks need your own sign-in")).toBeInTheDocument();
+});
+
+test("a vendor profile without the network key (pre-release) waits for the refetch", () => {
+  renderWith({ id: 10, user_type: 3, name: "Daikin HQ" });
+  expect(screen.queryByLabelText("Network name")).toBeNull();
+  expect(screen.queryByText(/Only network admins/)).toBeNull();
   expect(getNetworkDashboardSummary).not.toHaveBeenCalled();
 });

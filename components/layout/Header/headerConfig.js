@@ -169,14 +169,14 @@ export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile
  * is explicitly null (the server's "in no network"), outside a guest
  * emailed-link session, so it never flashes before the profile arrives.
  */
+export const canSetUpNetwork = (profile, isGuestSession) =>
+  !!profile && Number(profile.user_type) === 3 && profile.network === null && !isGuestSession;
+
 const networkAllows = (item, profile, isGuestSession) => {
   const network = profile?.network;
   if (item.requiresNetworkAdmin && network?.role !== "ORG_ADMIN") return false;
   if (item.requiresNetworkMember && !(network && !network.is_principal)) return false;
-  if (item.requiresNoNetwork) {
-    const isPlainVendor = !!profile && Number(profile.user_type) === 3 && network === null;
-    if (!isPlainVendor || isGuestSession) return false;
-  }
+  if (item.requiresNoNetwork && !canSetUpNetwork(profile, isGuestSession)) return false;
   return true;
 };
 

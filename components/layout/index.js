@@ -12,7 +12,8 @@ import { toast } from "react-toastify";
 import GuestAccessModal from "@/components/shared/GuestAccessModal";
 import PushPermissionPrompt from "@/components/shared/PushPermissionPrompt";
 import { store } from "@/redux/store";
-import { entitySwitchNeedsReload } from "@/utils/sessionSync";
+import { entitySwitchNeedsReload, profileNeedsNetworkRefresh } from "@/utils/sessionSync";
+import { isGuestSession } from "@/utils/guestSession";
 import { hardReload } from "@/utils/hardNavigate";
 // import Footer from "./Footer/newFooter";
 
@@ -73,6 +74,20 @@ const Layout = (props) => {
     }
   };
 
+
+  // One-time per load: a vendor profile persisted before vendor networks has
+  // no `network` key. Refetch it so the nav and network pages read the truth.
+  const networkProfileRefreshed = useRef(false);
+  useEffect(() => {
+    if (networkProfileRefreshed.current) return;
+    networkProfileRefreshed.current = true;
+    if (!profileNeedsNetworkRefresh(store.getState()?.userProfile, isGuestSession())) return;
+    getProfile()
+      .then((res) => {
+        if (res?.data) dispatch(setUserProfile(res.data));
+      })
+      .catch(() => {});
+  }, [dispatch]);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);

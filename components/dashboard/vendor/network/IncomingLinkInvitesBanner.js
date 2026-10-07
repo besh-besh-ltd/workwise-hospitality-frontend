@@ -7,6 +7,13 @@ import { networkErrorMessage } from "./networkErrors";
 import { refreshNetworkProfile } from "./networkProfile";
 import { RELATIONSHIP_LABEL, fmtDate } from "./networkFormat";
 
+// The shared reason messages are written for an admin sending an invite; here
+// the reader is the vendor answering one.
+const ACCEPT_ERROR_OVERRIDES = {
+  ALREADY_IN_NETWORK: "You already belong to a network.",
+  IS_PRINCIPAL: "A network HQ cannot join another network.",
+};
+
 /**
  * Pending network invitations addressed to this vendor account (spec §5).
  * Only a vendor in no network is asked: one already in a network could not
@@ -19,6 +26,9 @@ export function useIncomingLinkInvites({ onAccepted } = {}) {
   const dispatch = useDispatch();
   const profile = useSelector((state) => state.userProfile);
   const eligible = !!profile && profile.network === null && Number(profile.user_type) === 3;
+  // Loaded, and (for a vendor) carrying the `network` key: a profile persisted
+  // before vendor networks lacks it until the layout's one-time refetch lands.
+  const profileReady = !!profile && !(Number(profile.user_type) === 3 && profile.network === undefined);
   const [invites, setInvites] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState(null);
@@ -53,7 +63,7 @@ export function useIncomingLinkInvites({ onAccepted } = {}) {
       }
       onAccepted?.(invite);
     } catch (err) {
-      toast.error(networkErrorMessage(err, "Could not accept the invitation."));
+      toast.error(networkErrorMessage(err, "Could not accept the invitation.", ACCEPT_ERROR_OVERRIDES));
       if (err?.response?.status === 410) drop(invite.id);
     } finally {
       setBusyId(null);
@@ -67,14 +77,21 @@ export function useIncomingLinkInvites({ onAccepted } = {}) {
       toast.success(res?.message || "Invitation declined");
       drop(invite.id);
     } catch (err) {
-      toast.error(networkErrorMessage(err, "Could not decline the invitation."));
+      toast.error(networkErrorMessage(err, "Could not decline the invitation.", ACCEPT_ERROR_OVERRIDES));
       if (err?.response?.status === 410) drop(invite.id);
     } finally {
       setBusyId(null);
     }
   }, []);
 
-  return { eligible, loaded: eligible ? loaded : true, invites: eligible ? invites : [], busyId, accept, decline };
+  return {
+    eligible,
+    loaded: profileReady && (eligible ? loaded : true),
+    invites: eligible ? invites : [],
+    busyId,
+    accept,
+    decline,
+  };
 }
 
 /** One card per invitation, with Accept / Decline. */

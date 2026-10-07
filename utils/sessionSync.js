@@ -31,3 +31,15 @@ export const entitySwitchNeedsReload = (event, profile) =>
   !!event.newValue &&
   event.newValue !== event.oldValue &&
   !!profile?.network;
+
+/**
+ * True when a persisted vendor profile predates vendor networks: get-profile
+ * now always sends `network` (null when in no network), so a vendor profile
+ * WITHOUT the key was stored by an older build and every `network === null`
+ * gate misreads it until it is refetched. Not for guest emailed-link sessions.
+ */
+export const profileNeedsNetworkRefresh = (profile, isGuest) =>
+  !!profile &&
+  Number(profile.user_type) === 3 &&
+  !Object.prototype.hasOwnProperty.call(profile, "network") &&
+  !isGuest;

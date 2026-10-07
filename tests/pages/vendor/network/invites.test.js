@@ -99,14 +99,42 @@ test("declining removes the invitation and stays on the page", async () => {
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-test("a 409 on accept shows the server's message and does not navigate", async () => {
+test("a 409 on accept is worded for the accepting vendor and does not navigate", async () => {
   listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
   acceptLinkInvite.mockRejectedValue({
     response: { status: 409, data: { status: 0, message: "You already belong to a network", reason: "ALREADY_IN_NETWORK" } },
   });
   renderWith(SOLO);
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
-  await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith("You already belong to a network."));
   expect(mockPush).not.toHaveBeenCalled();
   expect(screen.getByText("Daikin India")).toBeInTheDocument();
+});
+
+test("an HQ (IS_PRINCIPAL) is told it cannot join another network", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
+  acceptLinkInvite.mockRejectedValue({
+    response: { status: 409, data: { status: 0, message: "You run your own network and cannot join another", reason: "IS_PRINCIPAL" } },
+  });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith("A network HQ cannot join another network."));
+});
+
+test("shows a loading state until the profile is loaded, not the in-a-network text", () => {
+  const store = configureStore({ reducer });
+  render(
+    <Provider store={store}>
+      <NetworkInvitesPage />
+    </Provider>
+  );
+  expect(screen.getByText("Loading invitations…")).toBeInTheDocument();
+  expect(screen.queryByText(/already part of a network/)).toBeNull();
+  expect(listIncomingLinkInvites).not.toHaveBeenCalled();
+});
+
+test("a pre-release vendor profile (no network key) also waits", () => {
+  renderWith({ id: 20, user_type: 3, name: "Cool Distributors" });
+  expect(screen.getByText("Loading invitations…")).toBeInTheDocument();
+  expect(screen.queryByText(/already part of a network/)).toBeNull();
 });

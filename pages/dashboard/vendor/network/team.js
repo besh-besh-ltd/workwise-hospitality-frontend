@@ -96,6 +96,7 @@ function TeamView() {
         </div>
       )}
 
+      {!loadError && (
       <div className="section-card">
         <div className="section-head">
           <div className="h-left">
@@ -174,6 +175,7 @@ function TeamView() {
           )}
         </div>
       </div>
+      )}
 
       {modal?.kind === "invite" && <InviteMemberModal entities={entities} onClose={() => setModal(null)} onInvited={closeAndReload} />}
       {modal?.kind === "edit" && (

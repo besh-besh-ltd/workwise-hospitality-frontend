@@ -233,3 +233,12 @@ test("moves a member to another entity", async () => {
     expect(api.updateMember).toHaveBeenCalledWith(2, { role: "ENTITY_MEMBER", entity_vendor_id: 10 })
   );
 });
+
+test("a 403 loading the team shows the error and Retry, not the table", async () => {
+  api.getOrg.mockRejectedValueOnce({ response: { status: 403, data: { status: 0, message: "Only network admins can do this" } } });
+  renderPage();
+  expect(await screen.findByText("Only network admins can do this")).toBeInTheDocument();
+  expect(screen.queryByRole("table")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByRole("table", { name: "Network people" })).toBeInTheDocument();
+});

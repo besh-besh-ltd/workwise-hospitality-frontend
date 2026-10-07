@@ -1,9 +1,10 @@
 // Vendor network — Overview (spec §5, §8, §9).
-// One path, three states (the nav's "Overview" and "Set up network" items both
+// One path, three main states (the nav's "Overview" and "Set up network" items both
 // point here and are mutually exclusive):
-//   - no network (profile.network === null) → the "Set up network" form
-//   - network admin                        → the HQ dashboard (GET /dashboard/summary)
-//   - anyone else in a network             → an admins-only notice
+//   - a vendor who may set up a network (the nav's own rule: user_type 3,
+//     network === null, not a guest session) → the "Set up network" form
+//   - network admin                         → the HQ dashboard (GET /dashboard/summary)
+//   - anyone else                           → NetworkAccessNotice
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -15,6 +16,9 @@ import SetupNetworkForm from "@/components/dashboard/vendor/network/SetupNetwork
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import SeatBadge from "@/components/dashboard/vendor/network/SeatBadge";
 import { isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
+import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
+import { isGuestSession } from "@/utils/guestSession";
+import { vendorStatusLabel } from "@/components/dashboard/vendor/purchase-orders/vendorPoStatus";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { RELATIONSHIP_LABEL, ENTITY_STATUS, StatusPill } from "@/components/dashboard/vendor/network/networkFormat";
 
@@ -54,7 +58,16 @@ function NetworkDashboard({ network }) {
 
   const entities = useMemo(() => data?.entities || [], [data]);
   const routing = data?.routing || {};
-  const poByStatus = Object.entries(data?.pos?.by_status || {});
+  // Several raw statuses share a vendor-facing label (sent / acceptance_pending
+  // are both "Awaiting you"), so counts are summed per label.
+  const poByStatus = useMemo(() => {
+    const byLabel = new Map();
+    for (const [status, n] of Object.entries(data?.pos?.by_status || {})) {
+      const label = vendorStatusLabel(status);
+      byLabel.set(label, (byLabel.get(label) || 0) + Number(n || 0));
+    }
+    return [...byLabel.entries()];
+  }, [data]);
   const pendingSeats = entities.filter((e) => e.seat?.status === "pending").length;
 
   return (
@@ -158,9 +171,9 @@ function NetworkDashboard({ network }) {
                 <span style={{ fontSize: 13, color: "var(--fg-3)" }}>No purchase orders in the network yet.</span>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {poByStatus.map(([status, n]) => (
-                    <span key={status} className="pill outline">
-                      <span>{status}</span>
+                  {poByStatus.map(([label, n]) => (
+                    <span key={label} className="pill outline">
+                      <span>{label}</span>
                       <strong className="mono" style={{ marginLeft: 4 }}>{n}</strong>
                     </span>
                   ))}
@@ -177,10 +190,15 @@ function NetworkDashboard({ network }) {
 export default function NetworkOverviewPage() {
   const profile = useSelector((state) => state.userProfile);
 
+  // A vendor profile persisted before vendor networks has no `network` key;
+  // the layout refetches it once, so wait rather than show the wrong state.
+  const awaitingNetworkKey =
+    !!profile && Number(profile.user_type) === 3 && profile.network === undefined && !isGuestSession();
+
   let body;
-  if (!profile) body = null;
-  else if (profile.network === null) body = <SetupNetworkForm />;
+  if (!profile || awaitingNetworkKey) body = null;
   else if (isNetworkAdmin(profile)) body = <NetworkDashboard network={profile.network} />;
+  else if (canSetUpNetwork(profile, isGuestSession())) body = <SetupNetworkForm />;
   else body = <NetworkAccessNotice profile={profile} />;
 
   return (
