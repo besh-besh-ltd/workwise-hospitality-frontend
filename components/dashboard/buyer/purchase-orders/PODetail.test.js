@@ -1005,3 +1005,33 @@ describe("Documents & attachments", () => {
     expect(card.queryByText("Technical evaluation documents")).not.toBeInTheDocument();
   });
 });
+
+// Task 20 / D4: a call-off PO's GST split (pricing.tax_breakdown) is shown under the
+// subtotal; RFQ POs, which have none, keep the table exactly as before.
+describe("call-off GST split", () => {
+  const rowTexts = () => Array.from(document.querySelectorAll("tfoot tr")).map((tr) => tr.textContent.replace(/\s+/g, " ").trim());
+
+  test("inter-state call-off shows IGST 18%", async () => {
+    await mount({
+      is_call_off: true,
+      total_value: 63720,
+      pricing: { total: 63720, subtotal: 54000, tax: 9720, taxable_value: 54000, tax_breakdown: [{ label: "IGST", rate: 18, amount: 9720 }] },
+    });
+    expect(rowTexts().some((t) => /^Incl\. IGST 18%\s?₹\s?9,720/.test(t))).toBe(true);
+  });
+
+  test("intra-state call-off shows CGST and SGST at half the rate each", async () => {
+    await mount({
+      is_call_off: true,
+      pricing: { total: 198240, tax_breakdown: [{ label: "CGST", rate: 9, amount: 15120 }, { label: "SGST", rate: 9, amount: 15120 }] },
+    });
+    const texts = rowTexts();
+    expect(texts.some((t) => /^Incl\. CGST 9%\s?₹\s?15,120/.test(t))).toBe(true);
+    expect(texts.some((t) => /^Incl\. SGST 9%\s?₹\s?15,120/.test(t))).toBe(true);
+  });
+
+  test("an RFQ PO (no breakdown) and a single legacy GST row add no split rows", async () => {
+    await mount();
+    expect(rowTexts().some((t) => t.startsWith("Incl."))).toBe(false);
+  });
+});

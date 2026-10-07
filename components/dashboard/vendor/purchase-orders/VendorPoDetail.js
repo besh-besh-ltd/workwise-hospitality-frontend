@@ -23,6 +23,7 @@ import {
   getVendorPoPdf,
 } from "@/services/po";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import RaiseInvoiceModal from "@/components/dashboard/vendor/order-book/RaiseInvoiceModal";
 import styles, {
   avatarClass,
@@ -191,6 +192,8 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   }
 
   const pricing = po.pricing || {};
+  // Call-off POs: CGST/SGST or IGST rows instead of the single GST line.
+  const gstSplit = gstSplitRows(pricing);
   const items = Array.isArray(po.items) ? po.items : [];
   const vendor = po.vendor || {};
   const rfq = po.rfq || {};
@@ -417,14 +420,23 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                     <td className="num">{inr(pricing.subtotal)}</td>
                   </tr>
                 )}
-                {pricing.tax != null && (
-                  <tr className="subtotal">
-                    <td colSpan={6} className={styles.tRight}>
-                      GST
-                    </td>
-                    <td className="num">{inr(pricing.tax)}</td>
-                  </tr>
-                )}
+                {gstSplit
+                  ? gstSplit.map((row) => (
+                      <tr key={row.key} className="subtotal">
+                        <td colSpan={6} className={styles.tRight}>
+                          {row.label}
+                        </td>
+                        <td className="num">{inr(row.amount)}</td>
+                      </tr>
+                    ))
+                  : pricing.tax != null && (
+                      <tr className="subtotal">
+                        <td colSpan={6} className={styles.tRight}>
+                          GST
+                        </td>
+                        <td className="num">{inr(pricing.tax)}</td>
+                      </tr>
+                    )}
                 {freightInsurance > 0 && (
                   <tr className="subtotal">
                     <td colSpan={6} className={styles.tRight}>

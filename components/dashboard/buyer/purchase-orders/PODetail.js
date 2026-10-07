@@ -30,6 +30,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import InfoTip from "@/components/shared/InfoTip";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { previewTotals } from "@/services/pricing";
+import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
@@ -594,6 +595,7 @@ const PODetail = ({ id }) => {
       : "";
 
   const pricing = po.pricing || {};
+  const gstSplit = gstSplitRows(pricing);
   const items = Array.isArray(po.items) ? po.items : [];
   const vendor = po.vendor || {};
   const rfq = po.rfq || {};
@@ -1144,6 +1146,15 @@ const PODetail = ({ id }) => {
                   </td>
                   <td className="num">{inr(computedSubtotal)}</td>
                 </tr>
+
+                {/* Call-off POs: the GST inside the subtotal, split as CGST + SGST
+                    (or UTGST) within a state or IGST across states. */}
+                {gstSplit && gstSplit.map((row) => (
+                  <tr key={row.key} className={styles.breakdownRow}>
+                    <td colSpan={5} className={styles.breakdownLabel}>Incl. {row.label}</td>
+                    <td className={`num ${styles.breakdownAmt}`}>{inr(row.amount)}</td>
+                  </tr>
+                ))}
 
                 {/* Other charges — accordion, one row per charge + tax sub-row */}
                 {showOtherCharges && (
