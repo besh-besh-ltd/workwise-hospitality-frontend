@@ -38,7 +38,6 @@ jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { toast } from "react-toastify";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
 import storageInstance from "@/utils/storageInstance";
 import { clearUserProfile } from "@/redux/slice";
@@ -120,9 +119,24 @@ test("a valid password activates the account and sends the person to sign in", a
   await screen.findByText("Daikin India");
   fill("secret123");
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/?login=true"));
+  // Task 20 / D6: the page confirms the activation and names the sign-in email; it does
+  // not drop the person on the homepage with an empty modal.
+  const done = await screen.findByRole("status");
+  expect(done).toHaveTextContent("Account activated — sign in with ravi@daikin.example and your new password.");
   expect(acceptMemberInvite).toHaveBeenCalledWith({ token: TOKEN, password: "secret123" });
-  expect(toast.success).toHaveBeenCalledWith("Your account is ready. Sign in with your email and new password.");
+  expect(mockReplace).not.toHaveBeenCalledWith("/?login=true");
+  expect(screen.queryByLabelText("New password")).toBeNull();
+
+  // "Sign in" hands the email to the sign-in modal through sessionStorage, never the URL.
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  expect(mockReplace).toHaveBeenCalledWith("/?login=true");
+  expect(JSON.stringify(mockReplace.mock.calls)).not.toContain("ravi@daikin.example");
+  const { takePendingSignIn } = require("@/utils/pendingSignIn");
+  expect(takePendingSignIn()).toEqual({
+    email: "ravi@daikin.example",
+    message: "Account activated — sign in with ravi@daikin.example and your new password.",
+  });
+  expect(takePendingSignIn()).toBeNull(); // cleared after one read
 });
 
 test("accepting ends any session already in this browser before going to sign in", async () => {
@@ -131,6 +145,8 @@ test("accepting ends any session already in this browser before going to sign in
   render(<AcceptInvitePage />);
   await screen.findByText("Daikin India");
   fill("secret123");
+  await screen.findByRole("status");
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/?login=true"));
 
   expect(storageInstance.removeStorege).toHaveBeenCalledWith("token");

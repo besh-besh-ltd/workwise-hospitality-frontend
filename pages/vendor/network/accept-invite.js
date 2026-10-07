@@ -11,13 +11,13 @@ import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
-import { toast } from "react-toastify";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
 import { clearUserProfile } from "@/redux/slice";
 import { persistor } from "@/redux/store";
 import storageInstance from "@/utils/storageInstance";
 import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
 import posthog from "@/lib/analytics";
+import { setPendingSignIn } from "@/utils/pendingSignIn";
 
 const GENERIC_GONE = "This invitation is invalid or has already been used";
 const EXPIRED = "This invitation has expired. Ask your network admin to resend it.";
@@ -75,7 +75,7 @@ const AcceptInvitePage = () => {
   // null until captured from the URL on the first ready render.
   const [token, setToken] = useState(null);
 
-  // 'loading' | 'open' | 'gone'
+  // 'loading' | 'open' | 'gone' | 'done'
   const [phase, setPhase] = useState("loading");
   const [invite, setInvite] = useState(null);
   const [goneMessage, setGoneMessage] = useState("");
@@ -142,10 +142,12 @@ const AcceptInvitePage = () => {
     setFormError("");
     setSubmitting(true);
     try {
-      const res = await acceptMemberInvite({ token, password });
+      await acceptMemberInvite({ token, password });
       await endExistingSession(dispatch);
-      toast.success(res?.message || "Your account is ready. Sign in with your email and new password.");
-      router.replace("/?login=true");
+      // No session is issued: say so here, and hand the email to the sign-in modal.
+      setPassword("");
+      setConfirm("");
+      setPhase("done");
     } catch (err) {
       if (err?.response?.status === 410) {
         setGoneMessage(serverMessage(err, GENERIC_GONE));
@@ -156,6 +158,14 @@ const AcceptInvitePage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const goToSignIn = () => {
+    setPendingSignIn({
+      email: invite?.email,
+      message: `Account activated — sign in with ${invite?.email || "your email"} and your new password.`,
+    });
+    router.replace("/?login=true");
   };
 
   return (
@@ -195,6 +205,32 @@ const AcceptInvitePage = () => {
                     Network: <span style={{ color: "var(--fg-2)" }}>{invite.org_name}</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {phase === "done" && (
+              <div role="status">
+                <div
+                  style={{
+                    background: "var(--success-soft)",
+                    color: "var(--success)",
+                    border: "1px solid rgba(5,118,66,0.28)",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                    fontSize: 13,
+                  }}
+                >
+                  <strong>Account activated</strong> — sign in with{" "}
+                  <strong>{invite?.email || "your email"}</strong> and your new password.
+                </div>
+                {invite?.org_name && (
+                  <div style={{ marginTop: 12, fontSize: 12.5, color: "var(--fg-3)" }}>
+                    Network: <span style={{ color: "var(--fg-2)" }}>{invite.org_name}</span>
+                  </div>
+                )}
+                <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={goToSignIn}>
+                  Sign in
+                </button>
               </div>
             )}
 
