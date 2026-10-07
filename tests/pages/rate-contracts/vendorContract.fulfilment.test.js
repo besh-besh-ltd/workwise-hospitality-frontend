@@ -23,6 +23,7 @@ jest.mock("@/services/vendorNetwork", () => ({
   getOrg: jest.fn(),
   getRoutingQueue: jest.fn(),
   assignSubject: jest.fn(),
+  revokeAssignment: jest.fn(),
 }));
 jest.mock("react-toastify", () => ({
   __esModule: true,
@@ -104,7 +105,8 @@ const ORG = {
 
 const row = (over) => ({
   id: 900, org_id: 7, subject_type: "ARC_HOTEL", subject_id: 77, hotel_id: MUMBAI,
-  assigned_vendor_id: 11, assignee_name: "Alpha West", status: "ACCEPTED", acted_at: "2026-10-05T10:00:00.000Z", ...over,
+  assigned_vendor_id: 11, assignee_name: "Alpha West", assignee_entity_status: "ACTIVE", status: "ACCEPTED",
+  acted_at: "2026-10-05T10:00:00.000Z", ...over,
 });
 
 const QUEUE = {
@@ -135,7 +137,10 @@ beforeEach(() => {
   NetApi.getOrg.mockResolvedValue(ORG);
   NetApi.getRoutingQueue.mockResolvedValue(QUEUE);
   NetApi.assignSubject.mockResolvedValue({ status: 1, message: "Assigned", data: { id: 950 } });
+  NetApi.revokeAssignment.mockResolvedValue({ status: 1, message: "Assignment revoked" });
 });
+
+const dialog = () => screen.findByRole("dialog");
 
 describe("the principal's network admin — Fulfilled by panel", () => {
   test("each hotel shows who supplies it and the assignment's state", async () => {
@@ -186,6 +191,79 @@ describe("the principal's network admin — Fulfilled by panel", () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Fulfilment routing is available for group rate contracts only.")
     );
+  });
+
+  test("Revert to HQ asks first, then revokes the hotel's live assignment and reloads", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    renderWith(VendorContractPage);
+
+    const mumbai = await hotelRow("Mumbai Suites");
+    // Goa has no live assignment: nothing to revert.
+    expect(within(await hotelRow("Goa Resort")).queryByRole("button", { name: /revert/i })).toBeNull();
+
+    fireEvent.click(within(mumbai).getByRole("button", { name: "Revert Mumbai Suites to HQ" }));
+    const modal = await dialog();
+    expect(modal).toHaveTextContent("Your head office supplies Mumbai Suites again");
+    fireEvent.click(within(modal).getByRole("button", { name: "Revert to HQ" }));
+
+    await waitFor(() => expect(NetApi.revokeAssignment).toHaveBeenCalledWith(900));
+    expect(NetApi.revokeAssignment).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(NetApi.getRoutingQueue).toHaveBeenCalledTimes(2));
+    expect(toast.success).toHaveBeenCalledWith("Assignment revoked");
+  });
+
+  test("cancelling Revert to HQ changes nothing", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    renderWith(VendorContractPage);
+
+    const pune = await hotelRow("Pune Inn");
+    fireEvent.click(within(pune).getByRole("button", { name: "Revert Pune Inn to HQ" }));
+    fireEvent.click(within(await dialog()).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(NetApi.revokeAssignment).not.toHaveBeenCalled();
+    expect(NetApi.getRoutingQueue).toHaveBeenCalledTimes(1);
+  });
+
+  test("a revert refusal shows the routing message", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    NetApi.revokeAssignment.mockRejectedValue({ response: { status: 409, data: { status: 0, reason: "CONFLICT", message: "x" } } });
+    renderWith(VendorContractPage);
+
+    fireEvent.click(within(await hotelRow("Pune Inn")).getByRole("button", { name: "Revert Pune Inn to HQ" }));
+    fireEvent.click(within(await dialog()).getByRole("button", { name: "Revert to HQ" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Someone else routed this item at the same time. The queue has been refreshed; check it and retry.")
+    );
+  });
+
+  test("reassigning a hotel a member has accepted asks first, naming where future call-offs go", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    renderWith(VendorContractPage);
+
+    const mumbai = await hotelRow("Mumbai Suites");
+    fireEvent.change(within(mumbai).getByRole("combobox"), { target: { value: "12" } });
+    fireEvent.click(within(mumbai).getByRole("button", { name: "Reassign to the selected entity" }));
+
+    const modal = await dialog();
+    expect(modal).toHaveTextContent("Future call-offs for Mumbai Suites will go to Linen Dealers");
+    expect(NetApi.assignSubject).not.toHaveBeenCalled();
+    fireEvent.click(within(modal).getByRole("button", { name: "Reassign" }));
+    await waitFor(() =>
+      expect(NetApi.assignSubject).toHaveBeenCalledWith({ subject_type: "ARC_HOTEL", subject_id: 77, hotel_id: MUMBAI, assignee_vendor_id: 12 })
+    );
+  });
+
+  test("an accepted entity that is no longer ACTIVE does not supply: HQ does", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract());
+    NetApi.getRoutingQueue.mockResolvedValue({
+      ...QUEUE,
+      data: { ...QUEUE.data, accepted: [row({ assignee_entity_status: "SUSPENDED" })] },
+    });
+    renderWith(VendorContractPage);
+
+    const mumbai = await hotelRow("Mumbai Suites");
+    expect(mumbai).toHaveTextContent("Supplied by Alpha Linen (HQ)");
+    expect(mumbai).toHaveTextContent("Alpha West accepted but is not active, so HQ supplies this hotel");
   });
 
   test("the accept page carries the same panel while the contract awaits signature", async () => {

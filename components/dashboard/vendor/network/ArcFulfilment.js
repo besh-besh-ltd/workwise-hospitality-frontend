@@ -9,10 +9,12 @@
 // The server re-verifies every assignment (same org, ACTIVE, seated, group contract,
 // routable status); these components only decide what to offer.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { assignSubject, getOrg, getRoutingQueue } from "@/services/vendorNetwork";
+import { assignSubject, revokeAssignment } from "@/services/vendorNetwork";
+import { ConfirmModal } from "./NetworkModal";
 import RoutingCandidates from "./RoutingCandidates";
+import useRoutingQueue from "./useRoutingQueue";
 import { isNetworkAdmin, useNetworkProfile } from "./networkProfile";
 import { networkErrorMessage } from "./networkErrors";
 import { StatusPill } from "./networkFormat";
@@ -72,38 +74,12 @@ export default function FulfilledByPanel({ contractId, contract, arc, hotels = [
 }
 
 function FulfilledByTable({ contractId, principalName, hotels }) {
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [queue, setQueue] = useState({ unrouted: [], pending: [], accepted: [], declined: [] });
-  const [entities, setEntities] = useState([]);
+  const { loading, loadError, queue, entities, load } = useRoutingQueue("Could not load who fulfils each hotel.");
   const [busyHotel, setBusyHotel] = useState(null);
   const busyRef = useRef(false);
-  const loadSeq = useRef(0);
-
-  const load = useCallback(async () => {
-    const mine = ++loadSeq.current;
-    setLoadError("");
-    try {
-      const [queueRes, orgRes] = await Promise.all([getRoutingQueue(), getOrg()]);
-      if (mine !== loadSeq.current) return;
-      const q = queueRes?.data || {};
-      setQueue({ unrouted: q.unrouted || [], pending: q.pending || [], accepted: q.accepted || [], declined: q.declined || [] });
-      const o = orgRes?.data?.org || null;
-      setEntities(
-        (orgRes?.data?.entities || []).filter(
-          (e) => e.status === "ACTIVE" && e.relationship !== "PRINCIPAL" && Number(e.vendor_id) !== Number(o?.principal_vendor_id)
-        )
-      );
-    } catch (err) {
-      if (mine === loadSeq.current) setLoadError(networkErrorMessage(err, "Could not load who fulfils each hotel."));
-    } finally {
-      if (mine === loadSeq.current) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load, contractId]);
+  // { kind: "reassign", hotel, vendorId, name } | { kind: "revert", hotel, rows } | null
+  const [confirm, setConfirm] = useState(null);
+  const hq = `${principalName || "Head office"} (HQ)`;
 
   const rows = useMemo(
     () =>
@@ -114,26 +90,25 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
         // Lists are newest first: the latest refusal, shown only when nothing is live.
         const refused = accepted || pending ? null : find(queue.declined);
         const unrouted = find(queue.unrouted);
-        return { hotel: h, accepted, pending, refused, candidates: unrouted?.candidates || refused?.candidates || [] };
+        // The server's effective-supplier rule: an accepted entity supplies only while ACTIVE.
+        const supplier = accepted && accepted.assignee_entity_status === "ACTIVE" ? accepted : null;
+        return { hotel: h, accepted, pending, refused, supplier, candidates: unrouted?.candidates || refused?.candidates || [] };
       }),
     [hotels, queue, contractId]
   );
 
-  const assign = async (hotelId, vendorId) => {
+  // One action at a time across the panel; the ref refuses a second click before React re-renders.
+  const run = async (hotelId, action, fallback) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusyHotel(hotelId);
     try {
-      const res = await assignSubject({
-        subject_type: "ARC_HOTEL",
-        subject_id: Number(contractId),
-        hotel_id: Number(hotelId),
-        assignee_vendor_id: Number(vendorId),
-      });
-      toast.success(res?.message || "Assigned. The entity has to accept before it supplies this hotel.");
+      await action();
+      setConfirm(null);
       await load();
     } catch (err) {
-      toast.error(networkErrorMessage(err, "Could not assign this hotel.", ROUTING_ERROR_OVERRIDES));
+      toast.error(networkErrorMessage(err, fallback, ROUTING_ERROR_OVERRIDES));
+      setConfirm(null);
       const http = err?.response?.status;
       if (http === 404 || http === 409) await load();
     } finally {
@@ -141,6 +116,39 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
       setBusyHotel(null);
     }
   };
+
+  const assign = (hotelId, vendorId) =>
+    run(
+      hotelId,
+      async () => {
+        const res = await assignSubject({
+          subject_type: "ARC_HOTEL",
+          subject_id: Number(contractId),
+          hotel_id: Number(hotelId),
+          assignee_vendor_id: Number(vendorId),
+        });
+        toast.success(res?.message || "Assigned. The entity has to accept before it supplies this hotel.");
+      },
+      "Could not assign this hotel."
+    );
+
+  // Back to HQ: revoke every live row of the hotel (a pending reassignment first,
+  // then the accepted one), so nothing is left that could still take the hotel.
+  const revert = (hotelId, liveRows) =>
+    run(
+      hotelId,
+      async () => {
+        let res;
+        for (const r of liveRows) res = await revokeAssignment(r.id);
+        toast.success(res?.message || "Your head office supplies this hotel again.");
+      },
+      "Could not hand this hotel back to HQ."
+    );
+
+  const nameOf = (vendorId, candidates) =>
+    entities.find((e) => Number(e.vendor_id) === Number(vendorId))?.name ||
+    candidates.find((c) => Number(c.vendor_id) === Number(vendorId))?.name ||
+    "the selected entity";
 
   return (
     <section className="section-card" aria-label="Fulfilled by">
@@ -164,10 +172,11 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
         <div className="section-body" style={{ color: "var(--fg-3)", fontSize: 13 }}>Loading…</div>
       ) : (
         <ul aria-label="Hotel fulfilment" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {rows.map(({ hotel, accepted, pending, refused, candidates }) => {
-            const live = pending || accepted;
+          {rows.map(({ hotel, accepted, pending, refused, supplier, candidates }) => {
+            const liveRows = [pending, accepted].filter(Boolean);
             const status = pending ? "PENDING" : accepted ? "ACCEPTED" : refused ? refused.status : null;
-            const excludeIds = [accepted?.assigned_vendor_id, pending?.assigned_vendor_id].filter((v) => v != null);
+            const excludeIds = liveRows.map((r) => r.assigned_vendor_id);
+            const busy = busyHotel != null;
             return (
               <li
                 key={hotel.hotel_id}
@@ -177,8 +186,7 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
                 <div style={{ flex: "1 1 240px", fontSize: 13 }}>
                   <div style={{ fontWeight: 600, color: "var(--fg)" }}>{hotel.name}</div>
                   <div style={{ marginTop: 4, color: "var(--fg-2)" }}>
-                    Supplied by{" "}
-                    <strong>{accepted ? accepted.assignee_name : `${principalName || "Head office"} (HQ)`}</strong>
+                    Supplied by <strong>{supplier ? supplier.assignee_name : hq}</strong>
                   </div>
                   {status && (
                     <div className="flex items-center gap-2" style={{ marginTop: 6, flexWrap: "wrap" }}>
@@ -187,10 +195,24 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
                         {pending
                           ? `Waiting for ${pending.assignee_name} to accept`
                           : accepted
-                            ? `${accepted.assignee_name} accepted`
+                            ? supplier
+                              ? `${accepted.assignee_name} accepted`
+                              : `${accepted.assignee_name} accepted but is not active, so HQ supplies this hotel`
                             : `${refused.assignee_name} ${refused.status === "TIMED_OUT" ? "did not reply in time" : "declined"}`}
                       </span>
                     </div>
+                  )}
+                  {liveRows.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginTop: 8 }}
+                      disabled={busy}
+                      aria-label={`Revert ${hotel.name} to HQ`}
+                      onClick={() => setConfirm({ kind: "revert", hotel, rows: liveRows })}
+                    >
+                      Revert to HQ
+                    </button>
                   )}
                 </div>
                 <div style={{ flex: "1 1 320px", maxWidth: 480 }}>
@@ -199,15 +221,40 @@ function FulfilledByTable({ contractId, principalName, hotels }) {
                     entities={entities}
                     excludeIds={excludeIds}
                     label={hotel.name}
-                    actionLabel={live ? "Reassign" : "Assign"}
-                    busy={busyHotel != null}
-                    onAssign={(vendorId) => assign(hotel.hotel_id, vendorId)}
+                    actionLabel={liveRows.length ? "Reassign" : "Assign"}
+                    busy={busy}
+                    onAssign={(vendorId) =>
+                      accepted
+                        ? setConfirm({ kind: "reassign", hotel, vendorId, name: nameOf(vendorId, candidates) })
+                        : assign(hotel.hotel_id, vendorId)
+                    }
                   />
                 </div>
               </li>
             );
           })}
         </ul>
+      )}
+      {confirm?.kind === "reassign" && (
+        <ConfirmModal
+          title={`Reassign ${confirm.hotel.name}?`}
+          body={`Future call-offs for ${confirm.hotel.name} will go to ${confirm.name} once it accepts. Until then the current supplier keeps the hotel, and released POs keep their supplier.`}
+          confirmLabel="Reassign"
+          tone="blue"
+          busy={busyHotel != null}
+          onConfirm={() => assign(confirm.hotel.hotel_id, confirm.vendorId)}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {confirm?.kind === "revert" && (
+        <ConfirmModal
+          title={`Revert ${confirm.hotel.name} to HQ?`}
+          body={`Your head office supplies ${confirm.hotel.name} again and future call-offs come to it. Released POs keep their supplier.`}
+          confirmLabel="Revert to HQ"
+          busy={busyHotel != null}
+          onConfirm={() => revert(confirm.hotel.hotel_id, confirm.rows)}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </section>
   );

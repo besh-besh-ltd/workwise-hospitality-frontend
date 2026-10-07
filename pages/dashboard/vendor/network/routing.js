@@ -11,11 +11,12 @@ import Head from "next/head";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { RefreshCw } from "lucide-react";
-import { assignSubject, getOrg, getRoutingQueue, revokeAssignment } from "@/services/vendorNetwork";
+import { assignSubject, revokeAssignment } from "@/services/vendorNetwork";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import { ConfirmModal } from "@/components/dashboard/vendor/network/NetworkModal";
 import RoutingCandidates from "@/components/dashboard/vendor/network/RoutingCandidates";
 import RoutingSettingsCard from "@/components/dashboard/vendor/network/RoutingSettingsCard";
+import useRoutingQueue from "@/components/dashboard/vendor/network/useRoutingQueue";
 import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { StatusPill } from "@/components/dashboard/vendor/network/networkFormat";
@@ -50,10 +51,13 @@ function SubjectMeta({ item }) {
   );
 }
 
-// Only an app-relative path: a single leading "/" then a non-"/" character. A
-// protocol-relative "//host/..." would leave the site, and browsers read "/\host"
-// the same way, so a backslash is refused too.
-const isAppPath = (url) => typeof url === "string" && /^\/[^/\\]/.test(url);
+// Only an app-relative path: a single leading "/" followed by neither "/", "\"
+// nor whitespace. "//host" is protocol-relative and browsers read "/\host" (and
+// "/\t/host", since tabs and newlines are stripped from URLs) the same way, so a
+// control character anywhere in the URL is refused too.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
+const isAppPath = (url) => typeof url === "string" && /^\/(?![/\\\s])/.test(url) && !CONTROL_CHAR.test(url);
 
 /** An assignment's title, linked to the subject when the server gave an action_url. */
 function SubjectTitle({ row }) {
@@ -100,12 +104,7 @@ const acceptedRecently = (row, now = Date.now()) => {
 const rowStyle = { padding: "14px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "space-between" };
 
 function RoutingView() {
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [queue, setQueue] = useState({ unrouted: [], pending: [], accepted: [], declined: [] });
-  const [org, setOrg] = useState(null);
-  const [entities, setEntities] = useState([]);
-  const [reloading, setReloading] = useState(false);
+  const { loading, reloading, loadError, queue, org, setOrg, entities, load } = useRoutingQueue();
   // Keys of the rows with an action in flight. A Set, so one row finishing never
   // re-enables another; the ref also refuses a second click on the same row
   // before React re-renders.
@@ -122,39 +121,8 @@ function RoutingView() {
     setBusyKeys(new Set(busyRef.current));
   };
   const isBusy = (key) => busyKeys.has(key);
-  const loadSeq = useRef(0);
   const [reassigning, setReassigning] = useState(null); // assignment id with the picker open
   const [revoking, setRevoking] = useState(null); // assignment row
-
-  const load = useCallback(async () => {
-    const mine = ++loadSeq.current;
-    setLoadError("");
-    setReloading(true);
-    try {
-      const [queueRes, orgRes] = await Promise.all([getRoutingQueue(), getOrg()]);
-      if (mine !== loadSeq.current) return; // a newer load is in flight
-      const q = queueRes?.data || {};
-      setQueue({ unrouted: q.unrouted || [], pending: q.pending || [], accepted: q.accepted || [], declined: q.declined || [] });
-      const o = orgRes?.data?.org || null;
-      setOrg(o);
-      setEntities(
-        (orgRes?.data?.entities || []).filter(
-          (e) => e.status === "ACTIVE" && e.relationship !== "PRINCIPAL" && Number(e.vendor_id) !== Number(o?.principal_vendor_id)
-        )
-      );
-    } catch (err) {
-      if (mine === loadSeq.current) setLoadError(networkErrorMessage(err, "Could not load the routing queue."));
-    } finally {
-      if (mine === loadSeq.current) {
-        setLoading(false);
-        setReloading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   // A declined item that has since been re-routed shows who has it now instead of candidates.
   const liveByKey = useMemo(() => {

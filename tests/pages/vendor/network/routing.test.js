@@ -348,7 +348,7 @@ test("assignment titles link to the subject using the server's action_url", asyn
 });
 
 test("an action_url that is not an app path (protocol-relative, backslash, absolute) is never linked", async () => {
-  const urls = ["//evil.example/phish", "/\\evil.example", "https://evil.example/", "javascript:alert(1)"];
+  const urls = ["//evil.example/phish", "/\\evil.example", "/\t/evil.example", "/\n/x", "https://evil.example/", "javascript:alert(1)"];
   api.getRoutingQueue.mockResolvedValue({
     ...QUEUE,
     data: {
@@ -362,7 +362,7 @@ test("an action_url that is not an app path (protocol-relative, backslash, absol
   renderPage();
   const pending = await list("Pending");
   expect(within(pending).getByText("RFQ #0")).toBeInTheDocument();
-  expect(within(pending).getByText("RFQ #3")).toBeInTheDocument();
+  expect(within(pending).getByText("RFQ #5")).toBeInTheDocument();
   expect(within(pending).queryAllByRole("link")).toHaveLength(0);
 });
 
