@@ -101,8 +101,8 @@ const Header = () => {
   });
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
-    [currentUserType, isHospitalityCompany]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, network: userProfile?.network }),
+    [currentUserType, isHospitalityCompany, userProfile?.network]
   );
 
   // ── Subscription guard: redirect from locked pages ──

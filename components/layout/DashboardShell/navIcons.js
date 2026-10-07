@@ -30,6 +30,10 @@ import {
   Stamp,
   History,
   FileBarChart,
+  Network,
+  MapPin,
+  Route,
+  ClipboardCheck,
 } from "lucide-react";
 
 /**
@@ -121,6 +125,15 @@ export const NAV_ICONS = {
   // Amendments (vendor) — tracked edits across contracts + raise a new one.
   "/dashboard/vendor/rate-contracts/amendments":         FileDiff,
   "/dashboard/vendor/rate-contracts/amendments/request": FilePen,
+
+  // Vendor network — overview (also "Set up network"), entities, people,
+  // where each entity serves, how work is routed, and work routed to me.
+  "/dashboard/vendor/network":          Network,
+  "/dashboard/vendor/network/entities": Building2,
+  "/dashboard/vendor/network/team":     Users,
+  "/dashboard/vendor/network/coverage": MapPin,
+  "/dashboard/vendor/network/routing":  Route,
+  "/dashboard/vendor/network/assigned": ClipboardCheck,
 };
 
 export const getNavIcon = (href) => NAV_ICONS[href] || FileText;

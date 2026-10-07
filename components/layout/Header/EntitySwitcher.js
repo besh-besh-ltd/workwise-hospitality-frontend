@@ -1,0 +1,178 @@
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { ArrowLeftRight, Check, ChevronDown } from "lucide-react";
+import { switchEntity } from "@/services/vendorNetwork";
+import { getProfile } from "@/services/Auth";
+import { reconnectRealtimeSocket } from "@/lib/realtimeSocket";
+import { setUserProfile } from "@/redux/slice";
+import storageInstance from "@/utils/storageInstance";
+
+const RELATIONSHIP_LABEL = {
+  PRINCIPAL: "Principal",
+  BRANCH: "Branch",
+  DISTRIBUTOR: "Distributor",
+  DEALER: "Dealer",
+};
+
+/**
+ * "Acting as {entity} · {org}" — the vendor-network entity switcher (spec §9).
+ *
+ * Rendered only for a person who can act for more than one entity. Switching
+ * asks the server for a token bound to the chosen entity, then, in this order:
+ * stores it (so every later request and the socket use it), reconnects the
+ * realtime socket (the server joins `user:<entity>` at handshake), reloads the
+ * profile (whose `id` is now the new acting entity) and lands on the vendor
+ * dashboard so no page keeps showing the previous entity's data.
+ */
+const EntitySwitcher = () => {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const network = useSelector((state) => state.userProfile?.network);
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const entities = network?.actable_entities || [];
+  if (entities.length <= 1) return null;
+
+  const actingId = Number(network.acting_entity_id);
+  const acting = entities.find((e) => Number(e.vendor_id) === actingId);
+  const actingName = acting?.name || "Unknown entity";
+
+  const handleSelect = async (vendorId) => {
+    setOpen(false);
+    if (switching || Number(vendorId) === actingId) return;
+    setSwitching(true);
+    try {
+      const res = await switchEntity(Number(vendorId));
+      const token = res?.data?.token;
+      if (!token) throw new Error("No token");
+      storageInstance.setStorage("token", token);
+      reconnectRealtimeSocket();
+      const profileRes = await getProfile();
+      if (profileRes?.data) dispatch(setUserProfile(profileRes.data));
+      router.replace("/dashboard/vendor");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Could not switch entity. Please try again.");
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  return (
+    <div ref={rootRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={switching}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Switch the entity you are acting for"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 7,
+          height: 32,
+          padding: "0 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface)",
+          color: "var(--fg-2)",
+          fontSize: 12.5,
+          maxWidth: 340,
+          cursor: switching ? "progress" : "pointer",
+        }}
+      >
+        <ArrowLeftRight size={13} strokeWidth={1.75} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {switching ? "Switching…" : (
+            <>
+              Acting as <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{actingName}</strong>
+              {network.org_name ? <span style={{ color: "var(--fg-3)" }}> · {network.org_name}</span> : null}
+            </>
+          )}
+        </span>
+        <ChevronDown size={13} strokeWidth={1.75} style={{ color: "var(--fg-4)", flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Act as entity"
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 6px)",
+            minWidth: 260,
+            maxHeight: 360,
+            overflowY: "auto",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            boxShadow: "var(--shadow-md)",
+            padding: 6,
+            zIndex: 1050,
+          }}
+        >
+          <div className="section-label" style={{ padding: "6px 8px 4px" }}>Act as</div>
+          {entities.map((e) => {
+            const selected = Number(e.vendor_id) === actingId;
+            return (
+              <button
+                key={e.vendor_id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => handleSelect(e.vendor_id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "8px",
+                  border: 0,
+                  borderRadius: "var(--radius-sm)",
+                  background: selected ? "var(--surface-3)" : "transparent",
+                  color: "var(--fg)",
+                  fontSize: 13,
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {e.name}
+                </span>
+                {e.relationship && (
+                  <span className="pill">
+                    {RELATIONSHIP_LABEL[e.relationship] || e.relationship}
+                  </span>
+                )}
+                <Check size={14} strokeWidth={2} style={{ color: "var(--primary)", visibility: selected ? "visible" : "hidden" }} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EntitySwitcher;

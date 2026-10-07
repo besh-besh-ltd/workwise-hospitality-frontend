@@ -24,8 +24,8 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
   const { pendingCountFor } = usePendingApprovalIndicators({ enabled: !!user });
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
-    [currentUserType, isHospitalityCompany]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, network: userProfile?.network }),
+    [currentUserType, isHospitalityCompany, userProfile?.network]
   );
 
   if (!open) return null;
