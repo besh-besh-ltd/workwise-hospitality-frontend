@@ -93,6 +93,7 @@ const rowOf = async (name) => (await screen.findByText(name, { selector: "td *, 
 
 beforeEach(() => {
   jest.clearAllMocks();
+  window.localStorage.clear();
   api.getOrg.mockResolvedValue(orgPayload(DEFAULT_ENTITIES));
 });
 
@@ -402,6 +403,118 @@ describe("seat payment", () => {
     expect(toast.success).not.toHaveBeenCalled();
     await waitFor(() => expect(api.getOrg).toHaveBeenCalledTimes(2));
     expect(await screen.findByText(/Payment pending/)).toBeInTheDocument();
+  });
+});
+
+describe("paid but unconfirmed seat payments", () => {
+  const KEY = "vn-seat-verify:7";
+  const IDS = { razorpay_order_id: "order_X", razorpay_payment_id: "pay_Y", razorpay_signature: "sig_Z" };
+  const networkDown = { message: "Network Error", isAxiosError: true };
+  let rzpInstance;
+  beforeEach(() => {
+    rzpInstance = { on: jest.fn(), open: jest.fn() };
+    window.Razorpay = jest.fn((options) => {
+      rzpInstance.options = options;
+      return rzpInstance;
+    });
+    loadScript.mockResolvedValue(true);
+    api.paySeats.mockResolvedValue({
+      status: 1,
+      data: { order: { id: "order_X", amount: 150000, currency: "INR" }, payment_id: 9, amount: 1500, razorpay_key: "rzp_test_key" },
+    });
+  });
+  afterEach(() => {
+    delete window.Razorpay;
+  });
+  const stored = () => JSON.parse(window.localStorage.getItem(KEY));
+
+  test("(a) a failed verify keeps the ids; Retry confirmation replays them and success clears them", async () => {
+    api.verifySeatsPayment.mockRejectedValueOnce(networkDown);
+    renderPage();
+    await rowOf("Cool Distributors");
+    fireEvent.click(screen.getByRole("button", { name: /Pay for seats/ }));
+    await waitFor(() => expect(rzpInstance.open).toHaveBeenCalled());
+    await act(() => rzpInstance.options.handler(IDS));
+
+    expect(stored()).toMatchObject({ org_id: 7, ...IDS, seat_ids: [302] });
+    expect(stored().at).toBeTruthy();
+    const retry = await screen.findByRole("button", { name: "Retry confirmation" });
+    expect(screen.queryByRole("button", { name: /Pay for seats/ })).toBeNull();
+
+    api.verifySeatsPayment.mockResolvedValueOnce({ status: 1, message: "Payment already verified", data: {} });
+    const loadsBefore = api.getOrg.mock.calls.length;
+    fireEvent.click(retry);
+    await waitFor(() => expect(api.verifySeatsPayment).toHaveBeenCalledTimes(2));
+    expect(api.verifySeatsPayment.mock.calls[1][0]).toEqual(IDS);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Seat payment confirmed"));
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    await waitFor(() => expect(api.getOrg.mock.calls.length).toBeGreaterThan(loadsBefore));
+    expect(screen.queryByRole("button", { name: "Retry confirmation" })).toBeNull();
+    expect(api.paySeats).toHaveBeenCalledTimes(1);
+  });
+
+  test("(b) a pending payment from an earlier visit is replayed on page load", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+    api.verifySeatsPayment.mockResolvedValueOnce({ status: 1, message: "Payment already verified", data: {} });
+    renderPage();
+    await waitFor(() => expect(api.verifySeatsPayment).toHaveBeenCalledWith(IDS));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Seat payment confirmed"));
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    await waitFor(() => expect(api.getOrg).toHaveBeenCalledTimes(2));
+  });
+
+  test("(b') a replay on load that fails again keeps the ids and offers Retry confirmation", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+    api.verifySeatsPayment.mockRejectedValueOnce({ response: { status: 502, data: {} } });
+    renderPage();
+    expect(await screen.findByRole("button", { name: "Retry confirmation" })).toBeInTheDocument();
+    expect(stored()).toMatchObject(IDS);
+  });
+
+  test("(c) a definitive 4xx clears the ids and shows the error", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+    api.verifySeatsPayment.mockRejectedValueOnce({
+      response: { status: 400, data: { status: 0, message: "Payment verification failed - invalid signature" } },
+    });
+    renderPage();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Payment verification failed - invalid signature"));
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(await screen.findByRole("button", { name: /Pay for seats/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry confirmation" })).toBeNull();
+  });
+
+  test("(d) paySeats is never called while a payment awaits confirmation", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+    api.verifySeatsPayment.mockRejectedValue(networkDown);
+    renderPage();
+    const retry = await screen.findByRole("button", { name: "Retry confirmation" });
+    await waitFor(() => expect(retry).not.toBeDisabled());
+    fireEvent.click(retry);
+    await waitFor(() => expect(api.verifySeatsPayment).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(retry).not.toBeDisabled());
+    expect(api.paySeats).not.toHaveBeenCalled();
+    expect(window.Razorpay).not.toHaveBeenCalled();
+    expect(stored()).toMatchObject(IDS);
+  });
+
+  test("(d') a Pay click confirms a pending payment (e.g. saved by another tab) instead of ordering", async () => {
+    renderPage();
+    await rowOf("Cool Distributors");
+    window.localStorage.setItem(KEY, JSON.stringify({ org_id: 7, ...IDS, seat_ids: [302], at: "2026-10-07T10:00:00Z" }));
+    api.verifySeatsPayment.mockResolvedValueOnce({ status: 1, message: "Payment already verified", data: {} });
+    fireEvent.click(screen.getByRole("button", { name: /Pay for seats/ }));
+    await waitFor(() => expect(api.verifySeatsPayment).toHaveBeenCalledWith(IDS));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Seat payment confirmed"));
+    expect(api.paySeats).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  test("another org's pending payment is ignored", async () => {
+    window.localStorage.setItem("vn-seat-verify:8", JSON.stringify({ org_id: 8, ...IDS, seat_ids: [1] }));
+    renderPage();
+    await rowOf("Cool Distributors");
+    expect(api.verifySeatsPayment).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Pay for seats/ })).toBeInTheDocument();
   });
 });
 

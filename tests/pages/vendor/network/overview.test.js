@@ -25,7 +25,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
-import reducer, { setUserProfile } from "@/redux/slice";
+import reducer, { setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
 import { createOrg, getNetworkDashboardSummary } from "@/services/vendorNetwork";
 import { getProfile } from "@/services/Auth";
 import NetworkOverviewPage from "@/pages/dashboard/vendor/network/index";
@@ -194,4 +194,18 @@ test("a vendor profile without the network key (pre-release) waits for the refet
   expect(screen.queryByLabelText("Network name")).toBeNull();
   expect(screen.queryByText(/Only network admins/)).toBeNull();
   expect(getNetworkDashboardSummary).not.toHaveBeenCalled();
+});
+
+test("once the legacy refetch has settled (e.g. failed), an absent network key reads as no network", () => {
+  const store = configureStore({ reducer });
+  store.dispatch(setUserProfile({ id: 10, user_type: 3, name: "Daikin HQ" }));
+  store.dispatch(setNetworkProfileRefreshSettled());
+  render(
+    <Provider store={store}>
+      <NetworkOverviewPage />
+    </Provider>
+  );
+  expect(screen.getByLabelText("Network name")).toBeInTheDocument();
+  // Rendering only: the stored profile keeps its missing key, so the next load refetches.
+  expect("network" in store.getState().userProfile).toBe(false);
 });

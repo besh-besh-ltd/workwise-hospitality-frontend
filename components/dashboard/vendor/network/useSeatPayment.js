@@ -1,11 +1,19 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { loadScript } from "@/services/subscription";
 import { paySeats, verifySeatsPayment } from "@/services/vendorNetwork";
 import { networkErrorMessage } from "./networkErrors";
+import {
+  clearPendingSeatVerify,
+  isDefinitiveRefusal,
+  readPendingSeatVerify,
+  savePendingSeatVerify,
+} from "./seatVerifyStore";
 
 const IN_PROGRESS_NO_ORDER =
   "A checkout for these seats was started in the last 30 minutes. Complete it from the original window, or retry after 30 minutes.";
+const NOT_CONFIRMED_YET =
+  "Your payment went through but we couldn't confirm it yet. Use \"Retry confirmation\"; you won't be charged again.";
 
 const seatSetKey = (seatIds) => [...new Set(seatIds.map(Number))].sort((a, b) => a - b).join(",");
 
@@ -16,17 +24,71 @@ const seatSetKey = (seatIds) => [...new Set(seatIds.map(Number))].sort((a, b) =>
  * verify the signature in the handler. The server's order is in paise and
  * comes with the key it was created under.
  *
- * The server refuses a second order for the same seats for 30 minutes
- * (PAYMENT_IN_PROGRESS), so the last order is kept: a retry for the SAME seat
- * set (after a dismissed or failed checkout) reopens that order instead of
- * asking for a new one. Once Razorpay calls the handler the order is paid, so
- * it is forgotten whether or not verification succeeds.
+ * Two guards against a dead end or a double charge:
+ *  - The server refuses a second order for the same seats for 30 minutes
+ *    (PAYMENT_IN_PROGRESS), so the last unpaid order is kept: a retry for the
+ *    SAME seat set (after a dismissed or failed checkout) reopens it. Once
+ *    Razorpay calls the handler the order is paid and is forgotten.
+ *  - A paid order's ids are persisted (seatVerifyStore) before verify runs and
+ *    kept until verify succeeds or definitively refuses (4xx). While they are
+ *    pending, verify is replayed on load and on any Pay click; a new order is
+ *    never requested.
  */
-const useSeatPayment = ({ onSuccess } = {}) => {
+const useSeatPayment = ({ orgId, onSuccess } = {}) => {
   const [inProgress, setInProgress] = useState(false);
+  const [pendingVerify, setPendingVerify] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const lastOrder = useRef(null); // { key, orderData }
+  const confirmingRef = useRef(false);
 
-  const openCheckout = useCallback(async (orderData) => {
+  /** Verify a persisted payment. `replay` = not straight from the checkout handler. */
+  const confirmPayment = useCallback(async (payload, { replay }) => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    setConfirming(true);
+    try {
+      const res = await verifySeatsPayment({
+        razorpay_order_id: payload.razorpay_order_id,
+        razorpay_payment_id: payload.razorpay_payment_id,
+        razorpay_signature: payload.razorpay_signature,
+      });
+      clearPendingSeatVerify(orgId);
+      setPendingVerify(null);
+      toast.success(replay ? "Seat payment confirmed" : res?.message || "Seats activated");
+    } catch (err) {
+      if (isDefinitiveRefusal(err)) {
+        clearPendingSeatVerify(orgId);
+        setPendingVerify(null);
+        toast.error(networkErrorMessage(err, "This payment could not be confirmed."));
+      } else {
+        setPendingVerify(payload);
+        toast.error(NOT_CONFIRMED_YET);
+      }
+    } finally {
+      confirmingRef.current = false;
+      setConfirming(false);
+      if (onSuccess) onSuccess();
+    }
+  }, [orgId, onSuccess]);
+
+  // A payment taken in an earlier visit but never confirmed: replay it first.
+  useEffect(() => {
+    const stored = readPendingSeatVerify(orgId);
+    if (!stored) return;
+    setPendingVerify(stored);
+    confirmPayment(stored, { replay: true });
+    // Only on load (and org change), not on every callback identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId]);
+
+  const retryConfirmation = useCallback(() => {
+    const stored = readPendingSeatVerify(orgId) || pendingVerify;
+    if (stored) return confirmPayment(stored, { replay: true });
+    setPendingVerify(null);
+    return undefined;
+  }, [orgId, pendingVerify, confirmPayment]);
+
+  const openCheckout = useCallback(async (orderData, seatIds) => {
     const scriptLoaded = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
     if (!scriptLoaded) {
       toast.error("Razorpay SDK failed to load. Are you online?");
@@ -43,23 +105,18 @@ const useSeatPayment = ({ onSuccess } = {}) => {
       description: "Vendor network seats",
       image: "/assets/images/logo.png",
       handler: async function (response) {
-        // Razorpay took the payment: this order must never be reopened.
+        // Razorpay took the payment: never reopen this order, and keep its ids
+        // until the server has confirmed them.
         lastOrder.current = null;
-        try {
-          const verifyRes = await verifySeatsPayment({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          });
-          toast.success(verifyRes?.message || "Seats activated");
-        } catch (verifyError) {
-          toast.error(
-            networkErrorMessage(verifyError, "We could not confirm the payment yet. Refresh in a minute to see your seats.")
-          );
-        } finally {
-          setInProgress(false);
-          if (onSuccess) onSuccess();
-        }
+        const payload = {
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          seat_ids: seatIds,
+        };
+        savePendingSeatVerify(orgId, payload);
+        setInProgress(false);
+        await confirmPayment(payload, { replay: false });
       },
       modal: {
         ondismiss: function () {
@@ -78,13 +135,21 @@ const useSeatPayment = ({ onSuccess } = {}) => {
       setInProgress(false);
     });
     paymentObject.open();
-  }, [onSuccess]);
+  }, [orgId, confirmPayment]);
 
   const payForSeats = useCallback(async (seatIds) => {
+    // A paid-but-unconfirmed payment comes first: confirm it, never re-order.
+    const stored = readPendingSeatVerify(orgId);
+    if (stored) {
+      setPendingVerify(stored);
+      await confirmPayment(stored, { replay: true });
+      return;
+    }
+
     setInProgress(true);
     const key = seatSetKey(seatIds);
     if (lastOrder.current?.key === key) {
-      await openCheckout(lastOrder.current.orderData);
+      await openCheckout(lastOrder.current.orderData, seatIds);
       return;
     }
 
@@ -102,10 +167,10 @@ const useSeatPayment = ({ onSuccess } = {}) => {
       return;
     }
     lastOrder.current = { key, orderData };
-    await openCheckout(orderData);
-  }, [openCheckout]);
+    await openCheckout(orderData, seatIds);
+  }, [orgId, openCheckout, confirmPayment]);
 
-  return { payForSeats, inProgress };
+  return { payForSeats, inProgress, pendingVerify, confirming, retryConfirmation };
 };
 
 export default useSeatPayment;

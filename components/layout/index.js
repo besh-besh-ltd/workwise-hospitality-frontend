@@ -4,7 +4,7 @@ import DashboardShell from "./DashboardShell";
 // import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
-import { setSwSubscription, setUserProfile } from "@/redux/slice";
+import { setSwSubscription, setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
 import { SWSubscribe, verifyVendorToken, getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -77,16 +77,22 @@ const Layout = (props) => {
 
   // One-time per load: a vendor profile persisted before vendor networks has
   // no `network` key. Refetch it so the nav and network pages read the truth.
+  // Whatever the outcome, mark it settled (not persisted): the network pages
+  // then stop waiting, and a failed refetch is simply tried again next load.
   const networkProfileRefreshed = useRef(false);
   useEffect(() => {
     if (networkProfileRefreshed.current) return;
     networkProfileRefreshed.current = true;
-    if (!profileNeedsNetworkRefresh(store.getState()?.userProfile, isGuestSession())) return;
+    if (!profileNeedsNetworkRefresh(store.getState()?.userProfile, isGuestSession())) {
+      dispatch(setNetworkProfileRefreshSettled());
+      return;
+    }
     getProfile()
       .then((res) => {
         if (res?.data) dispatch(setUserProfile(res.data));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => dispatch(setNetworkProfileRefreshSettled()));
   }, [dispatch]);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);

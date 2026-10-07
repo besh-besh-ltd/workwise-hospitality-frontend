@@ -31,7 +31,7 @@ jest.mock("react-toastify", () => ({ __esModule: true, toast: { error: jest.fn()
 
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
-import { setUserProfile } from "@/redux/slice";
+import { setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
 import Layout from "./index";
 
 const fresh = { id: 10, user_type: 3, name: "Daikin HQ", network: null };
@@ -48,13 +48,23 @@ test("a vendor profile without the network key is refetched exactly once", async
   rerender(<Layout><div /></Layout>);
   await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setUserProfile(fresh)));
   expect(mockGetProfile).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setNetworkProfileRefreshSettled()));
 });
 
-test("a profile that already has network: null is not refetched", async () => {
+test("a failed refetch still settles, without touching the stored profile", async () => {
+  mockProfile = { id: 10, user_type: 3, name: "Daikin HQ" };
+  mockGetProfile.mockRejectedValue(new Error("offline"));
+  render(<Layout><div /></Layout>);
+  await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(setNetworkProfileRefreshSettled()));
+  expect(mockDispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: setUserProfile.type }));
+});
+
+test("a profile that already has network: null is not refetched (and is settled at once)", async () => {
   mockProfile = { id: 10, user_type: 3, network: null };
   render(<Layout><div /></Layout>);
   await Promise.resolve();
   expect(mockGetProfile).not.toHaveBeenCalled();
+  expect(mockDispatch).toHaveBeenCalledWith(setNetworkProfileRefreshSettled());
 });
 
 test("a guest emailed-link session is not refetched", async () => {

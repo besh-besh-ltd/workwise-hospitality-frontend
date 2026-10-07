@@ -16,6 +16,8 @@ jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
+let mockGuest = false;
+jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () => mockGuest }));
 const mockPush = jest.fn();
 jest.mock("next/router", () => ({ __esModule: true, useRouter: () => ({ push: mockPush, pathname: "/dashboard/vendor/network/invites", query: {} }) }));
 
@@ -25,7 +27,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
-import reducer, { setUserProfile } from "@/redux/slice";
+import reducer, { setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
 import { listIncomingLinkInvites, acceptLinkInvite, declineLinkInvite } from "@/services/vendorNetwork";
 import { getProfile } from "@/services/Auth";
 import NetworkInvitesPage from "@/pages/dashboard/vendor/network/invites";
@@ -52,7 +54,10 @@ const renderWith = (profile) => {
   return store;
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGuest = false;
+});
 
 test("lists the incoming invitations", async () => {
   listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
@@ -137,4 +142,26 @@ test("a pre-release vendor profile (no network key) also waits", () => {
   renderWith({ id: 20, user_type: 3, name: "Cool Distributors" });
   expect(screen.getByText("Loading invitations…")).toBeInTheDocument();
   expect(screen.queryByText(/already part of a network/)).toBeNull();
+});
+
+test("after the legacy refetch settles (e.g. failed), the page stops loading and lists invitations", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [] });
+  const store = configureStore({ reducer });
+  store.dispatch(setUserProfile({ id: 20, user_type: 3, name: "Cool Distributors" }));
+  store.dispatch(setNetworkProfileRefreshSettled());
+  render(
+    <Provider store={store}>
+      <NetworkInvitesPage />
+    </Provider>
+  );
+  expect(await screen.findByText("No pending invitations")).toBeInTheDocument();
+  expect(listIncomingLinkInvites).toHaveBeenCalledTimes(1);
+});
+
+test("a guest emailed-link session is not asked (no fetch, no endless loading)", () => {
+  mockGuest = true;
+  renderWith(SOLO);
+  expect(listIncomingLinkInvites).not.toHaveBeenCalled();
+  expect(screen.queryByText("Loading invitations…")).toBeNull();
+  expect(screen.getByText("No pending invitations")).toBeInTheDocument();
 });

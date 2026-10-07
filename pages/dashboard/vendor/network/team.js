@@ -6,14 +6,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { UserPlus } from "lucide-react";
 import { getOrg, listMembers, resendMemberInvite, updateMember } from "@/services/vendorNetwork";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import { ConfirmModal } from "@/components/dashboard/vendor/network/NetworkModal";
 import { InviteMemberModal, EditMemberModal } from "@/components/dashboard/vendor/network/MemberModals";
-import { isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
+import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { MEMBER_STATUS, ROLE_LABEL, StatusPill, fmtDate } from "@/components/dashboard/vendor/network/networkFormat";
 
@@ -200,13 +199,13 @@ function TeamView() {
 }
 
 export default function NetworkTeamPage() {
-  const profile = useSelector((state) => state.userProfile);
+  const { profile, pending } = useNetworkProfile();
   return (
     <>
       <Head>
         <title>Workwise | Network team</title>
       </Head>
-      {!profile ? null : isNetworkAdmin(profile) ? <TeamView /> : <NetworkAccessNotice profile={profile} />}
+      {!profile || pending ? null : isNetworkAdmin(profile) ? <TeamView /> : <NetworkAccessNotice profile={profile} />}
     </>
   );
 }

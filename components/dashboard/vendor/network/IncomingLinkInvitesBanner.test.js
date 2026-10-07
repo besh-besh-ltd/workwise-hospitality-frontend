@@ -16,6 +16,8 @@ jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 jest.mock("@/components/dashboard/vendor", () => ({ __esModule: true, default: () => <div>vendor dashboard</div> }));
+let mockGuest = false;
+jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () => mockGuest }));
 
 import React from "react";
 import { Provider } from "react-redux";
@@ -48,7 +50,10 @@ const renderWith = (profile, ui = <IncomingLinkInvitesBanner />) => {
 
 const SOLO = { id: 20, user_type: 3, name: "Daikin UP", network: null };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGuest = false;
+});
 
 test("renders nothing when there is no pending invitation", async () => {
   listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [] });
@@ -118,4 +123,10 @@ test("the vendor dashboard home renders the banner", async () => {
   renderWith(SOLO, <VendorDashboardPage />);
   expect(screen.getByText("vendor dashboard")).toBeInTheDocument();
   expect(await screen.findByText("Daikin India")).toBeInTheDocument();
+});
+
+test("is not fetched for a guest emailed-link session", () => {
+  mockGuest = true;
+  renderWith(SOLO);
+  expect(listIncomingLinkInvites).not.toHaveBeenCalled();
 });

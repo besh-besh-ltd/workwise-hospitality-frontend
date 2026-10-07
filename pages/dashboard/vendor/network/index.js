@@ -9,13 +9,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { useSelector } from "react-redux";
 import { Building2, Inbox, Clock, XCircle, Hourglass, CreditCard, Users } from "lucide-react";
 import { getNetworkDashboardSummary } from "@/services/vendorNetwork";
 import SetupNetworkForm from "@/components/dashboard/vendor/network/SetupNetworkForm";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import SeatBadge from "@/components/dashboard/vendor/network/SeatBadge";
-import { isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
+import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
 import { vendorStatusLabel } from "@/components/dashboard/vendor/purchase-orders/vendorPoStatus";
@@ -188,15 +187,11 @@ function NetworkDashboard({ network }) {
 }
 
 export default function NetworkOverviewPage() {
-  const profile = useSelector((state) => state.userProfile);
-
-  // A vendor profile persisted before vendor networks has no `network` key;
-  // the layout refetches it once, so wait rather than show the wrong state.
-  const awaitingNetworkKey =
-    !!profile && Number(profile.user_type) === 3 && profile.network === undefined && !isGuestSession();
+  // `pending` while the layout's one-time legacy-profile refetch is in flight.
+  const { profile, pending } = useNetworkProfile();
 
   let body;
-  if (!profile || awaitingNetworkKey) body = null;
+  if (!profile || pending) body = null;
   else if (isNetworkAdmin(profile)) body = <NetworkDashboard network={profile.network} />;
   else if (canSetUpNetwork(profile, isGuestSession())) body = <SetupNetworkForm />;
   else body = <NetworkAccessNotice profile={profile} />;

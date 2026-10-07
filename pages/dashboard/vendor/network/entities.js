@@ -6,7 +6,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { Link2, Plus, CreditCard } from "lucide-react";
 import { cancelLinkInvite, deleteEntity, getOrg, updateEntity } from "@/services/vendorNetwork";
@@ -16,7 +15,7 @@ import LinkAccountModal from "@/components/dashboard/vendor/network/LinkAccountM
 import CreateEntityModal from "@/components/dashboard/vendor/network/CreateEntityModal";
 import { ConfirmModal } from "@/components/dashboard/vendor/network/NetworkModal";
 import useSeatPayment from "@/components/dashboard/vendor/network/useSeatPayment";
-import { isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
+import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import {
   ENTITY_STATUS,
@@ -51,7 +50,7 @@ const ACTIONS = {
   },
 };
 
-function EntitiesView() {
+function EntitiesView({ orgId }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [entities, setEntities] = useState([]);
@@ -78,7 +77,10 @@ function EntitiesView() {
     load();
   }, [load]);
 
-  const { payForSeats, inProgress: paying } = useSeatPayment({ onSuccess: load });
+  const { payForSeats, inProgress: paying, pendingVerify, confirming, retryConfirmation } = useSeatPayment({
+    orgId,
+    onSuccess: load,
+  });
 
   const pendingSeats = useMemo(
     () => entities.filter((e) => e.seat_status === "pending" && e.seat_id),
@@ -146,7 +148,7 @@ function EntitiesView() {
         </div>
       )}
 
-      {pendingSeats.length > 0 && (
+      {(pendingSeats.length > 0 || pendingVerify) && (
         <div
           style={{
             background: "var(--surface)",
@@ -160,23 +162,41 @@ function EntitiesView() {
             gap: 12,
           }}
         >
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fg)" }}>
-              {pendingSeats.length} seat{pendingSeats.length > 1 ? "s" : ""} awaiting payment
-              {pendingTotal > 0 ? ` · ${fmtInr(pendingTotal)}` : ""}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-              These entities can't operate until their seat for this financial year is paid.
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-blue btn-sm"
-            disabled={paying}
-            onClick={() => payForSeats(pendingSeats.map((e) => Number(e.seat_id)))}
-          >
-            <CreditCard size={14} /> {paying ? "Opening payment…" : "Pay for seats"}
-          </button>
+          {pendingVerify ? (
+            <>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fg)" }}>
+                  A seat payment is awaiting confirmation
+                </div>
+                <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                  Your payment went through, but we couldn't confirm it with the server yet. Retry the confirmation; you won't be charged again.
+                </div>
+              </div>
+              <button type="button" className="btn btn-blue btn-sm" disabled={confirming} onClick={retryConfirmation}>
+                <CreditCard size={14} /> {confirming ? "Confirming…" : "Retry confirmation"}
+              </button>
+            </>
+          ) : (
+            <>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--fg)" }}>
+                  {pendingSeats.length} seat{pendingSeats.length > 1 ? "s" : ""} awaiting payment
+                  {pendingTotal > 0 ? ` · ${fmtInr(pendingTotal)}` : ""}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                  These entities can't operate until their seat for this financial year is paid.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-blue btn-sm"
+                disabled={paying || confirming}
+                onClick={() => payForSeats(pendingSeats.map((e) => Number(e.seat_id)))}
+              >
+                <CreditCard size={14} /> {paying ? "Opening payment…" : confirming ? "Confirming…" : "Pay for seats"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -314,13 +334,13 @@ function EntitiesView() {
 }
 
 export default function NetworkEntitiesPage() {
-  const profile = useSelector((state) => state.userProfile);
+  const { profile, pending } = useNetworkProfile();
   return (
     <>
       <Head>
         <title>Workwise | Network entities</title>
       </Head>
-      {!profile ? null : isNetworkAdmin(profile) ? <EntitiesView /> : <NetworkAccessNotice profile={profile} />}
+      {!profile || pending ? null : isNetworkAdmin(profile) ? <EntitiesView orgId={profile.network.org_id} /> : <NetworkAccessNotice profile={profile} />}
     </>
   );
 }

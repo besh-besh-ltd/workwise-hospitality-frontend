@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { Network } from "lucide-react";
 import { acceptLinkInvite, declineLinkInvite, listIncomingLinkInvites } from "@/services/vendorNetwork";
 import { networkErrorMessage } from "./networkErrors";
-import { refreshNetworkProfile } from "./networkProfile";
+import { refreshNetworkProfile, useNetworkProfile } from "./networkProfile";
+import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
+import { isGuestSession } from "@/utils/guestSession";
 import { RELATIONSHIP_LABEL, fmtDate } from "./networkFormat";
 
 // The shared reason messages are written for an admin sending an invite; here
@@ -24,11 +26,12 @@ const ACCEPT_ERROR_OVERRIDES = {
  */
 export function useIncomingLinkInvites({ onAccepted } = {}) {
   const dispatch = useDispatch();
-  const profile = useSelector((state) => state.userProfile);
-  const eligible = !!profile && profile.network === null && Number(profile.user_type) === 3;
-  // Loaded, and (for a vendor) carrying the `network` key: a profile persisted
-  // before vendor networks lacks it until the layout's one-time refetch lands.
-  const profileReady = !!profile && !(Number(profile.user_type) === 3 && profile.network === undefined);
+  const { profile, pending } = useNetworkProfile();
+  // Same rule as "Set up network": a loaded vendor in no network, on its own
+  // sign-in (a guest emailed-link session cannot accept).
+  const eligible = canSetUpNetwork(profile, isGuestSession());
+  // Loaded, and not waiting on the layout's one-time legacy-profile refetch.
+  const profileReady = !!profile && !pending;
   const [invites, setInvites] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState(null);
