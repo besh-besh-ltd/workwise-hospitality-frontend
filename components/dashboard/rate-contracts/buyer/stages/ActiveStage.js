@@ -810,6 +810,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                       <thead>
                         <tr>
                           <th>Hotel</th>
+                          <th>Fulfilled by</th>
                           <th>Used / committed</th>
                           <th>Utilisation</th>
                           <th>Released POs</th>
@@ -826,6 +827,7 @@ export default function ActiveStage({ arc: arcProp, stage }) {
                                 {h.is_lead && <span className="fs-12 text-fg-4"> · Lead hotel</span>}
                                 {h.is_suspended && <span className="fs-12 text-fg-4"> · Paused</span>}
                               </td>
+                              <td><FulfilledByCell rows={h.fulfilled_by} contracts={contracts} /></td>
                               <td className="mono">{`${Number(h.consumed_qty || 0).toLocaleString("en-IN")} / ${Number(h.committed_qty || 0).toLocaleString("en-IN")}`}</td>
                               <td className="mono">{`${Number(h.utilisation_pct || 0)}%`}</td>
                               <td>
@@ -1607,6 +1609,31 @@ export default function ActiveStage({ arc: arcProp, stage }) {
           <span>{toast}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// Group rate contract: who supplies a hotel on each live contract (Vendor
+// Networks §6.4). The server sends the effective supplier: a network member
+// entity of the contract vendor that accepted the hotel, else the contract
+// vendor itself. A member is named with the contract vendor it supplies for.
+function FulfilledByCell({ rows, contracts }) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return <span className="text-fg-4">—</span>;
+  const contractVendor = (contractId) =>
+    (contracts || []).find((c) => Number(c?.contract?.id) === Number(contractId))?.contract || null;
+  return (
+    <div className="flex flex-col gap-1">
+      {list.map((f) => {
+        const holder = contractVendor(f.contract_id);
+        const viaMember = holder && Number(holder.vendor_id) !== Number(f.fulfilling_vendor_id);
+        return (
+          <div key={`${f.contract_id}:${f.fulfilling_vendor_id}`}>
+            <span className="fw-600">{f.fulfilling_name || "—"}</span>
+            {viaMember && <span className="fs-12 text-fg-4"> · for {holder.vendor_name}</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

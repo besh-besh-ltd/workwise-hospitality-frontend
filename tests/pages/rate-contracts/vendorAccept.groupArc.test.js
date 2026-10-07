@@ -19,6 +19,9 @@ jest.mock("next/router", () => ({
 import React from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import reducer from "@/redux/slice";
 
 import * as ArcApi from "@/services/arc_v2";
 import VendorAcceptPage from "@/pages/dashboard/vendor/rate-contracts/[contractId]/accept";
@@ -43,7 +46,7 @@ test("a group award names its hotels, splits each line by hotel and keeps quanti
     },
   });
 
-  render(<VendorAcceptPage />);
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
 
   expect(await screen.findByText("2 hotels")).toBeInTheDocument();
   expect(screen.getByTitle("Goa Resort")).toHaveTextContent("400");

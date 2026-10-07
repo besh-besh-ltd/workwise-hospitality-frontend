@@ -13,6 +13,7 @@ import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/a
 import { useRouter } from "next/router";
 import { loadXlsx } from "@/utils/xlsx";
 import * as ArcApi from "@/services/arc_v2";
+import FulfilledByPanel, { FulfillingForNote, isFulfilmentMemberView } from "@/components/dashboard/vendor/network/ArcFulfilment";
 
 // ── format helpers ───────────────────────────────────────────────────────
 const fmtL = (n) => {
@@ -147,6 +148,10 @@ export default function VendorContractDetailPage() {
       setTab(q);
     }
   }, [router.isReady, router.query.tab]);
+  // A fulfilment member has no amendments tab: a deep link to it lands on consumption.
+  useEffect(() => {
+    if (isFulfilmentMemberView(data) && tab === "amendments") setTab("consumption");
+  }, [data, tab]);
 
   const load = async () => {
     if (!contractId) return;
@@ -194,6 +199,9 @@ export default function VendorContractDetailPage() {
   const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+  // Vendor Networks: a member entity that fulfils some hotels of the principal's
+  // contract reads it, filtered to its hotels, with every contract action hidden.
+  const isMember   = isFulfilmentMemberView(data);
 
   // On first load, land the amendments sub-tab on a non-empty bucket so an
   // approved-but-unsigned (awaiting_signature) amendment isn't hidden behind
@@ -318,7 +326,7 @@ export default function VendorContractDetailPage() {
       <section className="arc-hero">
         <div className="top">
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="eyebrow">Your active contract</div>
+            <div className="eyebrow">{isMember ? "Contract you fulfil" : "Your active contract"}</div>
             <h1>
               <span>{arc?.title || contract.arc_title}</span>
               <span className={`status-chip ${statusChip.cls}`}>{statusChip.label}</span>
@@ -337,15 +345,17 @@ export default function VendorContractDetailPage() {
             <Link href="/dashboard/vendor/rate-contracts/active" className="btn">
               <I.back /> Back to list
             </Link>
-            {(contract.status === "active" || contract.status === "expiring_soon") && (
+            {!isMember && (contract.status === "active" || contract.status === "expiring_soon") && (
               <Link href={`/dashboard/vendor/rate-contracts/amendments/request?contract=${contractId}`} className="btn">
                 <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
                 Request amendment
               </Link>
             )}
-            <button className="btn cta" onClick={dlContractCopy}>
-              <I.download /> Download PDF
-            </button>
+            {!isMember && (
+              <button className="btn cta" onClick={dlContractCopy}>
+                <I.download /> Download PDF
+              </button>
+            )}
           </div>
         </div>
 
@@ -390,11 +400,14 @@ export default function VendorContractDetailPage() {
       <div className="detail-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
 
+          {isMember && <FulfillingForNote hotels={hotels} principalName={contract.vendor_name} />}
+          <FulfilledByPanel contractId={contractId} contract={contract} arc={arc} hotels={hotels} viewerRole={data?.viewer_role} />
+
           <div className="tab-row" style={{ alignSelf: "flex-start" }}>
             <button className={`tab ${tab === "consumption" ? "active" : ""}`} onClick={() => setTab("consumption")}><I.chart /> Consumption</button>
             <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.po /> Released POs <span className="ct">{callOffs.length}</span></button>
             <button className={`tab ${tab === "doc" ? "active" : ""}`} onClick={() => setTab("doc")}><I.file /> Contract document</button>
-            <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
+            {!isMember && <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
               <I.edit /> Amendments
               {(() => {
                 const pending = amendments.filter((a) => a.status === "requested").length;
@@ -403,7 +416,7 @@ export default function VendorContractDetailPage() {
                 }
                 return <span className="ct">{amendments.length}</span>;
               })()}
-            </button>
+            </button>}
           </div>
 
           {/* ── CONSUMPTION ── */}
@@ -576,7 +589,7 @@ export default function VendorContractDetailPage() {
                 <div className="h-right">
                   <span className="pill success"><span className="pdot" />e-signed</span>
                   <button className="btn btn-secondary btn-sm" onClick={dlAnnexure}><I.download /> Rate annexure (.xlsx)</button>
-                  <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>
+                  {!isMember && <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>}
                 </div>
               </div>
               <div className="section-body">
@@ -597,7 +610,7 @@ export default function VendorContractDetailPage() {
                       </div>
                     </div>
                     <div className="party-block">
-                      <div className="pb-label">Vendor (you)</div>
+                      <div className="pb-label">{isMember ? "Vendor (contract holder)" : "Vendor (you)"}</div>
                       <div className="pb-name">{contract.vendor_name}</div>
                       <div className="pb-sub">{contract.vendor_email || "—"}</div>
                     </div>
@@ -660,7 +673,7 @@ export default function VendorContractDetailPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="pb-label" style={{ marginBottom: 8 }}>For vendor (you)</div>
+                      <div className="pb-label" style={{ marginBottom: 8 }}>{isMember ? "For vendor (contract holder)" : "For vendor (you)"}</div>
                       <div className="sig-block">
                         <div className="sig-name">{contract.vendor_name}</div>
                         <div className="sig-meta">Signed via OTP on {fmtDate(contract.signed_by_vendor_at)}</div>
@@ -676,7 +689,7 @@ export default function VendorContractDetailPage() {
           )}
 
           {/* ── AMENDMENTS ── */}
-          {tab === "amendments" && (
+          {tab === "amendments" && !isMember && (
             <VendorAmendmentsTab
               amendments={amendments}
               lines={lines}
@@ -738,7 +751,7 @@ export default function VendorContractDetailPage() {
           </div>
 
           {/* Amendments — the vendor's own requests on this contract */}
-          <div className="aside-card">
+          {!isMember && <div className="aside-card">
             <div className="ac-head">
               <div className="ac-t">
                 <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
@@ -779,7 +792,7 @@ export default function VendorContractDetailPage() {
                 </Link>
               )}
             </div>
-          </div>
+          </div>}
 
           {contract.status === "expiring_soon" && (
             <div className="expiry-card">
@@ -815,7 +828,7 @@ export default function VendorContractDetailPage() {
 
       {/* One modal at a time: hide the amendment modal while the sign overlay
           is up; cancelling the sign overlay brings the amendment modal back. */}
-      {viewingAmend && !signingAddendum && (
+      {!isMember && viewingAmend && !signingAddendum && (
         <VendorAmendmentModal
           amendment={viewingAmend}
           arc={arc}
@@ -831,7 +844,7 @@ export default function VendorContractDetailPage() {
         />
       )}
 
-      {signingAddendum && (
+      {!isMember && signingAddendum && (
         <AddendumSignModal
           addendum={signingAddendum}
           onClose={() => setSigningAddendum(null)}

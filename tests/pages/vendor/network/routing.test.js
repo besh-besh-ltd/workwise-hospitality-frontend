@@ -347,6 +347,25 @@ test("assignment titles link to the subject using the server's action_url", asyn
   await waitFor(() => expect(within(accepted).queryByRole("link")).toBeNull());
 });
 
+test("an action_url that is not an app path (protocol-relative, backslash, absolute) is never linked", async () => {
+  const urls = ["//evil.example/phish", "/\\evil.example", "https://evil.example/", "javascript:alert(1)"];
+  api.getRoutingQueue.mockResolvedValue({
+    ...QUEUE,
+    data: {
+      ...QUEUE.data,
+      unrouted: [],
+      declined: [],
+      accepted: [],
+      pending: urls.map((action_url, i) => assignment({ id: 950 + i, subject_id: 4100 + i, title: `RFQ #${i}`, action_url })),
+    },
+  });
+  renderPage();
+  const pending = await list("Pending");
+  expect(within(pending).getByText("RFQ #0")).toBeInTheDocument();
+  expect(within(pending).getByText("RFQ #3")).toBeInTheDocument();
+  expect(within(pending).queryAllByRole("link")).toHaveLength(0);
+});
+
 test("a declined item back in the queue explains coverage against all its hotels", async () => {
   api.getRoutingQueue.mockResolvedValue({
     ...QUEUE,

@@ -207,8 +207,9 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
   const isCallOff = !!po.is_call_off;
   const callOff = po.call_off || {};
-  const arcHref = callOff.arc_id
-    ? `/dashboard/vendor/rate-contracts/${callOff.arc_id}`
+  // The vendor contract page is keyed by the contract id, not the ARC id.
+  const arcHref = callOff.arc_contract_id
+    ? `/dashboard/vendor/rate-contracts/${callOff.arc_contract_id}`
     : null;
 
   // The "ordered by" buyer label: company / hotel-or-BU / department come from

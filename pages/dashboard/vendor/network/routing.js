@@ -50,10 +50,15 @@ function SubjectMeta({ item }) {
   );
 }
 
+// Only an app-relative path: a single leading "/" then a non-"/" character. A
+// protocol-relative "//host/..." would leave the site, and browsers read "/\host"
+// the same way, so a backslash is refused too.
+const isAppPath = (url) => typeof url === "string" && /^\/[^/\\]/.test(url);
+
 /** An assignment's title, linked to the subject when the server gave an action_url. */
 function SubjectTitle({ row }) {
   const style = { fontWeight: 600, color: "var(--fg)" };
-  const href = typeof row.action_url === "string" && row.action_url.startsWith("/") ? row.action_url : null;
+  const href = isAppPath(row.action_url) ? row.action_url : null;
   if (!href) return <div style={style}>{titleOf(row)}</div>;
   return (
     <div style={style}>

@@ -50,6 +50,7 @@ import StageActorBanner from "./StageActorBanner";
 import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
+import VendorOrgLabel from "../VendorOrgLabel";
 
 const { fmt, fmtLakh } = C;
 
@@ -1796,6 +1797,7 @@ const QuoteComparison = ({
                             <User size={12} />
                           </a>
                         </div>
+                        <VendorOrgLabel orgName={v.org_name} />
                         {full ? (
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>
                         ) : (
