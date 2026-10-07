@@ -1,7 +1,7 @@
 // Cross-tab: when another tab FINISHES switching the vendor-network acting
 // entity (token + persisted profile, signalled by `entity-switch-done`), a tab
 // showing a network profile reloads to pick both up. The bare token write is
-// not the signal: it lands before the new profile is persisted. Wired into the
+// not the signal: it lands just before the new profile is persisted. Wired into the
 // layout's existing storage listener, not a competing one.
 
 const mockReload = jest.fn();
@@ -19,7 +19,13 @@ jest.mock("./DashboardShell", () => ({ __esModule: true, default: ({ children })
 jest.mock("@/components/shared/GuestAccessModal", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/components/shared/PushPermissionPrompt", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/services/cms", () => ({ __esModule: true, getCmsData: jest.fn() }));
-jest.mock("@/services/Auth", () => ({ __esModule: true, SWSubscribe: jest.fn(), verifyVendorToken: jest.fn(), getProfile: jest.fn() }));
+// A networked profile is refetched once per load (never settles here: not under test).
+jest.mock("@/services/Auth", () => ({
+  __esModule: true,
+  SWSubscribe: jest.fn(),
+  verifyVendorToken: jest.fn(),
+  getProfile: jest.fn(() => new Promise(() => {})),
+}));
 jest.mock("react-toastify", () => ({ __esModule: true, toast: { error: jest.fn(), success: jest.fn() } }));
 
 import React from "react";
