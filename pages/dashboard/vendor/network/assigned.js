@@ -13,7 +13,7 @@ import { Inbox } from "lucide-react";
 import { getAssignedToMe, respondToAssignment } from "@/services/vendorNetwork";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import DeclineAssignmentModal from "@/components/dashboard/vendor/network/DeclineAssignmentModal";
-import { useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
+import { useNetworkProfile, isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { SUBJECT_LABEL, fmtDateTime } from "@/components/dashboard/vendor/network/routingFormat";
 
@@ -205,8 +205,8 @@ function AssignedView() {
   );
 }
 
-/** The principal routes work rather than receiving it. */
-function PrincipalNotice() {
+/** The principal routes work rather than receiving it. Routing itself is for admins only. */
+function PrincipalNotice({ isAdmin }) {
   return (
     <main className="main-body">
       <div className="section-card">
@@ -215,10 +215,16 @@ function PrincipalNotice() {
             <Inbox />
           </div>
           <h2>Assignments go to member entities</h2>
-          <p>You are acting as the network's principal, which routes work to its entities. Use Routing to see what is assigned.</p>
-          <Link href="/dashboard/vendor/network/routing" className="btn btn-blue" style={{ marginTop: 16 }}>
-            Open routing
-          </Link>
+          {isAdmin ? (
+            <>
+              <p>You are acting as the network's principal, which routes work to its entities. Use Routing to see what is assigned.</p>
+              <Link href="/dashboard/vendor/network/routing" className="btn btn-blue" style={{ marginTop: 16 }}>
+                Open routing
+              </Link>
+            </>
+          ) : (
+            <p>You are acting as the network's principal, which routes work to its entities. Your network admin routes it.</p>
+          )}
         </div>
       </div>
     </main>
@@ -231,7 +237,7 @@ export default function NetworkAssignedPage() {
   let content = null;
   if (profile && !pending) {
     if (network && !network.is_principal) content = <AssignedView />;
-    else if (network) content = <PrincipalNotice />;
+    else if (network) content = <PrincipalNotice isAdmin={isNetworkAdmin(profile)} />;
     else content = <NetworkAccessNotice profile={profile} />;
   }
   return (

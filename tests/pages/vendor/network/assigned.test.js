@@ -198,6 +198,13 @@ test("the principal is pointed at Routing and nothing is loaded", async () => {
   expect(api.getAssignedToMe).not.toHaveBeenCalled();
 });
 
+test("an ENTITY_MEMBER acting as the principal gets no Routing link (Routing is for admins)", async () => {
+  renderPage({ ...memberNetwork, role: "ENTITY_MEMBER", acting_entity_id: 10, is_principal: true, entity_relationship: "PRINCIPAL" });
+  expect(await screen.findByText("Assignments go to member entities")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Open routing" })).toBeNull();
+  expect(screen.getByText(/network admin routes/i)).toBeInTheDocument();
+});
+
 test("a vendor in no network gets the set-up notice", async () => {
   renderPage(null);
   expect(await screen.findByText("You are not in a vendor network")).toBeInTheDocument();
