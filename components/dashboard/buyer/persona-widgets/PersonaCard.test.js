@@ -38,11 +38,13 @@ describe("PersonaCard", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
-  it("queue cards (`poll`) refetch every 60s", async () => {
+  it("queue cards (`poll`) refetch every 5 min", async () => {
     const fetcher = jest.fn().mockResolvedValue({ status: 1, data: { count: 1 } });
     renderCard(fetcher, { poll: true });
     await flush();
-    await act(async () => jest.advanceTimersByTime(60000));
+    await act(async () => jest.advanceTimersByTime(4 * 60 * 1000));
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await act(async () => jest.advanceTimersByTime(60 * 1000));
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 

@@ -641,6 +641,51 @@ describe("Audit trail roster", () => {
 
 /* ── 2e — every column gets the aggregate that column deserves ──────────── */
 
+/* ── GST entered as a flat amount (RFQ 536645 / 536651) ─────────────────── */
+// The vendor quoted GST as ₹49,500, not 18%. The page rendered "49500%", a
+// ₹13,64,00,000 line and subtotal on a ₹3,24,500 PO, while the downloaded PDF
+// (which reads tax_mode) was right — so the buyer saw two different PO values.
+
+const AHU = {
+  name: "AHU", quantity: 1, unit: "NOS", unit_price: 275000,
+  gst: 18, gst_amount: 49500, tax_mode: "absolute", amount: 324500,
+  charges_meta: { tax: "49500.00", tax_mode: "absolute", other_charges: [] },
+};
+
+describe("GST entered as a flat amount", () => {
+  const AHU_PO = { items: [AHU], global_charges: [], total_value: 324500, pricing: { total: 324500, tax: 49500, subtotal: 275000 } };
+
+  it("shows the 18% rate and the ₹49,500 GST on the line, never 49500%", async () => {
+    await mount(AHU_PO, previewFor([{ base: 275000, base_tax: 49500, charges_total: 0, charges: [] }], 0, []));
+    const row = screen.getByText("AHU").closest("tr");
+    expect(within(row).getByText("18% (₹49,500.00)")).toBeInTheDocument();
+    expect(within(row).getByText("₹3,24,500.00")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/49500%/);
+    expect(document.body.textContent).not.toMatch(/13,64,00,000/);
+  });
+
+  it("subtotal reconciles with the grand total", async () => {
+    await mount(AHU_PO, previewFor([{ base: 275000, base_tax: 49500, charges_total: 0, charges: [] }], 0, []));
+    expect(footCells("Subtotal")).toContain("₹3,24,500.00");
+    expect(footCells("Grand total")).toContain("₹3,24,500.00");
+  });
+
+  it("asks the pricing preview for an ABSOLUTE ₹49,500, not a 49,500% rate", async () => {
+    await mount(AHU_PO, previewFor([{ base: 275000, base_tax: 49500, charges_total: 0, charges: [] }], 0, []));
+    const sent = previewTotals.mock.calls[0][0].items[0];
+    expect(sent).toMatchObject({ unit_price: 275000, quantity: 1, tax: 49500, tax_mode: "absolute" });
+  });
+
+  it("still gets the line right when the preview call fails", async () => {
+    getPODetailFull.mockResolvedValue(po(AHU_PO));
+    previewTotals.mockRejectedValue(new Error("preview down"));
+    render(<PODetail id="29" />);
+    await screen.findByText("Items & pricing");
+    expect(footCells("Subtotal")).toContain("₹3,24,500.00");
+    expect(footCells("Subtotal").join(" ")).toMatch(/18\.00%/);
+  });
+});
+
 describe("Items & pricing totals", () => {
   it("puts the Subtotal label leftmost and totals every column", async () => {
     await mount();

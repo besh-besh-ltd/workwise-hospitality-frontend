@@ -32,7 +32,7 @@ export const StaleNotice = ({ onRetry }) => (
  *   tooltip        string                — explanatory tooltip
  *   filters        object                — page filters (hotel_ids, dates, _refresh)
  *   fetcher        (params, {signal}) => Promise — service method returning {data}
- *   poll           boolean               — queue widget: refresh every 60s while visible.
+ *   poll           boolean               — queue widget: refresh every 5 min while visible, and on tab return.
  *                                          Analytics widgets leave this off.
  *   children       (data, ctx) => node   — render-prop receives engine data
  *   renderEmpty    ({onRetry}) => node   — optional empty-state override

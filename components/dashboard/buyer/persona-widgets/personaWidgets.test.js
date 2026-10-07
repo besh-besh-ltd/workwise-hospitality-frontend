@@ -215,13 +215,15 @@ describe.each(CASES)("$code", ({ code, fetcher, poll, viewAll, item, count }) =>
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  it(poll ? "polls as a queue (60s)" : "does not poll (period widget)", async () => {
+  it(poll ? "polls as a queue (5 min)" : "does not poll (period widget)", async () => {
     jest.useFakeTimers();
     try {
       fn().mockResolvedValue(envelope(PERSONA[code]));
       render(<Comp filters={FILTERS} />);
       await flush();
-      await act(async () => jest.advanceTimersByTime(60000));
+      await act(async () => jest.advanceTimersByTime(4 * 60 * 1000));
+      expect(fn()).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(60 * 1000));
       expect(fn()).toHaveBeenCalledTimes(poll ? 2 : 1);
     } finally {
       jest.useRealTimers();

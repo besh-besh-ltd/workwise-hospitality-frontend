@@ -5,7 +5,7 @@ import { OverlayTrigger, Spinner, Tooltip } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { Check, Plus, X } from 'lucide-react';
 import { getQuoteComparison, getQuoteComparisonView } from '@/services/pricing';
-import { createNegotiationRound, getAllActiveNegotiationRounds, getQuoteApprovalStatus } from '@/services/negotiation';
+import { createNegotiationRound, getAllActiveNegotiationRounds, getNegotiationApprovalBundle, getQuoteApprovalStatus } from '@/services/negotiation';
 import { getChargeNames } from '@/services/rfq';
 import useCreateRoundState from './useCreateRoundState';
 import StepProduct from './StepProduct';
@@ -90,12 +90,15 @@ const CreateRoundPage = () => {
       setLoading(true);
       setLoadError(null);
       try {
-        const [qcRes, activeRoundsRes, chargesRes, viewRes] = await Promise.all([
+        const [qcRes, activeRoundsRes, chargesRes, viewRes, bundleRes] = await Promise.all([
           getQuoteComparison(rfqId).catch(() => null),
           getAllActiveNegotiationRounds(rfqId).catch(() => null),
           getChargeNames().catch(() => null),
           // Banner data only — failure must not block the wizard.
           getQuoteComparisonView(rfqId).catch(() => null),
+          // Every product's latest NEGOTIATION_QUOTE approval instance in ONE
+          // call (replaces one /approval-status call per product below).
+          getNegotiationApprovalBundle(rfqId).catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -126,16 +129,29 @@ const CreateRoundPage = () => {
         setProducts(stitched);
         setChargeNamesList(Array.isArray(charges) ? charges : []);
 
-        // Fetch quote approval statuses per product (parallel)
+        // Quote approval status per product. The approval bundle carries every
+        // product's NEGOTIATION_QUOTE instances (newest first, stale APPROVED
+        // rows already healed server-side — the same rule /approval-status
+        // applies), so the latest one per product is exactly what the old
+        // per-product call returned. Only if the bundle is unavailable do we
+        // fall back to asking per product.
         const statuses = {};
-        await Promise.all(stitched.map(async (product) => {
-          try {
-            const res = await getQuoteApprovalStatus(product.id);
-            if (res?.status === 1 && res?.data?.approval_instance) {
-              statuses[product.id] = res.data.approval_instance;
-            }
-          } catch { /* product may have no instance — that's fine */ }
-        }));
+        const quoteInstances = bundleRes?.status === 1 ? bundleRes?.data?.negotiation_quote_instances : null;
+        if (quoteInstances && typeof quoteInstances === 'object') {
+          stitched.forEach((product) => {
+            const latest = (quoteInstances[String(product.id)] || [])[0];
+            if (latest) statuses[product.id] = latest;
+          });
+        } else {
+          await Promise.all(stitched.map(async (product) => {
+            try {
+              const res = await getQuoteApprovalStatus(product.id);
+              if (res?.status === 1 && res?.data?.approval_instance) {
+                statuses[product.id] = res.data.approval_instance;
+              }
+            } catch { /* product may have no instance — that's fine */ }
+          }));
+        }
         if (!cancelled) setQuoteApprovalStatuses(statuses);
       } catch (err) {
         console.error('CreateRoundPage load error:', err);

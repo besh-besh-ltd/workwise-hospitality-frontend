@@ -22,6 +22,10 @@ export {
 
 export { default as surfaceStyles } from "./DashboardSurface.module.scss";
 
-/* Dashboard live-refresh cadence lives with the shared data hook: queue
- * widgets poll every 60s while the tab is visible; analytics never poll. */
-export { DASHBOARD_QUEUE_POLL_MS } from "@/hooks/useDashboardQuery";
+/* Dashboard refresh cadence lives with the shared data hook: queue widgets
+ * poll every 5 min while the tab is visible (portal policy, hooks/usePolling.js)
+ * and refetch on tab return; analytics never poll. */
+export {
+  DASHBOARD_QUEUE_POLL_MS,
+  DASHBOARD_QUEUE_POLL_MS as DASHBOARD_POLL_MS,
+} from "@/hooks/useDashboardQuery";

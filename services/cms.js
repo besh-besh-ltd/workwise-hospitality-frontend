@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axios";
+import { cachedRequest } from "@/utils/requestCache";
 
 export const getCmsData = (page_id) => {  
 	return new Promise(async (resolve, reject) => {
@@ -160,7 +161,9 @@ export const getCountries = () => {
 export const getCountryCodes = () => {
 	return new Promise(async (resolve, reject) => {
       try {
-		let response = await axiosInstance.get(`general/country-codes`);
+		// Static, public list — fetched once per TTL and shared by every phone
+		// input on the page (CommonFormInput used to fetch it once per field).
+		let response = await cachedRequest("country-codes", () => axiosInstance.get(`general/country-codes`));
 		resolve(response);
 	  } catch (error) {
 		reject({message : error})

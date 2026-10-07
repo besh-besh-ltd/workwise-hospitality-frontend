@@ -144,11 +144,13 @@ describe("ActionCenter", () => {
     expect(target).toHaveAttribute("type", "button");
   });
 
-  it("polls as a queue (60s)", async () => {
+  it("polls as a queue (5 min)", async () => {
     jest.useFakeTimers();
     try {
       await renderWith(ActionCenter, svc.getActionCenterData, F.ACTION_CENTER);
-      await act(async () => jest.advanceTimersByTime(60000));
+      await act(async () => jest.advanceTimersByTime(4 * 60 * 1000));
+      expect(svc.getActionCenterData).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(60 * 1000));
       expect(svc.getActionCenterData).toHaveBeenCalledTimes(2);
     } finally {
       jest.useRealTimers();

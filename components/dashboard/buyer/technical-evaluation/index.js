@@ -32,7 +32,10 @@ import { summariseEvaluationProgress } from "@/utils/techEvalScoring";
 // `rfqId` + `embedded` make this component reusable inside the RFQ lifecycle
 // page, locked to one RFQ: the RFQ-list sidebar, the page chrome and the RFQ
 // hero are all suppressed, and the id comes from the prop instead of the URL.
-const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = false } = {}) => {
+// `rfq` (embedded only) is the host page's already-loaded RFQ payload
+// (getRFQById with includeVendors — a superset of what this page reads); when it
+// matches `rfqId` it is used instead of fetching the same RFQ again.
+const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, embedded: isEmbedded = false } = {}) => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -291,7 +294,10 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, embedded: isEmbedded = fal
       setClauseInfo(null); // Clear previous evaluation data immediately
       setExpandedProducts(new Set());
       setProductEvaluationStatus(new Map());
-      const rfqDetailsRes = await getRFQById(rfq_id);
+      const preloaded = isEmbedded && preloadedRfq && String(preloadedRfq.id) === String(rfq_id)
+        ? preloadedRfq
+        : null;
+      const rfqDetailsRes = preloaded ? { data: preloaded } : await getRFQById(rfq_id);
 
       // Stale check — if user clicked another RFQ while this was loading, discard
       if (activeRfqRef.current !== requestId) return;

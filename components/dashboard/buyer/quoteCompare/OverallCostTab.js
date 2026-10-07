@@ -27,6 +27,7 @@ const OverallCostTab = ({
           message="Overall cost analysis, L1 totals, and vendor cost ladders remain hidden until the quote submission deadline has fully passed in IST."
           deadline={visibility.deadline}
           remainingMs={visibility.remainingMs}
+          deadlineEpoch={visibility.deadlineEpoch ?? null}
         />
       </div>
     );

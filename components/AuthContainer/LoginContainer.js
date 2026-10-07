@@ -10,7 +10,7 @@ import AuthModal from '../modal/AuthModal';
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
 import { usePathname } from 'next/navigation';
-import posthog from 'posthog-js';
+import posthog from '@/lib/analytics';
 import { resolvePostLoginRedirect } from '@/utils/sharedFunctions';
 
 const LoginContainer = (props) => {

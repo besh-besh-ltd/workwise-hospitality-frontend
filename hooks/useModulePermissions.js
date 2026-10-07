@@ -20,7 +20,9 @@ export const useModulePermissions = ({ moduleKey, hotelIds = [], departmentId = 
   const fetchIdRef = useRef(0); // Tracks latest fetch to discard stale responses
 
   // Serialize inputs to detect changes during render (not in effects)
-  const inputKey = `${moduleKey}|${enabled}|${(hotelIds || []).sort().join(',')}|${departmentId}`;
+  // Copy before sorting: Array.prototype.sort is in place, and hotelIds belongs
+  // to the caller (often a memoised array other code is still reading).
+  const inputKey = `${moduleKey}|${enabled}|${[...(hotelIds || [])].sort().join(',')}|${departmentId}`;
   const prevInputKeyRef = useRef(inputKey);
 
   // When inputs change, immediately mark as loading and clear stale permissions

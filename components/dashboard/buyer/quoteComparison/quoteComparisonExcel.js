@@ -31,7 +31,12 @@
      is the usual mistake.
    ═══════════════════════════════════════════════════════════════════════ */
 
-import * as XLSX from "xlsx-js-style";
+import { loadXlsx } from "@/utils/xlsx";
+// SheetJS is ~850 KB decoded, so it is fetched on the first export rather than
+// shipped with the page. Every exported builder awaits `ensureXlsx()` before
+// touching it; the private helpers below run only inside those builders.
+let XLSX = null;
+const ensureXlsx = async () => { XLSX = await loadXlsx(); return XLSX; };
 import { saveAs } from "file-saver";
 
 import * as C from "./computeHelpers";
@@ -457,7 +462,8 @@ function notesSheet(basisNote) {
   return widths(sheetFrom(rows), [30, 110]);
 }
 
-export function buildComparisonWorkbook(view) {
+export async function buildComparisonWorkbook(view) {
+  await ensureXlsx();
   const basisNote = "Landed cost, GST inclusive. Input tax credit is not netted off.";
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, coverSheet(view, { basisNote }), "Cover");
@@ -475,7 +481,8 @@ export function buildComparisonWorkbook(view) {
 const section = (title) => [head(title, GROUP_BG), txt(""), txt("")];
 const metric = (label, cell, note) => [txt(label), cell, txt(note || "", { font: { color: { rgb: NOTE_FG } } })];
 
-export function buildSummaryWorkbook(view) {
+export async function buildSummaryWorkbook(view) {
+  await ensureXlsx();
   const rfq = view?.rfq || {};
   const products = productsOf(view);
   const vendors = vendorsOf(view);
@@ -603,12 +610,12 @@ const save = (wb, name) => {
   saveAs(new Blob([buf], { type: "application/octet-stream" }), name);
 };
 
-export function downloadComparisonWorkbook(view) {
-  save(buildComparisonWorkbook(view), `RFQ_${fileBase(view)}_quote_comparison.xlsx`);
+export async function downloadComparisonWorkbook(view) {
+  save(await buildComparisonWorkbook(view), `RFQ_${fileBase(view)}_quote_comparison.xlsx`);
 }
 
-export function downloadSummaryWorkbook(view) {
-  save(buildSummaryWorkbook(view), `RFQ_${fileBase(view)}_summary.xlsx`);
+export async function downloadSummaryWorkbook(view) {
+  save(await buildSummaryWorkbook(view), `RFQ_${fileBase(view)}_summary.xlsx`);
 }
 
 export const __test__ = { safeSheetName, NO_BID, TECH_FAILED, TECH_PENDING, bidStatusOf, MONEY, PCT };

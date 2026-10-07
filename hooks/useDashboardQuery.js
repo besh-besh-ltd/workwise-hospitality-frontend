@@ -5,10 +5,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { dashboardErrorMessage } from "@/components/dashboard/shared/errorCopy";
 
-/** Queue widgets (approvals, drafts, closing soon…) refresh on this cadence.
- *  Analytics widgets never poll — they refetch on filter change or on the
- *  page-level refresh button only. */
-export const DASHBOARD_QUEUE_POLL_MS = 60000;
+/** Queue widgets (approvals, drafts, closing soon…) refresh on this cadence —
+ *  the portal policy for buyer-dashboard widgets (see hooks/usePolling.js).
+ *  Freshness comes from the refetch on tab return, the page-level refresh
+ *  button and filter changes; the timer is only the background floor for a
+ *  dashboard left open on screen. Analytics widgets never poll. */
+export const DASHBOARD_QUEUE_POLL_MS = 5 * 60 * 1000;
+
+/** On tab return a queue widget refetches once if its data is older than this.
+ *  Keeps alt-tab from refetching figures that are seconds old. */
+export const VISIBLE_REFETCH_MIN_GAP_MS = 60 * 1000;
 
 // Error backoff: 5s → 10s → 20s … capped at 5 min. Analytics widgets give up
 // after MAX_ANALYTICS_RETRIES automatic attempts (the Retry button still works);
@@ -226,7 +232,8 @@ export default function useDashboardQuery(fetcher, filters, options = {}) {
     if (!poll || typeof document === "undefined") return undefined;
     const onVisibility = () => {
       if (isDocumentHidden() || !enabledRef.current) return;
-      const overdue = Date.now() - lastSuccessAtRef.current >= pollMs;
+      const overdue =
+        Date.now() - lastSuccessAtRef.current >= Math.min(pollMs, VISIBLE_REFETCH_MIN_GAP_MS);
       if (dueWhileHiddenRef.current || overdue) runRef.current?.({ background: true });
     };
     document.addEventListener("visibilitychange", onVisibility);
