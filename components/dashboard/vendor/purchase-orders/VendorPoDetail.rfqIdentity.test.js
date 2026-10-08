@@ -35,7 +35,7 @@ jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import VendorPoDetail from "./VendorPoDetail";
 
@@ -69,6 +69,12 @@ const mount = (over = {}) =>
 // fold at decision time — and every assertion here would pass vacuously.
 const dialogText = () => screen.getByRole("dialog").textContent;
 
+// The hero's own button. On phones the same actions are repeated in the
+// sticky MobileActionBar (portalled to <body>, hidden by CSS on desktop), so
+// an unscoped query would find two.
+const heroButton = (name) =>
+  within(screen.getByRole("heading", { level: 1 }).closest("section")).getByRole("button", { name });
+
 describe("vendor PO detail — naming the RFQ at the point of decision", () => {
   it("names the RFQ by number AND title in the hero", () => {
     mount();
@@ -79,7 +85,7 @@ describe("vendor PO detail — naming the RFQ at the point of decision", () => {
 
   it("names the RFQ in the accept confirmation", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: /^accept/i }));
+    fireEvent.click(heroButton(/^accept/i));
 
     const text = dialogText();
     expect(text).toMatch(new RegExp(`RFQ #${RFQ_NO}`));
@@ -90,7 +96,7 @@ describe("vendor PO detail — naming the RFQ at the point of decision", () => {
 
   it("names the RFQ in the reject confirmation", () => {
     mount();
-    fireEvent.click(screen.getByRole("button", { name: /^reject/i }));
+    fireEvent.click(heroButton(/^reject/i));
 
     const text = dialogText();
     expect(text).toMatch(new RegExp(`RFQ #${RFQ_NO}`));
@@ -108,7 +114,7 @@ describe("vendor PO detail — naming the RFQ at the point of decision", () => {
     expect(hero).not.toHaveTextContent(/undefined|null/);
     expect(hero.textContent).not.toMatch(new RegExp(`RFQ #${RFQ_NO}\\s*[—-]\\s*(·|$)`));
 
-    fireEvent.click(screen.getByRole("button", { name: /^accept/i }));
+    fireEvent.click(heroButton(/^accept/i));
     expect(dialogText()).not.toMatch(/undefined|null/);
   });
 

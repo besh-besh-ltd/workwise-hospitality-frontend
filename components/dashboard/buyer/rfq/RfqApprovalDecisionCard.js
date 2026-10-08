@@ -46,6 +46,7 @@ import { toast } from "react-toastify";
 import { ShieldCheck, AlertTriangle, ArrowRight, Handshake } from "lucide-react";
 
 import { submitApprovalAction } from "@/services/approval";
+import phone from "./RfqApprovalDecisionCard.module.css";
 
 // Anchor id — deep links from the "Waiting on you" queue arrive with
 // ?focus=approval and scroll to this element.
@@ -404,7 +405,7 @@ function UrgencyBanner({ entityLabel, headline, children, action }) {
           </div>
           {children}
         </div>
-        <div style={{ flexShrink: 0 }}>{action}</div>
+        <div className={phone.bannerAction} style={{ flexShrink: 0 }}>{action}</div>
       </div>
     </section>
   );
@@ -760,7 +761,7 @@ export default function RfqApprovalDecisionCard({
               Add a reason before rejecting.
             </div>
           )}
-          <div className="aa-btns">
+          <div className={`aa-btns ${phone.decisionBtns}`}>
             <button
               type="button"
               className="btn btn-danger btn-sm"

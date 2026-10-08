@@ -35,6 +35,10 @@ const ClauseProductItem = ({
   onEvaluationStatusChange, // Callback to notify parent about evaluation status
   quotedVendorsOnly = true,
   showFailedVendors = false,
+  // Phone-only decision bar for this product's TECHNICAL approval. The parent
+  // turns it on only while this is the single expanded product, so two
+  // expanded products never stack two fixed bars on top of each other.
+  showMobileStickyActions = false,
 }) => {
 
   const multipleVendorsSelected = selectedVendors && selectedVendors.length > 1;
@@ -1270,6 +1274,7 @@ const ClauseProductItem = ({
               onCustomApprove={handleTechEvalApprove}
               onCustomReject={handleTechEvalReject}
               refreshTrigger={approvalRefreshKey}
+              showMobileStickyActions={showMobileStickyActions}
               onActionComplete={async () => {
                 await refetchWorkflow();
                 setApprovalRefreshKey((prev) => prev + 1);

@@ -1,0 +1,91 @@
+// Phone layer for the vendor inquiry page (components/dashboard/vendor/inquiries-details.js).
+// Desktop (>768px) is untouched: every rule below is inside the phone media
+// query except `.loading`, which is `display: contents` (no box of its own).
+
+// Wraps the loading skeleton. No box on any screen, so desktop layout is
+// identical; on a phone it caps the 600px-wide placeholder bars.
+.loading {
+  display: contents;
+}
+
+@media (max-width: 768px) {
+  .loading :global(svg) {
+    max-width: 100%;
+  }
+
+  // Header action row: Queries / Clarification / Regret / main CTA. On a
+  // phone it wraps, and a disabled button's reason (a hover-only tooltip on
+  // desktop) is printed under it, because a touch screen has no hover.
+  .actions {
+    flex-wrap: wrap;
+    gap: 8px !important;
+    width: 100%;
+
+    :global(.btn) {
+      min-height: 40px;
+    }
+
+    :global(.quote-status-tooltip-wrap) {
+      max-width: 100%;
+    }
+
+    :global(.quote-status-tooltip) {
+      display: block;
+      position: static;
+      transform: none;
+      background: none;
+      color: #9a3412;
+      padding: 4px 0 0;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      white-space: normal;
+      box-shadow: none;
+    }
+
+    :global(.quote-status-tooltip::after) {
+      display: none;
+    }
+  }
+
+  // Copies of the main quote button (and an enabled Regret) that the phone
+  // action bar already carries. Specific enough to beat the shell's
+  // `body.dashboard-route .btn { display: inline-flex !important }`.
+  :global(body) .actions .phoneHide {
+    display: none !important;
+  }
+
+  // Products table: _media.scss pins `.details-table .table` to
+  // min-width:max-content at <=767px, so every product name and spec ran on
+  // one line and the table became thousands of px wide. Let cells wrap; the
+  // columns keep their own min-widths and the .table-responsive scroller
+  // still scrolls sideways.
+  .productsTable.productsTable :global(.table) {
+    min-width: 0;
+  }
+
+  .productsTable :global(td),
+  .productsTable :global(th) {
+    white-space: normal;
+  }
+
+  // Submitted-quote totals (GrandTotalBreakup layout="3col"): its inline
+  // two-column grid with no-wrap labels ran ~100px off the right edge.
+  .totalsWrap > :global(div) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+  }
+
+  .totalsWrap :global(span) {
+    white-space: normal !important;
+  }
+
+  .barReason {
+    color: #9a3412;
+    font-size: 12.5px;
+  }
+
+  .barMain {
+    flex-grow: 2 !important;
+  }
+}

@@ -24,6 +24,8 @@ import useIsMobile from '@/hooks/useIsMobile';
 import Link from 'next/link';
 import ApprovalWorkflowSection from '@/components/dashboard/buyer/approval/ApprovalWorkflowSection';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
+import MobileActionBar, { MobileActionButton } from '@/components/shared/mobile/MobileActionBar';
+import mobileBarStyles from '@/components/shared/mobile/MobileActionBar.module.css';
 import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
@@ -464,7 +466,11 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
 
   if(!isEditing) {
     return (
-      <div style={showMobileApprovalBar ? { paddingBottom: 120 } : undefined}>
+      <div style={showMobileApprovalBar && isNewApprovalWorkflow ? { paddingBottom: 120 } : undefined}>
+        {/* paddingBottom: room for the phone approval bar. The legacy-workflow
+            bar brings its own in-flow spacer; the new-workflow one lives inside
+            ApprovalWorkflowSection (mid-page), which suppresses its spacer, so
+            the page reserves the space here instead. */}
         {/* ── Hero Header Card ── */}
         <div className={styles.detailsHeader}>
           <div className={styles.detailsHero}>
@@ -522,12 +528,12 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                 </button>
               )}
               {canWrite && status === 'draft' && handleInitiatePO && (
-                <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => handleInitiatePO(id)}>
+                <button className={`${styles.heroBtn} ${styles.heroBtnApprove} ${styles.heroBtnKeep}`} onClick={() => handleInitiatePO(id)}>
                   Initiate PO
                 </button>
               )}
               {canWrite && status === 'dispatched' && (
-                <button className={`${styles.heroBtn} ${styles.heroBtnApprove}`} onClick={() => setShowGRNUpdateModal(true)}>
+                <button className={`${styles.heroBtn} ${styles.heroBtnApprove} ${styles.heroBtnKeep}`} onClick={() => setShowGRNUpdateModal(true)}>
                   <BsTruck size={14} /> Update to GRN
                 </button>
               )}
@@ -1806,18 +1812,22 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
           ] : []}
         />
 
-        {/* Sticky mobile approval bar */}
+        {/* Sticky mobile approval bar — the shared phone decision bar (the
+            new-workflow case renders the same bar from ApprovalWorkflowSection). */}
         {showMobileApprovalBar && !isNewApprovalWorkflow && (
-          <div className={styles.mobileApprovalBar}>
-            <button className={styles.mobileApproveBtn} onClick={() => setShowApproveConfirmModal(true)}>
-              Approve
-            </button>
-            <button className={styles.mobileRejectBtn} onClick={() => {
+          <MobileActionBar
+            label="PO approval"
+            summary={<><span>PO #{po_number} total</span><strong>₹{addCommasToNumber(displayedTotalValue)}</strong></>}
+          >
+            <MobileActionButton variant="reject" onClick={() => {
               if (handlePODecision) handlePODecision(id, { decision: "rejected", type: "approval" });
             }}>
               Reject
-            </button>
-          </div>
+            </MobileActionButton>
+            <MobileActionButton variant="approve" className={mobileBarStyles.wide} onClick={() => setShowApproveConfirmModal(true)}>
+              Approve
+            </MobileActionButton>
+          </MobileActionBar>
         )}
       </div>
     );

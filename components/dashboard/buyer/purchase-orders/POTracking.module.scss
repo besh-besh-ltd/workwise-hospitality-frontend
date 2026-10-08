@@ -366,3 +366,91 @@
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 .skelKpi { height: 92px; border-radius: var(--radius); }
 .skelRow { height: 56px; border-radius: 8px; margin: 8px 0; }
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   Scoped to the shell's mobile breakpoints; desktop (≥992px) never reaches
+   it. The tracking table restacks each PO as a tap-to-expand card. */
+@media (max-width: 991px) {
+  /* DashboardShell.content is 16px here, not 20px/24px. */
+  .page { margin: -16px; }
+}
+
+@media (max-width: 768px) {
+  .pageHeader { padding: 16px 16px 14px; }
+  .pageTitleRow { flex-wrap: wrap; gap: 12px; }
+  .pageTitle { font-size: 21px; }
+  .headerActions .btn { min-height: 40px; }
+  .pageBody { padding: 14px 12px 24px; }
+
+  .sectionHead { flex-wrap: wrap; padding: 12px 14px; }
+  .sectionHead .hRight { flex: 1 1 100%; }
+  .searchInput { width: 100%; }
+  .searchInput input { min-height: 42px; }
+  .filterBar { padding: 10px 12px; }
+  /* The status-tab wrapper carries an inline flex:1 (basis 0), which squeezed
+     the tabs into a one-word-wide column beside the filter buttons. */
+  .filterBar > :first-child { flex-basis: 100% !important; }
+  .filterBar .hRight { flex-wrap: wrap; }
+  .filterBar .hRight .btn { min-height: 40px; }
+  .statusTabs button { min-height: 36px; }
+  .iconBtn { min-width: 40px; min-height: 40px; }
+
+  /* Filter popovers (FilterMenus.js) open as a bottom sheet instead of a
+     right:0 panel that ran off the left edge. */
+  .filterMenu {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    min-width: 0 !important;
+    max-height: 60vh !important;
+    z-index: 1060 !important;
+    padding: 8px !important;
+    button { min-height: 44px; font-size: 14px !important; }
+    input { min-height: 40px; }
+  }
+
+  /* ── Tracking table → cards ──
+     Cells: chevron · PO # · Vendor & items · Stage · Progress · GRN/INV/PAY ·
+     ETA · Value · Open. Tapping the card still expands its timeline. */
+  .tableWrap { overflow-x: visible; }
+  .trackTable {
+    display: block;
+    thead { display: none; }
+    tbody { display: block; border-bottom: 1px solid var(--border); }
+    tbody:last-child { border-bottom: none; }
+    tbody td { border-bottom: none; }
+  }
+  .trackTable .rowMain {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 8px;
+    align-items: center;
+    padding: 13px 14px;
+    td { display: block; padding: 0; min-width: 0; }
+    td:nth-child(2) { grid-column: 1; grid-row: 1; }
+    td:nth-child(8) { grid-column: 2; grid-row: 1; text-align: right !important; }
+    td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+    td:nth-child(4) { grid-column: 1; grid-row: 3; }
+    td:nth-child(7) { grid-column: 2; grid-row: 3; text-align: right; }
+    td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; }
+    td:nth-child(6) { grid-column: 1; grid-row: 5; }
+    td:nth-child(9) { grid-column: 2; grid-row: 5; }
+    td:nth-child(1) { display: none; }
+  }
+  .trackingProgress { min-width: 0; }
+  /* The RFQ chip is a link to the PO — give it a finger-sized target. */
+  .trackTable .rfqLink { padding: 7px 10px; font-size: 11.5px; margin-top: 4px; }
+  .timelineRow { display: block; }
+  .timelineRow td { display: block; }
+  .trackTimeline { overflow-x: auto; padding: 14px 8px; -webkit-overflow-scrolling: touch; }
+  .trackStep { min-width: 74px; }
+  .timelineActions { padding: 12px 14px; }
+  .timelineActions .btn { min-height: 40px; }
+
+  .pagination { flex-wrap: wrap; justify-content: center; gap: 10px; padding: 12px; }
+  .pages button { width: 40px; height: 40px; font-size: 13px; }
+  .helperBanner { align-items: flex-start; padding: 12px 14px; }
+}

@@ -23,6 +23,12 @@ export default function WizardChat() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // A position saved on a wide desktop can be off-screen on a phone;
+        // pull it back inside the current viewport.
+        if (parsed && typeof parsed.x === "number" && typeof parsed.y === "number") {
+          parsed.x = clamp(parsed.x, 0, Math.max(0, window.innerWidth - FAB_SIZE));
+          parsed.y = clamp(parsed.y, 0, Math.max(0, window.innerHeight - FAB_SIZE));
+        }
         posRef.current = parsed;
         setPos(parsed);
       }

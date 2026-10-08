@@ -34,6 +34,8 @@ import { useModulePermissions } from "@/hooks/useModulePermissions";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
+import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
 // Single source of truth for reason-code → human label. Owned by the RFQ stage
 // panels; imported (never re-implemented) so the PO trail and the RFQ trail can
 // never drift into calling the same code two different things.
@@ -324,6 +326,10 @@ const PODetail = ({ id }) => {
   // Reject is a two-step action: the button opens the modal, the modal's
   // confirm submits. Nothing is sent from the button click itself.
   const [rejectOpen, setRejectOpen] = useState(false);
+  // Phone-only: the sticky bar's Approve asks first. On a 390px screen the bar
+  // sits under the thumb, and one stray tap must not approve a ₹15L order.
+  // Desktop's Approve buttons still submit directly, exactly as before.
+  const [approveOpen, setApproveOpen] = useState(false);
 
   /* ── Permission scope ────────────────────────────────────────────────────
      Whether this user may act on THIS purchase order is a question about the
@@ -459,6 +465,7 @@ const PODetail = ({ id }) => {
       toast.success(message);
       setComment("");
       setRejectOpen(false);
+      setApproveOpen(false);
       await fetchDetail();
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || "Something went wrong, please try again.";
@@ -941,8 +948,10 @@ const PODetail = ({ id }) => {
             )}
             {isPending && awaitingMe && canApprove && (
               <>
+                {/* heroDecisionBtn: hidden on phones, where the same two
+                    actions live in the sticky bar at the bottom instead. */}
                 <button
-                  className={`${styles.btn} ${styles.btnDangerStrong}`}
+                  className={`${styles.btn} ${styles.btnDangerStrong} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={!!submitting}
                   onClick={() => setRejectOpen(true)}
@@ -951,7 +960,7 @@ const PODetail = ({ id }) => {
                   Reject
                 </button>
                 <button
-                  className={`${styles.btn} ${styles.btnSuccess}`}
+                  className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={!!submitting}
                   onClick={() => decide("approved")}
@@ -1067,17 +1076,20 @@ const PODetail = ({ id }) => {
                         </div>
                       )}
                     </td>
-                    <td className="num">
+                    {/* data-label: the column name each cell carries when the
+                        row is restacked as a card on phones (the <thead> is
+                        hidden there). Invisible on desktop. */}
+                    <td className="num" data-label="Qty">
                       {it.quantity}
                       {it.unit && <span className={styles.itUnit}>{it.unit}</span>}
                     </td>
-                    <td className="num">{inr(it.unit_price)}</td>
-                    <td className="num">
+                    <td className="num" data-label="Unit price">{inr(it.unit_price)}</td>
+                    <td className="num" data-label="GST">
                       {it.gst != null
                         ? `${it.gst}% (${inr(lineGstAmount(it))})`
                         : "—"}
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>
+                    <td className={`num ${styles.itAmountCell}`} data-label="Amount" style={{ fontWeight: 600 }}>
                       {inr(itemAmount(it))}
                     </td>
                   </tr>
@@ -1606,12 +1618,12 @@ const PODetail = ({ id }) => {
                           )}
                         </div>
                       </td>
-                      <td className={styles.gstinCell}>{v.gstin || "—"}</td>
-                      <td className="num">
+                      <td className={styles.gstinCell} data-label="GSTIN">{v.gstin || "—"}</td>
+                      <td className="num" data-label="Quoted">
                         <span className={v.is_winner ? styles.winnerAmt : undefined}>{inr(v.amount)}</span>
                       </td>
-                      <td className="num">{v.delivery_days != null ? `${v.delivery_days} days` : "—"}</td>
-                      <td className="num">
+                      <td className="num" data-label="Delivery">{v.delivery_days != null ? `${v.delivery_days} days` : "—"}</td>
+                      <td className="num" data-label="Δ vs L1">
                         {v.is_winner ? (
                           <span className={styles.saving}>— Baseline</span>
                         ) : (
@@ -1963,6 +1975,72 @@ const PODetail = ({ id }) => {
         commentLabel="Reason for rejection"
         commentPlaceholder="Why is this PO being rejected? The initiator and the audit trail will show this."
       />
+
+      {/* Phone approve confirmation — opened only by the sticky bar below,
+          which exists only on phones. The optional comment is the same state
+          the desktop aside's textarea writes, so whatever was typed there is
+          already in the box. Values interpolated into `description` are
+          escaped: it is rendered as HTML (see the reject modal above). */}
+      <ConfirmationModal
+        isOpen={approveOpen}
+        onClose={() => setApproveOpen(false)}
+        onConfirm={() => decide("approved")}
+        title="Approve this purchase order?"
+        description={`PO #${escapeHtml(po.po_number || po.id)} for <strong>${escapeHtml(
+          inr(pricing.total ?? po.total_value)
+        )}</strong> to ${escapeHtml(vendor.name) || "the vendor"} will be approved and routed to the next approver, or to the vendor if this is the last step.`}
+        confirmButtonColor="success"
+        confirmButtonText="Approve PO"
+        cancelButtonText="Cancel"
+        showCloseButton
+        customFooter={
+          <label className={styles.approveComment}>
+            <span>Comment (optional)</span>
+            <textarea
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add a note for the next approver or the audit trail…"
+            />
+          </label>
+        }
+      />
+
+      {/* Phone decision bar. Same visibility rule as the desktop action card;
+          display:none above 768px, so desktop keeps its in-page buttons. */}
+      {isPending && awaitingMe && canApprove && (
+        <MobileActionBar
+          label="PO decision"
+          summary={
+            <>
+              <span>
+                PO <span className={styles.mono}>#{po.po_number || po.id}</span> total
+              </span>
+              <strong>{inr(pricing.total ?? po.total_value)}</strong>
+            </>
+          }
+        >
+          <MobileActionButton
+            variant="reject"
+            aria-label="Reject purchase order"
+            disabled={!!submitting}
+            onClick={() => setRejectOpen(true)}
+          >
+            <X size={16} />
+            Reject
+          </MobileActionButton>
+          <MobileActionButton
+            variant="approve"
+            className={mobileBarStyles.wide}
+            aria-label="Approve purchase order"
+            disabled={!!submitting}
+            onClick={() => setApproveOpen(true)}
+          >
+            <Check size={17} strokeWidth={2.4} />
+            {submitting === "approved" ? "Approving…" : "Approve"}
+          </MobileActionButton>
+        </MobileActionBar>
+      )}
     </div>
   );
 };

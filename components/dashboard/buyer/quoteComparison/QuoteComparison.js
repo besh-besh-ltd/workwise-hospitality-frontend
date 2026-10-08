@@ -50,6 +50,7 @@ import StageActorBanner from "./StageActorBanner";
 import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 
 const { fmt, fmtLakh } = C;
 
@@ -119,6 +120,33 @@ const finalizeFailureReason = (err) => {
    Portaled to document.body so it escapes the page's stacking context. */
 const Portal = ({ children }) =>
   typeof document !== "undefined" ? createPortal(children, document.body) : null;
+
+/* Phone layout (≤768px, the MobileActionBar breakpoint). On a phone the
+   product × vendor matrix is unusable — the sticky 312px item column fills
+   the screen and the vendor price + per-cell Approve/Reject sit off to the
+   right — so the sheet swaps it for one card per product and the sticky
+   dock for the shared MobileActionBar. Switched in JS rather than render-
+   both-hide-one because the cells carry DOM ids the award banner scrolls
+   to (they must be unique and visible) and the two layouts would otherwise
+   duplicate every product name and decision button on the page. Guarded:
+   jsdom and SSR have no matchMedia. */
+export const PHONE_QUERY = "(max-width: 768px)";
+const usePhoneLayout = () => {
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mql = window.matchMedia(PHONE_QUERY);
+    setIsPhone(!!mql.matches);
+    const onChange = (e) => setIsPhone(!!e.matches);
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else if (mql.addListener) mql.addListener(onChange);
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else if (mql.removeListener) mql.removeListener(onChange);
+    };
+  }, []);
+  return isPhone;
+};
 
 /* DOM ids so the RFQ workspace can scroll straight to the decision.
    The award approval banner on rfq-management-details deliberately has no
@@ -238,6 +266,9 @@ const QuoteComparison = ({
   const [menu, setMenu] = useState(null); // { x, y, pid, vid }
   const [showHistory, setShowHistory] = useState(null); // { product, vendor }
   const [approvalPanel, setApprovalPanel] = useState(null); // product whose approval trail is open
+  // Phone layout: product cards + MobileActionBar instead of matrix + dock.
+  const isPhone = usePhoneLayout();
+  const [phoneOpen, setPhoneOpen] = useState({}); // productId -> other quotes expanded
 
   // The cell the RFQ page's award banner sent us to — { pid, vid }. Purely a
   // highlight; it never changes what is clickable.
@@ -1991,6 +2022,298 @@ const QuoteComparison = ({
     </div>
   );
 
+  /* ─────────────── phone: one card per product ───────────────
+     Replaces the matrix at ≤768px (see usePhoneLayout). Same data, same
+     handlers as the cells: the awarded (else selected, else L1) vendor leads
+     each card with its price, and the approver's Approve / Reject call the
+     very setApprove / setReject the matrix cell buttons call. Every other
+     vendor sits behind one tap. Nothing here fetches or computes anything
+     the matrix doesn't. */
+  const phoneLeadVendor = (p) => {
+    const quoted = sortedVendors.filter((v) => p.quotes?.[v.id]);
+    const byId = (id) => (id != null ? quoted.find((v) => String(v.id) === String(id)) : null);
+    return (
+      byId(p.finalized_vendor)
+      || byId(selections[p.id])
+      || byId(C.l1VendorFor(p, vendors))
+      || quoted[0]
+      || null
+    );
+  };
+
+  const renderPhoneStateTag = (p) => {
+    if (p.state === "open") return null;
+    return (
+      <button
+        type="button"
+        className={`${styles.pcState} ${styles[p.state]}`}
+        title={p.state === "pending" ? awaitingApprovalNames(p) || undefined : undefined}
+        onClick={() => openApprovalPanel(p)}
+      >
+        {p.state === "approved" && <><Check size={12} /> Approved</>}
+        {p.state === "pending" && <><Clock size={12} /> {awaitingApprovalLabel(p)}</>}
+        {p.state === "rejected" && <><X size={12} /> Rejected — action needed</>}
+        <ChevronRight size={12} />
+      </button>
+    );
+  };
+
+  // One vendor's quote for one product, as a row inside the card. `lead` is the
+  // big row at the top of the card; the rest are the expandable list.
+  const renderPhoneVendor = (p, v, lead) => {
+    const vid = v.id;
+    const q = p.quotes?.[vid];
+    const rowCls = [styles.pcVendor];
+    if (lead) rowCls.push(styles.pcLead);
+    if (!q) {
+      const absence = C.cellAbsence(p, vid);
+      return (
+        <div className={rowCls.join(" ")} key={`pc-${p.id}-${vid}`}>
+          <div className={styles.pcVHead}>
+            <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
+            <span className={styles.pcVName}>{v.name}</span>
+          </div>
+          <div className={styles.pcAbsent}>
+            {absence
+              ? (absence.status === "TECH_FAILED" ? "Technically disqualified" : "Technical evaluation pending")
+              : "Awaiting quote"}
+          </div>
+        </div>
+      );
+    }
+    const finVendor = String(p.finalized_vendor) === String(vid);
+    const reselect = canReselect(p);
+    const sel = reselect && isSelected(p, vid);
+    const l1 = isL1(p, vid);
+    const lr = ranksFor(p)[vid];
+    const delta = lprDelta(p, vid);
+    const isFocus =
+      !!focusedCell
+      && String(focusedCell.pid) === String(p.id)
+      && String(focusedCell.vid) === String(vid);
+    const decidable = role === "approver" && canApprove && p.state === "pending" && p.awaiting_me && finVendor;
+    if (finVendor && p.state === "pending") rowCls.push(styles.pcPending);
+    if (finVendor && p.state === "approved") rowCls.push(styles.pcApproved);
+    if (finVendor && p.state === "rejected" && !sel) rowCls.push(styles.pcRejected);
+    if (decidable && approveSel[p.id]) rowCls.push(styles.pcApproving);
+    if (decidable && rejectSel[p.id]) rowCls.push(styles.pcRejecting);
+    if (sel) rowCls.push(styles.pcSelected);
+    if (isFocus) rowCls.push(styles.pcFocus);
+    return (
+      <div
+        className={rowCls.join(" ")}
+        key={`pc-${p.id}-${vid}`}
+        // Same address as the matrix cell, so the award banner's focus lands
+        // here on a phone. Only the lead row renders when the list is closed,
+        // and the focus target is always the awarded (= lead) vendor.
+        id={awardCellAnchorId(p.id, vid)}
+      >
+        <div className={styles.pcVHead}>
+          <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
+          <span className={styles.pcVName}>{v.name}</span>
+          {lr ? (
+            <span
+              className={`${styles.rankBadge} ${styles[C.rankTone(lr)]}`}
+              title={`Lowest-price rank for this item (L${lr})`}
+            >
+              L{lr}
+            </span>
+          ) : null}
+        </div>
+        <div className={styles.pcPriceRow}>
+          <span className={styles.pcPrice}>₹{fmt(cellLineTotal(p, vid))}</span>
+          {l1 && <span className={styles.pcL1}>Lowest</span>}
+        </div>
+        <div className={styles.pcLanded}>
+          {view?.has_delivery_charges && !freightOn ? "ex-delivery" : "with charges"}{" "}
+          <span className={styles.mono}>₹{fmt(landed(p, vid))}/{p.unit}</span>
+          {delta && (
+            <span className={`${styles.pcDelta} ${delta.down ? styles.down : styles.up}`}>
+              {(delta.down ? "↓ " : "↑ ") + delta.pct + "% vs LPR"}
+            </span>
+          )}
+        </div>
+        {q.missing && (
+          <div className={styles.missing}>
+            <AlertTriangle size={11} /> missing costs
+          </div>
+        )}
+        {finVendor && (
+          <div className={styles.pcFinalized} data-testid="finalized-badge">
+            <Check size={12} strokeWidth={3} />
+            {p.finalized_by?.name ? `Finalized by ${shortName(p.finalized_by.name)}` : "Finalized"}
+          </div>
+        )}
+        {isFocus && (
+          <div className={styles.cellAwardFocusTag}>
+            <ArrowRight size={10} strokeWidth={2.4} /> Your approval
+          </div>
+        )}
+
+        {decidable && (
+          <div className={styles.pcDecision}>
+            <button
+              type="button"
+              className={`${styles.pcDecBtn} ${styles.reject} ${rejectSel[p.id] ? styles.active : ""}`}
+              aria-pressed={!!rejectSel[p.id]}
+              onClick={() => setReject(p)}
+            >
+              <X size={16} />
+              <span>{rejectSel[p.id] ? "Rejecting" : "Reject"}</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.pcDecBtn} ${styles.approve} ${approveSel[p.id] ? styles.active : ""}`}
+              aria-pressed={!!approveSel[p.id]}
+              onClick={() => setApprove(p)}
+            >
+              <Check size={16} />
+              <span>{approveSel[p.id] ? "Approving" : "Approve"}</span>
+            </button>
+          </div>
+        )}
+
+        {role === "buyer" && reselect && !(p.state === "rejected" && finVendor && !sel) && (
+          <button
+            type="button"
+            className={`${styles.pcSelectBtn} ${sel ? styles.isOn : ""}`}
+            aria-pressed={sel}
+            onClick={() => selectCell(p, vid)}
+          >
+            {sel ? <><Check size={14} /> Selected</> : p.state === "rejected" ? "Select this instead" : "Select for this item"}
+          </button>
+        )}
+        {role === "buyer" && p.state === "rejected" && finVendor && !sel && canWrite && (
+          <button type="button" className={styles.pcSelectBtn} onClick={() => selectCell(p, vid)}>
+            Force re-select anyway
+          </button>
+        )}
+
+        {Array.isArray(q.history) && q.history.length >= 1 && (
+          <button
+            type="button"
+            className={styles.pcLinkBtn}
+            onClick={() => setShowHistory({ product: p, vendor: vendorById(vid) })}
+          >
+            <History size={13} /> Quote history
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderPhoneCard = (p) => {
+    const catName = categories.find((c) => String(c.id) === String(p.category))?.name;
+    const lead = quotesLocked ? null : phoneLeadVendor(p);
+    const others = lead ? sortedVendors.filter((v) => String(v.id) !== String(lead.id)) : [];
+    const otherQuoted = others.filter((v) => p.quotes?.[v.id]).length;
+    const open = !!phoneOpen[p.id];
+    const cardCls = [styles.pcCard];
+    if (p.state === "approved") cardCls.push(styles.rowApproved);
+    if (p.state === "pending") cardCls.push(styles.rowPending);
+    if (p.state === "rejected") cardCls.push(styles.rowRejected);
+    return (
+      <article className={cardCls.join(" ")} key={`pc-${p.id}`} data-testid="qc-phone-card">
+        <header className={styles.pcHead}>
+          <div className={styles.pcName}>{p.name}</div>
+          <div className={styles.pcMeta}>
+            <span className={styles.pcQty}>
+              {p.qty} {p.unit}
+            </span>
+            {catName && <span className={styles.catTag}>{catName}</span>}
+            {C.lprTotalFor(p) != null && (
+              <span className={styles.lpr}>
+                <TrendingDown size={11} /> LPR <span className={styles.lprVal}>₹{fmt(C.lprTotalFor(p))}</span>
+              </span>
+            )}
+          </div>
+          {renderPhoneStateTag(p)}
+        </header>
+
+        {/* The rejection reason used to live in a hover-only tooltip. On a
+            phone there is no hover, so it is stated in the card. */}
+        {p.state === "rejected" && p.reject_info && (
+          <div className={styles.pcRejectInfo}>
+            <strong>Rejected by {p.reject_info.by}</strong>
+            {p.reject_info.reason ? <span>{p.reject_info.reason}</span> : null}
+            {recommendNext(p) && (
+              <span className={styles.pcRecommend}>
+                <Sparkles size={11} /> Recommended next: {recommendNext(p).name}
+              </span>
+            )}
+          </div>
+        )}
+
+        <ProductNegotiation product={p} />
+
+        {quotesLocked ? (
+          <div className={styles.pcLocked}>
+            <Lock size={12} /> {p.quoted_count || 0} {p.quoted_count === 1 ? "quote" : "quotes"} received · sealed
+          </div>
+        ) : lead ? (
+          renderPhoneVendor(p, lead, true)
+        ) : (
+          <div className={styles.pcAbsent}>No quotes yet</div>
+        )}
+
+        {others.length > 0 && (
+          <>
+            <button
+              type="button"
+              className={styles.pcToggle}
+              aria-expanded={open}
+              onClick={() => setPhoneOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}
+            >
+              {open ? "Hide other vendors" : `${otherQuoted} other quote${otherQuoted === 1 ? "" : "s"}`}
+              {!open && others.length > otherQuoted ? ` · ${others.length - otherQuoted} not quoted` : ""}
+              <ChevronDown size={14} className={open ? styles.pcChevOpen : ""} />
+            </button>
+            {open && <div className={styles.pcOthers}>{others.map((v) => renderPhoneVendor(p, v, false))}</div>}
+          </>
+        )}
+
+        {canNegotiate(p) && sortedVendors.some((v) => p.quotes?.[v.id]) && (
+          <button
+            type="button"
+            className={styles.pcLinkBtn}
+            onClick={() => {
+              if (rfq) router.push(`/dashboard/buyer/negotiation/${rfq}/create?preSelectProductId=${p.id}&returnTo=${encodeURIComponent(router.asPath)}`);
+            }}
+          >
+            <GitBranch size={13} /> Create Negotiation
+          </button>
+        )}
+      </article>
+    );
+  };
+
+  const renderPhoneCards = () => (
+    <div className={styles.phoneCards} id={QUOTE_SHEET_ANCHOR_ID} data-testid="qc-phone-cards">
+      {displayRows.map((row) => {
+        if (row.type === "cat-header")
+          return (
+            <button
+              type="button"
+              className={styles.pcCatHead}
+              key={row.key}
+              aria-expanded={!row.collapsed}
+              onClick={() => toggleCat(row.cat.id)}
+            >
+              <ChevronDown size={14} className={row.collapsed ? styles.pcChevClosed : ""} />
+              <span className={styles.cName}>{row.cat.name}</span>
+              <span className={styles.cCount}>{row.count} items</span>
+            </button>
+          );
+        if (row.type === "cat-subtotal") return null;
+        return renderPhoneCard(row.product);
+      })}
+      <div className={styles.pcFoot}>
+        <span>Lowest achievable (L1 mix)</span>
+        <strong className={styles.mono}>{quotesLocked ? "₹••,••,•••" : `₹${fmt(l1GrandTotal)}`}</strong>
+      </div>
+    </div>
+  );
+
   /* ─────────────── overall cost view ─────────────── */
   const renderOverall = () => {
     if (quotesLocked) {
@@ -2005,6 +2328,7 @@ const QuoteComparison = ({
     }
     return (
     <div className={styles.matrixWrap}>
+      <div className={styles.overallScroll}>
       <table className={styles.overallTable}>
         <thead>
           <tr>
@@ -2070,6 +2394,7 @@ const QuoteComparison = ({
           </tr>
         </tfoot>
       </table>
+      </div>
       <div className={styles.overallFootnote}>
         Each rank column picks the Nth-cheapest vendor <em>per product</em>. The{" "}
         <strong>L1 total</strong> is the best achievable spend if every product is awarded to its lowest
@@ -2586,7 +2911,7 @@ const QuoteComparison = ({
           </div>
         )}
 
-        {activeView !== "overall" ? renderMatrix() : renderOverall()}
+        {activeView !== "overall" ? (isPhone ? renderPhoneCards() : renderMatrix()) : renderOverall()}
 
         {/* Action dock — last child of the page content so its sticky position
             is bounded to the content column (never overlaps the sidebar). */}
@@ -2602,6 +2927,88 @@ const QuoteComparison = ({
     const buyerActive = role === "buyer" && canWrite;
     const approverActive = role === "approver" && canApprove;
     if (!buyerActive && !approverActive) return null;
+    // Phone: the same actions in the shared bottom bar. The desktop dock's
+    // row refuses to wrap and its buttons can't shrink, so on a phone they
+    // were pushed off-screen.
+    if (isPhone) {
+      if (role === "approver") {
+        return (
+          <MobileActionBar
+            label="Commercial evaluation decision"
+            summary={
+              <>
+                <span>
+                  <strong>{pendingProducts.length}</strong> awaiting you
+                </span>
+                <span>
+                  {approveCount} approve · {rejectCount} reject
+                  {decisionCount > 0 && (
+                    <>
+                      {" · "}
+                      <button type="button" className={styles.pcClear} onClick={clearDecisions}>
+                        Clear
+                      </button>
+                    </>
+                  )}
+                </span>
+              </>
+            }
+          >
+            <MobileActionButton
+              variant="secondary"
+              onClick={approveAllPending}
+              disabled={pendingProducts.length === 0}
+            >
+              <Check size={16} /> Approve all
+            </MobileActionButton>
+            <MobileActionButton
+              variant="primary"
+              className={styles.pcWideBtn}
+              onClick={() => decisionCount && setShowConfirm(true)}
+              disabled={decisionCount === 0}
+            >
+              <CheckSquare size={16} /> {decisionCount > 0 ? `Review & confirm · ${decisionCount}` : "Review & confirm"}
+            </MobileActionButton>
+          </MobileActionBar>
+        );
+      }
+      // Nothing open and nothing picked: an all-disabled bar would only cost
+      // the approver 76px of a small screen.
+      if (openCount === 0 && selCount === 0) return null;
+      return (
+        <MobileActionBar
+          label="Award selection"
+          summary={
+            <>
+              <span>
+                <strong>{selCount}</strong> of {openCount} selected
+                {isSplitPO ? ` · split PO (${selVendorCount})` : ""}
+              </span>
+              {selCount > 0 && (
+                <span>
+                  <strong>₹{fmt(selTotal)}</strong>
+                  {" · "}
+                  <button type="button" className={styles.pcClear} onClick={clearSel}>
+                    Clear
+                  </button>
+                </span>
+              )}
+            </>
+          }
+        >
+          <MobileActionButton variant="secondary" onClick={autoSelectL1} disabled={openCount === 0}>
+            <Award size={16} /> Auto-pick L1
+          </MobileActionButton>
+          <MobileActionButton
+            variant="approve"
+            onClick={() => selCount && openFinalize()}
+            disabled={selCount === 0}
+          >
+            {selCount > 0 ? `Finalise ${selCount}` : "Finalise"}
+          </MobileActionButton>
+        </MobileActionBar>
+      );
+    }
     return (
       <footer className={styles.actionDock}>
         <div className={styles.dockInner}>

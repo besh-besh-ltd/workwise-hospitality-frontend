@@ -1,0 +1,39 @@
+/* Phone layer for RfqApprovalDecisionCard. The card itself is styled by the
+   global .approve-aside rules in styles/arc_v2.css; these only add touch-sized
+   controls at <=768px. Doubled class selectors out-rank the dashboard's
+   phone rule `body.dashboard-route .btn { padding:5px 10px; font-size:11px }`
+   (both !important), which otherwise shrinks every button to ~26px. */
+
+.bannerAction {
+  min-width: 0;
+}
+
+.decisionBtns {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .bannerAction {
+    flex: 1 1 100% !important;
+  }
+
+  .bannerAction.bannerAction :global(.btn),
+  .decisionBtns.decisionBtns :global(.btn) {
+    min-height: 44px;
+    font-size: 15px !important;
+    padding: 0 14px !important;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .bannerAction.bannerAction :global(.btn) {
+    width: 100% !important;
+  }
+
+  .decisionBtns.decisionBtns :global(.btn) {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+  }
+}

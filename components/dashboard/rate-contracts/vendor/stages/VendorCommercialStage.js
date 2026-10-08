@@ -11,6 +11,8 @@
 //   - Other charges inline section upgraded: charges modal is a full overlay (portal-style).
 //   - Aside overflow fix: .q-cols/.hero-summary get responsive style guards.
 
+import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
+
 // Sr 53 — 2-decimal money display (not whole-rupee rounding); mirrors quote.js's fmtN.
 const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const safeNum = (v) => {
@@ -183,7 +185,7 @@ export default function VendorCommercialStage({
                     </div>
 
                     {!readOnly && (
-                    <div className="vq-fields">
+                    <div className={`vq-fields ${phone.vqFields}`}>
                       <div className="vq-field">
                         {l.pricing_method === "MRP" ? (
                           <div style={{ display: "flex", gap: 8 }}>
@@ -193,6 +195,7 @@ export default function VendorCommercialStage({
                                 <div className="prefix">₹</div>
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   className="input input-num"
                                   value={l.entered_mrp}
                                   onChange={e => updateLine(it.id, { entered_mrp: e.target.value })}
@@ -209,6 +212,7 @@ export default function VendorCommercialStage({
                               <div className="input-group">
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   className="input input-num"
                                   value={l.mrp_discount}
                                   onChange={e => updateLine(it.id, { mrp_discount: e.target.value })}
@@ -233,6 +237,7 @@ export default function VendorCommercialStage({
                               <div className="prefix">₹</div>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 className="input input-num"
                                 value={l.rate}
                                 onChange={e => updateLine(it.id, { rate: e.target.value })}
@@ -253,6 +258,7 @@ export default function VendorCommercialStage({
                         <div className="input-group">
                           <input
                             type="number"
+                            inputMode="decimal"
                             className="input input-num"
                             value={l.gst_pct}
                             onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
@@ -285,6 +291,7 @@ export default function VendorCommercialStage({
                         <div className="input-group">
                           <input
                             type="number"
+                            inputMode="numeric"
                             className="input input-num"
                             value={l.lead_time_days}
                             onChange={e => updateLine(it.id, { lead_time_days: e.target.value })}
@@ -452,7 +459,7 @@ export default function VendorCommercialStage({
                     {globals.paymentTerms.map((pt, i) => (
                       <div
                         key={i}
-                        className={"grid items-center gap-2 px-3 py-2" + (i === 0 ? " !border-t-0" : "")}
+                        className={"grid items-center gap-2 px-3 py-2 " + phone.payTermRow + (i === 0 ? " !border-t-0" : "")}
                         style={{ gridTemplateColumns: "24px 1fr 130px 32px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}
                       >
                         <div className="mono" style={{ fontSize: 11, color: "var(--fg-4)", textAlign: "center" }}>{String(i + 1).padStart(2, "0")}</div>
@@ -471,6 +478,7 @@ export default function VendorCommercialStage({
                             className="input input-num"
                             style={{ padding: "5px 10px" }}
                             type="number"
+                            inputMode="decimal"
                             value={pt.pct}
                             onChange={e => updatePaymentTerm(i, { pct: Number(e.target.value) })}
                             onBlur={onFieldBlur}
@@ -555,7 +563,7 @@ export default function VendorCommercialStage({
                     <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 4 }}>
                       This submission is recorded for audit. {windowOpen && !isWithdrawn ? "Update it before the window closes and a new version is saved to history." : "The submission window has closed."}
                     </div>
-                    <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+                    <div className={`flex items-center gap-2 ${phone.wrapRow}`} style={{ marginTop: 8 }}>
                       {onUpdateQuote && windowOpen && !isWithdrawn && !editing && (
                         <button
                           type="button"
@@ -702,7 +710,7 @@ export default function VendorCommercialStage({
                 {ml.charges.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
                     {/* Phase 2 — per-charge tax column added (additional tax on this charge, engine tri-state). */}
-                    <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
+                    <div className={`grid items-center gap-2 ${phone.chargeHead}`} style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
                       <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Charge name</span>
                       <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</span>
                       <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tax on charge</span>
@@ -715,7 +723,7 @@ export default function VendorCommercialStage({
                       const nameLocked = !!(c.name || "").trim()
                         && LINE_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
                       return (
-                      <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                      <div key={ci} className={`grid items-center gap-2 mt-2 ${phone.chargeRow}`} style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
                         {nameLocked ? (
                           <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
                             {c.name}
@@ -735,6 +743,7 @@ export default function VendorCommercialStage({
                           <input
                             className="input input-num"
                             type="number"
+                            inputMode="decimal"
                             value={c.amount}
                             onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], amount: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
                             onBlur={onFieldBlur}
@@ -753,6 +762,7 @@ export default function VendorCommercialStage({
                           <input
                             className="input input-num"
                             type="number"
+                            inputMode="decimal"
                             value={c.tax ?? ""}
                             onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], tax: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
                             onBlur={onFieldBlur}
@@ -843,7 +853,7 @@ export default function VendorCommercialStage({
               )}
               {(globalCharges || []).length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
+                  <div className={`grid items-center gap-2 ${phone.chargeHead}`} style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Charge name</span>
                     <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</span>
                     <span style={{ fontSize: 11, color: "var(--fg-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tax on charge</span>
@@ -855,7 +865,7 @@ export default function VendorCommercialStage({
                     const nameLocked = !!(c.name || "").trim()
                       && GLOBAL_CHARGE_OPTIONS.some(t => t.toLowerCase() === (c.name || "").trim().toLowerCase());
                     return (
-                    <div key={ci} className="grid items-center gap-2 mt-2" style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
+                    <div key={ci} className={`grid items-center gap-2 mt-2 ${phone.chargeRow}`} style={{ gridTemplateColumns: "1fr 120px 110px 100px 32px" }}>
                       {nameLocked ? (
                         <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-2)", color: "var(--fg)", fontWeight: 500 }} title="Predefined charge — name can't be edited">
                           {c.name}
@@ -875,6 +885,7 @@ export default function VendorCommercialStage({
                         <input
                           className="input input-num"
                           type="number"
+                          inputMode="decimal"
                           value={c.amount}
                           onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { amount: e.target.value })}
                           onBlur={onFieldBlur}
@@ -892,6 +903,7 @@ export default function VendorCommercialStage({
                         <input
                           className="input input-num"
                           type="number"
+                          inputMode="decimal"
                           value={c.tax ?? ""}
                           onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { tax: e.target.value })}
                           onBlur={onFieldBlur}

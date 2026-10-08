@@ -718,9 +718,9 @@
   }
 
   .heroBackBtn {
-    width: 26px;
-    height: 26px;
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
   }
 
   .detailsHeroPONum {
@@ -742,15 +742,22 @@
   }
 
   .heroBtn {
-    padding: 5px 8px;
-    font-size: 11px;
-    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    min-height: 38px;
   }
 
   /* Approve/Reject hidden in hero on mobile — sticky bar handles it */
   .heroBtnApprove,
   .heroBtnReject {
     display: none;
+  }
+
+  /* …but Initiate PO / Update to GRN wear the green Approve skin and have no
+     sticky-bar twin, so the rule above hid them from phones entirely. */
+  .heroBtn.heroBtnKeep {
+    display: inline-flex;
   }
 
   .detailsMetaGrid {
@@ -781,6 +788,13 @@
 
   .sectionTitle {
     font-size: 13px;
+  }
+
+  /* Header links ("Compare Quotes →") were an 18px-tall tap target. */
+  .sectionHeader > a {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .sectionBody {

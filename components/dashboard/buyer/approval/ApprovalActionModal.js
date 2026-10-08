@@ -208,6 +208,24 @@ const ApprovalActionModal = ({
           opacity: 0.55;
           cursor: not-allowed;
         }
+        /* Phone: full-width, thumb-sized buttons with the decision on top,
+           and a 16px comment field so iOS doesn't zoom on focus. */
+        @media (max-width: 576px) {
+          .aam-footer {
+            flex-direction: column-reverse;
+            align-items: stretch;
+            padding: 10px 16px 16px;
+          }
+          .aam-btn-cancel,
+          .aam-btn-submit {
+            min-height: 44px;
+            font-size: 15px;
+            justify-content: center;
+          }
+          .aam-textarea {
+            font-size: 16px;
+          }
+        }
         .aam-btn-submit.approve {
           background: linear-gradient(135deg, #198754 0%, #20c070 100%);
         }

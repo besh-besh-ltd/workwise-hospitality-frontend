@@ -45,6 +45,7 @@ import {
 } from "@/components/dashboard/buyer/clarification";
 import ClauseChatDrawer from "./ClauseChatDrawer";
 import BuyerAttachments from "./BuyerAttachments";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 
 import styles from "./SendQuoteWizard.module.scss";
 import {
@@ -59,6 +60,28 @@ import {
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
 import { isValidGstin, seedGstin } from "@/utils/gstin";
+
+// True on a phone-width screen (<=768px, the MobileActionBar breakpoint).
+// Only decides whether to MOUNT the phone action bar — layout itself is CSS.
+// Mounting it everywhere would put a second Back/Continue/Submit in the
+// accessibility tree on desktop. Guarded for environments without matchMedia.
+const PHONE_QUERY = "(max-width: 768px)";
+const usePhoneViewport = () => {
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mql = window.matchMedia(PHONE_QUERY);
+    setIsPhone(mql.matches);
+    const onChange = (e) => setIsPhone(e.matches);
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else if (mql.addListener) mql.addListener(onChange);
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else if (mql.removeListener) mql.removeListener(onChange);
+    };
+  }, []);
+  return isPhone;
+};
 
 // Format a buyer's negotiated target for display in an ask chip.
 //  - "days"   → "5 days"          (delivery period)
@@ -4075,6 +4098,7 @@ const Step3Pricing = ({
                               <div className={styles.prefix}>₹</div>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 className={`${styles.input} ${styles.inputNum}`}
                                 value={p.entered_mrp ?? ""}
                                 onChange={(e) =>
@@ -4093,6 +4117,7 @@ const Step3Pricing = ({
                             <div className={styles.taxField}>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 className={styles.taxInput}
                                 value={p.mrp_discount ?? ""}
                                 onChange={(e) =>
@@ -4135,6 +4160,7 @@ const Step3Pricing = ({
                             <div className={styles.prefix}>₹</div>
                             <input
                               type="number"
+                              inputMode="decimal"
                               className={`${styles.input} ${styles.inputNum}`}
                               value={p.unit_price ?? ""}
                               onChange={(e) =>
@@ -4172,6 +4198,7 @@ const Step3Pricing = ({
                       <div className={styles.taxField}>
                         <input
                           type="number"
+                          inputMode="decimal"
                           className={styles.taxInput}
                           value={p.tax ?? ""}
                           onChange={(e) =>
@@ -4286,6 +4313,7 @@ const Step3Pricing = ({
                       <div className={styles.inputGroup}>
                         <input
                           type="number"
+                          inputMode="numeric"
                           className={`${styles.input} ${styles.inputNum}`}
                           value={p.delivery_period ?? ""}
                           onChange={(e) =>
@@ -4778,6 +4806,7 @@ const Step4CommercialTerms = ({
                     <input
                       className={`${styles.input} ${styles.inputNum}`}
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       max={maxValue}
                       value={t.value ?? ""}
@@ -4802,6 +4831,7 @@ const Step4CommercialTerms = ({
                       <input
                         className={`${styles.input} ${styles.inputNum}`}
                         type="number"
+                        inputMode="numeric"
                         value={t.days ?? ""}
                         onChange={(e) =>
                           onUpdatePaymentTerm(i, {
@@ -5112,6 +5142,7 @@ const ActionBar = ({
   clarBlocksQuote,
 }) => {
   const stepNum = currentStep + 1;
+  const isPhone = usePhoneViewport();
 
   const helper = (() => {
     if (missedInquiry) {
@@ -5156,7 +5187,11 @@ const ActionBar = ({
     return false;
   })();
 
+  const showTotal = (currentStepId === "pricing" || currentStepId === "terms" || currentStepId === "review") && totals.grand > 0;
+  const showRegret = !alreadyQuoted && !missedInquiry;
+
   return (
+    <>
     <footer className={styles.actionBar}>
       <div className={styles.actionBarInner}>
         <div className={styles.actionHelper}>
@@ -5225,6 +5260,75 @@ const ActionBar = ({
         </div>
       </div>
     </footer>
+
+    {/* Phone (<=768px): the footer above is hidden by CSS and replaced by a
+        thumb-reach bar with the same handlers. Its secondary actions —
+        Download Excel and Regret — move into the page, above the bar. */}
+    {isPhone && (showTotal || showRegret) && (
+      <div className={styles.phoneExtras}>
+        {showTotal && (
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnSecondary}`}
+            onClick={onDownloadExcel}
+          >
+            <Download size={14} />
+            Download Excel
+          </button>
+        )}
+        {showRegret && (
+          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onRegret}>
+            <X size={14} />
+            Regret quote
+          </button>
+        )}
+      </div>
+    )}
+    {isPhone && (
+      <MobileActionBar
+        label="Quote steps"
+        summary={
+          <>
+            <span className={styles.phoneBarStep}>
+              <span className={styles.accent}>Step {stepNum} of {totalSteps}</span>
+              {/* Say why the main button is disabled (the desktop footer's
+                  helper line) — only when it is, to keep the bar short. */}
+              {helper && (missedInquiry || (isLastStep ? !canSubmit : nextDisabled)) && (
+                <span className={styles.phoneBarHelper}>{helper}</span>
+              )}
+            </span>
+            {showTotal && <strong>₹ {fmtINR(totals.grand)}</strong>}
+          </>
+        }
+      >
+        {currentStep > 0 && !missedInquiry && (
+          <MobileActionButton variant="secondary" onClick={onPrev}>
+            Back
+          </MobileActionButton>
+        )}
+        {!isLastStep && !missedInquiry && (
+          <MobileActionButton
+            variant="primary"
+            className={styles.phoneBarMain}
+            onClick={onNext}
+            disabled={nextDisabled}
+          >
+            {nextLabel}
+          </MobileActionButton>
+        )}
+        {isLastStep && !missedInquiry && (
+          <MobileActionButton
+            variant="primary"
+            className={styles.phoneBarMain}
+            onClick={onSubmit}
+            disabled={!canSubmit || submitting}
+          >
+            {submitting ? "Submitting…" : alreadyQuoted ? "Confirm & Update" : "Confirm & Submit"}
+          </MobileActionButton>
+        )}
+      </MobileActionBar>
+    )}
+    </>
   );
 };
 
@@ -5534,6 +5638,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
+                        inputMode="decimal"
                         value={ch.amount ?? ""}
                         onChange={(e) =>
                           onUpdateCharge(ci, {
@@ -5578,6 +5683,7 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
+                        inputMode="decimal"
                         value={ch.tax == null ? "" : ch.tax}
                         onChange={(e) =>
                           onUpdateCharge(ci, {
@@ -6004,6 +6110,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
+                        inputMode="decimal"
                         value={ch.amount ?? ""}
                         onChange={(e) =>
                           onUpdateCharge(ci, {
@@ -6045,6 +6152,7 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       <input
                         className={styles.taxInput}
                         type="number"
+                        inputMode="decimal"
                         value={ch.extra_tax == null ? "" : ch.extra_tax}
                         onChange={(e) =>
                           onUpdateCharge(ci, {

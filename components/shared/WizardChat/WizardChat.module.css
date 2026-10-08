@@ -37,3 +37,19 @@
     right: 16px;
   }
 }
+
+/* On a phone with a decision bar at the bottom (MobileActionBar sets the
+   body flag), the button would sit on the bar's right-hand — primary —
+   action. Lift it clear of the bar. !important beats a drag position
+   saved from a desktop session (inline top/left). */
+@media (max-width: 768px) {
+  :global(body.has-mobile-action-bar) .fab {
+    top: auto !important;
+    left: auto !important;
+    right: 12px !important;
+    bottom: calc(var(--mobile-action-bar-h, 76px) + 14px + env(safe-area-inset-bottom, 0px)) !important;
+    width: 44px;
+    height: 44px;
+    z-index: 1051;
+  }
+}

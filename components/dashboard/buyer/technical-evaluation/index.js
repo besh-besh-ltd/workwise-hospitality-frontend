@@ -686,7 +686,7 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
     currentRfq?.comment && currentRfq.comment.replace(/<[^>]*>/g, "").trim() !== "";
 
   const evalBody = (
-              <div className="quote-sec-table quote-sec-tab">
+              <div className={`quote-sec-table quote-sec-tab ${styles.evalBody}`}>
 
                 {/* Inline loader - shows inside content area while loading/verifying */}
                 {isContentLoading && (
@@ -1014,6 +1014,7 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
                                     onEvaluationStatusChange={handleEvaluationStatusChange}
                                     quotedVendorsOnly={quotedVendorsOnly}
                                     showFailedVendors={showFailedVendors}
+                                    showMobileStickyActions={expandedProducts.size === 1}
                                   />
 
                                   {/* Per-product submit button */}

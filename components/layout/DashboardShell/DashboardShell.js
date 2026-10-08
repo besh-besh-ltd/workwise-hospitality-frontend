@@ -90,10 +90,11 @@ const DashboardShell = ({ children }) => {
       type="button"
       className={styles.mobileRfqToggle}
       onClick={mobileRfqToggle.callback}
+      aria-label={mobileRfqToggle.isOpen ? "Close sidebar" : mobileRfqToggle.label}
     >
       {mobileRfqToggle.isOpen
-        ? <><PanelLeftClose size={15} strokeWidth={1.75} /> Close Sidebar</>
-        : <><PanelLeftOpen size={15} strokeWidth={1.75} /> {mobileRfqToggle.label}</>
+        ? <><PanelLeftClose size={15} strokeWidth={1.75} /> <span className={styles.mobileRfqToggleLabel}>Close Sidebar</span></>
+        : <><PanelLeftOpen size={15} strokeWidth={1.75} /> <span className={styles.mobileRfqToggleLabel}>{mobileRfqToggle.label}</span></>
       }
     </button>
   ) : null;

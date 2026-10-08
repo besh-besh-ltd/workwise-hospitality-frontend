@@ -56,7 +56,7 @@ jest.mock("@/services/rfq", () => ({
 }));
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import { getNegotiationApprovalBundle } from "@/services/negotiation";
@@ -124,7 +124,9 @@ const renderPage = async (over) => {
   getChargeNames.mockResolvedValue({ data: [] });
 
   const utils = render(<ApproveRoundPage />);
-  await screen.findByText(/Round 2/);
+  // Scoped to the page: the phone action bar (portalled to <body>) repeats
+  // "Round 2" and the Approve / Reject buttons.
+  await within(utils.container).findByText(/Round 2/);
   return utils;
 };
 
@@ -186,11 +188,11 @@ describe("the reported bug — the deadline the approver is approving", () => {
 
   it("still lists the round it is asked to approve, and who has acted", async () => {
     // Guard: the page must not have been made "correct" by rendering nothing.
-    await renderPage();
-    expect(screen.getByText(/Round 2/)).toBeInTheDocument();
+    const { container } = await renderPage();
+    expect(within(container).getByText(/Round 2/)).toBeInTheDocument();
     expect(screen.getByText(/Asha Menon/)).toBeInTheDocument();
     expect(screen.getByText("Priya Nair")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Approve/ })).toBeInTheDocument();
+    expect(within(container).getByRole("button", { name: /Approve/ })).toBeInTheDocument();
   });
 });
 

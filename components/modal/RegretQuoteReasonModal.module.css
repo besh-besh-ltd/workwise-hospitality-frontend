@@ -1,0 +1,22 @@
+/* Phone layer for RegretQuoteReasonModal. The modal's size lives in inline
+   react-modal styles (800px wide, 50px padding, fixed 90vh height with
+   overflow hidden), so the phone overrides need !important. Desktop is
+   untouched: every rule is inside the media query. */
+@media (max-width: 768px) {
+  .phone {
+    width: calc(100vw - 24px) !important;
+    max-width: none !important;
+    padding: 0 !important;
+    height: auto !important;
+    max-height: calc(100vh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .submit {
+    width: 100%;
+    min-height: 44px !important;
+    font-size: 15px !important;
+  }
+}

@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import phoneStyles from "./QuoteMethodModal.module.css";
 
 const CARD_BASE = {
   flex: 1,
@@ -67,6 +68,7 @@ export default function QuoteMethodModal({ open, current, onSelect, onClose }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className={phoneStyles.panel}
         style={{
           width: 680,
           maxWidth: "96vw",
@@ -86,7 +88,7 @@ export default function QuoteMethodModal({ open, current, onSelect, onClose }) {
           This applies to every line in your quote. You can change it any time before submitting.
         </div>
 
-        <div style={{ display: "flex", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
+        <div className={phoneStyles.cards} style={{ display: "flex", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
           <button
             type="button"
             onClick={() => setSelected("TRADITIONAL")}
@@ -153,7 +155,7 @@ export default function QuoteMethodModal({ open, current, onSelect, onClose }) {
           <b>₹1,180</b>; MRP → buyer pays <b>₹1,000</b> (base ₹847.46 + GST ₹152.54, taken from within).
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+        <div className={phoneStyles.actions} style={{ display: "flex", gap: 10, marginTop: 18 }}>
           <button
             type="button"
             className="btn btn-blue"

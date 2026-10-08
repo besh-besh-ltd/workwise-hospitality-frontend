@@ -1102,3 +1102,192 @@
 }
 .saNext strong { color: var(--fg-2); font-weight: 600; }
 .saNext svg { flex-shrink: 0; margin-top: 2px; color: var(--fg-4); }
+
+/* ═══════════════════════════════════════════════════════════
+   PHONE (≤768px) — commercial evaluation on a phone
+   Desktop is untouched: every rule below is either inside a max-width
+   query or styles an element only the phone layout renders (.phoneCards,
+   .pc*). The matrix → cards swap and dock → MobileActionBar swap happen
+   in QuoteComparison.js (usePhoneLayout).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Overall-cost table: its own horizontal scroller (the wrap clips). */
+.overallScroll { overflow-x: auto; }
+
+/* Touch screens have no hover: the quote kebab and "Select for this item"
+   were opacity:0 until .priceCell:hover, i.e. unreachable on a tablet. */
+@media (hover: none) {
+  .cellKebab,
+  .cellSelectBtn { opacity: 1; }
+}
+
+.phoneCards { display: none; }
+
+@media (max-width: 991px) {
+  /* The shell's .content padding is 16px below 991 (20px 24px above), so
+     the full-bleed negative margin must match or the page is 16px wider
+     than the screen. */
+  .page { margin: -16px; }
+
+  /* Tablet (769–991): the dock keeps its desktop form but may wrap, and its
+     -14px side margins (meant for a gutter this page no longer has) stop
+     pushing it past the screen edge. Phones get MobileActionBar instead. */
+  .actionDock { margin-left: 0; margin-right: 0; padding: 12px 16px; }
+  .dockInner { flex-wrap: wrap; }
+  .dockRight { flex-shrink: 1; flex-wrap: wrap; }
+}
+
+@media (max-width: 768px) {
+  .pageBody { gap: 14px; }
+
+  /* RFQ band: title block + "Approval Required" / "Create Negotiation". */
+  .rfqTop { flex-wrap: wrap; gap: 12px; }
+  .rfqTop > :first-child { flex: 1 1 100%; }
+  .rfqBandActions { flex-shrink: 1; flex-wrap: wrap; width: 100%; }
+  .rfqBandActions > button { flex: 1 1 auto; min-height: 44px; justify-content: center; }
+
+  /* Toolbar: view tabs, xlsx downloads, sort, delivery toggle. */
+  .compareToolbar { gap: 10px; }
+  .viewTabs { width: 100%; }
+  .viewTabs button { flex: 1 1 0; min-height: 44px; justify-content: center; }
+  .toolbarRight { flex-wrap: wrap; gap: 8px; width: 100%; }
+  .toolbarRight .btnSm { min-height: 40px; }
+
+  .infoBanner { flex-wrap: wrap; }
+
+  .breakdownLine { grid-template-columns: 1fr; }
+  .bv { min-width: 0; }
+
+  .overallTable { min-width: 560px; }
+
+  /* Approval trail: a bottom sheet instead of a 400px side panel. */
+  .apDrawer {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: 100%; max-width: none; max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Modals: full width, the foot's two buttons as real touch targets. */
+  .overlayRoot { padding: 12px; }
+  .modalFoot .btn { flex: 1 1 0; min-height: 44px; }
+  /* Confirm sheet: the amount + decision tag drop under the product so the
+     reason box gets the full width instead of ~150px. */
+  .decisionItem { flex-wrap: wrap; align-items: flex-start; }
+  .decisionItem .diMain { flex: 1 1 calc(100% - 44px); min-width: 0; }
+  .decisionItem .diRight { flex: 1 1 100%; display: flex; align-items: center; justify-content: flex-end; gap: 10px; text-align: right; }
+
+  /* ── Product cards ── */
+  .phoneCards { display: flex; flex-direction: column; gap: 12px; }
+
+  .pcCard {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+  .pcCard.rowPending  { box-shadow: inset 3px 0 0 var(--warn); }
+  .pcCard.rowApproved { box-shadow: inset 3px 0 0 var(--success); }
+  .pcCard.rowRejected { box-shadow: inset 3px 0 0 var(--danger); }
+
+  .pcHead { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pcName { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--fg); overflow-wrap: anywhere; }
+  .pcMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--fg-3); }
+  .pcQty { font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--fg-2); }
+
+  .pcState {
+    align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+    min-height: 32px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    font-family: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg-2);
+    max-width: 100%; text-align: left;
+  }
+  .pcState.pending  { background: var(--warn-soft); color: var(--warn); border-color: rgba(180,83,9,0.28); }
+  .pcState.approved { background: var(--success-soft); color: var(--success); border-color: rgba(21,128,61,0.28); }
+  .pcState.rejected { background: var(--danger-soft); color: var(--danger); border-color: rgba(185,28,28,0.28); }
+
+  .pcRejectInfo {
+    display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px;
+    background: var(--danger-soft); border: 1px solid rgba(185,28,28,0.2); font-size: 12.5px; color: var(--fg-2);
+  }
+  .pcRejectInfo strong { color: var(--danger); font-size: 12px; }
+  .pcRecommend { display: inline-flex; align-items: center; gap: 5px; color: var(--info); font-weight: 600; }
+
+  .pcVendor {
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+    display: flex; flex-direction: column; gap: 6px; min-width: 0; background: var(--surface);
+  }
+  .pcLead { background: var(--surface-2); }
+  .pcPending   { border-color: rgba(180,83,9,0.45); background: var(--warn-soft); }
+  .pcApproved  { border-color: rgba(21,128,61,0.4); background: var(--success-tint); }
+  .pcRejected  { border-color: rgba(185,28,28,0.35); background: var(--danger-soft); }
+  .pcApproving { border-color: var(--success); box-shadow: var(--ring-success); background: var(--success-tint); }
+  .pcRejecting { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(185,28,28,0.16); background: var(--danger-soft); }
+  .pcSelected  { border-color: var(--info); box-shadow: var(--ring-info); }
+  .pcFocus     { outline: 2px solid var(--info); outline-offset: 2px; }
+
+  .pcVHead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pcVName { flex: 1 1 auto; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pcPriceRow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .pcPrice { font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .pcL1 { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--success); background: var(--success-soft); border: 1px solid rgba(21,128,61,0.3); border-radius: 99px; padding: 1px 8px; }
+  .pcLanded { font-size: 12px; color: var(--fg-3); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .pcDelta { font-weight: 600; }
+  .pcDelta.down { color: var(--success); }
+  .pcDelta.up { color: var(--danger); }
+  .pcFinalized { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--success); }
+  .pcAbsent { font-size: 12.5px; color: var(--fg-4); font-style: italic; }
+  .pcLocked { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--fg-3); }
+
+  .pcDecision { display: flex; gap: 8px; margin-top: 4px; }
+  .pcDecBtn {
+    flex: 1 1 0; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
+    border: 1px solid var(--border-strong); background: var(--surface); -webkit-tap-highlight-color: transparent;
+  }
+  .pcDecBtn.approve { color: var(--success); border-color: rgba(21,128,61,0.45); }
+  .pcDecBtn.reject { color: var(--danger); border-color: rgba(185,28,28,0.4); }
+  .pcDecBtn.approve.active { background: var(--success); border-color: var(--success); color: white; }
+  .pcDecBtn.reject.active { background: var(--danger); border-color: var(--danger); color: white; }
+
+  .pcSelectBtn {
+    min-height: 44px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 10px; border: 1px solid var(--info); color: var(--info); background: white;
+    font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .pcSelectBtn.isOn { background: var(--info); color: white; }
+
+  .pcLinkBtn {
+    align-self: flex-start; min-height: 40px; display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 4px; border: none; background: transparent; color: var(--info);
+    font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+
+  .pcToggle {
+    min-height: 44px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px dashed var(--border-strong); border-radius: 10px; background: transparent;
+    font-size: 13px; font-weight: 600; color: var(--fg-2); font-family: inherit; cursor: pointer;
+  }
+  .pcChevOpen { transform: rotate(180deg); }
+  .pcChevClosed { transform: rotate(-90deg); }
+  .pcOthers { display: flex; flex-direction: column; gap: 8px; }
+
+  .pcCatHead {
+    min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+    font-family: inherit; cursor: pointer; text-align: left;
+  }
+  .pcCatHead .cName { flex: 1 1 auto; font-size: 12px; font-weight: 700; color: var(--fg); text-transform: uppercase; letter-spacing: 0.04em; }
+  .pcCatHead .cCount { font-size: 11px; color: var(--fg-4); font-family: 'Geist Mono', monospace; }
+
+  .pcFoot {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    padding: 12px 14px; border-radius: 12px; background: var(--success-tint); border: 1px solid rgba(21,128,61,0.22);
+    font-size: 12.5px; color: var(--fg-2);
+  }
+  .pcFoot strong { color: var(--success); font-size: 15px; }
+
+  .pcClear {
+    border: none; background: transparent; padding: 0; font: inherit; font-weight: 600;
+    color: #2563eb; text-decoration: underline; cursor: pointer;
+  }
+  .pcWideBtn { flex-grow: 2 !important; }
+}

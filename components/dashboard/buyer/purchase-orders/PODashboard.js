@@ -461,7 +461,7 @@ const PODashboard = () => {
 
           {/* Table */}
           <div className={styles.poTableWrap}>
-            <table className={styles.poTable}>
+            <table className={`${styles.poTable} ${styles.poCards} ${styles.poCardsBuyer}`}>
               <thead>
                 <tr>
                   <th>Status</th>
