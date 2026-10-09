@@ -9,7 +9,7 @@ import { markEntitySwitchDone } from "@/utils/sessionSync";
 export const SWITCH_FAILED = "Could not switch entity. Please try again.";
 
 // Same-origin app paths only ("/x", never "//host" or "/\host").
-const isAppPath = (p) => typeof p === "string" && /^\/(?![/\\])/.test(p) && !/\s/.test(p);
+export const isAppPath = (p) => typeof p === "string" && /^\/(?![/\\])/.test(p) && !/\s/.test(p);
 
 /**
  * Act as another entity of the network, then HARD-navigate to `target`
