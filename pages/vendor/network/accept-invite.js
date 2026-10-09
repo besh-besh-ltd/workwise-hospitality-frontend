@@ -9,6 +9,8 @@
 
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
@@ -175,8 +177,15 @@ const AcceptInvitePage = () => {
         {/* The first render's URL still holds ?token=: send no Referer with it. */}
         <meta name="referrer" content="no-referrer" />
       </Head>
-      <div style={{ display: "flex", justifyContent: "center", padding: "56px 16px 72px", background: "var(--bg)" }}>
-        <div className="section-card" style={{ width: "100%", maxWidth: 440 }}>
+      {/* Standalone frame: the layout renders this route without the site header. */}
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <header style={{ display: "flex", alignItems: "center", height: 64, padding: "0 28px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+        <Link href="/" aria-label="Workwise home" style={{ display: "inline-flex" }}>
+          <Image src="/assets/images/logo1.png" alt="Workwise" width={113} height={24} priority />
+        </Link>
+      </header>
+      <main style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "64px 16px 48px" }}>
+        <div className="section-card" style={{ width: "100%", maxWidth: 440, boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)" }}>
           <div className="section-head">
             <div>
               <h2>Join your vendor network</h2>
@@ -283,6 +292,10 @@ const AcceptInvitePage = () => {
             )}
           </div>
         </div>
+      </main>
+      <footer style={{ padding: "0 16px 28px", textAlign: "center", fontSize: 12, color: "var(--fg-3)" }}>
+        This invitation link works once and expires 72 hours after it was sent. Questions? Contact your network administrator.
+      </footer>
       </div>
     </>
   );

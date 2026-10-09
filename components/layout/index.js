@@ -206,7 +206,10 @@ const Layout = (props) => {
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
-  const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage;
+  // A vendor-network invitation is a focused, standalone task: no marketing header.
+  const isNetworkInvitePage = router.pathname === '/vendor/network/accept-invite';
+  const shouldHideNavbarFooter =
+    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage;
 
   // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
   // Public/marketing pages (and anonymous visits to /vendor/*) continue to use
