@@ -2073,7 +2073,10 @@ const QuoteComparison = ({
         <div className={rowCls.join(" ")} key={`pc-${p.id}-${vid}`}>
           <div className={styles.pcVHead}>
             <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
-            <span className={styles.pcVName}>{v.name}</span>
+            <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+              <span className={styles.pcVName} style={{ display: "block" }}>{v.name}</span>
+              <VendorOrgLabel orgName={v.org_name} />
+            </span>
           </div>
           <div className={styles.pcAbsent}>
             {absence
@@ -2112,7 +2115,10 @@ const QuoteComparison = ({
       >
         <div className={styles.pcVHead}>
           <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
-          <span className={styles.pcVName}>{v.name}</span>
+          <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+            <span className={styles.pcVName} style={{ display: "block" }}>{v.name}</span>
+            <VendorOrgLabel orgName={v.org_name} />
+          </span>
           {lr ? (
             <span
               className={`${styles.rankBadge} ${styles[C.rankTone(lr)]}`}
