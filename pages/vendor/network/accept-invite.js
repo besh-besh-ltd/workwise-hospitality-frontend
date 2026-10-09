@@ -185,6 +185,7 @@ const AcceptInvitePage = () => {
         </Link>
       </header>
       <main style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "64px 16px 48px" }}>
+        <div style={{ width: "100%", maxWidth: 440 }}>
         <div className="section-card" style={{ width: "100%", maxWidth: 440, boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)" }}>
           <div className="section-head">
             <div>
@@ -292,10 +293,11 @@ const AcceptInvitePage = () => {
             )}
           </div>
         </div>
+        <p style={{ margin: "16px 4px 0", textAlign: "center", fontSize: 12, lineHeight: 1.5, color: "var(--fg-3)" }}>
+          This invitation link works once and expires 72 hours after it was sent. Questions? Contact your network administrator.
+        </p>
+        </div>
       </main>
-      <footer style={{ padding: "0 16px 28px", textAlign: "center", fontSize: 12, color: "var(--fg-3)" }}>
-        This invitation link works once and expires 72 hours after it was sent. Questions? Contact your network administrator.
-      </footer>
       </div>
     </>
   );
