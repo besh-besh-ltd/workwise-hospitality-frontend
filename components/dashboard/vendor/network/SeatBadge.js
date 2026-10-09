@@ -8,9 +8,15 @@ const istDay = (d) => {
   return Number.isNaN(t) ? null : new Date(t + IST_OFFSET_MS).toISOString().slice(0, 10);
 };
 
-/** True when the seat's last day (end_date, inclusive) is before today in IST. */
+/**
+ * True when the backend marks the seat EXPIRED, or its last day (end_date, else
+ * valid_until; inclusive) is before today in IST.
+ */
 export const isSeatExpired = (seat) => {
-  const end = seat?.end_date ? istDay(seat.end_date) : null;
+  if (!seat) return false;
+  if (String(seat.status || "").toUpperCase() === "EXPIRED") return true;
+  const last = seat.end_date || seat.valid_until;
+  const end = last ? istDay(last) : null;
   return !!end && end < istDay(Date.now());
 };
 
@@ -20,7 +26,7 @@ export const isSeatExpired = (seat) => {
  * the seat fee is 0 (`feeInr === 0`, NETWORK_SEAT_FEE_INR): then a missing or
  * expired seat blocks nothing and reads "Included". An unknown fee keeps the
  * strict labels.
- * `seat` is { status: 'active'|'pending', end_date, fee_amount? } or null.
+ * `seat` is { status: 'active'|'pending'|'EXPIRED', end_date?, valid_until?, fee_amount? } or null.
  */
 export default function SeatBadge({ relationship, seat, feeInr }) {
   if (relationship === "PRINCIPAL") {
@@ -39,7 +45,7 @@ export default function SeatBadge({ relationship, seat, feeInr }) {
   }
   if (expired) {
     return (
-      <span className="pill warn" title={`Ended ${fmtDate(seat.end_date)}`}>
+      <span className="pill warn" title={`Ended ${fmtDate(seat.end_date || seat.valid_until)}`}>
         <span className="pdot"></span>Seat expired
       </span>
     );

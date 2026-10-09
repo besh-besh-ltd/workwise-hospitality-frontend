@@ -246,7 +246,7 @@ function EntitiesView({ orgId }) {
                       <td>
                         <SeatBadge
                           relationship={e.relationship}
-                          seat={e.seat_status ? { status: e.seat_status, end_date: e.seat_end_date, fee_amount: e.seat_fee_amount } : null}
+                          seat={e.seat_status ? { status: e.seat_status, end_date: e.seat_end_date || e.seat_valid_until, fee_amount: e.seat_fee_amount } : null}
                           feeInr={seatFeeFor(e, orgData)}
                         />
                       </td>

@@ -512,3 +512,27 @@ test("at seat fee 0 an entity with no current seat reads Included", async () => 
   const row = within(table).getByText("Old Branch").closest("tr");
   expect(within(row).getByText("Included")).toBeInTheDocument();
 });
+
+test("the summary's EXPIRED seat (status + valid_until) reads Seat expired with a fee, Included at 0", async () => {
+  const build = (fee) => {
+    const data = JSON.parse(JSON.stringify(summary.data));
+    data.seat_fee_inr = fee;
+    data.entities.push({ vendor_id: 14, name: "Lapsed Dealer", relationship: "DEALER", status: "ACTIVE", seat: { status: "EXPIRED", end_date: "2026-03-31", valid_until: "2026-03-31" }, live_assignments: 0, open_pos: 0 });
+    return { status: 1, data };
+  };
+  getNetworkDashboardSummary.mockResolvedValue(build(1500));
+  const { unmount } = render(
+    <Provider store={(() => { const st = configureStore({ reducer }); st.dispatch(setUserProfile({ id: 10, user_type: 3, network: adminNetwork })); return st; })()}>
+      <NetworkOverviewPage />
+    </Provider>
+  );
+  let table = await screen.findByRole("table", { name: "Network entities" });
+  expect(within(within(table).getByText("Lapsed Dealer").closest("tr")).getByText("Seat expired")).toBeInTheDocument();
+  expect(screen.getByTestId("tile-pending-seats")).toHaveTextContent("1");
+  unmount();
+
+  getNetworkDashboardSummary.mockResolvedValue(build(0));
+  renderWith({ id: 10, user_type: 3, network: adminNetwork });
+  table = await screen.findByRole("table", { name: "Network entities" });
+  expect(within(within(table).getByText("Lapsed Dealer").closest("tr")).getByText("Included")).toBeInTheDocument();
+});

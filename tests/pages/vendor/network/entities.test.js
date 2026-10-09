@@ -667,3 +667,25 @@ describe("seat label and the seat fee", () => {
     expect(within(row).getByText("Included")).toBeInTheDocument();
   });
 });
+
+// Fix round 1: the backend's shape for an expired seat (seat_status 'EXPIRED',
+// seat_valid_until) and the payload-level seat_fee_inr.
+describe("backend EXPIRED seat rows", () => {
+  const expiredRow = entity({ vendor_id: 14, name: "Lapsed Dealer", relationship: "DEALER", seat_id: 404, seat_status: "EXPIRED", seat_end_date: "2026-03-31", seat_valid_until: "2026-03-31" });
+  const payload = (fee) => ({ ...orgPayload([...DEFAULT_ENTITIES, expiredRow]), data: { ...orgPayload([...DEFAULT_ENTITIES, expiredRow]).data, seat_fee_inr: fee } });
+
+  test("fee > 0: listed as Seat expired, and not counted as awaiting payment", async () => {
+    api.getOrg.mockResolvedValue(payload(1500));
+    renderPage();
+    const row = (await screen.findByText("Lapsed Dealer")).closest("tr");
+    expect(within(row).getByText("Seat expired")).toBeInTheDocument();
+    expect(screen.getByText(/1 seat awaiting payment/)).toBeInTheDocument();
+  });
+
+  test("fee 0: Included", async () => {
+    api.getOrg.mockResolvedValue(payload(0));
+    renderPage();
+    const row = (await screen.findByText("Lapsed Dealer")).closest("tr");
+    expect(within(row).getByText("Included")).toBeInTheDocument();
+  });
+});
