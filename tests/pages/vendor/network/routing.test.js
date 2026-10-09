@@ -459,6 +459,17 @@ test("Refresh is disabled and says so while the queue reloads", async () => {
 
 // Task 20 / D3: "No entity's coverage matches" only when nothing matches; otherwise say who
 // matched and why they are not suggested.
+test("a declined item can be sent back to the entity that declined it by manual pick", async () => {
+  renderPage();
+  const declined = await itemOf("Declined & timed out", "RFQ #536702 · Fans");
+  const other = within(declined).getByLabelText("Other entity for RFQ #536702 · Fans");
+  expect(within(other).getAllByRole("option").map((o) => o.textContent)).toContain("Daikin UP");
+  fireEvent.change(other, { target: { value: "11" } });
+  api.assignSubject.mockResolvedValue({ status: 1, data: {} });
+  fireEvent.click(within(declined).getByRole("button", { name: "Assign to the selected entity" }));
+  await waitFor(() => expect(api.assignSubject).toHaveBeenCalledWith(expect.objectContaining({ subject_id: 4003, assignee_vendor_id: 11 })));
+});
+
 describe("why nobody is suggested", () => {
   const withQueue = (data) => api.getRoutingQueue.mockResolvedValue({ status: 1, data: { ...QUEUE.data, ...data } });
 

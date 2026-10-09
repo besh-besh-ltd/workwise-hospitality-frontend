@@ -320,7 +320,8 @@ function RoutingView() {
                         excluded={row.excluded}
                         totalHotels={totalHotelsOf(row)}
                         entities={entities}
-                        excludeIds={[row.assigned_vendor_id]}
+                        // The decliner holds nothing now: it is not suggested, but the admin may send it back.
+                        excludeIds={[]}
                         label={titleOf(row)}
                         busy={isBusy(key)}
                         onAssign={(vendorId) => assign(row, vendorId, key)}
