@@ -253,24 +253,24 @@ function EntitiesView({ orgId }) {
                       <td>{fmtDate(e.linked_at)}</td>
                       <td style={{ textAlign: "right" }}>
                         <div className="flex items-center gap-2 justify-end">
-                        <ActAsButton entity={e} />
-                        {!isPrincipal && (
-                          <div className="flex items-center gap-2 justify-end">
-                            {/* INVITED is not active yet: nothing to suspend, only Remove. */}
-                            {e.status === "SUSPENDED" ? (
-                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm({ action: "reactivate", entity: e })}>
-                                Reactivate
+                          <ActAsButton entity={e} />
+                          {!isPrincipal && (
+                            <div className="flex items-center gap-2 justify-end">
+                              {/* INVITED is not active yet: nothing to suspend, only Remove. */}
+                              {e.status === "SUSPENDED" ? (
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm({ action: "reactivate", entity: e })}>
+                                  Reactivate
+                                </button>
+                              ) : e.status !== "INVITED" ? (
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm({ action: "suspend", entity: e })}>
+                                  Suspend
+                                </button>
+                              ) : null}
+                              <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setConfirm({ action: "remove", entity: e })}>
+                                Remove
                               </button>
-                            ) : e.status !== "INVITED" ? (
-                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm({ action: "suspend", entity: e })}>
-                                Suspend
-                              </button>
-                            ) : null}
-                            <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setConfirm({ action: "remove", entity: e })}>
-                              Remove
-                            </button>
-                          </div>
-                        )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
