@@ -15,9 +15,13 @@ jest.mock("react-toastify", () => ({
 const TOKEN = "a".repeat(64);
 const PATH = "/vendor/network/accept-invite";
 let mockQuery = { token: TOKEN };
-// Like Next: replacing with a bare pathname drops the query on the next render.
+// Like Next: replacing with a bare pathname drops the query (and the #fragment)
+// on the next render.
 const mockReplace = jest.fn((url) => {
-  if (url && typeof url === "object") mockQuery = {};
+  if (url && typeof url === "object") {
+    mockQuery = {};
+    window.history.replaceState(null, "", url.pathname);
+  }
 });
 jest.mock("next/router", () => ({
   __esModule: true,
@@ -59,6 +63,7 @@ const fill = (password, confirm = password) => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = { token: TOKEN };
+  window.history.replaceState(null, "", PATH);
 });
 
 test("shows who invited whom, for which entity", async () => {
@@ -173,6 +178,41 @@ test("an expired invite says so and offers no form", async () => {
   render(<AcceptInvitePage />);
   expect(await screen.findByText(/This invitation has expired/)).toBeInTheDocument();
   expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
+});
+
+// Security audit L6: the emailed link now carries the token in the #fragment,
+// which browsers never send to the server (no host access logs). Links already
+// sent with ?token= keep working.
+test("reads the token from #token= and strips it from the address bar", async () => {
+  const HASH_TOKEN = "b".repeat(64);
+  mockQuery = {};
+  window.history.replaceState(null, "", `${PATH}#token=${HASH_TOKEN}`);
+  previewMemberInvite.mockResolvedValue(openInvite);
+  acceptMemberInvite.mockResolvedValue({ status: 1, message: "ok" });
+  render(<AcceptInvitePage />);
+  await screen.findByText("Daikin India");
+
+  expect(previewMemberInvite).toHaveBeenCalledTimes(1);
+  expect(previewMemberInvite).toHaveBeenCalledWith(HASH_TOKEN);
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: PATH }, undefined, { shallow: true });
+  expect(JSON.stringify(mockReplace.mock.calls)).not.toContain(HASH_TOKEN);
+  expect(window.location.hash).toBe("");
+  expect(window.location.href).not.toContain(HASH_TOKEN);
+
+  fill("secret123");
+  await waitFor(() => expect(acceptMemberInvite).toHaveBeenCalledWith({ token: HASH_TOKEN, password: "secret123" }));
+});
+
+test("the #fragment token wins over a ?token= one, and both are stripped", async () => {
+  const HASH_TOKEN = "c".repeat(64);
+  window.history.replaceState(null, "", `${PATH}?token=${TOKEN}#token=${HASH_TOKEN}`);
+  previewMemberInvite.mockResolvedValue(openInvite);
+  render(<AcceptInvitePage />);
+  await screen.findByText("Daikin India");
+  expect(previewMemberInvite).toHaveBeenCalledWith(HASH_TOKEN);
+  expect(mockQuery).toEqual({});
+  expect(window.location.href).not.toContain(HASH_TOKEN);
+  expect(window.location.href).not.toContain(TOKEN);
 });
 
 test("an invalid or used token (410) says so and offers no form", async () => {

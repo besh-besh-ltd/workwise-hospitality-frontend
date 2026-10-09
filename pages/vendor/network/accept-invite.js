@@ -1,6 +1,8 @@
 // Public: a person invited into a vendor network sets their password here.
-// The backend emails exactly /vendor/network/accept-invite?token=… — the
-// 256-bit token is the credential, so this page needs no session.
+// The backend emails /vendor/network/accept-invite#token=… — the 256-bit token
+// is the credential, so this page needs no session. The #fragment is never
+// sent to a server, so the token stays out of host access logs; links already
+// sent as ?token=… still work (the fragment wins when both are present).
 //
 // The token can set a password for 72 hours, so it must not linger in the URL
 // (analytics $current_url / replay, the canonical <link>, browser history). It
@@ -32,6 +34,14 @@ const passwordProblem = (password, confirm) => {
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "Password must contain a letter and a digit.";
   if (password !== confirm) return "Passwords do not match.";
   return null;
+};
+
+// `token` from a "#token=…" fragment (other fragment params ignored), else undefined.
+const tokenFromHash = (hash) => {
+  const raw = String(hash || "").replace(/^#/, "");
+  if (!raw) return undefined;
+  const value = new URLSearchParams(raw).get("token");
+  return value === null ? undefined : value;
 };
 
 const serverMessage = (err, fallback) => err?.response?.data?.message || fallback;
@@ -86,12 +96,16 @@ const AcceptInvitePage = () => {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Capture the token once, then drop it from the address bar.
+  // Capture the token once, then drop it (fragment and query) from the address bar.
   useEffect(() => {
     if (!router.isReady || token !== null) return;
-    const raw = router.query?.token;
+    const fromHash = tokenFromHash(typeof window === "undefined" ? "" : window.location.hash);
+    const fromQuery = router.query?.token;
+    const raw = fromHash ?? fromQuery;
     setToken(typeof raw === "string" ? raw.trim() : "");
-    if (raw !== undefined) router.replace({ pathname: router.pathname }, undefined, { shallow: true });
+    if (fromHash !== undefined || fromQuery !== undefined) {
+      router.replace({ pathname: router.pathname }, undefined, { shallow: true });
+    }
   }, [router.isReady, router.query, token]);
 
   useEffect(() => {
