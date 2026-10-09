@@ -162,6 +162,8 @@ export default function NetworkPoTable({ entities = [] }) {
             pageSize={data?.page_size || PAGE_SIZE}
             total={data?.total || 0}
             onPage={setPage}
+            // The rows and total on screen belong to the previous request until the new one lands.
+            disabled={loading}
           />
         </>
       )}
