@@ -22,6 +22,7 @@ import useNotificationStream from "@/hooks/useNotificationStream";
 import usePolling from "@/hooks/usePolling";
 import { useRealtimeConnected } from "@/hooks/useRealtime";
 import VendorSubscriptionPill from "./VendorSubscriptionPill";
+import EntitySwitcher from "@/components/layout/Header/EntitySwitcher";
 import styles from "./DashboardShell.module.css";
 
 // While the socket is up, `notification:new` drives the badge live and the
@@ -403,6 +404,8 @@ const TopBar = ({
       </div>
 
       <div className={styles.topBarRight}>
+        {/* Vendor networks: renders only for a person who can act for 2+ entities. */}
+        {currentUserType === "vendor" && <EntitySwitcher />}
         {currentUserType === "vendor" && <VendorSubscriptionPill />}
 
         {showBuBadge && (

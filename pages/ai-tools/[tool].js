@@ -124,7 +124,7 @@ const AiToolPage = () => {
       let userType = "";
       if (response.user_detail[0].user_type == 2) {
         userType = "buyer";
-      } else if (response.user_detail[0].user_type == 3) {
+      } else if (response.user_detail[0].user_type == 3 || response.user_detail[0].user_type == 11) {
         userType = "vendor";
       } else if (response.user_detail[0].user_type == 4) {
         userType = "other";

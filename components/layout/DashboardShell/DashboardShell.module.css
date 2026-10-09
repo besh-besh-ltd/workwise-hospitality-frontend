@@ -1331,7 +1331,10 @@
 }
 
 .subPillIcon { flex-shrink: 0; }
+/* One-word pill label, shown only on phones (see the 575.98px block). */
+.subPillShort { display: none; white-space: nowrap; }
 .subPillLabel {
+  white-space: nowrap; /* one line; the hover tooltip inside the pill still wraps */
   letter-spacing: -0.005em;
   font-variant-numeric: tabular-nums;
 }
@@ -2388,5 +2391,32 @@
     width: auto;
     max-width: none;
     max-height: calc(100dvh - 80px);
+  }
+}
+
+/* A networked member's static "entity · network" label (EntitySwitcher). */
+.entityStaticLabel {
+  display: inline-flex;
+}
+
+/* Phones (< 576px), vendor top bar: the entity switcher, the subscription pill, the
+   bell and the avatar must share one line without overlapping. The switcher goes
+   icon-only (its aria-label and menu keep the full names), a member's static entity
+   label is dropped, and the pill shows its one-word label (full text in its title). */
+@media (max-width: 575.98px) {
+  .entitySwitcherText {
+    display: none;
+  }
+
+  .entityStaticLabel {
+    display: none;
+  }
+
+  .subPillLabel {
+    display: none;
+  }
+
+  .subPillShort {
+    display: inline;
   }
 }

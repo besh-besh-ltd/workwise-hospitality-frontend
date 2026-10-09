@@ -6,6 +6,7 @@ import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { faTrash, faTrashRestore } from "@fortawesome/free-solid-svg-icons";
 import Fuse from "fuse.js";
 import { PiCrownSimpleFill } from "react-icons/pi";
+import VendorOrgLabel from "@/components/dashboard/buyer/VendorOrgLabel";
 
 const ViewVendorModal = ({
   productData,
@@ -190,6 +191,8 @@ const ViewVendorModal = ({
                                   <td>
                                     <div className="d-flex flex-column gap-1">
                                       {item.user_details.company_name}
+                                      {/* Vendor Networks: the network this vendor entity belongs to */}
+                                      <VendorOrgLabel orgName={item.org_name} />
                                       {item.is_premium == 1 && (
                                         <span
                                           style={{

@@ -23,6 +23,8 @@ import ModificationSuccessModal from "./ModificationSuccessModal";
 import OpenRfqsModal from "./OpenRfqsModal";
 import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
+import NetworkCoveredState from "./NetworkCoveredState";
+import LeaveNetworkCard from "@/components/dashboard/vendor/network/LeaveNetworkCard";
 import { hasRemovals } from "./previewRemovals";
 import { getApiErrorMessage, getApiErrorData } from "@/utils/apiError";
 import styles from "./Subscription.module.css";
@@ -208,6 +210,8 @@ const SubscriptionPage = () => {
   }
 
   const isNone = !data || data.status === "none";
+  // Vendor network member: covered by its network, nothing to manage here.
+  const networkCoverage = data?.covered_by_network || null;
 
   return (
     <>
@@ -218,7 +222,7 @@ const SubscriptionPage = () => {
             Manage your subscription and view your plan details
           </p>
 
-            {!isNone && (
+            {!isNone && !networkCoverage && (
               <div className={styles.tabs}>
                 {TABS.map((tab) => (
                   <button
@@ -233,7 +237,12 @@ const SubscriptionPage = () => {
             )}
           </div>
 
-          {isNone ? (
+          {networkCoverage ? (
+            <>
+              <NetworkCoveredState coverage={networkCoverage} />
+              <LeaveNetworkCard />
+            </>
+          ) : isNone ? (
             <EmptyState />
           ) : (
             <>

@@ -22,6 +22,7 @@ import storageInstance from '../../utils/storageInstance';
 import { resolvePostLoginRedirect } from '../../utils/sharedFunctions';
 import { LoginService, SWSubscribe, handleSocialLogin, getProfile } from '../../services/Auth';
 import { setUserProfile } from '@/redux/slice';
+import { takePendingSignIn } from '@/utils/pendingSignIn';
 
 /**
  * Company administration is a capability, not a user type — an administrator is
@@ -30,7 +31,7 @@ import { setUserProfile } from '@/redux/slice';
  * alone would call them a buyer and AdminGuard would bounce them out of every
  * admin screen the backend has already let them into.
  */
-const personaFor = (detail) =>
+export const personaFor = (detail) =>
   detail?.is_company_admin ? 'admin' : USER_TYPE_BY_CODE[detail?.user_type];
 
 const USER_TYPE_BY_CODE = {
@@ -41,6 +42,8 @@ const USER_TYPE_BY_CODE = {
   8: 'management',
   9: 'engineering',
   10: 'finance',
+  // Vendor-network person: signs in by email and always acts as a vendor entity.
+  11: 'vendor',
 };
 
 /**
@@ -68,6 +71,8 @@ const LandingAuth = ({ open, setOpen, registerOpen, setRegisterOpen }) => {
   const [showMembershipInfoModal, setShowMembershipInfoModal] = useState(false);
   const [showOtherDeviceModal, setShowOtherDeviceModal] = useState(false);
   const [postPaymentData, setPostPaymentData] = useState(null);
+  // { email, message } handed over by a page that just activated an account.
+  const [signInNotice, setSignInNotice] = useState(null);
   // Refs, not state: the unmount cleanup reads these synchronously.
   const paymentSuccessfulRef = useRef(false);
   const retryDataRef = useRef(null);
@@ -88,6 +93,9 @@ const LandingAuth = ({ open, setOpen, registerOpen, setRegisterOpen }) => {
       setShowMembershipInfoModal(true);
     }
     if (login === 'true' || login === '') {
+      // Read once; a second run (StrictMode) finds nothing and keeps the first.
+      const pending = takePendingSignIn();
+      if (pending) setSignInNotice(pending);
       setOpen(true);
       setActiveTab('login');
     }
@@ -418,6 +426,8 @@ const LandingAuth = ({ open, setOpen, registerOpen, setRegisterOpen }) => {
         loginSubmitHandler={loginSubmitHandler}
         loginWithGoogle={loginWithGoogle}
         loginError={loginError}
+        prefillIdentifier={signInNotice?.email || ''}
+        notice={signInNotice?.message || ''}
       />
 
       <LoginWithOtherDeviceModal

@@ -14,6 +14,9 @@ jest.mock("next/router", () => ({
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import reducer from "@/redux/slice";
 
 import * as ArcApi from "@/services/arc_v2";
 import VendorContractPage from "@/pages/dashboard/vendor/rate-contracts/[contractId]/index";
@@ -40,7 +43,7 @@ test("the hero and the consumption table show the group's hotels", async () => {
     },
   });
 
-  render(<VendorContractPage />);
+  render(<Provider store={configureStore({ reducer })}><VendorContractPage /></Provider>);
 
   expect(await screen.findByText("Group award · 2 hotels")).toBeInTheDocument();
   expect(screen.queryByText("Single-BU award")).not.toBeInTheDocument();

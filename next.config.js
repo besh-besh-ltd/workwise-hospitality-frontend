@@ -51,6 +51,17 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // Vendor networks: the member accept-invite page is first served with the
+        // invite token in its URL (?token=). Its <meta name="referrer"> only applies
+        // after the client mounts, so the response itself carries the policy too.
+        source: '/vendor/network/accept-invite',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

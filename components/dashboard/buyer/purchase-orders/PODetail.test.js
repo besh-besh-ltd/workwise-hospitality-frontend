@@ -1005,3 +1005,57 @@ describe("Documents & attachments", () => {
     expect(card.queryByText("Technical evaluation documents")).not.toBeInTheDocument();
   });
 });
+
+// Task 20 / D4: a call-off PO's GST split (pricing.tax_breakdown) is shown; RFQ POs,
+// which have none, keep the table exactly as before.
+// Task 21 / FE-M2: tax_breakdown is the FULL tax, other charges' tax included (ruling
+// 190), so it is not shown as "Incl." under the product subtotal (it would claim more
+// GST than that subtotal holds). It is its own block after the charges, just above
+// the grand total, named for what it covers.
+describe("call-off GST split", () => {
+  const rowTexts = () => Array.from(document.querySelectorAll("tfoot tr")).map((tr) => tr.textContent.replace(/\s+/g, " ").trim());
+  const HEAD = /^GST on items and charges \(included in the total\)/;
+
+  test("inter-state call-off shows IGST 18%", async () => {
+    await mount({
+      is_call_off: true,
+      total_value: 63720,
+      pricing: { total: 63720, subtotal: 54000, tax: 9720, taxable_value: 54000, tax_breakdown: [{ label: "IGST", rate: 18, amount: 9720 }] },
+    });
+    const texts = rowTexts();
+    expect(texts.some((t) => HEAD.test(t) && /₹\s?9,720/.test(t))).toBe(true);
+    expect(texts.some((t) => /^IGST 18%\s?₹\s?9,720/.test(t))).toBe(true);
+  });
+
+  test("intra-state call-off shows CGST and SGST at half the rate each", async () => {
+    await mount({
+      is_call_off: true,
+      pricing: { total: 198240, tax_breakdown: [{ label: "CGST", rate: 9, amount: 15120 }, { label: "SGST", rate: 9, amount: 15120 }] },
+    });
+    const texts = rowTexts();
+    expect(texts.some((t) => HEAD.test(t) && /₹\s?30,240/.test(t))).toBe(true);
+    expect(texts.some((t) => /^CGST 9%\s?₹\s?15,120/.test(t))).toBe(true);
+    expect(texts.some((t) => /^SGST 9%\s?₹\s?15,120/.test(t))).toBe(true);
+  });
+
+  test("the split sits after every charge row, directly above the grand total, never as 'Incl.' under the subtotal", async () => {
+    await mount({
+      is_call_off: true,
+      pricing: { total: 198240, tax_breakdown: [{ label: "CGST", rate: 9, amount: 15120 }, { label: "SGST", rate: 9, amount: 15120 }] },
+    });
+    const texts = rowTexts();
+    expect(texts.some((t) => t.startsWith("Incl."))).toBe(false);
+    const head = texts.findIndex((t) => HEAD.test(t));
+    const total = texts.findIndex((t) => t.startsWith("Grand total"));
+    expect(head).toBeGreaterThan(-1);
+    expect(texts.slice(head + 1, total).map((t) => t.split(" ")[0])).toEqual(["CGST", "SGST"]);
+    expect(total).toBe(texts.length - 1);
+    // nothing but the split between its heading and the grand total
+    expect(total - head).toBe(3);
+  });
+
+  test("an RFQ PO (no breakdown) and a single legacy GST row add no split rows", async () => {
+    await mount();
+    expect(rowTexts().some((t) => t.startsWith("Incl.") || HEAD.test(t))).toBe(false);
+  });
+});

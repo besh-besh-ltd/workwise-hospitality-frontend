@@ -50,6 +50,7 @@ import StageActorBanner from "./StageActorBanner";
 import { ProductNegotiation, VendorNegotiation } from "./NegotiationRowCells";
 import * as C from "./computeHelpers";
 import { downloadComparisonWorkbook, downloadSummaryWorkbook } from "./quoteComparisonExcel";
+import VendorOrgLabel from "../VendorOrgLabel";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 
 const { fmt, fmtLakh } = C;
@@ -1827,6 +1828,7 @@ const QuoteComparison = ({
                             <User size={12} />
                           </a>
                         </div>
+                        <VendorOrgLabel orgName={v.org_name} />
                         {full ? (
                           <div className={styles.vTotal}>₹{fmt(vendorTotal(v.id))}</div>
                         ) : (
@@ -2071,7 +2073,10 @@ const QuoteComparison = ({
         <div className={rowCls.join(" ")} key={`pc-${p.id}-${vid}`}>
           <div className={styles.pcVHead}>
             <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
-            <span className={styles.pcVName}>{v.name}</span>
+            <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+              <span className={styles.pcVName} style={{ display: "block" }}>{v.name}</span>
+              <VendorOrgLabel orgName={v.org_name} />
+            </span>
           </div>
           <div className={styles.pcAbsent}>
             {absence
@@ -2110,7 +2115,10 @@ const QuoteComparison = ({
       >
         <div className={styles.pcVHead}>
           <span className={`${styles.vAv} ${avatarOf(vid)}`}>{v.short}</span>
-          <span className={styles.pcVName}>{v.name}</span>
+          <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+            <span className={styles.pcVName} style={{ display: "block" }}>{v.name}</span>
+            <VendorOrgLabel orgName={v.org_name} />
+          </span>
           {lr ? (
             <span
               className={`${styles.rankBadge} ${styles[C.rankTone(lr)]}`}

@@ -4,13 +4,17 @@ import DashboardShell from "./DashboardShell";
 // import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
-import { setSwSubscription, setUserProfile } from "@/redux/slice";
+import { setSwSubscription, setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
 import { SWSubscribe, verifyVendorToken, getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { toast } from "react-toastify";
 import GuestAccessModal from "@/components/shared/GuestAccessModal";
 import PushPermissionPrompt from "@/components/shared/PushPermissionPrompt";
+import { store } from "@/redux/store";
+import { entitySwitchNeedsReload, profileNeedsNetworkRefresh } from "@/utils/sessionSync";
+import { isGuestSession } from "@/utils/guestSession";
+import { hardReload } from "@/utils/hardNavigate";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
@@ -71,6 +75,27 @@ const Layout = (props) => {
   };
 
 
+  // One-time per load: a vendor profile persisted before vendor networks (no
+  // `network` key), or a networked profile (its role / entities may have
+  // changed since login), is refetched so the nav and network pages read the
+  // truth. Whatever the outcome, mark it settled (not persisted): the network
+  // pages then stop waiting, and a failed refetch is simply tried again next load.
+  const networkProfileRefreshed = useRef(false);
+  useEffect(() => {
+    if (networkProfileRefreshed.current) return;
+    networkProfileRefreshed.current = true;
+    if (!profileNeedsNetworkRefresh(store.getState()?.userProfile, isGuestSession())) {
+      dispatch(setNetworkProfileRefreshSettled());
+      return;
+    }
+    getProfile()
+      .then((res) => {
+        if (res?.data) dispatch(setUserProfile(res.data));
+      })
+      .catch(() => {})
+      .finally(() => dispatch(setNetworkProfileRefreshSettled()));
+  }, [dispatch]);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestExpiresIn, setGuestExpiresIn] = useState(1800);
@@ -86,6 +111,13 @@ const Layout = (props) => {
     checkLoginStatus();
 
     const handleStorageChange = (e) => {
+      // Another tab finished switching the vendor-network acting entity (token
+      // AND persisted profile): reload to pick both up. Keyed on the completion
+      // signal, never on the token write, which lands before the profile.
+      if (entitySwitchNeedsReload(e, store.getState()?.userProfile)) {
+        hardReload();
+        return;
+      }
       if (e.key === 'token' || e.key === null) {
         checkLoginStatus();
       }
@@ -174,7 +206,10 @@ const Layout = (props) => {
   const isVendorCoCPage = router.pathname === '/vendor-coc';
   const isVendorTnCPage = router.pathname === '/vendor-tnc';
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
-  const shouldHideNavbarFooter = isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage;
+  // A vendor-network invitation is a focused, standalone task: no marketing header.
+  const isNetworkInvitePage = router.pathname === '/vendor/network/accept-invite';
+  const shouldHideNavbarFooter =
+    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage;
 
   // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
   // Public/marketing pages (and anonymous visits to /vendor/*) continue to use

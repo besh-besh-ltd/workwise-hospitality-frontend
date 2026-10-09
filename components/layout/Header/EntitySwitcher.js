@@ -1,0 +1,232 @@
+import React, { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { ArrowLeftRight, Check, ChevronDown } from "lucide-react";
+import { switchActingEntity } from "./switchActingEntity";
+// Narrow-screen rules for the top bar live with it (entitySwitcherText, entityStaticLabel).
+import shellStyles from "@/components/layout/DashboardShell/DashboardShell.module.css";
+
+/** 340px on desktop, 40% of the viewport on a phone (156px at 390px). */
+const CHIP_MAX_WIDTH = "min(340px, 40vw)";
+
+const RELATIONSHIP_LABEL = {
+  PRINCIPAL: "Principal",
+  BRANCH: "Branch",
+  DISTRIBUTOR: "Distributor",
+  DEALER: "Dealer",
+};
+
+/**
+ * "Acting as {entity} · {org}" — the vendor-network entity switcher (spec §9).
+ *
+ * A menu for a person who can act for more than one entity; a static
+ * "{entity} · {org}" label for a networked person with one entity; nothing for a
+ * vendor in no network. Switching asks the server for a token bound to the
+ * chosen entity, then does a HARD navigation to the vendor dashboard: every page
+ * state and entity-scoped cache starts over, and the fresh page load opens the
+ * realtime socket with the new token (the server joins `user:<entity>` at
+ * handshake). The switch itself (and its cross-tab ordering) is
+ * switchActingEntity, shared with the network pages' "Act as".
+ */
+const EntitySwitcher = () => {
+  const dispatch = useDispatch();
+  const profile = useSelector((state) => state.userProfile);
+  const network = profile?.network;
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const rootRef = useRef(null);
+  const itemRefs = useRef([]);
+
+  // Keyboard: the first entity takes focus when the menu opens.
+  useEffect(() => {
+    if (open) itemRefs.current[0]?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // A vendor in no network: nothing, exactly as before networks.
+  if (!network) return null;
+
+  const entities = network.actable_entities || [];
+  const actingId = Number(network.acting_entity_id);
+  const acting = entities.find((e) => Number(e.vendor_id) === actingId);
+
+  // One entity to act for: nothing to switch, but say who and where.
+  if (entities.length <= 1) {
+    const name = acting?.name || entities[0]?.name || profile?.name || "Your entity";
+    return (
+      <span
+        className={shellStyles.entityStaticLabel}
+        aria-label="Acting entity"
+        title="The entity you are acting for"
+        style={{
+          // display lives in the class so the phone rule can hide it.
+          alignItems: "center",
+          height: 32,
+          padding: "0 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface-2)",
+          color: "var(--fg-2)",
+          fontSize: 12.5,
+          // Phones: capped to the viewport so the pill and bell stay on screen.
+          maxWidth: CHIP_MAX_WIDTH,
+          minWidth: 0,
+        }}
+      >
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{name}</strong>
+          {network.org_name ? <span style={{ color: "var(--fg-3)" }}> · {network.org_name}</span> : null}
+        </span>
+      </span>
+    );
+  }
+
+  const actingName = acting?.name || "Unknown entity";
+
+  const handleSelect = async (vendorId) => {
+    setOpen(false);
+    if (switching || Number(vendorId) === actingId) return;
+    setSwitching(true);
+    const result = await switchActingEntity({ vendorId, profile, dispatch });
+    if (!result.ok) {
+      toast.error(result.message);
+      setSwitching(false);
+    }
+  };
+
+  // ArrowUp/ArrowDown move focus between entities; Enter picks the focused one.
+  const handleMenuKeyDown = (e) => {
+    const items = itemRefs.current.filter(Boolean);
+    if (!items.length) return;
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      const next = idx < 0 ? 0 : (idx + step + items.length) % items.length;
+      items[next].focus();
+    } else if (e.key === "Enter" && idx >= 0) {
+      e.preventDefault();
+      handleSelect(entities[idx].vendor_id);
+    }
+  };
+
+  return (
+    <div ref={rootRef} style={{ position: "relative", minWidth: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={switching}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={switching ? "Switching entity" : `Acting as ${actingName}${network.org_name ? ` · ${network.org_name}` : ""}. Switch entity`}
+        title="Switch the entity you are acting for"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 7,
+          height: 32,
+          padding: "0 10px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface)",
+          color: "var(--fg-2)",
+          fontSize: 12.5,
+          // Phones: capped to the viewport so the pill and bell stay on screen.
+          maxWidth: CHIP_MAX_WIDTH,
+          minWidth: 0,
+          cursor: switching ? "progress" : "pointer",
+        }}
+      >
+        <ArrowLeftRight size={13} strokeWidth={1.75} style={{ color: "var(--fg-3)", flexShrink: 0 }} />
+        <span className={shellStyles.entitySwitcherText} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {switching ? "Switching…" : (
+            <>
+              Acting as <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{actingName}</strong>
+              {network.org_name ? <span style={{ color: "var(--fg-3)" }}> · {network.org_name}</span> : null}
+            </>
+          )}
+        </span>
+        <ChevronDown size={13} strokeWidth={1.75} style={{ color: "var(--fg-4)", flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Act as entity"
+          onKeyDown={handleMenuKeyDown}
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 6px)",
+            minWidth: "min(260px, calc(100vw - 24px))",
+            maxWidth: "calc(100vw - 24px)",
+            maxHeight: 360,
+            overflowY: "auto",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            boxShadow: "var(--shadow-md)",
+            padding: 6,
+            zIndex: 1050,
+          }}
+        >
+          <div className="section-label" style={{ padding: "6px 8px 4px" }}>Act as</div>
+          {entities.map((e, i) => {
+            const selected = Number(e.vendor_id) === actingId;
+            return (
+              <button
+                key={e.vendor_id}
+                ref={(el) => { itemRefs.current[i] = el; }}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => handleSelect(e.vendor_id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  padding: "8px",
+                  border: 0,
+                  borderRadius: "var(--radius-sm)",
+                  background: selected ? "var(--surface-3)" : "transparent",
+                  color: "var(--fg)",
+                  fontSize: 13,
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {e.name}
+                </span>
+                {e.relationship && (
+                  <span className="pill">
+                    {RELATIONSHIP_LABEL[e.relationship] || e.relationship}
+                  </span>
+                )}
+                <Check size={14} strokeWidth={2} style={{ color: "var(--primary)", visibility: selected ? "visible" : "hidden" }} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EntitySwitcher;

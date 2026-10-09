@@ -88,6 +88,14 @@ export const getProfile = (token=null) => {
 	});
 };
 
+/**
+ * The profile of the session `token`, not of the stored one: the token is sent
+ * as an explicit Authorization header (lib/axios keeps it). The entity
+ * switcher uses it to load the new entity's profile before storing its token.
+ */
+export const getProfileAs = (token) =>
+	axiosInstance.get(`/users/get-profile`, { headers: { Authorization: `Bearer ${token}` } });
+
 export const getAllCompanies = () => {
 	return new Promise(async (resolve, reject) => {
 		try {

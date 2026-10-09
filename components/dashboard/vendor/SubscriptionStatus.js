@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import moment from "moment";
 import { Shield, AlertTriangle, XCircle, Clock, ArrowRight } from "lucide-react";
 import { getVendorSubscriptionStatus } from "@/services/subscription";
+import { networkCoverageView } from "@/components/dashboard/vendor/network/networkCoverage";
 import styles from "./SubscriptionStatus.module.scss";
 
 const SubscriptionStatus = () => {
@@ -29,6 +30,25 @@ const SubscriptionStatus = () => {
   if (loading || !subData) return null;
 
   const { has_active_subscription, subscription, is_expired, has_pending } = subData;
+
+  // ── Network member: covered by its network + seat; no buy/renew action ──
+  const network = networkCoverageView(subData.covered_by_network);
+  if (network) {
+    const covered = network.key === "covered";
+    return (
+      <div className={`${styles.banner} ${covered ? styles.bannerActive : styles.bannerExpired}`}>
+        <div className={styles.left}>
+          <div className={`${styles.statusBadge} ${covered ? styles.badgeActive : styles.badgeExpired}`}>
+            {covered ? <Shield size={12} /> : <AlertTriangle size={12} />}
+            <span>{network.label}</span>
+          </div>
+          <div className={styles.info}>
+            <span className={styles.infoMain}>{network.detail}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Active ──
   if (has_active_subscription && subscription) {
