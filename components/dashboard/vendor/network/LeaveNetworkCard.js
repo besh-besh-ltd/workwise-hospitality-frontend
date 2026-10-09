@@ -3,8 +3,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { LogOut } from "lucide-react";
 import { leaveNetwork } from "@/services/vendorNetwork";
+import { clearUserProfile } from "@/redux/slice";
+import { persistor } from "@/redux/store";
+import storageInstance from "@/utils/storageInstance";
+import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
+import posthog from "@/lib/analytics";
 import { isGuestSession } from "@/utils/guestSession";
 import { hardNavigate } from "@/utils/hardNavigate";
+import { markEntitySwitchDone } from "@/utils/sessionSync";
 import { refreshNetworkProfile } from "./networkProfile";
 import { networkErrorMessage } from "./networkErrors";
 import NetworkModal from "./NetworkModal";
@@ -20,16 +26,56 @@ export const canLeaveNetwork = (profile, guest) => {
   return Number(network.actor_user_id) === Number(profile.id);
 };
 
+// Tell other tabs (they reload when they show a network profile). Never blocks this tab.
+const signalOtherTabs = () => {
+  try { markEntitySwitchDone(); } catch (_) {}
+};
+
+/**
+ * End this browser's session (same keys as the shell's logout) so the stale
+ * persisted profile, still carrying the old `network`, is never rehydrated.
+ */
+const endSession = async (dispatch) => {
+  try { posthog.reset(); } catch (_) {}
+  dispatch(clearUserProfile());
+  ["token", "current-user-type", "current-user-name", "current-user-email", "user-permissions", "guest-session"].forEach(
+    (key) => storageInstance.removeStorege(key)
+  );
+  setStoredHospitalityContext(null);
+  try { await persistor.flush(); } catch (_) {}
+};
+
 /**
  * "Leave network" for a member entity's own login (spec §5). Confirms first,
- * then leaves, refetches the profile (now without `network`) and reloads the
- * vendor dashboard so every network-scoped page and cache starts over.
+ * then leaves and refetches the profile (now without `network`). On success it
+ * signals other tabs and reloads the vendor dashboard so every network-scoped
+ * page and cache starts over. If the refetch fails, a reload would rehydrate
+ * the stale network profile, so the session is ended instead and the person
+ * is asked to sign in again.
  */
 export default function LeaveNetworkCard() {
   const dispatch = useDispatch();
   const profile = useSelector((state) => state.userProfile);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [leftOrg, setLeftOrg] = useState(null); // set when left but the profile could not be refreshed
+
+  if (leftOrg) {
+    return (
+      <div
+        className="section-card"
+        role="alert"
+        style={{ marginTop: 16, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+      >
+        <div style={{ fontSize: 13, color: "var(--fg-2)" }}>
+          You have left {leftOrg}, but your account could not be refreshed. Please sign in again to continue.
+        </div>
+        <button type="button" className="btn btn-blue btn-sm" onClick={() => hardNavigate("/?login=true")}>
+          Sign in again
+        </button>
+      </div>
+    );
+  }
   if (!canLeaveNetwork(profile, isGuestSession())) return null;
   const org = profile.network.org_name || "the network";
 
@@ -46,8 +92,13 @@ export default function LeaveNetworkCard() {
     try {
       await refreshNetworkProfile(dispatch);
     } catch (_) {
-      toast.info("Sign out and back in to finish leaving the network.");
+      await endSession(dispatch);
+      signalOtherTabs();
+      setConfirming(false);
+      setLeftOrg(org);
+      return;
     }
+    signalOtherTabs();
     hardNavigate("/dashboard/vendor");
   };
 
