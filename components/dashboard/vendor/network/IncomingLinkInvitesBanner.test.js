@@ -145,24 +145,45 @@ test("cancelling the confirmation does not join", async () => {
   expect(screen.getByText("Daikin India")).toBeInTheDocument();
 });
 
-test("the confirmation names the inviting company and its GSTIN when the invitation carries them", async () => {
-  listIncomingLinkInvites.mockResolvedValue({
-    status: 1,
-    data: [{ ...INVITE, principal_company_name: "Daikin Airconditioning India Pvt Ltd", principal_gstin: "07AAACD1234F1Z5" }],
-  });
+// Fix round 1: the network name is chosen by whoever invites, so it is never shown
+// as the inviter's identity. The company (and GSTIN) come from the principal's account.
+const WITH_COMPANY = {
+  ...INVITE,
+  principal_company_name: "Daikin Airconditioning India Pvt Ltd",
+  principal_gstin: "07AAACD1234F1Z5",
+};
+
+test("with the principal's company, the card and the confirmation name it and its GSTIN, plus the network", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [WITH_COMPANY] });
   renderWith(SOLO);
-  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  const card = await screen.findByRole("region", { name: "Network invitation" });
+  expect(card).toHaveTextContent("Invited by Daikin Airconditioning India Pvt Ltd (GSTIN 07AAACD1234F1Z5)");
+  expect(card).toHaveTextContent("Network: Daikin India");
+  fireEvent.click(screen.getByRole("button", { name: "Accept" }));
   const dialog = await screen.findByRole("dialog");
-  expect(dialog).toHaveTextContent("Daikin Airconditioning India Pvt Ltd");
-  expect(dialog).toHaveTextContent("GSTIN 07AAACD1234F1Z5");
+  expect(dialog).toHaveTextContent("Invited by Daikin Airconditioning India Pvt Ltd (GSTIN 07AAACD1234F1Z5)");
+  expect(dialog).toHaveTextContent("Network: Daikin India");
 });
 
-test("without a company name or GSTIN the confirmation names the network only", async () => {
+test("a company without a GSTIN is named without one", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [{ ...WITH_COMPANY, principal_gstin: null }] });
+  renderWith(SOLO);
+  const card = await screen.findByRole("region", { name: "Network invitation" });
+  expect(card).toHaveTextContent("Invited by Daikin Airconditioning India Pvt Ltd");
+  expect(card).not.toHaveTextContent("GSTIN");
+});
+
+test("without the company, the network name is never presented as the inviter", async () => {
   listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
   renderWith(SOLO);
-  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  const card = await screen.findByRole("region", { name: "Network invitation" });
+  expect(card).toHaveTextContent("Network name (chosen by the inviter): Daikin India — company not shown");
+  expect(card).not.toHaveTextContent("Invited by");
+  expect(card).not.toHaveTextContent(/Daikin India invited you/);
+  fireEvent.click(screen.getByRole("button", { name: "Accept" }));
   const dialog = await screen.findByRole("dialog");
-  expect(dialog).toHaveTextContent("Invited by Daikin India");
+  expect(dialog).toHaveTextContent("Network name (chosen by the inviter): Daikin India — company not shown");
+  expect(dialog).not.toHaveTextContent("Invited by");
   expect(dialog).not.toHaveTextContent("GSTIN");
 });
 

@@ -99,17 +99,46 @@ export function useIncomingLinkInvites({ onAccepted } = {}) {
 }
 
 /**
+ * Who is inviting. The network name is whatever the inviter typed (anyone can
+ * name a network "Workwise Verification"), so it is never shown as the
+ * inviter's identity: the identity is the principal's company (and GSTIN) from
+ * its account, when the invitation carries it; otherwise the page says the
+ * company is not shown.
+ */
+export function InviterIdentity({ invite, style }) {
+  const company = invite.principal_company_name;
+  const gstin = invite.principal_gstin;
+  if (company) {
+    return (
+      <div style={style}>
+        <div style={{ color: "var(--fg)" }}>
+          Invited by <strong>{company}</strong>
+          {gstin ? ` (GSTIN ${gstin})` : ""}
+        </div>
+        <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+          Network: <strong>{invite.org_name}</strong>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={style}>
+      <div style={{ color: "var(--fg)" }}>
+        Network name (chosen by the inviter): <strong>{invite.org_name}</strong> — company not shown
+      </div>
+    </div>
+  );
+}
+
+/**
  * Joining hands the inviting org's admins full control of this account, so
  * Accept never acts in one click: it opens this dialog, which says so plainly
- * and names who is asking (security audit M2). The company name and GSTIN are
- * shown when the invitation carries them; otherwise only the network name.
+ * and shows who is asking (security audit M2).
  */
 export function AcceptLinkInviteDialog({ invite, busy, onConfirm, onCancel }) {
-  const company = invite.principal_company_name || invite.org_name;
-  const gstin = invite.principal_gstin;
   return (
     <NetworkModal
-      title={`Join ${invite.org_name}?`}
+      title="Join this vendor network?"
       onClose={onCancel}
       busy={busy}
       footer={
@@ -124,19 +153,15 @@ export function AcceptLinkInviteDialog({ invite, busy, onConfirm, onCancel }) {
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-        <div
+        <InviterIdentity
+          invite={invite}
           style={{
             background: "var(--surface-2)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius)",
             padding: "10px 12px",
           }}
-        >
-          <div style={{ color: "var(--fg)" }}>
-            Invited by <strong>{company}</strong>
-          </div>
-          {gstin && <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 2 }}>GSTIN {gstin}</div>}
-        </div>
+        />
         <p style={{ margin: 0 }}>
           <strong style={{ color: "var(--fg)" }}>
             Every admin of {invite.org_name} will be able to act fully as this account.
@@ -187,8 +212,9 @@ export function IncomingInviteCards({ invites, busyId, onAccept, onDecline }) {
               <Network size={18} style={{ color: "var(--info)", flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 13.5, color: "var(--fg)" }}>
-                  <strong>{invite.org_name}</strong> invited you to join its vendor network as a {relationship}.
+                  You are invited to join a vendor network as a {relationship}.
                 </div>
+                <InviterIdentity invite={invite} style={{ fontSize: 13, marginTop: 2 }} />
                 <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
                   If you join, its admins can act fully as this account. Expires {fmtDate(invite.expires_at)}.
                 </div>
