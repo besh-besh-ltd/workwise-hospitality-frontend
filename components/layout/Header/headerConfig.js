@@ -128,7 +128,7 @@ export const roleMenus = {
     // ORG_ADMIN only; "Assigned to me" is for anyone acting as a non-principal
     // entity of a network. visibleRoleMenu enforces both.
     { href: "/dashboard/vendor/network",          label: "Overview", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
-    { href: "/dashboard/vendor/network/entities", label: "Entities", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/entities", label: "Entities & seats", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
     { href: "/dashboard/vendor/network/team",     label: "Team",     targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
     { href: "/dashboard/vendor/network/coverage", label: "Coverage", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
     { href: "/dashboard/vendor/network/routing",  label: "Routing",  targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },

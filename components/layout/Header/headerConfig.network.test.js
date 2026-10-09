@@ -85,7 +85,7 @@ describe("vendor rail — network visibility", () => {
     expect(hrefs).not.toContain(ASSIGNED);
     expect(NETWORK_ADMIN_HREFS.map((h) => labelOf(menu, h))).toEqual([
       "Overview",
-      "Entities",
+      "Entities & seats",
       "Team",
       "Coverage",
       "Routing",

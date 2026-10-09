@@ -7,12 +7,15 @@ import { isGuestSession } from "@/utils/guestSession";
 /**
  * Shown on a network page to someone who may not use it:
  *   - a vendor who could set up a network (same rule as the nav) is pointed at set-up
- *   - anyone else in no network (a guest emailed-link session, a non-vendor) is told
- *     set-up needs the vendor's own sign-in
+ *   - a vendor in a guest emailed-link session is told set-up needs its own sign-in
+ *   - anyone else (a buyer, an admin) is told, neutrally, that networks are for suppliers
  *   - a person in a network who is not an admin is told who manages it
  */
+const VENDOR_USER_TYPES = new Set([3, 11]);
+
 export default function NetworkAccessNotice({ profile }) {
   const inNetwork = !!profile?.network;
+  const isVendorAccount = VENDOR_USER_TYPES.has(Number(profile?.user_type));
   const canSetUp = canSetUpNetwork(profile, isGuestSession());
 
   let content;
@@ -31,6 +34,13 @@ export default function NetworkAccessNotice({ profile }) {
         <Link href="/dashboard/vendor/network" className="btn btn-blue" style={{ marginTop: 16 }}>
           Set up network
         </Link>
+      </>
+    );
+  } else if (!isVendorAccount) {
+    content = (
+      <>
+        <h2>Vendor networks are for supplier accounts</h2>
+        <p>This page is not available for this account.</p>
       </>
     );
   } else {

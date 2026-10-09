@@ -216,7 +216,10 @@ test("a guest emailed-link session gets a notice, not the set-up form", () => {
 test("a non-vendor in no network gets a notice, not the set-up form", () => {
   renderWith({ id: 5, user_type: 2, network: null });
   expect(screen.queryByLabelText("Network name")).toBeNull();
-  expect(screen.getByText("Vendor networks need your own sign-in")).toBeInTheDocument();
+  // Scope audit #17: neutral copy, not the vendor sign-in advice.
+  expect(screen.getByText("Vendor networks are for supplier accounts")).toBeInTheDocument();
+  expect(screen.queryByText("Vendor networks need your own sign-in")).toBeNull();
+  expect(screen.queryByText(/your vendor account/)).toBeNull();
 });
 
 test("a vendor profile without the network key (pre-release) waits for the refetch", () => {
