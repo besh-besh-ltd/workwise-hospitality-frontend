@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════════════════════════
+   PHONE LAYER (≤768px) for the decision surfaces
+   Loaded last (pages/_app.js) so it can adjust shared primitives from
+   style.scss and arc_v2.css without touching their desktop rules.
+   Scope: approvers (PO, commercial evaluation, negotiation, RFQ/tech
+   approval) and vendors (quote, PO acceptance, ARC). Per-page layout
+   fixes live in each page's own module next to the desktop rules.
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* iOS Safari zooms the whole page when a field under 16px takes focus,
+     and doesn't zoom back out. Every comment / price / OTP field on a
+     decision page is a text field, so fix it once here. */
+  body.dashboard-route input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  body.dashboard-route textarea,
+  body.dashboard-route select {
+    font-size: 16px !important;
+  }
+
+  /* _all.scss forces every Bootstrap dropdown to min-width:300px, which
+     spills off the screen when the toggle sits near the right edge. */
+  .dropdown-menu,
+  .main-menu .dropdown-menu,
+  .header-right .dropdown-menu,
+  [class*="dropdown"] .dropdown-menu {
+    min-width: min(300px, calc(100vw - 16px)) !important;
+    max-width: calc(100vw - 16px);
+  }
+
+  /* LifecycleHero (RFQ workspace, negotiation pages, ARC): the title and
+     the action buttons shared one non-wrapping row and the actions box
+     refused to shrink, so on a phone the title collapsed to ~0px and the
+     last buttons were cut off by the hero's overflow:hidden. Stack them. */
+  .arc-hero {
+    padding: 16px;
+  }
+  .arc-hero .top {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .arc-hero .top > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .arc-hero h1 {
+    font-size: 19px;
+    gap: 8px;
+  }
+  .arc-hero .hero-actions {
+    flex-shrink: 1;
+    width: 100%;
+  }
+  .arc-hero .hero-actions .btn {
+    min-height: 40px;
+  }
+
+  /* Section headers put a title on the left and controls on the right in
+     one row; let the controls drop below the title instead of crushing it. */
+  .section-head {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+  .section-head .h-left {
+    min-width: 0;
+  }
+  .section-head .h-right {
+    flex-wrap: wrap;
+  }
+  .section-body {
+    padding: 14px;
+  }
+
+  /* ARC sticky action dock (vendor ARC quote / accept / amendment and the
+     buyer ARC stages): full width, wrapping, clear of the iOS home bar,
+     and above the floating assistant button. */
+  .action-dock {
+    left: 0;
+    z-index: 1052;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .action-dock .inner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .action-dock .left {
+    flex: 1 1 100%;
+    font-size: 12.5px;
+  }
+  .action-dock .right {
+    flex: 1 1 100%;
+    flex-shrink: 1;
+    flex-wrap: wrap;
+  }
+  .action-dock .right .btn {
+    flex: 1 1 0;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  /* Legacy Pagination (components/shared/Pagination.js): Previous + five
+     numbers + Next is ~440px and never wrapped. */
+  .pagination ul {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    justify-content: center;
+  }
+  .pagination ul li {
+    padding: 6px 11px;
+    margin: 0 3px;
+    min-height: 36px;
+  }
+
+  /* Wide tables in arc_v2 carry desktop min-widths; they're only usable
+     when their scroller scrolls smoothly with momentum on iOS. */
+  .table-scroll,
+  .table-responsive {
+    -webkit-overflow-scrolling: touch;
+  }
+}

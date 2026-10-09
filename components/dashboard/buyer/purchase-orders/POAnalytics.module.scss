@@ -341,3 +341,58 @@
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 .skelKpi { height: 92px; border-radius: var(--radius); }
 .skelCard { height: 260px; border-radius: var(--radius-lg); }
+
+/* Bar values for touch screens — see the phone layer below. */
+.vShort { display: none; }
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   Scoped to the shell's mobile breakpoints; desktop (≥992px) never reaches
+   it. */
+@media (max-width: 991px) {
+  /* DashboardShell.content is 16px here, not 20px/24px. */
+  .page { margin: -16px; }
+}
+
+@media (max-width: 768px) {
+  .pageHeader { padding: 16px 16px 14px; }
+  .pageTitleRow { flex-wrap: wrap; gap: 12px; }
+  .pageTitle { font-size: 21px; }
+  .headerActions .btn { min-height: 40px; }
+  .pageBody { padding: 14px 12px 24px; }
+
+  /* Period switcher spans the row with 40px targets. */
+  .periodPills { display: flex; width: 100%; }
+  .periodPills button { flex: 1 1 auto; min-height: 40px; padding: 6px 8px; }
+
+  .analyticsGrid { gap: 12px; }
+  .chHead { padding: 12px 14px 10px; flex-wrap: wrap; }
+  .chBody { padding: 14px; }
+  .allLink { display: inline-flex; align-items: center; min-height: 40px; }
+
+  /* Spend trend: no hover on a phone, so print each month's value. */
+  .barChart { gap: 6px; height: 196px; }
+  .vShort {
+    display: block;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--fg-2);
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+  .barCol:hover .bar .v { opacity: 0; }
+
+  .legendList { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .donutWrap { justify-content: center; }
+
+  /* Top vendors: the table keeps its columns and scrolls sideways inside the
+     card instead of being clipped by it. */
+  .rankScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .vendorRankTable { min-width: 480px; }
+
+  .hbarRow { grid-template-columns: minmax(0, 96px) minmax(0, 1fr) auto; gap: 10px; }
+  .hVal { white-space: nowrap; }
+  .queueGrid { gap: 8px; }
+  .queueCell { padding: 12px 6px; }
+  .queueNum { font-size: 22px; }
+}

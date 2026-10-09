@@ -1,0 +1,20 @@
+/* Phone layer for QuoteMethodModal (layout itself is inline styles, so the
+   overrides need !important). Desktop is untouched: all rules are inside
+   the media query. */
+@media (max-width: 768px) {
+  .panel {
+    padding: 18px 16px !important;
+    max-height: calc(100vh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+  }
+
+  /* The two method cards sat side by side at ~150px each; stack them. */
+  .cards {
+    flex-direction: column;
+  }
+
+  /* The dashboard shrinks every .btn on phones; keep these tappable. */
+  .actions :global(.btn) {
+    min-height: 44px !important;
+  }
+}

@@ -1,0 +1,140 @@
+/* Phone layer for the vendor ARC pages (contract detail / accept / list
+   pages / commercial quote stage). The layouts they fix are inline styles
+   or shared arc_v2.css classes that buyer pages also use, so the fixes are
+   opt-in classes applied only on the vendor pages, and they carry
+   !important where they must beat an inline style. Desktop is untouched:
+   every rule is inside a max-width query. */
+
+/* Below 992px the shell's content padding is 16px, but .arc-crumb-strip
+   bleeds by the desktop 20/24px and pokes 8px past the screen edge. */
+@media (max-width: 991px) {
+  .crumb {
+    margin: -16px -16px 0 !important;
+    padding: 10px 16px !important;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  /* "minmax(0,1fr) 360px": the fixed aside left the contract column ~0px
+     wide on a phone. Stack: document first, then the checklist/sign aside. */
+  .twoCol {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* A cell with inline `grid-column: span 5` inside a grid that arc_v2
+     drops to two columns creates three phantom columns off-screen. */
+  .fullRow {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Awarded line card: the Confirm / Flag controls sat beside the product
+     name and squeezed it to one word per line. Put them underneath. */
+  .lineTop {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .lineTop :global(.lr-confirm) {
+    align-items: flex-start !important;
+  }
+
+  /* Update / Download PDF / Withdraw row under a submitted quote. */
+  .wrapRow {
+    flex-wrap: wrap;
+  }
+
+  /* Section heading + progress pill ("0 of 3 confirmed") in one row. */
+  .docHead {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Inline repeat(4,1fr) on .stat-strip beats arc_v2's own 1fr 1fr phone
+     rule; restore it. */
+  .statStrip {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Action centre: icon · text · Decline in one row crushed the text into a
+     ~150px column. Let the actions drop below. */
+  .actionCenter {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+  .actionCenter :global(.ac-body) {
+    flex: 1 1 calc(100% - 64px);
+  }
+  .actionCenter :global(.ac-actions) {
+    flex: 1 1 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .actionCenter :global(.ac-actions .btn) {
+    min-height: 40px;
+  }
+
+  /* OTP: six 48px boxes + gaps are 338px; shrink evenly rather than spill. */
+  .otpGrid {
+    gap: 8px;
+  }
+  .otpGrid :global(.otp-input) {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 48px;
+    height: 52px;
+  }
+
+  /* List toolbar (amendments): the 280px search + sort select row. */
+  .toolbar :global(.lt-right) {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  .toolbar :global(.search-input) {
+    width: auto !important;
+    flex: 1 1 100%;
+  }
+
+  /* Commercial stage rows with inline grid templates, restacked. */
+  .payTermRow {
+    grid-template-columns: 24px minmax(0, 1fr) 40px !important;
+    row-gap: 8px;
+  }
+  .payTermRow > :nth-child(3) {
+    grid-column: 2 / 3;
+    grid-row: 2;
+  }
+  .payTermRow > :nth-child(4) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  /* Charge rows "1fr 120px 110px 100px 32px": name on its own row, then
+     amount / mode / tax, delete at the end of the name row. */
+  .chargeRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 40px !important;
+    row-gap: 8px;
+  }
+  .chargeRow > :nth-child(1) {
+    grid-column: 1 / 4;
+    grid-row: 1;
+  }
+  .chargeRow > :nth-child(2) { grid-column: 1; grid-row: 2; }
+  .chargeRow > :nth-child(3) { grid-column: 2; grid-row: 2; }
+  .chargeRow > :nth-child(4) { grid-column: 3; grid-row: 2; }
+  .chargeRow > :nth-child(5) { grid-column: 4; grid-row: 1; }
+  /* The column-caption row of the same grid is meaningless once stacked. */
+  .chargeHead {
+    display: none !important;
+  }
+}
+
+/* Pricing fields (.vq-fields) drop to 1fr 1fr at 720px in arc_v2.css; at
+   phone width that left the rate / GST-with-toggle fields ~150px wide. */
+@media (max-width: 560px) {
+  .vqFields.vqFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

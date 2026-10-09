@@ -209,7 +209,10 @@ export function buildReductionChartOptions(plotted = [], { locked = false } = {}
           crossAlign: "far",
           callback(value) {
             const raw = this.getLabelForValue(value);
-            return String(raw).length > 38 ? `${String(raw).slice(0, 37)}…` : raw;
+            // On a phone-width canvas a 38-char label took half the plot; the
+            // full name stays in the tooltip (tap) and the table below.
+            const max = this.chart && this.chart.width > 0 && this.chart.width < 480 ? 18 : 38;
+            return String(raw).length > max ? `${String(raw).slice(0, max - 1)}…` : raw;
           },
         },
       },

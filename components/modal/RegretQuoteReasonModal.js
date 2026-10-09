@@ -3,6 +3,7 @@ import Modal from "react-modal";
 
 import { Field, Form, Formik } from "formik";
 import * as yup from "yup";
+import phoneStyles from "./RegretQuoteReasonModal.module.css";
 const RegretQuoteReasonModal = (props) => {
   // Use useEffect to handle the body overflow property
   useEffect(() => {
@@ -31,7 +32,7 @@ const RegretQuoteReasonModal = (props) => {
       onRequestClose={props.closeModal}
       ariaHideApp={false}
       contentLabel="Regret Quote Reason"
-      className="contact-modal contact-modal-new"
+      className={`contact-modal contact-modal-new ${phoneStyles.phone}`}
       style={{
         overlay: {
           backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -90,7 +91,7 @@ const RegretQuoteReasonModal = (props) => {
                         </div>
                         </div>
                         <div className="d-flex flex-row justify-content-between align-items-center g-6">                    
-                            <button disabled={!isValid} class="btn btn-success btn-sm" id="submit_regret_quote-regret_form-regret_quote_modal">Regret Quote</button>
+                            <button disabled={!isValid} class={`btn btn-success btn-sm ${phoneStyles.submit}`} id="submit_regret_quote-regret_form-regret_quote_modal">Regret Quote</button>
                         </div>
                     </Form>
                 )}

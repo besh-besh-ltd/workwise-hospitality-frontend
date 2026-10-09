@@ -46,6 +46,8 @@ import {
   getBuyerTechEvalStatusConfig
 } from "@/components/dashboard/vendor/technicalEvaluationHelpers";
 import statusStyles from "@/components/dashboard/vendor/ViewRfqTechnicalStatus.module.scss";
+import inquiryStyles from "@/components/dashboard/vendor/InquiriesDetails.module.scss";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 
 const WysiwygEditor = dynamic(
   () => import("@/components/wysiwyg-editor/wysiwygeditor"),
@@ -1291,10 +1293,82 @@ const RfqManagementPreview = () => {
     );
   };
 
+  const goToUpdateQuote = () => {
+    const rfqId = localId || id;
+    if (!rfqId) {
+      toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
+      return;
+    }
+    router.push(
+      `/dashboard/vendor/quote?type=update-quote&id=${rfqId}${
+        token !== undefined ? `&token=${token}` : ""
+      }&showTechEvalRestrictions=${isReverseAuctionActive}`
+    );
+  };
+
+  // Phone action bar: the header's main quote button (and Regret) mirrored
+  // into a thumb-reach bar. Same conditions as the header buttons below —
+  // on a phone the header row wraps and the header copy of the main button
+  // is hidden, so the bar is the one the vendor taps.
+  const vendorPhoneActions = (() => {
+    if (loading || enableBuyerView || !rfqDetails?.id) return null;
+    const quotations = rfqDetails.quotations || [];
+    const allFinalized = rfqDetails.products?.every(
+      (item) =>
+        item.finalization_status === "Another vendor is finalized" ||
+        item.finalization_status === "You are finalized"
+    );
+    let main = null;
+    if (quotations.length === 0) {
+      const isQuoteBlocked = hasPendingTechEval ||
+        (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
+        rfqDetails.status == 2 ||
+        allFinalized;
+      const isClarificationBlocked =
+        statusMessage === "Clarification Window Active" ||
+        statusMessage === "Clarification in Progress";
+      if (isQuoteBlocked && !hasPendingTechEval) {
+        main = { label: "View Inquiry", onClick: goToQuoteCreation, disabled: isClarificationBlocked, reason: statusMessage, variant: "secondary" };
+      } else {
+        main = {
+          label: hasPendingTechEval ? "Complete Technical Evaluation" : isReverseAuctionActive ? "Send Quote" : statusMessage,
+          onClick: goToQuoteCreation,
+          disabled: false,
+          reason: hasPendingTechEval ? "Answer the technical evaluation clauses first — the quote form opens on that step" : "",
+          variant: "primary",
+        };
+      }
+    } else if (!quotations[0]?.is_regret) {
+      const hasAnyFinalization = rfqDetails.products?.some(
+        (item) =>
+          item.finalization_status === "Another vendor is finalized" ||
+          item.finalization_status === "You are finalized"
+      );
+      const isViewOnly = rfqDetails?.status == 2 || !productleftforbid || hasAnyFinalization || (!isSubmitAble && !hasActiveNegotiationRounds);
+      main = {
+        label: hasPendingTechEval ? "Complete Technical Evaluation" : isViewOnly ? "View Quote" : "Update Your Quote",
+        onClick: goToUpdateQuote,
+        disabled: false,
+        reason: hasPendingTechEval ? "Answer the technical evaluation clauses, then submit your quote" : "",
+        variant: isViewOnly ? "secondary" : "primary",
+      };
+    }
+    let regret = null;
+    if (quotations.length === 0 && productleftforbid) {
+      const isRegretDisabled =
+        (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
+        rfqDetails.status == 2 ||
+        allFinalized;
+      if (!isRegretDisabled) regret = { onClick: () => setregretModal(true) };
+    }
+    if (!main && !regret) return null;
+    return { main, regret };
+  })();
+
   return (
     <>
       {loading && (
-        <>
+        <div className={inquiryStyles.loading}>
           <section className="buyer-common-header sc-pt-80 mt-0">
             <div className="container-fluid">
               <h1 className="heading">
@@ -1567,7 +1641,7 @@ const RfqManagementPreview = () => {
               </div>
             </div>
           </section>
-        </>
+        </div>
       )}
       {/* // Not loading contents */}
       {!loading && rfqDetails && rfqDetails.id && (
@@ -1588,7 +1662,7 @@ const RfqManagementPreview = () => {
                     </div>
                   )}
                 </div>
-                {!enableBuyerView && <div className="d-flex gap-3">
+                {!enableBuyerView && <div className={`d-flex gap-3 ${inquiryStyles.actions}`}>
                   {/* Queries Button */}
                   <button
                     id="view_queries-rfq_header-inquiries_details_page"
@@ -1723,7 +1797,7 @@ const RfqManagementPreview = () => {
                           : statusMessage;
 
                       return (
-                        <span className={isRegretDisabled ? "quote-status-tooltip-wrap" : ""} style={{ position: "relative", display: "inline-block" }}>
+                        <span className={isRegretDisabled ? "quote-status-tooltip-wrap" : inquiryStyles.phoneHide} style={{ position: "relative", display: "inline-block" }}>
                           <button
                             type="button"
                             className="btn btn-danger btn-sm p-2"
@@ -1764,7 +1838,7 @@ const RfqManagementPreview = () => {
 
                     if (isQuoteBlocked && !hasPendingTechEval) {
                       return (
-                        <span style={{ position: "relative", display: "inline-block" }} className="quote-status-tooltip-wrap">
+                        <span style={{ position: "relative", display: "inline-block" }} className={`quote-status-tooltip-wrap ${inquiryStyles.phoneHide}`}>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm p-2"
@@ -1779,7 +1853,7 @@ const RfqManagementPreview = () => {
                     }
 
                     return (
-                      <span style={{ position: "relative", display: "inline-block" }} className={hasPendingTechEval ? "quote-status-tooltip-wrap" : ""}>
+                      <span style={{ position: "relative", display: "inline-block" }} className={`${hasPendingTechEval ? "quote-status-tooltip-wrap" : ""} ${inquiryStyles.phoneHide}`}>
                         <button
                           type="button"
                           className={`btn btn-sm p-2 ${
@@ -1818,21 +1892,10 @@ const RfqManagementPreview = () => {
                         <button
                           id="update_your_quote-rfq_header-inquiries_details_page"
                           type="button"
-                          className="btn btn-secondary btn-sm p-2 m-0 p-2"
+                          className={`btn btn-secondary btn-sm p-2 m-0 p-2 ${inquiryStyles.phoneHide}`}
                           style={{ width: "240px" }}
                           title={hasPendingTechEval ? "Answer the technical evaluation clauses, then submit your quote" : ""}
-                          onClick={() => {
-                            const rfqId = localId || id;
-                            if (!rfqId) {
-                              toast.error(`Unable to load ${getEntityLabel(rfqDetails?.is_tender)} details. Please refresh the page.`);
-                              return;
-                            }
-                            router.push(
-                              `/dashboard/vendor/quote?type=update-quote&id=${rfqId}${
-                                token !== undefined ? `&token=${token}` : ""
-                              }&showTechEvalRestrictions=${isReverseAuctionActive}`
-                            );
-                          }}
+                          onClick={goToUpdateQuote}
                         >
                           <>
                             <FontAwesomeIcon icon={isViewOnly ? faEye : faEdit} className="me-2" />
@@ -2517,7 +2580,7 @@ const RfqManagementPreview = () => {
                       <NoTechClausesBanner entityLabel={getEntityLabel(rfqDetails?.is_tender)} />
                     )}
 
-                    <div className="details-table">
+                    <div className={`details-table ${inquiryStyles.productsTable}`}>
                       {rfqDetails?.products?.length > 0 && (
                       <div className="table-responsive mb-3">
                         <table className="table table-striped" style={{ tableLayout: "auto", width: "100%" }}>
@@ -2986,7 +3049,7 @@ const RfqManagementPreview = () => {
                                             };
                                           });
                                           return (
-                                            <div className="mb-2 d-flex justify-content-end">
+                                            <div className={`mb-2 d-flex justify-content-end ${inquiryStyles.totalsWrap}`}>
                                               <GrandTotalBreakup
                                                 layout="3col"
                                                 totalBase={totalBase}
@@ -3249,6 +3312,28 @@ const RfqManagementPreview = () => {
             {<h1 className="heading">Tender / RFQ Not Available!</h1>}
           </div>
         </section>
+      )}
+      {vendorPhoneActions && (
+        <MobileActionBar
+          label="Quote actions"
+          summary={vendorPhoneActions.main?.reason ? <span className={inquiryStyles.barReason}>{vendorPhoneActions.main.reason}</span> : null}
+        >
+          {vendorPhoneActions.regret && (
+            <MobileActionButton variant="reject" onClick={vendorPhoneActions.regret.onClick}>
+              Regret
+            </MobileActionButton>
+          )}
+          {vendorPhoneActions.main && (
+            <MobileActionButton
+              variant={vendorPhoneActions.main.variant}
+              className={inquiryStyles.barMain}
+              onClick={vendorPhoneActions.main.onClick}
+              disabled={vendorPhoneActions.main.disabled}
+            >
+              {vendorPhoneActions.main.label}
+            </MobileActionButton>
+          )}
+        </MobileActionBar>
       )}
       <RegretQuoteReasonModal
         handleRegretReason={handleRegretQuote}

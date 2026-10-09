@@ -6,7 +6,9 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* viewport-fit=cover makes env(safe-area-inset-*) real on iOS, so
+            the phone decision bars clear the home indicator. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta
           name="keywords"
           content="procurement, tender, rfq, buyer, vendor"

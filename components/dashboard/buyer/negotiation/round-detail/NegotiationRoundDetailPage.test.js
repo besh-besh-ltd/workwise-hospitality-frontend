@@ -14,6 +14,12 @@ jest.mock("@/services/negotiation", () => ({
   getNegotiationRoundDetail: jest.fn(),
 }));
 
+// The phone action bar navigates with the next/router singleton.
+jest.mock("next/router", () => {
+  const push = jest.fn();
+  return { __esModule: true, default: { push }, useRouter: () => ({ push, query: {}, isReady: true }) };
+});
+
 jest.mock("react-chartjs-2", () => {
   const React = require("react");
   const calls = [];
@@ -1069,5 +1075,34 @@ describe("F5 — the deadline this page renders", () => {
     expect(creator).toHaveTextContent("Asha Menon");
     expect(creator).toHaveTextContent(/12 Aug 2026, 12:35 PM/);
     expect(creator.textContent).not.toMatch(/07:05/);
+  });
+});
+
+describe("phone — the approver's decision is one thumb away", () => {
+  const Router = require("next/router").default;
+  const phoneBar = () => screen.queryByRole("region", { name: "Negotiation round decision" });
+
+  afterEach(() => {
+    Router.push.mockClear();
+    document.body.classList.remove("has-mobile-action-bar");
+  });
+
+  it("offers 'Review & approve' to the approver it is waiting on, going where the hero button goes", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "PENDING", pendingCount: 2, pendingWith: OTHERS, canApprove: true })
+    );
+    // The bar portals to <body> once mounted (one effect tick after render).
+    const bar = await screen.findByRole("region", { name: "Negotiation round decision" });
+    expect(bar).toHaveTextContent("Round 7");
+    fireEvent.click(within(bar).getByRole("button", { name: /review & approve/i }));
+    expect(Router.push).toHaveBeenCalledWith(screen.getByTestId("action-approve").getAttribute("href"));
+    expect(Router.push.mock.calls[0][0]).toMatch(/\/dashboard\/buyer\/negotiation\/\d+\/approve$/);
+  });
+
+  it("renders no bar for someone who cannot approve (already approved, or not an approver)", async () => {
+    await renderPage(
+      mkAwaitingApproval({ myStatus: "APPROVED", pendingCount: 2, pendingWith: OTHERS })
+    );
+    expect(phoneBar()).not.toBeInTheDocument();
   });
 });

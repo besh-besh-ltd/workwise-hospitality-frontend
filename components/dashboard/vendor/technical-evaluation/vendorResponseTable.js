@@ -11,6 +11,7 @@ import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/shared/Loader";
 import ReadMore from "@/components/shared/ReadMore";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import phoneStyles from "./VendorResponseTable.module.scss";
 
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token, isBidExpired = false }) => {
@@ -379,6 +380,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
             <h3 className="fs-5 mb-3">
               <span className="fw-semibold">Action</span>
             </h3>
+            <div className={phoneStyles.scroller}>
             <table className="table table-bordered table-striped" >
               <thead>
                 <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
@@ -406,7 +408,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         }
                       </td>
                       <td>
-                        <span className="d-flex gap-2 text-nowrap">
+                        <span className={`d-flex gap-2 text-nowrap ${phoneStyles.responseBtns}`}>
                           <button
                             type="button"
                             className={`border border-success ${agreementMap.get(clauseItem.clause_id) == "I Agree" ? "bg-success text-white" : "bg-white text-success"} px-2 py-1 rounded-3`}
@@ -555,8 +557,9 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                 )}
               </tbody>
             </table>
+            </div>
 
-            {!isDisabled && <div className="d-flex justify-content-end">
+            {!isDisabled && <div className={`d-flex justify-content-end ${phoneStyles.submitRow}`}>
               <button
                 type="button"
                 className="btn btn-secondary border-0"

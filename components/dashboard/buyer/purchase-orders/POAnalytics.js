@@ -371,6 +371,11 @@ const POAnalytics = () => {
                     <div className={styles.barChart} style={{ gridTemplateColumns: `repeat(${spendTrend.length}, 1fr)` }}>
                       {spendTrend.map((s, i) => (
                         <div key={i} className={styles.barCol}>
+                          {/* Phones have no hover, so the value the desktop
+                              tooltip shows is printed above the bar there
+                              (display:none on desktop). Unit is in the card
+                              subtitle: ₹ lakh. */}
+                          <span className={styles.vShort}>{toLakh(s.value)}</span>
                           <div
                             className={`${styles.bar} ${s.current ? styles.barCurrent : ""}`}
                             style={{ height: `${barHeight(toLakh(s.value))}px` }}
@@ -538,6 +543,7 @@ const POAnalytics = () => {
                   <div className={styles.emptyMini}>No vendor spend data for this period.</div>
                 </div>
               ) : (
+                <div className={styles.rankScroll}>
                 <table className={styles.vendorRankTable}>
                   <thead>
                     <tr>
@@ -594,6 +600,7 @@ const POAnalytics = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
 

@@ -1812,3 +1812,41 @@
     flex-wrap: wrap;
   }
 }
+
+/* --- 16. Phone (<=768px) ---
+   The sticky clause column was a fixed 280px and every vendor column 200px
+   under table-layout:fixed: on a 390px phone the clause text filled the whole
+   visible width and no vendor score was on screen without scrolling. Shrink
+   the sticky column (clause text wraps) and the vendor columns so the first
+   vendor's score sits beside the clause. Desktop keeps 280/200. */
+@media (max-width: 768px) {
+  .scoringTable th,
+  .scoringTable td {
+    padding: 8px 10px;
+  }
+
+  .scoringTable th:first-child,
+  .scoringTable td:first-child {
+    width: 132px;
+    min-width: 132px;
+    max-width: 132px;
+    overflow-wrap: anywhere;
+  }
+
+  .vendorHeader {
+    width: 168px;
+    min-width: 168px;
+  }
+
+  .vendorScore {
+    font-size: 16px;
+  }
+
+  /* The approval's phone bar keeps its in-flow spacer inside the product
+     card, so the sections after the products (the "Approval Pending" banner)
+     ended under the fixed bar. Reserve the bar's height at the end of the
+     page while one is mounted. `.evalBody` has no desktop rules. */
+  :global(body.has-mobile-action-bar) .evalBody {
+    padding-bottom: calc(var(--mobile-action-bar-h, 76px) + env(safe-area-inset-bottom, 0px));
+  }
+}

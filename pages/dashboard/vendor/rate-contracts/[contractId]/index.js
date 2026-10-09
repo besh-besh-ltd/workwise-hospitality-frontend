@@ -14,6 +14,7 @@ import { useRouter } from "next/router";
 import { loadXlsx } from "@/utils/xlsx";
 import * as ArcApi from "@/services/arc_v2";
 import FulfilledByPanel, { FulfillingForNote, isFulfilmentMemberView } from "@/components/dashboard/vendor/network/ArcFulfilment";
+import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 
 // ── format helpers ───────────────────────────────────────────────────────
 const fmtL = (n) => {
@@ -308,7 +309,7 @@ export default function VendorContractDetailPage() {
   return (
     <main className="main-body">
       {/* Breadcrumb */}
-      <nav className="arc-crumb-strip" aria-label="Breadcrumb">
+      <nav className={`arc-crumb-strip ${phone.crumb}`} aria-label="Breadcrumb">
         <div className="inner">
           <button type="button" className="crumb-back" onClick={() => router.push("/dashboard/vendor/rate-contracts/active")}>
             <I.back /> Back
@@ -389,7 +390,7 @@ export default function VendorContractDetailPage() {
       </section>
 
       {/* ═════ KPI STRIP ═════ */}
-      <section className="stat-strip" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+      <section className={`stat-strip ${phone.statStrip}`} style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <div className="stat-card"><div className="s-ic indigo"><I.rupee /></div><div><div className="s-val mono">{fmtL(totals.committed)}</div><div className="s-label">Committed</div></div></div>
         <div className="stat-card"><div className="s-ic green"><I.activity /></div><div><div className="s-val mono">{fmtL(totals.consumed)}</div><div className="s-label">Consumed</div></div></div>
         <div className="stat-card"><div className="s-ic blue"><I.truck /></div><div><div className="s-val mono">{callOffs.length}</div><div className="s-label">Released POs</div></div></div>
@@ -1244,7 +1245,7 @@ function VendorAmendmentModalInner({ amendment, arc, lines, onClose, onSign, onD
 function DetailSkeleton() {
   return (
     <main className="main-body">
-      <nav className="arc-crumb-strip" aria-hidden="true">
+      <nav className={`arc-crumb-strip ${phone.crumb}`} aria-hidden="true">
         <div className="inner">
           <Sk w={60} h={14} /><span className="sep">/</span><Sk w={110} h={14} /><span className="sep">/</span><Sk w={120} h={14} />
         </div>

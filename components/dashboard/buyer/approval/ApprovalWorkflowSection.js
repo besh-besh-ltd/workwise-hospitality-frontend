@@ -17,6 +17,8 @@ import ApprovalActionModal from "./ApprovalActionModal";
 import SelectedQuotesDisplay from "../negotiation/SelectedQuotesDisplay";
 import TechEvalVendorStatusDisplay from "../technical-evaluation/TechEvalVendorStatusDisplay";
 import useIsMobile from "@/hooks/useIsMobile";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
+import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
 
 // Surfaces the comment the finalizer typed in the Finalize Vendor modal so
 // the approver sees the rationale alongside the request.
@@ -695,57 +697,13 @@ const ApprovalWorkflowSection = ({
         .aws-btn-reject {
           background: linear-gradient(135deg, #dc3545 0%, #e8606d 100%);
         }
-        .aws-mobile-sticky {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 1050;
-          padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
-          background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(248,250,252,0.88) 16%, #f8fafc 100%);
-          backdrop-filter: blur(8px);
-        }
-        .aws-mobile-sticky-inner {
-          max-width: 100%;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 16px;
-          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
-          padding: 10px;
-        }
-        .aws-mobile-sticky-copy {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-        .aws-mobile-sticky-kicker {
-          font-size: 0.64rem;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.62);
-        }
-        .aws-mobile-sticky-label {
-          font-size: 0.76rem;
-          font-weight: 600;
-          color: #ffffff;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .aws-mobile-sticky-actions {
-          display: flex;
-          gap: 8px;
-        }
-        .aws-mobile-sticky-actions .aws-action-btn {
-          flex: 1;
-          justify-content: center;
-          padding: 10px 12px;
-          border-radius: 10px;
-          font-size: 0.8rem;
-          box-shadow: none;
+        /* Host of the phone decision bar. The bar itself is portalled to
+           <body>; the only thing left in here is MobileActionBar's in-flow
+           spacer, which would open a gap mid-page (this section is not the
+           end of the page). The page that opts into showMobileStickyActions
+           reserves the bar's room at its own bottom instead. */
+        .aws-mobile-bar-host {
+          display: none;
         }
         @media (max-width: 768px) {
           .aws-card {
@@ -1191,36 +1149,34 @@ const ApprovalWorkflowSection = ({
       </div>
 
       {shouldUseMobileStickyActions && (
-        <div className="aws-mobile-sticky">
-          <div className="aws-mobile-sticky-inner">
-            <div className="aws-mobile-sticky-copy">
-              <div style={{ minWidth: 0 }}>
-                <div className="aws-mobile-sticky-kicker">Approval Workflow</div>
-                <div className="aws-mobile-sticky-label">{entityLabel}</div>
-              </div>
-              <Badge bg="warning" style={{ fontSize: "0.68rem", fontWeight: 700, padding: "6px 8px", color: "#111827", border: "1px solid rgba(17,24,39,0.08)" }}>
-                Step {currentStep}/{totalSteps || currentStep}
-              </Badge>
-            </div>
-            <div className="aws-mobile-sticky-actions">
-              <button
-                className="aws-action-btn aws-btn-approve"
-                onClick={() => openActionModal("APPROVE")}
-                disabled={actionLoading || localActionLoading}
-              >
-                <BsShieldCheck size={14} />
-                Approve
-              </button>
-              <button
-                className="aws-action-btn aws-btn-reject"
-                onClick={() => openActionModal("REJECT")}
-                disabled={actionLoading || localActionLoading}
-              >
-                <BsShieldX size={14} />
-                Reject
-              </button>
-            </div>
-          </div>
+        <div className="aws-mobile-bar-host">
+          <MobileActionBar
+            label="Approval workflow"
+            summary={
+              <>
+                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entityLabel}</span>
+                <strong style={{ flexShrink: 0, fontSize: 13 }}>Step {currentStep}/{totalSteps || currentStep}</strong>
+              </>
+            }
+          >
+            <MobileActionButton
+              variant="reject"
+              onClick={() => openActionModal("REJECT")}
+              disabled={actionLoading || localActionLoading}
+            >
+              <BsShieldX size={15} />
+              Reject
+            </MobileActionButton>
+            <MobileActionButton
+              variant="approve"
+              className={mobileBarStyles.wide}
+              onClick={() => openActionModal("APPROVE")}
+              disabled={actionLoading || localActionLoading}
+            >
+              <BsShieldCheck size={15} />
+              Approve
+            </MobileActionButton>
+          </MobileActionBar>
         </div>
       )}
 

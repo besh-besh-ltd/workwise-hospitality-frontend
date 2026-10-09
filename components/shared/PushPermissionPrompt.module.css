@@ -108,3 +108,11 @@
 .btnPrimary:hover { background: #000000; }
 .btnPrimary:disabled { opacity: 0.6; cursor: default; }
 .btnPrimary:disabled:hover { background: #18181b; }
+
+/* Never cover a phone decision bar (see MobileActionBar); the prompt
+   comes back on pages without one. */
+@media (max-width: 768px) {
+  :global(body.has-mobile-action-bar) .card {
+    display: none;
+  }
+}

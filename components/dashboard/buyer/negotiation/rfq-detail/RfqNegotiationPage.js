@@ -23,6 +23,7 @@ import { negStateHeaderLabel, negStatePresentation } from "../round-detail/negot
 import { formatNegotiationDeadline } from "@/utils/negotiationTime";
 import StateStrip from "../list/StateStrip";
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
+import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import {
   ROLL_UP_TOOLTIP,
   asArray,
@@ -216,6 +217,7 @@ function RoundsTable({ rounds, rfqId }) {
 /* ── page ─────────────────────────────────────────────────────────────────── */
 
 export default function RfqNegotiationPage({ rfqId }) {
+  const router = useRouter();
   const parentKey = rfqId != null ? `RFQ:${rfqId}` : null;
 
   const [parent, setParent] = useState(null);
@@ -505,6 +507,29 @@ export default function RfqNegotiationPage({ rfqId }) {
           </span>
           <button type="button" className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>›</button>
         </div>
+      )}
+
+      {/* Phone only (<=768px): the round waiting on this user, one thumb away
+          instead of a row in a sideways-scrolling table. Same destination as
+          the row and the "Needs you" tile. */}
+      {mineOnPage && (
+        <MobileActionBar
+          label="Round awaiting your approval"
+          summary={
+            <>
+              <strong>Round {mineOnPage.round_number || mineOnPage.stored_round_number || 1}</strong>
+              <span>{mineOnPage.action_label || "Needs your approval"}</span>
+            </>
+          }
+        >
+          <MobileActionButton
+            variant="approve"
+            data-testid="mobile-review-approve"
+            onClick={() => router.push(destinationFor(mineOnPage, rfqId))}
+          >
+            Review &amp; approve
+          </MobileActionButton>
+        </MobileActionBar>
       )}
     </main>
   );

@@ -1270,7 +1270,8 @@
   animation: popoverIn 0.12s ease;
 }
 
-.buBadge:hover .buTooltip {
+.buBadge:hover .buTooltip,
+.buBadge:focus-within .buTooltip {
   display: block;
 }
 
@@ -2035,6 +2036,9 @@
   width: 86vw;
   max-width: 300px;
   height: 100vh;
+  /* dvh tracks the iOS Safari toolbar so the drawer footer (Password /
+     Logout) is never hidden underneath it. */
+  height: 100dvh;
   background: #ffffff;
   z-index: 1080;
   display: flex;
@@ -2064,6 +2068,9 @@
   width: 86vw;
   max-width: 300px;
   height: 100vh;
+  /* dvh tracks the iOS Safari toolbar so the drawer footer (Password /
+     Logout) is never hidden underneath it. */
+  height: 100dvh;
   background: #ffffff;
   z-index: 1080;
   display: flex;
@@ -2333,13 +2340,26 @@
   }
 }
 
-/* Phones: the top bar ran ~28px past a 390px viewport. Let the right cluster
-   shrink, tighten gaps and keep only the BU icon + count (the full list stays
-   in the hover tooltip). */
-@media (max-width: 480px) {
+/* ── Phone (≤576px) ─────────────────────────────
+   The top bar has to fit a 360-390px screen. The left block drops its
+   fixed 248px desktop width, the right cluster may shrink, and the three
+   labelled chips (Business Units, vendor subscription, "Select RFQ") go
+   icon-only; each keeps its aria-label so the meaning isn't lost. The
+   notification popover is anchored to the viewport instead of the bell,
+   which sits ~50px from the right edge and pushed a 343px panel past the
+   left edge. (Supersedes main's narrower ≤480px top-bar rule.) */
+@media (max-width: 576px) {
   .topBar {
     gap: 8px;
-    padding-right: 8px;
+    padding-right: 10px;
+  }
+
+  .topBarLeft {
+    width: auto;
+    min-width: 0;
+    flex-shrink: 1;
+    gap: 6px;
+    padding-left: 6px;
   }
 
   .topBarRight {
@@ -2348,8 +2368,29 @@
     min-width: 0;
   }
 
-  .buBadgeLabel {
+  .topBarLogoImg {
+    height: 18px;
+  }
+
+  .buBadgeLabel,
+  .subPillLabel,
+  .mobileRfqToggleLabel {
     display: none;
+  }
+
+  .mobileRfqToggle {
+    padding: 0 10px;
+    min-height: 36px;
+  }
+
+  .notifPopover {
+    position: fixed;
+    top: 62px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 80px);
   }
 }
 
