@@ -9,11 +9,11 @@ import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
 import FulfilledByPanel, { FulfillingForNote } from "@/components/dashboard/vendor/network/ArcFulfilment";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
+import { escapeHtml } from "@/utils/escapeHtml";
 
 // ---------------- helpers ----------------
 // HTML-escapes a value interpolated into the document.write preview below.
-const esc = (v) =>
-  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const esc = escapeHtml;
 
 const fmtINR = (n) => {
   const v = Number(n || 0);
