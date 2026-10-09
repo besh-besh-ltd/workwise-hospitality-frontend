@@ -8,6 +8,7 @@ import { refreshNetworkProfile, useNetworkProfile } from "./networkProfile";
 import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
 import { RELATIONSHIP_LABEL, fmtDate } from "./networkFormat";
+import NetworkModal from "./NetworkModal";
 
 // The shared reason messages are written for an admin sending an invite; here
 // the reader is the vendor answering one.
@@ -97,8 +98,69 @@ export function useIncomingLinkInvites({ onAccepted } = {}) {
   };
 }
 
-/** One card per invitation, with Accept / Decline. */
+/**
+ * Joining hands the inviting org's admins full control of this account, so
+ * Accept never acts in one click: it opens this dialog, which says so plainly
+ * and names who is asking (security audit M2). The company name and GSTIN are
+ * shown when the invitation carries them; otherwise only the network name.
+ */
+export function AcceptLinkInviteDialog({ invite, busy, onConfirm, onCancel }) {
+  const company = invite.principal_company_name || invite.org_name;
+  const gstin = invite.principal_gstin;
+  return (
+    <NetworkModal
+      title={`Join ${invite.org_name}?`}
+      onClose={onCancel}
+      busy={busy}
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-blue" onClick={onConfirm} disabled={busy}>
+            Accept and join
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
+        <div
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "10px 12px",
+          }}
+        >
+          <div style={{ color: "var(--fg)" }}>
+            Invited by <strong>{company}</strong>
+          </div>
+          {gstin && <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 2 }}>GSTIN {gstin}</div>}
+        </div>
+        <p style={{ margin: 0 }}>
+          <strong style={{ color: "var(--fg)" }}>
+            Every admin of {invite.org_name} will be able to act fully as this account.
+          </strong>{" "}
+          They can send quotes, accept or reject purchase orders, sign rate contracts and edit your
+          profile in your name, and see this account&apos;s full history.
+        </p>
+        <p style={{ margin: 0 }}>Only accept if you know this company and trust its admins.</p>
+      </div>
+    </NetworkModal>
+  );
+}
+
+/** One card per invitation, with Accept (behind a confirmation) / Decline. */
 export function IncomingInviteCards({ invites, busyId, onAccept, onDecline }) {
+  const [confirming, setConfirming] = useState(null);
+  const confirmAccept = async () => {
+    const invite = confirming;
+    try {
+      await onAccept(invite);
+    } finally {
+      setConfirming(null);
+    }
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {invites.map((invite) => {
@@ -128,7 +190,7 @@ export function IncomingInviteCards({ invites, busyId, onAccept, onDecline }) {
                   <strong>{invite.org_name}</strong> invited you to join its vendor network as a {relationship}.
                 </div>
                 <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-                  Its admins will be able to route enquiries to you and see your orders. Expires {fmtDate(invite.expires_at)}.
+                  If you join, its admins can act fully as this account. Expires {fmtDate(invite.expires_at)}.
                 </div>
               </div>
             </div>
@@ -136,13 +198,21 @@ export function IncomingInviteCards({ invites, busyId, onAccept, onDecline }) {
               <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onDecline(invite)}>
                 Decline
               </button>
-              <button type="button" className="btn btn-blue btn-sm" disabled={busy} onClick={() => onAccept(invite)}>
+              <button type="button" className="btn btn-blue btn-sm" disabled={busy} onClick={() => setConfirming(invite)}>
                 Accept
               </button>
             </div>
           </div>
         );
       })}
+      {confirming && (
+        <AcceptLinkInviteDialog
+          invite={confirming}
+          busy={busyId === confirming.id}
+          onConfirm={confirmAccept}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
     </div>
   );
 }

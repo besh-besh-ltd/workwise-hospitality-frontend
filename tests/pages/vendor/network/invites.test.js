@@ -86,6 +86,7 @@ test("accepting refetches the profile, then goes to the network overview", async
   const store = renderWith(SOLO);
 
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Accept and join" }));
   await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/vendor/network"));
   expect(acceptLinkInvite).toHaveBeenCalledWith(91);
   expect(getProfile).toHaveBeenCalledTimes(1);
@@ -111,9 +112,21 @@ test("a 409 on accept is worded for the accepting vendor and does not navigate",
   });
   renderWith(SOLO);
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Accept and join" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("You already belong to a network."));
   expect(mockPush).not.toHaveBeenCalled();
-  expect(screen.getByText("Daikin India")).toBeInTheDocument();
+  expect(screen.getAllByText("Daikin India").length).toBeGreaterThan(0);
+});
+
+test("accepting asks for confirmation first; cancelling joins nothing", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  expect(await screen.findByRole("dialog")).toHaveTextContent("Every admin of Daikin India will be able to act fully as this account");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(acceptLinkInvite).not.toHaveBeenCalled();
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
 test("an HQ (IS_PRINCIPAL) is told it cannot join another network", async () => {
@@ -123,6 +136,7 @@ test("an HQ (IS_PRINCIPAL) is told it cannot join another network", async () => 
   });
   renderWith(SOLO);
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Accept and join" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("A network HQ cannot join another network."));
 });
 

@@ -90,6 +90,7 @@ test("accepting joins, refetches the profile and hides the banner", async () => 
   const store = renderWith(SOLO);
 
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Accept and join" }));
   await waitFor(() => expect(acceptLinkInvite).toHaveBeenCalledWith(91));
   await waitFor(() => expect(getProfile).toHaveBeenCalledTimes(1));
   expect(toast.success).toHaveBeenCalledWith("You have joined the network");
@@ -114,8 +115,55 @@ test("a 409 on accept shows the server's message and keeps the invitation", asyn
   });
   renderWith(SOLO);
   fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Accept and join" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This invitation is already cancelled"));
+  expect(screen.getAllByText("Daikin India").length).toBeGreaterThan(0);
+});
+
+// Security audit M2: one click used to hand every admin of the inviting org full
+// control of this account. Accept now opens a confirmation that says so plainly.
+test("Accept first opens a confirmation stating the admins can act fully as this account", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(acceptLinkInvite).not.toHaveBeenCalled();
+  expect(dialog).toHaveTextContent("Every admin of Daikin India will be able to act fully as this account");
+  expect(dialog).toHaveTextContent(/send quotes/);
+  expect(dialog).toHaveTextContent(/accept or reject purchase orders/);
+  expect(dialog).toHaveTextContent(/sign rate contracts/);
+  expect(dialog).toHaveTextContent(/see this account's full history/);
+});
+
+test("cancelling the confirmation does not join", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(acceptLinkInvite).not.toHaveBeenCalled();
   expect(screen.getByText("Daikin India")).toBeInTheDocument();
+});
+
+test("the confirmation names the inviting company and its GSTIN when the invitation carries them", async () => {
+  listIncomingLinkInvites.mockResolvedValue({
+    status: 1,
+    data: [{ ...INVITE, principal_company_name: "Daikin Airconditioning India Pvt Ltd", principal_gstin: "07AAACD1234F1Z5" }],
+  });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Daikin Airconditioning India Pvt Ltd");
+  expect(dialog).toHaveTextContent("GSTIN 07AAACD1234F1Z5");
+});
+
+test("without a company name or GSTIN the confirmation names the network only", async () => {
+  listIncomingLinkInvites.mockResolvedValue({ status: 1, data: [INVITE] });
+  renderWith(SOLO);
+  fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Invited by Daikin India");
+  expect(dialog).not.toHaveTextContent("GSTIN");
 });
 
 test("the vendor dashboard home renders the banner", async () => {
