@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getNetworkDashboardContracts } from "@/services/vendorNetwork";
 import { networkErrorMessage } from "./networkErrors";
 import { Pager } from "./networkFormat";
@@ -37,23 +37,32 @@ export default function NetworkContractsMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  // Only the latest request may set state: a slow earlier page is dropped.
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const id = ++latest.current;
     setLoading(true);
     setError("");
     try {
       const res = await getNetworkDashboardContracts({ page, page_size: PAGE_SIZE });
+      if (id !== latest.current) return;
       setData(res?.data || { items: [], total: 0 });
     } catch (err) {
+      if (id !== latest.current) return;
       setError(networkErrorMessage(err, "Could not load the network's contracts."));
     } finally {
-      setLoading(false);
+      if (id === latest.current) setLoading(false);
     }
   }, [page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => () => {
+    latest.current += 1; // unmounted: drop whatever is in flight
+  }, []);
 
   const items = data?.items || [];
 
@@ -132,7 +141,6 @@ export default function NetworkContractsMap() {
             pageSize={data?.page_size || PAGE_SIZE}
             total={data?.total || 0}
             onPage={setPage}
-            disabled={loading}
           />
         </>
       )}

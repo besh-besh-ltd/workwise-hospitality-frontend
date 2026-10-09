@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getNetworkDashboardPos } from "@/services/vendorNetwork";
 import { vendorStatusLabel } from "@/components/dashboard/vendor/purchase-orders/vendorPoStatus";
 import { networkErrorMessage } from "./networkErrors";
@@ -22,25 +22,57 @@ export default function NetworkPoTable({ entities = [] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  // Entities met in PO rows (a REMOVED entity keeps its POs but is not in the summary).
+  const [seen, setSeen] = useState(() => new Map());
+  // Only the latest request may set state: a slow earlier page or filter is dropped.
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const id = ++latest.current;
     setLoading(true);
     setError("");
     try {
       const params = { page, page_size: PAGE_SIZE };
       if (entityId) params.entity_vendor_id = Number(entityId);
       const res = await getNetworkDashboardPos(params);
-      setData(res?.data || { items: [], total: 0 });
+      if (id !== latest.current) return;
+      const next = res?.data || { items: [], total: 0 };
+      setData(next);
+      setSeen((prev) => {
+        const fresh = (next.items || []).filter((p) => p.entity_vendor_id != null && !prev.has(Number(p.entity_vendor_id)));
+        if (!fresh.length) return prev;
+        const map = new Map(prev);
+        fresh.forEach((p) => map.set(Number(p.entity_vendor_id), p.entity_name));
+        return map;
+      });
     } catch (err) {
+      if (id !== latest.current) return;
       setError(networkErrorMessage(err, "Could not load the network's purchase orders."));
     } finally {
-      setLoading(false);
+      if (id === latest.current) setLoading(false);
     }
   }, [page, entityId]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => () => {
+    latest.current += 1; // unmounted: drop whatever is in flight
+  }, []);
+
+  // The summary's entities, then any entity seen only in PO rows; REMOVED ones say so.
+  const entityOptions = useMemo(() => {
+    const options = entities.map((e) => ({
+      id: Number(e.vendor_id),
+      label: e.status === "REMOVED" ? `${e.name} (removed)` : e.name,
+    }));
+    const known = new Set(options.map((o) => o.id));
+    for (const [id, name] of seen) {
+      if (!known.has(id)) options.push({ id, label: `${name || `Entity #${id}`} (removed)` });
+    }
+    return options;
+  }, [entities, seen]);
 
   const items = data?.items || [];
 
@@ -64,9 +96,9 @@ export default function NetworkPoTable({ entities = [] }) {
             }}
           >
             <option value="">All entities</option>
-            {entities.map((e) => (
-              <option key={e.vendor_id} value={String(e.vendor_id)}>
-                {e.name}
+            {entityOptions.map((o) => (
+              <option key={o.id} value={String(o.id)}>
+                {o.label}
               </option>
             ))}
           </select>
@@ -130,7 +162,6 @@ export default function NetworkPoTable({ entities = [] }) {
             pageSize={data?.page_size || PAGE_SIZE}
             total={data?.total || 0}
             onPage={setPage}
-            disabled={loading}
           />
         </>
       )}

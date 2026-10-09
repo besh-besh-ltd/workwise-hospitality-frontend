@@ -27,7 +27,7 @@ jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () 
 import React from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import reducer, { setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
@@ -323,7 +323,86 @@ describe("network purchase orders", () => {
   });
 });
 
+// Review fix round 1: only the latest request may set the table.
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((r) => { resolve = r; });
+  return { promise, resolve };
+};
+
+describe("network purchase orders: stale responses and removed entities", () => {
+  test("a slow earlier response never overwrites the newer filter's rows", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    const first = deferred();
+    const second = deferred();
+    getNetworkDashboardPos.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    fireEvent.change(await screen.findByLabelText("Entity"), { target: { value: "11" } });
+    await waitFor(() => expect(getNetworkDashboardPos).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      second.resolve({ status: 1, data: { items: [po({ po_number: "PO-UP" })], page: 1, page_size: 10, total: 1 } });
+    });
+    expect(await screen.findByText("PO-UP")).toBeInTheDocument();
+    await act(async () => {
+      first.resolve({ status: 1, data: { items: [po({ id: 9, po_number: "PO-ALL" })], page: 1, page_size: 10, total: 1 } });
+    });
+    expect(screen.queryByText("PO-ALL")).toBeNull();
+    expect(screen.getByText("PO-UP")).toBeInTheDocument();
+  });
+
+  test("a removed entity seen in the PO rows joins the filter, labelled (removed)", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardPos.mockResolvedValue({
+      status: 1,
+      data: { items: [po({ id: 5, po_number: "PO-OLD", entity_vendor_id: 44, entity_name: "Old Dealer" })], page: 1, page_size: 10, total: 1 },
+    });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    await screen.findByText("PO-OLD");
+    const select = screen.getByLabelText("Entity");
+    expect(within(select).getByRole("option", { name: "Old Dealer (removed)" })).toHaveValue("44");
+    expect(within(select).getByRole("option", { name: "Daikin UP" })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "44" } });
+    await waitFor(() => expect(getNetworkDashboardPos).toHaveBeenLastCalledWith({ page: 1, page_size: 10, entity_vendor_id: 44 }));
+  });
+
+  test("a summary entity with status REMOVED is labelled (removed)", async () => {
+    const data = JSON.parse(JSON.stringify(summary.data));
+    data.entities.push({ vendor_id: 45, name: "Gone Branch", relationship: "BRANCH", status: "REMOVED", seat: null, live_assignments: 0, open_pos: 0 });
+    getNetworkDashboardSummary.mockResolvedValue({ status: 1, data });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    const select = await screen.findByLabelText("Entity");
+    expect(within(select).getByRole("option", { name: "Gone Branch (removed)" })).toBeInTheDocument();
+  });
+});
+
 describe("network contracts", () => {
+  test("a slow earlier page never overwrites the newer page", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    const contract = (n) => ({ contract_id: n, arc_id: n, arc_number: `ARC-${n}`, title: "T", status: "active", is_group: false, hotels: [] });
+    const first = deferred();
+    const second = deferred();
+    getNetworkDashboardContracts
+      .mockResolvedValueOnce({ status: 1, data: { items: [contract(1)], page: 1, page_size: 10, total: 25 } })
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    const pager = await screen.findByRole("navigation", { name: "Contract pages" });
+    fireEvent.click(within(pager).getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(getNetworkDashboardContracts).toHaveBeenCalledTimes(2));
+    fireEvent.click(within(pager).getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(getNetworkDashboardContracts).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      second.resolve({ status: 1, data: { items: [contract(3)], page: 3, page_size: 10, total: 25 } });
+    });
+    expect(await screen.findByText("ARC-3")).toBeInTheDocument();
+    await act(async () => {
+      first.resolve({ status: 1, data: { items: [contract(2)], page: 2, page_size: 10, total: 25 } });
+    });
+    expect(screen.queryByText("ARC-2")).toBeNull();
+    expect(screen.getByText("ARC-3")).toBeInTheDocument();
+  });
+
   test("maps each contract to its hotels and the entity fulfilling each", async () => {
     getNetworkDashboardSummary.mockResolvedValue(summary);
     getNetworkDashboardContracts.mockResolvedValue({
