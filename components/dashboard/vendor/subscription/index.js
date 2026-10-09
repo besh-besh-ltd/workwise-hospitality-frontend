@@ -24,6 +24,7 @@ import OpenRfqsModal from "./OpenRfqsModal";
 import SubscriptionErrorModal from "./SubscriptionErrorModal";
 import EmptyState from "./EmptyState";
 import NetworkCoveredState from "./NetworkCoveredState";
+import LeaveNetworkCard from "@/components/dashboard/vendor/network/LeaveNetworkCard";
 import { hasRemovals } from "./previewRemovals";
 import { getApiErrorMessage, getApiErrorData } from "@/utils/apiError";
 import styles from "./Subscription.module.css";
@@ -237,7 +238,10 @@ const SubscriptionPage = () => {
           </div>
 
           {networkCoverage ? (
-            <NetworkCoveredState coverage={networkCoverage} />
+            <>
+              <NetworkCoveredState coverage={networkCoverage} />
+              <LeaveNetworkCard />
+            </>
           ) : isNone ? (
             <EmptyState />
           ) : (
