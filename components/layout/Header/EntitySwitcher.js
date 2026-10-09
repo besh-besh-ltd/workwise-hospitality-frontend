@@ -2,13 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { ArrowLeftRight, Check, ChevronDown } from "lucide-react";
-import { switchEntity } from "@/services/vendorNetwork";
-import { getProfileAs } from "@/services/Auth";
-import { setUserProfile } from "@/redux/slice";
-import { persistor } from "@/redux/store";
-import storageInstance from "@/utils/storageInstance";
-import { hardNavigate } from "@/utils/hardNavigate";
-import { markEntitySwitchDone } from "@/utils/sessionSync";
+import { switchActingEntity } from "./switchActingEntity";
 // Narrow-screen rules for the top bar live with it (entitySwitcherText, entityStaticLabel).
 import shellStyles from "@/components/layout/DashboardShell/DashboardShell.module.css";
 
@@ -31,15 +25,8 @@ const RELATIONSHIP_LABEL = {
  * chosen entity, then does a HARD navigation to the vendor dashboard: every page
  * state and entity-scoped cache starts over, and the fresh page load opens the
  * realtime socket with the new token (the server joins `user:<entity>` at
- * handshake).
- *
- * Order matters across tabs: every tab reads the one shared `token`. So the new
- * entity's profile (its `id` is now the new acting entity) is fetched WITH the
- * new token in an explicit header while the stored token is still the old one.
- * Only then are token, profile (flushed) and the done signal written back to
- * back. A failed fetch leaves storage untouched; a failed flush puts the
- * previous token and profile back. The session is never half-switched (server
- * acting as B, UI showing A).
+ * handshake). The switch itself (and its cross-tab ordering) is
+ * switchActingEntity, shared with the network pages' "Act as".
  */
 const EntitySwitcher = () => {
   const dispatch = useDispatch();
@@ -115,46 +102,11 @@ const EntitySwitcher = () => {
     setOpen(false);
     if (switching || Number(vendorId) === actingId) return;
     setSwitching(true);
-    const fail = (message = "Could not switch entity. Please try again.") => {
-      toast.error(message);
+    const result = await switchActingEntity({ vendorId, profile, dispatch });
+    if (!result.ok) {
+      toast.error(result.message);
       setSwitching(false);
-    };
-    let token;
-    let newProfile;
-    try {
-      const res = await switchEntity(Number(vendorId));
-      token = res?.data?.token;
-      if (!token) throw new Error("No token");
-    } catch (err) {
-      fail(err?.response?.data?.message);
-      return;
     }
-    try {
-      // The stored token is still the old one: other tabs keep acting as it.
-      newProfile = (await getProfileAs(token))?.data;
-      if (!newProfile) throw new Error("No profile");
-    } catch (_) {
-      fail();
-      return;
-    }
-    const previousToken = storageInstance.getStorage("token");
-    try {
-      storageInstance.setStorage("token", token);
-      dispatch(setUserProfile(newProfile));
-      await persistor.flush();
-    } catch (_) {
-      // Roll back: keep acting as the entity the UI still shows.
-      if (previousToken) storageInstance.setStorage("token", previousToken);
-      else storageInstance.removeStorege("token");
-      dispatch(setUserProfile(profile));
-      try { await persistor.flush(); } catch (_) {}
-      fail();
-      return;
-    }
-    // Only now tell other tabs. If the signal cannot be written (storage blocked),
-    // this tab still moves on: its token and profile are already the new entity's.
-    try { markEntitySwitchDone(); } catch (_) {}
-    hardNavigate("/dashboard/vendor");
   };
 
   // ArrowUp/ArrowDown move focus between entities; Enter picks the focused one.

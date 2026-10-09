@@ -8,8 +8,13 @@ jest.mock("@/services/vendorNetwork", () => ({
   __esModule: true,
   createOrg: jest.fn(),
   getNetworkDashboardSummary: jest.fn(),
+  getNetworkDashboardPos: jest.fn(),
+  getNetworkDashboardContracts: jest.fn(),
+  switchEntity: jest.fn(),
 }));
-jest.mock("@/services/Auth", () => ({ __esModule: true, getProfile: jest.fn() }));
+jest.mock("@/services/Auth", () => ({ __esModule: true, getProfile: jest.fn(), getProfileAs: jest.fn() }));
+const mockHardNavigate = jest.fn();
+jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardNavigate: (...a) => mockHardNavigate(...a) }));
 jest.mock("@/redux/store", () => ({ __esModule: true, persistor: { flush: jest.fn(() => Promise.resolve()) } }));
 jest.mock("react-toastify", () => ({
   __esModule: true,
@@ -26,8 +31,14 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import reducer, { setUserProfile, setNetworkProfileRefreshSettled } from "@/redux/slice";
-import { createOrg, getNetworkDashboardSummary } from "@/services/vendorNetwork";
-import { getProfile } from "@/services/Auth";
+import {
+  createOrg,
+  getNetworkDashboardSummary,
+  getNetworkDashboardPos,
+  getNetworkDashboardContracts,
+  switchEntity,
+} from "@/services/vendorNetwork";
+import { getProfile, getProfileAs } from "@/services/Auth";
 import NetworkOverviewPage from "@/pages/dashboard/vendor/network/index";
 
 const adminNetwork = {
@@ -80,9 +91,13 @@ const renderWith = (profile) => {
   return store;
 };
 
+const EMPTY_PAGE = { status: 1, data: { items: [], page: 1, page_size: 10, total: 0 } };
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGuest = false;
+  getNetworkDashboardPos.mockResolvedValue(EMPTY_PAGE);
+  getNetworkDashboardContracts.mockResolvedValue(EMPTY_PAGE);
 });
 
 test("a vendor in no network sees the set-up form and no dashboard call", () => {
@@ -104,7 +119,8 @@ test("setting up a network posts the name, refetches the profile and loads the d
   await waitFor(() => expect(createOrg).toHaveBeenCalledWith({ name: "Daikin India" }));
   await waitFor(() => expect(getProfile).toHaveBeenCalledTimes(1));
   expect(toast.success).toHaveBeenCalledWith("Network created");
-  expect(await screen.findByText("Daikin UP")).toBeInTheDocument();
+  const table = await screen.findByRole("table", { name: "Network entities" });
+  expect(within(table).getByText("Daikin UP")).toBeInTheDocument();
   expect(store.getState().userProfile.network.role).toBe("ORG_ADMIN");
   expect(getNetworkDashboardSummary).toHaveBeenCalledTimes(1);
 });
@@ -222,4 +238,183 @@ test("once the legacy refetch has settled (e.g. failed), an absent network key r
   expect(screen.getByLabelText("Network name")).toBeInTheDocument();
   // Rendering only: the stored profile keeps its missing key, so the next load refetches.
   expect("network" in store.getState().userProfile).toBe(false);
+});
+
+// ── Scope audit #2: §8 HQ dashboard — the network's POs, its contracts' per-hotel
+// fulfilment, and "Act as" on each entity.
+
+const po = (over) => ({
+  id: 1,
+  po_number: "PO-1001",
+  entity_vendor_id: 11,
+  entity_name: "Daikin UP",
+  hotel_name: "Goa Resort",
+  status: "approved",
+  amount: 125000,
+  created_at: "2026-10-01T10:00:00Z",
+  is_call_off: false,
+  ...over,
+});
+
+describe("network purchase orders", () => {
+  test("lists PO, entity, hotel, value, status and date", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardPos.mockResolvedValue({
+      status: 1,
+      data: { items: [po({}), po({ id: 2, po_number: "PO-1002", entity_vendor_id: 10, entity_name: "Daikin HQ", hotel_name: null, status: "sent", is_call_off: true })], page: 1, page_size: 10, total: 2 },
+    });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+
+    const table = await screen.findByRole("table", { name: "Network purchase orders" });
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toEqual(["PO", "Entity", "Hotel", "Value", "Status", "Date"]);
+    const first = within(table).getByText("PO-1001").closest("tr");
+    expect(first).toHaveTextContent("Daikin UP");
+    expect(first).toHaveTextContent("Goa Resort");
+    expect(first).toHaveTextContent("₹1,25,000");
+    expect(first).toHaveTextContent("Accepted");
+    expect(first).toHaveTextContent("01 Oct 2026");
+    const second = within(table).getByText("PO-1002").closest("tr");
+    expect(second).toHaveTextContent("Awaiting supplier acceptance");
+    expect(second).toHaveTextContent("Call-off");
+    expect(getNetworkDashboardPos).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+  });
+
+  test("filters by entity and pages through the results", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardPos.mockResolvedValue({ status: 1, data: { items: [po({})], page: 1, page_size: 10, total: 23 } });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    await screen.findByRole("table", { name: "Network purchase orders" });
+
+    fireEvent.change(screen.getByLabelText("Entity"), { target: { value: "11" } });
+    await waitFor(() => expect(getNetworkDashboardPos).toHaveBeenLastCalledWith({ page: 1, page_size: 10, entity_vendor_id: 11 }));
+
+    const pager = await screen.findByRole("navigation", { name: "Purchase order pages" });
+    expect(pager).toHaveTextContent("Page 1 of 3");
+    fireEvent.click(within(pager).getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(getNetworkDashboardPos).toHaveBeenLastCalledWith({ page: 2, page_size: 10, entity_vendor_id: 11 }));
+  });
+
+  test("an empty network says so", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    expect(await screen.findByText("No purchase orders in the network yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Network purchase orders" })).toBeNull();
+  });
+
+  test("a failed load shows the error and Retry reloads", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardPos.mockRejectedValueOnce({ response: { status: 500, data: { status: 0, message: "PO list is down" } } });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    const card = (await screen.findByText("PO list is down")).closest(".section-card");
+    getNetworkDashboardPos.mockResolvedValueOnce({ status: 1, data: { items: [po({})], page: 1, page_size: 10, total: 1 } });
+    fireEvent.click(within(card).getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("PO-1001")).toBeInTheDocument();
+  });
+
+  test("shows a loading state while the first page loads", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardPos.mockReturnValue(new Promise(() => {}));
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    expect(await screen.findByText("Loading purchase orders…")).toBeInTheDocument();
+  });
+});
+
+describe("network contracts", () => {
+  test("maps each contract to its hotels and the entity fulfilling each", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardContracts.mockResolvedValue({
+      status: 1,
+      data: {
+        items: [
+          {
+            contract_id: 77,
+            arc_id: 5,
+            arc_number: "ARC-77",
+            title: "Linen group",
+            status: "active",
+            is_group: true,
+            hotels: [
+              { hotel_id: 3, hotel_name: "Goa Resort", fulfilling_vendor_id: 11, fulfilling_name: "Daikin UP", assignment_status: "ACCEPTED" },
+              { hotel_id: 4, hotel_name: "Mumbai Suites", fulfilling_vendor_id: 10, fulfilling_name: "Daikin HQ", assignment_status: "PENDING" },
+            ],
+          },
+          { contract_id: 78, arc_id: 6, arc_number: "ARC-78", title: "Soap", status: "active", is_group: false, hotels: [] },
+        ],
+        page: 1,
+        page_size: 10,
+        total: 2,
+      },
+    });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+
+    const table = await screen.findByRole("table", { name: "Network contracts" });
+    const goa = within(table).getByText("Goa Resort").closest("tr");
+    expect(goa).toHaveTextContent("ARC-77");
+    expect(goa).toHaveTextContent("Linen group");
+    expect(goa).toHaveTextContent("Daikin UP");
+    const mumbai = within(table).getByText("Mumbai Suites").closest("tr");
+    expect(mumbai).toHaveTextContent("Daikin HQ");
+    expect(mumbai).toHaveTextContent("Awaiting reply");
+    const soap = within(table).getByText("ARC-78").closest("tr");
+    expect(soap).toHaveTextContent("Supplied by HQ");
+  });
+
+  test("an org with no contracts says so", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    expect(await screen.findByText("No rate contracts yet.")).toBeInTheDocument();
+  });
+
+  test("a failed load shows the error with Retry", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    getNetworkDashboardContracts.mockRejectedValueOnce({ response: { status: 500, data: { status: 0, message: "Contracts are down" } } });
+    renderWith({ id: 10, user_type: 3, network: adminNetwork });
+    const card = (await screen.findByText("Contracts are down")).closest(".section-card");
+    expect(within(card).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+describe("Act as", () => {
+  const multi = {
+    ...adminNetwork,
+    actable_entities: [
+      { vendor_id: 10, name: "Daikin HQ", relationship: "PRINCIPAL", org_id: 7 },
+      { vendor_id: 11, name: "Daikin UP", relationship: "BRANCH", org_id: 7 },
+    ],
+  };
+
+  test("each entity the admin may act for (other than the current one) has Act as", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    renderWith({ id: 10, user_type: 3, network: multi });
+    const table = await screen.findByRole("table", { name: "Network entities" });
+    expect(within(table).getByRole("button", { name: "Act as Daikin UP" })).toBeInTheDocument();
+    // already acting as HQ; the suspended distributor is not actable
+    expect(within(table).queryByRole("button", { name: "Act as Daikin HQ" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Act as Cool Distributors" })).toBeNull();
+  });
+
+  test("Act as switches entity and lands on that entity's dashboard", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
+    const switched = { id: 11, user_type: 3, network: { ...multi, acting_entity_id: 11, is_principal: false } };
+    getProfileAs.mockResolvedValue({ status: 1, data: switched });
+    const store = renderWith({ id: 10, user_type: 3, network: multi });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Act as Daikin UP" }));
+    await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/dashboard/vendor"));
+    expect(switchEntity).toHaveBeenCalledWith(11);
+    expect(getProfileAs).toHaveBeenCalledWith("tok-up");
+    expect(store.getState().userProfile.network.acting_entity_id).toBe(11);
+  });
+
+  test("a refused switch shows the reason and stays put", async () => {
+    getNetworkDashboardSummary.mockResolvedValue(summary);
+    switchEntity.mockRejectedValue({ response: { status: 403, data: { status: 0, message: "You cannot act for this entity" } } });
+    renderWith({ id: 10, user_type: 3, network: multi });
+    fireEvent.click(await screen.findByRole("button", { name: "Act as Daikin UP" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("You cannot act for this entity"));
+    expect(mockHardNavigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Act as Daikin UP" })).not.toBeDisabled();
+  });
 });

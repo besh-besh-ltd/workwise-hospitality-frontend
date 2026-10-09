@@ -15,6 +15,7 @@ import LinkAccountModal from "@/components/dashboard/vendor/network/LinkAccountM
 import CreateEntityModal from "@/components/dashboard/vendor/network/CreateEntityModal";
 import { ConfirmModal } from "@/components/dashboard/vendor/network/NetworkModal";
 import useSeatPayment from "@/components/dashboard/vendor/network/useSeatPayment";
+import ActAsButton from "@/components/dashboard/vendor/network/ActAsButton";
 import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import {
@@ -248,6 +249,8 @@ function EntitiesView({ orgId }) {
                       </td>
                       <td>{fmtDate(e.linked_at)}</td>
                       <td style={{ textAlign: "right" }}>
+                        <div className="flex items-center gap-2 justify-end">
+                        <ActAsButton entity={e} />
                         {!isPrincipal && (
                           <div className="flex items-center gap-2 justify-end">
                             {/* INVITED is not active yet: nothing to suspend, only Remove. */}
@@ -265,6 +268,7 @@ function EntitiesView({ orgId }) {
                             </button>
                           </div>
                         )}
+                        </div>
                       </td>
                     </tr>
                   );

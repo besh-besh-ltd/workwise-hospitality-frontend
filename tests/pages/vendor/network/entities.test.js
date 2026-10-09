@@ -17,7 +17,11 @@ jest.mock("@/services/vendorNetwork", () => ({
   lookupCoverageCities: jest.fn(),
   paySeats: jest.fn(),
   verifySeatsPayment: jest.fn(),
+  switchEntity: jest.fn(),
 }));
+jest.mock("@/services/Auth", () => ({ __esModule: true, getProfile: jest.fn(), getProfileAs: jest.fn() }));
+const mockHardNavigate = jest.fn();
+jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardNavigate: (...a) => mockHardNavigate(...a) }));
 jest.mock("@/services/subscription", () => ({ __esModule: true, loadScript: jest.fn() }));
 jest.mock("react-toastify", () => ({
   __esModule: true,
@@ -588,4 +592,45 @@ test("cancelling an outgoing invite is guarded against a double click", async ()
   expect(btn).toBeDisabled();
   await act(async () => resolveCancel({ status: 1, message: "Invitation cancelled" }));
   expect(api.cancelLinkInvite).toHaveBeenCalledWith(91);
+});
+
+// Scope audit #2 (§8): "Act as" on each entity the admin may act for.
+describe("Act as", () => {
+  const multi = {
+    ...adminNetwork,
+    actable_entities: [
+      { vendor_id: 10, name: "Daikin HQ", relationship: "PRINCIPAL", org_id: 7 },
+      { vendor_id: 11, name: "Daikin UP", relationship: "BRANCH", org_id: 7 },
+    ],
+  };
+  const renderAdmin = (network) => {
+    const store = configureStore({ reducer });
+    store.dispatch(setUserProfile({ id: 10, user_type: 3, network }));
+    render(
+      <Provider store={store}>
+        <EntitiesPage />
+      </Provider>
+    );
+    return store;
+  };
+
+  test("is offered on actable entities other than the current one", async () => {
+    api.getOrg.mockResolvedValue(orgPayload(DEFAULT_ENTITIES));
+    renderAdmin(multi);
+    const table = await screen.findByRole("table", { name: "Network entities" });
+    expect(await within(table).findByRole("button", { name: "Act as Daikin UP" })).toBeInTheDocument();
+    expect(within(table).queryByRole("button", { name: "Act as Daikin HQ" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Act as Cool Distributors" })).toBeNull();
+  });
+
+  test("switches entity and lands on its dashboard", async () => {
+    api.getOrg.mockResolvedValue(orgPayload(DEFAULT_ENTITIES));
+    api.switchEntity.mockResolvedValue({ status: 1, data: { token: "tok-up", acting_entity_id: 11 } });
+    const { getProfileAs } = require("@/services/Auth");
+    getProfileAs.mockResolvedValue({ status: 1, data: { id: 11, user_type: 3, network: { ...multi, acting_entity_id: 11 } } });
+    renderAdmin(multi);
+    fireEvent.click(await screen.findByRole("button", { name: "Act as Daikin UP" }));
+    await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/dashboard/vendor"));
+    expect(api.switchEntity).toHaveBeenCalledWith(11);
+  });
 });

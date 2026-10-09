@@ -55,3 +55,28 @@ export const StatusPill = ({ map, status }) => {
     </span>
   );
 };
+
+/** "Page x of y" with Previous / Next; nothing when everything fits on one page. */
+export const Pager = ({ page, pageSize, total, onPage, disabled, label }) => {
+  const pages = Math.max(1, Math.ceil(Number(total || 0) / Number(pageSize || 1)));
+  if (pages <= 1) return null;
+  return (
+    <nav
+      aria-label={label}
+      className="flex items-center justify-between gap-3"
+      style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", fontSize: 12.5, color: "var(--fg-3)" }}
+    >
+      <span>
+        Page {page} of {pages} · {total} total
+      </span>
+      <span className="flex items-center gap-2">
+        <button type="button" className="btn btn-secondary btn-sm" disabled={disabled || page <= 1} onClick={() => onPage(page - 1)}>
+          Previous
+        </button>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={disabled || page >= pages} onClick={() => onPage(page + 1)}>
+          Next
+        </button>
+      </span>
+    </nav>
+  );
+};

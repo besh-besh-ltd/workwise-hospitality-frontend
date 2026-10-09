@@ -3,7 +3,8 @@
 // point here and are mutually exclusive):
 //   - a vendor who may set up a network (the nav's own rule: user_type 3,
 //     network === null, not a guest session) → the "Set up network" form
-//   - network admin                         → the HQ dashboard (GET /dashboard/summary)
+//   - network admin                         → the HQ dashboard (GET /dashboard/summary,
+//                                             /dashboard/pos, /dashboard/contracts)
 //   - anyone else                           → NetworkAccessNotice
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,15 +18,11 @@ import SeatBadge from "@/components/dashboard/vendor/network/SeatBadge";
 import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
-import { vendorStatusLabel } from "@/components/dashboard/vendor/purchase-orders/vendorPoStatus";
 import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { RELATIONSHIP_LABEL, ENTITY_STATUS, StatusPill } from "@/components/dashboard/vendor/network/networkFormat";
-
-// The network view of a PO status: as vendorStatusLabel, except that a PO waiting to be
-// accepted waits for its supplier entity, which is not necessarily the HQ reading this.
-const AWAITING_SUPPLIER = new Set(["sent", "acceptance_pending"]);
-const networkPoStatusLabel = (status) =>
-  AWAITING_SUPPLIER.has(status) ? "Awaiting supplier acceptance" : vendorStatusLabel(status);
+import NetworkPoTable, { networkPoStatusLabel } from "@/components/dashboard/vendor/network/NetworkPoTable";
+import NetworkContractsMap from "@/components/dashboard/vendor/network/NetworkContractsMap";
+import ActAsButton from "@/components/dashboard/vendor/network/ActAsButton";
 
 const Tile = ({ id, icon: Icon, tone, value, label }) => (
   <div className="stat-card" data-testid={`tile-${id}`}>
@@ -142,6 +139,7 @@ function NetworkDashboard({ network }) {
                     <th>Seat</th>
                     <th className="right">Live assignments</th>
                     <th className="right">Open POs</th>
+                    <th className="right" aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -159,6 +157,9 @@ function NetworkDashboard({ network }) {
                       </td>
                       <td className="right">{e.live_assignments ?? 0}</td>
                       <td className="right">{e.open_pos ?? 0}</td>
+                      <td className="right">
+                        <ActAsButton entity={e} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -187,6 +188,9 @@ function NetworkDashboard({ network }) {
               )}
             </div>
           </div>
+
+          <NetworkPoTable entities={entities} />
+          <NetworkContractsMap />
         </>
       ) : null}
     </main>
