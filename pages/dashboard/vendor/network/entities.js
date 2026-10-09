@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { Link2, Plus, CreditCard } from "lucide-react";
 import { cancelLinkInvite, deleteEntity, getOrg, updateEntity } from "@/services/vendorNetwork";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
-import SeatBadge from "@/components/dashboard/vendor/network/SeatBadge";
+import SeatBadge, { seatFeeFor } from "@/components/dashboard/vendor/network/SeatBadge";
 import LinkAccountModal from "@/components/dashboard/vendor/network/LinkAccountModal";
 import CreateEntityModal from "@/components/dashboard/vendor/network/CreateEntityModal";
 import { ConfirmModal } from "@/components/dashboard/vendor/network/NetworkModal";
@@ -56,6 +56,7 @@ function EntitiesView({ orgId }) {
   const [loadError, setLoadError] = useState("");
   const [entities, setEntities] = useState([]);
   const [invites, setInvites] = useState([]);
+  const [orgData, setOrgData] = useState(null);
   const [modal, setModal] = useState(null); // 'link' | 'create'
   const [confirm, setConfirm] = useState(null); // { action, entity }
   const [busy, setBusy] = useState(false);
@@ -66,6 +67,7 @@ function EntitiesView({ orgId }) {
     try {
       const res = await getOrg();
       setEntities(res?.data?.entities || []);
+      setOrgData(res?.data || null);
       setInvites(res?.data?.link_invites || []);
     } catch (err) {
       setLoadError(networkErrorMessage(err, "Could not load your network."));
@@ -245,6 +247,7 @@ function EntitiesView({ orgId }) {
                         <SeatBadge
                           relationship={e.relationship}
                           seat={e.seat_status ? { status: e.seat_status, end_date: e.seat_end_date, fee_amount: e.seat_fee_amount } : null}
+                          feeInr={seatFeeFor(e, orgData)}
                         />
                       </td>
                       <td>{fmtDate(e.linked_at)}</td>

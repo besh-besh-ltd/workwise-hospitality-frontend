@@ -65,6 +65,19 @@ describe("networkCoverageView", () => {
   });
 });
 
+// Task 24 F4: at seat fee 0 a lapsed seat blocks nothing, so the member is not told
+// "Seat expired" when the coverage block carries seat_fee_inr: 0.
+test("seat fee 0: a lapsed seat reads as covered, seat included", () => {
+  const v = networkCoverageView({ ...SEAT_EXPIRED, seat_fee_inr: 0 });
+  expect(v.key).toBe("covered");
+  expect(v.label).toBe("Covered by Daikin Network");
+  expect(v.detail).toBe("Seat included");
+  // a fee > 0 (or no fee sent) keeps "Seat expired"
+  expect(networkCoverageView({ ...SEAT_EXPIRED, seat_fee_inr: 1500 }).key).toBe("seat_expired");
+  // the subscription still matters
+  expect(networkCoverageView({ ...SEAT_EXPIRED, seat_fee_inr: 0, subscription_active: false }).key).toBe("lapsed");
+});
+
 describe("header pill", () => {
   test("a covered member sees 'Covered by <org>' and never 'Subscribe'", async () => {
     getVendorSubscriptionStatus.mockResolvedValue(memberStatus(COVERED));

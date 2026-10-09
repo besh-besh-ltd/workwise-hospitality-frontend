@@ -61,7 +61,7 @@ const summary = {
         name: "Daikin UP",
         relationship: "BRANCH",
         status: "ACTIVE",
-        seat: { status: "active", end_date: "2027-03-31" },
+        seat: { status: "active", end_date: "2099-03-31" },
         live_assignments: 2,
         open_pos: 1,
       },
@@ -70,7 +70,7 @@ const summary = {
         name: "Cool Distributors",
         relationship: "DISTRIBUTOR",
         status: "SUSPENDED",
-        seat: { status: "pending", end_date: "2027-03-31" },
+        seat: { status: "pending", end_date: "2099-03-31" },
         live_assignments: 0,
         open_pos: 0,
       },
@@ -417,4 +417,16 @@ describe("Act as", () => {
     expect(mockHardNavigate).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Act as Daikin UP" })).not.toBeDisabled();
   });
+});
+
+// Task 24 F4: the overview's seat column follows the seat fee the same way.
+test("at seat fee 0 an entity with no current seat reads Included", async () => {
+  const data = JSON.parse(JSON.stringify(summary.data));
+  data.seat_fee_inr = 0;
+  data.entities.push({ vendor_id: 13, name: "Old Branch", relationship: "BRANCH", status: "ACTIVE", seat: { status: "active", end_date: "2026-03-31" }, live_assignments: 0, open_pos: 0 });
+  getNetworkDashboardSummary.mockResolvedValue({ status: 1, data });
+  renderWith({ id: 10, user_type: 3, network: adminNetwork });
+  const table = await screen.findByRole("table", { name: "Network entities" });
+  const row = within(table).getByText("Old Branch").closest("tr");
+  expect(within(row).getByText("Included")).toBeInTheDocument();
 });

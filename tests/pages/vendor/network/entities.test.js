@@ -60,7 +60,7 @@ const entity = (over) => ({
   user_status: 1,
   seat_id: 301,
   seat_status: "active",
-  seat_end_date: "2027-03-31",
+  seat_end_date: "2099-03-31",
   seat_fee_amount: "0.00",
   ...over,
 });
@@ -632,5 +632,38 @@ describe("Act as", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Act as Daikin UP" }));
     await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/dashboard/vendor"));
     expect(api.switchEntity).toHaveBeenCalledWith(11);
+  });
+});
+
+// Task 24 F4: at seat fee 0 a lapsed or missing seat blocks nothing, so it reads
+// "Included"; with a fee it reads "Seat expired". Expired seats are listed, not hidden.
+describe("seat label and the seat fee", () => {
+  const expired = entity({ vendor_id: 13, name: "Old Branch", seat_status: "active", seat_end_date: "2026-03-31" });
+  const withFee = (fee) => {
+    const p = orgPayload([...DEFAULT_ENTITIES, expired]);
+    p.data.seat_fee_inr = fee;
+    return p;
+  };
+
+  test("fee 0: an expired seat reads Included", async () => {
+    api.getOrg.mockResolvedValue(withFee(0));
+    renderPage();
+    const row = (await screen.findByText("Old Branch")).closest("tr");
+    expect(within(row).getByText("Included")).toBeInTheDocument();
+    expect(within(row).queryByText("Seat expired")).toBeNull();
+  });
+
+  test("fee > 0: an expired seat is listed as Seat expired", async () => {
+    api.getOrg.mockResolvedValue(withFee(1500));
+    renderPage();
+    const row = (await screen.findByText("Old Branch")).closest("tr");
+    expect(within(row).getByText("Seat expired")).toBeInTheDocument();
+  });
+
+  test("a per-entity seat_fee_inr is honoured too", async () => {
+    api.getOrg.mockResolvedValue(orgPayload([...DEFAULT_ENTITIES, { ...expired, seat_fee_inr: 0 }]));
+    renderPage();
+    const row = (await screen.findByText("Old Branch")).closest("tr");
+    expect(within(row).getByText("Included")).toBeInTheDocument();
   });
 });

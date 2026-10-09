@@ -14,7 +14,7 @@ import { Building2, Inbox, Clock, XCircle, Hourglass, CreditCard, Users } from "
 import { getNetworkDashboardSummary } from "@/services/vendorNetwork";
 import SetupNetworkForm from "@/components/dashboard/vendor/network/SetupNetworkForm";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
-import SeatBadge from "@/components/dashboard/vendor/network/SeatBadge";
+import SeatBadge, { seatFeeFor } from "@/components/dashboard/vendor/network/SeatBadge";
 import { isNetworkAdmin, useNetworkProfile } from "@/components/dashboard/vendor/network/networkProfile";
 import { canSetUpNetwork } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
@@ -153,7 +153,7 @@ function NetworkDashboard({ network }) {
                         <StatusPill map={ENTITY_STATUS} status={e.status} />
                       </td>
                       <td>
-                        <SeatBadge relationship={e.relationship} seat={e.seat} />
+                        <SeatBadge relationship={e.relationship} seat={e.seat} feeInr={seatFeeFor(e, data)} />
                       </td>
                       <td className="right">{e.live_assignments ?? 0}</td>
                       <td className="right">{e.open_pos ?? 0}</td>

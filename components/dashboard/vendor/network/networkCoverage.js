@@ -43,7 +43,9 @@ export function networkCoverageView(cov) {
       detail: `This entity is not active in ${org} — ask your network admin.`,
     };
   }
-  if (!cov.seat_active) {
+  // At seat fee 0 (sent as seat_fee_inr: 0) a lapsed seat blocks nothing.
+  const seatIncluded = !cov.seat_active && cov.seat_fee_inr != null && Number(cov.seat_fee_inr) === 0;
+  if (!cov.seat_active && !seatIncluded) {
     return {
       key: "seat_expired",
       label: "Seat expired",
@@ -65,6 +67,8 @@ export function networkCoverageView(cov) {
     key: "covered",
     label: `Covered by ${org}`,
     short: "Covered",
-    detail: cov.seat_valid_until ? `Seat active · till ${fmtDate(cov.seat_valid_until)}` : "Seat active",
+    detail: seatIncluded
+      ? "Seat included"
+      : cov.seat_valid_until ? `Seat active · till ${fmtDate(cov.seat_valid_until)}` : "Seat active",
   };
 }
