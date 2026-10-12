@@ -18,6 +18,7 @@ import ContractOfferBanner from "@/components/dashboard/vendor/network/ContractO
 import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import { escapeHtml as esc } from "@/utils/escapeHtml";
+import { noteArcGuestRefusal } from "@/utils/arcGuestRefusal";
 
 // ── format helpers ───────────────────────────────────────────────────────
 const fmtL = (n) => {
@@ -190,6 +191,10 @@ export default function VendorContractDetailPage() {
     try {
       const res = await ArcApi.vendorGetContract(contractId);
       setData(res?.data ?? res ?? null);
+    } catch (err) {
+      // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
+      // any other failure keeps what the page shows.
+      noteArcGuestRefusal(err);
     } finally {
       setLoading(false);
     }
@@ -204,6 +209,10 @@ export default function VendorContractDetailPage() {
         const res = await ArcApi.vendorGetContract(contractId);
         const payload = res?.data ?? res ?? null;
         if (!cancelled) setData(payload);
+      } catch (err) {
+        // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
+        // any other failure leaves no contract ("Contract not found").
+        noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);
       }

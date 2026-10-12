@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import Header from "./Header";
 import DashboardShell from "./DashboardShell";
+import RateContractGuestGate from "@/components/dashboard/rate-contracts/vendor/RateContractGuestGate";
 // import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
@@ -235,7 +236,10 @@ const Layout = (props) => {
         ) : shouldHideNavbarFooter ? (
           <main className="flex-grow-1 ">{props.children}</main>
         ) : isDashboardRoute ? (
-          <DashboardShell>{props.children}</DashboardShell>
+          <DashboardShell>
+            {/* A rate-contract page refused to an emailed-link guest session shows a sign-in notice. */}
+            <RateContractGuestGate>{props.children}</RateContractGuestGate>
+          </DashboardShell>
         ) : (
           <>
             <Header />

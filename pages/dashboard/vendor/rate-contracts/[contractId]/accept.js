@@ -11,6 +11,7 @@ import FulfilledByPanel from "@/components/dashboard/vendor/network/ArcFulfilmen
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import { escapeHtml } from "@/utils/escapeHtml";
 import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
+import { noteArcGuestRefusal } from "@/utils/arcGuestRefusal";
 
 // ---------------- helpers ----------------
 // HTML-escapes a value interpolated into the document.write preview below.
@@ -167,6 +168,10 @@ export default function VendorAcceptPage() {
         setHotels(res?.data?.hotels || []);
         setClarifications(res?.data?.clarifications || []);
         setViewerRole(res?.data?.viewer_role || null);
+      } catch (err) {
+        // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
+        // any other failure leaves no contract ("Contract not found.").
+        noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);
       }
