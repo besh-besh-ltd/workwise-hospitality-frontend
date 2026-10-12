@@ -48,6 +48,8 @@ import {
 import statusStyles from "@/components/dashboard/vendor/ViewRfqTechnicalStatus.module.scss";
 import inquiryStyles from "@/components/dashboard/vendor/InquiriesDetails.module.scss";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
+import RfqAssignmentBanner, { ROUTING_PENDING_REASON, isRoutingPending } from "@/components/dashboard/vendor/network/RfqAssignmentBanner";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 const WysiwygEditor = dynamic(
   () => import("@/components/wysiwyg-editor/wysiwygeditor"),
@@ -1251,7 +1253,9 @@ const RfqManagementPreview = () => {
       .catch((err) => {
         setsubmitLoading(false);
         setregretModal(false);
-        toast.error("Failed to submit regret. Please try again.");
+        // The server's own reason when it gives one (e.g. a network member that has not
+        // accepted the RFQ yet: ROUTING_REQUIRED).
+        toast.error(getApiErrorMessage(err, "Failed to submit regret. Please try again."));
       });
   };
 
@@ -1306,6 +1310,16 @@ const RfqManagementPreview = () => {
     );
   };
 
+  // Vendor Networks: the RFQ is routed to this member entity and waits for its reply. It
+  // reads the RFQ; quoting, regretting and raising a clarification wait until it accepts.
+  const routingPending = !enableBuyerView && isRoutingPending(rfqDetails);
+  // After the reply: accepted, re-read the RFQ (quoting opens); declined, the member no
+  // longer holds the RFQ, so back to Assigned to me.
+  const handleRoutingReply = (decision) => {
+    if (decision === "DECLINE") router.push("/dashboard/vendor/network/assigned");
+    else getRFQdetails();
+  };
+
   // Phone action bar: the header's main quote button (and Regret) mirrored
   // into a thumb-reach bar. Same conditions as the header buttons below —
   // on a phone the header row wraps and the header copy of the main button
@@ -1319,6 +1333,12 @@ const RfqManagementPreview = () => {
         item.finalization_status === "You are finalized"
     );
     let main = null;
+    if (routingPending && quotations.length === 0) {
+      return {
+        main: { label: "Send Quote", onClick: goToQuoteCreation, disabled: true, reason: ROUTING_PENDING_REASON, variant: "primary" },
+        regret: null,
+      };
+    }
     if (quotations.length === 0) {
       const isQuoteBlocked = hasPendingTechEval ||
         (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
@@ -1717,6 +1737,8 @@ const RfqManagementPreview = () => {
                               type="button"
                               className="btn btn-warning btn-sm p-2"
                               onClick={() => setShowRaiseClarificationModal(true)}
+                              disabled={routingPending}
+                              title={routingPending ? ROUTING_PENDING_REASON : undefined}
                             >
                               Raise Clarification
                             </button>
@@ -1779,6 +1801,7 @@ const RfqManagementPreview = () => {
                     rfqDetails.quotations.length === 0 &&
                     productleftforbid && (() => {
                       const isRegretDisabled =
+                        routingPending ||
                         (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
                         rfqDetails.products?.every(
@@ -1786,7 +1809,9 @@ const RfqManagementPreview = () => {
                             item.finalization_status === "Another vendor is finalized" ||
                             item.finalization_status === "You are finalized"
                         );
-                      const regretReason = rfqDetails.status == 2
+                      const regretReason = routingPending
+                        ? ROUTING_PENDING_REASON
+                        : rfqDetails.status == 2
                         ? `${getEntityLabel(rfqDetails?.is_tender)} is Closed`
                         : rfqDetails.products?.every(
                             (item) =>
@@ -1815,6 +1840,17 @@ const RfqManagementPreview = () => {
                     })()}
                   {/* Send Quote / View Inquiry Button */}
                   {!enableBuyerView && rfqDetails.quotations.length === 0 && (() => {
+                    // A routed member that has not accepted yet: Send Quote waits for its reply.
+                    if (routingPending) {
+                      return (
+                        <span style={{ position: "relative", display: "inline-block" }} className={`quote-status-tooltip-wrap ${inquiryStyles.phoneHide}`}>
+                          <button type="button" className="btn btn-secondary btn-sm p-2" disabled>
+                            Send Quote
+                          </button>
+                          <span className="quote-status-tooltip">{ROUTING_PENDING_REASON}</span>
+                        </span>
+                      );
+                    }
                     const isQuoteBlocked = hasPendingTechEval ||
                       (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
                       rfqDetails.status == 2 ||
@@ -1907,6 +1943,15 @@ const RfqManagementPreview = () => {
                   ) : null}
                 </div>}
               </div>
+              {routingPending && (
+                <div style={{ marginTop: 16 }}>
+                  <RfqAssignmentBanner
+                    assignment={rfqDetails.network_assignment}
+                    rfqLabel={`${getEntityLabel(rfqDetails?.is_tender)} #${rfqDetails.rfq_no}`}
+                    onReplied={handleRoutingReply}
+                  />
+                </div>
+              )}
             </div>
           </section>
 
