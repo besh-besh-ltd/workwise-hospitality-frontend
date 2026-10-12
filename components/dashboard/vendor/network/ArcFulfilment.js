@@ -31,9 +31,15 @@ const sameSubject = (row, contractId, hotelId) =>
   Number(row.subject_id) === Number(contractId) &&
   Number(row.hotel_id) === Number(hotelId);
 
-/** "Fulfilling for: Orchid Mumbai, Orchid Pune" — the member's hotels on this contract. */
+/**
+ * "Fulfilling for: Orchid Mumbai, Orchid Pune" — the member's hotels on this contract that
+ * it has accepted. A hotel still offered to it (assignment_status PENDING) is not one it
+ * supplies yet; with nothing accepted the note is not shown.
+ */
 export function FulfillingForNote({ hotels = [], principalName }) {
-  const names = hotels.map((h) => h.name).filter(Boolean);
+  const supplied = hotels.filter((h) => h.assignment_status !== "PENDING");
+  if (hotels.length > 0 && supplied.length === 0) return null;
+  const names = supplied.map((h) => h.name).filter(Boolean);
   return (
     <div className="section-card" role="note" aria-label="Fulfilment member view">
       <div className="section-body" style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.5 }}>

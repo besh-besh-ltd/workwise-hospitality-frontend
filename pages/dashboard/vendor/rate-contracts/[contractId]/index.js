@@ -14,6 +14,8 @@ import { useRouter } from "next/router";
 import { loadXlsx } from "@/utils/xlsx";
 import * as ArcApi from "@/services/arc_v2";
 import FulfilledByPanel, { FulfillingForNote, isFulfilmentMemberView } from "@/components/dashboard/vendor/network/ArcFulfilment";
+import ContractOfferBanner from "@/components/dashboard/vendor/network/ContractOfferBanner";
+import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import { escapeHtml as esc } from "@/utils/escapeHtml";
 
@@ -154,6 +156,15 @@ export default function VendorContractDetailPage() {
   useEffect(() => {
     if (isFulfilmentMemberView(data) && tab === "amendments") setTab("consumption");
   }, [data, tab]);
+  // A member offered hotels of this contract lands on the contract document: the rates,
+  // quantities and terms it is asked to accept (unless a ?tab= link picked a tab).
+  const landedOnOffer = useRef(false);
+  useEffect(() => {
+    if (landedOnOffer.current || !router.isReady || !data) return;
+    landedOnOffer.current = true;
+    const offered = isFulfilmentMemberView(data) && (data.hotels || []).some((h) => h.assignment_status === "PENDING");
+    if (offered && typeof router.query.tab !== "string") setTab("doc");
+  }, [data, router.isReady, router.query.tab]);
 
   const load = async () => {
     if (!contractId) return;
@@ -191,6 +202,17 @@ export default function VendorContractDetailPage() {
     catch (e) { window.alert("Could not decline the addendum. Please try again."); }
   };
 
+  // After the member replies to its offer: re-read the contract. A member that declined
+  // every hotel it held no longer reads it, so it goes back to Assigned to me.
+  const reloadAfterReply = async () => {
+    try {
+      const res = await ArcApi.vendorGetContract(contractId);
+      setData(res?.data ?? res ?? null);
+    } catch {
+      router.push("/dashboard/vendor/network/assigned");
+    }
+  };
+
   const contract   = data?.contract   || null;
   const arc        = data?.arc        || null;
   const lines      = data?.lines      || [];
@@ -204,6 +226,9 @@ export default function VendorContractDetailPage() {
   // Vendor Networks: a member entity that fulfils some hotels of the principal's
   // contract reads it, filtered to its hotels, with every contract action hidden.
   const isMember   = isFulfilmentMemberView(data);
+  // Some of the member's hotels are still offered to it (PENDING assignments): it is
+  // reviewing the contract before it accepts.
+  const isOffered  = isMember && hotels.some((h) => h.assignment_status === "PENDING");
 
   // On first load, land the amendments sub-tab on a non-empty bucket so an
   // approved-but-unsigned (awaiting_signature) amendment isn't hidden behind
@@ -324,11 +349,20 @@ export default function VendorContractDetailPage() {
         </div>
       </nav>
 
+      {isOffered && (
+        <ContractOfferBanner
+          hotels={hotels}
+          principalName={contract.vendor_name}
+          contractLabel={`Rate contract ${arc?.arc_number || contract.arc_number}${arc?.title ? ` · ${arc.title}` : ""}`}
+          onReplied={reloadAfterReply}
+        />
+      )}
+
       {/* ═════ HERO ═════ */}
       <section className="arc-hero">
         <div className="top">
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="eyebrow">{isMember ? "Contract you fulfil" : "Your active contract"}</div>
+            <div className="eyebrow">{isOffered ? "Contract offered to you" : isMember ? "Contract you fulfil" : "Your active contract"}</div>
             <h1>
               <span>{arc?.title || contract.arc_title}</span>
               <span className={`status-chip ${statusChip.cls}`}>{statusChip.label}</span>
@@ -630,6 +664,21 @@ export default function VendorContractDetailPage() {
                   </div>
                 </div>
 
+                {/* A member reads the commercial clauses the contract holder accepted at signing. */}
+                {isMember && (
+                  <div className="doc-section" role="group" aria-label="Commercial terms">
+                    <div className="doc-h">Commercial terms</div>
+                    <div className="doc-terms" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
+                      {buildCommercialTerms(arc).map((t) => (
+                        <div key={t.key}>
+                          <div className="dt-k">{t.title}</div>
+                          <div className="dt-v" style={{ fontWeight: 500, lineHeight: 1.5 }}>{t.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="doc-section">
                   <div className="doc-h">Schedule A — Awarded items &amp; rates</div>
                   <table className="doc-rate-table" style={{ marginTop: 8 }}>
@@ -657,7 +706,7 @@ export default function VendorContractDetailPage() {
                   </table>
                 </div>
 
-                {arc?.penalty_clause && (
+                {!isMember && arc?.penalty_clause && (
                   <div className="doc-section">
                     <div className="doc-h">Penalty / LD clause</div>
                     <div className="doc-p">{arc.penalty_clause}</div>
