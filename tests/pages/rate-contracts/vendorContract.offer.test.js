@@ -386,3 +386,56 @@ describe("the Contract document tab of a contract not yet signed", () => {
     expect(screen.getByText(/Signed via OTP on/)).toBeInTheDocument();
   });
 });
+
+// Fix round 2: where an offered contract sits, and what its status pill says.
+describe("breadcrumb and status pill", () => {
+  const crumb = () => screen.getByRole("navigation", { name: "Breadcrumb" });
+  const statusChip = () => document.querySelector(".arc-hero .status-chip");
+
+  test("an offered contract's breadcrumb and back links lead to Assigned to me, not Active", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(memberContract([hotel(MUMBAI, "PENDING", 901)]));
+    renderWith(VendorContractPage);
+    await offer();
+
+    expect(within(crumb()).getByRole("link", { name: "Assigned to me" })).toHaveAttribute("href", "/dashboard/vendor/network/assigned");
+    expect(within(crumb()).queryByRole("link", { name: "Active" })).toBeNull();
+    fireEvent.click(within(crumb()).getByRole("button", { name: /back/i }));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/vendor/network/assigned");
+    expect(screen.getByRole("link", { name: /back to assigned to me/i })).toHaveAttribute("href", "/dashboard/vendor/network/assigned");
+  });
+
+  test.each([
+    ["an accepted member", () => memberContract([hotel(MUMBAI, "ACCEPTED", 900)]), memberNetwork],
+    ["the holder", () => holderContract(), null],
+  ])("%s keeps Rate contracts / Active", async (_label, payload, network) => {
+    ArcApi.vendorGetContract.mockResolvedValue(payload());
+    renderWith(VendorContractPage, network);
+    await screen.findByText(/Your award lines/);
+    expect(within(crumb()).getByRole("link", { name: "Active" })).toHaveAttribute("href", "/dashboard/vendor/rate-contracts/active");
+    expect(within(crumb()).queryByRole("link", { name: "Assigned to me" })).toBeNull();
+    fireEvent.click(within(crumb()).getByRole("button", { name: /back/i }));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/vendor/rate-contracts/active");
+  });
+
+  test.each([
+    ["awaiting_acceptance", "Awaiting HQ signature", "Awaiting your signature"],
+    ["clarification", "In clarification", "In clarification"],
+    ["active", "Active", "Active"],
+    ["expiring_soon", "Expiring soon", "Expiring soon"],
+    ["expired", "Expired", "Expired"],
+  ])("status %s reads '%s' to a member and '%s' to the holder, never the raw enum", async (status, memberLabel, holderLabel) => {
+    const member = memberContract([hotel(MUMBAI, "ACCEPTED", 900)]);
+    member.data.contract = { ...member.data.contract, status };
+    ArcApi.vendorGetContract.mockResolvedValue(member);
+    const m = renderWith(VendorContractPage);
+    await screen.findByText(/Your award lines/);
+    expect(statusChip()).toHaveTextContent(new RegExp(`^${memberLabel}$`));
+    m.unmount();
+
+    ArcApi.vendorGetContract.mockResolvedValue(holderContract(status));
+    renderWith(VendorContractPage, null);
+    await screen.findByText(/Your award lines/);
+    expect(statusChip()).toHaveTextContent(new RegExp(`^${holderLabel}$`));
+    expect(statusChip().textContent).not.toMatch(/_/);
+  });
+});

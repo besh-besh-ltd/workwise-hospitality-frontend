@@ -129,6 +129,24 @@ const PO_STATUS_VIEW = {
   cancelled:          { label: "cancelled",  tone: "danger" },
 };
 
+// The hero's status pill, in words (the chip is uppercased by CSS; a raw enum read
+// "AWAITING_ACCEPTANCE"). awaiting_acceptance names who is to sign: the member waits on
+// its head office (the contract holder), the holder on itself.
+const STATUS_CHIP = {
+  clarification: { cls: "eval", label: "In clarification" },
+  active: { cls: "active", label: "Active" },
+  expiring_soon: { cls: "expiring", label: "Expiring soon" },
+  expired: { cls: "expired", label: "Expired" },
+};
+function statusChipFor(status, isMember) {
+  if (status === "awaiting_acceptance") {
+    return { cls: "floated", label: isMember ? "Awaiting HQ signature" : "Awaiting your signature" };
+  }
+  if (STATUS_CHIP[status]) return STATUS_CHIP[status];
+  const words = String(status || "").replace(/_/g, " ");
+  return { cls: "draft", label: words.charAt(0).toUpperCase() + words.slice(1) };
+}
+
 const Sk = ({ w = "100%", h = 12, r, style }) => (
   <span className="arc-sk" style={{ display: "block", width: w, height: h, borderRadius: r, ...style }} />
 );
@@ -325,10 +343,10 @@ export default function VendorContractDetailPage() {
     );
   }
 
-  const statusChip = contract.status === "active" ? { cls: "active", label: "Active" }
-    : contract.status === "expiring_soon" ? { cls: "expiring", label: "Expiring soon" }
-    : contract.status === "expired" ? { cls: "expired", label: "Expired" }
-    : { cls: "draft", label: contract.status };
+  const statusChip = statusChipFor(contract.status, isMember);
+  // An offered contract is reached from Assigned to me (the Active list holds only
+  // contracts the member fulfils), so its breadcrumb and back links lead there.
+  const listHref = isOffered ? "/dashboard/vendor/network/assigned" : "/dashboard/vendor/rate-contracts/active";
   const daysLeft = daysRemaining(arc?.contract_end_at);
   // The contract holder has not signed yet (it is being reviewed, or is back with the
   // buyer for a clarification): the document is not presented as signed.
@@ -340,13 +358,15 @@ export default function VendorContractDetailPage() {
       {/* Breadcrumb */}
       <nav className={`arc-crumb-strip ${phone.crumb}`} aria-label="Breadcrumb">
         <div className="inner">
-          <button type="button" className="crumb-back" onClick={() => router.push("/dashboard/vendor/rate-contracts/active")}>
+          <button type="button" className="crumb-back" onClick={() => router.push(listHref)}>
             <I.back /> Back
           </button>
           <span className="sep">/</span>
           <Link href="/dashboard/vendor/rate-contracts/requests">Rate contracts</Link>
           <span className="sep">/</span>
-          <Link href="/dashboard/vendor/rate-contracts/active">Active</Link>
+          {isOffered
+            ? <Link href="/dashboard/vendor/network/assigned">Assigned to me</Link>
+            : <Link href="/dashboard/vendor/rate-contracts/active">Active</Link>}
           <span className="sep">/</span>
           <span className="here">#{arc?.arc_number || contract.arc_number}</span>
         </div>
@@ -381,8 +401,8 @@ export default function VendorContractDetailPage() {
             </div>
           </div>
           <div className="hero-actions">
-            <Link href="/dashboard/vendor/rate-contracts/active" className="btn">
-              <I.back /> Back to list
+            <Link href={listHref} className="btn">
+              <I.back /> {isOffered ? "Back to Assigned to me" : "Back to list"}
             </Link>
             {!isMember && (contract.status === "active" || contract.status === "expiring_soon") && (
               <Link href={`/dashboard/vendor/rate-contracts/amendments/request?contract=${contractId}`} className="btn">
