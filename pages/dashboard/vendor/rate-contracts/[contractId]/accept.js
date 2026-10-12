@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
-import FulfilledByPanel, { FulfillingForNote } from "@/components/dashboard/vendor/network/ArcFulfilment";
+import FulfilledByPanel from "@/components/dashboard/vendor/network/ArcFulfilment";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import { escapeHtml } from "@/utils/escapeHtml";
 import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
@@ -173,6 +173,15 @@ export default function VendorAcceptPage() {
     })();
     return () => { cancelled = true; };
   }, [contractId]);
+
+  // Vendor Networks: this page is the contract holder's signing flow. A member entity
+  // (a hotel offered to it, or one it fulfils) has nothing to sign here: its view, with
+  // the offer banner while a hotel is pending, is the contract page.
+  useEffect(() => {
+    if (viewerRole === "fulfilment_member" && contractId) {
+      router.replace(`/dashboard/vendor/rate-contracts/${contractId}`);
+    }
+  }, [viewerRole, contractId]);
 
   // ---- derived ----
   const totalLines = lines.length;
@@ -455,7 +464,7 @@ export default function VendorAcceptPage() {
     return <div style={{ padding: 32, color: "var(--fg-3)" }}>Contract not found.</div>;
   }
   if (viewerRole === "fulfilment_member") {
-    return <MemberContractView contractId={contractId} contract={contract} arc={arc} lines={lines} hotels={hotels} />;
+    return <AcceptSkeleton />; // on its way to the contract page
   }
 
   const A = arc || {};
@@ -1334,73 +1343,6 @@ export default function VendorAcceptPage() {
           <span>{toast}</span>
         </div>
       )}
-    </main>
-  );
-}
-
-// ---------------- fulfilment member view ----------------
-// A member entity of the contract vendor's network supplies some hotels of this
-// contract (Vendor Networks §6.4). It reads its hotels' lines only and has no
-// action here: signing, declining and clarifications stay with the contract vendor.
-function MemberContractView({ contractId, contract, arc, lines, hotels }) {
-  const A = arc || {};
-  const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
-  return (
-    <main className="main-body">
-      <section className="arc-hero">
-        <div className="top">
-          <div style={{ minWidth: 0 }}>
-            <div className="eyebrow">Contract you fulfil</div>
-            <h1>
-              <span>{A.title || contract.arc_title || "Rate contract"}</span>
-              <span className="num">#{A.arc_number || contract.arc_number || contract.id}</span>
-            </h1>
-            <div className="sub">
-              <span>Contract holder: <span className="em">{contract.vendor_name || "—"}</span></span>
-              <span className="sep">·</span>
-              <span>{fmtDate(A.contract_start_at)} → {fmtDate(A.contract_end_at)}</span>
-            </div>
-          </div>
-          <div className="hero-actions">
-            <Link href={`/dashboard/vendor/rate-contracts/${contractId}`} className="btn">Open contract</Link>
-          </div>
-        </div>
-      </section>
-
-      <FulfillingForNote hotels={hotels} principalName={contract.vendor_name} />
-
-      <section className="section-card">
-        <div className="section-head">
-          <div className="h-left"><div><h2>Your hotels' lines</h2></div></div>
-        </div>
-        <div className="section-body flush">
-          <table className="doc-rate-table" style={{ border: "none", borderRadius: 0 }}>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th style={{ textAlign: "right" }}>Rate</th>
-                <th style={{ textAlign: "right" }}>Committed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l) => (
-                <tr key={l.id}>
-                  <td>
-                    <div style={{ fontWeight: 600, color: "var(--fg)" }}>{l.variant_name || `Item #${l.arc_item_id}`}</div>
-                    {(l.hotels || []).length > 0 && (
-                      <div style={{ marginTop: 4, fontSize: 11.5, color: "var(--fg-3)" }}>
-                        {l.hotels.map((h) => `${hotelNameOf(h.hotel_id)}: ${Number(h.committed_qty || 0).toLocaleString("en-IN")}`).join(" · ")}
-                      </div>
-                    )}
-                  </td>
-                  <td className="right mono">{l.effective_unit_rate != null ? fmtINR(l.effective_unit_rate) : "Varies by hotel"}</td>
-                  <td className="right mono">{Number(l.committed_qty || 0).toLocaleString("en-IN")} {l.uom || ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </main>
   );
 }

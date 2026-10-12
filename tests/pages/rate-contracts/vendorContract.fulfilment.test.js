@@ -29,9 +29,10 @@ jest.mock("react-toastify", () => ({
   __esModule: true,
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
+const mockReplace = jest.fn();
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ isReady: true, query: { contractId: "77" }, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ isReady: true, query: { contractId: "77" }, push: jest.fn(), replace: mockReplace }),
 }));
 
 import React from "react";
@@ -341,19 +342,33 @@ describe("a fulfilment member's read-only view", () => {
     expect(NetApi.getRoutingQueue).not.toHaveBeenCalled();
   });
 
-  test("the accept page is read-only: nothing to sign, decline, flag or clarify", async () => {
+  // Task 25 fix round 2: the accept page is the holder's signing flow. A member (pending
+  // or accepted) is sent to the contract page, which has its view and the offer banner.
+  test.each([
+    ["an accepted member", "ACCEPTED"],
+    ["a member offered a hotel", "PENDING"],
+  ])("the accept page sends %s to the contract page, signing nothing on the way", async (_label, status) => {
+    const data = memberContract().data;
     ArcApi.vendorGetContract.mockResolvedValue({
-      data: { ...memberContract().data, contract: { ...memberContract().data.contract, status: "awaiting_acceptance" } },
+      data: {
+        ...data,
+        contract: { ...data.contract, status: "awaiting_acceptance" },
+        hotels: data.hotels.map((h) => ({ ...h, assignment_status: status, assignment_id: 901 })),
+      },
     });
     renderWith(VendorAcceptPage, memberNetwork);
 
-    expect(await screen.findByText("Fulfilling for: Mumbai Suites")).toBeInTheDocument();
-    expect(screen.getByText("Bath towel")).toBeInTheDocument();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard/vendor/rate-contracts/77"));
     expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByText("Contract you fulfil")).toBeNull();
     expect(screen.queryByText(/sign with otp/i)).toBeNull();
-    expect(screen.queryByText(/submit clarification/i)).toBeNull();
-    expect(screen.queryByText(/flag/i)).toBeNull();
-    expect(screen.queryByText(/accept the commercial terms/i)).toBeNull();
-    expect(screen.getByRole("link", { name: "Open contract" })).toHaveAttribute("href", "/dashboard/vendor/rate-contracts/77");
+    expect(ArcApi.vendorRequestOtp).not.toHaveBeenCalled();
+  });
+
+  test("the holder stays on the accept page", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(principalContract({ status: "awaiting_acceptance" }));
+    renderWith(VendorAcceptPage);
+    expect(await hotelRow("Goa Resort")).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
