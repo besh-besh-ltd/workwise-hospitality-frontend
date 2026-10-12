@@ -32,4 +32,17 @@ export function networkErrorMessage(err, fallback, overrides = {}) {
   return getApiErrorMessage(err, fallback);
 }
 
+// Replying to an assignment (POST /routing/:id/respond): Assigned to me and the contract
+// offer banner. The server answers a 404 with no reason code (another entity's or a
+// withdrawn assignment), so it is mapped on the HTTP status.
+const RESPOND_OVERRIDES = {
+  EXPIRED: "This assignment expired before you replied, so it went back to your network admin.",
+};
+const RESPOND_GONE_MESSAGE = "This assignment is no longer available — it may have been withdrawn or reassigned.";
+
+export const respondErrorMessage = (err) =>
+  err?.response?.status === 404
+    ? RESPOND_GONE_MESSAGE
+    : networkErrorMessage(err, "Could not send your reply.", RESPOND_OVERRIDES);
+
 export default networkErrorMessage;

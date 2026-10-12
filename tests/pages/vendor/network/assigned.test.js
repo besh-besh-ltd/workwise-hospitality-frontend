@@ -1,7 +1,8 @@
 // /dashboard/vendor/network/assigned — "Assigned to me" for a member entity
 // (spec §6.2, §9). PENDING items are accepted, or declined with a reason (the
-// note is required for OTHER); ACCEPTED items link to the RFQ (vendor inquiry
-// page) or the contract page. A reply after the deadline gets 409 EXPIRED.
+// note is required for OTHER); every item links to the RFQ (vendor inquiry
+// page) or the contract page, where a pending contract hotel is reviewed
+// before replying (Task 25). A reply after the deadline gets 409 EXPIRED.
 
 jest.mock("@/services/vendorNetwork", () => ({
   __esModule: true,
@@ -82,13 +83,16 @@ test("lists pending and accepted items with their deadline and links", async () 
   expect(rfq).toHaveTextContent(`Reply by ${formatDisplayDate("2026-10-08T06:30:00.000Z", { includeTime: true })}`);
   expect(within(rfq).getByRole("link", { name: "View RFQ" })).toHaveAttribute("href", "/dashboard/vendor/inquiries-details?id=4001");
 
-  // A contract hotel opens only once accepted (the member view needs the ACCEPTED assignment)
+  // A pending contract hotel is reviewed on the contract page before replying; the reply stays on the row.
   const arcPending = await itemOf("Waiting for your reply", "Rate contract ARC-12 · HVAC · Lotus Nashik");
-  expect(within(arcPending).queryByRole("link")).toBeNull();
-  expect(within(arcPending).getByText("The contract opens once you accept.")).toBeInTheDocument();
+  expect(within(arcPending).getByRole("link", { name: "Review contract" })).toHaveAttribute("href", "/dashboard/vendor/rate-contracts/77");
+  expect(within(arcPending).queryByText("The contract opens once you accept.")).toBeNull();
+  expect(within(arcPending).getByRole("button", { name: "Accept" })).toBeEnabled();
+  expect(within(arcPending).getByRole("button", { name: "Decline" })).toBeEnabled();
 
   const arcAccepted = await itemOf("Accepted", "Rate contract ARC-13 · Orchid Goa");
   expect(within(arcAccepted).getByRole("link", { name: "View contract" })).toHaveAttribute("href", "/dashboard/vendor/rate-contracts/78");
+  expect(within(arcAccepted).queryByRole("link", { name: "Review contract" })).toBeNull();
   const rfqAccepted = await itemOf("Accepted", "RFQ #536705 · Fans");
   expect(within(rfqAccepted).getByRole("link", { name: "View RFQ" })).toHaveAttribute("href", "/dashboard/vendor/inquiries-details?id=4005");
   expect(within(rfqAccepted).queryByRole("button", { name: "Accept" })).toBeNull();
@@ -228,4 +232,12 @@ test("while a reply is in flight, Accept and Decline are disabled and a second c
     resolve({ status: 1, message: "Assignment accepted", data: {} });
   });
   await waitFor(() => expect(api.getAssignedToMe).toHaveBeenCalledTimes(2));
+});
+
+test("accepting a pending contract hotel from its row replies for that assignment", async () => {
+  api.respondToAssignment.mockResolvedValue({ status: 1, message: "Assignment accepted", data: {} });
+  renderPage();
+  const arc = await itemOf("Waiting for your reply", "Rate contract ARC-12 · HVAC · Lotus Nashik");
+  fireEvent.click(within(arc).getByRole("button", { name: "Accept" }));
+  await waitFor(() => expect(api.respondToAssignment).toHaveBeenCalledWith(901, { decision: "ACCEPT" }));
 });

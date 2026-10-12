@@ -3,7 +3,7 @@
 // network admin routed to it, PENDING (accept, or decline with a reason) and
 // ACCEPTED. An RFQ opens on the vendor inquiry page (the entity can view it
 // while pending, and quote once accepted); a rate-contract hotel opens on the
-// contract page once accepted.
+// contract page, where a pending one is reviewed before the entity replies.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
@@ -14,34 +14,25 @@ import { getAssignedToMe, respondToAssignment } from "@/services/vendorNetwork";
 import NetworkAccessNotice from "@/components/dashboard/vendor/network/NetworkAccessNotice";
 import DeclineAssignmentModal from "@/components/dashboard/vendor/network/DeclineAssignmentModal";
 import { useNetworkProfile, isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
-import { networkErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
+import { networkErrorMessage, respondErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { SUBJECT_LABEL, fmtDateTime } from "@/components/dashboard/vendor/network/routingFormat";
-
-const RESPOND_OVERRIDES = {
-  EXPIRED: "This assignment expired before you replied, so it went back to your network admin.",
-};
-// The server answers a 404 with no reason code (another entity's or a withdrawn assignment),
-// so this page maps on the HTTP status.
-const GONE_MESSAGE = "This assignment is no longer available — it may have been withdrawn or reassigned.";
-
-const respondErrorMessage = (err) =>
-  err?.response?.status === 404 ? GONE_MESSAGE : networkErrorMessage(err, "Could not send your reply.", RESPOND_OVERRIDES);
 
 const titleOf = (row) => row.title || `${SUBJECT_LABEL[row.subject_type] || row.subject_type} #${row.subject_id}`;
 
-/** Where an assignment opens, or null when it can't be opened yet. */
+/** Where an assignment opens: the RFQ, or the contract (a pending hotel is reviewed there before replying). */
 function linkOf(row) {
   if (row.subject_type === "RFQ") return `/dashboard/vendor/inquiries-details?id=${row.subject_id}`;
-  if (row.subject_type === "ARC_HOTEL" && row.status === "ACCEPTED") return `/dashboard/vendor/rate-contracts/${row.subject_id}`;
+  if (row.subject_type === "ARC_HOTEL") return `/dashboard/vendor/rate-contracts/${row.subject_id}`;
   return null;
 }
 
 function OpenLink({ row }) {
   const href = linkOf(row);
-  if (!href) return <span style={{ fontSize: 12, color: "var(--fg-3)" }}>The contract opens once you accept.</span>;
+  if (!href) return null;
+  const label = row.subject_type === "RFQ" ? "View RFQ" : row.status === "PENDING" ? "Review contract" : "View contract";
   return (
     <Link href={href} className="btn btn-ghost btn-sm">
-      {row.subject_type === "RFQ" ? "View RFQ" : "View contract"}
+      {label}
     </Link>
   );
 }
