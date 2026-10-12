@@ -37,6 +37,14 @@ function OpenLink({ row }) {
   );
 }
 
+/**
+ * A PENDING row whose reply deadline has passed. Until the sweep times it out it is still
+ * listed, but it can no longer be opened (the contract view refuses it) or answered (a
+ * reply times it out), so the row says so instead.
+ */
+const replyWindowClosed = (row) =>
+  row.status === "PENDING" && !!row.due_at && new Date(row.due_at).getTime() <= Date.now();
+
 const rowStyle = { padding: "14px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" };
 
 function AssignedView() {
@@ -137,15 +145,19 @@ function AssignedView() {
                           Assigned {fmtDateTime(row.created_at)} · Reply by {fmtDateTime(row.due_at)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <OpenLink row={row} />
-                        <button type="button" className="btn btn-outline-danger btn-sm" disabled={busy} onClick={() => setDeclining(row)}>
-                          Decline
-                        </button>
-                        <button type="button" className="btn btn-success btn-sm" disabled={busy} onClick={() => respond(row, { decision: "ACCEPT" })}>
-                          Accept
-                        </button>
-                      </div>
+                      {replyWindowClosed(row) ? (
+                        <span style={{ fontSize: 12.5, color: "var(--fg-3)" }}>Reply window closed — your network admin will re-route it.</span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <OpenLink row={row} />
+                          <button type="button" className="btn btn-outline-danger btn-sm" disabled={busy} onClick={() => setDeclining(row)}>
+                            Decline
+                          </button>
+                          <button type="button" className="btn btn-success btn-sm" disabled={busy} onClick={() => respond(row, { decision: "ACCEPT" })}>
+                            Accept
+                          </button>
+                        </div>
+                      )}
                     </li>
                   );
                 })}

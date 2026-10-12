@@ -44,7 +44,7 @@ const row = (over) => ({
   hotel_id: null,
   assigned_vendor_id: 11,
   status: "PENDING",
-  due_at: "2026-10-08T06:30:00.000Z",
+  due_at: "2099-10-08T06:30:00.000Z",
   created_at: "2026-10-07T06:30:00.000Z",
   acted_at: null,
   title: "RFQ #536700 · Chillers",
@@ -80,7 +80,7 @@ test("lists pending and accepted items with their deadline and links", async () 
   renderPage();
   const rfq = await itemOf("Waiting for your reply", "RFQ #536700 · Chillers");
   expect(api.getAssignedToMe).toHaveBeenCalledWith({ status: ["PENDING", "ACCEPTED"] });
-  expect(rfq).toHaveTextContent(`Reply by ${formatDisplayDate("2026-10-08T06:30:00.000Z", { includeTime: true })}`);
+  expect(rfq).toHaveTextContent(`Reply by ${formatDisplayDate("2099-10-08T06:30:00.000Z", { includeTime: true })}`);
   expect(within(rfq).getByRole("link", { name: "View RFQ" })).toHaveAttribute("href", "/dashboard/vendor/inquiries-details?id=4001");
 
   // A pending contract hotel is reviewed on the contract page before replying; the reply stays on the row.
@@ -240,4 +240,32 @@ test("accepting a pending contract hotel from its row replies for that assignmen
   const arc = await itemOf("Waiting for your reply", "Rate contract ARC-12 · HVAC · Lotus Nashik");
   fireEvent.click(within(arc).getByRole("button", { name: "Accept" }));
   await waitFor(() => expect(api.respondToAssignment).toHaveBeenCalledWith(901, { decision: "ACCEPT" }));
+});
+
+// Task 25 fix round 2: a PENDING row whose reply window has closed (due_at passed, the
+// sweep has not timed it out yet) can no longer be opened or answered: the server refuses
+// the contract view and times the row out on any reply.
+test("a pending row past its reply deadline says the window closed: no links, no Accept or Decline", async () => {
+  const PAST = "2020-01-01T00:00:00.000Z";
+  api.getAssignedToMe.mockResolvedValue({
+    status: 1,
+    data: [
+      row({ due_at: PAST }),
+      row({ id: 901, subject_type: "ARC_HOTEL", subject_id: 77, hotel_id: 502, due_at: PAST, title: "Rate contract ARC-12 · HVAC · Lotus Nashik", action_url: null }),
+      row({ id: 904, subject_id: 4009, title: "RFQ #536709 · Pumps" }),
+    ],
+  });
+  renderPage();
+  for (const title of ["RFQ #536700 · Chillers", "Rate contract ARC-12 · HVAC · Lotus Nashik"]) {
+    const li = await itemOf("Waiting for your reply", title);
+    expect(li).toHaveTextContent("Reply window closed — your network admin will re-route it.");
+    expect(within(li).queryByRole("link")).toBeNull();
+    expect(within(li).queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(within(li).queryByRole("button", { name: "Decline" })).toBeNull();
+  }
+  // A row still inside its window is unchanged.
+  const open = await itemOf("Waiting for your reply", "RFQ #536709 · Pumps");
+  expect(within(open).getByRole("link", { name: "View RFQ" })).toBeInTheDocument();
+  expect(within(open).getByRole("button", { name: "Accept" })).toBeEnabled();
+  expect(open).not.toHaveTextContent("Reply window closed");
 });

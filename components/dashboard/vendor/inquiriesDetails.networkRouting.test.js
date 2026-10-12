@@ -208,3 +208,23 @@ describe("no reply pending", () => {
     );
   });
 });
+
+// Fix round 2: an entity on its own direct invite quotes as itself even while the RFQ is
+// also routed to it, so the server sends network_assignment null and nothing is held back.
+test("an entity on its own direct invite (network_assignment null): no banner; Send Quote, Regret and Raise Clarification enabled", async () => {
+  getRFQById.mockResolvedValue({ data: rfq({ network_assignment: null }) });
+  const first = render(<RfqManagementPreview />);
+  await screen.findByRole("region", { name: "Quote actions" });
+  expect(screen.queryByRole("region", { name: "RFQ assignment" })).toBeNull();
+  expect(headerButton("Send Quote")).toBeEnabled();
+  expect(headerButton("Regret Quote")).toBeEnabled();
+  expect(screen.queryByText("Accept this RFQ to quote, regret or raise a clarification")).toBeNull();
+  first.unmount();
+
+  // Inside a clarification window (where the page itself holds quoting back), it may raise one.
+  getRFQById.mockResolvedValue({ data: rfq({ network_assignment: null, vendor_clarification_date: "2099-01-01 10:00:00" }) });
+  render(<RfqManagementPreview />);
+  const raise = await screen.findByRole("button", { name: "Raise Clarification" });
+  expect(raise).toBeEnabled();
+  expect(raise).not.toHaveAttribute("title");
+});
