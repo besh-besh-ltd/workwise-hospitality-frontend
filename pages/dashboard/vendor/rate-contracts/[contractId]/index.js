@@ -330,6 +330,9 @@ export default function VendorContractDetailPage() {
     : contract.status === "expired" ? { cls: "expired", label: "Expired" }
     : { cls: "draft", label: contract.status };
   const daysLeft = daysRemaining(arc?.contract_end_at);
+  // The contract holder has not signed yet (it is being reviewed, or is back with the
+  // buyer for a clarification): the document is not presented as signed.
+  const unsigned = contract.status === "awaiting_acceptance" || contract.status === "clarification";
   const paymentTerms = lines[0]?.payment_terms || arc?.payment_terms_expected || "Net 30";
 
   return (
@@ -618,12 +621,16 @@ export default function VendorContractDetailPage() {
                 <div className="h-left">
                   <div className="ic"><I.file /></div>
                   <div>
-                    <h2>Signed contract document</h2>
-                    <div className="h-sub">Read-only · countersigned <span className="em">{fmtDate(contract.signed_by_vendor_at)}</span></div>
+                    <h2>{unsigned ? "Contract document (not yet signed)" : "Signed contract document"}</h2>
+                    {unsigned
+                      ? <div className="h-sub">Read-only · awaiting {isMember ? "the contract holder's" : "your"} signature</div>
+                      : <div className="h-sub">Read-only · countersigned <span className="em">{fmtDate(contract.signed_by_vendor_at)}</span></div>}
                   </div>
                 </div>
                 <div className="h-right">
-                  <span className="pill success"><span className="pdot" />e-signed</span>
+                  {unsigned
+                    ? <span className="pill warn"><span className="pdot" />awaiting signature</span>
+                    : <span className="pill success"><span className="pdot" />e-signed</span>}
                   <button className="btn btn-secondary btn-sm" onClick={dlAnnexure}><I.download /> Rate annexure (.xlsx)</button>
                   {!isMember && <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>}
                 </div>
@@ -727,7 +734,7 @@ export default function VendorContractDetailPage() {
                       <div className="pb-label" style={{ marginBottom: 8 }}>{isMember ? "For vendor (contract holder)" : "For vendor (you)"}</div>
                       <div className="sig-block">
                         <div className="sig-name">{contract.vendor_name}</div>
-                        <div className="sig-meta">Signed via OTP on {fmtDate(contract.signed_by_vendor_at)}</div>
+                        <div className="sig-meta">{unsigned ? "Awaiting OTP signature" : `Signed via OTP on ${fmtDate(contract.signed_by_vendor_at)}`}</div>
                       </div>
                     </div>
                   </div>

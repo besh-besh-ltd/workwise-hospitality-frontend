@@ -338,3 +338,51 @@ describe("phones", () => {
     expect(phone).toMatch(/\.actionCenter :global\(\.ac-actions \.btn\)\s*{[^}]*min-height:\s*40px/);
   });
 });
+
+// Fix round 1: a contract the holder has not signed yet (awaiting_acceptance /
+// clarification) is not presented as signed on the Contract document tab.
+describe("the Contract document tab of a contract not yet signed", () => {
+  const docHeader = () => screen.getByRole("heading", { level: 2, name: /contract document/i }).closest(".section-head");
+
+  test.each(["awaiting_acceptance", "clarification"])("member view, %s: 'not yet signed', no e-signed pill", async (status) => {
+    const offered = memberContract([hotel(MUMBAI, "PENDING", 901)]);
+    offered.data.contract = { ...offered.data.contract, status, signed_by_vendor_at: null };
+    ArcApi.vendorGetContract.mockResolvedValue(offered);
+    renderWith(VendorContractPage);
+    await clauseList(); // lands on the document
+
+    const head = docHeader();
+    expect(head).toHaveTextContent("Contract document (not yet signed)");
+    expect(head).toHaveTextContent("Read-only · awaiting the contract holder's signature");
+    expect(within(head).getByText("awaiting signature")).toBeInTheDocument();
+    expect(screen.queryByText("Signed contract document")).toBeNull();
+    expect(screen.queryByText("e-signed")).toBeNull();
+    expect(screen.getByText("Awaiting OTP signature")).toBeInTheDocument();
+    expect(screen.queryByText(/Signed via OTP/)).toBeNull();
+  });
+
+  test.each(["awaiting_acceptance", "clarification"])("holder view, %s: 'not yet signed', awaiting your signature", async (status) => {
+    const c = holderContract(status);
+    c.data.contract = { ...c.data.contract, signed_by_vendor_at: null };
+    ArcApi.vendorGetContract.mockResolvedValue(c);
+    renderWith(VendorContractPage, null);
+    fireEvent.click(await screen.findByRole("button", { name: /contract document/i }));
+
+    const head = docHeader();
+    expect(head).toHaveTextContent("Contract document (not yet signed)");
+    expect(head).toHaveTextContent("Read-only · awaiting your signature");
+    expect(screen.queryByText("e-signed")).toBeNull();
+    expect(screen.getByText("Awaiting OTP signature")).toBeInTheDocument();
+  });
+
+  test("a signed (active) contract keeps 'Signed contract document' and the e-signed pill", async () => {
+    ArcApi.vendorGetContract.mockResolvedValue(holderContract("active"));
+    renderWith(VendorContractPage, null);
+    fireEvent.click(await screen.findByRole("button", { name: /contract document/i }));
+    const head = docHeader();
+    expect(head).toHaveTextContent("Signed contract document");
+    expect(head).toHaveTextContent("Read-only · countersigned");
+    expect(within(head).getByText("e-signed")).toBeInTheDocument();
+    expect(screen.getByText(/Signed via OTP on/)).toBeInTheDocument();
+  });
+});
