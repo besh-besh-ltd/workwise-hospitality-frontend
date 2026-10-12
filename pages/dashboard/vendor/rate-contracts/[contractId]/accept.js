@@ -10,6 +10,7 @@ import * as ArcApi from "@/services/arc_v2";
 import FulfilledByPanel, { FulfillingForNote } from "@/components/dashboard/vendor/network/ArcFulfilment";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
 import { escapeHtml } from "@/utils/escapeHtml";
+import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
 
 // ---------------- helpers ----------------
 // HTML-escapes a value interpolated into the document.write preview below.
@@ -31,49 +32,6 @@ const daysLeft = (s) => {
   const diff = Math.ceil((new Date(s).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   return diff;
 };
-
-// Commercial terms are derived from the ARC the buyer created. Payment,
-// delivery, penalty and escalation are captured at ARC creation (the buyer's
-// RFQ terms) — termination is a standard platform clause. This makes the
-// "who decided these terms" answer transparent in the UI via the `source`.
-function buildTerms(arc) {
-  arc = arc || {};
-  const esc = arc.escalation_clause_json || {};
-  const escText =
-    !esc.type || esc.type === "none"
-      ? "Rates are fixed for the full contract term — no price escalation applies."
-      : esc.cap_pct
-        ? `Price escalation permitted via the agreed index, capped at ${esc.cap_pct}% over the term.`
-        : "Price escalation permitted as per the agreed index, subject to buyer approval.";
-  return [
-    {
-      key: "payment", title: "Payment terms", source: "from-arc",
-      text: arc.payment_terms_expected
-        ? `${arc.payment_terms_expected} from goods receipt (GRN) at the receiving business unit. Invoices are raised against each released PO with the agreed HSN code per line.`
-        : "Payment as agreed per released PO at the receiving business unit.",
-    },
-    {
-      key: "delivery", title: "Delivery & lead time", source: "from-arc",
-      text: arc.delivery_expected
-        ? `${arc.delivery_expected}. Partial deliveries acceptable; a packing list, lot number and OC certificate must accompany each shipment.`
-        : "Delivery as agreed per line; packing list and OC certificate to accompany each shipment.",
-    },
-    {
-      key: "penalty", title: "Penalty / SLA clauses", source: "from-arc",
-      text: arc.penalty_clause
-        ? arc.penalty_clause
-        : "Standard service-level penalties apply for late delivery and quality rejects as per the buyer's policy.",
-    },
-    {
-      key: "escalation", title: "Price escalation", source: "from-arc",
-      text: escText,
-    },
-    {
-      key: "termination", title: "Termination & exit", source: "standard",
-      text: "Either party may terminate for cause with 30 days' written notice. On termination, all open released POs shall be honoured and the vendor agrees to a 90-day transition support window at the contracted rates.",
-    },
-  ];
-}
 
 // Disputable fields — what the vendor can flag on a line, and what the buyer's
 // commercial evaluator may edit in return. Mirrors the backend field whitelist.
@@ -522,7 +480,7 @@ export default function VendorAcceptPage() {
   const category   = A.category_title || "";
   const cStart     = A.contract_start_at || null;
   const cEnd       = A.contract_end_at || null;
-  const terms      = buildTerms(A);
+  const terms      = buildCommercialTerms(A);
 
   // Per-step section state for the progressive-flow treatment (done / active /
   // locked). Steps: 1 = confirm lines, 2 = accept terms, 3 = sign.
