@@ -192,8 +192,9 @@ export default function VendorContractDetailPage() {
       const res = await ArcApi.vendorGetContract(contractId);
       setData(res?.data ?? res ?? null);
     } catch (err) {
-      // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
-      // any other failure keeps what the page shows.
+      // Handled so the rejection is not left unhandled; the shared axios instance has
+      // already noted a guest-session refusal (the sign-in notice). Any other failure
+      // keeps what the page shows.
       noteArcGuestRefusal(err);
     } finally {
       setLoading(false);
@@ -210,8 +211,9 @@ export default function VendorContractDetailPage() {
         const payload = res?.data ?? res ?? null;
         if (!cancelled) setData(payload);
       } catch (err) {
-        // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
-        // any other failure leaves no contract ("Contract not found").
+        // Handled so the rejection is not left unhandled; the shared axios instance has
+        // already noted a guest-session refusal (the sign-in notice). Any other failure
+        // leaves no contract ("Contract not found").
         noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);

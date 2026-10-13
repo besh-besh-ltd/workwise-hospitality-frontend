@@ -169,8 +169,9 @@ export default function VendorAcceptPage() {
         setClarifications(res?.data?.clarifications || []);
         setViewerRole(res?.data?.viewer_role || null);
       } catch (err) {
-        // A guest session's refusal shows the sign-in notice (RateContractGuestGate);
-        // any other failure leaves no contract ("Contract not found.").
+        // Handled so the rejection is not left unhandled; the shared axios instance has
+        // already noted a guest-session refusal (the sign-in notice). Any other failure
+        // leaves no contract ("Contract not found.").
         noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);
