@@ -15,6 +15,8 @@ jest.mock("react-redux", () => ({ __esModule: true, useDispatch: () => mockDispa
 jest.mock("@/redux/store", () => ({ __esModule: true, persistor: { flush: jest.fn(() => Promise.resolve()) } }));
 jest.mock("@/lib/analytics", () => ({ __esModule: true, default: { reset: jest.fn() } }));
 jest.mock("@/utils/pendingSignIn", () => ({ __esModule: true, setPendingSignIn: jest.fn() }));
+const mockHardNavigate = jest.fn();
+jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardNavigate: (...a) => mockHardNavigate(...a), hardReload: jest.fn() }));
 
 import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
@@ -80,7 +82,9 @@ test("Sign in ends the guest session and opens the sign-in modal prefilled with 
   render(<RateContractGuestGate>{page}</RateContractGuestGate>);
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/?login=true"));
+  // A full page load (fix round 1), never a client-side replace that re-renders the page.
+  await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/?login=true"));
+  expect(mockReplace).not.toHaveBeenCalled();
   expect(setPendingSignIn).toHaveBeenCalledWith({
     email: "alpha.west@example.com",
     message: "Sign in with your email and password to open your rate contracts.",
@@ -89,7 +93,9 @@ test("Sign in ends the guest session and opens the sign-in modal prefilled with 
   for (const k of ["token", "current-user-type", "current-user-name", "current-user-email", "guest-session"]) {
     expect(window.localStorage.getItem(k)).toBeNull();
   }
-  expect(isArcGuestRefused()).toBe(false);
+  // The refusal stays noted until the page is left, so the notice stays up meanwhile.
+  expect(isArcGuestRefused()).toBe(true);
+  expect(screen.getByRole("region", { name: "Sign in to open rate contracts" })).toBeInTheDocument();
 });
 
 test("moving to another page clears the refusal (the next request decides again)", () => {
