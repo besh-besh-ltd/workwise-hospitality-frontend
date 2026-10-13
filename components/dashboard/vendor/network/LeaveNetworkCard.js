@@ -3,11 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { LogOut } from "lucide-react";
 import { leaveNetwork } from "@/services/vendorNetwork";
-import { clearUserProfile } from "@/redux/slice";
-import { persistor } from "@/redux/store";
-import storageInstance from "@/utils/storageInstance";
-import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
-import posthog from "@/lib/analytics";
+import { endSession } from "@/utils/endSession";
 import { isGuestSession } from "@/utils/guestSession";
 import { hardNavigate } from "@/utils/hardNavigate";
 import { markEntitySwitchDone } from "@/utils/sessionSync";
@@ -29,20 +25,6 @@ export const canLeaveNetwork = (profile, guest) => {
 // Tell other tabs (they reload when they show a network profile). Never blocks this tab.
 const signalOtherTabs = () => {
   try { markEntitySwitchDone(); } catch (_) {}
-};
-
-/**
- * End this browser's session (same keys as the shell's logout) so the stale
- * persisted profile, still carrying the old `network`, is never rehydrated.
- */
-const endSession = async (dispatch) => {
-  try { posthog.reset(); } catch (_) {}
-  dispatch(clearUserProfile());
-  ["token", "current-user-type", "current-user-name", "current-user-email", "user-permissions", "guest-session"].forEach(
-    (key) => storageInstance.removeStorege(key)
-  );
-  setStoredHospitalityContext(null);
-  try { await persistor.flush(); } catch (_) {}
 };
 
 /**
@@ -92,6 +74,8 @@ export default function LeaveNetworkCard() {
     try {
       await refreshNetworkProfile(dispatch);
     } catch (_) {
+      // End this browser's session so the stale persisted profile, still carrying the
+      // old `network`, is never rehydrated.
       await endSession(dispatch);
       signalOtherTabs();
       setConfirming(false);

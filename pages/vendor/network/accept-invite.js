@@ -16,11 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
 import { previewMemberInvite, acceptMemberInvite } from "@/services/vendorNetwork";
-import { clearUserProfile } from "@/redux/slice";
-import { persistor } from "@/redux/store";
-import storageInstance from "@/utils/storageInstance";
-import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
-import posthog from "@/lib/analytics";
+import { endSession } from "@/utils/endSession";
 import { setPendingSignIn } from "@/utils/pendingSignIn";
 
 const GENERIC_GONE = "This invitation is invalid or has already been used";
@@ -70,16 +66,7 @@ const Row = ({ k, v }) => (
  * test it), so "/?login=true" offers the sign-in form instead of bouncing to
  * that account's dashboard. Same keys as the DashboardShell logout.
  */
-const endExistingSession = async (dispatch) => {
-  try { posthog.reset(); } catch (_) {}
-  dispatch(clearUserProfile());
-  ["token", "current-user-type", "current-user-name", "current-user-email", "user-permissions", "guest-session"].forEach(
-    (key) => storageInstance.removeStorege(key)
-  );
-  setStoredHospitalityContext(null);
-  try { await persistor.flush(); } catch (_) {}
-  window.dispatchEvent(new Event("loginStatusChanged"));
-};
+const endExistingSession = (dispatch) => endSession(dispatch, { emitLoginStatusChanged: true });
 
 const AcceptInvitePage = () => {
   const router = useRouter();
