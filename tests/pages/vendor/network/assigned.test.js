@@ -14,6 +14,8 @@ jest.mock("react-toastify", () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
+const mockHardNavigate = jest.fn();
+jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardNavigate: (...a) => mockHardNavigate(...a), hardReload: jest.fn() }));
 
 import React from "react";
 import { Provider } from "react-redux";
@@ -268,4 +270,39 @@ test("a pending row past its reply deadline says the window closed: no links, no
   expect(within(open).getByRole("link", { name: "View RFQ" })).toBeInTheDocument();
   expect(within(open).getByRole("button", { name: "Accept" })).toBeEnabled();
   expect(open).not.toHaveTextContent("Reply window closed");
+});
+
+// Task 26 fix round 1: the server refuses Assigned to me to an emailed-link guest session
+// (rate-contract rows name the contract and hotel). The page says why and offers Sign in,
+// instead of "Could not load your assignments" and Retry.
+test("a guest session gets the full sign-in notice; Sign in ends it and opens the prefilled sign-in", async () => {
+  api.getAssignedToMe.mockRejectedValue({
+    response: { status: 403, data: { status: 0, reason: "GUEST_SESSION", message: "Sign in to your account to do this. Emailed links only open the RFQ." } },
+  });
+  window.localStorage.setItem("token", "guest.jwt.token");
+  window.localStorage.setItem("current-user-email", "daikin.up@example.com");
+  window.sessionStorage.clear();
+  renderPage();
+
+  const notice = await screen.findByRole("region", { name: "Sign in to see your assignments" });
+  expect(notice).toHaveTextContent(
+    "Assigned work needs a full sign-in. You opened Workwise from an RFQ email link, which only covers that RFQ. Sign in with your email and password to continue."
+  );
+  expect(screen.queryByText(/Could not load your assignments/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+
+  fireEvent.click(within(notice).getByRole("button", { name: "Sign in" }));
+  await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/?login=true"));
+  expect(JSON.parse(window.sessionStorage.getItem("pending-sign-in"))).toEqual({
+    email: "daikin.up@example.com",
+    message: "Sign in with your email and password to see your assignments.",
+  });
+  expect(window.localStorage.getItem("token")).toBeNull();
+});
+
+test("another load failure still shows the error and Retry", async () => {
+  api.getAssignedToMe.mockRejectedValue({ response: { status: 500, data: { status: 3, message: "Server error" } } });
+  renderPage();
+  expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Sign in to see your assignments" })).toBeNull();
 });

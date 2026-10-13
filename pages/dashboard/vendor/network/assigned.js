@@ -16,6 +16,12 @@ import DeclineAssignmentModal from "@/components/dashboard/vendor/network/Declin
 import { useNetworkProfile, isNetworkAdmin } from "@/components/dashboard/vendor/network/networkProfile";
 import { networkErrorMessage, respondErrorMessage } from "@/components/dashboard/vendor/network/networkErrors";
 import { SUBJECT_LABEL, fmtDateTime } from "@/components/dashboard/vendor/network/routingFormat";
+import GuestSignInNotice from "@/components/shared/GuestSignInNotice";
+import { isGuestSessionRefusal } from "@/utils/arcGuestRefusal";
+
+// The server refuses Assigned to me to an emailed-link guest session (Task 26).
+const GUEST_TEXT =
+  "Assigned work needs a full sign-in. You opened Workwise from an RFQ email link, which only covers that RFQ. Sign in with your email and password to continue.";
 
 const titleOf = (row) => row.title || `${SUBJECT_LABEL[row.subject_type] || row.subject_type} #${row.subject_id}`;
 
@@ -53,6 +59,7 @@ function AssignedView() {
   const [rows, setRows] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [declining, setDeclining] = useState(null);
+  const [guestRefused, setGuestRefused] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError("");
@@ -60,7 +67,8 @@ function AssignedView() {
       const res = await getAssignedToMe({ status: ["PENDING", "ACCEPTED"] });
       setRows(res?.data || []);
     } catch (err) {
-      setLoadError(networkErrorMessage(err, "Could not load your assignments."));
+      if (isGuestSessionRefusal(err)) setGuestRefused(true);
+      else setLoadError(networkErrorMessage(err, "Could not load your assignments."));
     } finally {
       setLoading(false);
     }
@@ -96,6 +104,16 @@ function AssignedView() {
 
   const pending = rows.filter((r) => r.status === "PENDING");
   const accepted = rows.filter((r) => r.status === "ACCEPTED");
+
+  if (guestRefused) {
+    return (
+      <GuestSignInNotice
+        label="Sign in to see your assignments"
+        text={GUEST_TEXT}
+        prefillMessage="Sign in with your email and password to see your assignments."
+      />
+    );
+  }
 
   return (
     <main className="main-body">
