@@ -255,11 +255,17 @@ function PrincipalNotice({ isAdmin }) {
 export default function NetworkAssignedPage() {
   const { profile, pending } = useNetworkProfile();
   const network = profile?.network;
+  // Sign in from the guest notice clears the profile before the page leaves: keep showing
+  // what was there instead of blanking the main area while the next page loads.
+  const lastContent = useRef(null);
   let content = null;
   if (profile && !pending) {
     if (network && !network.is_principal) content = <AssignedView />;
     else if (network) content = <PrincipalNotice isAdmin={isNetworkAdmin(profile)} />;
     else content = <NetworkAccessNotice profile={profile} />;
+    lastContent.current = content;
+  } else if (!profile) {
+    content = lastContent.current;
   }
   return (
     <>

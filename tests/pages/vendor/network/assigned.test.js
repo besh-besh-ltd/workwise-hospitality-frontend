@@ -291,8 +291,14 @@ test("a guest session gets the full sign-in notice; Sign in ends it and opens th
   expect(screen.queryByText(/Could not load your assignments/)).toBeNull();
   expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
 
+  const errorSpy = jest.spyOn(console, "error");
   fireEvent.click(within(notice).getByRole("button", { name: "Sign in" }));
   await waitFor(() => expect(mockHardNavigate).toHaveBeenCalledWith("/?login=true"));
+  // The notice stays up while the next page loads (the profile is cleared first), and
+  // flushing the persisted profile logs nothing.
+  expect(screen.getByRole("region", { name: "Sign in to see your assignments" })).toBeInTheDocument();
+  expect(errorSpy).not.toHaveBeenCalled();
+  errorSpy.mockRestore();
   expect(JSON.parse(window.sessionStorage.getItem("pending-sign-in"))).toEqual({
     email: "daikin.up@example.com",
     message: "Sign in with your email and password to see your assignments.",
