@@ -1,8 +1,6 @@
-// Placeholder — the real page lands in a later purchase-requisition task.
-export default function PrListStub() {
-  return (
-    <div className="main-body">
-      <h1>Purchase requisitions</h1>
-    </div>
-  );
+// Buyer-side · Purchase requisitions list.
+import PrListPage from "@/components/dashboard/purchase-requisitions/PrListPage";
+
+export default function PurchaseRequisitionsPage() {
+  return <PrListPage />;
 }
