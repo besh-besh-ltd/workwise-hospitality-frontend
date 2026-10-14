@@ -6,15 +6,23 @@
 // float), and one item asked for in different units is flagged. The server
 // re-checks everything and stays authoritative — its 409 / 422 answers are
 // rendered line by line in plain words.
+//
+// Department and process mirror the RFQ wizard: departments where the buyer
+// holds rfq.create at the hotel, and processes narrowed to the buyer's
+// rfq.create process scope (useModulePermissions). A process-restricted grant
+// makes the process required; otherwise it may be left for the wizard.
 // Render inside the page's .main-body so the arc_v2 form styles apply.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { convertLines } from "@/services/pr";
 import { getDepartments } from "@/services/rbac";
+import { getApprovalProcesses } from "@/services/process";
+import useModulePermissions from "@/hooks/useModulePermissions";
 import { resumeDraft } from "@/components/dashboard/shared/dashboardLinks";
 import { PrModal } from "./PrReasonModal";
 import { ERROR_COPY, errorBody, errorCopy, errorStatus, formatQty, sumDecimals } from "./prFormat";
+import { departmentOptions, useGuardedSubmit } from "./prQueueShared";
 
 /** Why the server would not convert a line, in words (PR_LINE_NOT_CONVERTIBLE details[].reason). */
 export const NOT_CONVERTIBLE_REASON = {
@@ -55,10 +63,17 @@ export function groupLines(lines) {
   }));
 }
 
-const safeRedirect = (r) => (typeof r === "string" && r.startsWith("/") && !r.startsWith("//") ? r : null);
+// Only same-app absolute paths ("/x"), never protocol-relative ("//x") or "/\\x".
+const safeRedirect = (r) => (typeof r === "string" && /^\/(?![\/\\])/.test(r) ? r : null);
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+export const RFQ_SCOPE_FORBIDDEN = "You can't create RFQs for this hotel, department and process.";
 
-/** A failed convert → { title, items[], refresh } for the alert. */
+/**
+ * A failed convert → { title, items[], refresh, dropLines[] } for the alert.
+ * `refresh`: the queue on screen is out of date (refetch when the dialog
+ * closes). `dropLines`: lines the server says can't be converted — they leave
+ * the selection.
+ */
 function describeFailure(err, nameOf) {
   const body = errorBody(err);
   const code = body?.code;
@@ -69,6 +84,7 @@ function describeFailure(err, nameOf) {
         title: ERROR_COPY.PR_LINE_NOT_CONVERTIBLE,
         items: details.map((d) => `${d.pr_number} · line ${d.line_no} — ${NOT_CONVERTIBLE_REASON[d.reason] || "it can't be converted right now"}`),
         refresh: true,
+        dropLines: details.filter((d) => d && d.line_id != null),
       };
     case "PR_UNIT_MISMATCH":
       return {
@@ -86,24 +102,49 @@ function describeFailure(err, nameOf) {
     case "PR_VALIDATION":
       return { title: errorCopy(err), items: details.map((d) => d?.message).filter(Boolean) };
     default:
-      return { title: errorCopy(err), items: [], refresh: errorStatus(err) === 404 };
+      break;
   }
+  if (errorStatus(err) === 403 && body?.details?.permission !== "pr.convert") {
+    return { title: RFQ_SCOPE_FORBIDDEN, items: [] };
+  }
+  return { title: errorCopy(err), items: [], refresh: [403, 404].includes(errorStatus(err)) };
 }
 
-export default function ConvertModal({ lines, onClose, onRefresh }) {
+/**
+ * lines: a snapshot of the selected pool rows (taken when the dialog opened).
+ * onClose({ refresh, dropLines }): refresh = refetch the queue (a refusal said
+ * it is stale); dropLines = [{ line_id, pr_number, line_no }] to unselect.
+ */
+export default function ConvertModal({ lines, onClose }) {
   const router = useRouter();
   const groups = useMemo(() => groupLines(lines), [lines]);
   const hotelId = lines[0]?.hotel_id;
   const hotelName = lines[0]?.hotel_name;
+  const hotelIds = useMemo(() => (hotelId ? [Number(hotelId)] : []), [hotelId]);
   const deptIds = [...new Set(lines.map((l) => String(l.department_id)))];
   const commonDept = deptIds.length === 1 ? deptIds[0] : "";
 
   const [depts, setDepts] = useState(null); // null = loading
   const [deptError, setDeptError] = useState("");
   const [deptId, setDeptId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState(null);
-  const busyRef = useRef(false);
+  const [processes, setProcesses] = useState(null); // null = loading
+  const [processId, setProcessId] = useState("");
+
+  const nameOf = (variantId) =>
+    groups.find((g) => String(g.variant_id) === String(variantId))?.name || `Item ${variantId}`;
+  const { busy, error: failure, run } = useGuardedSubmit({ describe: (e) => describeFailure(e, nameOf) });
+
+  // rfq.create scope for (hotel, chosen department): allowedProcessIds is an
+  // array when the grant is process-restricted, null when it covers every process.
+  const { allowedProcessIds, loading: permsLoading } = useModulePermissions({
+    moduleKey: "rfq",
+    hotelIds,
+    departmentId: deptId ? Number(deptId) : null,
+    enabled: hotelIds.length > 0,
+  });
+  const processRequired = Array.isArray(allowedProcessIds);
+  const processOptions = (processes || []).filter((p) => !processRequired || allowedProcessIds.includes(Number(p.id)));
+  const processKey = processOptions.map((p) => p.id).join(",");
 
   // Departments where this buyer may create RFQs at the hotel — the list the
   // RFQ wizard offers (rfq.create scope). The PR department is the default
@@ -115,8 +156,7 @@ export default function ConvertModal({ lines, onClose, onRefresh }) {
     getDepartments({ hotel_id: Number(hotelId), resource: "rfq" })
       .then((res) => {
         if (cancelled) return;
-        const rows = res?.data?.data || res?.data || [];
-        const list = (Array.isArray(rows) ? rows : []).map((d) => ({ id: String(d.id), title: d.title || d.name }));
+        const list = departmentOptions(res);
         setDepts(list);
         if (commonDept && list.some((d) => d.id === commonDept)) setDeptId(commonDept);
       })
@@ -128,38 +168,55 @@ export default function ConvertModal({ lines, onClose, onRefresh }) {
     return () => { cancelled = true; };
   }, [hotelId, commonDept]);
 
-  const nameOf = (variantId) =>
-    groups.find((g) => String(g.variant_id) === String(variantId))?.name || `Item ${variantId}`;
+  useEffect(() => {
+    let cancelled = false;
+    getApprovalProcesses()
+      .then((res) => {
+        if (cancelled) return;
+        const rows = res?.data?.data || res?.data || [];
+        setProcesses((Array.isArray(rows) ? rows : []).map((p) => ({ id: String(p.id), name: p.name })));
+      })
+      .catch(() => { if (!cancelled) setProcesses([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // A process the buyer may not use (after a department change) is cleared.
+  useEffect(() => {
+    if (processId && processes && !processKey.split(",").includes(processId)) setProcessId("");
+  }, [processKey, processId, processes]);
+
   const mixed = groups.filter((g) => g.mixedUnits);
   const noDepts = Array.isArray(depts) && depts.length === 0 && !deptError;
+  const noProcess = processRequired && processes && processOptions.length === 0;
+  const blocked = busy || !deptId || mixed.length > 0 || permsLoading || !processes || (processRequired && !processId);
 
-  const submit = async () => {
-    if (busyRef.current || !deptId) return;
-    busyRef.current = true;
-    setBusy(true);
-    setFailure(null);
-    try {
-      const lineIds = lines.map((l) => Number(l.line_id)).sort((a, b) => a - b);
-      const res = await convertLines({ line_ids: lineIds, department_id: Number(deptId) });
-      const d = res?.data || {};
-      // Stay busy: the page is navigating away to the wizard.
-      router.push(safeRedirect(d.redirect) || resumeDraft(d.rfq_id));
-    } catch (e) {
-      setFailure(describeFailure(e, nameOf));
-      busyRef.current = false;
-      setBusy(false);
-    }
+  const close = () => onClose({ refresh: Boolean(failure?.refresh), dropLines: failure?.dropLines || [] });
+
+  const submit = () => {
+    if (blocked) return;
+    const body = {
+      line_ids: lines.map((l) => Number(l.line_id)).sort((a, b) => a - b),
+      department_id: Number(deptId),
+    };
+    if (processId) body.process_id = Number(processId);
+    run(() => convertLines(body), {
+      keepBusy: true, // the page is navigating away to the wizard
+      onSuccess: (res) => {
+        const d = res?.data || {};
+        router.push(safeRedirect(d.redirect) || resumeDraft(d.rfq_id));
+      },
+    });
   };
 
   return (
     <PrModal
       title="Convert to an RFQ draft"
-      onClose={onClose}
+      onClose={close}
       busy={busy}
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Go back</button>
-          <button type="button" className="btn btn-blue" disabled={busy || !deptId} onClick={submit}>
+          <button type="button" className="btn btn-secondary" onClick={close} disabled={busy}>Go back</button>
+          <button type="button" className="btn btn-blue" disabled={blocked} onClick={submit}>
             {busy ? "Creating…" : "Create RFQ draft"}
           </button>
         </>
@@ -182,7 +239,7 @@ export default function ConvertModal({ lines, onClose, onRefresh }) {
             )}
             {failure.refresh && (
               <div style={{ marginTop: 8 }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={onRefresh}>Refresh queue</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={close}>Refresh queue</button>
               </div>
             )}
           </div>
@@ -213,7 +270,7 @@ export default function ConvertModal({ lines, onClose, onRefresh }) {
 
       {mixed.map((g) => (
         <div key={`mixed-${g.variant_id}`} className="guide warn" style={{ marginBottom: 10, fontSize: 12.5 }}>
-          <div>{g.name} is requested in different units ({g.units.join(", ")}). The RFQ needs one unit per item — convert those lines separately.</div>
+          <div>{g.name} is requested in different units ({g.units.join(", ")}). An RFQ has one unit per item, so this can't be converted as selected — unselect the lines in one of the units and convert them separately.</div>
         </div>
       ))}
 
@@ -239,6 +296,33 @@ export default function ConvertModal({ lines, onClose, onRefresh }) {
           </div>
         )}
         {deptError && <div className="help-text" style={{ color: "var(--danger)" }}>{deptError}</div>}
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <label className="label" htmlFor="pr-convert-process">
+          Process {processRequired ? <span className="req">*</span> : <span className="text-fg-3">(optional)</span>}
+        </label>
+        <select
+          id="pr-convert-process"
+          aria-label="RFQ process"
+          className="select"
+          value={processId}
+          disabled={!processes || permsLoading || busy}
+          onChange={(e) => setProcessId(e.target.value)}
+        >
+          <option value="">
+            {!processes ? "Loading…" : processRequired ? "Choose a process…" : "No process now — set it in the RFQ wizard"}
+          </option>
+          {processOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {processRequired && !processId && !noProcess && (
+          <div className="help-text">Your RFQ access here is limited to certain processes — choose the process for this RFQ.</div>
+        )}
+        {noProcess && (
+          <div className="help-text" style={{ color: "var(--danger)" }}>
+            None of the processes you can raise RFQs for is available. Ask your admin.
+          </div>
+        )}
       </div>
 
     </PrModal>

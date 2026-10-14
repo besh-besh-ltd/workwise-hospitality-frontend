@@ -6,16 +6,13 @@
 // bought through a Material Requisition — and the server refuses them too.
 // Render inside the page's .main-body so the arc_v2 form styles apply.
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { searchItems, mapLine } from "@/services/pr";
 import { materialRequisitionCreate } from "@/components/dashboard/shared/dashboardLinks";
 import { PrModal } from "./PrReasonModal";
 import { useTypeahead } from "./PrLineEditor";
-import { errorCopy, errorStatus } from "./prFormat";
-
-// Refusals that mean the queue on screen is out of date.
-const STALE = new Set([404, 409]);
+import { useGuardedSubmit } from "./prQueueShared";
 
 const QUERY_MAX = 100;
 const MIN_CHARS = 2;
@@ -27,9 +24,7 @@ const listStyle = {
 export default function MapVariantModal({ line, onClose, onMapped, onStale }) {
   const [q, setQ] = useState(() => String(line.free_text_name || line.item_name || "").trim().slice(0, QUERY_MAX));
   const [picked, setPicked] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const busyRef = useRef(false);
+  const { busy, error, run } = useGuardedSubmit({ onStale });
 
   const { results, loading } = useTypeahead(
     (term) => searchItems({ hotel_id: Number(line.hotel_id), department_id: Number(line.department_id), q: term, limit: 25 })
@@ -38,20 +33,11 @@ export default function MapVariantModal({ line, onClose, onMapped, onStale }) {
   );
   const remapping = line.progress === "in_pool" && line.effective_variant_id;
 
-  const submit = async () => {
-    if (!picked || busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const res = await mapLine(line.pr_id, line.line_id, picked.variant_id);
-      onMapped(res?.message || "Line mapped");
-    } catch (e) {
-      setError(errorCopy(e));
-      busyRef.current = false;
-      setBusy(false);
-      if (STALE.has(errorStatus(e))) onStale?.();
-    }
+  const submit = () => {
+    if (!picked) return;
+    run(() => mapLine(line.pr_id, line.line_id, picked.variant_id), {
+      onSuccess: (res) => onMapped(res?.message || "Line mapped"),
+    });
   };
 
   return (

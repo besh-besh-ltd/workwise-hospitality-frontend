@@ -4,18 +4,23 @@
 // Buyers assign requisitions, map free-text lines to catalog items (or ask the
 // platform for a new item), close lines that won't be bought, and convert
 // selected lines of ONE hotel into an RFQ draft that opens in the RFQ wizard.
-// Filtering and paging are server-side. The selection rules here (only
-// in-queue lines, one hotel) are a convenience; the server re-checks them.
+// Filtering and paging are server-side. The selection holds row snapshots, so
+// it survives paging, filters and search; a refetch drops only lines it shows
+// have left the queue. The selection rules (only in-queue lines, one hotel)
+// are a convenience; the server re-checks them.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import * as PrApi from "@/services/pr";
 import { getDepartments } from "@/services/rbac";
 import PrProgressPill from "./PrProgressPill";
-import PrReasonModal, { PrModal } from "./PrReasonModal";
+import PrReasonModal from "./PrReasonModal";
 import MapVariantModal from "./MapVariantModal";
 import ConvertModal from "./ConvertModal";
+import AssignModal from "./AssignModal";
+import CatalogRequestModal from "./CatalogRequestModal";
+import { departmentOptions, lineRef, reconcileSelection, useGuardedSubmit } from "./prQueueShared";
 import { CategoryPicker } from "./PrLineEditor";
 import { PROGRESS_LABEL, errorCopy, errorStatus, formatINR, formatQty } from "./prFormat";
 import { URGENCY_LABEL, fmtDate } from "./prDetail";
@@ -32,10 +37,6 @@ const ASSIGNED_OPTIONS = [
 ];
 const AGE_TONE = { ok: "success", amber: "warn", red: "danger" };
 const URGENCY_TONE = { urgent: "danger", normal: "neutral", low: "neutral" };
-const NAME_MAX = 300;
-// Refusals that mean the queue on screen is out of date: refetch behind the dialog.
-const STALE = new Set([404, 409]);
-const DESCRIPTION_MAX = 4000;
 
 /** The server's age band (whole IST days since approval): ok < 3, amber 3..6, red >= 7. */
 export const ageBand = (days) => {
@@ -49,157 +50,25 @@ const ageLabel = (days) => {
   return n <= 0 ? "Today" : `${n} ${n === 1 ? "day" : "days"}`;
 };
 
-/** Why a line's checkbox is off, or null when it can be selected. */
+/**
+ * Why a line's checkbox is off — { short (shown under the progress, read as
+ * the checkbox description), long (tooltip) } — or null when it can be selected.
+ */
 function blockedReason(row, selectedHotel) {
-  if (row.progress === "needs_mapping") return "Map this line to a catalog item before converting it";
-  if (row.progress === "awaiting_catalog") return "Waiting for the requested catalog item — map the line once it exists";
-  if (row.progress !== "in_pool") return "This line can't be converted";
+  if (row.progress === "needs_mapping") {
+    return { short: "Can't convert yet: needs a catalog item", long: "Map this line to a catalog item before converting it" };
+  }
+  if (row.progress === "awaiting_catalog") {
+    return { short: "Can't convert yet: waiting for the catalog item", long: "Waiting for the requested catalog item — map the line once it exists" };
+  }
+  if (row.progress !== "in_pool") return { short: "Can't be converted", long: "This line can't be converted" };
   if (selectedHotel && String(row.hotel_id) !== String(selectedHotel.id)) {
-    return `An RFQ is for one hotel. You've selected lines for ${selectedHotel.name}; this line is for ${row.hotel_name}.`;
+    return {
+      short: `Other hotel: your selection is for ${selectedHotel.name}`,
+      long: `An RFQ is for one hotel. You've selected lines for ${selectedHotel.name}; this line is for ${row.hotel_name}.`,
+    };
   }
   return null;
-}
-
-function AssignModal({ row, meId, onClose, onDone, onStale }) {
-  const [buyers, setBuyers] = useState(null); // null = loading
-  const [loadError, setLoadError] = useState("");
-  const [pick, setPick] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const busyRef = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    PrApi.getBuyers(row.hotel_id)
-      .then((res) => {
-        if (cancelled) return;
-        const list = Array.isArray(res?.data) ? res.data : [];
-        setBuyers(list);
-        const me = list.find((b) => String(b.id) === String(meId));
-        const current = list.find((b) => String(b.id) === String(row.assigned_buyer_id));
-        setPick(String((me || current || {}).id ?? ""));
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setBuyers([]);
-        setLoadError(errorCopy(e));
-      });
-    return () => { cancelled = true; };
-  }, [row.hotel_id, row.assigned_buyer_id, meId]);
-
-  const submit = async () => {
-    if (!pick || busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const res = await PrApi.assignPr(row.pr_id, Number(pick));
-      onDone(res?.message || "Assigned");
-    } catch (e) {
-      setError(errorCopy(e));
-      busyRef.current = false;
-      setBusy(false);
-      if (STALE.has(errorStatus(e))) onStale();
-    }
-  };
-
-  return (
-    <PrModal
-      title={`Assign ${row.pr_number}`}
-      onClose={onClose}
-      busy={busy}
-      footer={
-        <>
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Go back</button>
-          <button type="button" className="btn btn-blue" disabled={!pick || busy} onClick={submit}>{busy ? "Working…" : "Assign"}</button>
-        </>
-      }
-    >
-      <p style={{ margin: "0 0 12px", fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-        The whole requisition is assigned, with every one of its lines in the queue. Now:{" "}
-        <strong>{row.assigned_buyer_name || "unassigned"}</strong>.
-      </p>
-      <label className="label" htmlFor="pr-assign-buyer">Buyer <span className="req">*</span></label>
-      <select
-        id="pr-assign-buyer" aria-label="Buyer" className="select" value={pick} disabled={!buyers || busy}
-        onChange={(e) => setPick(e.target.value)}
-      >
-        <option value="">{buyers ? "Choose a buyer…" : "Loading…"}</option>
-        {(buyers || []).map((b) => (
-          <option key={b.id} value={String(b.id)}>{String(b.id) === String(meId) ? `${b.name} (you)` : b.name}</option>
-        ))}
-      </select>
-      {buyers && buyers.length === 0 && !loadError && (
-        <div className="help-text">Nobody works the purchase queue at {row.hotel_name}.</div>
-      )}
-      {(loadError || error) && (
-        <div role="alert" className="guide danger" style={{ marginTop: 10 }}><div>{error || loadError}</div></div>
-      )}
-    </PrModal>
-  );
-}
-
-function CatalogRequestModal({ row, onClose, onDone, onStale }) {
-  const [name, setName] = useState(() => String(row.free_text_name || row.item_name || "").slice(0, NAME_MAX));
-  const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const busyRef = useRef(false);
-  const blocked = busy || !name.trim() || name.length > NAME_MAX || description.length > DESCRIPTION_MAX;
-
-  const submit = async () => {
-    if (blocked || busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    setError("");
-    const body = { requested_name: name.trim() };
-    if (description.trim()) body.description = description.trim();
-    try {
-      const res = await PrApi.requestCatalogItem(row.pr_id, row.line_id, body);
-      onDone(res?.message || "Catalog item requested");
-    } catch (e) {
-      setError(errorCopy(e));
-      busyRef.current = false;
-      setBusy(false);
-      if (STALE.has(errorStatus(e))) onStale();
-    }
-  };
-
-  return (
-    <PrModal
-      title="Request a catalog item"
-      onClose={onClose}
-      busy={busy}
-      footer={
-        <>
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Go back</button>
-          <button type="button" className="btn btn-blue" disabled={blocked} onClick={submit}>{busy ? "Working…" : "Send request"}</button>
-        </>
-      }
-    >
-      <p style={{ margin: "0 0 12px", fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-        Ask the Workwise team to add this item to the catalog. When they add it, {row.pr_number} line {row.line_no} is
-        mapped to it and can be converted. Until then the line waits in the queue.
-      </p>
-      <label className="label" htmlFor="pr-cat-name">Item name <span className="req">*</span></label>
-      <input
-        id="pr-cat-name" className="input" maxLength={NAME_MAX} value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <label className="label" htmlFor="pr-cat-desc" style={{ marginTop: 10 }}>
-        Description <span className="text-fg-3">(optional)</span>
-      </label>
-      <textarea
-        id="pr-cat-desc" className="textarea" value={description}
-        placeholder="Brand, size, grade — anything that identifies the item"
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <div className="fs-11" style={{ marginTop: 4, textAlign: "right", color: description.length > DESCRIPTION_MAX ? "var(--danger)" : "var(--fg-4)" }}>
-        {description.length}/{DESCRIPTION_MAX}
-      </div>
-      {error && <div role="alert" className="guide danger" style={{ marginTop: 10 }}><div>{error}</div></div>}
-    </PrModal>
-  );
 }
 
 export default function PrQueuePage() {
@@ -216,13 +85,13 @@ export default function PrQueuePage() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // { forbidden, message }
-  const [selected, setSelected] = useState({}); // line_id -> row
-  const [modal, setModal] = useState(null); // { kind, row? }
-  const [closeBusy, setCloseBusy] = useState(false);
-  const [closeError, setCloseError] = useState("");
+  const [selected, setSelected] = useState({}); // line_id -> row snapshot (may be off this page)
+  const [notice, setNotice] = useState(""); // why lines left the selection
+  const [modal, setModal] = useState(null); // { kind, row? , lines? }
   const [toast, setToast] = useState("");
   const seq = useRef(0);
-  const closeBusyRef = useRef(false);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
   const toastTimer = useRef(null);
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
@@ -245,11 +114,7 @@ export default function PrQueuePage() {
   useEffect(() => {
     let cancelled = false;
     getDepartments()
-      .then((res) => {
-        if (cancelled) return;
-        const rows = res?.data?.data || res?.data || [];
-        setDepartments((Array.isArray(rows) ? rows : []).map((d) => ({ id: String(d.id), title: d.title || d.name })));
-      })
+      .then((res) => { if (!cancelled) setDepartments(departmentOptions(res)); })
       .catch(() => { if (!cancelled) setDepartments([]); });
     return () => { cancelled = true; };
   }, []);
@@ -268,13 +133,12 @@ export default function PrQueuePage() {
         const rows = Array.isArray(d.rows) ? d.rows : [];
         setData({ rows, total: Number(d.total) || 0 });
         if (Array.isArray(d.hotels) && d.hotels.length) setHotels(d.hotels);
-        // Keep only selections that are still on screen and still convertible.
-        const fresh = new Map(rows.map((r) => [String(r.line_id), r]));
-        setSelected((sel) => {
-          const next = {};
-          Object.keys(sel).forEach((k) => { const r = fresh.get(k); if (r && r.progress === "in_pool") next[k] = r; });
-          return next;
-        });
+        const total = Number(d.total) || 0;
+        const { next, dropped } = reconcileSelection(selectedRef.current, rows, { filters, q, page, total });
+        setSelected(next);
+        if (dropped.length) {
+          setNotice(`Removed from your selection — no longer in the queue: ${dropped.map(lineRef).join(", ")}.`);
+        }
       })
       .catch((err) => {
         if (id !== seq.current) return;
@@ -283,22 +147,29 @@ export default function PrQueuePage() {
       .finally(() => { if (id === seq.current) setLoading(false); });
   }, [filters, q, page, reload]);
 
-  const refetch = () => setReload((n) => n + 1);
+  const refetch = useCallback(() => setReload((n) => n + 1), []);
   const setFilter = (key, value) => {
     setPage(1);
     setFilters((f) => ({ ...f, [key]: value }));
   };
   const resetAll = () => { setFilters(NO_FILTERS); setCategory(null); setSearch(""); setQ(""); setPage(1); };
   const finish = (msg) => { setModal(null); showToast(msg); refetch(); };
+  const unselect = (lineIds) => {
+    const drop = new Set(lineIds.map(String));
+    setSelected((sel) => Object.fromEntries(Object.entries(sel).filter(([k]) => !drop.has(k))));
+  };
 
   const { rows, total } = data;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeCount = Object.entries(filters).filter(([k, v]) => v && !(k === "assigned" && v === "any")).length;
   const selectedRows = Object.values(selected);
   const selectedHotel = selectedRows.length ? { id: selectedRows[0].hotel_id, name: selectedRows[0].hotel_name } : null;
+  const onPage = new Set(rows.map((r) => String(r.line_id)));
+  const offPage = Object.keys(selected).filter((k) => !onPage.has(k)).length;
   const multiHotel = hotels.length > 1;
 
   const toggle = (row) => {
+    setNotice("");
     setSelected((sel) => {
       const k = String(row.line_id);
       if (sel[k]) {
@@ -315,6 +186,7 @@ export default function PrQueuePage() {
   const eligible = rows.filter((r) => !blockedReason(r, anchor));
   const allEligibleSelected = eligible.length > 0 && eligible.every((r) => selected[String(r.line_id)]);
   const toggleAll = () => {
+    setNotice("");
     setSelected((sel) => {
       const next = { ...sel };
       if (allEligibleSelected) eligible.forEach((r) => { delete next[String(r.line_id)]; });
@@ -323,24 +195,24 @@ export default function PrQueuePage() {
     });
   };
 
-  const closeLine = async (reason) => {
-    if (closeBusyRef.current) return;
+  const closeAction = useGuardedSubmit({ onStale: refetch });
+  const closeLine = (reason) => {
     const row = modal.row;
-    closeBusyRef.current = true;
-    setCloseBusy(true);
-    setCloseError("");
-    try {
-      const res = await PrApi.closeLine(row.pr_id, row.line_id, reason);
-      finish(res?.message || "Line closed");
-    } catch (e) {
-      setCloseError(errorCopy(e));
-      if (STALE.has(errorStatus(e))) refetch();
-    } finally {
-      closeBusyRef.current = false;
-      setCloseBusy(false);
-    }
+    closeAction.run(() => PrApi.closeLine(row.pr_id, row.line_id, reason), {
+      onSuccess: (res) => { unselect([row.line_id]); finish(res?.message || "Line closed"); },
+    });
   };
-  const openModal = (kind, row) => { setCloseError(""); setModal({ kind, row }); };
+  const openModal = (kind, row) => { closeAction.reset(); setModal({ kind, row }); };
+  // The convert dialog works on a snapshot of the selection taken now.
+  const openConvert = () => setModal({ kind: "convert", lines: Object.values(selected) });
+  const closeConvert = ({ refresh = false, dropLines = [] } = {}) => {
+    setModal(null);
+    if (dropLines.length) {
+      unselect(dropLines.map((l) => l.line_id));
+      setNotice(`Removed from your selection — they can't be converted: ${dropLines.map(lineRef).join(", ")}.`);
+    }
+    if (refresh) refetch();
+  };
 
   if (error?.forbidden && !filters.hotel_id) {
     return (
@@ -424,6 +296,7 @@ export default function PrQueuePage() {
           {selectedRows.length ? (
             <span>
               <span className="em mono">{selectedRows.length}</span> {selectedRows.length === 1 ? "line" : "lines"} selected · {selectedHotel.name}
+              {offPage > 0 ? ` · ${offPage} not on this page` : ""}
             </span>
           ) : (
             <span className="text-fg-3">
@@ -433,13 +306,24 @@ export default function PrQueuePage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {selectedRows.length > 0 && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelected({})}>Clear selection</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSelected({}); setNotice(""); }}>Clear selection</button>
           )}
-          <button type="button" className="btn btn-blue btn-sm" disabled={!selectedRows.length} onClick={() => setModal({ kind: "convert" })}>
+          <button
+            type="button" className="btn btn-blue btn-sm" disabled={!selectedRows.length || loading} onClick={openConvert}
+            title={loading ? "Waiting for the queue to load" : undefined}
+          >
             Convert to RFQ
           </button>
         </div>
       </div>
+      {notice && (
+        <div data-testid="selection-notice" role="status" className="guide warn" style={{ fontSize: 12.5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, width: "100%" }}>
+            <span>{notice}</span>
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="Dismiss" onClick={() => setNotice("")}>×</button>
+          </div>
+        </div>
+      )}
 
       {error ? (
         <div className="empty-state" style={{ padding: "56px 24px" }}>
@@ -492,6 +376,7 @@ export default function PrQueuePage() {
                   const k = String(r.line_id);
                   const isSelected = Boolean(selected[k]);
                   const reason = isSelected ? null : blockedReason(r, selectedHotel);
+                  const whyId = `pr-queue-why-${r.line_id}`;
                   const band = AGE_TONE[r.age_band] ? r.age_band : ageBand(r.age_days);
                   const freeText = r.line_kind === "free_text";
                   const unmapped = r.progress === "needs_mapping" || r.progress === "awaiting_catalog";
@@ -503,7 +388,8 @@ export default function PrQueuePage() {
                           aria-label={`Select ${r.pr_number} line ${r.line_no}`}
                           checked={isSelected}
                           disabled={Boolean(reason)}
-                          title={reason || undefined}
+                          title={reason?.long}
+                          aria-describedby={reason ? whyId : undefined}
                           onChange={() => toggle(r)}
                         />
                       </td>
@@ -537,7 +423,10 @@ export default function PrQueuePage() {
                         </span>
                       </td>
                       <td>{r.assigned_buyer_name || <span className="text-fg-3">Unassigned</span>}</td>
-                      <td><PrProgressPill progress={r.progress} /></td>
+                      <td>
+                        <PrProgressPill progress={r.progress} />
+                        {reason && <div id={whyId} className="fs-11 text-fg-3" style={{ marginTop: 4 }}>{reason.short}</div>}
+                      </td>
                       <td>
                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal("assign", r)}>Assign</button>
@@ -579,19 +468,13 @@ export default function PrQueuePage() {
           explain={`${modal.row.pr_number} line ${modal.row.line_no} (${modal.row.item_name}) leaves the purchase queue and won't be sourced. The requester sees your reason.`}
           label="Reason"
           confirmLabel="Close line"
-          busy={closeBusy}
-          error={closeError}
+          busy={closeAction.busy}
+          error={closeAction.error || ""}
           onConfirm={closeLine}
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.kind === "convert" && (
-        <ConvertModal
-          lines={selectedRows}
-          onClose={() => setModal(null)}
-          onRefresh={() => { setModal(null); setSelected({}); refetch(); }}
-        />
-      )}
+      {modal?.kind === "convert" && <ConvertModal lines={modal.lines} onClose={closeConvert} />}
 
       {toast && (
         <div className="arc-toast" role="status"><span className="t-ic">✓</span><span>{toast}</span></div>
