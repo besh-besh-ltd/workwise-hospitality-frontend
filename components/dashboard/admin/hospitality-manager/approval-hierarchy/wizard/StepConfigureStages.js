@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Select from "react-select";
 import { BsPlus, BsChevronDown, BsChevronRight, BsDiagram3, BsArrowDown } from "react-icons/bs";
-import ApprovalStepCard from "./ApprovalStepCard";
+import ApprovalStepCard, { PR_ROLE_HELP } from "./ApprovalStepCard";
 import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
 import { RFQ_PROCESS_STAGES, DS, getEntityTypeConfig, approverSourceTypes } from "../constants";
 import s from "./StepConfigureStages.module.scss";
@@ -17,7 +17,7 @@ import s from "./StepConfigureStages.module.scss";
  * The one-at-a-time button stays: adding a single level should not cost two
  * clicks more than it used to.
  */
-const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
+const AddLevelsBulk = ({ getApproverOptions, onAdd, isPr = false }) => {
   const [sourceType, setSourceType] = useState("ROLE");
   const [picked, setPicked] = useState([]);
 
@@ -69,11 +69,12 @@ const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
           </button>
         )}
       </div>
+      {isPr && sourceType === "ROLE" && <span className={s.bulkHint}>{PR_ROLE_HELP}</span>}
     </div>
   );
 };
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, isPr = false }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, isPr = false, prRoleProblem = () => null }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
   const handleAddStep = (si) => {
@@ -202,15 +203,15 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                           <div className={s.emptyBody}>
                             <p>No approval levels configured</p>
                             <button type="button" className={s.addBtn} onClick={() => handleAddStep(si)}><BsPlus size={14} /> Add First Level</button>
-                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} isPr={isPr} />
                           </div>
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
-                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} isPr={isPr} />
+                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} isPr={isPr} prRoleMissing={step.approver_source_type === "ROLE" ? prRoleProblem(step.approver_source_id) : null} />
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
-                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} isPr={isPr} />
                           </>
                         )}
                       </div>

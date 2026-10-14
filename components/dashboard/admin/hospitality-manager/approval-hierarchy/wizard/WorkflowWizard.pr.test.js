@@ -10,11 +10,14 @@ jest.mock("@/services/approval", () => ({
   deleteApprovalPolicy: jest.fn(),
 }));
 jest.mock("react-toastify", () => ({ toast: { error: jest.fn(), success: jest.fn(), info: jest.fn() } }));
+jest.mock("@/services/rbac", () => ({ getRolePermissions: jest.fn() }));
 
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { createApprovalPolicy, updateApprovalPolicy, deleteApprovalPolicy } from "@/services/approval";
+import { getRolePermissions } from "@/services/rbac";
+import { toast } from "react-toastify";
 
 import WorkflowWizard from "./WorkflowWizard";
 import DashboardView, { PR_HOTEL_FLOW_PROCESS } from "../dashboard/DashboardView";
@@ -43,6 +46,7 @@ beforeEach(() => {
   createApprovalPolicy.mockResolvedValue({ status: 1 });
   updateApprovalPolicy.mockResolvedValue({ status: 1 });
   deleteApprovalPolicy.mockResolvedValue({ status: 1 });
+  getRolePermissions.mockResolvedValue({ status: true, data: { pr: ["read", "approve"] } });
 });
 
 describe("PR approval flow", () => {
@@ -168,5 +172,90 @@ describe("Edit on a process-free policy opens the wizard", () => {
     next();
     const inputs = screen.getAllByLabelText(/only when pr value/i);
     expect(inputs[1]).toHaveValue("100000.00");
+  });
+});
+
+// Final review C-I1: the services reject as { message: AxiosError }, and the
+// save catch handed that OBJECT to toast.error — react-toastify v11 renders
+// nothing for it. The server's 400 APPROVER_ROLE_CANNOT_APPROVE (the chosen
+// role lacks pr.read + pr.approve) vanished; the admin thought the chain was
+// saved and every PR submit then failed with "no approval chain".
+describe("a refused save is never silent", () => {
+  const SERVER_MSG = 'This approval step names a role that cannot approve PR. step 1: role "Front Office" (id 21) is missing pr.approve.';
+  const refused = () => ({
+    message: Object.assign(new Error("Request failed with status code 400"), {
+      isAxiosError: true,
+      response: { status: 400, data: { status: 3, code: "APPROVER_ROLE_CANNOT_APPROVE", message: SERVER_MSG } },
+    }),
+  });
+
+  test("the server's refusal is shown as text and the wizard stays open", async () => {
+    updateApprovalPolicy.mockRejectedValue(refused());
+    const props = baseProps();
+    render(<WorkflowWizard {...props} {...editingPr([step(7)])} />);
+    next();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SERVER_MSG));
+    expect(props.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /save workflow/i })).toBeEnabled();
+  });
+
+  test("a refusal after confirming the pending-approval impact is shown as text too", async () => {
+    updateApprovalPolicy
+      .mockResolvedValueOnce({ status: 0, code: "APPROVAL_IMPACT_WARNING", data: { entity_type: "PR", pending_count: 2, instances: [] } })
+      .mockRejectedValueOnce(refused());
+    const props = baseProps();
+    render(<WorkflowWizard {...props} {...editingPr([step(7)])} />);
+    next();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and apply changes" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SERVER_MSG));
+    expect(toast.error.mock.calls.every(([m]) => typeof m === "string")).toBe(true);
+    expect(props.onSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("the PR role picker says which roles can approve PRs", () => {
+  const roleStep = (id) => step(id, { approver_source_type: "ROLE" });
+  const roleProps = () => ({
+    ...baseProps(),
+    getApproverOptions: jest.fn((type) => (type === "ROLE"
+      ? [{ value: 21, label: "Front Office" }, { value: 22, label: "PR Approver" }]
+      : [{ value: 7, label: "Asha Rao" }])),
+    getApproverDisplayInfo: jest.fn((st) => ({ name: st.approver_source_id === 21 ? "Front Office" : "PR Approver", email: "", users: [{ user_id: 1 }] })),
+  });
+
+  test("a role without pr.read + pr.approve is flagged; one with both is not", async () => {
+    getRolePermissions.mockImplementation((id) => Promise.resolve({
+      status: true, data: id === 21 ? { pr: ["read"], rfq: ["read", "approve"] } : { pr: ["read", "approve"] },
+    }));
+    render(<WorkflowWizard {...roleProps()} {...editingPr([roleStep(21), roleStep(22)])} />);
+    next();
+    const flag = await screen.findByText(/can't approve purchase requisitions/i);
+    expect(flag.closest("[role=alert]")).toHaveTextContent(/missing pr\.approve\./);
+    expect(screen.getAllByText(/can't approve purchase requisitions/i)).toHaveLength(1);
+    expect(getRolePermissions).toHaveBeenCalledWith(21);
+    expect(getRolePermissions).toHaveBeenCalledWith(22);
+    // Level 2 (PR Approver) carries the plain explanation, not the flag.
+    expect(screen.getAllByText("The role needs the PR Approver permission (pr.read + pr.approve).").length).toBeGreaterThan(0);
+  });
+
+  test("the bulk picker explains the PR Approver permission when adding levels by role", () => {
+    render(<WorkflowWizard {...roleProps()} editingProcess={null} editingPolicies={[]} />);
+    fireEvent.click(screen.getByText("Purchase Requisition (no process)"));
+    next();
+    expect(screen.getByText("The role needs the PR Approver permission (pr.read + pr.approve).")).toBeInTheDocument();
+  });
+
+  test("a non-PR stage has no PR flag, no PR help line and looks nothing up", async () => {
+    render(<WorkflowWizard {...roleProps()} editingProcess={{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }}
+      editingPolicies={[{ id: 61, entity_type: "RFQ", hotel_id: 12, process_id: 2, steps: [roleStep(21)] }]} />);
+    next();
+    await screen.findAllByText(/Level 1/);
+    expect(screen.queryByText(/pr\.read \+ pr\.approve/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/can't approve purchase requisitions/i)).not.toBeInTheDocument();
+    expect(getRolePermissions).not.toHaveBeenCalled();
   });
 });

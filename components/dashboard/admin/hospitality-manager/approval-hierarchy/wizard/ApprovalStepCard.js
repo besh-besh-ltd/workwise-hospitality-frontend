@@ -18,7 +18,9 @@ const selectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, isPr = false }) => {
+export const PR_ROLE_HELP = "The role needs the PR Approver permission (pr.read + pr.approve).";
+
+const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, isPr = false, prRoleMissing = null }) => {
   const approverInfo = getApproverDisplayInfo(step, selectedDepartmentId);
   const minInvalid = isPr && !isValidMinAmount(step.min_amount);
 
@@ -53,6 +55,19 @@ const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getAp
           {!selectedDepartmentId && step.approver_source_type && step.approver_source_id && <small className="d-block mt-1" style={{ fontSize: 11, fontStyle: "italic", color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>Approvers filtered by department at runtime</small>}
           {step.approver_source_type === "ROLE" && step.approver_source_id && approverInfo.users.length === 0 && (
             <div className={st.error}><BsExclamationTriangleFill size={14} style={{ flexShrink: 0, marginTop: 1 }} /><span><strong>No users available</strong> for this role.</span></div>
+          )}
+          {isPr && step.approver_source_type === "ROLE" && (
+            step.approver_source_id && prRoleMissing?.length > 0 ? (
+              <div className={st.error} role="alert">
+                <BsExclamationTriangleFill size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  <strong>This role can&apos;t approve purchase requisitions</strong> — it is missing{" "}
+                  {prRoleMissing.map((a) => `pr.${a}`).join(" and ")}. Give it the PR Approver permission, or pick another role.
+                </span>
+              </div>
+            ) : (
+              <small className="d-block mt-1" style={{ fontSize: 11, color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>{PR_ROLE_HELP}</small>
+            )
           )}
         </div>
         <div className={st.field}>

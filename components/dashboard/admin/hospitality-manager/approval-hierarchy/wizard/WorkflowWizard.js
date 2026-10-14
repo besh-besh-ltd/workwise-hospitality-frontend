@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import { createApprovalPolicy, updateApprovalPolicy, deleteApprovalPolicy } from "@/services/approval";
+import { getRolePermissions } from "@/services/rbac";
+import { getApiErrorMessage } from "@/utils/apiError";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import WizardStepper from "./WizardStepper";
 import StepSelectProcessOnly from "./StepSelectProcessOnly";
@@ -37,6 +39,15 @@ const PROCESS_FREE_FLOWS = {
   [FLOW_TYPE.PR]: { stages: PR_PROCESS_STAGES, order: PR_ENTITY_ORDER, base: "PR", baseLabel: "Purchase Requisition", review: { name: "Purchase Requisitions", process_type: "PR" } },
 };
 const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ entity_type: st.value, steps: [] }));
+
+// A ROLE level on the PR stage can only approve if the role holds pr.read AND
+// pr.approve — otherwise the server refuses the save (APPROVER_ROLE_CANNOT_APPROVE).
+const PR_APPROVE_ACTIONS = ["read", "approve"];
+const missingPrApproveActions = (res) => {
+  const grouped = res?.data?.data || res?.data || {};
+  const held = Array.isArray(grouped?.pr) ? grouped.pr : [];
+  return PR_APPROVE_ACTIONS.filter((a) => !held.includes(a));
+};
 
 const WorkflowWizard = ({
   editingProcess, editingPolicies, processes, hotel,
@@ -79,6 +90,32 @@ const WorkflowWizard = ({
   const isArcGroup = wizardForm.flow_type === FLOW_TYPE.ARC_GROUP;
   const isPr = wizardForm.flow_type === FLOW_TYPE.PR;
   const hasInvalidMin = isPr && (wizardForm.stages || []).some((st) => (st.steps || []).some((x) => !isValidMinAmount(x.min_amount)));
+
+  // PR only: which chosen roles lack pr.read + pr.approve. Looked up per role
+  // actually picked (one call each, cached for the wizard) rather than for all
+  // ~30 roles up front. roleId -> missing actions ([] = can approve PRs).
+  const [prRoleMissing, setPrRoleMissing] = useState({});
+  const prRoleRequested = useRef(new Set());
+  const prRoleIds = isPr
+    ? [...new Set((wizardForm.stages || []).flatMap((st) => (st.steps || [])
+      .filter((x) => x.approver_source_type === "ROLE" && x.approver_source_id)
+      .map((x) => x.approver_source_id)))]
+    : [];
+  const prRoleKey = prRoleIds.join(",");
+  React.useEffect(() => {
+    prRoleIds.forEach((roleId) => {
+      const key = String(roleId);
+      if (prRoleRequested.current.has(key)) return;
+      prRoleRequested.current.add(key);
+      getRolePermissions(roleId)
+        .then((res) => setPrRoleMissing((m) => ({ ...m, [key]: missingPrApproveActions(res) })))
+        // Unknown is not "can't approve": say nothing, and look again next time.
+        .catch(() => { prRoleRequested.current.delete(key); });
+    });
+    // prRoleKey is the serialised id list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prRoleKey]);
+  const prRoleProblem = (roleId) => (isPr && roleId ? prRoleMissing[String(roleId)] || null : null);
   const selectedProcess = processes?.find((p) => p.id === wizardForm.process_id);
   // Otherwise the stage set derives from the process type.
   const stageConfig = processFree ? processFree.stages : getStagesForProcessType(selectedProcess?.process_type);
@@ -205,7 +242,9 @@ const WorkflowWizard = ({
       if (pending.length === 0) { toast.success("Workflow saved successfully"); onSave(); return; }
       setImpactWarning({ pending });
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.message || "Failed to save workflow");
+      // Services reject as { message: AxiosError }: read the server's message
+      // out of either shape — an object passed to toast renders nothing.
+      toast.error(getApiErrorMessage(error, "Failed to save workflow"));
       setSaving(false);
     }
   };
@@ -215,7 +254,7 @@ const WorkflowWizard = ({
     try {
       for (const { payload } of impactWarning.pending) await saveStagePayload({ ...payload, confirmed_approval_impact: true });
       toast.success("Workflow saved and pending approvals updated"); setImpactWarning(null); onSave();
-    } catch (error) { toast.error(error?.response?.data?.message || error?.message || "Failed to apply changes"); }
+    } catch (error) { toast.error(getApiErrorMessage(error, "Failed to apply changes")); }
     finally { setSaving(false); }
   };
 
@@ -265,7 +304,7 @@ const WorkflowWizard = ({
           }}
         />
       );
-      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} isPr={isPr} />;
+      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} isPr={isPr} prRoleProblem={prRoleProblem} />;
       case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} isPr={isPr} companyWide={!!wizardForm.company_wide} hasInvalidMin={hasInvalidMin} />;
       default: return null;
     }
