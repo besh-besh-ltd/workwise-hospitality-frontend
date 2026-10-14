@@ -516,3 +516,40 @@ test("a caller who is not a buyer anywhere sees a friendly explanation", async (
   expect(await screen.findByText("You don't work the purchase queue")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /requisitions/i })).toHaveAttribute("href", "/dashboard/buyer/purchase-requisitions");
 });
+
+// Task 16 deferred minor: each attempt cleared the last failure, so a retry
+// after a 409 that then failed differently (here a 500) lost the 409's
+// "refresh the queue" and "drop these lines" — closing left a stale queue and
+// the refused lines still selected.
+test("a retry after a 409 keeps the queue refresh and dropped lines until the dialog closes", async () => {
+  PrApi.convertLines
+    .mockImplementationOnce(() => reject(409, {
+      status: 0, code: "PR_LINE_NOT_CONVERTIBLE", message: "x",
+      details: [{ line_id: 101, pr_number: "PR-2026-0011", line_no: 1, reason: "already_sourced" }],
+    }))
+    .mockImplementationOnce(() => reject(500, { status: 3, message: "Server hiccup" }));
+  const dialog = await openConvert([101, 102]);
+  const create = await ready(dialog);
+  fireEvent.click(create);
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(ERROR_COPY.PR_LINE_NOT_CONVERTIBLE);
+  fireEvent.click(create);
+  await waitFor(() => expect(within(dialog).getByRole("alert")).toHaveTextContent("Server hiccup"));
+  expect(PrApi.convertLines).toHaveBeenCalledTimes(2);
+  // The latest failure says nothing about refreshing, but the 409 did.
+  expect(within(dialog).getByRole("button", { name: "Refresh queue" })).toBeInTheDocument();
+  const before = PrApi.getPool.mock.calls.length;
+  fireEvent.click(within(dialog).getByRole("button", { name: "Go back" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(PrApi.getPool.mock.calls.length).toBe(before + 1));
+  expect(screen.getByTestId("selection-notice")).toHaveTextContent(/PR-2026-0011 line 1/);
+  expect(checkbox(101)).not.toBeChecked();
+});
+
+// 19b cosmetic: at 1440 px the Actions column sat past the right edge of the
+// scroller; it is pinned to the right of the scrolling table.
+test("the Actions column stays pinned to the right of the scrolling table", async () => {
+  render(<PrQueuePage />);
+  const r = await screen.findByTestId("pool-row-101");
+  expect(within(r).getByRole("button", { name: "Assign" }).closest("td")).toHaveClass("pr-col-actions");
+  expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass("pr-col-actions");
+});

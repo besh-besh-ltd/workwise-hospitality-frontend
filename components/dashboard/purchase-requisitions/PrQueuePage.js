@@ -368,7 +368,7 @@ export default function PrQueuePage() {
                   <th>Age</th>
                   <th>Assignee</th>
                   <th>Progress</th>
-                  <th className="right">Actions</th>
+                  <th className="right pr-col-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -427,7 +427,7 @@ export default function PrQueuePage() {
                         <PrProgressPill progress={r.progress} />
                         {reason && <div id={whyId} className="fs-11 text-fg-3" style={{ marginTop: 4 }}>{reason.short}</div>}
                       </td>
-                      <td>
+                      <td className="pr-col-actions">
                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal("assign", r)}>Assign</button>
                           {freeText && unmapped && (
@@ -479,6 +479,14 @@ export default function PrQueuePage() {
       {toast && (
         <div className="arc-toast" role="status"><span className="t-ic">✓</span><span>{toast}</span></div>
       )}
+
+      {/* The row actions stay in view while the wide table scrolls sideways. */}
+      <style jsx>{`
+        .pr-col-actions { position: sticky; right: 0; z-index: 1; box-shadow: inset 1px 0 0 var(--border); }
+        thead th.pr-col-actions { background: var(--surface-2); z-index: 2; }
+        tbody td.pr-col-actions { background: var(--surface); min-width: 168px; }
+        tbody tr:hover td.pr-col-actions { background: var(--surface-2); }
+      `}</style>
     </div>
   );
 }

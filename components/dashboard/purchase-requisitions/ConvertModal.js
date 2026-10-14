@@ -64,6 +64,14 @@ export function groupLines(lines) {
 }
 
 // Only same-app absolute paths ("/x"), never protocol-relative ("//x") or "/\\x".
+/** Union two failures' "the queue is stale" flags; dropped lines by line_id. */
+const mergeStale = (a, b) => {
+  const seen = new Set((a.dropLines || []).map((l) => String(l.line_id)));
+  const extra = (b?.dropLines || []).filter((l) => !seen.has(String(l.line_id)));
+  return { refresh: Boolean(a.refresh || b?.refresh), dropLines: [...(a.dropLines || []), ...extra] };
+};
+const NOT_STALE = { refresh: false, dropLines: [] };
+
 const safeRedirect = (r) => (typeof r === "string" && /^\/(?![\/\\])/.test(r) ? r : null);
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export const RFQ_SCOPE_FORBIDDEN = "You can't create RFQs for this hotel, department and process.";
@@ -133,6 +141,12 @@ export default function ConvertModal({ lines, onClose }) {
   const nameOf = (variantId) =>
     groups.find((g) => String(g.variant_id) === String(variantId))?.name || `Item ${variantId}`;
   const { busy, error: failure, run } = useGuardedSubmit({ describe: (e) => describeFailure(e, nameOf) });
+  // Every failure since the dialog opened: a retry that fails differently must
+  // not forget that an earlier refusal made the queue stale or named lines to
+  // drop. Kept until a successful convert or the dialog closes.
+  const [stale, setStale] = useState(NOT_STALE);
+  useEffect(() => { if (failure) setStale((prev) => mergeStale(prev, failure)); }, [failure]);
+  const pending = mergeStale(stale, failure);
 
   // rfq.create scope for (hotel, chosen department): allowedProcessIds is an
   // array when the grant is process-restricted, null when it covers every process.
@@ -190,7 +204,7 @@ export default function ConvertModal({ lines, onClose }) {
   const noProcess = processRequired && processes && processOptions.length === 0;
   const blocked = busy || !deptId || mixed.length > 0 || permsLoading || !processes || (processRequired && !processId);
 
-  const close = () => onClose({ refresh: Boolean(failure?.refresh), dropLines: failure?.dropLines || [] });
+  const close = () => onClose({ refresh: pending.refresh, dropLines: pending.dropLines });
 
   const submit = () => {
     if (blocked) return;
@@ -202,6 +216,7 @@ export default function ConvertModal({ lines, onClose }) {
     run(() => convertLines(body), {
       keepBusy: true, // the page is navigating away to the wizard
       onSuccess: (res) => {
+        setStale(NOT_STALE);
         const d = res?.data || {};
         router.push(safeRedirect(d.redirect) || resumeDraft(d.rfq_id));
       },
@@ -237,7 +252,7 @@ export default function ConvertModal({ lines, onClose }) {
                 {failure.items.map((t, i) => <li key={i}>{t}</li>)}
               </ul>
             )}
-            {failure.refresh && (
+            {pending.refresh && (
               <div style={{ marginTop: 8 }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={close}>Refresh queue</button>
               </div>
