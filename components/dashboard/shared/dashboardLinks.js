@@ -216,6 +216,9 @@ export const arcContract = (arcId, { stage, tab } = {}) =>
 export const materialRequisition = (mrId) =>
   hasId(mrId) ? `${BASE}/material-requisitions/${encodeURIComponent(mrId)}` : `${BASE}/material-requisitions`;
 
+/** Raise-a-Material-Requisition form (PR guided buying points here). */
+export const materialRequisitionCreate = () => `${BASE}/material-requisitions/create`;
+
 /* ─── Purchase requisitions ──────────────────────────────── */
 
 export const purchaseRequisitions = () => `${BASE}/purchase-requisitions`;
@@ -296,7 +299,7 @@ export const approvalQueue = (entityType) => {
 export const ALL_LINK_BUILDERS = {
   rfqDetail, resumeDraft, rfqList, rfqListView, rfqListForStage, techEval, quoteCompare,
   negotiationForRfq, negotiationList, negotiationRoundApproval, poDetail, poList, poTracking,
-  arcContract, materialRequisition, reports, approvalHref, approvalQueue,
+  arcContract, materialRequisition, materialRequisitionCreate, reports, approvalHref, approvalQueue,
   purchaseRequisitions, purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitionReview,
   purchaseRequisitionQueue,
 };

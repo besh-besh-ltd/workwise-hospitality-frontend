@@ -91,6 +91,7 @@ const SAMPLES = {
   poTracking: L.poTracking({ tab: "awaiting-grn", search: "x" }),
   arcContract: L.arcContract(5, { stage: "active", tab: "amendments" }),
   materialRequisition: L.materialRequisition(3),
+  materialRequisitionCreate: L.materialRequisitionCreate(),
   reports: L.reports(),
   purchaseRequisitions: L.purchaseRequisitions(),
   purchaseRequisition: L.purchaseRequisition(8),
