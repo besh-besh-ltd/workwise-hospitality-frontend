@@ -84,7 +84,9 @@ export default function PrRoutingPreview({ state, onRetry, rowNos }) {
             const skipped = s.applies === false;
             const note = skipped ? (SKIP_COPY[s.skipped_reason] || (() => "Not required"))(s) : null;
             return (
-              <div key={s.step_order} className={`wf-step ${skipped ? "done" : "pending"}`}>
+              // Skipped by design (below the threshold / would be self-approval):
+              // greyed out, never the green "done" tick of an approved level.
+              <div key={s.step_order} className={`wf-step ${skipped ? "skipped" : "pending"}`}>
                 <div className="wf-node"></div>
                 <div className="body">
                   <div className="nm">{s.label || `Approval step ${s.step_order}`}</div>

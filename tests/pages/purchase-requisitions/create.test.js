@@ -479,3 +479,55 @@ test("at 200 lines the Add buttons are disabled with a message", async () => {
   expect(screen.getByText("Add item not in catalog")).toBeDisabled();
   expect(screen.getByText(/up to 200 items/)).toBeInTheDocument();
 }, 60000); // getByRole is very slow on 200 rows, so this uses text queries
+
+// Browser pass 19b: a level skipped by design (below the value threshold, or
+// skipped because the requester would approve their own PR) rendered with the
+// green "done" tick, so the GM looked as if they had already approved.
+test("preview steps skipped by design are greyed out, never shown as done", async () => {
+  render(<CreatePrPage />);
+  await pickCell();
+  await addCatalogLine();
+  fillLine("2", "50");
+  const threshold = await screen.findByText("Not required below ₹5,00,000", undefined, W);
+  const self = screen.getByText("Skipped — you raised this PR");
+  [threshold, self].forEach((note) => {
+    const step = note.closest(".wf-step");
+    expect(step).toHaveClass("skipped");
+    expect(step).not.toHaveClass("done");
+  });
+  const applying = screen.getByText("Hari Head").closest(".wf-step");
+  expect(applying).not.toHaveClass("skipped");
+});
+
+// Browser pass 19b: editing a returned PR warned "1 open request for this item"
+// and listed the very PR being edited.
+test("the duplicate hint never lists the PR being edited", async () => {
+  mockQuery = { id: "55" };
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  PrApi.getDuplicates.mockResolvedValue({
+    data: { count: 1, items: [{ kind: "pr", id: 55, number: "PR-55", hotel_name: "Mumbai Suites", department_name: "Housekeeping", readable: true, title: "Lobby towels" }] },
+  });
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  await waitFor(() => expect(PrApi.getDuplicates).toHaveBeenCalled());
+  await act(async () => {});
+  expect(screen.queryByText(/open request/)).not.toBeInTheDocument();
+});
+
+test("while editing, other open requests are still listed and counted without this PR", async () => {
+  mockQuery = { id: "55" };
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  PrApi.getDuplicates.mockResolvedValue({
+    data: {
+      count: 2,
+      items: [
+        { kind: "pr", id: 55, number: "PR-55", hotel_name: "Mumbai Suites", department_name: "Housekeeping", readable: true, title: "Lobby towels" },
+        { kind: "pr", id: 61, number: "PR-61", hotel_name: "Mumbai Suites", department_name: "Engineering", readable: true, title: "Towels again" },
+      ],
+    },
+  });
+  render(<CreatePrPage />);
+  expect(await screen.findByText(/1 open request for this item/, undefined, W)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /PR-61/ })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /PR-55/ })).not.toBeInTheDocument();
+});

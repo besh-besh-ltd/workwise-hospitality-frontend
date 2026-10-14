@@ -452,6 +452,7 @@ export default function PurchaseRequisitionCreatePage() {
                   departmentId={form.department_id}
                   showErrors={showErrors}
                   flaggedLineNos={flaggedNos}
+                  excludePrId={prId}
                 />
                 {fieldErr("lines")}
               </div>

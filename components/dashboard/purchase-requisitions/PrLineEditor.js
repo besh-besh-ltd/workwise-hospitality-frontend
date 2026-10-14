@@ -171,8 +171,18 @@ export function CategoryPicker({ id, line, error, onSelect }) {
   );
 }
 
-function DuplicateHint({ hotelId, variantId }) {
-  const [dup, setDup] = useState(null);
+/** The duplicate check minus the PR being edited (it is "open" too, but it is this one). */
+export function withoutOwnPr(dup, ownPrId) {
+  if (!dup) return null;
+  const items = dup.items || [];
+  if (ownPrId == null || ownPrId === "") return { ...dup, items };
+  const isOwn = (d) => d.kind === "pr" && String(d.id) === String(ownPrId);
+  const own = items.filter(isOwn).length;
+  return { ...dup, count: Math.max(0, (Number(dup.count) || 0) - own), items: items.filter((d) => !isOwn(d)) };
+}
+
+function DuplicateHint({ hotelId, variantId, excludePrId }) {
+  const [raw, setDup] = useState(null);
   useEffect(() => {
     let cancelled = false;
     setDup(null);
@@ -183,6 +193,7 @@ function DuplicateHint({ hotelId, variantId }) {
     return () => { cancelled = true; };
   }, [hotelId, variantId]);
 
+  const dup = withoutOwnPr(raw, excludePrId);
   if (!dup || !dup.count) return null;
   return (
     <div className="guide warn" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
@@ -190,7 +201,7 @@ function DuplicateHint({ hotelId, variantId }) {
         <strong>{dup.count} open request{dup.count === 1 ? "" : "s"} for this item in your company in the last 30 days.</strong>{" "}
         You can still go ahead.
         <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-          {(dup.items || []).map((d) => (
+          {dup.items.map((d) => (
             <li key={`${d.kind}-${d.id}`}>
               {d.readable && d.kind === "pr" ? (
                 <Link href={purchaseRequisition(d.id)}>{d.number}{d.title ? ` · ${d.title}` : ""}</Link>
@@ -208,7 +219,7 @@ function DuplicateHint({ hotelId, variantId }) {
 
 const errStyle = { color: "var(--danger)", fontSize: 11.5, marginTop: 4 };
 
-function LineRow({ line, index, hotelId, showErrors, flagged, onChange, onRemove }) {
+function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onChange, onRemove }) {
   const errs = lineErrors(line);
   const show = (k) => (showErrors ? errs[k] : null);
   const invalid = flagged || line.on_contract || (showErrors && Object.keys(errs).length > 0);
@@ -322,12 +333,12 @@ function LineRow({ line, index, hotelId, showErrors, flagged, onChange, onRemove
         />
       </div>
 
-      {line.kind === "catalog" && <DuplicateHint hotelId={hotelId} variantId={line.product_variant_id} />}
+      {line.kind === "catalog" && <DuplicateHint hotelId={hotelId} variantId={line.product_variant_id} excludePrId={excludePrId} />}
     </div>
   );
 }
 
-export default function PrLineEditor({ lines, onChange, hotelId, departmentId, showErrors, flaggedLineNos = [] }) {
+export default function PrLineEditor({ lines, onChange, hotelId, departmentId, showErrors, flaggedLineNos = [], excludePrId = null }) {
   const [searching, setSearching] = useState(false);
   const ready = Boolean(hotelId && departmentId);
   const full = lines.length >= MAX_LINES;
@@ -366,7 +377,7 @@ export default function PrLineEditor({ lines, onChange, hotelId, departmentId, s
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {lines.map((line, i) => (
           <LineRow
-            key={line.key} line={line} index={i} hotelId={hotelId} showErrors={showErrors}
+            key={line.key} line={line} index={i} hotelId={hotelId} excludePrId={excludePrId} showErrors={showErrors}
             flagged={flaggedLineNos.includes(i + 1)}
             onChange={(next) => replaceAt(i, next)}
             onRemove={() => onChange(lines.filter((_, j) => j !== i))}
