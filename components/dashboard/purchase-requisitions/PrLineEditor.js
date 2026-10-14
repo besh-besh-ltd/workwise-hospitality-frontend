@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { searchItems, searchCategories, getDuplicates } from "@/services/pr";
 import { materialRequisitionCreate, purchaseRequisition } from "@/components/dashboard/shared/dashboardLinks";
-import { formatINR, lineValue } from "./prFormat";
+import { formatINR } from "./prFormat";
 import {
   MAX_LINES, SPEC_MAX, NOTE_MAX, UOM_MAX, NAME_MAX,
-  cleanDecimal, lineErrors, lineFromItem, newFreeTextLine,
+  cleanDecimal, lineErrors, lineFromItem, newFreeTextLine, rowValue,
 } from "./prLines";
 
 const DEBOUNCE_MS = 250;
@@ -43,7 +43,7 @@ function useTypeahead(fetcher, query, { enabled = true, minChars = MIN_CHARS } =
         .catch(() => { if (myReq === reqId.current) setResults([]); })
         .finally(() => { if (myReq === reqId.current) setLoading(false); });
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer.current);
+    return () => { clearTimeout(timer.current); reqId.current += 1; };
   }, [query, enabled, minChars]);
 
   return { results, loading };
@@ -211,10 +211,10 @@ const errStyle = { color: "var(--danger)", fontSize: 11.5, marginTop: 4 };
 function LineRow({ line, index, hotelId, showErrors, flagged, onChange, onRemove }) {
   const errs = lineErrors(line);
   const show = (k) => (showErrors ? errs[k] : null);
-  const invalid = flagged || (showErrors && Object.keys(errs).length > 0);
+  const invalid = flagged || line.on_contract || (showErrors && Object.keys(errs).length > 0);
   const set = (patch) => onChange({ ...line, ...patch });
   const fid = (f) => `${line.key}-${f}`;
-  const value = lineValue(line.quantity, line.price);
+  const value = rowValue(line);
   const n = index + 1;
 
   return (
@@ -228,6 +228,15 @@ function LineRow({ line, index, hotelId, showErrors, flagged, onChange, onRemove
         border: `1px solid ${invalid ? "var(--danger)" : "var(--border)"}`,
       }}
     >
+      {line.on_contract && (
+        <div className="guide danger" role="alert" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
+          <div>
+            <span>On contract {line.arc_number} — </span>
+            <Link href={materialRequisitionCreate()}>raise an MR</Link>
+            <span> instead. Remove this line to continue.</span>
+          </div>
+        </div>
+      )}
       <div style={{ gridColumn: "1 / -2" }}>
         {line.kind === "catalog" ? (
           <>

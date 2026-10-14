@@ -3,6 +3,8 @@
 // Quantity and price stay strings end to end: they are validated by regex and
 // priced only through prFormat.lineValue (BigInt), never Number().
 
+import { lineValue } from "./prFormat";
+
 const QTY_RE = /^\d{1,15}(\.\d{1,3})?$/;
 const PRICE_RE = /^\d{1,16}(\.\d{1,2})?$/;
 const hasNonZeroDigit = (s) => /[1-9]/.test(s);
@@ -19,7 +21,12 @@ const nextKey = () => `l${++seq}`;
 const blank = () => ({
   key: nextKey(), id: null, kind: "catalog", product_variant_id: null, label: "", category_id: null, category_title: "",
   free_text_name: "", quantity: "", uom: "", price: "", specification: "", note: "",
+  on_contract: false, arc_number: null,
 });
+
+/** "123.45" for a priced row, else null (an invalid row has no value). */
+export const rowValue = (line) =>
+  quantityError(line.quantity) || priceError(line.price) ? null : lineValue(line.quantity, line.price);
 
 export const newFreeTextLine = () => ({ ...blank(), kind: "free_text" });
 
@@ -30,6 +37,8 @@ export const lineFromItem = (item) => ({
   label: item.variant_name || item.product_name || `Item ${item.variant_id}`,
   category_id: item.category_id ?? null,
   category_title: item.category_title || "",
+  on_contract: Boolean(item.on_contract),
+  arc_number: item.arc_number || null,
 });
 
 /** A line from GET /pr/:id. Keeps the server id so a save sends it back. */

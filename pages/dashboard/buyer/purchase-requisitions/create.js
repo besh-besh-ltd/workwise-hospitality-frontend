@@ -10,9 +10,9 @@ import Link from "next/link";
 import * as PrApi from "@/services/pr";
 import PrLineEditor from "@/components/dashboard/purchase-requisitions/PrLineEditor";
 import PrRoutingPreview from "@/components/dashboard/purchase-requisitions/PrRoutingPreview";
-import { errorCopy, formatINR, lineValue } from "@/components/dashboard/purchase-requisitions/prFormat";
+import { errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
 import {
-  lineErrors, lineFromServer, lineToPayload, lineToPreview, sumLineValues, MAX_LINES,
+  lineErrors, lineFromServer, lineToPayload, lineToPreview, rowValue, sumLineValues, MAX_LINES,
 } from "@/components/dashboard/purchase-requisitions/prLines";
 import { materialRequisitionCreate, purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitions } from "@/components/dashboard/shared/dashboardLinks";
 
@@ -50,6 +50,11 @@ export default function PurchaseRequisitionCreatePage() {
   const [toast, setToast] = useState("");
   const [preview, setPreview] = useState({ status: "idle", data: null, error: "" });
   const [retryTick, setRetryTick] = useState(0);
+  const [rechecking, setRechecking] = useState(false);
+  const [warning, setWarning] = useState("");
+  const pendingHydrate = useRef(null); // { id, keys } when the last id refresh failed
+  const linesRef = useRef([]);
+  linesRef.current = lines;
   const dirty = useRef(false);
   const busyRef = useRef(false);
   const loadedFor = useRef(null);
@@ -75,6 +80,31 @@ export default function PurchaseRequisitionCreatePage() {
       .catch(() => { if (!cancelled) setDepartments([]); });
     return () => { cancelled = true; };
   }, [form.hotel_id]);
+
+  // ----- re-check catalog lines against the (new) hotel/department -------
+  // A rate contract can cover an item at one hotel/department and not another.
+  const recheckReq = useRef(0);
+  useEffect(() => {
+    const myReq = ++recheckReq.current;
+    const catalog = linesRef.current.filter((l) => l.kind === "catalog" && l.product_variant_id);
+    if (!form.hotel_id || !form.department_id || catalog.length === 0) { setRechecking(false); return undefined; }
+    setRechecking(true);
+    const names = [...new Set(catalog.map((l) => l.label).filter((n) => n && n.length >= 2))];
+    Promise.all(names.map((q) =>
+      PrApi.searchItems({ hotel_id: Number(form.hotel_id), department_id: Number(form.department_id), q, limit: 50 })
+        .then((res) => res?.data?.items || [])
+        .catch(() => []),
+    )).then((groups) => {
+      if (myReq !== recheckReq.current) return;
+      const byVariant = new Map(groups.flat().map((it) => [it.variant_id, it]));
+      setLines((cur) => cur.map((l) => {
+        const hit = l.kind === "catalog" ? byVariant.get(l.product_variant_id) : null;
+        return hit ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null } : l;
+      }));
+      setRechecking(false);
+    });
+    return () => { recheckReq.current += 1; };
+  }, [form.hotel_id, form.department_id]);
 
   // ----- load an existing draft / returned PR ---------------------------
   const loadPr = useCallback(async (id) => {
@@ -118,7 +148,13 @@ export default function PurchaseRequisitionCreatePage() {
   }, []);
 
   // ----- live routing preview (400 ms debounce, stale-response guard) ----
-  const previewLines = useMemo(() => lines.map(lineToPreview).filter(Boolean), [lines]);
+  // Rows sent to the preview keep their form row number so the server's
+  // 1-based line_nos can be mapped back to what the user sees.
+  const previewRows = useMemo(
+    () => lines.map((l, i) => ({ row: i + 1, line: lineToPreview(l) })).filter((r) => r.line),
+    [lines],
+  );
+  const previewLines = useMemo(() => previewRows.map((r) => r.line), [previewRows]);
   const previewKey = JSON.stringify([form.hotel_id, form.department_id, previewLines]);
   const previewReq = useRef(0);
   useEffect(() => {
@@ -128,9 +164,10 @@ export default function PurchaseRequisitionCreatePage() {
       return undefined;
     }
     setPreview((p) => ({ status: "loading", data: p.data, error: "" }));
+    const rowNos = previewRows.map((r) => r.row);
     const t = setTimeout(() => {
       PrApi.previewRouting({ hotel_id: Number(form.hotel_id), department_id: Number(form.department_id), lines: previewLines })
-        .then((res) => { if (myReq === previewReq.current) setPreview({ status: "ready", data: res?.data || null, error: "" }); })
+        .then((res) => { if (myReq === previewReq.current) setPreview({ status: "ready", data: res?.data || null, error: "", rowNos }); })
         .catch((e) => { if (myReq === previewReq.current) setPreview({ status: "error", data: null, error: errorCopy(e) }); });
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(t);
@@ -139,7 +176,7 @@ export default function PurchaseRequisitionCreatePage() {
   }, [previewKey, retryTick]);
 
   // ----- totals ----------------------------------------------------------
-  const grandTotal = useMemo(() => sumLineValues(lines.map((l) => lineValue(l.quantity, l.price))), [lines]);
+  const grandTotal = useMemo(() => sumLineValues(lines.map(rowValue)), [lines]);
 
   // ----- validation ------------------------------------------------------
   const headerErrors = useMemo(() => {
@@ -171,16 +208,25 @@ export default function PurchaseRequisitionCreatePage() {
   };
 
   // Give new lines their server ids so the next save sends them back.
+  // Returns a Map key -> server id when every saved line now has its id, else null. Matching is
+  // by row key, so anything typed since the save is left untouched.
   const hydrateIds = async (id, savedKeys) => {
     try {
       const res = await PrApi.getPr(id);
       const server = res?.data?.lines || [];
-      if (server.length !== savedKeys.length) return;
+      if (server.length !== savedKeys.length) throw new Error("line count mismatch");
       setLines((cur) => cur.map((l) => {
         const i = savedKeys.indexOf(l.key);
         return i >= 0 && !l.id ? { ...l, id: server[i].id } : l;
       }));
-    } catch (_) { /* ids are refreshed on the next load */ }
+      pendingHydrate.current = null;
+      setWarning("");
+      return new Map(savedKeys.map((k, i) => [k, server[i].id]));
+    } catch (_) {
+      pendingHydrate.current = { id, keys: savedKeys };
+      setWarning("Your draft is saved, but we couldn't refresh it from the server. We'll retry before your next save.");
+      return null;
+    }
   };
 
   const persist = async () => {
@@ -190,6 +236,18 @@ export default function PurchaseRequisitionCreatePage() {
       setError("Some details are missing or need fixing. Check the highlighted fields.");
       return null;
     }
+    // Never send lines without their ids when the last refresh failed: reload
+    // them first (keyed by row, so nothing typed since is lost).
+    let ids = new Map();
+    if (pendingHydrate.current) {
+      const { id: pid, keys } = pendingHydrate.current;
+      ids = await hydrateIds(pid, keys);
+      if (!ids) {
+        setError("Couldn't refresh your saved draft, so nothing was sent. Check your connection and try again.");
+        return null;
+      }
+    }
+    const withIds = lines.map((l) => (l.id || !ids.has(l.key) ? l : { ...l, id: ids.get(l.key) }));
     const body = {
       hotel_id: Number(form.hotel_id),
       department_id: Number(form.department_id),
@@ -199,7 +257,7 @@ export default function PurchaseRequisitionCreatePage() {
       required_by_date: form.required_by_date,
       justification: form.justification.trim(),
       delivery_location: form.delivery_location.trim() || undefined,
-      lines: lines.map(lineToPayload),
+      lines: withIds.map(lineToPayload),
     };
     const savedKeys = lines.map((l) => l.key);
     try {
@@ -250,7 +308,9 @@ export default function PurchaseRequisitionCreatePage() {
   };
 
   const previewProblems = preview.data?.problems || [];
-  const canSubmit = preview.status === "ready" && previewProblems.length === 0 && lines.length > 0 && !busy;
+  const onContractLines = lines.filter((l) => l.on_contract);
+  const blocked = rechecking || onContractLines.length > 0;
+  const canSubmit = preview.status === "ready" && previewProblems.length === 0 && lines.length > 0 && !busy && !blocked;
   const flaggedNos = flagged;
 
   if (loading) {
@@ -284,6 +344,18 @@ export default function PurchaseRequisitionCreatePage() {
             <Link href={materialRequisitionCreate()}>Material Requisition</Link> instead.
           </p>
         </div>
+
+        {warning && <div className="guide warn" role="status" style={{ margin: "14px 0 4px" }}><div>{warning}</div></div>}
+
+        {blocked && (
+          <div className="guide warn" role="status" style={{ margin: "14px 0 4px" }}>
+            <div>
+              {rechecking
+                ? "Checking your items against this hotel and department…"
+                : "Some items are on a rate contract here, so they can't go on a purchase requisition. Remove them, or raise a Material Requisition for them. Saving and submitting are paused until then."}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div role="alert" className="guide danger" style={{ margin: "14px 0 4px" }}>
@@ -389,7 +461,7 @@ export default function PurchaseRequisitionCreatePage() {
           </div>
 
           <aside className="pr-aside">
-            <PrRoutingPreview state={preview} onRetry={() => setRetryTick((n) => n + 1)} />
+            <PrRoutingPreview state={preview} rowNos={preview.rowNos} onRetry={() => setRetryTick((n) => n + 1)} />
           </aside>
         </div>
 
@@ -408,7 +480,7 @@ export default function PurchaseRequisitionCreatePage() {
           </div>
           <div className="right">
             <Link href={purchaseRequisitions()} className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>Cancel</Link>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={saveDraft}>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy || blocked} onClick={saveDraft}>
               {busy ? "Saving…" : "Save draft"}
             </button>
             <button type="button" className="btn btn-blue" disabled={!canSubmit} onClick={submit}>

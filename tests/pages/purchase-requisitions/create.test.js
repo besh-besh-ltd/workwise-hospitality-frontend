@@ -66,6 +66,8 @@ async function addCatalogLine(item = towel, term = "tow") {
   fireEvent.change(screen.getByLabelText("Search catalog items"), { target: { value: term } });
   const hit = await screen.findByText(item.variant_name, undefined, W);
   fireEvent.click(hit);
+  // let the line's duplicate check resolve inside act, as a user would see it
+  await act(async () => {});
 }
 
 function fillHeader() {
@@ -79,10 +81,6 @@ function fillLine(qty, price, unit = "pcs") {
   fireEvent.change(screen.getByLabelText("Unit"), { target: { value: unit } });
   fireEvent.change(screen.getByLabelText("Estimated unit price"), { target: { value: price } });
 }
-
-afterEach(async () => {
-  await act(async () => {});
-});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -347,3 +345,137 @@ test("a catalog line shows the duplicate hint with readable items as links", asy
   expect(screen.getByText(/Pune Inn · Kitchen/)).toBeInTheDocument();
   expect(PrApi.getDuplicates).toHaveBeenCalledWith({ hotel_id: 12, variant_id: 300 });
 });
+
+test("a catalog line that is on contract in the newly chosen department is blocked until removed", async () => {
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
+  PrApi.searchItems.mockImplementation(({ department_id }) =>
+    Promise.resolve({ data: { items: [department_id === 10 ? { ...towel, on_contract: true, arc_contract_id: 5, arc_number: "ARC-9" } : towel] } }));
+  render(<CreatePrPage />);
+  await pickCell();
+  fillHeader();
+  await addCatalogLine();
+  fillLine("2", "50");
+  await screen.findByText("Hari Head", undefined, W);
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
+  fireEvent.change(dept, { target: { value: "10" } });
+
+  expect(await screen.findByText(/On contract ARC-9/, undefined, W)).toBeInTheDocument();
+  expect(screen.getByTestId("pr-line-1")).toHaveAttribute("data-invalid", "true");
+  expect(screen.getAllByRole("link", { name: /raise an MR/ }).length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
+  expect(screen.getByText(/Saving and submitting are paused/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Remove line 1" }));
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+});
+
+test("Save draft is held while the cell re-check is still running", async () => {
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
+  render(<CreatePrPage />);
+  await pickCell();
+  await addCatalogLine();
+  let release;
+  PrApi.searchItems.mockImplementation(() => new Promise((r) => { release = () => r({ data: { items: [towel] } }); }));
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
+  fireEvent.change(dept, { target: { value: "10" } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled());
+  expect(screen.getByText(/Checking your items/)).toBeInTheDocument();
+  await act(async () => { release(); });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled());
+});
+
+async function saveTwice(firstGetPr) {
+  PrApi.getPr.mockReset();
+  PrApi.getPr.mockImplementationOnce(firstGetPr);
+  render(<CreatePrPage />);
+  await pickCell();
+  fillHeader();
+  await addCatalogLine();
+  fillLine("2", "50");
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  await waitFor(() => expect(PrApi.createPr).toHaveBeenCalledTimes(1));
+  await screen.findByText("Draft saved");
+}
+
+const serverLine = { id: 801, line_no: 1, line_kind: "catalog", product_variant_id: 300, variant_name: "Bath towel", category_id: 7, quantity: "2", uom: "pcs", estimated_unit_price: "50" };
+
+test("after the first save the second save sends the ids the server assigned", async () => {
+  await saveTwice(() => Promise.resolve({ data: { pr: {}, lines: [serverLine], capabilities: { can_edit: true } } }));
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  await waitFor(() => expect(PrApi.updatePr).toHaveBeenCalledTimes(1));
+  expect(PrApi.updatePr.mock.calls[0][0]).toBe(900);
+  expect(PrApi.updatePr.mock.calls[0][1].lines.map((l) => l.id)).toEqual([801]);
+});
+
+test("if the id refresh fails the user is warned and the next save reloads ids first", async () => {
+  await saveTwice(() => Promise.reject(new Error("offline")));
+  expect(screen.getByText(/couldn't refresh it from the server/)).toBeInTheDocument();
+  PrApi.getPr.mockResolvedValue({ data: { pr: {}, lines: [serverLine], capabilities: { can_edit: true } } });
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  await waitFor(() => expect(PrApi.updatePr).toHaveBeenCalledTimes(1));
+  expect(PrApi.updatePr.mock.calls[0][1].lines.map((l) => l.id)).toEqual([801]);
+  await screen.findByText("Draft saved");
+  expect(screen.queryByText(/couldn't refresh it from the server/)).not.toBeInTheDocument();
+});
+
+test("if the id refresh keeps failing the next save is not sent at all", async () => {
+  await saveTwice(() => Promise.reject(new Error("offline")));
+  PrApi.getPr.mockRejectedValueOnce(new Error("offline"));
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  expect(await screen.findByText(/nothing was sent/)).toBeInTheDocument();
+  expect(PrApi.updatePr).not.toHaveBeenCalled();
+});
+
+test("preview line numbers are shown as the form's row numbers", async () => {
+  PrApi.previewRouting.mockResolvedValue({ data: { ...okPreview, reviews: [{ ...okPreview.reviews[0], line_nos: [1] }] } });
+  render(<CreatePrPage />);
+  await pickCell();
+  fireEvent.click(screen.getByRole("button", { name: /Add item not in catalog/ })); // row 1, incomplete
+  await addCatalogLine(); // row 2
+  const qty = screen.getAllByLabelText("Quantity")[1];
+  fireEvent.change(qty, { target: { value: "2" } });
+  fireEvent.change(screen.getAllByLabelText("Estimated unit price")[1], { target: { value: "50" } });
+  expect(await screen.findByText(/^Item 2 ·/, undefined, W)).toBeInTheDocument();
+});
+
+test("an incomplete row shows no value and does not count toward the total", async () => {
+  render(<CreatePrPage />);
+  await pickCell();
+  await addCatalogLine();
+  fillLine("2", "50");
+  expect(screen.getByTestId("grand-total")).toHaveTextContent("₹100");
+  fireEvent.click(screen.getByRole("button", { name: /Add item not in catalog/ }));
+  fireEvent.change(screen.getAllByLabelText("Quantity")[1], { target: { value: "9" } });
+  expect(screen.getByTestId("grand-total")).toHaveTextContent("₹100");
+  fireEvent.change(screen.getAllByLabelText("Estimated unit price")[0], { target: { value: "5.555" } });
+  expect(screen.getByTestId("grand-total")).toHaveTextContent("—");
+});
+
+test("a failed duplicate check hides the hint and nothing breaks", async () => {
+  PrApi.getDuplicates.mockRejectedValue(new Error("nope"));
+  render(<CreatePrPage />);
+  await pickCell();
+  await addCatalogLine();
+  await waitFor(() => expect(PrApi.getDuplicates).toHaveBeenCalled());
+  expect(screen.queryByText(/open request/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
+});
+
+test("at 200 lines the Add buttons are disabled with a message", async () => {
+  mockQuery = { id: "55" };
+  const many = Array.from({ length: 200 }, (_, i) => ({
+    id: 1000 + i, line_no: i + 1, line_kind: "free_text", product_variant_id: null, free_text_name: `Item ${i}`,
+    category_id: 7, category_title: "Linen", quantity: "1", uom: "pcs", estimated_unit_price: "1",
+  }));
+  PrApi.getPr.mockResolvedValue(draftDetail({ lines: many }));
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  expect(screen.getByText("Add catalog item")).toBeDisabled();
+  expect(screen.getByText("Add item not in catalog")).toBeDisabled();
+  expect(screen.getByText(/up to 200 items/)).toBeInTheDocument();
+}, 60000); // getByRole is very slow on 200 rows, so this uses text queries

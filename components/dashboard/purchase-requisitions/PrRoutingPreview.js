@@ -18,7 +18,7 @@ export function problemCopy(p) {
 
 const names = (list) => (list || []).map((x) => x.name).filter(Boolean).join(", ");
 
-export default function PrRoutingPreview({ state, onRetry }) {
+export default function PrRoutingPreview({ state, onRetry, rowNos }) {
   const { status, data } = state;
   const problems = data?.problems || [];
 
@@ -73,7 +73,7 @@ export default function PrRoutingPreview({ state, onRetry }) {
               <div className="body">
                 <div className="nm">Technical review · {r.department_title}</div>
                 <div className="meta">
-                  {r.line_nos?.length ? <span>{`Item${r.line_nos.length === 1 ? "" : "s"} ${r.line_nos.join(", ")} · `}</span> : null}
+                  {r.line_nos?.length ? <span>{`Item${r.line_nos.length === 1 ? "" : "s"} ${r.line_nos.map((n) => rowNos?.[n - 1] ?? n).join(", ")} · `}</span> : null}
                   <span>{r.reviewers?.length ? names(r.reviewers) : "No reviewer found"}</span>
                 </div>
               </div>
