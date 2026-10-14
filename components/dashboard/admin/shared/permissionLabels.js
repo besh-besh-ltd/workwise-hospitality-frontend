@@ -22,6 +22,7 @@ export const RESOURCE_LABELS = {
   "ARC-COMMITTEE": "ARC Committee",
   AWARDING: "PO Awarding",
   DASHBOARD: "Dashboard widgets",
+  PR: "Purchase Requisitions",
 };
 
 export const RESOURCE_DESCRIPTIONS = {
@@ -33,6 +34,7 @@ export const RESOURCE_DESCRIPTIONS = {
   "ARC-COMM": "Run commercial evaluation and reconcile awards on rate contracts.",
   "ARC-COMMITTEE": "Sit on the ARC committee that approves finalised awards and amendments.",
   AWARDING: "Manage purchase-order awarding on finalised RFQs.",
+  PR: "Raise, technically review, approve and convert purchase requisitions into RFQs.",
   DASHBOARD: "Choose which widgets appear on the buyer dashboard. Each widget only shows data from the business units this role can already see.",
 };
 
@@ -49,6 +51,7 @@ export const ACTION_LABELS = {
   submit: "Submit",
   evaluate: "Evaluate",
   admin: "Administer",
+  convert: "Convert to RFQ",
 };
 
 export const ACTION_HELP = {
@@ -64,6 +67,7 @@ export const ACTION_HELP = {
   submit: "Allow users to submit records for processing",
   evaluate: "Allow users to run evaluations (score / assess responses)",
   admin: "Allow users full administrative control of this module",
+  convert: "Allow users to pick up approved requisition lines and convert them into RFQs",
 };
 
 export const toReadableLabel = (value = "") =>

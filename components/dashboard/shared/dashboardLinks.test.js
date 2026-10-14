@@ -92,9 +92,15 @@ const SAMPLES = {
   arcContract: L.arcContract(5, { stage: "active", tab: "amendments" }),
   materialRequisition: L.materialRequisition(3),
   reports: L.reports(),
+  purchaseRequisitions: L.purchaseRequisitions(),
+  purchaseRequisition: L.purchaseRequisition(8),
+  purchaseRequisitionCreate: L.purchaseRequisitionCreate(),
+  purchaseRequisitionCreateDraft: L.purchaseRequisitionCreate(8),
+  purchaseRequisitionReview: L.purchaseRequisitionReview(),
+  purchaseRequisitionQueue: L.purchaseRequisitionQueue(),
 };
 Object.keys(L.RFQ_LIST_VIEWS).forEach((v) => { SAMPLES[`view:${v}`] = L.rfqListView(v); });
-["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION_QUOTE", "NEGOTIATION", "PO", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "UNKNOWN"]
+["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION_QUOTE", "NEGOTIATION", "PO", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PR", "UNKNOWN"]
   .forEach((t) => {
     SAMPLES[`approval:${t}`] = L.approvalHref(t, { rfqId: 9, poId: 77, arcId: 5, mrId: 3, entityId: 1 });
     SAMPLES[`queue:${t}`] = L.approvalQueue(t);
@@ -130,6 +136,14 @@ describe("dashboardLinks builders", () => {
     expect(L.techEval({ rfqId: undefined, rfqProductId: 4 })).toBe("/dashboard/buyer/technical-evaluation");
     expect(L.quoteCompare(undefined)).toBe(L.rfqListView("quote_compare"));
     expect(L.negotiationForRfq(undefined)).toBe("/dashboard/buyer/negotiation");
+    expect(L.purchaseRequisition(undefined)).toBe("/dashboard/buyer/purchase-requisitions");
+    expect(L.purchaseRequisitionCreate()).toBe("/dashboard/buyer/purchase-requisitions/create");
+  });
+
+  test("PR approvals open the PR detail; the queue is the review list", () => {
+    expect(L.approvalHref("PR", { entityId: 8 })).toBe("/dashboard/buyer/purchase-requisitions/8");
+    expect(L.approvalHref("pr", { entityId: undefined })).toBe("/dashboard/buyer/purchase-requisitions");
+    expect(L.approvalQueue("PR")).toBe("/dashboard/buyer/purchase-requisitions");
   });
 
   test("unknown tabs, statuses and stages are dropped", () => {

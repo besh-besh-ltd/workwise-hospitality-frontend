@@ -43,6 +43,7 @@ const ENTITY_TYPE_TO_HREF = {
   ARC_AMENDMENT: "/dashboard/buyer/rate-contracts",
   // Requisition & Orders
   MR: "/dashboard/buyer/material-requisitions",
+  PR: "/dashboard/buyer/purchase-requisitions",
   PO: "/dashboard/buyer/purchase-orders",
 };
 

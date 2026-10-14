@@ -34,6 +34,7 @@ import {
   MapPin,
   Route,
   ClipboardCheck,
+  ListChecks,
 } from "lucide-react";
 
 /**
@@ -111,6 +112,12 @@ export const NAV_ICONS = {
   "/dashboard/buyer/material-requisitions":        LayoutDashboard,
   "/dashboard/buyer/material-requisitions/all":    ClipboardList,
   "/dashboard/buyer/material-requisitions/create": ClipboardPlus,
+
+  // Purchase Requisitions (buyer) — my list, new, reviewer inbox, buyer queue.
+  "/dashboard/buyer/purchase-requisitions":        ClipboardList,
+  "/dashboard/buyer/purchase-requisitions/create": ClipboardPlus,
+  "/dashboard/buyer/purchase-requisitions/review": ClipboardCheck,
+  "/dashboard/buyer/purchase-requisitions/queue":  ListChecks,
 
   // Insights — the downloadable report catalogue.
   "/dashboard/buyer/reports": FileBarChart,
