@@ -14,7 +14,7 @@ import PrProgressPill from "./PrProgressPill";
 import { STATUS_LABEL, errorCopy, errorStatus, formatINR } from "./prFormat";
 import { nowWithLabel } from "./prDetail";
 import {
-  purchaseRequisition, purchaseRequisitionCreate, materialRequisition,
+  purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitions, materialRequisition,
 } from "@/components/dashboard/shared/dashboardLinks";
 
 const PAGE_SIZE = 20;
@@ -98,6 +98,8 @@ export default function PrListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // { forbidden, message }
   const [kpis, setKpis] = useState(null);
+  const [kpiError, setKpiError] = useState(false);
+  const [kpiReload, setKpiReload] = useState(0);
   const seq = useRef(0);
   // null while unknown: the CTA shows until we know the user can't raise a PR.
   const canCreate = usePrCanCreate();
@@ -112,11 +114,12 @@ export default function PrListPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setKpiError(false);
     PrApi.getPrKpis()
       .then((r) => { if (!cancelled) setKpis(r?.data || null); })
-      .catch(() => { if (!cancelled) setKpis(null); });
+      .catch(() => { if (!cancelled) { setKpis(null); setKpiError(true); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [kpiReload]);
 
   useEffect(() => {
     const id = ++seq.current;
@@ -147,8 +150,15 @@ export default function PrListPage() {
     setPage(1);
     setFilters((f) => ({ ...f, [key]: f[key] === value ? "" : value }));
   }, []);
-  const changeTab = (t) => { setTab(t); setPage(1); };
+  // The URL follows the tab (shallow), so a refresh or a shared link keeps it.
+  const changeTab = (t) => {
+    setTab(t);
+    setPage(1);
+    router?.replace?.(purchaseRequisitions({ tab: t }), undefined, { shallow: true });
+  };
   const resetAll = () => { setFilters(NO_FILTERS); setSearch(""); setQ(""); setPage(1); };
+  // Exactly the set the tile counts: no facet filter or search narrowing it.
+  const openAwaiting = () => { resetAll(); changeTab("awaiting"); };
 
   const { rows, total, facets, facet_labels } = data;
   const activeCount = Object.values(filters).filter(Boolean).length;
@@ -189,7 +199,7 @@ export default function PrListPage() {
           <Kpi tone="accent" label="Open" value={kpis.open ?? 0} sub="not yet approved" />
           <Kpi
             tone="warn" label="Awaiting me" value={awaiting} sub="reviews and approvals for you"
-            onClick={awaiting > 0 ? () => changeTab("awaiting") : undefined}
+            onClick={awaiting > 0 ? openAwaiting : undefined}
           />
           <Kpi tone="violet" label="In purchase queue" value={kpis.in_purchase_queue ?? 0} sub="approved, with the buyers" />
           <Kpi
@@ -198,6 +208,16 @@ export default function PrListPage() {
             sub="approved in the last 90 days"
           />
         </section>
+      )}
+      {kpiError && (
+        <div className="guide warn" role="status" style={{ fontSize: 12.5, margin: "4px 0 10px" }}>
+          <div>
+            Couldn&apos;t load counts —{" "}
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="Retry loading counts" onClick={() => setKpiReload((n) => n + 1)}>
+              retry
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="tab-row">

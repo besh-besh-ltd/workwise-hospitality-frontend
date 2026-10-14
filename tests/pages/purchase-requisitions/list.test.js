@@ -12,9 +12,10 @@ jest.mock("react-redux", () => ({
   useSelector: (fn) => fn({ userProfile: { id: 7 } }),
 }));
 let mockQuery = {};
+const mockReplace = jest.fn();
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ isReady: true, query: mockQuery, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ isReady: true, pathname: "/dashboard/buyer/purchase-requisitions", query: mockQuery, push: jest.fn(), replace: mockReplace }),
 }));
 
 import React from "react";
@@ -218,4 +219,44 @@ test("if the hotel lookup fails the New requisition button stays (the create pag
   await screen.findByText("Lobby towels");
   await waitFor(() => expect(PrApi.getFormHotels).toHaveBeenCalled());
   expect(screen.getByRole("link", { name: /New requisition/ })).toBeInTheDocument();
+});
+
+// Task 15 deferred minor: a failed KPI fetch hid the whole tile row silently.
+test("a KPI failure says so with a retry instead of hiding the counts", async () => {
+  PrApi.getPrKpis
+    .mockRejectedValueOnce({ response: { status: 500, data: { status: 3, message: "boom" } } })
+    .mockResolvedValueOnce({ status: 1, data: { open: 4, awaiting_me: 2, in_purchase_queue: 6, avg_days_to_approval: 3.5 } });
+  render(<PrListPage />);
+  expect(await screen.findByText(/Couldn't load counts/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Retry loading counts" }));
+  expect(await screen.findByText("3.5")).toBeInTheDocument();
+  expect(screen.queryByText(/Couldn't load counts/)).not.toBeInTheDocument();
+  expect(PrApi.getPrKpis).toHaveBeenCalledTimes(2);
+});
+
+// 19b review minor: the tile kept the user's filters and search, so the
+// "Waiting on me" list could show fewer rows than the number on the tile.
+test("the Awaiting me tile clears filters and search so the list matches the count", async () => {
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  fireEvent.click(screen.getByLabelText(/Orchid Goa/));
+  fireEvent.change(screen.getByPlaceholderText(/Search/), { target: { value: "towel" } });
+  await waitFor(() => expect(lastParams()).toMatchObject({ hotel_id: "13", q: "towel" }), { timeout: 2000 });
+  fireEvent.click(screen.getByText("Awaiting me").closest("button"));
+  await waitFor(() => expect(lastParams().tab).toBe("awaiting"));
+  await waitFor(() => {
+    const p = lastParams();
+    expect(p).toEqual({ tab: "awaiting", page: 1, page_size: 20 });
+  });
+  expect(screen.getByPlaceholderText(/Search/)).toHaveValue("");
+});
+
+// 19b review minor: the URL did not follow tab clicks, so a refresh fell back to Mine.
+test("a tab click puts ?tab= in the URL with a shallow replace", async () => {
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  fireEvent.click(screen.getByRole("button", { name: "All I can see" }));
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard/buyer/purchase-requisitions?tab=all", undefined, { shallow: true }));
+  fireEvent.click(screen.getByText("Awaiting me").closest("button"));
+  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith("/dashboard/buyer/purchase-requisitions?tab=awaiting", undefined, { shallow: true }));
 });
