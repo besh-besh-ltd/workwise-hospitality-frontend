@@ -40,7 +40,9 @@ export default function PurchaseRequisitionCreatePage() {
   const [departments, setDepartments] = useState([]);
   const [prId, setPrId] = useState(routeId);
   const [prNumber, setPrNumber] = useState("");
-  const [loading, setLoading] = useState(Boolean(routeId));
+  // Until the router is ready a full page load can't tell create from edit:
+  // show Loading, not a blank "Raise" form that flashes before the draft.
+  const [loading, setLoading] = useState(!router.isReady || Boolean(routeId));
   const [loadError, setLoadError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,11 +77,20 @@ export default function PurchaseRequisitionCreatePage() {
   }, [hotelsTick]);
 
   // ----- departments for the chosen hotel -------------------------------
+  // A hotel offering exactly one department selects it (an edit keeps its own).
   useEffect(() => {
     if (!form.hotel_id) { setDepartments([]); return undefined; }
     let cancelled = false;
-    PrApi.getFormDepartments(form.hotel_id)
-      .then((res) => { if (!cancelled) setDepartments(res?.data?.departments || []); })
+    const hotelId = form.hotel_id;
+    PrApi.getFormDepartments(hotelId)
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.data?.departments || [];
+        setDepartments(list);
+        if (list.length === 1) {
+          setForm((f) => (f.hotel_id === hotelId && !f.department_id ? { ...f, department_id: String(list[0].id) } : f));
+        }
+      })
       .catch(() => { if (!cancelled) setDepartments([]); });
     return () => { cancelled = true; };
   }, [form.hotel_id]);
@@ -145,6 +156,11 @@ export default function PurchaseRequisitionCreatePage() {
       setLoading(false);
     }
   }, [router]);
+
+  // A new requisition: nothing to load once the router knows there is no id.
+  useEffect(() => {
+    if (router.isReady && !routeId && !loadedFor.current) setLoading(false);
+  }, [router.isReady, routeId]);
 
   useEffect(() => {
     if (!router.isReady || !routeId || loadedFor.current === routeId) return;

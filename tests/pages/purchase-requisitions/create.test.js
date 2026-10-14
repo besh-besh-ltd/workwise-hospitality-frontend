@@ -298,7 +298,8 @@ test("edit mode loads the draft and saves with updatePr, sending the original li
   const [id, body] = PrApi.updatePr.mock.calls[0];
   expect(id).toBe("55");
   expect(body.lines.map((l) => l.id)).toEqual([701, 702]);
-  expect(body.lines[0]).toMatchObject({ product_variant_id: 300, quantity: "2.000", estimated_unit_price: "50.00", specification: "White" });
+  // The form shows (and sends back) "2" / "50" for the server's "2.000" / "50.00" — the same NUMERIC values.
+  expect(body.lines[0]).toMatchObject({ product_variant_id: 300, quantity: "2", estimated_unit_price: "50", specification: "White" });
   expect(body.lines[1]).toMatchObject({ free_text_name: "Brass bell", category_id: 7, suggested_vendor_note: "Try Mehta" });
   expect(body.lines[1].product_variant_id).toBeUndefined();
 });
@@ -622,4 +623,71 @@ test("a line whose item is missing from the re-check results is not assumed to b
   expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Remove line 1" }));
   expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+});
+
+// 19b review minor: on a full page load the first render happens before the
+// router is ready, so the edit page flashed an empty "Raise purchase
+// requisition" form before the draft arrived.
+test("a full page load of the edit page shows Loading, never a blank form, until the draft arrives", async () => {
+  mockReady = false;
+  mockQuery = {};
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  const { rerender } = render(<CreatePrPage />);
+  expect(screen.getByText("Loading requisition…")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+  mockReady = true;
+  mockQuery = { id: "55" };
+  rerender(<CreatePrPage />);
+  expect(screen.queryByText("Raise purchase requisition")).not.toBeInTheDocument();
+  expect(await screen.findByDisplayValue("Lobby towels", undefined, W)).toBeInTheDocument();
+});
+
+test("a full page load of a new requisition shows the form once the router is ready", async () => {
+  mockReady = false;
+  mockQuery = {};
+  const { rerender } = render(<CreatePrPage />);
+  expect(screen.getByText("Loading requisition…")).toBeInTheDocument();
+  mockReady = true;
+  rerender(<CreatePrPage />);
+  expect(await screen.findByText("Raise purchase requisition")).toBeInTheDocument();
+  expect(screen.getByLabelText("Title")).toBeInTheDocument();
+});
+
+// 19b cosmetic: the edit form showed the server's "2.000" / "15000.00".
+test("the edit form shows quantities without trailing zeros and whole prices without .00", async () => {
+  mockQuery = { id: "55" };
+  PrApi.getPr.mockResolvedValue(draftDetail({
+    lines: [
+      { id: 701, line_no: 1, line_kind: "catalog", product_variant_id: 300, variant_name: "Bath towel", category_id: 7, category_title: "Linen", quantity: "2.000", uom: "pcs", estimated_unit_price: "15000.00", specification: null, suggested_vendor_note: null },
+      { id: 702, line_no: 2, line_kind: "free_text", product_variant_id: null, free_text_name: "Saffron", category_id: 7, category_title: "Linen", quantity: "0.500", uom: "kg", estimated_unit_price: "1250.50", specification: null, suggested_vendor_note: null },
+    ],
+  }));
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  const qty = screen.getAllByLabelText("Quantity");
+  const price = screen.getAllByLabelText("Estimated unit price");
+  expect(qty.map((i) => i.value)).toEqual(["2", "0.5"]);
+  expect(price.map((i) => i.value)).toEqual(["15000", "1250.50"]);
+  expect(screen.getByTestId("grand-total")).toHaveTextContent("₹30,625.25");
+});
+
+// 19b cosmetic: a hotel with a single department still made the requester pick it.
+test("a hotel with exactly one department selects it; with several the requester picks", async () => {
+  render(<CreatePrPage />);
+  const hotel = await screen.findByLabelText("Hotel");
+  await waitFor(() => expect(within(hotel).getByRole("option", { name: "Mumbai Suites" })).toBeInTheDocument());
+  fireEvent.change(hotel, { target: { value: "12" } });
+  await waitFor(() => expect(screen.getByLabelText("Department")).toHaveValue("9"));
+  expect(screen.getByRole("button", { name: /Add catalog item/ })).toBeEnabled();
+});
+
+test("with several departments nothing is pre-selected", async () => {
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
+  render(<CreatePrPage />);
+  const hotel = await screen.findByLabelText("Hotel");
+  await waitFor(() => expect(within(hotel).getByRole("option", { name: "Mumbai Suites" })).toBeInTheDocument());
+  fireEvent.change(hotel, { target: { value: "12" } });
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
+  expect(dept).toHaveValue("");
 });

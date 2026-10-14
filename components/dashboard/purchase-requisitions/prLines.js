@@ -3,7 +3,7 @@
 // Quantity and price stay strings end to end: they are validated by regex and
 // priced only through prFormat.lineValue (BigInt), never Number().
 
-import { lineValue } from "./prFormat";
+import { formatQty, lineValue } from "./prFormat";
 
 const QTY_RE = /^\d{1,15}(\.\d{1,3})?$/;
 const PRICE_RE = /^\d{1,16}(\.\d{1,2})?$/;
@@ -42,6 +42,11 @@ export const lineFromItem = (item) => ({
   arc_number: item.arc_number || null,
 });
 
+// The server's NUMERIC text, shown the way a user types it: quantity "2.000"
+// -> "2", "0.500" -> "0.5"; price "15000.00" -> "15000" ("1250.50" stays).
+const qtyForInput = (v) => (v == null ? "" : formatQty(v) || String(v));
+const priceForInput = (v) => (v == null ? "" : String(v).trim().replace(/^(\d+)\.0+$/, "$1"));
+
 /** A line from GET /pr/:id. Keeps the server id so a save sends it back. */
 export const lineFromServer = (l) => ({
   ...blank(),
@@ -52,9 +57,9 @@ export const lineFromServer = (l) => ({
   category_id: l.category_id ?? null,
   category_title: l.category_title || "",
   free_text_name: l.free_text_name || "",
-  quantity: l.quantity == null ? "" : String(l.quantity),
+  quantity: qtyForInput(l.quantity),
   uom: l.uom || "",
-  price: l.estimated_unit_price == null ? "" : String(l.estimated_unit_price),
+  price: priceForInput(l.estimated_unit_price),
   specification: l.specification || "",
   note: l.suggested_vendor_note || "",
 });
