@@ -242,6 +242,25 @@ describe("the PR role picker says which roles can approve PRs", () => {
     expect(screen.getAllByText("The role needs the PR Approver permission (pr.read + pr.approve).").length).toBeGreaterThan(0);
   });
 
+  // Review minor: once a role's permissions are known, the pickers say so in
+  // the option itself (no extra lookups: only roles already checked are marked).
+  test("a role known to lack the PR permissions is marked in the role options", async () => {
+    getRolePermissions.mockImplementation((id) => Promise.resolve({
+      status: true, data: id === 21 ? { pr: ["read"] } : { pr: ["read", "approve"] },
+    }));
+    render(<WorkflowWizard {...roleProps()} {...editingPr([roleStep(21), roleStep(22)])} />);
+    next();
+    // Level 1's chosen role reads as flagged; level 2's does not.
+    expect(await screen.findByText("Front Office — can't approve PRs")).toBeInTheDocument();
+    expect(screen.queryByText("PR Approver — can't approve PRs")).not.toBeInTheDocument();
+    const picker = screen.getByLabelText("Add several levels at once");
+    fireEvent.focus(picker);
+    fireEvent.keyDown(picker, { key: "ArrowDown", keyCode: 40 });
+    expect(await screen.findByRole("option", { name: "Front Office — can't approve PRs" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "PR Approver" })).toBeInTheDocument();
+    expect(getRolePermissions).toHaveBeenCalledTimes(2);
+  });
+
   test("the bulk picker explains the PR Approver permission when adding levels by role", () => {
     render(<WorkflowWizard {...roleProps()} editingProcess={null} editingPolicies={[]} />);
     fireEvent.click(screen.getByText("Purchase Requisition (no process)"));

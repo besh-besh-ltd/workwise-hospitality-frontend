@@ -274,7 +274,13 @@ const WorkflowWizard = ({
   // appear). ARC is process-free → processId = null = every eligible user
   // (already the wildcard-permissive path).
   const wizardProcessId = isArc ? null : (wizardForm.process_id || null);
-  const getApproverOptionsForProcess = (type, dept) => getApproverOptions(type, dept, wizardProcessId);
+  const getApproverOptionsForProcess = (type, dept) => {
+    const options = getApproverOptions(type, dept, wizardProcessId);
+    if (!isPr || type !== "ROLE") return options;
+    // PR: mark roles already known (looked up above) to lack pr.read/pr.approve.
+    // Roles not checked yet are left as they are — no lookup per option.
+    return options.map((o) => (prRoleProblem(o.value)?.length ? { ...o, label: `${o.label} — can't approve PRs` } : o));
+  };
   const getApproverDisplayInfoForProcess = (step, dept) => getApproverDisplayInfo(step, dept, wizardProcessId);
 
   // For Step 3 review header: real process for process flows, a synthetic
