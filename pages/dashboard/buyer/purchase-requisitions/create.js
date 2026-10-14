@@ -132,7 +132,8 @@ export default function PurchaseRequisitionCreatePage() {
           const hit = byVariant.get(Number(l.product_variant_id));
           return hit
             ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null, contract_unverified: false, variant_unavailable: false }
-            : { ...l, contract_unverified: false, variant_unavailable: true };
+            // No longer usable here: an earlier cell's contract verdict no longer applies.
+            : { ...l, on_contract: false, arc_number: null, contract_unverified: false, variant_unavailable: true };
         }));
         setRechecking(false);
       });
@@ -157,6 +158,9 @@ export default function PurchaseRequisitionCreatePage() {
         delivery_location: pr.delivery_location || "",
       });
       setLines((serverLines || []).map(lineFromServer));
+      // Re-check the loaded lines by id even when the cell is unchanged (a
+      // conflict Refresh reloads the same hotel/department).
+      setRecheckTick((n) => n + 1);
       setPrNumber(pr.pr_number || "");
       setError(""); setConflict(false); setFlagged([]); setDetailMsgs([]);
       dirty.current = false;

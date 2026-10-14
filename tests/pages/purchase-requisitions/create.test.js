@@ -681,6 +681,48 @@ test("a failed lookup after a cell where the line was on contract offers Retry, 
   expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
 });
 
+// Fix round 2: an absent id must also drop an earlier cell's on-contract
+// verdict, or the line says both "On contract … raise an MR" and "no longer
+// available" and the banner takes the on-contract branch.
+test("a line on contract in one cell and absent in the next shows only 'no longer available'", async () => {
+  await changeToKitchenWith(byIds([{ ...towel, on_contract: true, arc_contract_id: 5, arc_number: "ARC-9" }]));
+  expect(await screen.findByText(/On contract ARC-9/, undefined, W)).toBeInTheDocument();
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }, { id: 11, title: "Bar" }] } });
+  fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "12" } });
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Bar" })).toBeInTheDocument());
+  PrApi.searchItemsByIds.mockImplementation(byIds([pin]));
+  fireEvent.change(dept, { target: { value: "11" } });
+  expect(await screen.findByText("This item is no longer available in the catalog — replace or remove it.", undefined, W)).toBeInTheDocument();
+  expect(screen.queryByText(/On contract ARC-9/)).not.toBeInTheDocument();
+  expect(screen.getByText(/Some items are no longer available in the catalog/)).toBeInTheDocument();
+  expect(screen.queryByText(/Some items are on a rate contract here/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+});
+
+// Fix round 2: the conflict Refresh reloads the same cell, so the cell-change
+// effect never fired and the reloaded lines looked clean until the server
+// refused the save. A reload always re-checks by id.
+test("Refresh after a 409 re-checks the reloaded lines by id", async () => {
+  mockQuery = { id: "55" };
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  PrApi.updatePr.mockRejectedValue({ response: { status: 409, data: { status: 0, code: "PR_STATE_CONFLICT", message: "raw" } } });
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  expect(await screen.findByText(/This PR changed since you opened it/)).toBeInTheDocument();
+  // Meanwhile the towel variant was deactivated.
+  PrApi.searchItemsByIds.mockImplementation(byIds([pin]));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledTimes(2));
+  expect(PrApi.searchItemsByIds).toHaveBeenLastCalledWith({ hotel_id: 12, department_id: 9, variant_ids: [300] });
+  expect(await screen.findByText("This item is no longer available in the catalog — replace or remove it.", undefined, W)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+});
+
 test("editing a draft checks its catalog lines by id for the PR's own cell", async () => {
   mockQuery = { id: "55" };
   PrApi.getPr.mockResolvedValue(draftDetail());
