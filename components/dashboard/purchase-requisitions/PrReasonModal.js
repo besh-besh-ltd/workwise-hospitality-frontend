@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 /** The arc_v2 modal shell. Escape and a backdrop click close it unless `busy`. */
-function PrModal({ title, onClose, busy, footer, children }) {
+export function PrModal({ title, onClose, busy, footer, children }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape" && !busy) onClose?.();

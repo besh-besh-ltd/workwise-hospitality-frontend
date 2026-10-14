@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom";
 import {
-  formatINR, formatQty, lineValue, errorCopy, ERROR_COPY,
+  formatINR, formatQty, lineValue, sumDecimals, errorCopy, ERROR_COPY,
   STATUS_LABEL, PROGRESS_LABEL, HEADER_PROGRESS_LABEL,
 } from "./prFormat";
 
@@ -65,7 +65,28 @@ describe("labels", () => {
   });
 });
 
+describe("sumDecimals", () => {
+  test("exact sums of NUMERIC strings, no float drift", () => {
+    expect(sumDecimals(["2.500", "3.000"])).toBe("5.500");
+    expect(formatQty(sumDecimals(["2.500", "3"]))).toBe("5.5");
+    expect(sumDecimals(["0.1", "0.2"])).toBe("0.3");
+    expect(sumDecimals(["999999999999999.999", "0.001"])).toBe("1000000000000000.000");
+    expect(sumDecimals(["7"])).toBe("7");
+  });
+  test("a blank or invalid term gives null", () => {
+    expect(sumDecimals([])).toBeNull();
+    expect(sumDecimals(["1", ""])).toBeNull();
+    expect(sumDecimals(["1", "x"])).toBeNull();
+  });
+});
+
 describe("errorCopy", () => {
+  test("PR_SPEC_TOO_LONG has its own copy", () => {
+    expect(ERROR_COPY.PR_SPEC_TOO_LONG).toBe(
+      "The combined specification for one item is too long for an RFQ (max 1000 characters). Convert those lines in separate RFQs.",
+    );
+    expect(errorCopy({ response: { status: 422, data: { code: "PR_SPEC_TOO_LONG", message: "x" } } })).toBe(ERROR_COPY.PR_SPEC_TOO_LONG);
+  });
   test("maps PR codes", () => {
     expect(errorCopy({ response: { data: { code: "PR_NO_POLICY" } } })).toBe(ERROR_COPY.PR_NO_POLICY);
     expect(errorCopy({ response: { data: { code: "PR_STATE_CONFLICT", message: "x" } } })).toBe(ERROR_COPY.PR_STATE_CONFLICT);

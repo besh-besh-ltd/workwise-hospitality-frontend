@@ -1,8 +1,6 @@
-// Placeholder — the real page lands in a later purchase-requisition task.
-export default function PrQueueStub() {
-  return (
-    <div className="main-body">
-      <h1>Purchase queue</h1>
-    </div>
-  );
+// Buyer-side · Purchase queue (approved PR lines → RFQ drafts).
+import PrQueuePage from "@/components/dashboard/purchase-requisitions/PrQueuePage";
+
+export default function PurchaseRequisitionQueuePage() {
+  return <PrQueuePage />;
 }

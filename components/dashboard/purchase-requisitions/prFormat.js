@@ -68,6 +68,21 @@ export const lineValue = (qty, price) => {
   return `${s.slice(0, -2)}.${s.slice(-2)}`;
 };
 
+/**
+ * Exact sum of NUMERIC strings at the widest scale among the terms:
+ * ["2.500", "3"] -> "5.500" (BigInt, never float). null when the list is
+ * empty or any term is blank / not a number.
+ */
+export const sumDecimals = (values) => {
+  const parts = (values || []).map(parseDecimal);
+  if (!parts.length || parts.some((p) => !p)) return null;
+  const scale = Math.max(...parts.map((p) => p.frac.length));
+  const total = parts.reduce((acc, p) => acc + BigInt(p.int + p.frac.padEnd(scale, "0")), 0n);
+  if (!scale) return total.toString();
+  const s = total.toString().padStart(scale + 1, "0");
+  return `${s.slice(0, -scale)}.${s.slice(-scale)}`;
+};
+
 export const STATUS_LABEL = {
   draft: "Draft",
   in_review: "In technical review",
@@ -109,6 +124,7 @@ export const ERROR_COPY = {
   PR_LINE_NOT_CONVERTIBLE: "Some selected lines can't be converted.",
   PR_UNIT_MISMATCH: "The same item is requested in different units. Select lines with one unit.",
   PR_HOTEL_MISMATCH: "An RFQ is for one hotel. Select lines from a single hotel.",
+  PR_SPEC_TOO_LONG: "The combined specification for one item is too long for an RFQ (max 1000 characters). Convert those lines in separate RFQs.",
 };
 
 const NETWORK_COPY = "Couldn't reach the server. Check your connection and try again.";

@@ -17,7 +17,7 @@ const MIN_CHARS = 2;
 
 // Shared debounced typeahead with the AddProductsModal stale-response guard:
 // a response is applied only if it belongs to the latest request.
-function useTypeahead(fetcher, query, { enabled = true, minChars = MIN_CHARS } = {}) {
+export function useTypeahead(fetcher, query, { enabled = true, minChars = MIN_CHARS } = {}) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const reqId = useRef(0);
@@ -124,7 +124,7 @@ function CatalogSearch({ hotelId, departmentId, addedVariantIds, onPick, onClose
   );
 }
 
-function CategoryPicker({ id, line, error, onSelect }) {
+export function CategoryPicker({ id, line, error, onSelect }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const { results, loading } = useTypeahead(
