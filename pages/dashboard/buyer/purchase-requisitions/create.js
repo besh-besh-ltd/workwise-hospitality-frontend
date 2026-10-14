@@ -10,7 +10,7 @@ import Link from "next/link";
 import * as PrApi from "@/services/pr";
 import PrLineEditor from "@/components/dashboard/purchase-requisitions/PrLineEditor";
 import PrRoutingPreview from "@/components/dashboard/purchase-requisitions/PrRoutingPreview";
-import { errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
+import { errorBody, errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
 import {
   lineErrors, lineFromServer, lineToPayload, lineToPreview, rowValue, sumLineValues, MAX_LINES,
 } from "@/components/dashboard/purchase-requisitions/prLines";
@@ -26,8 +26,6 @@ const EMPTY_FORM = {
   hotel_id: "", department_id: "", title: "", pr_type: "goods", urgency: "normal",
   required_by_date: "", justification: "", delivery_location: "",
 };
-
-const errorBody = (e) => e?.response?.data || e?.message?.response?.data || e?.data || null;
 
 export default function PurchaseRequisitionCreatePage() {
   const router = useRouter();

@@ -55,7 +55,14 @@ function StepRow({ step, approval }) {
   const eligible = eligibleApprovers(step);
   const noEligible = isCurrent && eligible.length === 0;
   const names = approvers.map((a) => `${a.user_name}${a.account_active === false ? " (inactive account)" : ""}`);
-  const who = noEligible ? NO_APPROVER_COPY : actor?.user_name || namesList(names) || `Step ${step.step_order}`;
+  // An "all must approve" step is about every approver: title it with all of
+  // them and say who has approved. One actor decides any other step.
+  const isAll = step.decision_rule === "ALL" && approvers.length > 1;
+  const approvedNames = approvers.filter((a) => a.status === "APPROVED").map((a) => a.user_name);
+  const rejectedNames = approvers.filter((a) => a.status === "REJECTED").map((a) => a.user_name);
+  const who = noEligible
+    ? NO_APPROVER_COPY
+    : (!isAll && actor?.user_name) || namesList(names, isAll ? 6 : 3) || `Step ${step.step_order}`;
   const comments = approvers.filter((a) => a.comment);
 
   let pill = <span className="vote-pill-mr pending">Pending</span>;
@@ -76,6 +83,13 @@ function StepRow({ step, approval }) {
           {approvers.length > 1 && step.decision_rule ? ` · ${RULE[step.decision_rule] || step.decision_rule}` : ""}
           {step.added_mid_flight ? " · added after submission" : ""}
         </div>
+        {isAll && (approvedNames.length > 0 || rejectedNames.length > 0) && (
+          <div className="as-role">
+            {approvedNames.length > 0 && `Approved: ${approvedNames.join(", ")}`}
+            {approvedNames.length > 0 && rejectedNames.length > 0 && " · "}
+            {rejectedNames.length > 0 && `Rejected: ${rejectedNames.join(", ")}`}
+          </div>
+        )}
         {isCurrent && !noEligible && (
           <div className="as-role">Waiting on {namesList(eligible.map((a) => a.user_name))}</div>
         )}

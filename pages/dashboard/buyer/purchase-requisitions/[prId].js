@@ -7,11 +7,12 @@
 //
 // Buttons come only from `capabilities` (never from role names or the engine's
 // can_user_approve). Every mutation shows a toast and refetches; a 409 offers
-// Refresh.
+// Refresh; a 403 / 404 refusal refetches so controls the viewer lost go away.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { useSelector } from "react-redux";
 import * as PrApi from "@/services/pr";
 import { submitApprovalAction } from "@/services/approval";
 import PrStatusPill from "@/components/dashboard/purchase-requisitions/PrStatusPill";
@@ -23,13 +24,17 @@ import PrConversation from "@/components/dashboard/purchase-requisitions/PrConve
 import PrTimeline from "@/components/dashboard/purchase-requisitions/PrTimeline";
 import PrReasonModal from "@/components/dashboard/purchase-requisitions/PrReasonModal";
 import { AttachmentBlock } from "@/components/dashboard/purchase-requisitions/PrLineWork";
-import { ERROR_COPY, STATUS_LABEL, errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
 import {
-  PR_TYPE_LABEL, URGENCY_LABEL, errorBody, fmtDate, fmtDateTime, headerProgress, lineName,
+  ERROR_COPY, STATUS_LABEL, errorBody, errorCopy, errorStatus, formatINR,
+} from "@/components/dashboard/purchase-requisitions/prFormat";
+import {
+  PR_TYPE_LABEL, URGENCY_LABEL, fmtDate, fmtDateTime, headerProgress, lineName, nowWithLabel,
 } from "@/components/dashboard/purchase-requisitions/prDetail";
 import { purchaseRequisitionCreate, purchaseRequisitions } from "@/components/dashboard/shared/dashboardLinks";
 
 const CHAIN_CODES = new Set(["PR_NO_POLICY", "PR_STEP_UNRESOLVED", "PR_NO_INDEPENDENT_APPROVER"]);
+// Refusals that mean the page is out of date (lost a right, the thing is gone).
+const STALE_STATUSES = new Set([403, 404]);
 const TOAST_MS = 3500;
 
 /** What the approver's action actually did, read from the refetched PR. */
@@ -58,6 +63,7 @@ const failureText = (e) => {
 export default function PrDetailPage() {
   const router = useRouter();
   const prId = router.query?.prId ? String(router.query.prId) : null;
+  const meId = useSelector((s) => s.userProfile)?.id ?? null;
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +86,8 @@ export default function PrDetailPage() {
   };
 
   // Load / refetch. A newer request (or unmount) makes an older one a no-op.
-  const load = useCallback(async (id, { quiet = false } = {}) => {
+  // quiet: keep the page up (refetch); silent: also keep the current alert on failure.
+  const load = useCallback(async (id, { quiet = false, silent = false } = {}) => {
     const my = ++reqRef.current;
     if (!quiet) setLoading(true);
     try {
@@ -92,8 +99,8 @@ export default function PrDetailPage() {
       return d;
     } catch (e) {
       if (my !== reqRef.current) return null;
-      if (quiet) setFailure({ text: `Couldn't load the latest version of this PR. ${errorCopy(e)}`, refresh: true });
-      else setLoadError(errorCopy(e));
+      if (!quiet) setLoadError(errorCopy(e));
+      else if (!silent) setFailure({ text: `Couldn't load the latest version of this PR. ${errorCopy(e)}`, refresh: true });
       return null;
     } finally {
       if (my === reqRef.current && !quiet) setLoading(false);
@@ -114,7 +121,7 @@ export default function PrDetailPage() {
    * opts: success (string | (detail, res) => string), refetch (default true),
    *       inModal (validation errors stay in the open dialog), chain (review
    *       completion: 422 chain codes mean the review stayed pending),
-   *       refetchOnError (approval engine refusals).
+   *       refetchOnError (approval engine refusals). 403 / 404 always refetch.
    * Resolves true on success.
    */
   const run = async (fn, opts = {}) => {
@@ -149,7 +156,7 @@ export default function PrDetailPage() {
       } else {
         setFailure({ text });
       }
-      if (opts.refetchOnError) await load(prId, { quiet: true });
+      if (opts.refetchOnError || STALE_STATUSES.has(errorStatus(e))) await load(prId, { quiet: true, silent: true });
       return false;
     } finally {
       busyRef.current = false;
@@ -178,7 +185,8 @@ export default function PrDetailPage() {
   const caps = detail.capabilities || {};
   const rights = caps.approval || null;
   const review = caps.review || null;
-  const hp = headerProgress(pr.status, lines);
+  const hp = headerProgress(pr, lines);
+  const nowWith = nowWithLabel(pr, meId);
   const myReview = review ? reviews.find((r) => r.id === review.review_id) : null;
   const lastReject = [...(approval?.action_history || [])].reverse().find((a) => a.action === "REJECT");
   const closeModal = () => { if (!busy) { setModal(null); setModalError(""); } };
@@ -273,7 +281,7 @@ export default function PrDetailPage() {
   const activeModal = modal ? MODALS[modal.kind] : null;
 
   const hasDock = caps.can_edit || caps.can_submit || caps.can_withdraw || caps.can_cancel || caps.can_copy;
-  const nowWithBad = typeof pr.now_with === "string" && pr.now_with.startsWith("No eligible");
+  const nowWithBad = typeof nowWith === "string" && nowWith.startsWith("No eligible");
 
   return (
     <>
@@ -289,9 +297,12 @@ export default function PrDetailPage() {
                 <PrStatusPill status={pr.status} />
                 {hp && <span data-testid="header-progress"><PrProgressPill header progress={hp} /></span>}
               </h1>
-              {pr.now_with && (
+              {nowWith && (
                 <div className="sub" data-testid="now-with">
-                  Now with: <span className="em" style={nowWithBad ? { color: "#fca5a5" } : undefined}>{pr.now_with}</span>
+                  Now with:{" "}
+                  {nowWithBad
+                    ? <span className="status-pill danger">{nowWith}</span>
+                    : <span className="em">{nowWith}</span>}
                 </div>
               )}
             </div>
@@ -358,6 +369,9 @@ export default function PrDetailPage() {
           editableLineIds={review?.can_edit_lines || []}
           cancellableLineIds={caps.can_cancel_lines || []}
           run={run}
+          busy={busy}
+          meId={meId}
+          raisedBy={pr.raised_by}
           onCancelLine={(line) => setModal({ kind: "cancelLine", line })}
         />
 
@@ -383,6 +397,9 @@ export default function PrDetailPage() {
                   attachments={attachments}
                   canEdit={Boolean(caps.can_edit)}
                   run={run}
+                  busy={busy}
+                  meId={meId}
+                  raisedBy={pr.raised_by}
                   title="Files for the whole PR"
                 />
               </div>
@@ -422,7 +439,7 @@ export default function PrDetailPage() {
           <div className="inner">
             <div className="left">
               <PrStatusPill status={pr.status} />
-              {pr.now_with && <span className="fs-13 text-fg-2">Now with <span className="em">{pr.now_with}</span></span>}
+              {nowWith && <span className="fs-13 text-fg-2">Now with <span className="em">{nowWith}</span></span>}
             </div>
             <div className="right">
               {caps.can_copy && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={copy}>Copy as new</button>}

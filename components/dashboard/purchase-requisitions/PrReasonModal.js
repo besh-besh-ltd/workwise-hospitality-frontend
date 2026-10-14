@@ -3,8 +3,39 @@
 // withdraw (optional / no text). Says what the action does before it runs.
 // Render it inside the page's .main-body so the arc_v2 form styles apply.
 
-import { useState } from "react";
-import NetworkModal from "@/components/dashboard/vendor/network/NetworkModal";
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
+
+/** The arc_v2 modal shell. Escape and a backdrop click close it unless `busy`. */
+function PrModal({ title, onClose, busy, footer, children }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && !busy) onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  return (
+    <div
+      className="arc-modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose?.();
+      }}
+    >
+      <div className="arc-modal" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modal-head">
+          <div><h3>{title}</h3></div>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} disabled={busy} aria-label="Close">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-foot">{footer}</div>}
+      </div>
+    </div>
+  );
+}
 
 export default function PrReasonModal({
   title,
@@ -27,7 +58,7 @@ export default function PrReasonModal({
   const blocked = busy || tooLong || (withText && required && !trimmed);
 
   return (
-    <NetworkModal
+    <PrModal
       title={title}
       onClose={onClose}
       busy={busy}
@@ -61,6 +92,6 @@ export default function PrReasonModal({
         </div>
       )}
       {error && <div role="alert" className="guide danger" style={{ marginTop: 10 }}><div>{error}</div></div>}
-    </NetworkModal>
+    </PrModal>
   );
 }

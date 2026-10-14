@@ -115,9 +115,16 @@ const NETWORK_COPY = "Couldn't reach the server. Check your connection and try a
 
 // Services in this app sometimes reject with the AxiosError itself, sometimes
 // wrapped as { message: AxiosError }. Find the error body in either shape.
-const bodyOf = (err) => {
+// THE helper for reading a failed PR / approval call's body — use it, don't copy it.
+export const errorBody = (err) => {
   if (!err || typeof err !== "object") return null;
   return err.response?.data || err.data || err.message?.response?.data || (err.code || err.status !== undefined ? err : null);
+};
+
+/** HTTP status of a failed call (either shape), or null when there was no response. */
+export const errorStatus = (err) => {
+  const s = err?.response?.status ?? err?.message?.response?.status;
+  return typeof s === "number" ? s : null;
 };
 
 const isNetworkError = (err) => {
@@ -133,7 +140,7 @@ const isNetworkError = (err) => {
  * to ERROR_COPY; otherwise the server message; otherwise a safe default.
  */
 export const errorCopy = (err) => {
-  const body = bodyOf(err);
+  const body = errorBody(err);
   const code = body?.code;
   if (code && ERROR_COPY[code]) return ERROR_COPY[code];
   if (isNetworkError(err)) return NETWORK_COPY;

@@ -6,13 +6,33 @@ import { formatINR } from "./prFormat";
 
 const POOL = new Set(["in_pool", "needs_mapping", "awaiting_catalog"]);
 
+/** Same user id, whatever the types (redux may hold a string, the API a number). */
+export const sameUser = (a, b) =>
+  a !== null && a !== undefined && a !== "" && b !== null && b !== undefined && b !== "" && Number(a) === Number(b);
+
 /**
- * The PR's header progress from its lines — the list's HEADER_PROGRESS_JOIN
- * rule (the detail payload does not carry it). null unless approved with a
- * live line.
+ * Who holds the PR, for THIS viewer (ruling R34). The server's now_with is the
+ * literal "You" for draft / returned, which is only true for the requester;
+ * everyone else is told the requester's name. Other statuses use now_with.
+ * Shared by the detail page and the list.
  */
-export function headerProgress(status, lines) {
-  if (status !== "approved") return null;
+export function nowWithLabel(pr, meId) {
+  if (!pr) return null;
+  if (pr.status === "draft" || pr.status === "returned") {
+    if (sameUser(meId, pr.raised_by)) return "You";
+    return pr.raised_by_name ? `${pr.raised_by_name} (requester)` : "The requester";
+  }
+  return pr.now_with ?? null;
+}
+
+/**
+ * The PR's header progress: the server's `header_progress` when the payload
+ * carries the key (null included), else derived from the lines with the list's
+ * HEADER_PROGRESS_JOIN rule. null unless approved with a live line.
+ */
+export function headerProgress(pr, lines) {
+  if (pr && Object.prototype.hasOwnProperty.call(pr, "header_progress")) return pr.header_progress ?? null;
+  if (pr?.status !== "approved") return null;
   const progs = (lines || []).map((l) => l.progress).filter((p) => p && p !== "cancelled");
   if (progs.length === 0) return null;
   const pool = progs.filter((p) => POOL.has(p)).length;
@@ -25,9 +45,6 @@ export function headerProgress(status, lines) {
   if (src > 0) return "in_sourcing";
   return "in_queue";
 }
-
-/** The error body of a rejected call, whichever way the service wrapped it. */
-export const errorBody = (e) => e?.response?.data || e?.message?.response?.data || e?.data || null;
 
 export const NO_APPROVER_COPY = "No eligible approver — contact your admin";
 export const NO_APPROVER_RECOVERY =
@@ -60,8 +77,10 @@ export const eligibleApprovers = (step) =>
  *
  * Instance steps are numbered 1..n over the surviving steps only; skipped
  * steps carry the policy step_order. The `approval_started` event of this
- * instance maps each instance step to its policy step order. Without it, the
- * surviving steps are assumed to fill the policy slots the skipped ones left.
+ * instance maps instance steps to policy step orders, step by step. A step it
+ * does not map (one added mid-flight, or no event at all) takes the next policy
+ * slot left free after the step before it — and never moves ahead of a later
+ * mapped step.
  *
  * Returns rows `{ kind: "step", step, ... } | { kind: "skip", skip, ... }`.
  */
@@ -81,17 +100,23 @@ export function approvalRows(approval, events) {
       .map((s) => [Number(s.step_order), Number(s.policy_step_order)]),
   );
 
-  let orders;
-  if (real.length > 0 && real.every((s) => policyOrderOf.has(Number(s.step_order)))) {
-    orders = real.map((s) => policyOrderOf.get(Number(s.step_order)));
-  } else {
-    const taken = new Set(skipped.map((s) => Number(s.step_order)));
-    let slot = 1;
-    orders = real.map(() => {
+  const mapped = real.map((s) => (policyOrderOf.has(Number(s.step_order)) ? policyOrderOf.get(Number(s.step_order)) : null));
+  const taken = new Set([...skipped.map((s) => Number(s.step_order)), ...mapped.filter((o) => o !== null)]);
+  const orders = [];
+  let last = 0;
+  real.forEach((_, i) => {
+    let order = mapped[i];
+    if (order === null) {
+      let slot = Math.floor(last) + 1;
       while (taken.has(slot)) slot += 1;
-      return slot++;
-    });
-  }
+      const nextMapped = mapped.slice(i + 1).find((o) => o !== null);
+      // Stay between the previous step and the next mapped one.
+      order = nextMapped !== undefined && slot >= nextMapped ? (Math.max(last, nextMapped - 1) + nextMapped) / 2 : slot;
+      if (Number.isInteger(order)) taken.add(order);
+    }
+    orders.push(order);
+    last = order;
+  });
 
   const rows = [
     ...real.map((step, i) => ({ kind: "step", key: `step-${step.step_order}`, order: orders[i], tie: 0, step })),

@@ -1,11 +1,12 @@
 // One line's specification, clauses and attachments — read-only for everyone,
 // editable for a technical reviewer of the line (capabilities.review.can_edit_lines).
-// Every edit goes through the page's `run` (toast + refetch + error handling).
+// Every edit goes through the page's `run` (toast + refetch + error handling);
+// every control is disabled while any PR call is in flight (`busy`).
 
 import { useRef, useState } from "react";
 import * as PrApi from "@/services/pr";
 import { handleUploadFile } from "@/services/rfq";
-import { ATTACHMENT_KIND_LABEL, fmtDateTime } from "./prDetail";
+import { ATTACHMENT_KIND_LABEL, fmtDateTime, sameUser } from "./prDetail";
 
 const SPEC_MAX = 1000;
 const CLAUSE_MAX = 2000;
@@ -19,7 +20,7 @@ const weightageText = (w) => {
   return Number.isFinite(n) ? `${Number.isInteger(n) ? n : n.toFixed(2)}%` : String(w);
 };
 
-function SpecBlock({ prId, line, canEdit, run }) {
+function SpecBlock({ prId, line, canEdit, run, busy }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const tooLong = value.length > SPEC_MAX;
@@ -38,7 +39,7 @@ function SpecBlock({ prId, line, canEdit, run }) {
             {line.specification || "No specification yet."}
           </div>
           {canEdit && (
-            <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }}
+            <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} disabled={busy}
               onClick={() => { setValue(line.specification || ""); setEditing(true); }}>
               Edit specification
             </button>
@@ -52,8 +53,8 @@ function SpecBlock({ prId, line, canEdit, run }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, gap: 8 }}>
             <span className="fs-11" style={{ color: tooLong ? "var(--danger)" : "var(--fg-4)" }}>{value.length}/{SPEC_MAX}</span>
             <span style={{ display: "flex", gap: 8 }}>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>Discard</button>
-              <button type="button" className="btn btn-blue btn-sm" disabled={tooLong} onClick={save}>Save specification</button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setEditing(false)}>Discard</button>
+              <button type="button" className="btn btn-blue btn-sm" disabled={busy || tooLong} onClick={save}>Save specification</button>
             </span>
           </div>
           <div style={muted}>The requester and approvers see your change in the timeline, with the old text.</div>
@@ -63,7 +64,7 @@ function SpecBlock({ prId, line, canEdit, run }) {
   );
 }
 
-function ClauseBlock({ prId, line, canEdit, run }) {
+function ClauseBlock({ prId, line, canEdit, run, busy }) {
   const [text, setText] = useState("");
   const [type, setType] = useState("clause");
   const [weight, setWeight] = useState("");
@@ -99,7 +100,7 @@ function ClauseBlock({ prId, line, canEdit, run }) {
             </div>
           </div>
           {canEdit && (
-            <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove clause ${i + 1}`}
+            <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove clause ${i + 1}`} disabled={busy}
               onClick={() => run(() => PrApi.deleteClause(prId, line.id, c.id), { success: "Clause removed" })}>
               Remove
             </button>
@@ -125,7 +126,7 @@ function ClauseBlock({ prId, line, canEdit, run }) {
             <input id={`clause-weight-${line.id}`} aria-label="Weightage" className="input" inputMode="numeric" value={weight}
               placeholder="0–100" onChange={(e) => setWeight(e.target.value)} />
           </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={add}>Add clause</button>
+          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={add}>Add clause</button>
         </div>
       )}
       {err && <div style={errStyle}>{err}</div>}
@@ -135,26 +136,38 @@ function ClauseBlock({ prId, line, canEdit, run }) {
 
 /**
  * Attachment list + (when `canEdit`) a kind picker and file input. Used for a
- * line (prLineId = line id) or the PR header (prLineId = null).
+ * line (prLineId = line id) or the PR header (prLineId = null). Remove shows
+ * only on files the viewer may remove: their own uploads, or any file when
+ * the viewer is the requester (the server's rule).
  */
-export function AttachmentBlock({ prId, prLineId, attachments, canEdit, run, title = "Attachments" }) {
+export function AttachmentBlock({ prId, prLineId, attachments, canEdit, run, busy, meId, raisedBy, title = "Attachments" }) {
   const [kind, setKind] = useState("spec");
   const [uploading, setUploading] = useState(false);
+  const [failed, setFailed] = useState(null); // the File that did not attach — kept for "Try again"
   const fileRef = useRef(null);
   const key = prLineId ?? "pr";
+  const mayRemove = (a) => canEdit && (sameUser(a.uploaded_by, meId) || sameUser(raisedBy, meId));
 
-  const onFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const attach = async (file) => {
     setUploading(true);
-    await run(async () => {
+    const ok = await run(async () => {
       const up = await handleUploadFile(file);
       const row = up?.data?.[0];
       if (!row?.file_path) throw new Error("The file didn't upload. Try again.");
       return PrApi.addAttachment(prId, { pr_line_id: prLineId, kind, file_url: row.file_path, file_name: row.file_name || file.name });
     }, { success: "File attached" });
     setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
+    if (ok) {
+      setFailed(null);
+      if (fileRef.current) fileRef.current.value = "";
+    } else {
+      setFailed(file);
+    }
+  };
+
+  const onFile = (e) => {
+    const file = e.target.files?.[0];
+    if (file) attach(file);
   };
 
   return (
@@ -169,8 +182,8 @@ export function AttachmentBlock({ prId, prLineId, attachments, canEdit, run, tit
             {a.uploaded_by_name ? ` · ${a.uploaded_by_name}` : ""}
             {a.created_at ? ` · ${fmtDateTime(a.created_at)}` : ""}
           </span>
-          {canEdit && (
-            <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${a.file_name}`}
+          {mayRemove(a) && (
+            <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${a.file_name}`} disabled={busy}
               onClick={() => run(() => PrApi.deleteAttachment(prId, a.id), { success: "File removed" })}>
               Remove
             </button>
@@ -179,19 +192,25 @@ export function AttachmentBlock({ prId, prLineId, attachments, canEdit, run, tit
       ))}
       {canEdit && (
         <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select aria-label="File type" className="select" style={{ width: 150 }} value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select aria-label="File type" className="select" style={{ width: 150 }} value={kind} disabled={busy} onChange={(e) => setKind(e.target.value)}>
             {Object.entries(ATTACHMENT_KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <input id={`pr-file-${key}`} ref={fileRef} type="file" aria-label="Attach a file" disabled={uploading} onChange={onFile}
+          <input id={`pr-file-${key}`} ref={fileRef} type="file" aria-label="Attach a file" disabled={busy || uploading} onChange={onFile}
             style={{ fontSize: 12 }} />
           {uploading && <span style={muted}>Uploading…</span>}
+          {failed && !uploading && (
+            <button type="button" className="btn btn-secondary btn-sm" aria-label={`Try ${failed.name} again`} disabled={busy}
+              onClick={() => attach(failed)}>
+              Try again
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function PrLineWork({ prId, line, canEdit, run }) {
+export default function PrLineWork({ prId, line, canEdit, run, busy, meId, raisedBy }) {
   return (
     <div data-testid={`line-work-${line.id}`} style={{ display: "grid", gap: 16, padding: "14px 16px", background: "var(--surface-2)" }}>
       {canEdit && (
@@ -199,15 +218,16 @@ export default function PrLineWork({ prId, line, canEdit, run }) {
           <div>You review this item. Tighten the specification, add clauses and attach datasheets before you complete your review.</div>
         </div>
       )}
-      <SpecBlock prId={prId} line={line} canEdit={canEdit} run={run} />
+      <SpecBlock prId={prId} line={line} canEdit={canEdit} run={run} busy={busy} />
       {line.suggested_vendor_note && (
         <div>
           <div className="section-label" style={{ marginBottom: 6 }}>Suggested vendor</div>
           <div style={{ fontSize: 13, color: "var(--fg-2)", whiteSpace: "pre-wrap" }}>{line.suggested_vendor_note}</div>
         </div>
       )}
-      <ClauseBlock prId={prId} line={line} canEdit={canEdit} run={run} />
-      <AttachmentBlock prId={prId} prLineId={line.id} attachments={line.attachments} canEdit={canEdit} run={run} />
+      <ClauseBlock prId={prId} line={line} canEdit={canEdit} run={run} busy={busy} />
+      <AttachmentBlock prId={prId} prLineId={line.id} attachments={line.attachments} canEdit={canEdit} run={run} busy={busy}
+        meId={meId} raisedBy={raisedBy} />
     </div>
   );
 }

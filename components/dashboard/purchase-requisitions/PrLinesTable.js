@@ -1,8 +1,9 @@
 // The PR's lines: what was asked for, what it is worth, where it stands, and
 // the RFQ / PO it went to. Each line expands into PrLineWork (spec, clauses,
-// files); lines the caller reviews start expanded with edit controls.
+// files); lines the caller reviews open with edit controls — on load, and
+// whenever a refetch makes more lines editable.
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import PrProgressPill from "./PrProgressPill";
 import PrLineWork from "./PrLineWork";
@@ -46,10 +47,24 @@ const detailsLabel = (l) => {
   return parts.length ? `Details · ${parts.join(" · ")}` : "Details";
 };
 
-export default function PrLinesTable({ prId, lines, total, editableLineIds = [], cancellableLineIds = [], run, onCancelLine }) {
+export default function PrLinesTable({
+  prId, lines, total, editableLineIds = [], cancellableLineIds = [], run, busy, meId, raisedBy, onCancelLine,
+}) {
   const editable = new Set(editableLineIds);
   const cancellable = new Set(cancellableLineIds);
   const [open, setOpen] = useState(() => new Set(editableLineIds));
+
+  // Open lines that became editable since the last render (review capability
+  // granted or widened by a refetch). Lines the user closed stay closed until
+  // they are granted again.
+  const editKey = editableLineIds.join(",");
+  const lastEditable = useRef(new Set(editableLineIds));
+  useEffect(() => {
+    const ids = editKey ? editKey.split(",").map(Number) : [];
+    const fresh = ids.filter((id) => !lastEditable.current.has(id));
+    lastEditable.current = new Set(ids);
+    if (fresh.length) setOpen((cur) => new Set([...cur, ...fresh]));
+  }, [editKey]);
   const toggle = (id) => setOpen((cur) => {
     const next = new Set(cur);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -122,7 +137,7 @@ export default function PrLinesTable({ prId, lines, total, editableLineIds = [],
                         {isOpen ? "Hide details" : detailsLabel(l)}
                       </button>
                       {cancellable.has(l.id) && (
-                        <button type="button" className="btn btn-outline-danger btn-sm" aria-label={`Cancel item ${l.line_no}`}
+                        <button type="button" className="btn btn-outline-danger btn-sm" aria-label={`Cancel item ${l.line_no}`} disabled={busy}
                           onClick={() => onCancelLine(l)}>
                           Cancel item
                         </button>
@@ -132,7 +147,8 @@ export default function PrLinesTable({ prId, lines, total, editableLineIds = [],
                   {isOpen && (
                     <tr>
                       <td colSpan={8} style={{ padding: 0 }}>
-                        <PrLineWork prId={prId} line={l} canEdit={editable.has(l.id)} run={run} />
+                        <PrLineWork prId={prId} line={l} canEdit={editable.has(l.id)} run={run} busy={busy}
+                          meId={meId} raisedBy={raisedBy} />
                       </td>
                     </tr>
                   )}
