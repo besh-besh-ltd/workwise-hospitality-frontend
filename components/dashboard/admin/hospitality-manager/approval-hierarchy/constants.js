@@ -6,6 +6,8 @@ import {
   BsChatQuote,
   BsGear,
   BsShieldCheck,
+  BsClipboardCheck,
+  BsBoxSeam,
 } from "react-icons/bs";
 
 export const BRAND_TEAL = "#158993";
@@ -38,6 +40,7 @@ export const PROCESS_TYPE_COLORS = {
   RFQ: "#2E5BA8",
   TENDER: "#428B41",
   ARC: "#FFA500",
+  PR: "#0f766e",
 };
 
 /** Append hex-alpha to a hex color. Usage: alpha(DS.primary, '40') → '#2E5BA840' */
@@ -50,6 +53,10 @@ export const entityTypes = [
   { value: "NEGOTIATION", label: "Negotiation Approval", description: "Negotiation rounds", icon: BsChatDots, color: "#ea580c" },
   { value: "NEGOTIATION_QUOTE", label: "Negotiation Quotes Approval", description: "Vendor quote updates", icon: BsChatQuote, color: "#0891b2" },
   { value: "TECHNICAL", label: "Technical Approval", description: "Technical evaluations", icon: BsGear, color: "#64748b" },
+  // Purchase Requisitions / Material Requisitions — process-free. A PR step may
+  // carry a min_amount threshold ("only when the PR value is at least X").
+  { value: "PR", label: "Purchase Requisition Approval", description: "Purchase requisition approval chain", icon: BsClipboardCheck, color: "#0f766e" },
+  { value: "MR", label: "Material Requisition Approval", description: "Material requisition approval chain", icon: BsBoxSeam, color: "#a16207" },
   { value: "ARC", label: "ARC Approval", description: "Rate contract publish & base approval", icon: BsShieldCheck, color: "#db2777" },
   // ARC (Rate Contract) v2 per-stage entity types — process-free flow.
   { value: "ARC_TECH", label: "ARC Technical Evaluation", description: "Rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
@@ -132,6 +139,15 @@ export const ARC_GROUP_ENTITY_ORDER = ARC_GROUP_PROCESS_STAGES.map((s) => s.valu
 /** True when an entity_type belongs to the Group ARC (company-wide) flow. */
 export const isArcGroupEntityType = (entityType) => ARC_GROUP_ENTITY_ORDER.includes(entityType);
 
+// Purchase Requisition route — PROCESS-FREE (process_id is always null), saved
+// for one hotel or company-wide. A single stage; each level may carry a
+// min_amount so a level only applies to PRs worth at least that much.
+export const PR_PROCESS_STAGES = [
+  { value: "PR", label: "Purchase Requisition", description: "Approval chain for purchase requisitions. A level with a minimum applies only to PRs at or above that value.", shortLabel: "PR", required: true },
+];
+export const PR_ENTITY_ORDER = PR_PROCESS_STAGES.map((s) => s.value);
+export const isPrEntityType = (entityType) => entityType === "PR";
+
 export const PROCESS_TYPES = {
   RFQ: "RFQ",
   TENDER: "TENDER",
@@ -140,7 +156,7 @@ export const PROCESS_TYPES = {
 
 // Flow type — the wizard supports process-based flows (RFQ/Tender) and the
 // process-free ARC flow.
-export const FLOW_TYPE = { PROCESS: "PROCESS", ARC: "ARC", ARC_GROUP: "ARC_GROUP" };
+export const FLOW_TYPE = { PROCESS: "PROCESS", ARC: "ARC", ARC_GROUP: "ARC_GROUP", PR: "PR" };
 
 /** Returns the 5-stage config for the given process type. RFQ → RFQ route; TENDER/ARC → Tender route. */
 export const getStagesForProcessType = (processType) => {
@@ -162,6 +178,7 @@ export const ALL_STAGE_ENTITY_ORDER = [...new Set([
   ...TENDER_PROCESS_STAGES.map((s) => s.value),
   ...ARC_PROCESS_STAGES.map((s) => s.value),
   ...ARC_GROUP_PROCESS_STAGES.map((s) => s.value),
+  ...PR_PROCESS_STAGES.map((s) => s.value),
 ])];
 
 /**

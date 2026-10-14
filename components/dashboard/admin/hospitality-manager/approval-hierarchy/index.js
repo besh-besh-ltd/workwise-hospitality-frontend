@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
+import { toast } from "react-toastify";
 import { BsArrowLeft } from "react-icons/bs";
 import SkeletonLoader from "./dashboard/SkeletonLoader";
 import { deleteApprovalPolicy } from "@/services/approval";
@@ -8,7 +9,7 @@ import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType, isArcGroupEntityType } from "./constants";
+import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType, isArcGroupEntityType, isPrEntityType } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
@@ -45,7 +46,20 @@ const ApprovalHierarchyRedesigned = () => {
 
   const loading = dataLoading || processLoading;
 
-  const handleCreateWorkflow = useCallback(() => {
+  const [initialFlow, setInitialFlow] = useState(null);
+
+  // The PR policy row behind a PR card: this hotel's own, or the inherited
+  // company-wide one. A card always maps to exactly ONE row.
+  const prPolicyFor = useCallback(
+    (process) => policies.filter(
+      (p) => !p.process_id && isPrEntityType(p.entity_type)
+        && (process.pr_scope === "company" ? p.hotel_id == null : p.hotel_id != null)
+    ).slice(0, 1),
+    [policies]
+  );
+
+  const handleCreateWorkflow = useCallback((flow) => {
+    setInitialFlow(typeof flow === "string" ? flow : null);
     setEditingProcess(null);
     setEditingPolicies([]);
     setViewMode("wizard");
@@ -53,6 +67,20 @@ const ApprovalHierarchyRedesigned = () => {
 
   const handleEditWorkflow = useCallback((process) => {
     if (!process?.id) return;
+    // PR: the process-free PR chain (this hotel's, or the company-wide one).
+    if (process.is_pr) {
+      setInitialFlow(null);
+      setEditingProcess(process);
+      setEditingPolicies(prPolicyFor(process));
+      setViewMode("wizard");
+      return;
+    }
+    // A policy that belongs to no process and no known flow cannot be edited in
+    // the wizard. Say so — Edit must never fall through to deleting it.
+    if (process.is_orphan) {
+      toast.info("This policy can't be edited here yet. Delete and recreate it, or contact support.");
+      return;
+    }
     // ARC / Group ARC flows: process-free policies of that flow's stage types.
     if (process.is_arc) {
       const isFlowType = process.is_arc_group ? isArcGroupEntityType : isArcEntityType;
@@ -69,7 +97,7 @@ const ApprovalHierarchyRedesigned = () => {
     setEditingProcess(process);
     setEditingPolicies(forProcess);
     setViewMode("wizard");
-  }, [policies]);
+  }, [policies, prPolicyFor]);
 
   const handleDeleteWorkflow = useCallback(
     async (process) => {
@@ -78,6 +106,8 @@ const ApprovalHierarchyRedesigned = () => {
         ? policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type))
         : process.is_arc
         ? policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type))
+        : process.is_pr
+        ? prPolicyFor(process)
         : policies.filter((p) => p.process_id === process.id);
       for (const policy of toDelete) {
         try {
@@ -88,7 +118,7 @@ const ApprovalHierarchyRedesigned = () => {
       }
       await refreshPolicies();
     },
-    [policies, refreshPolicies]
+    [policies, refreshPolicies, prPolicyFor]
   );
 
   const handleWizardSave = useCallback(() => {
@@ -96,12 +126,14 @@ const ApprovalHierarchyRedesigned = () => {
     refreshProcesses();
     setEditingProcess(null);
     setEditingPolicies([]);
+    setInitialFlow(null);
     setViewMode("dashboard");
   }, [refreshPolicies, refreshProcesses]);
 
   const handleWizardCancel = useCallback(() => {
     setEditingProcess(null);
     setEditingPolicies([]);
+    setInitialFlow(null);
     setViewMode("dashboard");
   }, []);
 
@@ -174,6 +206,7 @@ const ApprovalHierarchyRedesigned = () => {
           processes={processes}
           departments={departments}
           onCreateWorkflow={handleCreateWorkflow}
+          onCreatePrChain={() => handleCreateWorkflow("PR")}
           onEditWorkflow={handleEditWorkflow}
           onDeleteWorkflow={handleDeleteWorkflow}
           onDeletePolicy={handleDeletePolicy}
@@ -197,6 +230,11 @@ const ApprovalHierarchyRedesigned = () => {
           onCreateProcess={handleCreateProcess}
           onSave={handleWizardSave}
           onCancel={handleWizardCancel}
+          initialFlow={initialFlow}
+          prChainExists={{
+            hotel: policies.some((p) => !p.process_id && isPrEntityType(p.entity_type) && p.hotel_id != null),
+            company: policies.some((p) => !p.process_id && isPrEntityType(p.entity_type) && p.hotel_id == null),
+          }}
           groupWorkflowExists={policies.some((p) => !p.process_id && isArcGroupEntityType(p.entity_type))}
         />
       )}

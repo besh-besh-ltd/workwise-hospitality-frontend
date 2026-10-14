@@ -4,7 +4,7 @@ import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
+import { DS, isPrEntityType, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
 import s from "./DashboardView.module.scss";
 
 /** Ids may arrive as numbers or strings depending on the endpoint. */
@@ -17,7 +17,16 @@ export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "ARC (Rate Contracts)", p
 // business unit's page because it governs group rate contracts led by any hotel.
 export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (company-wide)", process_type: "ARC_GROUP", is_arc: true, is_arc_group: true };
 
-const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
+// Purchase requisition approvals are process-free too (process_id always null),
+// so they get their own editable card instead of landing in "Uncategorized".
+// A hotel can see TWO PR chains: its own (hotel_id = this hotel) and the
+// company-wide one it inherits (hotel_id NULL). They are separate rows with
+// separate lifecycles, so each gets its own card and edits/deletes exactly its
+// one row — never both.
+export const PR_HOTEL_FLOW_PROCESS = { id: "__PR_HOTEL__", name: "Purchase Requisitions — This hotel", process_type: "PR", is_pr: true, pr_scope: "hotel" };
+export const PR_COMPANY_FLOW_PROCESS = { id: "__PR_COMPANY__", name: "Purchase Requisitions — Company-wide (inherited)", process_type: "PR", is_pr: true, pr_scope: "company" };
+
+const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview, onCreatePrChain }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -46,7 +55,12 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     if (arcPolicies.length > 0) groups.push({ process: ARC_FLOW_PROCESS, policies: arcPolicies, isArc: true });
     const arcGroupPolicies = policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type));
     if (arcGroupPolicies.length > 0) groups.push({ process: ARC_GROUP_FLOW_PROCESS, policies: arcGroupPolicies, isArc: true });
-    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type));
+    const prPolicies = policies.filter((p) => !p.process_id && isPrEntityType(p.entity_type));
+    const prHotel = prPolicies.filter((p) => p.hotel_id != null).slice(0, 1);
+    const prCompany = prPolicies.filter((p) => p.hotel_id == null).slice(0, 1);
+    if (prHotel.length > 0) groups.push({ process: PR_HOTEL_FLOW_PROCESS, policies: prHotel, isPr: true });
+    if (prCompany.length > 0) groups.push({ process: PR_COMPANY_FLOW_PROCESS, policies: prCompany, isPr: true });
+    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type) && !isPrEntityType(p.entity_type));
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);
@@ -62,7 +76,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
   const misroutedArc = useMemo(
     () =>
       processGroups
-        .filter((g) => !g.isArc && !g.isOrphan && g.process?.id)
+        .filter((g) => !g.isArc && !g.isPr && !g.isOrphan && g.process?.id)
         .map((g) => ({
           process: g.process,
           policies: getMisroutedArcPolicies(g.process?.process_type, g.policies),
@@ -129,7 +143,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
           {processGroups.map((group) => {
             if (group.policies.length === 0) return null;
             if (group.isOrphan) return group.policies.map((policy) => (
-              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
+              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onEditWorkflow?.({ id: `__ORPHAN_${policy.id}__`, name: `${policy.entity_type} Approval`, process_type: "RFQ", is_orphan: true, policy })} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
             ));
             return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} />;
           })}
@@ -143,6 +157,13 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                 </div>
               ))}
             </>
+          )}
+
+          {onCreatePrChain && processGroups.some((g) => g.process === PR_COMPANY_FLOW_PROCESS) && !processGroups.some((g) => g.process === PR_HOTEL_FLOW_PROCESS) && (
+            <div className={s.emptyProc}>
+              <div><div className={s.emptyProcName}>This hotel uses the company-wide PR chain</div><div className={s.emptyProcSub}>Create a chain for this hotel only to override it here.</div></div>
+              <button className={s.configureBtn} onClick={onCreatePrChain}><BsPlus size={14} /> Create a hotel-specific chain</button>
+            </div>
           )}
 
           {misroutedArc.length > 0 && (
