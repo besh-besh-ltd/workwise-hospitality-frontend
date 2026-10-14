@@ -816,3 +816,11 @@ test("with several departments nothing is pre-selected", async () => {
   await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
   expect(dept).toHaveValue("");
 });
+
+test("the create page flags <body> for its action dock and clears it on unmount", async () => {
+  const { unmount } = render(<CreatePrPage />);
+  await screen.findByLabelText("Hotel");
+  expect(document.body).toHaveClass("has-page-action-bar");
+  unmount();
+  expect(document.body).not.toHaveClass("has-page-action-bar");
+});

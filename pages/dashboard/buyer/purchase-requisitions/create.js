@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import * as PrApi from "@/services/pr";
 import { loadPrCreateHotels } from "@/hooks/usePrCanCreate";
+import useBodyFlag from "@/hooks/useBodyFlag";
 import PrLineEditor from "@/components/dashboard/purchase-requisitions/PrLineEditor";
 import PrRoutingPreview from "@/components/dashboard/purchase-requisitions/PrRoutingPreview";
 import { errorBody, errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
@@ -32,6 +33,7 @@ const EMPTY_FORM = {
 export default function PurchaseRequisitionCreatePage() {
   const router = useRouter();
   const routeId = router.query?.id ? String(router.query.id) : null;
+  useBodyFlag("has-page-action-bar");
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [lines, setLines] = useState([]);

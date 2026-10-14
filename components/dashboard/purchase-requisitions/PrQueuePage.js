@@ -482,10 +482,12 @@ export default function PrQueuePage() {
 
       {/* The row actions stay in view while the wide table scrolls sideways. */}
       <style jsx>{`
-        .pr-col-actions { position: sticky; right: 0; z-index: 1; box-shadow: inset 1px 0 0 var(--border); }
-        thead th.pr-col-actions { background: var(--surface-2); z-index: 2; }
-        tbody td.pr-col-actions { background: var(--surface); min-width: 168px; }
-        tbody tr:hover td.pr-col-actions { background: var(--surface-2); }
+        @media (min-width: 768px) {
+          .pr-col-actions { position: sticky; right: 0; z-index: 1; box-shadow: inset 1px 0 0 var(--border); }
+          thead th.pr-col-actions { background: var(--surface-2); z-index: 2; }
+          tbody td.pr-col-actions { background: var(--surface); min-width: 168px; }
+          tbody tr:hover td.pr-col-actions { background: var(--surface-2); }
+        }
       `}</style>
     </div>
   );

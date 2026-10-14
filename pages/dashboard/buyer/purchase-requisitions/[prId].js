@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import useBodyFlag from "@/hooks/useBodyFlag";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import * as PrApi from "@/services/pr";
@@ -164,6 +165,11 @@ export default function PrDetailPage() {
       setBusy(false);
     }
   };
+
+  // Before the early returns (hook order). Mirrors hasDock below: the flag is
+  // only set when the fixed bottom dock actually renders.
+  const dockCaps = detail?.pr ? detail.capabilities || {} : {};
+  useBodyFlag("has-page-action-bar", !!(dockCaps.can_edit || dockCaps.can_submit || dockCaps.can_withdraw || dockCaps.can_cancel || dockCaps.can_copy));
 
   if (!prId || loading) {
     return <div className="main-body"><p className="page-sub">Loading requisition…</p></div>;

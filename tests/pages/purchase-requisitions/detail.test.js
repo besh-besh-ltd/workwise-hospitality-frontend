@@ -769,3 +769,21 @@ test.each([
   expect(within(row).getByText(label)).toBeInTheDocument();
   if (label !== "Awaiting approval") expect(within(row).queryByText("Awaiting approval")).not.toBeInTheDocument();
 });
+
+// ---------------------------------------------------------------------------
+// Floating assistant button must clear the bottom action dock
+// ---------------------------------------------------------------------------
+
+test("the page flags <body> while its action dock is mounted and clears it on unmount", async () => {
+  PrApi.getPr.mockResolvedValue({ status: 1, data: detail({ capabilities: { can_edit: true, can_submit: true } }) });
+  const { unmount } = render(<PrDetailPage />);
+  await screen.findByRole("heading", { level: 1 });
+  expect(document.body).toHaveClass("has-page-action-bar");
+  unmount();
+  expect(document.body).not.toHaveClass("has-page-action-bar");
+});
+
+test("a read-only viewer has no dock, so the flag is not set", async () => {
+  await renderPage(detail());
+  expect(document.body).not.toHaveClass("has-page-action-bar");
+});
