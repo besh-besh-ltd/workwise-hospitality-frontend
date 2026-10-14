@@ -1,10 +1,14 @@
 // Buyer-side · Technical reviewer's inbox (GET /pr/review-queue).
-// A 403 means the caller holds no pr.evaluate grant: that is a normal state for
-// most users, so it renders as an explanation, not an error.
+// The queue never answers 403: someone with no pr.evaluate grant just gets an
+// empty list. Whether the caller reviews at all is read from their own
+// permissions across every hotel they can reach (pr.evaluate), so an empty
+// queue says "not a reviewer" rather than "nothing waiting" — a normal state
+// for most users, shown as an explanation, not an error.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as PrApi from "@/services/pr";
+import { getBulkPermissions } from "@/services/rbac";
 import { errorCopy, errorStatus } from "@/components/dashboard/purchase-requisitions/prFormat";
 import { purchaseRequisition, purchaseRequisitions } from "@/components/dashboard/shared/dashboardLinks";
 
@@ -17,24 +21,40 @@ const fmtDate = (s) => {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 };
 
+/** Does the caller hold pr.evaluate anywhere? true / false, or null when it can't be told. */
+const holdsPrEvaluate = () =>
+  getBulkPermissions("pr", []) // [] = every hotel the caller can reach
+    .then((res) => {
+      const data = res?.data?.data || res?.data || {};
+      const entry = (data.permissions || data).pr;
+      const actions = Array.isArray(entry) ? entry : entry?.actions || [];
+      return actions.includes("evaluate");
+    })
+    .catch(() => null);
+
 export default function PrReviewPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isReviewer, setIsReviewer] = useState(null);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    PrApi.getReviewQueue()
-      .then((res) => { if (!cancelled) setItems(Array.isArray(res?.data?.items) ? res.data.items : []); })
-      .catch((err) => {
-        if (!cancelled) setError({ forbidden: errorStatus(err) === 403, message: errorCopy(err) });
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    Promise.all([
+      PrApi.getReviewQueue()
+        .then((res) => { if (!cancelled) setItems(Array.isArray(res?.data?.items) ? res.data.items : []); })
+        .catch((err) => {
+          if (!cancelled) setError({ forbidden: errorStatus(err) === 403, message: errorCopy(err) });
+        }),
+      holdsPrEvaluate().then((v) => { if (!cancelled) setIsReviewer(v); }),
+    ]).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [reload]);
+
+  const notReviewer = error?.forbidden || (!error && items.length === 0 && isReviewer === false);
 
   return (
     <div className="main-body">
@@ -45,10 +65,13 @@ export default function PrReviewPage() {
 
       {loading ? (
         <div className="contract-card"><span className="arc-sk" style={{ display: "block", width: "60%", height: 16 }} /></div>
-      ) : error?.forbidden ? (
+      ) : notReviewer ? (
         <div className="empty-state" style={{ padding: "56px 24px" }}>
-          <h2>You don't review purchase requisitions</h2>
-          <p>Technical review is assigned by your admin per department. Your own requisitions are on the main list.</p>
+          <h2>You&apos;re not a technical reviewer</h2>
+          <p>
+            Technical review is assigned by your admin per department, through the PR Technical Reviewer role. Your own
+            requisitions are on the main list.
+          </p>
           <Link href={purchaseRequisitions()} className="btn btn-secondary btn-sm">Back to requisitions</Link>
         </div>
       ) : error ? (
@@ -59,7 +82,7 @@ export default function PrReviewPage() {
       ) : items.length === 0 ? (
         <div className="empty-state" style={{ padding: "56px 24px" }}>
           <h2>Nothing is waiting for your review</h2>
-          <p>New requisitions for your departments appear here as soon as they are submitted.</p>
+          <p>Technical reviews assigned to you appear here as soon as a requisition is submitted.</p>
         </div>
       ) : (
         <div className="table-wrap">

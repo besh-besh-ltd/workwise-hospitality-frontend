@@ -559,3 +559,25 @@ test("edit opened by a full page load (router ready after the first render) save
   expect(PrApi.updatePr.mock.calls[0][0]).toBe("55");
   expect(PrApi.createPr).not.toHaveBeenCalled();
 });
+
+// Final review C-M3: a user with no pr.create grant anywhere got an empty hotel
+// picker and no explanation.
+test("a new PR by someone who can raise one nowhere explains why instead of an empty picker", async () => {
+  PrApi.getFormHotels.mockResolvedValue({ data: { hotels: [] } });
+  render(<CreatePrPage />);
+  expect(await screen.findByText("You can't raise requisitions yet")).toBeInTheDocument();
+  expect(screen.getByText(/Ask your admin for the PR Requester role/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Hotel")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Back to requisitions" })).toHaveAttribute("href", "/dashboard/buyer/purchase-requisitions");
+});
+
+test("a failed hotel lookup is an error with a retry, not the no-access state", async () => {
+  PrApi.getFormHotels.mockRejectedValueOnce(new Error("offline"));
+  render(<CreatePrPage />);
+  expect(await screen.findByText(/Couldn't load the hotels you can raise requisitions for/)).toBeInTheDocument();
+  expect(screen.queryByText("You can't raise requisitions yet")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  const hotel = await screen.findByLabelText("Hotel");
+  await waitFor(() => expect(within(hotel).getByRole("option", { name: "Mumbai Suites" })).toBeInTheDocument());
+  expect(screen.queryByText(/Couldn't load the hotels/)).not.toBeInTheDocument();
+});

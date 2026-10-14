@@ -86,7 +86,8 @@ export const roleMenus = {
     { href: "/dashboard/buyer/material-requisitions/all",    label: "All MRs",   targetMenu: "nav", group: "Requisition & Orders", section: "Material Requisitions" },
     { href: "/dashboard/buyer/material-requisitions/create", label: "Raise New", targetMenu: "nav", group: "Requisition & Orders", section: "Material Requisitions" },
     { href: "/dashboard/buyer/purchase-requisitions",        label: "My requisitions", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Requisitions" },
-    { href: "/dashboard/buyer/purchase-requisitions/create", label: "New requisition", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Requisitions" },
+    // requiresPrCreate: hidden once GET /pr/form/hotels says the user holds pr.create nowhere.
+    { href: "/dashboard/buyer/purchase-requisitions/create", label: "New requisition", targetMenu: "nav", requiresPrCreate: true, group: "Requisition & Orders", section: "Purchase Requisitions" },
     { href: "/dashboard/buyer/purchase-requisitions/review", label: "To review",      targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Requisitions" },
     { href: "/dashboard/buyer/purchase-requisitions/queue",  label: "Purchase queue", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Requisitions" },
     { href: "/dashboard/buyer/purchase-orders",          label: "Dashboard", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
@@ -156,11 +157,14 @@ export const roleMenus = {
  * hospitality-only entry had to be remembered in three places. Items now
  * declare `hospitalityOnly` and the rule lives here once.
  */
-export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession } = {}) => {
+export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession, canCreatePr = null } = {}) => {
   const baseMenu = roleMenus[currentUserType] || [];
   return baseMenu.filter((item) => {
     if (item.hospitalityOnly && !isHospitalityCompany) return false;
     if (!networkAllows(item, profile, isGuestSession)) return false;
+    // Only a known "no" hides it: while the lookup is loading (or failed) the
+    // entry stays, and the create page explains a missing role.
+    if (item.requiresPrCreate && canCreatePr === false) return false;
     return true;
   });
 };

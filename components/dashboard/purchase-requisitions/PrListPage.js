@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import * as PrApi from "@/services/pr";
+import usePrCanCreate from "@/hooks/usePrCanCreate";
 import PrStatusPill from "./PrStatusPill";
 import PrProgressPill from "./PrProgressPill";
 import { STATUS_LABEL, errorCopy, errorStatus, formatINR } from "./prFormat";
@@ -98,6 +99,8 @@ export default function PrListPage() {
   const [error, setError] = useState(null); // { forbidden, message }
   const [kpis, setKpis] = useState(null);
   const seq = useRef(0);
+  // null while unknown: the CTA shows until we know the user can't raise a PR.
+  const canCreate = usePrCanCreate();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -178,7 +181,7 @@ export default function PrListPage() {
           <h1 className="page-h1">Purchase requisitions</h1>
           <p className="page-sub">Request items that aren't on a rate contract and follow them through review, approval and sourcing.</p>
         </div>
-        <Link href={purchaseRequisitionCreate()} className="btn btn-blue btn-lg">New requisition</Link>
+        {canCreate !== false && <Link href={purchaseRequisitionCreate()} className="btn btn-blue btn-lg">New requisition</Link>}
       </div>
 
       {kpis && (
@@ -268,7 +271,11 @@ export default function PrListPage() {
                   Items that are on a rate contract go through a{" "}
                   <Link href={materialRequisition()}>Material Requisition</Link> instead.
                 </p>
-                <Link href={purchaseRequisitionCreate()} className="btn btn-blue btn-sm">New requisition</Link>
+                {canCreate === false ? (
+                  <p>To raise one you need the PR Requester role for a hotel and department — ask your admin.</p>
+                ) : (
+                  <Link href={purchaseRequisitionCreate()} className="btn btn-blue btn-sm">New requisition</Link>
+                )}
               </div>
             )
           ) : (

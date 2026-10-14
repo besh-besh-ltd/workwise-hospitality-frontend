@@ -61,3 +61,22 @@ describe("admin rail", () => {
     expect(nav.map((i) => i.href)).toContain("/dashboard/admin/hospitality-manager");
   });
 });
+
+// Final review C-M3 / 19b: users with no pr.create grant still saw "New
+// requisition". The rail hides it once the lookup says "nowhere"; while the
+// answer is unknown (loading or failed) it stays.
+describe("New requisition (requiresPrCreate)", () => {
+  const CREATE = "/dashboard/buyer/purchase-requisitions/create";
+  const hrefs = (opts) => visibleRoleMenu("buyer", { isHospitalityCompany: true, ...opts }).map((i) => i.href);
+
+  it("is hidden only when the user can raise a PR nowhere", () => {
+    expect(hrefs({ canCreatePr: false })).not.toContain(CREATE);
+    expect(hrefs({ canCreatePr: false })).toContain("/dashboard/buyer/purchase-requisitions");
+  });
+
+  it("stays while the answer is unknown, and when the user can raise one", () => {
+    expect(hrefs({ canCreatePr: null })).toContain(CREATE);
+    expect(hrefs({})).toContain(CREATE);
+    expect(hrefs({ canCreatePr: true })).toContain(CREATE);
+  });
+});

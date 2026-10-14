@@ -5,6 +5,7 @@ jest.mock("@/services/pr", () => ({
   __esModule: true,
   listPrs: jest.fn(),
   getPrKpis: jest.fn(),
+  getFormHotels: jest.fn(),
 }));
 jest.mock("react-redux", () => ({
   __esModule: true,
@@ -48,6 +49,7 @@ beforeEach(() => {
   mockQuery = {};
   PrApi.listPrs.mockResolvedValue(list());
   PrApi.getPrKpis.mockResolvedValue({ status: 1, data: { open: 4, awaiting_me: 2, in_purchase_queue: 6, avg_days_to_approval: 3.5 } });
+  PrApi.getFormHotels.mockResolvedValue({ status: 1, data: { hotels: [{ id: 12, name: "Orchid Mumbai" }] } });
 });
 
 test("renders KPIs, rows with pills, money, now-with and links to detail", async () => {
@@ -189,4 +191,31 @@ test("a stale response never overwrites a newer one", async () => {
   await act(async () => { resolveFirst(list({ rows: [row({ id: 71, title: "Stale result" })] })); });
   expect(screen.queryByText("Stale result")).toBeNull();
   expect(screen.getByText("Fresh result")).toBeInTheDocument();
+});
+
+// Final review C-M3 + 19b: GET /pr never answers 403, so an approver with no
+// pr.create grant saw "New requisition" and landed on an empty hotel picker.
+// Whether they may raise one comes from GET /pr/form/hotels (empty = nowhere).
+test("someone who can't raise a PR anywhere sees no New requisition button", async () => {
+  PrApi.getFormHotels.mockResolvedValue({ status: 1, data: { hotels: [] } });
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  await waitFor(() => expect(PrApi.getFormHotels).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.queryByRole("link", { name: /New requisition/ })).not.toBeInTheDocument());
+});
+
+test("the empty list tells a non-requester why there is no New requisition button", async () => {
+  PrApi.getFormHotels.mockResolvedValue({ status: 1, data: { hotels: [] } });
+  PrApi.listPrs.mockResolvedValue(list({ rows: [], total: 0, facets: {}, facet_labels: {} }));
+  render(<PrListPage />);
+  expect(await screen.findByText(/you need the PR Requester role/)).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /New requisition/ })).not.toBeInTheDocument();
+});
+
+test("if the hotel lookup fails the New requisition button stays (the create page explains)", async () => {
+  PrApi.getFormHotels.mockRejectedValue(new Error("offline"));
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  await waitFor(() => expect(PrApi.getFormHotels).toHaveBeenCalled());
+  expect(screen.getByRole("link", { name: /New requisition/ })).toBeInTheDocument();
 });

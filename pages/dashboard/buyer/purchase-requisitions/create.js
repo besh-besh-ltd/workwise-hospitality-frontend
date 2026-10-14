@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as PrApi from "@/services/pr";
+import { loadPrCreateHotels } from "@/hooks/usePrCanCreate";
 import PrLineEditor from "@/components/dashboard/purchase-requisitions/PrLineEditor";
 import PrRoutingPreview from "@/components/dashboard/purchase-requisitions/PrRoutingPreview";
 import { errorBody, errorCopy, formatINR } from "@/components/dashboard/purchase-requisitions/prFormat";
@@ -34,6 +35,8 @@ export default function PurchaseRequisitionCreatePage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [lines, setLines] = useState([]);
   const [hotels, setHotels] = useState([]);
+  const [hotelsState, setHotelsState] = useState("loading"); // loading | ready | error
+  const [hotelsTick, setHotelsTick] = useState(0);
   const [departments, setDepartments] = useState([]);
   const [prId, setPrId] = useState(routeId);
   const [prNumber, setPrNumber] = useState("");
@@ -60,14 +63,16 @@ export default function PurchaseRequisitionCreatePage() {
   const setField = (k, v) => { dirty.current = true; setForm((f) => ({ ...f, [k]: v })); };
   const changeLines = (next) => { dirty.current = true; setLines(next); };
 
-  // ----- hotels ---------------------------------------------------------
+  // ----- hotels (where the user holds pr.create) -------------------------
+  // A failure is not "no hotels": it must not show the no-access state.
   useEffect(() => {
     let cancelled = false;
-    PrApi.getFormHotels()
-      .then((res) => { if (!cancelled) setHotels(res?.data?.hotels || []); })
-      .catch(() => { if (!cancelled) setHotels([]); });
+    setHotelsState("loading");
+    loadPrCreateHotels()
+      .then((list) => { if (!cancelled) { setHotels(list); setHotelsState("ready"); } })
+      .catch(() => { if (!cancelled) { setHotels([]); setHotelsState("error"); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [hotelsTick]);
 
   // ----- departments for the chosen hotel -------------------------------
   useEffect(() => {
@@ -327,6 +332,19 @@ export default function PurchaseRequisitionCreatePage() {
     );
   }
 
+  // A new PR by someone who holds pr.create nowhere: say why instead of an empty picker.
+  if (router.isReady && !routeId && !prId && hotelsState === "ready" && hotels.length === 0) {
+    return (
+      <div className="main-body">
+        <div className="empty-state" style={{ padding: "56px 24px" }}>
+          <h2>You can&apos;t raise requisitions yet</h2>
+          <p>Ask your admin for the PR Requester role for your hotel and department.</p>
+          <Link href={purchaseRequisitions()} className="btn btn-secondary btn-sm">Back to requisitions</Link>
+        </div>
+      </div>
+    );
+  }
+
   const fieldErr = (k) => (showErrors && headerErrors[k] ? <div style={errStyle}>{headerErrors[k]}</div> : null);
 
   return (
@@ -348,6 +366,15 @@ export default function PurchaseRequisitionCreatePage() {
         </div>
 
         {warning && <div className="guide warn" role="status" style={{ margin: "14px 0 4px" }}><div>{warning}</div></div>}
+
+        {hotelsState === "error" && (
+          <div className="guide danger" role="alert" style={{ margin: "14px 0 4px" }}>
+            <div>
+              Couldn&apos;t load the hotels you can raise requisitions for.{" "}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setHotelsTick((n) => n + 1)}>Try again</button>
+            </div>
+          </div>
+        )}
 
         {blocked && (
           <div className="guide warn" role="status" style={{ margin: "14px 0 4px" }}>
