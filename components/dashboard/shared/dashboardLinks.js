@@ -221,7 +221,10 @@ export const materialRequisitionCreate = () => `${BASE}/material-requisitions/cr
 
 /* ─── Purchase requisitions ──────────────────────────────── */
 
-export const purchaseRequisitions = () => `${BASE}/purchase-requisitions`;
+const PR_LIST_TABS = ["mine", "all", "awaiting"];
+/** PR list; `tab` = mine | all | awaiting (what the "Awaiting me" KPI counts). */
+export const purchaseRequisitions = ({ tab } = {}) =>
+  `${BASE}/purchase-requisitions${qs({ tab: PR_LIST_TABS.includes(tab) ? tab : undefined })}`;
 export const purchaseRequisition = (prId) =>
   hasId(prId) ? `${BASE}/purchase-requisitions/${encodeURIComponent(prId)}` : purchaseRequisitions();
 /** New PR form; with an id, resumes that draft/returned PR. */
@@ -289,7 +292,7 @@ export const approvalQueue = (entityType) => {
     case "PO":
       return poList({ status: "action-required" });
     case "PR":
-      return purchaseRequisitions();
+      return purchaseRequisitions({ tab: "awaiting" });
     default:
       return rfqListView("pending_for_me");
   }

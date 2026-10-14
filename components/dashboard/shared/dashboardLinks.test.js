@@ -144,7 +144,7 @@ describe("dashboardLinks builders", () => {
   test("PR approvals open the PR detail; the queue is the review list", () => {
     expect(L.approvalHref("PR", { entityId: 8 })).toBe("/dashboard/buyer/purchase-requisitions/8");
     expect(L.approvalHref("pr", { entityId: undefined })).toBe("/dashboard/buyer/purchase-requisitions");
-    expect(L.approvalQueue("PR")).toBe("/dashboard/buyer/purchase-requisitions");
+    expect(L.approvalQueue("PR")).toBe("/dashboard/buyer/purchase-requisitions?tab=awaiting");
   });
 
   test("unknown tabs, statuses and stages are dropped", () => {

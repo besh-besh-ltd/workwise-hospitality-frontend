@@ -10,9 +10,10 @@ jest.mock("react-redux", () => ({
   __esModule: true,
   useSelector: (fn) => fn({ userProfile: { id: 7 } }),
 }));
+let mockQuery = {};
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ isReady: true, query: {}, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ isReady: true, query: mockQuery, push: jest.fn(), replace: jest.fn() }),
 }));
 
 import React from "react";
@@ -44,6 +45,7 @@ const lastParams = () => PrApi.listPrs.mock.calls[PrApi.listPrs.mock.calls.lengt
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockQuery = {};
   PrApi.listPrs.mockResolvedValue(list());
   PrApi.getPrKpis.mockResolvedValue({ status: 1, data: { open: 4, awaiting_me: 2, in_purchase_queue: 6, avg_days_to_approval: 3.5 } });
 });
@@ -68,10 +70,36 @@ test("Now with for a returned PR raised by someone else names the requester", as
   expect(await screen.findByText("Asha (requester)")).toBeInTheDocument();
 });
 
-test("Awaiting me tile links to the review queue only when reviews are pending", async () => {
+// Browser pass 19b: the tile used to open the technical-review queue, which only
+// lists reviews — an approver with "Awaiting me: 1" found nothing there. It now
+// opens the Waiting on me tab, which is exactly the set the KPI counts.
+test("Awaiting me tile opens the Waiting on me tab (tab=awaiting)", async () => {
   render(<PrListPage />);
-  const tile = (await screen.findByText("Awaiting me")).closest("a");
-  expect(tile).toHaveAttribute("href", "/dashboard/buyer/purchase-requisitions/review");
+  await screen.findByText("Lobby towels");
+  fireEvent.click((await screen.findByText("Awaiting me")).closest("button"));
+  await waitFor(() => expect(lastParams()).toMatchObject({ tab: "awaiting", page: 1 }));
+  expect(screen.getByRole("button", { name: "Waiting on me" })).toHaveClass("active");
+});
+
+test("the Waiting on me tab sends tab=awaiting", async () => {
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  fireEvent.click(screen.getByRole("button", { name: "Waiting on me" }));
+  await waitFor(() => expect(lastParams().tab).toBe("awaiting"));
+});
+
+test("?tab=awaiting opens the list on the Waiting on me tab", async () => {
+  mockQuery = { tab: "awaiting" };
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  expect(PrApi.listPrs.mock.calls.every(([p]) => p.tab === "awaiting")).toBe(true);
+});
+
+test("an unknown ?tab falls back to Mine", async () => {
+  mockQuery = { tab: "bogus" };
+  render(<PrListPage />);
+  await screen.findByText("Lobby towels");
+  expect(lastParams().tab).toBe("mine");
 });
 
 test("Awaiting me tile is plain when the number is zero", async () => {
@@ -79,6 +107,7 @@ test("Awaiting me tile is plain when the number is zero", async () => {
   render(<PrListPage />);
   const label = await screen.findByText("Awaiting me");
   expect(label.closest("a")).toBeNull();
+  expect(label.closest("button")).toBeNull();
 });
 
 test("a status facet click sends status= and the counts do not change", async () => {

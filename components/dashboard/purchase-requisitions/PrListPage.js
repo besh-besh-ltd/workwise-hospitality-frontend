@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import * as PrApi from "@/services/pr";
 import PrStatusPill from "./PrStatusPill";
@@ -12,14 +13,18 @@ import PrProgressPill from "./PrProgressPill";
 import { STATUS_LABEL, errorCopy, errorStatus, formatINR } from "./prFormat";
 import { nowWithLabel } from "./prDetail";
 import {
-  purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitionReview, materialRequisition,
+  purchaseRequisition, purchaseRequisitionCreate, materialRequisition,
 } from "@/components/dashboard/shared/dashboardLinks";
 
 const PAGE_SIZE = 20;
 const TABS = [
   { key: "mine", label: "Mine" },
   { key: "all", label: "All I can see" },
+  // Exactly what the "Awaiting me" KPI counts: returned PRs I raised, reviews I
+  // can complete, current approval steps waiting on me (GET /pr?tab=awaiting).
+  { key: "awaiting", label: "Waiting on me" },
 ];
+const tabFromQuery = (q) => (TABS.some((t) => t.key === q) ? q : "mine");
 const STATUS_ORDER = ["draft", "in_review", "pending_approval", "returned", "approved", "rejected", "cancelled"];
 const TYPE_LABEL = { goods: "Goods", service: "Service", capex: "Capex" };
 const URGENCY_LABEL = { low: "Low", normal: "Normal", urgent: "Urgent" };
@@ -52,7 +57,7 @@ function FacetGroup({ label, options, selected, onToggle }) {
   );
 }
 
-function Kpi({ label, value, sub, tone, href }) {
+function Kpi({ label, value, sub, tone, href, onClick }) {
   const body = (
     <>
       <div className="kt-row"><div className="kt-label">{label}</div></div>
@@ -60,16 +65,28 @@ function Kpi({ label, value, sub, tone, href }) {
       <div className="kt-sub">{sub}</div>
     </>
   );
-  return href ? (
-    <Link href={href} className={`kpi-tile ${tone}`} style={{ textDecoration: "none", color: "inherit" }}>{body}</Link>
-  ) : (
-    <div className={`kpi-tile ${tone}`}>{body}</div>
-  );
+  if (href) {
+    return <Link href={href} className={`kpi-tile ${tone}`} style={{ textDecoration: "none", color: "inherit" }}>{body}</Link>;
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`kpi-tile ${tone}`}
+        style={{ textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer" }}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={`kpi-tile ${tone}`}>{body}</div>;
 }
 
 export default function PrListPage() {
   const meId = useSelector((s) => s.userProfile)?.id;
-  const [tab, setTab] = useState("mine");
+  const router = useRouter();
+  const query = router?.query || {};
+  const queryTab = router?.isReady ? tabFromQuery(query.tab) : null;
+  const [tab, setTab] = useState(() => queryTab || "mine");
+  // A deep link (?tab=awaiting from the dashboard / approvals) picks the tab once the router is ready.
+  useEffect(() => { if (queryTab) setTab(queryTab); }, [queryTab]);
   const [filters, setFilters] = useState(NO_FILTERS);
   const [search, setSearch] = useState("");
   const [q, setQ] = useState("");
@@ -169,7 +186,7 @@ export default function PrListPage() {
           <Kpi tone="accent" label="Open" value={kpis.open ?? 0} sub="not yet approved" />
           <Kpi
             tone="warn" label="Awaiting me" value={awaiting} sub="reviews and approvals for you"
-            href={awaiting > 0 ? purchaseRequisitionReview() : undefined}
+            onClick={awaiting > 0 ? () => changeTab("awaiting") : undefined}
           />
           <Kpi tone="violet" label="In purchase queue" value={kpis.in_purchase_queue ?? 0} sub="approved, with the buyers" />
           <Kpi
