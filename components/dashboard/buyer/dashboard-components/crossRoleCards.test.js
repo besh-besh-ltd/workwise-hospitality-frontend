@@ -423,6 +423,21 @@ describe("Drill-down modals", () => {
     expect(approvalRowHref(F.PENDING_APPROVALS[1])).toBe(L.approvalHref("NEGOTIATION_QUOTE", { rfqId: 20 }));
   });
 
+  // Task 12 deferred minor: a PR approval without entity_title fell back to the
+  // PR number as its title AND showed the number again in the meta line.
+  it("pending approvals: a PR shows its number once, and both title and number when it has a title", async () => {
+    svc.getPendingApprovalsDetail.mockResolvedValue(F.envelope([
+      { approval_id: 7, item_key: "PR:55", entity_type: "PR", entity_id: 55, pr_id: 55, pr_number: "PR-2026-0055", hotel_name: "Goa", waiting_hours: 3, instance_count: 1 },
+      { approval_id: 8, item_key: "PR:56", entity_type: "PR", entity_id: 56, pr_id: 56, pr_number: "PR-2026-0056", entity_title: "Lobby towels", hotel_name: "Goa", waiting_hours: 3, instance_count: 1 },
+    ]));
+    render(<PendingApprovalsModal filters={FILTERS} onClose={() => {}} />);
+    await flush();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByText("PR-2026-0055")).toHaveLength(1);
+    expect(within(dialog).getByText("Lobby towels")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("PR-2026-0056")).toHaveLength(1);
+  });
+
   it("rejected POs: grouped by source, linking to the PO", async () => {
     svc.getRejectedPOsDetail.mockResolvedValue(F.envelope(F.REJECTED_POS));
     render(<RejectedPOsModal filters={FILTERS} onClose={() => {}} />);

@@ -70,6 +70,7 @@ const ENTITY_LABEL = {
   TECHNICAL: "Technical evaluation",
   ARC: "Rate contract",
   ARC_PUBLISH: "Rate contract",
+  PR: "Purchase requisition",
 };
 
 const ageLabel = (days) => {

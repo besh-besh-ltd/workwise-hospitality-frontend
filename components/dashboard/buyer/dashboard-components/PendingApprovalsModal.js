@@ -73,7 +73,8 @@ const getNumber = (item) => {
     return item.arc_number || (item.arc_id ? `Rate contract #${item.arc_id}` : null);
   }
   if (item.entity_type === "MR") return null; // MR number already IS the title
-  if (item.entity_type === "PR") return item.pr_number || null;
+  // Without a title the PR number already IS the title — don't show it twice.
+  if (item.entity_type === "PR") return item.entity_title ? item.pr_number || null : null;
   if (item.entity_rfq_no) return `RFQ #${item.entity_rfq_no}`;
   const m = item.metadata || {};
   if (m.rfq_number) return `RFQ #${m.rfq_number}`;

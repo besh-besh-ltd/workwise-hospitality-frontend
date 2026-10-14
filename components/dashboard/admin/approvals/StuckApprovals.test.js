@@ -183,3 +183,20 @@ describe("handing it to somebody else", () => {
     await waitFor(() => expect(mockGet.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 });
+
+// Final review C-M4: a stuck PR approval rendered as the bare entity type "PR"
+// with no number. The BE puts the PR number in entity_ref; render whatever it holds.
+describe("purchase requisitions", () => {
+  it("names a stuck PR approval as a purchase requisition with its number", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        counts: COUNTS,
+        items: [{ ...BLOCKED_ROW, id: 902, entity_type: "PR", entity_id: 55, entity_ref: "PR-2026-0055" }],
+        total: 3,
+      },
+    });
+    render(<StuckApprovals />);
+    const row = (await screen.findByText("Priya Sharma")).closest("li");
+    expect(within(row).getByText("Purchase requisition PR-2026-0055")).toBeInTheDocument();
+  });
+});
