@@ -11,6 +11,10 @@ export const getFormHotels = () => axiosInstance.get(`${BASE}/form/hotels`);
 export const getFormDepartments = (hotelId) =>
   axiosInstance.get(`${BASE}/form/departments`, { params: { hotel_id: hotelId } });
 export const searchItems = (params = {}) => axiosInstance.get(`${BASE}/search-items`, { params });
+// Ruling R44: the same endpoint looked up BY ID (up to 50 per call, `q` ignored) —
+// exactly the requested variants that are usable, with on_contract for the cell.
+export const searchItemsByIds = ({ hotel_id, department_id, variant_ids = [] }) =>
+  axiosInstance.get(`${BASE}/search-items`, { params: { hotel_id, department_id, variant_ids: variant_ids.join(",") } });
 export const searchCategories = (q) => axiosInstance.get(`${BASE}/categories`, { params: { q } });
 
 // Listing, KPIs, duplicate check.

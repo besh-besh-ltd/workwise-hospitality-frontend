@@ -222,7 +222,8 @@ const errStyle = { color: "var(--danger)", fontSize: 11.5, marginTop: 4 };
 function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onChange, onRemove, contractChecking, onRetryContractCheck }) {
   const errs = lineErrors(line);
   const show = (k) => (showErrors ? errs[k] : null);
-  const invalid = flagged || line.on_contract || line.contract_unverified || (showErrors && Object.keys(errs).length > 0);
+  const invalid = flagged || line.on_contract || line.contract_unverified || line.variant_unavailable
+    || (showErrors && Object.keys(errs).length > 0);
   const set = (patch) => onChange({ ...line, ...patch });
   const fid = (f) => `${line.key}-${f}`;
   const value = rowValue(line);
@@ -248,7 +249,12 @@ function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onCha
           </div>
         </div>
       )}
-      {line.contract_unverified && !line.on_contract && (
+      {line.variant_unavailable && (
+        <div className="guide danger" role="alert" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
+          <div>This item is no longer available in the catalog — replace or remove it.</div>
+        </div>
+      )}
+      {line.contract_unverified && !line.on_contract && !line.variant_unavailable && (
         <div className="guide warn" role="alert" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
           <div>
             <span>Couldn&apos;t verify contract status for this hotel and department — </span>

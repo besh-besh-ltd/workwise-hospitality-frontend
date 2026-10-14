@@ -18,6 +18,7 @@ import {
 import { materialRequisitionCreate, purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitions } from "@/components/dashboard/shared/dashboardLinks";
 
 const PREVIEW_DEBOUNCE_MS = 400;
+const VARIANT_LOOKUP_MAX = 50; // ids per GET /pr/search-items?variant_ids= call
 const errStyle = { color: "var(--danger)", fontSize: 11.5, marginTop: 4 };
 
 // Today in India (the server compares required_by_date against IST).
@@ -97,9 +98,13 @@ export default function PurchaseRequisitionCreatePage() {
 
   // ----- re-check catalog lines against the (new) hotel/department -------
   // A rate contract can cover an item at one hotel/department and not another.
-  // Fails CLOSED: a line the check could not confirm (the lookup failed, or the
-  // item was not among the results for its name) is marked unverified and
-  // blocks Save/Submit until a retry confirms it — never assumed off-contract.
+  // Checked BY VARIANT ID (ruling R44), never by re-searching a line's label: a
+  // LIMIT 50 name search does not return short names. Runs on a cell change,
+  // on edit load and on Retry. Fails closed:
+  //   - the lookup itself failed -> "couldn't verify", Retry asks again;
+  //   - an id a successful lookup left out -> the item is no longer usable
+  //     (what the server would refuse as PR_VARIANT_NOT_USABLE).
+  // Both block Save/Submit, like an on-contract line.
   const recheckReq = useRef(0);
   const [recheckTick, setRecheckTick] = useState(0);
   useEffect(() => {
@@ -109,23 +114,28 @@ export default function PurchaseRequisitionCreatePage() {
     setRechecking(true);
     // Only these lines are judged; one added meanwhile came from a search in this cell.
     const checkedKeys = new Set(catalog.map((l) => l.key));
-    const names = [...new Set(catalog.map((l) => l.label).filter((n) => n && n.length >= 2))];
-    Promise.all(names.map((q) =>
-      PrApi.searchItems({ hotel_id: Number(form.hotel_id), department_id: Number(form.department_id), q, limit: 50 })
-        .then((res) => res?.data?.items || [])
-        .catch(() => []), // proves nothing: the lines it would have confirmed stay unverified
-    )).then((groups) => {
-      if (myReq !== recheckReq.current) return;
-      const byVariant = new Map(groups.flat().map((it) => [it.variant_id, it]));
-      setLines((cur) => cur.map((l) => {
-        if (l.kind !== "catalog" || !checkedKeys.has(l.key)) return l;
-        const hit = byVariant.get(l.product_variant_id);
-        return hit
-          ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null, contract_unverified: false }
-          : { ...l, contract_unverified: true };
-      }));
-      setRechecking(false);
-    });
+    const ids = [...new Set(catalog.map((l) => Number(l.product_variant_id)))];
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += VARIANT_LOOKUP_MAX) chunks.push(ids.slice(i, i + VARIANT_LOOKUP_MAX));
+    Promise.all(chunks.map((variantIds) =>
+      PrApi.searchItemsByIds({ hotel_id: Number(form.hotel_id), department_id: Number(form.department_id), variant_ids: variantIds })
+        .then((res) => res?.data?.items || []),
+    ))
+      .then((groups) => new Map(groups.flat().map((it) => [Number(it.variant_id), it])))
+      .catch(() => null)
+      .then((byVariant) => {
+        if (myReq !== recheckReq.current) return;
+        setLines((cur) => cur.map((l) => {
+          if (l.kind !== "catalog" || !checkedKeys.has(l.key)) return l;
+          // Unknown for THIS cell: drop what an earlier check said, so the line offers Retry.
+          if (!byVariant) return { ...l, on_contract: false, arc_number: null, variant_unavailable: false, contract_unverified: true };
+          const hit = byVariant.get(Number(l.product_variant_id));
+          return hit
+            ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null, contract_unverified: false, variant_unavailable: false }
+            : { ...l, contract_unverified: false, variant_unavailable: true };
+        }));
+        setRechecking(false);
+      });
     return () => { recheckReq.current += 1; };
   }, [form.hotel_id, form.department_id, recheckTick]);
 
@@ -342,7 +352,8 @@ export default function PurchaseRequisitionCreatePage() {
   const previewProblems = preview.data?.problems || [];
   const onContractLines = lines.filter((l) => l.on_contract);
   const unverifiedLines = lines.filter((l) => l.contract_unverified);
-  const blocked = rechecking || onContractLines.length > 0 || unverifiedLines.length > 0;
+  const unavailableLines = lines.filter((l) => l.variant_unavailable);
+  const blocked = rechecking || onContractLines.length > 0 || unavailableLines.length > 0 || unverifiedLines.length > 0;
   const canSubmit = preview.status === "ready" && previewProblems.length === 0 && lines.length > 0 && !busy && !blocked;
   const flaggedNos = flagged;
 
@@ -409,7 +420,9 @@ export default function PurchaseRequisitionCreatePage() {
                 ? "Checking your items against this hotel and department…"
                 : onContractLines.length > 0
                   ? "Some items are on a rate contract here, so they can't go on a purchase requisition. Remove them, or raise a Material Requisition for them. Saving and submitting are paused until then."
-                  : "We couldn't check some items against rate contracts for this hotel and department. Retry the check on those items — saving and submitting are paused until then."}
+                  : unavailableLines.length > 0
+                    ? "Some items are no longer available in the catalog. Replace or remove them — saving and submitting are paused until then."
+                    : "We couldn't check some items against rate contracts for this hotel and department. Retry the check on those items — saving and submitting are paused until then."}
             </div>
           </div>
         )}

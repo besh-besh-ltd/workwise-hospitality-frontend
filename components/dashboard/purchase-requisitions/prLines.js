@@ -22,7 +22,8 @@ const blank = () => ({
   key: nextKey(), id: null, kind: "catalog", product_variant_id: null, label: "", category_id: null, category_title: "",
   free_text_name: "", quantity: "", uom: "", price: "", specification: "", note: "",
   on_contract: false, arc_number: null,
-  contract_unverified: false, // the cell re-check could not confirm this line's contract status
+  contract_unverified: false, // the cell re-check lookup failed: contract status unknown (retryable)
+  variant_unavailable: false, // the cell re-check found the variant no longer usable
 });
 
 /** "123.45" for a priced row, else null (an invalid row has no value). */

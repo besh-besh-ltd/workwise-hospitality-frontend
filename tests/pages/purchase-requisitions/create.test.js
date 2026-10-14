@@ -5,6 +5,7 @@ jest.mock("@/services/pr", () => ({
   getFormHotels: jest.fn(),
   getFormDepartments: jest.fn(),
   searchItems: jest.fn(),
+  searchItemsByIds: jest.fn(),
   searchCategories: jest.fn(),
   getDuplicates: jest.fn(),
   previewRouting: jest.fn(),
@@ -37,6 +38,12 @@ const futureDate = "2099-01-15";
 
 const towel = { variant_id: 300, variant_name: "Bath towel", product_name: "Towel", category_id: 7, category_title: "Linen", on_contract: false, arc_contract_id: null, arc_number: null };
 const rice = { variant_id: 301, variant_name: "Basmati rice", product_name: "Rice", category_id: 8, category_title: "Grocery", on_contract: true, arc_contract_id: 5, arc_number: "ARC-5" };
+// A short name that a label search ranks ~91st of a real catalog (review I1).
+const pin = { variant_id: 302, variant_name: "PIN", product_name: "Safety pin", category_id: 7, category_title: "Linen", on_contract: false, arc_contract_id: null, arc_number: null };
+const CATALOG = [towel, rice, pin];
+// GET /pr/search-items?variant_ids= (ruling R44): exactly the requested ids that are usable.
+const byIds = (items = CATALOG) => ({ variant_ids }) =>
+  Promise.resolve({ data: { items: items.filter((i) => variant_ids.includes(i.variant_id)) } });
 
 const okPreview = {
   amount: "100.00",
@@ -90,6 +97,7 @@ beforeEach(() => {
   PrApi.getFormHotels.mockResolvedValue({ data: { hotels: [{ id: 12, name: "Mumbai Suites" }] } });
   PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }] } });
   PrApi.searchItems.mockResolvedValue({ data: { items: [towel, rice] } });
+  PrApi.searchItemsByIds.mockImplementation(byIds());
   PrApi.searchCategories.mockResolvedValue({ data: { categories: [{ id: 7, title: "Linen", parent_id: null }] } });
   PrApi.getDuplicates.mockResolvedValue({ data: { count: 0, items: [] } });
   PrApi.previewRouting.mockResolvedValue({ data: okPreview });
@@ -351,8 +359,8 @@ test("a catalog line shows the duplicate hint with readable items as links", asy
 
 test("a catalog line that is on contract in the newly chosen department is blocked until removed", async () => {
   PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
-  PrApi.searchItems.mockImplementation(({ department_id }) =>
-    Promise.resolve({ data: { items: [department_id === 10 ? { ...towel, on_contract: true, arc_contract_id: 5, arc_number: "ARC-9" } : towel] } }));
+  PrApi.searchItemsByIds.mockImplementation(({ department_id, variant_ids }) =>
+    byIds([department_id === 10 ? { ...towel, on_contract: true, arc_contract_id: 5, arc_number: "ARC-9" } : towel])({ variant_ids }));
   render(<CreatePrPage />);
   await pickCell();
   fillHeader();
@@ -382,7 +390,7 @@ test("Save draft is held while the cell re-check is still running", async () => 
   await pickCell();
   await addCatalogLine();
   let release;
-  PrApi.searchItems.mockImplementation(() => new Promise((r) => { release = () => r({ data: { items: [towel] } }); }));
+  PrApi.searchItemsByIds.mockImplementation(() => new Promise((r) => { release = () => r({ data: { items: [towel] } }); }));
   const dept = screen.getByLabelText("Department");
   await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
   fireEvent.change(dept, { target: { value: "10" } });
@@ -583,47 +591,122 @@ test("a failed hotel lookup is an error with a retry, not the no-access state", 
   expect(screen.queryByText(/Couldn't load the hotels/)).not.toBeInTheDocument();
 });
 
-// Task 13 deferred minor: after a hotel/department change the on-contract
-// re-check failed OPEN — a failed lookup (.catch(() => [])) or a variant not in
-// the top 50 results left the line as it was, so an item on contract in the new
-// cell could be saved. It must stay unverified and block Save/Submit.
-async function changeToKitchenWith(searchImpl) {
+// Task 13 deferred minor + review I1 / ruling R44. After a hotel/department
+// change (and on edit load) every catalog line's contract status is re-checked
+// for the new cell BY VARIANT ID — never by re-searching its label, which a
+// LIMIT 50 name search never returns for short names ("PIN" ranks ~91st).
+// Only a failed lookup is "couldn't verify" (retryable); an id the lookup
+// leaves out is no longer usable, the same refusal the server would give.
+async function changeToKitchenWith(byIdImpl, picks = [[towel, "tow"]], { labelSearch = { data: { items: CATALOG } } } = {}) {
   PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
+  PrApi.searchItems.mockResolvedValue({ data: { items: CATALOG } });
   render(<CreatePrPage />);
   await pickCell();
   fillHeader();
-  await addCatalogLine();
-  fillLine("2", "50");
+  for (const [item, term] of picks) await addCatalogLine(item, term);
+  screen.getAllByLabelText("Quantity").forEach((q) => fireEvent.change(q, { target: { value: "2" } }));
+  screen.getAllByLabelText("Unit").forEach((u) => fireEvent.change(u, { target: { value: "pcs" } }));
+  screen.getAllByLabelText("Estimated unit price").forEach((p) => fireEvent.change(p, { target: { value: "50" } }));
   await screen.findByText("Hari Head", undefined, W);
   expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
-  PrApi.searchItems.mockImplementation(searchImpl);
+  PrApi.searchItems.mockClear();
+  PrApi.searchItems.mockResolvedValue(labelSearch);
+  PrApi.searchItemsByIds.mockClear();
+  PrApi.searchItemsByIds.mockImplementation(byIdImpl);
   const dept = screen.getByLabelText("Department");
   await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
   fireEvent.change(dept, { target: { value: "10" } });
 }
 
-test("a failed contract re-check marks the line unverified and blocks Save and Submit until a retry verifies it", async () => {
-  await changeToKitchenWith(() => Promise.reject(new Error("offline")));
+test("the cell re-check looks every catalog line up by variant id in one call, never by label", async () => {
+  await changeToKitchenWith(byIds(), [[towel, "tow"], [pin, "pin"]]);
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledTimes(1));
+  expect(PrApi.searchItemsByIds).toHaveBeenCalledWith({ hotel_id: 12, department_id: 10, variant_ids: [300, 302] });
+  expect(PrApi.searchItems).not.toHaveBeenCalled();
+});
+
+test("PIN case: an item a name search would never return is verified by id and the form stays savable", async () => {
+  // A name search for "PIN" would list 50 other items first; the re-check must not depend on it.
+  const fifty = Array.from({ length: 50 }, (_, i) => ({ ...towel, variant_id: 900 + i, variant_name: `Pin cushion ${i}` }));
+  await changeToKitchenWith(byIds([pin]), [[pin, "pin"]], { labelSearch: { data: { items: fifty } } });
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledWith({ hotel_id: 12, department_id: 10, variant_ids: [302] }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled());
+  expect(screen.getByTestId("pr-line-1")).toHaveAttribute("data-invalid", "false");
+  expect(screen.queryByText(/Couldn't verify contract status/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/no longer available/)).not.toBeInTheDocument();
+  expect(PrApi.searchItems).not.toHaveBeenCalled();
+});
+
+test("a failed lookup marks the line unverified and blocks Save and Submit; Retry re-queries by id and clears it", async () => {
+  await changeToKitchenWith(() => Promise.reject({ message: new Error("Network Error") }));
   expect(await screen.findByText(/Couldn't verify contract status/, undefined, W)).toBeInTheDocument();
   expect(screen.getByTestId("pr-line-1")).toHaveAttribute("data-invalid", "true");
   expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
   expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
   expect(screen.getByText(/couldn't check some items against rate contracts/i)).toBeInTheDocument();
 
-  PrApi.searchItems.mockImplementation(() => Promise.resolve({ data: { items: [towel] } }));
+  PrApi.searchItemsByIds.mockImplementation(byIds());
   fireEvent.click(screen.getByRole("button", { name: "Retry the contract check for item 1" }));
   await waitFor(() => expect(screen.queryByText(/Couldn't verify contract status/)).not.toBeInTheDocument());
   expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
-  expect(PrApi.searchItems).toHaveBeenLastCalledWith({ hotel_id: 12, department_id: 10, q: "Bath towel", limit: 50 });
+  expect(PrApi.searchItemsByIds).toHaveBeenLastCalledWith({ hotel_id: 12, department_id: 10, variant_ids: [300] });
+  expect(PrApi.searchItems).not.toHaveBeenCalled();
 });
 
-test("a line whose item is missing from the re-check results is not assumed to be off contract", async () => {
-  await changeToKitchenWith(() => Promise.resolve({ data: { items: [rice] } }));
-  expect(await screen.findByText(/Couldn't verify contract status/, undefined, W)).toBeInTheDocument();
+test("an id missing from a successful lookup is 'no longer available' — blocked, and not a retryable 'couldn't verify'", async () => {
+  await changeToKitchenWith(byIds([pin]));
+  expect(await screen.findByText("This item is no longer available in the catalog — replace or remove it.", undefined, W)).toBeInTheDocument();
+  expect(screen.getByTestId("pr-line-1")).toHaveAttribute("data-invalid", "true");
+  expect(screen.queryByText(/Couldn't verify contract status/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Retry the contract check/ })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Remove line 1" }));
   expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
 });
+
+test("a failed lookup after a cell where the line was on contract offers Retry, not the old cell's verdict", async () => {
+  await changeToKitchenWith(byIds([{ ...towel, on_contract: true, arc_contract_id: 5, arc_number: "ARC-9" }]));
+  expect(await screen.findByText(/On contract ARC-9/, undefined, W)).toBeInTheDocument();
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }, { id: 11, title: "Bar" }] } });
+  // the department list is per hotel; reselect the hotel to load the third department
+  fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "12" } });
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Bar" })).toBeInTheDocument());
+  PrApi.searchItemsByIds.mockImplementation(() => Promise.reject({ message: new Error("Network Error") }));
+  fireEvent.change(dept, { target: { value: "11" } });
+  expect(await screen.findByRole("button", { name: "Retry the contract check for item 1" }, W)).toBeInTheDocument();
+  expect(screen.queryByText(/On contract ARC-9/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+});
+
+test("editing a draft checks its catalog lines by id for the PR's own cell", async () => {
+  mockQuery = { id: "55" };
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledWith({ hotel_id: 12, department_id: 9, variant_ids: [300] }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled());
+  expect(PrApi.searchItems).not.toHaveBeenCalled();
+});
+
+test("more than 50 catalog lines are checked in chunks of 50 ids", async () => {
+  mockQuery = { id: "55" };
+  const many = Array.from({ length: 51 }, (_, i) => ({
+    id: 2000 + i, line_no: i + 1, line_kind: "catalog", product_variant_id: 5000 + i, variant_name: `Item ${i}`, category_id: 7,
+    category_title: "Linen", quantity: "1", uom: "pcs", estimated_unit_price: "1",
+  }));
+  PrApi.getPr.mockResolvedValue(draftDetail({ lines: many }));
+  PrApi.searchItemsByIds.mockImplementation(({ variant_ids }) =>
+    Promise.resolve({ data: { items: variant_ids.map((id) => ({ ...towel, variant_id: id })) } }));
+  render(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  await waitFor(() => expect(PrApi.searchItemsByIds).toHaveBeenCalledTimes(2));
+  const sizes = PrApi.searchItemsByIds.mock.calls.map(([p]) => p.variant_ids.length);
+  expect(sizes).toEqual([50, 1]);
+  await waitFor(() => expect(screen.getByText("Save draft")).toBeEnabled());
+}, 60000);
 
 // 19b review minor: on a full page load the first render happens before the
 // router is ready, so the edit page flashed an empty "Raise purchase
