@@ -19,7 +19,7 @@ import { createApprovalPolicy, updateApprovalPolicy, deleteApprovalPolicy } from
 import { getRolePermissions } from "@/services/rbac";
 import { toast } from "react-toastify";
 
-import WorkflowWizard from "./WorkflowWizard";
+import WorkflowWizard, { baseStageRequiredMessage } from "./WorkflowWizard";
 import DashboardView, { PR_HOTEL_FLOW_PROCESS } from "../dashboard/DashboardView";
 
 const baseProps = () => ({
@@ -258,4 +258,12 @@ describe("the PR role picker says which roles can approve PRs", () => {
     expect(screen.queryByText(/can't approve purchase requisitions/i)).not.toBeInTheDocument();
     expect(getRolePermissions).not.toHaveBeenCalled();
   });
+});
+
+// Final review C-M5: the base-stage message was written for rate contracts
+// ("it gates publishing") and was reused verbatim for Purchase Requisitions.
+test("the PR base-stage message does not talk about publishing; ARC keeps its reason", () => {
+  expect(baseStageRequiredMessage("PR")).toBe("The Purchase Requisition stage needs at least one approval level — every submitted PR is approved through it.");
+  expect(baseStageRequiredMessage("PR")).not.toMatch(/publish/i);
+  expect(baseStageRequiredMessage("ARC")).toMatch(/ARC \(Publish & Base\) stage needs at least one approval level — it gates publishing\./);
 });

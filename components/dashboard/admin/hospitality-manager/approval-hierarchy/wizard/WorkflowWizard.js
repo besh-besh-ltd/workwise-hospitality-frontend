@@ -34,9 +34,14 @@ const buildArcStagesFromPolicies = (policies) =>
 
 // Process-free flows have a fixed stage set and a required base stage.
 const PROCESS_FREE_FLOWS = {
-  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: "ARC (Publish & Base)", review: { name: "ARC (Rate Contracts)", process_type: "ARC" } },
-  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: "Group ARC (Publish & Base)", review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
-  [FLOW_TYPE.PR]: { stages: PR_PROCESS_STAGES, order: PR_ENTITY_ORDER, base: "PR", baseLabel: "Purchase Requisition", review: { name: "Purchase Requisitions", process_type: "PR" } },
+  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: "ARC (Publish & Base)", baseWhy: "it gates publishing", review: { name: "ARC (Rate Contracts)", process_type: "ARC" } },
+  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: "Group ARC (Publish & Base)", baseWhy: "it gates publishing", review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
+  [FLOW_TYPE.PR]: { stages: PR_PROCESS_STAGES, order: PR_ENTITY_ORDER, base: "PR", baseLabel: "Purchase Requisition", baseWhy: "every submitted PR is approved through it", review: { name: "Purchase Requisitions", process_type: "PR" } },
+};
+/** Why a process-free flow's required base stage can't be left empty. */
+export const baseStageRequiredMessage = (flow) => {
+  const f = PROCESS_FREE_FLOWS[flow];
+  return f ? `The ${f.baseLabel} stage needs at least one approval level — ${f.baseWhy}.` : "";
 };
 const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ entity_type: st.value, steps: [] }));
 
@@ -175,7 +180,7 @@ const WorkflowWizard = ({
       if (processFree) {
         const arcBase = (wizardForm.stages || []).find((st) => st.entity_type === processFree.base);
         if (!arcBase || (arcBase.steps?.length || 0) === 0) {
-          toast.error(`The ${processFree.baseLabel} stage needs at least one approval level — it gates publishing.`);
+          toast.error(baseStageRequiredMessage(wizardForm.flow_type));
           return false;
         }
       }

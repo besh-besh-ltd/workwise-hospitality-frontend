@@ -309,6 +309,20 @@ test("the last review completing into a broken chain says so and keeps the revie
   expect(alert).toHaveTextContent(ERROR_COPY.PR_NO_POLICY);
 });
 
+// Final review C-M2: the reviewer completing the LAST review is not the
+// requester, so "Someone other than you has to approve this PR" was wrong for
+// them. The copy names the requester instead of addressing the viewer.
+test("a reviewer whose completion finds no independent approver gets viewer-neutral copy", async () => {
+  mockMe = { id: 8 };
+  await renderPage(reviewerDetail());
+  PrApi.completeReview.mockRejectedValue(axiosErr(422, { status: 0, code: "PR_NO_INDEPENDENT_APPROVER", message: "raw" }));
+  fireEvent.click(screen.getByRole("button", { name: "Complete review" }));
+  const alert = await screen.findByTestId("action-error");
+  expect(alert).toHaveTextContent("No approver other than the requester is available for this PR — contact your admin.");
+  expect(alert).not.toHaveTextContent(/other than you/i);
+  expect(alert).toHaveTextContent("Your review is still pending.");
+});
+
 // ---------------------------------------------------------------------------
 // 3. Approver
 // ---------------------------------------------------------------------------

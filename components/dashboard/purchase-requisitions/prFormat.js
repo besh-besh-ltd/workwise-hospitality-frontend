@@ -116,7 +116,8 @@ export const HEADER_PROGRESS_LABEL = {
 export const ERROR_COPY = {
   PR_NO_POLICY: "No approval chain is set up for purchase requisitions at this hotel. Ask your admin to add one.",
   PR_STEP_UNRESOLVED: "An approval step has nobody assigned. Ask your admin to fix the PR approval chain.",
-  PR_NO_INDEPENDENT_APPROVER: "Someone other than you has to approve this PR, and no one else is set up as an approver.",
+  // Viewer-neutral: the last reviewer completing a review sees this too, not only the requester.
+  PR_NO_INDEPENDENT_APPROVER: "No approver other than the requester is available for this PR — contact your admin.",
   PR_NO_REVIEWER: "No technical reviewer is set up for one of the departments. Ask your admin.",
   PR_LINE_ON_CONTRACT: "This item is on an active rate contract. Raise a Material Requisition instead.",
   PR_VARIANT_NOT_USABLE: "This catalog item can't be used right now.",
