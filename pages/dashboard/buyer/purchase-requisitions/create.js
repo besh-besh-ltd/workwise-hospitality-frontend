@@ -135,6 +135,10 @@ export default function PurchaseRequisitionCreatePage() {
   useEffect(() => {
     if (!router.isReady || !routeId || loadedFor.current === routeId) return;
     loadedFor.current = routeId;
+    // On a page load / refresh the first render happens before the router is
+    // ready, so prId's initial state missed the id: without this Save and
+    // Submit would POST a new PR instead of updating this one.
+    setPrId(routeId);
     loadPr(routeId);
   }, [router.isReady, routeId, loadPr]);
 

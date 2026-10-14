@@ -19,9 +19,10 @@ jest.mock("@/utils/hospitalityContext", () => ({
 const push = jest.fn();
 const replace = jest.fn();
 let mockQuery = {};
+let mockReady = true;
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ isReady: true, query: mockQuery, push, replace }),
+  useRouter: () => ({ isReady: mockReady, query: mockQuery, push, replace }),
 }));
 
 import React from "react";
@@ -85,6 +86,7 @@ function fillLine(qty, price, unit = "pcs") {
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
+  mockReady = true;
   PrApi.getFormHotels.mockResolvedValue({ data: { hotels: [{ id: 12, name: "Mumbai Suites" }] } });
   PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }] } });
   PrApi.searchItems.mockResolvedValue({ data: { items: [towel, rice] } });
@@ -530,4 +532,30 @@ test("while editing, other open requests are still listed and counted without th
   expect(await screen.findByText(/1 open request for this item/, undefined, W)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /PR-61/ })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /PR-55/ })).not.toBeInTheDocument();
+});
+
+// Browser pass 19b: opening /purchase-requisitions/create?id=N directly (a page
+// load or refresh, not a client-side push) renders once before the router is
+// ready. The PR id was only read on that first render, so Save/Submit POSTed a
+// NEW PR with the old line ids (422 "This line does not belong to this
+// requisition") and the requester could not resubmit after a refresh.
+test("edit opened by a full page load (router ready after the first render) saves the same PR", async () => {
+  mockReady = false;
+  mockQuery = {};
+  PrApi.getPr.mockResolvedValue(draftDetail());
+  PrApi.getDuplicates.mockResolvedValue({
+    data: { count: 1, items: [{ kind: "pr", id: 55, number: "PR-55", hotel_name: "Mumbai Suites", department_name: "Housekeeping", readable: true, title: "Lobby towels" }] },
+  });
+  const { rerender } = render(<CreatePrPage />);
+  mockReady = true;
+  mockQuery = { id: "55" };
+  rerender(<CreatePrPage />);
+  await screen.findByDisplayValue("Lobby towels", undefined, W);
+  await waitFor(() => expect(PrApi.getDuplicates).toHaveBeenCalled());
+  await act(async () => {});
+  expect(screen.queryByText(/open request/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  await waitFor(() => expect(PrApi.updatePr).toHaveBeenCalledTimes(1));
+  expect(PrApi.updatePr.mock.calls[0][0]).toBe("55");
+  expect(PrApi.createPr).not.toHaveBeenCalled();
 });
