@@ -57,7 +57,7 @@ import CreateRFQ from "./CreateRFQ";
 const resolveAll = (mod, value) =>
   Object.values(mod).forEach((fn) => { if (jest.isMockFunction(fn)) fn.mockResolvedValue(value); });
 
-const draft = (contactNumber) => ({
+const draft = (contactNumber, mappedHotels = [{ id: 1, rfq_id: 900, hotel_id: 12 }]) => ({
   status: 1,
   data: {
     rfq_id: 900,
@@ -68,7 +68,7 @@ const draft = (contactNumber) => ({
       hospitality_company_id: 5, hotel_id: 12, department_id: 4, process_id: null, created_by: 7,
     },
     rfq_products: [],
-    mappedHotels: [{ id: 1, rfq_id: 900, hotel_id: 12 }],
+    mappedHotels,
   },
 });
 
@@ -100,4 +100,11 @@ test("a draft with a contact number keeps selecting its mapped hotel", async () 
   RfqApi.getDraftById.mockResolvedValue(draft("+91-9876543210"));
   renderPage();
   await waitFor(() => expect(departmentCallsFor(12).length).toBeGreaterThan(0));
+});
+
+test("an empty mappedHotels list falls back to the draft's hotel_id, as the edit path does", async () => {
+  RfqApi.getDraftById.mockResolvedValue(draft("", []));
+  renderPage();
+  await waitFor(() => expect(departmentCallsFor(12).length).toBeGreaterThan(0));
+  expect(mockPermissionCalls.some((a) => a.enabled && (a.hotelIds || []).includes(12))).toBe(true);
 });

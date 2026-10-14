@@ -2022,9 +2022,14 @@ useEffect(() => {
           setonecountrycode(extractedCountryCode);
         }
         //  set selected hotel ids — whether or not the draft has a contact number
-        //  (a draft built from purchase requisitions has none when the buyer has no mobile)
-        if (Array.isArray(draftRes.data.mappedHotels)) {
-          const getSelectedHotelIds = draftRes.data.mappedHotels.map((item)=> item.hotel_id);
+        //  (a draft built from purchase requisitions has none when the buyer has no mobile).
+        //  Like the edit path: mappedHotels when non-empty, else the draft's hotel_id.
+        const mappedHotelIds = Array.isArray(draftRes.data.mappedHotels)
+          ? draftRes.data.mappedHotels.map((item)=> item.hotel_id).filter(Boolean)
+          : [];
+        const draftHotelId = draftRes.data.rfq_form_data?.hotel_id;
+        const getSelectedHotelIds = mappedHotelIds.length > 0 ? mappedHotelIds : (draftHotelId ? [draftHotelId] : []);
+        if (getSelectedHotelIds.length > 0) {
           setSelectedHotelIds(getSelectedHotelIds);
         }
         if (draftRes?.data?.rfq_form_data) {
