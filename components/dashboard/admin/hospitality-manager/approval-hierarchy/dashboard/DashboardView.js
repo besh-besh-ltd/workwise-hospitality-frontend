@@ -4,7 +4,7 @@ import ProcessManageBar from "./ProcessManageBar";
 import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
-import { DS, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
+import { DS, isPrEntityType, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
 import s from "./DashboardView.module.scss";
 
 /** Ids may arrive as numbers or strings depending on the endpoint. */
@@ -16,6 +16,10 @@ export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "ARC (Rate Contracts)", p
 // The company-wide Group ARC workflow (hotel_id NULL policies) — shown on every
 // business unit's page because it governs group rate contracts led by any hotel.
 export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (company-wide)", process_type: "ARC_GROUP", is_arc: true, is_arc_group: true };
+
+// Purchase requisition approvals are process-free too (process_id always null),
+// so they get their own editable card instead of landing in "Uncategorized".
+export const PR_FLOW_PROCESS = { id: "__PR__", name: "Purchase Requisitions", process_type: "PR", is_pr: true };
 
 const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
@@ -46,7 +50,9 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     if (arcPolicies.length > 0) groups.push({ process: ARC_FLOW_PROCESS, policies: arcPolicies, isArc: true });
     const arcGroupPolicies = policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type));
     if (arcGroupPolicies.length > 0) groups.push({ process: ARC_GROUP_FLOW_PROCESS, policies: arcGroupPolicies, isArc: true });
-    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type));
+    const prPolicies = policies.filter((p) => !p.process_id && isPrEntityType(p.entity_type));
+    if (prPolicies.length > 0) groups.push({ process: PR_FLOW_PROCESS, policies: prPolicies, isPr: true });
+    const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type) && !isPrEntityType(p.entity_type));
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
   }, [policies, processes]);
@@ -62,7 +68,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
   const misroutedArc = useMemo(
     () =>
       processGroups
-        .filter((g) => !g.isArc && !g.isOrphan && g.process?.id)
+        .filter((g) => !g.isArc && !g.isPr && !g.isOrphan && g.process?.id)
         .map((g) => ({
           process: g.process,
           policies: getMisroutedArcPolicies(g.process?.process_type, g.policies),
@@ -129,7 +135,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
           {processGroups.map((group) => {
             if (group.policies.length === 0) return null;
             if (group.isOrphan) return group.policies.map((policy) => (
-              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
+              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onEditWorkflow?.({ id: `__ORPHAN_${policy.id}__`, name: `${policy.entity_type} Approval`, process_type: "RFQ", is_orphan: true, policy })} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
             ));
             return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} />;
           })}

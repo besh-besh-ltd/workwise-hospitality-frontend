@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
+import { toast } from "react-toastify";
 import { BsArrowLeft } from "react-icons/bs";
 import SkeletonLoader from "./dashboard/SkeletonLoader";
 import { deleteApprovalPolicy } from "@/services/approval";
@@ -8,7 +9,7 @@ import useApprovalData from "./hooks/useApprovalData";
 import useProcessData from "./hooks/useProcessData";
 import DashboardView from "./dashboard/DashboardView";
 import WorkflowWizard from "./wizard/WorkflowWizard";
-import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType, isArcGroupEntityType } from "./constants";
+import { DS, getStageEntityOrder, ARC_ENTITY_ORDER, isArcEntityType, isArcGroupEntityType, isPrEntityType } from "./constants";
 
 const ApprovalHierarchyRedesigned = () => {
   const router = useRouter();
@@ -53,6 +54,19 @@ const ApprovalHierarchyRedesigned = () => {
 
   const handleEditWorkflow = useCallback((process) => {
     if (!process?.id) return;
+    // PR: the process-free PR chain (this hotel's, or the company-wide one).
+    if (process.is_pr) {
+      setEditingProcess(process);
+      setEditingPolicies(policies.filter((p) => !p.process_id && isPrEntityType(p.entity_type)));
+      setViewMode("wizard");
+      return;
+    }
+    // A policy that belongs to no process and no known flow cannot be edited in
+    // the wizard. Say so — Edit must never fall through to deleting it.
+    if (process.is_orphan) {
+      toast.info("This policy is not attached to a process, so it can't be edited here. Delete it and recreate it under a workflow.");
+      return;
+    }
     // ARC / Group ARC flows: process-free policies of that flow's stage types.
     if (process.is_arc) {
       const isFlowType = process.is_arc_group ? isArcGroupEntityType : isArcEntityType;
@@ -78,6 +92,8 @@ const ApprovalHierarchyRedesigned = () => {
         ? policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type))
         : process.is_arc
         ? policies.filter((p) => !p.process_id && isArcEntityType(p.entity_type))
+        : process.is_pr
+        ? policies.filter((p) => !p.process_id && isPrEntityType(p.entity_type))
         : policies.filter((p) => p.process_id === process.id);
       for (const policy of toDelete) {
         try {

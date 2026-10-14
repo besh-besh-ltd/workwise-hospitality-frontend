@@ -73,13 +73,13 @@ const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
   );
 };
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, isPr = false }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
   const handleAddStep = (si) => {
     const ns = stages.map((st, i) => {
       if (i !== si) return st;
-      return { ...st, steps: [...(st.steps || []), { step_order: (st.steps?.length || 0) + 1, approval_type: "STANDARD", decision_rule: "ANY", approver_source_type: "ROLE", approver_source_id: null }] };
+      return { ...st, steps: [...(st.steps || []), { step_order: (st.steps?.length || 0) + 1, approval_type: "STANDARD", decision_rule: "ANY", approver_source_type: "ROLE", approver_source_id: null, min_amount: null }] };
     });
     onStagesChange(ns);
   };
@@ -95,6 +95,7 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
         decision_rule: "ANY",
         approver_source_type: sourceType,
         approver_source_id: id,
+        min_amount: null,
       }));
       return { ...st, steps: [...existing, ...added] };
     });
@@ -144,7 +145,12 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
     <div>
       <h4 className={s.heading}>Configure approval stages</h4>
       <p className={s.subtext}>Set approvers for each stage. Click a stage to expand and add approval levels.</p>
-      {isArcGroup ? (
+      {isPr ? (
+        <p className={s.subtext} style={{ marginTop: -6, color: "#0f766e" }}>
+          Purchase requisition approvals are <strong>process-free</strong>. Levels run in order. Give a level a
+          minimum (&quot;Only when PR value ≥ ₹&quot;) to skip it for smaller requisitions; leave it blank to always apply.
+        </p>
+      ) : isArcGroup ? (
         <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
           Group ARC approvals apply to <strong>every hotel in the company</strong>. Pick approvers with company-level
           access — an approver scoped to one hotel only counts when that hotel leads the group rate contract.
@@ -201,7 +207,7 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
-                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
+                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} isPr={isPr} />
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
                             <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />

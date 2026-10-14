@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { BsChevronDown, BsPeopleFill, BsPersonFill, BsEnvelope, BsPlayFill, BsFlagFill } from "react-icons/bs";
+import { formatMinAmount } from "../minAmount";
 import { RFQ_PROCESS_STAGES, getEntityTypeConfig, DS } from "../constants";
 import s from "./ApprovalFlowGraph.module.scss";
 
@@ -7,7 +8,7 @@ const ApprovalFlowGraph = ({ stages = [], getApproverDisplayInfo, compact = fals
   const [openAccordions, setOpenAccordions] = useState({});
   const toggleAccordion = useCallback((key) => { setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] })); }, []);
 
-  const shortLabels = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Negotiation", NEGOTIATION_QUOTE: "Neg. Quote", PO: "PO", TENDER: "Tender", ARC: "ARC" };
+  const shortLabels = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Negotiation", NEGOTIATION_QUOTE: "Neg. Quote", PO: "PO", TENDER: "Tender", ARC: "ARC", PR: "PR" };
   const stageConfigs = stages.length
     ? stages.map((st) => ({ ...getEntityTypeConfig(st.entity_type), shortLabel: shortLabels[st.entity_type], steps: st.steps || [] }))
     : RFQ_PROCESS_STAGES.map((st) => ({ ...getEntityTypeConfig(st.value), shortLabel: st.shortLabel, steps: [] }));
@@ -63,6 +64,9 @@ const ApprovalFlowGraph = ({ stages = [], getApproverDisplayInfo, compact = fals
                               </span>
                               <span className={`${s.lRule} ${step.decision_rule === "ALL" ? s.lRuleAll : s.lRuleAny}`}>{step.decision_rule === "ALL" ? "ALL" : "ANY"}</span>
                             </div>
+                            {step.min_amount != null && String(step.min_amount).trim() !== "" && (
+                              <div className={s.emailLine} data-testid="min-amount-summary">Only when PR value ≥ {formatMinAmount(step.min_amount)}</div>
+                            )}
                             {!compact && isRole && hasUsers && (
                               <>
                                 <button type="button" className={s.accBtn} onClick={() => toggleAccordion(accKey)}>

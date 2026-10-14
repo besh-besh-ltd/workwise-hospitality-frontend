@@ -7,7 +7,8 @@ import WizardStepper from "./WizardStepper";
 import StepSelectProcessOnly from "./StepSelectProcessOnly";
 import StepConfigureStages from "./StepConfigureStages";
 import StepReviewSave from "./StepReviewSave";
-import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, FLOW_TYPE } from "../constants";
+import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, PR_PROCESS_STAGES, PR_ENTITY_ORDER, FLOW_TYPE } from "../constants";
+import { isValidMinAmount } from "../minAmount";
 import { buildWorkflowStagePayloads } from "../workflowPayloads";
 import s from "./WorkflowWizard.module.scss";
 
@@ -33,6 +34,7 @@ const buildArcStagesFromPolicies = (policies) =>
 const PROCESS_FREE_FLOWS = {
   [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: "ARC (Publish & Base)", review: { name: "ARC (Rate Contracts)", process_type: "ARC" } },
   [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: "Group ARC (Publish & Base)", review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
+  [FLOW_TYPE.PR]: { stages: PR_PROCESS_STAGES, order: PR_ENTITY_ORDER, base: "PR", baseLabel: "Purchase Requisition", review: { name: "Purchase Requisitions", process_type: "PR" } },
 };
 const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ entity_type: st.value, steps: [] }));
 
@@ -43,17 +45,19 @@ const WorkflowWizard = ({
 }) => {
   const isEditing = !!editingProcess;
   const isArcGroupEditing = isEditing && !!editingProcess?.is_arc_group;
-  const isArcEditing = isEditing && !!editingProcess?.is_arc && !isArcGroupEditing;
-  const editingFlow = isArcGroupEditing ? FLOW_TYPE.ARC_GROUP : isArcEditing ? FLOW_TYPE.ARC : FLOW_TYPE.PROCESS;
+  const isPrEditing = isEditing && !!editingProcess?.is_pr;
+  const isArcEditing = isEditing && !!editingProcess?.is_arc && !isArcGroupEditing && !isPrEditing;
+  const editingFlow = isPrEditing ? FLOW_TYPE.PR : isArcGroupEditing ? FLOW_TYPE.ARC_GROUP : isArcEditing ? FLOW_TYPE.ARC : FLOW_TYPE.PROCESS;
 
   const initialStages = useMemo(() => {
     if (isEditing && editingPolicies?.length) {
+      if (isPrEditing) return buildStagesFromOrder(editingPolicies, PR_ENTITY_ORDER);
       if (isArcGroupEditing) return buildStagesFromOrder(editingPolicies, ARC_GROUP_ENTITY_ORDER);
       if (isArcEditing) return buildArcStagesFromPolicies(editingPolicies);
       if (editingProcess?.process_type != null) return buildStagesFromPolicies(editingPolicies, editingProcess.process_type);
     }
     return getStagesForProcessType("RFQ").map((st) => ({ entity_type: st.value, steps: [] }));
-  }, [isEditing, isArcEditing, isArcGroupEditing, editingPolicies, editingProcess?.process_type]);
+  }, [isEditing, isArcEditing, isArcGroupEditing, isPrEditing, editingPolicies, editingProcess?.process_type]);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -62,12 +66,16 @@ const WorkflowWizard = ({
     flow_type: editingFlow,
     process_id: editingFlow === FLOW_TYPE.PROCESS && isEditing ? editingProcess?.id : null,
     stages: initialStages,
+    // PR only: one chain for every hotel (hotel_id null) instead of this hotel.
+    company_wide: isPrEditing && (editingPolicies || []).some((p) => p.hotel_id == null),
   }));
 
   // ARC and Group ARC are process-free; their stage sets are fixed.
   const processFree = PROCESS_FREE_FLOWS[wizardForm.flow_type] || null;
   const isArc = !!processFree;
   const isArcGroup = wizardForm.flow_type === FLOW_TYPE.ARC_GROUP;
+  const isPr = wizardForm.flow_type === FLOW_TYPE.PR;
+  const hasInvalidMin = isPr && (wizardForm.stages || []).some((st) => (st.steps || []).some((x) => !isValidMinAmount(x.min_amount)));
   const selectedProcess = processes?.find((p) => p.id === wizardForm.process_id);
   // Otherwise the stage set derives from the process type.
   const stageConfig = processFree ? processFree.stages : getStagesForProcessType(selectedProcess?.process_type);
@@ -77,12 +85,15 @@ const WorkflowWizard = ({
       setWizardForm({
         flow_type: editingFlow,
         process_id: editingFlow === FLOW_TYPE.PROCESS ? editingProcess.id : null,
-        stages: isArcGroupEditing
+        company_wide: isPrEditing && editingPolicies.some((p) => p.hotel_id == null),
+        stages: isPrEditing
+          ? buildStagesFromOrder(editingPolicies, PR_ENTITY_ORDER)
+          : isArcGroupEditing
           ? buildStagesFromOrder(editingPolicies, ARC_GROUP_ENTITY_ORDER)
           : isArcEditing ? buildArcStagesFromPolicies(editingPolicies) : buildStagesFromPolicies(editingPolicies, editingProcess.process_type),
       });
     }
-  }, [isEditing, isArcEditing, isArcGroupEditing, editingProcess?.id, editingPolicies?.length]);
+  }, [isEditing, isArcEditing, isArcGroupEditing, isPrEditing, editingProcess?.id, editingPolicies?.length]);
 
   React.useEffect(() => {
     if (isEditing) return;
@@ -166,9 +177,11 @@ const WorkflowWizard = ({
     companyId,
     hotelId,
     processId: wizardForm.process_id,
+    companyWide: isPr && !!wizardForm.company_wide,
   });
 
   const handleSave = async () => {
+    if (hasInvalidMin) return;
     if (!validateStep(2)) return;
     setSaving(true);
     try {
@@ -224,6 +237,8 @@ const WorkflowWizard = ({
           isEditing={isEditing}
           flowType={wizardForm.flow_type}
           groupWorkflowExists={groupWorkflowExists}
+          companyWide={!!wizardForm.company_wide}
+          onCompanyWideChange={(val) => setWizardForm((prev) => ({ ...prev, company_wide: val }))}
           onFlowChange={(flow) => {
             // One Group ARC workflow per company — edit it from its card.
             if (flow === FLOW_TYPE.ARC_GROUP && groupWorkflowExists) return;
@@ -236,8 +251,8 @@ const WorkflowWizard = ({
           }}
         />
       );
-      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} />;
-      case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} />;
+      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} isPr={isPr} />;
+      case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} isPr={isPr} companyWide={!!wizardForm.company_wide} hasInvalidMin={hasInvalidMin} />;
       default: return null;
     }
   };
@@ -262,7 +277,7 @@ const WorkflowWizard = ({
             {currentStep < TOTAL_STEPS ? (
               <button type="button" className={s.btnPrimary} onClick={handleNext}>Next <BsArrowRight size={14} /></button>
             ) : (
-              <button type="button" className={s.btnSave} onClick={handleSave} disabled={saving}>
+              <button type="button" className={s.btnSave} onClick={handleSave} disabled={saving || hasInvalidMin}>
                 {saving ? (<><span className="spinner-border spinner-border-sm" role="status" /> Saving...</>) : "Save Workflow"}
               </button>
             )}

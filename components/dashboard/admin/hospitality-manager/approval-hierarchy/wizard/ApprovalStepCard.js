@@ -2,6 +2,7 @@ import React from "react";
 import Select from "react-select";
 import { BsGripVertical, BsTrash3, BsExclamationTriangleFill, BsPeopleFill, BsPersonFill } from "react-icons/bs";
 import { approverSourceTypes, decisionRules, DS } from "../constants";
+import { isValidMinAmount, MIN_AMOUNT_ERROR } from "../minAmount";
 import st from "./ApprovalStepCard.module.scss";
 
 const selectStyles = {
@@ -17,8 +18,9 @@ const selectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop }) => {
+const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop, isPr = false }) => {
   const approverInfo = getApproverDisplayInfo(step, selectedDepartmentId);
+  const minInvalid = isPr && !isValidMinAmount(step.min_amount);
 
   return (
     <div draggable onDragStart={(e) => onDragStart(e, index)} onDragOver={onDragOver} onDragEnd={onDragEnd} onDrop={(e) => onDrop(e, index)} className={st.card}>
@@ -71,6 +73,28 @@ const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getAp
             </div>
           )}
         </div>
+        {isPr && (
+          <div className={st.field}>
+            <label className={st.label} htmlFor={`min-amount-${index}`}>Only when PR value ≥ ₹</label>
+            <input
+              id={`min-amount-${index}`}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="Leave blank to always apply"
+              value={step.min_amount ?? ""}
+              onChange={(e) => onChange(index, "min_amount", e.target.value)}
+              aria-invalid={minInvalid}
+              aria-describedby={minInvalid ? `min-amount-err-${index}` : undefined}
+              style={{ width: "100%", height: 40, borderRadius: 10, fontSize: 13, padding: "0 12px", fontFamily: "'Poppins', sans-serif", border: `1px solid ${minInvalid ? DS.error : DS.border}` }}
+            />
+            {minInvalid ? (
+              <div id={`min-amount-err-${index}`} role="alert" className={st.error}><BsExclamationTriangleFill size={14} style={{ flexShrink: 0, marginTop: 1 }} /><span>{MIN_AMOUNT_ERROR}</span></div>
+            ) : (
+              <small className="d-block mt-1" style={{ fontSize: 11, color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>This level applies only when the PR&apos;s estimated value is at or above this amount.</small>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
