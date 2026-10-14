@@ -10,6 +10,9 @@ const createJestConfig = nextJest({
 const config = {
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
+  // Build output (.next/standalone carries a copy of package.json) would collide
+  // in jest-haste-map; it never contains tests we want to run.
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
   // Add more setup options before each test is run
   // setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   // Mirror the `@/*` path alias from jsconfig.json so jest.mock() and

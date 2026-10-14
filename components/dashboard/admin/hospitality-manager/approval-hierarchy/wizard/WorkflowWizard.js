@@ -41,13 +41,15 @@ const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ 
 const WorkflowWizard = ({
   editingProcess, editingPolicies, processes, hotel,
   companyId, hotelId, getApproverOptions, getApproverDisplayInfo,
-  onCreateProcess, onSave, onCancel, groupWorkflowExists = false,
+  onCreateProcess, onSave, onCancel, groupWorkflowExists = false, initialFlow = null, prChainExists = { hotel: false, company: false },
 }) => {
   const isEditing = !!editingProcess;
   const isArcGroupEditing = isEditing && !!editingProcess?.is_arc_group;
   const isPrEditing = isEditing && !!editingProcess?.is_pr;
   const isArcEditing = isEditing && !!editingProcess?.is_arc && !isArcGroupEditing && !isPrEditing;
   const editingFlow = isPrEditing ? FLOW_TYPE.PR : isArcGroupEditing ? FLOW_TYPE.ARC_GROUP : isArcEditing ? FLOW_TYPE.ARC : FLOW_TYPE.PROCESS;
+
+  const startFlow = !isEditing && PROCESS_FREE_FLOWS[initialFlow] ? initialFlow : null;
 
   const initialStages = useMemo(() => {
     if (isEditing && editingPolicies?.length) {
@@ -56,6 +58,7 @@ const WorkflowWizard = ({
       if (isArcEditing) return buildArcStagesFromPolicies(editingPolicies);
       if (editingProcess?.process_type != null) return buildStagesFromPolicies(editingPolicies, editingProcess.process_type);
     }
+    if (startFlow) return emptyStagesFor(startFlow);
     return getStagesForProcessType("RFQ").map((st) => ({ entity_type: st.value, steps: [] }));
   }, [isEditing, isArcEditing, isArcGroupEditing, isPrEditing, editingPolicies, editingProcess?.process_type]);
 
@@ -63,7 +66,7 @@ const WorkflowWizard = ({
   const [saving, setSaving] = useState(false);
   const [impactWarning, setImpactWarning] = useState(null);
   const [wizardForm, setWizardForm] = useState(() => ({
-    flow_type: editingFlow,
+    flow_type: startFlow || editingFlow,
     process_id: editingFlow === FLOW_TYPE.PROCESS && isEditing ? editingProcess?.id : null,
     stages: initialStages,
     // PR only: one chain for every hotel (hotel_id null) instead of this hotel.
@@ -112,8 +115,18 @@ const WorkflowWizard = ({
     }
   }, [wizardForm.process_id, wizardForm.flow_type, isArc, isEditing, processes]);
 
+  // A second PR chain for a scope that already has one would hit the unique
+  // policy index and surface as a raw duplicate-key error.
+  const prScopeTaken = isPr && !isEditing && (wizardForm.company_wide ? prChainExists.company : prChainExists.hotel);
+
   const validateStep = (step) => {
     if (step === 1) {
+      if (prScopeTaken) {
+        toast.error(wizardForm.company_wide
+          ? "A company-wide Purchase Requisition chain already exists. Edit it from its card."
+          : "This hotel already has its own Purchase Requisition chain. Edit it from its card.");
+        return false;
+      }
       if (isArc) return true; // process-free flows have no process to pick
       if (!wizardForm.process_id) { toast.error("Please select a process"); return false; }
       return true;
@@ -238,6 +251,7 @@ const WorkflowWizard = ({
           flowType={wizardForm.flow_type}
           groupWorkflowExists={groupWorkflowExists}
           companyWide={!!wizardForm.company_wide}
+          prScopeTaken={prScopeTaken}
           onCompanyWideChange={(val) => setWizardForm((prev) => ({ ...prev, company_wide: val }))}
           onFlowChange={(flow) => {
             // One Group ARC workflow per company — edit it from its card.

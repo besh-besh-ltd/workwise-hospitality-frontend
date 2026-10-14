@@ -19,9 +19,14 @@ export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (c
 
 // Purchase requisition approvals are process-free too (process_id always null),
 // so they get their own editable card instead of landing in "Uncategorized".
-export const PR_FLOW_PROCESS = { id: "__PR__", name: "Purchase Requisitions", process_type: "PR", is_pr: true };
+// A hotel can see TWO PR chains: its own (hotel_id = this hotel) and the
+// company-wide one it inherits (hotel_id NULL). They are separate rows with
+// separate lifecycles, so each gets its own card and edits/deletes exactly its
+// one row — never both.
+export const PR_HOTEL_FLOW_PROCESS = { id: "__PR_HOTEL__", name: "Purchase Requisitions — This hotel", process_type: "PR", is_pr: true, pr_scope: "hotel" };
+export const PR_COMPANY_FLOW_PROCESS = { id: "__PR_COMPANY__", name: "Purchase Requisitions — Company-wide (inherited)", process_type: "PR", is_pr: true, pr_scope: "company" };
 
-const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
+const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview, onCreatePrChain }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -51,7 +56,10 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
     const arcGroupPolicies = policies.filter((p) => !p.process_id && isArcGroupEntityType(p.entity_type));
     if (arcGroupPolicies.length > 0) groups.push({ process: ARC_GROUP_FLOW_PROCESS, policies: arcGroupPolicies, isArc: true });
     const prPolicies = policies.filter((p) => !p.process_id && isPrEntityType(p.entity_type));
-    if (prPolicies.length > 0) groups.push({ process: PR_FLOW_PROCESS, policies: prPolicies, isPr: true });
+    const prHotel = prPolicies.filter((p) => p.hotel_id != null).slice(0, 1);
+    const prCompany = prPolicies.filter((p) => p.hotel_id == null).slice(0, 1);
+    if (prHotel.length > 0) groups.push({ process: PR_HOTEL_FLOW_PROCESS, policies: prHotel, isPr: true });
+    if (prCompany.length > 0) groups.push({ process: PR_COMPANY_FLOW_PROCESS, policies: prCompany, isPr: true });
     const orphans = policies.filter((p) => !p.process_id && !isArcEntityType(p.entity_type) && !isArcGroupEntityType(p.entity_type) && !isPrEntityType(p.entity_type));
     if (orphans.length > 0) groups.push({ process: { id: null, name: "Uncategorized", process_type: "RFQ" }, policies: orphans, isOrphan: true });
     return groups;
@@ -149,6 +157,13 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                 </div>
               ))}
             </>
+          )}
+
+          {onCreatePrChain && processGroups.some((g) => g.process === PR_COMPANY_FLOW_PROCESS) && !processGroups.some((g) => g.process === PR_HOTEL_FLOW_PROCESS) && (
+            <div className={s.emptyProc}>
+              <div><div className={s.emptyProcName}>This hotel uses the company-wide PR chain</div><div className={s.emptyProcSub}>Create a chain for this hotel only to override it here.</div></div>
+              <button className={s.configureBtn} onClick={onCreatePrChain}><BsPlus size={14} /> Create a hotel-specific chain</button>
+            </div>
           )}
 
           {misroutedArc.length > 0 && (

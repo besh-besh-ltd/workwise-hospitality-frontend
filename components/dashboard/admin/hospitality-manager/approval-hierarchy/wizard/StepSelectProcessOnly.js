@@ -8,7 +8,7 @@ import s from "./StepSelectProcessOnly.module.scss";
 const processTypeLabel = (t) => { const u = (t || "").toUpperCase(); if (u === "RFQ") return "RFQ"; if (u === "TENDER" || u === "ARC") return "Tender / ARC"; return u; };
 const processTypeFlow = (t) => { const u = (t || "").toUpperCase(); return u === "RFQ" ? "RFQ > Tech > Negotiation > Neg. Quote > PO" : "Tender > Tech > Negotiation > Neg. Quote > ARC"; };
 
-const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreateProcess, isEditing = false, flowType = FLOW_TYPE.PROCESS, onFlowChange, groupWorkflowExists = false, companyWide = false, onCompanyWideChange }) => {
+const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreateProcess, isEditing = false, flowType = FLOW_TYPE.PROCESS, onFlowChange, groupWorkflowExists = false, companyWide = false, onCompanyWideChange, prScopeTaken = false }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [groupBlocked, setGroupBlocked] = useState(false);
   const isArc = flowType === FLOW_TYPE.ARC;
@@ -58,7 +58,7 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
       <h4 className={s.heading}>Select Workflow Type</h4>
       <p className={s.subtext}>
         Choose what this approval workflow governs. <strong>RFQ / Tender</strong> workflows are tied to a process;
-        <strong> ARC</strong> (Annual Rate Contracts) and <strong>Group ARC</strong> run without a process.
+        <strong> ARC</strong> (Annual Rate Contracts), <strong>Group ARC</strong> and <strong>Purchase Requisition</strong> run without a process.
       </p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         {flowCard(FLOW_TYPE.PROCESS, "RFQ / Tender (process-based)", "Configure a process and its RFQ→PO or Tender→ARC stages.", DS.primary)}
@@ -92,6 +92,18 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
             <small className="d-block" style={{ fontSize: 12, color: DS.muted }}>
               {companyWide ? "One chain for every hotel." : "Applies to this business unit only."}
             </small>
+            {companyWide && (
+              <small className="d-block" style={{ fontSize: 12, color: "#0f766e" }}>
+                Pick approvers with company-level access — an approver scoped to one hotel only counts for that hotel&apos;s requisitions.
+              </small>
+            )}
+            {prScopeTaken && (
+              <small role="alert" className="d-block" style={{ fontSize: 12, color: DS.error }}>
+                {companyWide
+                  ? "A company-wide Purchase Requisition chain already exists. Edit it from its card."
+                  : "This hotel already has its own Purchase Requisition chain. Edit it from its card."}
+              </small>
+            )}
           </div>
         </div>
       ) : isArcGroup ? (

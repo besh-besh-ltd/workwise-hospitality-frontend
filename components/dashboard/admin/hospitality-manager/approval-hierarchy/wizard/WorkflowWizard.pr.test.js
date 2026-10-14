@@ -17,7 +17,7 @@ import "@testing-library/jest-dom";
 import { createApprovalPolicy, updateApprovalPolicy, deleteApprovalPolicy } from "@/services/approval";
 
 import WorkflowWizard from "./WorkflowWizard";
-import DashboardView, { PR_FLOW_PROCESS } from "../dashboard/DashboardView";
+import DashboardView, { PR_HOTEL_FLOW_PROCESS } from "../dashboard/DashboardView";
 
 const baseProps = () => ({
   processes: [{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }],
@@ -34,7 +34,7 @@ const baseProps = () => ({
 const step = (id, extra = {}) => ({ approver_source_type: "USER", approver_source_id: id, decision_rule: "ANY", step_order: 1, ...extra });
 const next = () => fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
 const editingPr = (steps) => ({
-  editingProcess: PR_FLOW_PROCESS,
+  editingProcess: PR_HOTEL_FLOW_PROCESS,
   editingPolicies: [{ id: 51, entity_type: "PR", hotel_id: 12, process_id: null, steps }],
 });
 
@@ -50,7 +50,7 @@ describe("PR approval flow", () => {
     const props = baseProps();
     render(<WorkflowWizard {...props} editingProcess={null} editingPolicies={[]} />);
 
-    fireEvent.click(screen.getByText(/Purchase Requisition/));
+    fireEvent.click(screen.getByText("Purchase Requisition (no process)"));
     next();
 
     // Pick two approvers in the bulk picker -> two levels.
@@ -80,15 +80,26 @@ describe("PR approval flow", () => {
     expect(payload.steps[1].min_amount).toBe("100000");
   });
 
-  test("a company-wide PR policy is saved with hotel_id null", async () => {
+  test("creating a company-wide PR policy saves hotel_id null; the scope is locked when editing", async () => {
     const props = baseProps();
-    render(<WorkflowWizard {...props} {...editingPr([step(7)])} />);
+    const { unmount } = render(<WorkflowWizard {...props} editingProcess={null} editingPolicies={[]} />);
+    fireEvent.click(screen.getByText("Purchase Requisition (no process)"));
     fireEvent.click(screen.getByLabelText(/all hotels/i));
+    expect(screen.getByText(/company-level access/i)).toBeInTheDocument();
     next();
+    const sel = screen.getByLabelText("Add several levels at once");
+    fireEvent.focus(sel);
+    fireEvent.keyDown(sel, { key: "ArrowDown", keyCode: 40 });
+    fireEvent.keyDown(sel, { key: "Enter", keyCode: 13 });
+    fireEvent.click(screen.getByRole("button", { name: /add 1 level/i }));
     next();
     fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
     await waitFor(() => expect(props.onSave).toHaveBeenCalled());
-    expect(updateApprovalPolicy).toHaveBeenCalledWith(expect.objectContaining({ id: 51, hotel_id: null, process_id: null }));
+    expect(createApprovalPolicy).toHaveBeenCalledWith(expect.objectContaining({ entity_type: "PR", hotel_id: null, process_id: null }));
+    unmount();
+
+    render(<WorkflowWizard {...baseProps()} {...editingPr([step(7)])} />);
+    expect(screen.getByLabelText(/all hotels/i)).toBeDisabled();
   });
 
   test.each(["-5", "1.234", "abc", "1e5"])("min amount %s shows an inline error and disables Save", (bad) => {
@@ -137,9 +148,9 @@ describe("Edit on a process-free policy opens the wizard", () => {
   test("PR policy: grouped into a Purchase Requisitions card; Edit opens the wizard, never deletes", () => {
     const props = dashProps();
     render(<DashboardView {...props} policies={[{ id: 51, entity_type: "PR", process_id: null, hotel_id: 12, steps: [step(7)] }]} />);
-    expect(screen.getByText("Purchase Requisitions")).toBeInTheDocument();
+    expect(screen.getByText(/Purchase Requisitions — This hotel/)).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Edit"));
-    expect(props.onEditWorkflow).toHaveBeenCalledWith(PR_FLOW_PROCESS);
+    expect(props.onEditWorkflow).toHaveBeenCalledWith(PR_HOTEL_FLOW_PROCESS);
     expect(props.onDeletePolicy).not.toHaveBeenCalled();
     expect(props.onDeleteWorkflow).not.toHaveBeenCalled();
   });

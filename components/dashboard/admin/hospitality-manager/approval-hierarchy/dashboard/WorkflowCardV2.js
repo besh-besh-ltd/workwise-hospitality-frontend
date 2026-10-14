@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope, BsBuilding } from "react-icons/bs";
+import { escapeHtml } from "@/utils/escapeHtml";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { DS, PROCESS_TYPE_COLORS, getCardStageOrder, getEntityTypeConfig } from "../constants";
 import s from "./WorkflowCardV2.module.scss";
@@ -50,6 +51,13 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
   const processName = process?.name || "Process";
   const totalLevels = stages.reduce((sum, st) => sum + (st.steps?.length || 0), 0);
   const configuredStages = stages.filter((st) => st.steps?.length > 0).length;
+
+  // ConfirmationModal renders `description` as HTML, so any name is escaped.
+  const deleteCopy = process?.pr_scope === "company"
+    ? "This removes the Purchase Requisition approval chain for every hotel that doesn't have its own."
+    : process?.pr_scope === "hotel"
+    ? "This removes this hotel's own Purchase Requisition approval chain. The hotel will use the company-wide chain, if there is one."
+    : `Delete the entire approval workflow for <strong>${escapeHtml(processName)}</strong>?`;
 
   const handleStageClick = useCallback((i) => {
     setExpandedStage((prev) => prev === i ? null : i);
@@ -203,7 +211,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
           </div>
         )}
       </div>
-      <ConfirmationModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={async () => { await onDelete(process); setShowDeleteModal(false); }} title="Delete workflow" description={`Delete the entire approval workflow for <strong>${processName}</strong>?`} confirmButtonColor="danger" confirmButtonText="Delete" cancelButtonText="Cancel" />
+      <ConfirmationModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={async () => { await onDelete(process); setShowDeleteModal(false); }} title="Delete workflow" description={deleteCopy} confirmButtonColor="danger" confirmButtonText="Delete" cancelButtonText="Cancel" />
     </>
   );
 };

@@ -15,6 +15,10 @@ jest.mock("@/services/pr", () => ({
   deleteReviewRouting: (...a) => mockDelete(...a),
   searchCategories: (...a) => mockSearch(...a),
 }));
+const mockCatList = jest.fn();
+jest.mock("@/services/rfq", () => ({ categoryList: (...a) => mockCatList(...a) }));
+const mockCompanies = jest.fn();
+jest.mock("@/services/hospitality", () => ({ getHospitalityCompanies: (...a) => mockCompanies(...a) }));
 const mockDepts = jest.fn();
 jest.mock("@/services/rbac", () => ({ getDepartments: (...a) => mockDepts(...a) }));
 jest.mock("react-toastify", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -34,6 +38,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGet.mockResolvedValue({ status: 1, data: ROWS });
   mockDepts.mockResolvedValue({ data: [{ id: 3, title: "Engineering" }, { id: 4, title: "F&B" }] });
+  mockCompanies.mockResolvedValue({ data: [{ id: 4, name: "Orchid Hotels" }] });
+  mockCatList.mockResolvedValue({ data: [{ id: 12, title: "Towels", parent_id: 10 }, { id: 13, title: "Bed sheets", parent_id: 10 }] });
   mockSearch.mockResolvedValue({ data: { categories: [{ id: 12, title: "Towels", parent_id: 10 }] } });
   mockSave.mockResolvedValue({ status: 1, message: "Review routing added", data: { id: 3, created: true } });
   mockDelete.mockResolvedValue({ status: 1, data: { id: 1 } });
@@ -115,5 +121,73 @@ describe("PrReviewRouting", () => {
     await screen.findByText("Linen");
     fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
     expect(await screen.findByText("Could not search categories.")).toBeInTheDocument();
+  });
+
+  test("legacy admin refused by /pr/categories (403): falls back to the general category list, filtered by the typed text", async () => {
+    mockSearch.mockRejectedValue({ response: { status: 403 } });
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Towels" }));
+    expect(mockCatList).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Bed sheets" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not search categories.")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Reviewing department"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /add routing/i }));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledWith({ category_id: 12, department_id: 3 }));
+  });
+
+  test("a non-auth search failure does not fall back", async () => {
+    mockSearch.mockRejectedValue({ response: { status: 500 } });
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
+    expect(await screen.findByText("Could not search categories.")).toBeInTheDocument();
+    expect(mockCatList).not.toHaveBeenCalled();
+  });
+
+  test("a single company: no company selector, no company_id sent", async () => {
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    expect(screen.queryByLabelText("Company")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("routing-company")).not.toBeInTheDocument();
+  });
+
+  test("an admin of several companies picks the company, it is sent, and the table shows a Company column", async () => {
+    mockCompanies.mockResolvedValue({ data: [{ id: 4, name: "Orchid Hotels" }, { id: 9, name: "Lotus Resorts" }] });
+    mockGet.mockResolvedValue({ status: 1, data: [{ ...ROWS[0], hospitality_company_id: 9 }] });
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    expect(screen.getByTestId("routing-company")).toHaveTextContent("Lotus Resorts");
+
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Towels" }));
+    fireEvent.change(screen.getByLabelText("Reviewing department"), { target: { value: "3" } });
+    const add = screen.getByRole("button", { name: /add routing/i });
+    expect(add).toBeDisabled(); // company not chosen yet
+    fireEvent.change(screen.getByLabelText("Company"), { target: { value: "4" } });
+    fireEvent.click(add);
+    await waitFor(() => expect(mockSave).toHaveBeenCalledWith({ category_id: 12, department_id: 3, hospitality_company_id: 4 }));
+  });
+
+  test("a slow search that resolves after the input was cleared does not reopen the list", async () => {
+    let resolveSearch;
+    mockSearch.mockReturnValue(new Promise((r) => { resolveSearch = r; }));
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "" } });
+    resolveSearch({ data: { categories: [{ id: 12, title: "Towels", parent_id: 10 }] } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("button", { name: "Towels" })).not.toBeInTheDocument();
+  });
+
+  test("master-data text in the confirm dialog is escaped, not injected as HTML", async () => {
+    mockGet.mockResolvedValue({ status: 1, data: [{ ...ROWS[0], category_title: "Linen<img src=x alt=pwn>" }] });
+    render(<PrReviewRouting />);
+    fireEvent.click(await screen.findByRole("button", { name: /remove routing for linen/i }));
+    expect(await screen.findByText(/Lines in Linen<img src=x alt=pwn> will no longer go to/)).toBeInTheDocument();
+    expect(screen.queryByAltText("pwn")).not.toBeInTheDocument();
   });
 });
