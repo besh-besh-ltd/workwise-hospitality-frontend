@@ -104,6 +104,20 @@ export const PROGRESS_LABEL = {
   cancelled: "Cancelled",
 };
 
+// Before approval a line's progress is just "pending"; what it waits on is the
+// PR's status. pending_approval keeps "Awaiting approval".
+export const PENDING_LINE_LABEL = {
+  draft: "Not submitted",
+  in_review: "In technical review",
+  returned: "Returned to requester",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
+};
+
+/** A line's progress label, read against its PR's status while still pending. */
+export const lineProgressLabel = (progress, prStatus) =>
+  (progress === "pending" && PENDING_LINE_LABEL[prStatus]) || PROGRESS_LABEL[progress] || progress;
+
 export const HEADER_PROGRESS_LABEL = {
   in_queue: "In queue",
   partly_in_sourcing: "Partly in sourcing",

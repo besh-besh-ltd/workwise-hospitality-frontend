@@ -8,6 +8,8 @@ import { ATTACHMENT_KIND_LABEL, fmtDateTime } from "./prDetail";
 const item = (n) => (n ? `item ${n}` : "an item");
 const Item = (n) => (n ? `Item ${n}` : "An item");
 const quote = (s) => (s ? `“${s}”` : null);
+// Mid-sentence status: "Was in technical review", not "Was In technical review".
+const lowerFirst = (s) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const humanize = (t) => {
   const s = String(t || "event").replace(/_/g, " ");
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -59,7 +61,7 @@ const EVENTS = {
   approval_sent_back: (p) => ({ title: `Sent back by an approver${p.step_order ? ` (step ${p.step_order})` : ""}`, detail: quote(p.note), tone: "warn" }),
   approved: (p) => ({ title: "Approved", detail: quote(p.comment), tone: "success" }),
   rejected: (p) => ({ title: "Rejected", detail: quote(p.comment), tone: "danger" }),
-  withdrawn: (p) => ({ title: "Withdrawn by the requester", detail: p.from_status ? `Was ${STATUS_LABEL[p.from_status] || p.from_status}` : null, tone: "warn" }),
+  withdrawn: (p) => ({ title: "Withdrawn by the requester", detail: p.from_status ? `Was ${lowerFirst(STATUS_LABEL[p.from_status] || p.from_status)}` : null, tone: "warn" }),
   cancelled: (p) => ({ title: "Cancelled", detail: quote(p.reason), tone: "danger" }),
   copied_from: (p) => ({ title: `Copied from ${p.source_pr_number || "another PR"}` }),
   assigned: (p) => ({ title: `Assigned to ${p.to_name || "a buyer"}`, detail: p.from_name ? `Was ${p.from_name}` : null, tone: "info" }),

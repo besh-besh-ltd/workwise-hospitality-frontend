@@ -43,7 +43,7 @@ jest.mock("next/router", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import * as PrApi from "@/services/pr";
@@ -711,4 +711,61 @@ test("the timeline merges step approvals (approval_history) in time order, inclu
   ]);
   expect(within(tl).getByText(/Fine by me/)).toBeInTheDocument();
   expect(within(tl).getAllByText(/Hari Head/)).toHaveLength(2);
+});
+
+// Task 14 deferred minor: a second action started while one was in flight was
+// refused by the double-click guard — and the refused attach was marked
+// "failed" with a "Try again" for a file that was never sent.
+test("an attach refused by the double-click guard is ignored, not marked failed", async () => {
+  mockMe = { id: 8 };
+  await renderPage(reviewerDetail());
+  const pending = deferred();
+  PrApi.addComment.mockReturnValue(pending.promise);
+  const convo = screen.getByTestId("pr-conversation");
+  fireEvent.change(within(convo).getByLabelText("Write a comment"), { target: { value: "On it" } });
+  const work = screen.getByTestId("line-work-501");
+  const file = new File(["x"], "spec.pdf", { type: "application/pdf" });
+
+  // Both in one tick: the comment's call holds the guard when the attach arrives.
+  act(() => {
+    fireEvent.click(within(convo).getByRole("button", { name: "Post comment" }));
+    fireEvent.change(within(work).getByLabelText("Attach a file"), { target: { files: [file] } });
+  });
+  await act(async () => {});
+  expect(handleUploadFile).not.toHaveBeenCalled();
+  expect(PrApi.addAttachment).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Try spec.pdf again" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Uploading…")).not.toBeInTheDocument();
+
+  await act(async () => { pending.resolve({ status: 1, message: "Comment added", data: reviewerDetail() }); });
+  expect(await screen.findByRole("status")).toHaveTextContent("Comment added");
+  expect(screen.queryByRole("button", { name: "Try spec.pdf again" })).not.toBeInTheDocument();
+  expect(within(screen.getByTestId("line-work-501")).getByLabelText("Attach a file")).toBeEnabled();
+});
+
+// 19b cosmetic: "Was In technical review".
+test("a withdrawal in the timeline reads 'Was in technical review'", async () => {
+  await renderPage(detail({
+    events: [
+      { id: 1, pr_line_id: null, revision: 1, actor_id: 7, actor_name: "Asha Rao", event_type: "withdrawn", payload: { from_status: "in_review" }, created_at: "2026-10-11T05:00:00.000Z" },
+      { id: 2, pr_line_id: null, revision: 2, actor_id: 7, actor_name: "Asha Rao", event_type: "withdrawn", payload: { from_status: "pending_approval" }, created_at: "2026-10-12T05:00:00.000Z" },
+    ],
+  }));
+  const tl = screen.getByTestId("pr-timeline");
+  expect(within(tl).getByText(/· Was in technical review$/)).toBeInTheDocument();
+  expect(within(tl).getByText(/· Was pending approval$/)).toBeInTheDocument();
+  expect(tl).not.toHaveTextContent("Was In technical review");
+});
+
+// 19b cosmetic: every line of a PR in review or sent back read "Awaiting
+// approval". Before approval a line's progress follows the PR's status.
+test.each([
+  ["in_review", "In technical review"],
+  ["returned", "Returned to requester"],
+  ["pending_approval", "Awaiting approval"],
+])("a line of a %s PR reads '%s'", async (status, label) => {
+  await renderPage(detail({ pr: { status, now_with: "Someone" }, lines: [line({ progress: "pending" })] }));
+  const row = screen.getByText("Bath towel").closest("tr");
+  expect(within(row).getByText(label)).toBeInTheDocument();
+  if (label !== "Awaiting approval") expect(within(row).queryByText("Awaiting approval")).not.toBeInTheDocument();
 });

@@ -157,6 +157,12 @@ export function AttachmentBlock({ prId, prLineId, attachments, canEdit, run, bus
       return PrApi.addAttachment(prId, { pr_line_id: prLineId, kind, file_url: row.file_path, file_name: row.file_name || file.name });
     }, { success: "File attached" });
     setUploading(false);
+    if (ok === null) {
+      // Refused by the double-click guard: nothing was sent, so nothing failed.
+      // Clear the picker so the same file can be chosen again.
+      if (fileRef.current && failed !== file) fileRef.current.value = "";
+      return;
+    }
     if (ok) {
       setFailed(null);
       if (fileRef.current) fileRef.current.value = "";

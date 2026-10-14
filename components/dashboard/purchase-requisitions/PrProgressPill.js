@@ -1,5 +1,5 @@
 import React from "react";
-import { PROGRESS_LABEL, HEADER_PROGRESS_LABEL } from "./prFormat";
+import { HEADER_PROGRESS_LABEL, lineProgressLabel } from "./prFormat";
 
 const TONE = {
   pending: "neutral",
@@ -16,14 +16,17 @@ const TONE = {
   completed: "success",
 };
 
-/** Line progress by default; pass `header` for the PR-level header_progress. */
-export default function PrProgressPill({ progress, header = false }) {
+/**
+ * Line progress by default (pass the PR's `prStatus` so a pending line says
+ * what it waits on); pass `header` for the PR-level header_progress.
+ */
+export default function PrProgressPill({ progress, header = false, prStatus = null }) {
   if (!progress) return null;
-  const labels = header ? HEADER_PROGRESS_LABEL : PROGRESS_LABEL;
+  const label = header ? HEADER_PROGRESS_LABEL[progress] || progress : lineProgressLabel(progress, prStatus);
   return (
     <span className={`status-pill ${TONE[progress] || "neutral"}`}>
       <span className="dot" />
-      <span>{labels[progress] || progress}</span>
+      <span>{label}</span>
     </span>
   );
 }

@@ -48,7 +48,7 @@ const detailsLabel = (l) => {
 };
 
 export default function PrLinesTable({
-  prId, lines, total, editableLineIds = [], cancellableLineIds = [], run, busy, meId, raisedBy, onCancelLine,
+  prId, prStatus = null, lines, total, editableLineIds = [], cancellableLineIds = [], run, busy, meId, raisedBy, onCancelLine,
 }) {
   const editable = new Set(editableLineIds);
   const cancellable = new Set(cancellableLineIds);
@@ -129,7 +129,7 @@ export default function PrLinesTable({
                     </td>
                     <td className="right">{formatINR(l.estimated_unit_price)}</td>
                     <td className="right">{formatINR(l.line_value)}</td>
-                    <td><PrProgressPill progress={l.progress} /></td>
+                    <td><PrProgressPill progress={l.progress} prStatus={prStatus} /></td>
                     <td><LineLinks links={l.links} /></td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <button type="button" className="btn btn-ghost btn-sm" aria-expanded={isOpen}

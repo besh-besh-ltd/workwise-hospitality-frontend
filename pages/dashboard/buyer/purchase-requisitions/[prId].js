@@ -122,10 +122,11 @@ export default function PrDetailPage() {
    *       inModal (validation errors stay in the open dialog), chain (review
    *       completion: 422 chain codes mean the review stayed pending),
    *       refetchOnError (approval engine refusals). 403 / 404 always refetch.
-   * Resolves true on success.
+   * Resolves true on success, false on a failure, and null when the
+   * double-click guard refused it (another call was in flight; nothing sent).
    */
   const run = async (fn, opts = {}) => {
-    if (busyRef.current) return false;
+    if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     setFailure(null);
@@ -364,6 +365,7 @@ export default function PrDetailPage() {
 
         <PrLinesTable
           prId={prId}
+          prStatus={pr.status}
           lines={lines}
           total={pr.estimated_total}
           editableLineIds={review?.can_edit_lines || []}
