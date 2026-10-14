@@ -7,6 +7,7 @@ import Link from "next/link";
 import { HiArrowLeft } from "react-icons/hi";
 import { createBuyerCompanyUser } from "@/services/Auth";
 import { createAccountSchema } from "@/utils/schema";
+import { formatMobile } from "@/utils/mobile";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import { getDepartments } from "@/services/rbac";
 import { getHospitalityCompanies, getHospitalityHotels } from "@/services/hospitality";
@@ -177,7 +178,7 @@ const CreateAccountPage = () => {
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
     setLoading(true);
     try {
-      const formattedMobile = `${values.countryCode}-${values.mobile}`;
+      const formattedMobile = formatMobile(values.countryCode, values.mobile);
       const apiData = {
         name: values.name,
         email: values.email,

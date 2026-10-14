@@ -3,6 +3,7 @@ import Modal from "react-modal";
 import { Formik, Form } from "formik";
 import { HiX, HiExclamationCircle } from "react-icons/hi";
 import { dynamicAccountEditSchema } from "@/utils/schema";
+import { parseMobile, formatMobile } from "@/utils/mobile";
 import { getDepartments } from "@/services/rbac";
 import { sendLog, SeverityNumber } from "@/lib/otel";
 import CommonFormInput from "@/components/shared/CommonFormInput";
@@ -84,12 +85,6 @@ const getEmployeeTypeOption = (raw) => {
   return employeeTypeOptions.find((opt) => opt.value === normalized) || null;
 };
 
-const parseMobile = (mobile) => {
-  if (!mobile) return { countryCode: "+91", mobileNumber: "" };
-  const parts = mobile.split("-");
-  if (parts.length === 2) return { countryCode: parts[0], mobileNumber: parts[1] };
-  return { countryCode: "+91", mobileNumber: mobile };
-};
 
 const EditAccountModal = ({
   isOpen,
@@ -181,7 +176,7 @@ const EditAccountModal = ({
     // but Formik can also be submitted via Enter.
     if (!canSubmit) return;
 
-    const formattedMobile = `${values.countryCode}-${values.mobile}`;
+    const formattedMobile = formatMobile(values.countryCode, values.mobile);
     let statusVal;
     if (typeof values.status === "object" && values.status !== null) {
       statusVal = values.status.value === "active" ? 1 : 0;
