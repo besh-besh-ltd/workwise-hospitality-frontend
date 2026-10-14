@@ -83,10 +83,35 @@ export function eventView(e, lineNoById = new Map()) {
 
 const COLLAPSED = 12;
 
-export default function PrTimeline({ events = [], lines = [] }) {
+/** One step approval from the detail's approval_history (the completing approval is the "approved" event). */
+export function approvalView(a) {
+  const step = a.step_order ? `step ${a.step_order}${a.total_steps ? ` of ${a.total_steps}` : ""}` : "a step";
+  return { title: `Approved ${step}`, detail: quote(a.comment), tone: "success" };
+}
+
+const timeOf = (s) => {
+  const t = new Date(s).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/**
+ * PR events and step approvals as one list, oldest first. Events keep their own
+ * order; a step approval goes after every event that happened before or at the
+ * same instant.
+ */
+export function timelineItems(events = [], approvals = [], lineNoById = new Map()) {
+  const items = [
+    ...events.map((e, i) => ({ key: `e-${e.id}`, at: timeOf(e.created_at), rank: 0, i, actor: e.actor_name, created_at: e.created_at, view: eventView(e, lineNoById) })),
+    ...approvals.map((a, i) => ({ key: `a-${a.id}`, at: timeOf(a.created_at), rank: 1, i, actor: a.actor_name, created_at: a.created_at, view: approvalView(a) })),
+  ];
+  return items.sort((x, y) => x.at - y.at || x.rank - y.rank || x.i - y.i);
+}
+
+export default function PrTimeline({ events = [], approvals = [], lines = [] }) {
   const [all, setAll] = useState(false);
   const lineNoById = new Map(lines.map((l) => [l.id, l.line_no]));
-  const shown = all || events.length <= COLLAPSED ? events : events.slice(-COLLAPSED);
+  const items = timelineItems(events, approvals, lineNoById);
+  const shown = all || items.length <= COLLAPSED ? items : items.slice(-COLLAPSED);
 
   return (
     <div className="section-card" data-testid="pr-timeline">
@@ -97,26 +122,26 @@ export default function PrTimeline({ events = [], lines = [] }) {
             <div className="h-sub">Everything that happened to this PR, oldest first</div>
           </div>
         </div>
-        {events.length > COLLAPSED && (
+        {items.length > COLLAPSED && (
           <div className="h-right">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAll((v) => !v)}>
-              {all ? "Show recent" : `Show all ${events.length}`}
+              {all ? "Show recent" : `Show all ${items.length}`}
             </button>
           </div>
         )}
       </div>
       <div className="section-body">
-        {events.length === 0 && <div style={{ fontSize: 12.5, color: "var(--fg-4)" }}>Nothing yet.</div>}
+        {items.length === 0 && <div style={{ fontSize: 12.5, color: "var(--fg-4)" }}>Nothing yet.</div>}
         <div className="audit-tl">
           {shown.map((e) => {
-            const v = eventView(e, lineNoById);
+            const v = e.view;
             return (
-              <div key={e.id} className="audit-tl-row">
+              <div key={e.key} className="audit-tl-row">
                 <div className={`tl-ic ${v.tone || ""}`} />
                 <div className="tl-main">
                   <div className="tl-title">{v.title}</div>
                   <div className="tl-detail">
-                    {e.actor_name || "System"}
+                    {e.actor || "System"}
                     {v.detail ? <> · {v.detail}</> : null}
                   </div>
                   {v.spec && (

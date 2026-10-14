@@ -181,7 +181,7 @@ export default function PrDetailPage() {
     );
   }
 
-  const { pr, lines = [], attachments = [], reviews = [], events = [], comments = [], approval } = detail;
+  const { pr, lines = [], attachments = [], reviews = [], events = [], approval_history: approvalHistory = [], comments = [], approval } = detail;
   const caps = detail.capabilities || {};
   const rights = caps.approval || null;
   const review = caps.review || null;
@@ -407,7 +407,7 @@ export default function PrDetailPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
             <PrConversation comments={comments} busy={busy} onPost={(text) => run(() => PrApi.addComment(prId, text), { success: "Comment added" })} />
-            <PrTimeline events={events} lines={lines} />
+            <PrTimeline events={events} approvals={approvalHistory} lines={lines} />
           </div>
         </div>
 

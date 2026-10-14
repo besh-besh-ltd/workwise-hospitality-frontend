@@ -82,6 +82,7 @@ const detail = (over = {}) => ({
   attachments: over.attachments || [],
   reviews: over.reviews || [],
   events: over.events || [],
+  approval_history: over.approval_history || [],
   comments: over.comments || [],
   capabilities: { ...NO_CAPS, ...(over.capabilities || {}) },
   approval: over.approval === undefined ? null : over.approval,
@@ -672,4 +673,28 @@ test("a stuck PR's holder is flagged with the danger pill", async () => {
   await renderPage(approverDetail({ pr: { status: "pending_approval", approval_instance_id: 900, now_with: "No eligible approver — contact your admin" }, capabilities: { approval: null } }));
   const nowWith = screen.getByTestId("now-with");
   expect(nowWith.querySelector(".status-pill.danger")).toHaveTextContent("No eligible approver — contact your admin");
+});
+
+// Browser pass 19b: intermediate step approvals were missing from the timeline,
+// and after a send-back the first round's approvals were nowhere on the PR.
+test("the timeline merges step approvals (approval_history) in time order, including a cancelled round", async () => {
+  await renderPage(detail({
+    pr: { status: "pending_approval", now_with: "Approval step 2: Farah" },
+    events: [
+      { id: 1, pr_line_id: null, revision: 1, actor_id: 7, actor_name: "Asha Rao", event_type: "approval_started", payload: { amount: "150000.00", steps: [1, 2] }, created_at: "2026-10-11T05:00:00.000Z" },
+      { id: 2, pr_line_id: null, revision: 1, actor_id: 9, actor_name: "Farah FC", event_type: "approval_sent_back", payload: { note: "Wrong qty", step_order: 2 }, created_at: "2026-10-11T07:00:00.000Z" },
+      { id: 3, pr_line_id: null, revision: 2, actor_id: 7, actor_name: "Asha Rao", event_type: "approval_started", payload: { amount: "150000.00", steps: [1, 2] }, created_at: "2026-10-11T08:00:00.000Z" },
+    ],
+    approval_history: [
+      { id: 10, instance_id: 6, step_order: 1, total_steps: 2, actor_id: 8, actor_name: "Hari Head", comment: "Fine by me", created_at: "2026-10-11T06:00:00.000Z" },
+      { id: 12, instance_id: 7, step_order: 1, total_steps: 2, actor_id: 8, actor_name: "Hari Head", comment: null, created_at: "2026-10-11T09:00:00.000Z" },
+    ],
+  }));
+  const tl = screen.getByTestId("pr-timeline");
+  const titles = within(tl).getAllByText(/^(Approval started|Approved step 1 of 2|Sent back by an approver)/).map((n) => n.textContent);
+  expect(titles).toEqual([
+    "Approval started", "Approved step 1 of 2", "Sent back by an approver (step 2)", "Approval started", "Approved step 1 of 2",
+  ]);
+  expect(within(tl).getByText(/Fine by me/)).toBeInTheDocument();
+  expect(within(tl).getAllByText(/Hari Head/)).toHaveLength(2);
 });
