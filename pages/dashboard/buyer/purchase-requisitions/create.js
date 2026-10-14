@@ -86,28 +86,37 @@ export default function PurchaseRequisitionCreatePage() {
 
   // ----- re-check catalog lines against the (new) hotel/department -------
   // A rate contract can cover an item at one hotel/department and not another.
+  // Fails CLOSED: a line the check could not confirm (the lookup failed, or the
+  // item was not among the results for its name) is marked unverified and
+  // blocks Save/Submit until a retry confirms it — never assumed off-contract.
   const recheckReq = useRef(0);
+  const [recheckTick, setRecheckTick] = useState(0);
   useEffect(() => {
     const myReq = ++recheckReq.current;
     const catalog = linesRef.current.filter((l) => l.kind === "catalog" && l.product_variant_id);
     if (!form.hotel_id || !form.department_id || catalog.length === 0) { setRechecking(false); return undefined; }
     setRechecking(true);
+    // Only these lines are judged; one added meanwhile came from a search in this cell.
+    const checkedKeys = new Set(catalog.map((l) => l.key));
     const names = [...new Set(catalog.map((l) => l.label).filter((n) => n && n.length >= 2))];
     Promise.all(names.map((q) =>
       PrApi.searchItems({ hotel_id: Number(form.hotel_id), department_id: Number(form.department_id), q, limit: 50 })
         .then((res) => res?.data?.items || [])
-        .catch(() => []),
+        .catch(() => []), // proves nothing: the lines it would have confirmed stay unverified
     )).then((groups) => {
       if (myReq !== recheckReq.current) return;
       const byVariant = new Map(groups.flat().map((it) => [it.variant_id, it]));
       setLines((cur) => cur.map((l) => {
-        const hit = l.kind === "catalog" ? byVariant.get(l.product_variant_id) : null;
-        return hit ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null } : l;
+        if (l.kind !== "catalog" || !checkedKeys.has(l.key)) return l;
+        const hit = byVariant.get(l.product_variant_id);
+        return hit
+          ? { ...l, on_contract: Boolean(hit.on_contract), arc_number: hit.arc_number || null, contract_unverified: false }
+          : { ...l, contract_unverified: true };
       }));
       setRechecking(false);
     });
     return () => { recheckReq.current += 1; };
-  }, [form.hotel_id, form.department_id]);
+  }, [form.hotel_id, form.department_id, recheckTick]);
 
   // ----- load an existing draft / returned PR ---------------------------
   const loadPr = useCallback(async (id) => {
@@ -316,7 +325,8 @@ export default function PurchaseRequisitionCreatePage() {
 
   const previewProblems = preview.data?.problems || [];
   const onContractLines = lines.filter((l) => l.on_contract);
-  const blocked = rechecking || onContractLines.length > 0;
+  const unverifiedLines = lines.filter((l) => l.contract_unverified);
+  const blocked = rechecking || onContractLines.length > 0 || unverifiedLines.length > 0;
   const canSubmit = preview.status === "ready" && previewProblems.length === 0 && lines.length > 0 && !busy && !blocked;
   const flaggedNos = flagged;
 
@@ -381,7 +391,9 @@ export default function PurchaseRequisitionCreatePage() {
             <div>
               {rechecking
                 ? "Checking your items against this hotel and department…"
-                : "Some items are on a rate contract here, so they can't go on a purchase requisition. Remove them, or raise a Material Requisition for them. Saving and submitting are paused until then."}
+                : onContractLines.length > 0
+                  ? "Some items are on a rate contract here, so they can't go on a purchase requisition. Remove them, or raise a Material Requisition for them. Saving and submitting are paused until then."
+                  : "We couldn't check some items against rate contracts for this hotel and department. Retry the check on those items — saving and submitting are paused until then."}
             </div>
           </div>
         )}
@@ -484,6 +496,8 @@ export default function PurchaseRequisitionCreatePage() {
                   showErrors={showErrors}
                   flaggedLineNos={flaggedNos}
                   excludePrId={prId}
+                  contractChecking={rechecking}
+                  onRetryContractCheck={() => setRecheckTick((n) => n + 1)}
                 />
                 {fieldErr("lines")}
               </div>

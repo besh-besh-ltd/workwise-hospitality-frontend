@@ -219,10 +219,10 @@ function DuplicateHint({ hotelId, variantId, excludePrId }) {
 
 const errStyle = { color: "var(--danger)", fontSize: 11.5, marginTop: 4 };
 
-function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onChange, onRemove }) {
+function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onChange, onRemove, contractChecking, onRetryContractCheck }) {
   const errs = lineErrors(line);
   const show = (k) => (showErrors ? errs[k] : null);
-  const invalid = flagged || line.on_contract || (showErrors && Object.keys(errs).length > 0);
+  const invalid = flagged || line.on_contract || line.contract_unverified || (showErrors && Object.keys(errs).length > 0);
   const set = (patch) => onChange({ ...line, ...patch });
   const fid = (f) => `${line.key}-${f}`;
   const value = rowValue(line);
@@ -245,6 +245,17 @@ function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onCha
             <span>On contract {line.arc_number} — </span>
             <Link href={materialRequisitionCreate()}>raise an MR</Link>
             <span> instead. Remove this line to continue.</span>
+          </div>
+        </div>
+      )}
+      {line.contract_unverified && !line.on_contract && (
+        <div className="guide warn" role="alert" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
+          <div>
+            <span>Couldn&apos;t verify contract status for this hotel and department — </span>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={contractChecking}
+              aria-label={`Retry the contract check for item ${n}`} onClick={onRetryContractCheck}>
+              {contractChecking ? "Checking…" : "Retry"}
+            </button>
           </div>
         </div>
       )}
@@ -338,7 +349,10 @@ function LineRow({ line, index, hotelId, excludePrId, showErrors, flagged, onCha
   );
 }
 
-export default function PrLineEditor({ lines, onChange, hotelId, departmentId, showErrors, flaggedLineNos = [], excludePrId = null }) {
+export default function PrLineEditor({
+  lines, onChange, hotelId, departmentId, showErrors, flaggedLineNos = [], excludePrId = null,
+  contractChecking = false, onRetryContractCheck = () => {},
+}) {
   const [searching, setSearching] = useState(false);
   const ready = Boolean(hotelId && departmentId);
   const full = lines.length >= MAX_LINES;
@@ -379,6 +393,8 @@ export default function PrLineEditor({ lines, onChange, hotelId, departmentId, s
           <LineRow
             key={line.key} line={line} index={i} hotelId={hotelId} excludePrId={excludePrId} showErrors={showErrors}
             flagged={flaggedLineNos.includes(i + 1)}
+            contractChecking={contractChecking}
+            onRetryContractCheck={onRetryContractCheck}
             onChange={(next) => replaceAt(i, next)}
             onRemove={() => onChange(lines.filter((_, j) => j !== i))}
           />

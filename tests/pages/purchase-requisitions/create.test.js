@@ -581,3 +581,45 @@ test("a failed hotel lookup is an error with a retry, not the no-access state", 
   await waitFor(() => expect(within(hotel).getByRole("option", { name: "Mumbai Suites" })).toBeInTheDocument());
   expect(screen.queryByText(/Couldn't load the hotels/)).not.toBeInTheDocument();
 });
+
+// Task 13 deferred minor: after a hotel/department change the on-contract
+// re-check failed OPEN — a failed lookup (.catch(() => [])) or a variant not in
+// the top 50 results left the line as it was, so an item on contract in the new
+// cell could be saved. It must stay unverified and block Save/Submit.
+async function changeToKitchenWith(searchImpl) {
+  PrApi.getFormDepartments.mockResolvedValue({ data: { departments: [{ id: 9, title: "Housekeeping" }, { id: 10, title: "Kitchen" }] } });
+  render(<CreatePrPage />);
+  await pickCell();
+  fillHeader();
+  await addCatalogLine();
+  fillLine("2", "50");
+  await screen.findByText("Hari Head", undefined, W);
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+  PrApi.searchItems.mockImplementation(searchImpl);
+  const dept = screen.getByLabelText("Department");
+  await waitFor(() => expect(within(dept).getByRole("option", { name: "Kitchen" })).toBeInTheDocument());
+  fireEvent.change(dept, { target: { value: "10" } });
+}
+
+test("a failed contract re-check marks the line unverified and blocks Save and Submit until a retry verifies it", async () => {
+  await changeToKitchenWith(() => Promise.reject(new Error("offline")));
+  expect(await screen.findByText(/Couldn't verify contract status/, undefined, W)).toBeInTheDocument();
+  expect(screen.getByTestId("pr-line-1")).toHaveAttribute("data-invalid", "true");
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
+  expect(screen.getByText(/couldn't check some items against rate contracts/i)).toBeInTheDocument();
+
+  PrApi.searchItems.mockImplementation(() => Promise.resolve({ data: { items: [towel] } }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry the contract check for item 1" }));
+  await waitFor(() => expect(screen.queryByText(/Couldn't verify contract status/)).not.toBeInTheDocument());
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+  expect(PrApi.searchItems).toHaveBeenLastCalledWith({ hotel_id: 12, department_id: 10, q: "Bath towel", limit: 50 });
+});
+
+test("a line whose item is missing from the re-check results is not assumed to be off contract", async () => {
+  await changeToKitchenWith(() => Promise.resolve({ data: { items: [rice] } }));
+  expect(await screen.findByText(/Couldn't verify contract status/, undefined, W)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Remove line 1" }));
+  expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+});
