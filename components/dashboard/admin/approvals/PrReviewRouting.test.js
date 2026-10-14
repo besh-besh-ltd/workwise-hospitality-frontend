@@ -39,7 +39,11 @@ beforeEach(() => {
   mockGet.mockResolvedValue({ status: 1, data: ROWS });
   mockDepts.mockResolvedValue({ data: [{ id: 3, title: "Engineering" }, { id: 4, title: "F&B" }] });
   mockCompanies.mockResolvedValue({ data: [{ id: 4, name: "Orchid Hotels" }] });
-  mockCatList.mockResolvedValue({ data: [{ id: 12, title: "Towels", parent_id: 10 }, { id: 13, title: "Bed sheets", parent_id: 10 }] });
+  // /products/category-list returns every tbl_category row (TC.*), including inactive and deleted ones.
+  mockCatList.mockResolvedValue({ data: [
+    { id: 12, title: "Towels", parent_id: 10, status: 1, is_deleted: 0 },
+    { id: 13, title: "Bed sheets", parent_id: 10, status: 1, is_deleted: 0 },
+  ] });
   mockSearch.mockResolvedValue({ data: { categories: [{ id: 12, title: "Towels", parent_id: 10 }] } });
   mockSave.mockResolvedValue({ status: 1, message: "Review routing added", data: { id: 3, created: true } });
   mockDelete.mockResolvedValue({ status: 1, data: { id: 1 } });
@@ -135,6 +139,23 @@ describe("PrReviewRouting", () => {
     fireEvent.change(screen.getByLabelText("Reviewing department"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: /add routing/i }));
     await waitFor(() => expect(mockSave).toHaveBeenCalledWith({ category_id: 12, department_id: 3 }));
+  });
+
+  // Task 17 deferred minor: the fallback listed every category, so an admin
+  // could map an inactive or deleted one (the server then refused it).
+  test("the fallback list offers only active, undeleted categories", async () => {
+    mockSearch.mockRejectedValue({ response: { status: 403 } });
+    mockCatList.mockResolvedValue({ data: [
+      { id: 12, title: "Towels", parent_id: 10, status: 1, is_deleted: 0 },
+      { id: 14, title: "Towels (old range)", parent_id: 10, status: 0, is_deleted: 0 },
+      { id: 15, title: "Towel racks", parent_id: 10, status: 1, is_deleted: 1 },
+    ] });
+    render(<PrReviewRouting />);
+    await screen.findByText("Linen");
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "tow" } });
+    expect(await screen.findByRole("button", { name: "Towels" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Towels (old range)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Towel racks" })).not.toBeInTheDocument();
   });
 
   test("a non-auth search failure does not fall back", async () => {

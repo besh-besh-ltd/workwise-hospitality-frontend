@@ -98,7 +98,10 @@ const PrReviewRouting = () => {
           if (![401, 403].includes(statusOf(err))) throw err;
           if (!allCategories.current) {
             const all = await categoryList();
-            allCategories.current = Array.isArray(all?.data) ? all.data : [];
+            // The general list is every row; offer only what /pr/categories would
+            // (active, not deleted) — the server refuses the rest.
+            allCategories.current = (Array.isArray(all?.data) ? all.data : [])
+              .filter((c) => Number(c.status) === 1 && Number(c.is_deleted) === 0);
           }
           const needle = q.toLowerCase();
           found = allCategories.current
