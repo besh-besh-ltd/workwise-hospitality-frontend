@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { X, LogOut, KeyRound } from "lucide-react";
 import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
+import { isGuestSession } from "@/utils/guestSession";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
@@ -24,8 +25,8 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
   const { pendingCountFor } = usePendingApprovalIndicators({ enabled: !!user });
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany }),
-    [currentUserType, isHospitalityCompany]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession() }),
+    [currentUserType, isHospitalityCompany, userProfile]
   );
 
   if (!open) return null;

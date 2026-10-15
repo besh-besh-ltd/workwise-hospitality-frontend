@@ -297,3 +297,43 @@ describe("phone CSS contract", () => {
     expect(phone).toMatch(/min-height:\s*44px/);
   });
 });
+
+// Scope audit #8: the phone cards dropped the desktop matrix's "via {org}" label for a
+// vendor that quotes as part of a vendor network.
+describe("phone: vendor network label", () => {
+  beforeEach(() => setViewport(true));
+
+  test("a networked vendor's card says 'via {org}', on the lead row and in the others list", async () => {
+    const payload = viewPayload();
+    payload.vendors = [
+      { id: SHARMA, name: "Sharma Glassworks", short: "SG", org_name: "Sharma Group" },
+      { id: METRO, name: "Metro Fittings", short: "MF", org_name: "Metro Network" },
+    ];
+    getQuoteComparisonView.mockResolvedValue(payload);
+    await renderSheet();
+    const b = cardFor("WINDOW B");
+    const lead = b.querySelector(`#${awardCellAnchorId(8802, METRO)}`);
+    expect(lead).toHaveTextContent("via Metro Network");
+    fireEvent.click(within(b).getByRole("button", { name: /1 other quote/i }));
+    expect(within(b).getByText("via Sharma Group")).toBeInTheDocument();
+  });
+
+  test("an absent quote's row carries the label too", async () => {
+    const payload = viewPayload();
+    payload.vendors = [
+      { id: SHARMA, name: "Sharma Glassworks", short: "SG", org_name: "Sharma Group" },
+      { id: METRO, name: "Metro Fittings", short: "MF" },
+    ];
+    payload.products[1].quotes = { [METRO]: quote(1620, METRO) };
+    getQuoteComparisonView.mockResolvedValue(payload);
+    await renderSheet();
+    const b = cardFor("WINDOW B");
+    fireEvent.click(within(b).getByRole("button", { name: /other/i }));
+    expect(within(b).getByText("via Sharma Group")).toBeInTheDocument();
+  });
+
+  test("a vendor in no network gets no label", async () => {
+    await renderSheet();
+    expect(screen.queryByText(/^via /)).toBeNull();
+  });
+});

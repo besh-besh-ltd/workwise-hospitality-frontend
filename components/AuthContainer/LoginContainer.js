@@ -170,7 +170,7 @@ const LoginContainer = (props) => {
                     userType = "admin";
                 } else if (userDetail.user_type == 2) {
                     userType = "buyer";
-                } else if (userDetail.user_type == 3) {
+                } else if (userDetail.user_type == 3 || userDetail.user_type == 11) {
                     userType = "vendor";
                 } else if (userDetail.user_type == 4) {
                     userType = "other";
@@ -276,7 +276,7 @@ const LoginContainer = (props) => {
                         userType = "admin";
                     } else if (response?.profile?.user_type == 2) {
                         userType = "buyer";
-                    } else if (response?.profile?.user_type == 3) {
+                    } else if (response?.profile?.user_type == 3 || response?.profile?.user_type == 11) {
                         userType = "vendor";
                     } else if (response?.profile?.user_type == 7) {
                         userType = "admin";

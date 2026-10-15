@@ -29,6 +29,7 @@ import { Badge } from "react-bootstrap";
 import RoundEndActions from "./negotiation/RoundEndActions";
 import ApprovalWorkflowSection from "./approval/ApprovalWorkflowSection";
 import SelectedQuotesDisplay from "./negotiation/SelectedQuotesDisplay";
+import VendorOrgLabel from "./VendorOrgLabel";
 import { getQuoteApprovalStatus, approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
 import { getAvailableHierarchies } from "@/services/general";
 
@@ -477,6 +478,7 @@ const QuoteCompareTable = ({
                             <>
                               {!isRegret && hasPrice && <span style={{ fontSize: "10px", opacity: 0.85, display: "block" }}>L{index + 1}</span>}
                               {vd?.organization_name || vd?.name || vd?.email || 'Unknown Vendor'}
+                              <VendorOrgLabel orgName={vd?.org_name} style={{ fontSize: "10px", opacity: 0.85 }} />
                             </>
                           );
                         })()}

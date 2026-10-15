@@ -87,6 +87,8 @@ const AuthModal = (props) => {
             loginSubmitHandler={props.loginSubmitHandler}
             loginWithGoogle={props.loginWithGoogle}
             loginError={props.loginError}
+            prefillIdentifier={props.prefillIdentifier}
+            notice={props.notice}
           />
         ) : (
           // <Register closeModal={props.closeModal} />  - replaced register with book a call

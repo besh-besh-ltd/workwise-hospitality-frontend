@@ -8,6 +8,9 @@ const getTodayDate = () => {
 
 const initialState = {
   userProfile: null,
+  // Not persisted (the persist whitelist is userProfile only): true once this
+  // load's one-time vendor-network profile refetch has settled, either way.
+  networkProfileRefreshSettled: false,
   storeLoading: false,
   allTerms: [],
   rfq_id: -1,
@@ -71,6 +74,10 @@ export const rfqProductsSlice = createSlice({
 
     clearUserProfile: (state) => {
       state.userProfile = null;
+    },
+
+    setNetworkProfileRefreshSettled: (state) => {
+      state.networkProfileRefreshSettled = true;
     },
 
     clearState: (state, action) => {
@@ -352,6 +359,7 @@ export const rfqProductsSlice = createSlice({
 export const {
   setUserProfile,
   clearUserProfile,
+  setNetworkProfileRefreshSettled,
   intializeRfq,
   setStoreLoading,
   clearState,

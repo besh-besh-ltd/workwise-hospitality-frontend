@@ -13,7 +13,12 @@ import { AmendmentTooltip } from "@/components/dashboard/rate-contracts/shared/a
 import { useRouter } from "next/router";
 import { loadXlsx } from "@/utils/xlsx";
 import * as ArcApi from "@/services/arc_v2";
+import FulfilledByPanel, { FulfillingForNote, isFulfilmentMemberView } from "@/components/dashboard/vendor/network/ArcFulfilment";
+import ContractOfferBanner from "@/components/dashboard/vendor/network/ContractOfferBanner";
+import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
+import { escapeHtml as esc } from "@/utils/escapeHtml";
+import { noteArcGuestRefusal } from "@/utils/arcGuestRefusal";
 
 // ── format helpers ───────────────────────────────────────────────────────
 const fmtL = (n) => {
@@ -125,6 +130,24 @@ const PO_STATUS_VIEW = {
   cancelled:          { label: "cancelled",  tone: "danger" },
 };
 
+// The hero's status pill, in words (the chip is uppercased by CSS; a raw enum read
+// "AWAITING_ACCEPTANCE"). awaiting_acceptance names who is to sign: the member waits on
+// its head office (the contract holder), the holder on itself.
+const STATUS_CHIP = {
+  clarification: { cls: "eval", label: "In clarification" },
+  active: { cls: "active", label: "Active" },
+  expiring_soon: { cls: "expiring", label: "Expiring soon" },
+  expired: { cls: "expired", label: "Expired" },
+};
+function statusChipFor(status, isMember) {
+  if (status === "awaiting_acceptance") {
+    return { cls: "floated", label: isMember ? "Awaiting HQ signature" : "Awaiting your signature" };
+  }
+  if (STATUS_CHIP[status]) return STATUS_CHIP[status];
+  const words = String(status || "").replace(/_/g, " ");
+  return { cls: "draft", label: words.charAt(0).toUpperCase() + words.slice(1) };
+}
+
 const Sk = ({ w = "100%", h = 12, r, style }) => (
   <span className="arc-sk" style={{ display: "block", width: w, height: h, borderRadius: r, ...style }} />
 );
@@ -148,6 +171,19 @@ export default function VendorContractDetailPage() {
       setTab(q);
     }
   }, [router.isReady, router.query.tab]);
+  // A fulfilment member has no amendments tab: a deep link to it lands on consumption.
+  useEffect(() => {
+    if (isFulfilmentMemberView(data) && tab === "amendments") setTab("consumption");
+  }, [data, tab]);
+  // A member offered hotels of this contract lands on the contract document: the rates,
+  // quantities and terms it is asked to accept (unless a ?tab= link picked a tab).
+  const landedOnOffer = useRef(false);
+  useEffect(() => {
+    if (landedOnOffer.current || !router.isReady || !data) return;
+    landedOnOffer.current = true;
+    const offered = isFulfilmentMemberView(data) && (data.hotels || []).some((h) => h.assignment_status === "PENDING");
+    if (offered && typeof router.query.tab !== "string") setTab("doc");
+  }, [data, router.isReady, router.query.tab]);
 
   const load = async () => {
     if (!contractId) return;
@@ -155,6 +191,11 @@ export default function VendorContractDetailPage() {
     try {
       const res = await ArcApi.vendorGetContract(contractId);
       setData(res?.data ?? res ?? null);
+    } catch (err) {
+      // Handled so the rejection is not left unhandled; the shared axios instance has
+      // already noted a guest-session refusal (the sign-in notice). Any other failure
+      // keeps what the page shows.
+      noteArcGuestRefusal(err);
     } finally {
       setLoading(false);
     }
@@ -169,6 +210,11 @@ export default function VendorContractDetailPage() {
         const res = await ArcApi.vendorGetContract(contractId);
         const payload = res?.data ?? res ?? null;
         if (!cancelled) setData(payload);
+      } catch (err) {
+        // Handled so the rejection is not left unhandled; the shared axios instance has
+        // already noted a guest-session refusal (the sign-in notice). Any other failure
+        // leaves no contract ("Contract not found").
+        noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -185,6 +231,17 @@ export default function VendorContractDetailPage() {
     catch (e) { window.alert("Could not decline the addendum. Please try again."); }
   };
 
+  // After the member replies to its offer: re-read the contract. A member that declined
+  // every hotel it held no longer reads it, so it goes back to Assigned to me.
+  const reloadAfterReply = async () => {
+    try {
+      const res = await ArcApi.vendorGetContract(contractId);
+      setData(res?.data ?? res ?? null);
+    } catch {
+      router.push("/dashboard/vendor/network/assigned");
+    }
+  };
+
   const contract   = data?.contract   || null;
   const arc        = data?.arc        || null;
   const lines      = data?.lines      || [];
@@ -195,6 +252,12 @@ export default function VendorContractDetailPage() {
   const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const callOffs   = data?.callOffs   || [];
   const amendments = data?.amendments || [];
+  // Vendor Networks: a member entity that fulfils some hotels of the principal's
+  // contract reads it, filtered to its hotels, with every contract action hidden.
+  const isMember   = isFulfilmentMemberView(data);
+  // Some of the member's hotels are still offered to it (PENDING assignments): it is
+  // reviewing the contract before it accepts.
+  const isOffered  = isMember && hotels.some((h) => h.assignment_status === "PENDING");
 
   // On first load, land the amendments sub-tab on a non-empty bucket so an
   // approved-but-unsigned (awaiting_signature) amendment isn't hidden behind
@@ -249,14 +312,14 @@ export default function VendorContractDetailPage() {
     const win = window.open("", "_blank");
     if (!win) return;
     const linesHtml = lines.map((l) => `<tr>
-        <td>${l.variant_name || ""}<div class="sub">${l.variant_slug || l.arc_item_id}</div></td>
-        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${l.uom || ""}</td>
+        <td>${esc(l.variant_name)}<div class="sub">${esc(l.variant_slug || l.arc_item_id)}</div></td>
+        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${esc(l.uom)}</td>
         <td class="r mono">${Number(l.gst_pct ?? 0)}%</td>
-        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${l.uom || ""}</td>
+        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${esc(l.uom)}</td>
         <td class="r mono">₹${Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)).toLocaleString("en-IN")}</td>
       </tr>`).join("");
     const signed = contract.status === "active" || contract.signed_by_vendor_at;
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${arc?.arc_number || ""}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(arc?.arc_number)}</title>
       <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;}
       h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:20px;}
       .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e2e2dd;border-radius:8px;overflow:hidden;margin-bottom:18px;} .grid>div{padding:12px 16px;} .grid>div:first-child{border-right:1px solid #e2e2dd;}
@@ -264,14 +327,14 @@ export default function VendorContractDetailPage() {
       table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;} th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left;} th{background:#fafaf8;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8a8a85;} .r{text-align:right;} .mono{font-family:ui-monospace,monospace;} .sub{font-size:10px;color:#9a9a95;}
       .seal{font-size:11px;color:#6b6b66;margin-top:22px;border-top:1px dashed #d6d6d0;padding-top:10px;}</style></head>
       <body>
-      <h1>Rate Contract — ${arc?.title || ""}</h1>
-      <div class="meta">${arc?.arc_number || ""} · ${contract.vendor_name || ""} · ${signed ? "Signed " + fmtDate(contract.signed_by_vendor_at) : "Unsigned draft"}</div>
+      <h1>Rate Contract — ${esc(arc?.title)}</h1>
+      <div class="meta">${esc(arc?.arc_number)} · ${esc(contract.vendor_name)} · ${signed ? "Signed " + esc(fmtDate(contract.signed_by_vendor_at)) : "Unsigned draft"}</div>
       <div class="grid">
-        <div><div class="k">Buyer</div><div class="v">${arc?.hotel_name || ""}${arc?.hotel_city ? " · " + arc.hotel_city : ""}</div></div>
-        <div><div class="k">Term</div><div class="v">${fmtDate(arc?.contract_start_at)} → ${fmtDate(arc?.contract_end_at)}</div></div>
+        <div><div class="k">Buyer</div><div class="v">${esc(arc?.hotel_name)}${arc?.hotel_city ? " · " + esc(arc.hotel_city) : ""}</div></div>
+        <div><div class="k">Term</div><div class="v">${esc(fmtDate(arc?.contract_start_at))} → ${esc(fmtDate(arc?.contract_end_at))}</div></div>
       </div>
       <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
-      <div class="seal">Signed-document hash (SHA-256): ${contract.document_hash || "—"}</div>
+      <div class="seal">Signed-document hash (SHA-256): ${esc(contract.document_hash || "—")}</div>
       </body></html>`);
     win.document.close();
     win.focus();
@@ -291,11 +354,14 @@ export default function VendorContractDetailPage() {
     );
   }
 
-  const statusChip = contract.status === "active" ? { cls: "active", label: "Active" }
-    : contract.status === "expiring_soon" ? { cls: "expiring", label: "Expiring soon" }
-    : contract.status === "expired" ? { cls: "expired", label: "Expired" }
-    : { cls: "draft", label: contract.status };
+  const statusChip = statusChipFor(contract.status, isMember);
+  // An offered contract is reached from Assigned to me (the Active list holds only
+  // contracts the member fulfils), so its breadcrumb and back links lead there.
+  const listHref = isOffered ? "/dashboard/vendor/network/assigned" : "/dashboard/vendor/rate-contracts/active";
   const daysLeft = daysRemaining(arc?.contract_end_at);
+  // The contract holder has not signed yet (it is being reviewed, or is back with the
+  // buyer for a clarification): the document is not presented as signed.
+  const unsigned = contract.status === "awaiting_acceptance" || contract.status === "clarification";
   const paymentTerms = lines[0]?.payment_terms || arc?.payment_terms_expected || "Net 30";
 
   return (
@@ -303,23 +369,34 @@ export default function VendorContractDetailPage() {
       {/* Breadcrumb */}
       <nav className={`arc-crumb-strip ${phone.crumb}`} aria-label="Breadcrumb">
         <div className="inner">
-          <button type="button" className="crumb-back" onClick={() => router.push("/dashboard/vendor/rate-contracts/active")}>
+          <button type="button" className="crumb-back" onClick={() => router.push(listHref)}>
             <I.back /> Back
           </button>
           <span className="sep">/</span>
           <Link href="/dashboard/vendor/rate-contracts/requests">Rate contracts</Link>
           <span className="sep">/</span>
-          <Link href="/dashboard/vendor/rate-contracts/active">Active</Link>
+          {isOffered
+            ? <Link href="/dashboard/vendor/network/assigned">Assigned to me</Link>
+            : <Link href="/dashboard/vendor/rate-contracts/active">Active</Link>}
           <span className="sep">/</span>
           <span className="here">#{arc?.arc_number || contract.arc_number}</span>
         </div>
       </nav>
 
+      {isOffered && (
+        <ContractOfferBanner
+          hotels={hotels}
+          principalName={contract.vendor_name}
+          contractLabel={`Rate contract ${arc?.arc_number || contract.arc_number}${arc?.title ? ` · ${arc.title}` : ""}`}
+          onReplied={reloadAfterReply}
+        />
+      )}
+
       {/* ═════ HERO ═════ */}
       <section className="arc-hero">
         <div className="top">
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="eyebrow">Your active contract</div>
+            <div className="eyebrow">{isOffered ? "Contract offered to you" : isMember ? "Contract you fulfil" : "Your active contract"}</div>
             <h1>
               <span>{arc?.title || contract.arc_title}</span>
               <span className={`status-chip ${statusChip.cls}`}>{statusChip.label}</span>
@@ -335,18 +412,20 @@ export default function VendorContractDetailPage() {
             </div>
           </div>
           <div className="hero-actions">
-            <Link href="/dashboard/vendor/rate-contracts/active" className="btn">
-              <I.back /> Back to list
+            <Link href={listHref} className="btn">
+              <I.back /> {isOffered ? "Back to Assigned to me" : "Back to list"}
             </Link>
-            {(contract.status === "active" || contract.status === "expiring_soon") && (
+            {!isMember && (contract.status === "active" || contract.status === "expiring_soon") && (
               <Link href={`/dashboard/vendor/rate-contracts/amendments/request?contract=${contractId}`} className="btn">
                 <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
                 Request amendment
               </Link>
             )}
-            <button className="btn cta" onClick={dlContractCopy}>
-              <I.download /> Download PDF
-            </button>
+            {!isMember && (
+              <button className="btn cta" onClick={dlContractCopy}>
+                <I.download /> Download PDF
+              </button>
+            )}
           </div>
         </div>
 
@@ -391,11 +470,14 @@ export default function VendorContractDetailPage() {
       <div className="detail-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
 
+          {isMember && <FulfillingForNote hotels={hotels} principalName={contract.vendor_name} />}
+          <FulfilledByPanel contractId={contractId} contract={contract} arc={arc} hotels={hotels} viewerRole={data?.viewer_role} />
+
           <div className="tab-row" style={{ alignSelf: "flex-start" }}>
             <button className={`tab ${tab === "consumption" ? "active" : ""}`} onClick={() => setTab("consumption")}><I.chart /> Consumption</button>
             <button className={`tab ${tab === "pos" ? "active" : ""}`} onClick={() => setTab("pos")}><I.po /> Released POs <span className="ct">{callOffs.length}</span></button>
             <button className={`tab ${tab === "doc" ? "active" : ""}`} onClick={() => setTab("doc")}><I.file /> Contract document</button>
-            <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
+            {!isMember && <button className={`tab ${tab === "amendments" ? "active" : ""}`} onClick={() => setTab("amendments")}>
               <I.edit /> Amendments
               {(() => {
                 const pending = amendments.filter((a) => a.status === "requested").length;
@@ -404,7 +486,7 @@ export default function VendorContractDetailPage() {
                 }
                 return <span className="ct">{amendments.length}</span>;
               })()}
-            </button>
+            </button>}
           </div>
 
           {/* ── CONSUMPTION ── */}
@@ -570,14 +652,18 @@ export default function VendorContractDetailPage() {
                 <div className="h-left">
                   <div className="ic"><I.file /></div>
                   <div>
-                    <h2>Signed contract document</h2>
-                    <div className="h-sub">Read-only · countersigned <span className="em">{fmtDate(contract.signed_by_vendor_at)}</span></div>
+                    <h2>{unsigned ? "Contract document (not yet signed)" : "Signed contract document"}</h2>
+                    {unsigned
+                      ? <div className="h-sub">Read-only · awaiting {isMember ? "the contract holder's" : "your"} signature</div>
+                      : <div className="h-sub">Read-only · countersigned <span className="em">{fmtDate(contract.signed_by_vendor_at)}</span></div>}
                   </div>
                 </div>
                 <div className="h-right">
-                  <span className="pill success"><span className="pdot" />e-signed</span>
+                  {unsigned
+                    ? <span className="pill warn"><span className="pdot" />awaiting signature</span>
+                    : <span className="pill success"><span className="pdot" />e-signed</span>}
                   <button className="btn btn-secondary btn-sm" onClick={dlAnnexure}><I.download /> Rate annexure (.xlsx)</button>
-                  <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>
+                  {!isMember && <button className="btn btn-secondary btn-sm" onClick={dlContractCopy}><I.download /> PDF copy</button>}
                 </div>
               </div>
               <div className="section-body">
@@ -598,7 +684,7 @@ export default function VendorContractDetailPage() {
                       </div>
                     </div>
                     <div className="party-block">
-                      <div className="pb-label">Vendor (you)</div>
+                      <div className="pb-label">{isMember ? "Vendor (contract holder)" : "Vendor (you)"}</div>
                       <div className="pb-name">{contract.vendor_name}</div>
                       <div className="pb-sub">{contract.vendor_email || "—"}</div>
                     </div>
@@ -615,6 +701,21 @@ export default function VendorContractDetailPage() {
                     <div><div className="dt-k">Escalation</div><div className="dt-v">{arc?.escalation_clause_json?.type && arc.escalation_clause_json.type !== "none" ? `${arc.escalation_clause_json.type}${arc.escalation_clause_json.cap_pct ? ` · cap ${arc.escalation_clause_json.cap_pct}%` : ""}` : "None"}</div></div>
                   </div>
                 </div>
+
+                {/* A member reads the commercial clauses the contract holder accepted at signing. */}
+                {isMember && (
+                  <div className="doc-section" role="group" aria-label="Commercial terms">
+                    <div className="doc-h">Commercial terms</div>
+                    <div className="doc-terms" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
+                      {buildCommercialTerms(arc).map((t) => (
+                        <div key={t.key}>
+                          <div className="dt-k">{t.title}</div>
+                          <div className="dt-v" style={{ fontWeight: 500, lineHeight: 1.5 }}>{t.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="doc-section">
                   <div className="doc-h">Schedule A — Awarded items &amp; rates</div>
@@ -643,7 +744,7 @@ export default function VendorContractDetailPage() {
                   </table>
                 </div>
 
-                {arc?.penalty_clause && (
+                {!isMember && arc?.penalty_clause && (
                   <div className="doc-section">
                     <div className="doc-h">Penalty / LD clause</div>
                     <div className="doc-p">{arc.penalty_clause}</div>
@@ -661,10 +762,10 @@ export default function VendorContractDetailPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="pb-label" style={{ marginBottom: 8 }}>For vendor (you)</div>
+                      <div className="pb-label" style={{ marginBottom: 8 }}>{isMember ? "For vendor (contract holder)" : "For vendor (you)"}</div>
                       <div className="sig-block">
                         <div className="sig-name">{contract.vendor_name}</div>
-                        <div className="sig-meta">Signed via OTP on {fmtDate(contract.signed_by_vendor_at)}</div>
+                        <div className="sig-meta">{unsigned ? "Awaiting OTP signature" : `Signed via OTP on ${fmtDate(contract.signed_by_vendor_at)}`}</div>
                       </div>
                     </div>
                   </div>
@@ -677,7 +778,7 @@ export default function VendorContractDetailPage() {
           )}
 
           {/* ── AMENDMENTS ── */}
-          {tab === "amendments" && (
+          {tab === "amendments" && !isMember && (
             <VendorAmendmentsTab
               amendments={amendments}
               lines={lines}
@@ -739,7 +840,7 @@ export default function VendorContractDetailPage() {
           </div>
 
           {/* Amendments — the vendor's own requests on this contract */}
-          <div className="aside-card">
+          {!isMember && <div className="aside-card">
             <div className="ac-head">
               <div className="ac-t">
                 <Icon><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
@@ -780,7 +881,7 @@ export default function VendorContractDetailPage() {
                 </Link>
               )}
             </div>
-          </div>
+          </div>}
 
           {contract.status === "expiring_soon" && (
             <div className="expiry-card">
@@ -816,7 +917,7 @@ export default function VendorContractDetailPage() {
 
       {/* One modal at a time: hide the amendment modal while the sign overlay
           is up; cancelling the sign overlay brings the amendment modal back. */}
-      {viewingAmend && !signingAddendum && (
+      {!isMember && viewingAmend && !signingAddendum && (
         <VendorAmendmentModal
           amendment={viewingAmend}
           arc={arc}
@@ -832,7 +933,7 @@ export default function VendorContractDetailPage() {
         />
       )}
 
-      {signingAddendum && (
+      {!isMember && signingAddendum && (
         <AddendumSignModal
           addendum={signingAddendum}
           onClose={() => setSigningAddendum(null)}

@@ -23,6 +23,7 @@ import {
   getVendorPoPdf,
 } from "@/services/po";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
 import RaiseInvoiceModal from "@/components/dashboard/vendor/order-book/RaiseInvoiceModal";
@@ -201,6 +202,8 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   }
 
   const pricing = po.pricing || {};
+  // Call-off POs: CGST/SGST or IGST rows instead of the single GST line.
+  const gstSplit = gstSplitRows(pricing);
   const items = Array.isArray(po.items) ? po.items : [];
   const vendor = po.vendor || {};
   const rfq = po.rfq || {};
@@ -217,8 +220,9 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
   const isCallOff = !!po.is_call_off;
   const callOff = po.call_off || {};
-  const arcHref = callOff.arc_id
-    ? `/dashboard/vendor/rate-contracts/${callOff.arc_id}`
+  // The vendor contract page is keyed by the contract id, not the ARC id.
+  const arcHref = callOff.arc_contract_id
+    ? `/dashboard/vendor/rate-contracts/${callOff.arc_contract_id}`
     : null;
 
   // The "ordered by" buyer label: company / hotel-or-BU / department come from
@@ -426,14 +430,23 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                     <td className="num">{inr(pricing.subtotal)}</td>
                   </tr>
                 )}
-                {pricing.tax != null && (
-                  <tr className="subtotal">
-                    <td colSpan={6} className={styles.tRight}>
-                      GST
-                    </td>
-                    <td className="num">{inr(pricing.tax)}</td>
-                  </tr>
-                )}
+                {gstSplit
+                  ? gstSplit.map((row) => (
+                      <tr key={row.key} className="subtotal">
+                        <td colSpan={6} className={styles.tRight}>
+                          {row.label}
+                        </td>
+                        <td className="num">{inr(row.amount)}</td>
+                      </tr>
+                    ))
+                  : pricing.tax != null && (
+                      <tr className="subtotal">
+                        <td colSpan={6} className={styles.tRight}>
+                          GST
+                        </td>
+                        <td className="num">{inr(pricing.tax)}</td>
+                      </tr>
+                    )}
                 {freightInsurance > 0 && (
                   <tr className="subtotal">
                     <td colSpan={6} className={styles.tRight}>

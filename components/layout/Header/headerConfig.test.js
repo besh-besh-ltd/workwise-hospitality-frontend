@@ -26,8 +26,11 @@ describe("visibleRoleMenu", () => {
   });
 
   it("leaves non-admin rails alone", () => {
+    // Vendor-network gates are covered in headerConfig.network.test.js; with
+    // no profile loaded, only the network-gated entries drop out here.
+    const notNetworkGated = (i) => !i.requiresNetworkAdmin && !i.requiresNetworkMember && !i.requiresNoNetwork;
     for (const role of ["buyer", "vendor"]) {
-      expect(visibleRoleMenu(role, { isHospitalityCompany: false })).toEqual(roleMenus[role]);
+      expect(visibleRoleMenu(role, { isHospitalityCompany: false })).toEqual(roleMenus[role].filter(notNetworkGated));
     }
   });
 

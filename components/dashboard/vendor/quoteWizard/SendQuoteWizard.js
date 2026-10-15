@@ -46,6 +46,8 @@ import {
 import ClauseChatDrawer from "./ClauseChatDrawer";
 import BuyerAttachments from "./BuyerAttachments";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
+import RfqAssignmentBanner, { isRoutingPending } from "@/components/dashboard/vendor/network/RfqAssignmentBanner";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 import styles from "./SendQuoteWizard.module.scss";
 import {
@@ -607,6 +609,9 @@ const SendQuoteWizard = () => {
 
   // Regret
   const [regretOpen, setRegretOpen] = useState(false);
+
+  // Vendor Networks: bumped after a routed member accepts the RFQ, to load it again.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Tender fees (legacy parity) — quotes on fee-bearing tenders can't be
   // submitted until the fee is paid via Razorpay.
@@ -1612,7 +1617,7 @@ const SendQuoteWizard = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, token, userProfile?.id]);
+  }, [id, token, userProfile?.id, reloadKey]);
 
   // Once-per-round rule (legacy parity): if the vendor already submitted a
   // quote for the LATEST round of a product, that product stays blocked until
@@ -2276,7 +2281,9 @@ const SendQuoteWizard = () => {
           }`
         );
       })
-      .catch(() => toast.error("Failed to send regret. Please retry."))
+      // The server's own reason when it gives one (e.g. a network member that has not
+      // accepted the RFQ yet: ROUTING_REQUIRED).
+      .catch((err) => toast.error(getApiErrorMessage(err, "Failed to send regret. Please retry.")))
       .finally(() => setSubmitting(false));
   };
 
@@ -2324,6 +2331,13 @@ const SendQuoteWizard = () => {
   const handleBack = () => {
     router.push(`/dashboard/vendor/inquiries-received`);
   };
+  const inquiryUrl = `/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ""}`;
+  // A routed member's reply to its RFQ assignment: accepted, load the RFQ again (the form
+  // opens); declined, it no longer holds the RFQ, so back to Assigned to me.
+  const handleRoutingReply = (decision) => {
+    if (decision === "DECLINE") router.push("/dashboard/vendor/network/assigned");
+    else setReloadKey((k) => k + 1);
+  };
 
   /* ─────────────────────────── Render ─────────────────────────── */
   if (loading) {
@@ -2338,6 +2352,28 @@ const SendQuoteWizard = () => {
             <span>This inquiry could not be loaded.</span>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Vendor Networks: the RFQ is routed to this member entity and waits for its reply. It
+  // quotes, regrets and answers clauses only once it accepts (the server refuses them with
+  // ROUTING_REQUIRED until then), so the form waits behind the inquiry page's banner.
+  if (isRoutingPending(rfq)) {
+    return (
+      <div className={styles.root}>
+        <main className={styles.content}>
+          <RfqAssignmentBanner
+            assignment={rfq.network_assignment}
+            rfqLabel={`${rfq.is_tender === 1 ? "Tender" : "RFQ"} #${rfq.rfq_no}`}
+            onReplied={handleRoutingReply}
+          />
+          <div style={{ marginTop: 12 }}>
+            <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={() => router.push(inquiryUrl)}>
+              Back to the RFQ
+            </button>
+          </div>
+        </main>
       </div>
     );
   }

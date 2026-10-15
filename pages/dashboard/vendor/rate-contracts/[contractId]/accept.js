@@ -7,9 +7,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import * as ArcApi from "@/services/arc_v2";
+import FulfilledByPanel from "@/components/dashboard/vendor/network/ArcFulfilment";
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
+import { escapeHtml } from "@/utils/escapeHtml";
+import { buildCommercialTerms } from "@/components/dashboard/rate-contracts/vendor/commercialTerms";
+import { noteArcGuestRefusal } from "@/utils/arcGuestRefusal";
 
 // ---------------- helpers ----------------
+// HTML-escapes a value interpolated into the document.write preview below.
+const esc = escapeHtml;
+
 const fmtINR = (n) => {
   const v = Number(n || 0);
   return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
@@ -26,49 +33,6 @@ const daysLeft = (s) => {
   const diff = Math.ceil((new Date(s).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   return diff;
 };
-
-// Commercial terms are derived from the ARC the buyer created. Payment,
-// delivery, penalty and escalation are captured at ARC creation (the buyer's
-// RFQ terms) — termination is a standard platform clause. This makes the
-// "who decided these terms" answer transparent in the UI via the `source`.
-function buildTerms(arc) {
-  arc = arc || {};
-  const esc = arc.escalation_clause_json || {};
-  const escText =
-    !esc.type || esc.type === "none"
-      ? "Rates are fixed for the full contract term — no price escalation applies."
-      : esc.cap_pct
-        ? `Price escalation permitted via the agreed index, capped at ${esc.cap_pct}% over the term.`
-        : "Price escalation permitted as per the agreed index, subject to buyer approval.";
-  return [
-    {
-      key: "payment", title: "Payment terms", source: "from-arc",
-      text: arc.payment_terms_expected
-        ? `${arc.payment_terms_expected} from goods receipt (GRN) at the receiving business unit. Invoices are raised against each released PO with the agreed HSN code per line.`
-        : "Payment as agreed per released PO at the receiving business unit.",
-    },
-    {
-      key: "delivery", title: "Delivery & lead time", source: "from-arc",
-      text: arc.delivery_expected
-        ? `${arc.delivery_expected}. Partial deliveries acceptable; a packing list, lot number and OC certificate must accompany each shipment.`
-        : "Delivery as agreed per line; packing list and OC certificate to accompany each shipment.",
-    },
-    {
-      key: "penalty", title: "Penalty / SLA clauses", source: "from-arc",
-      text: arc.penalty_clause
-        ? arc.penalty_clause
-        : "Standard service-level penalties apply for late delivery and quality rejects as per the buyer's policy.",
-    },
-    {
-      key: "escalation", title: "Price escalation", source: "from-arc",
-      text: escText,
-    },
-    {
-      key: "termination", title: "Termination & exit", source: "standard",
-      text: "Either party may terminate for cause with 30 days' written notice. On termination, all open released POs shall be honoured and the vendor agrees to a 90-day transition support window at the contracted rates.",
-    },
-  ];
-}
 
 // Disputable fields — what the vendor can flag on a line, and what the buyer's
 // commercial evaluator may edit in return. Mirrors the backend field whitelist.
@@ -150,6 +114,9 @@ export default function VendorAcceptPage() {
   // each line). A group award's committed quantity is a sum across hotels, so
   // it is not open to clarification (the server refuses it).
   const [hotels, setHotels] = useState([]);
+  // Vendor Networks: 'fulfilment_member' when a member entity reads the
+  // principal's contract — read-only, nothing here to sign or dispute.
+  const [viewerRole, setViewerRole] = useState(null);
   const [submittingClar, setSubmittingClar] = useState(false);
 
   // commercial terms
@@ -184,6 +151,7 @@ export default function VendorAcceptPage() {
     setLines(res?.data?.lines || []);
     setHotels(res?.data?.hotels || []);
     setClarifications(res?.data?.clarifications || []);
+    setViewerRole(res?.data?.viewer_role || null);
   };
 
   useEffect(() => {
@@ -199,12 +167,27 @@ export default function VendorAcceptPage() {
         setLines(res?.data?.lines || []);
         setHotels(res?.data?.hotels || []);
         setClarifications(res?.data?.clarifications || []);
+        setViewerRole(res?.data?.viewer_role || null);
+      } catch (err) {
+        // Handled so the rejection is not left unhandled; the shared axios instance has
+        // already noted a guest-session refusal (the sign-in notice). Any other failure
+        // leaves no contract ("Contract not found.").
+        noteArcGuestRefusal(err);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, [contractId]);
+
+  // Vendor Networks: this page is the contract holder's signing flow. A member entity
+  // (a hotel offered to it, or one it fulfils) has nothing to sign here: its view, with
+  // the offer banner while a hotel is pending, is the contract page.
+  useEffect(() => {
+    if (viewerRole === "fulfilment_member" && contractId) {
+      router.replace(`/dashboard/vendor/rate-contracts/${contractId}`);
+    }
+  }, [viewerRole, contractId]);
 
   // ---- derived ----
   const totalLines = lines.length;
@@ -444,13 +427,13 @@ export default function VendorAcceptPage() {
     const win = window.open("", "_blank");
     if (!win) return;
     const linesHtml = lines.map((l) => `<tr>
-        <td>${l.variant_name || ""}<div class="sub">${l.variant_slug || l.arc_item_id}</div></td>
-        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${l.uom || ""}</td>
+        <td>${esc(l.variant_name)}<div class="sub">${esc(l.variant_slug || l.arc_item_id)}</div></td>
+        <td class="r mono">₹${Number(l.unit_rate || 0).toLocaleString("en-IN")}/${esc(l.uom)}</td>
         <td class="r mono">${Number(l.gst_pct ?? 0)}%</td>
-        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${l.uom || ""}</td>
+        <td class="r mono">${Number(l.committed_qty || 0).toLocaleString("en-IN")} ${esc(l.uom)}</td>
         <td class="r mono">₹${Math.round(Number(l.unit_rate || 0) * Number(l.committed_qty || 0)).toLocaleString("en-IN")}</td>
       </tr>`).join("");
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>UNSIGNED · ${a.arc_number || ""}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>UNSIGNED · ${esc(a.arc_number)}</title>
       <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a18;max-width:820px;margin:32px auto;padding:0 28px;position:relative;}
       .wm{position:fixed;top:46%;left:50%;transform:translate(-50%,-50%) rotate(-22deg);font-size:84px;font-weight:800;color:rgba(180,83,9,.08);letter-spacing:.1em;pointer-events:none;}
       h1{font-size:20px;margin:0 0 4px;} .meta{color:#6b6b66;font-size:12px;margin-bottom:6px;}
@@ -461,17 +444,17 @@ export default function VendorAcceptPage() {
       .sig{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:16px;} .sigbox{border:1px dashed #d6d6d0;border-radius:8px;padding:14px 16px;} .pending{color:#9a4708;font-style:italic;font-size:11px;margin-top:8px;}</style></head>
       <body>
       <div class="wm">UNSIGNED</div>
-      <h1>Rate Contract — ${a.title || ""}</h1>
-      <div class="meta">${a.arc_number || ""} · ${contract.vendor_name || ""}</div>
+      <h1>Rate Contract — ${esc(a.title)}</h1>
+      <div class="meta">${esc(a.arc_number)} · ${esc(contract.vendor_name)}</div>
       <div class="draftnote">Unsigned draft — your signature is generated only after OTP verification</div>
       <div class="grid">
-        <div><div class="k">Buyer</div><div class="v">${a.company_name || ""}${a.hotel_name ? " · " + a.hotel_name : ""}</div></div>
-        <div><div class="k">Term</div><div class="v">${fmtDate(a.contract_start_at)} → ${fmtDate(a.contract_end_at)}</div></div>
+        <div><div class="k">Buyer</div><div class="v">${esc(a.company_name)}${a.hotel_name ? " · " + esc(a.hotel_name) : ""}</div><div class="sub">GSTIN: ${esc(a.purchaser_gstin || "N/A")}</div></div>
+        <div><div class="k">Term</div><div class="v">${esc(fmtDate(a.contract_start_at))} → ${esc(fmtDate(a.contract_end_at))}</div></div>
       </div>
       <table><thead><tr><th>Item</th><th class="r">Unit rate</th><th class="r">GST</th><th class="r">Committed</th><th class="r">Line value</th></tr></thead><tbody>${linesHtml}</tbody></table>
       <div class="sig">
-        <div class="sigbox"><div class="k">For buyer</div><div class="v">${a.buyer_name || "Procurement Lead"}</div></div>
-        <div class="sigbox"><div class="k">For vendor</div><div class="v">${contract.vendor_name || ""}</div><div class="pending">— signature pending OTP verification —</div></div>
+        <div class="sigbox"><div class="k">For buyer</div><div class="v">${esc(a.buyer_name || "Procurement Lead")}</div></div>
+        <div class="sigbox"><div class="k">For vendor</div><div class="v">${esc(contract.vendor_name)}</div><div class="sub">GSTIN: ${esc(contract.vendor_gstin || "N/A")}</div><div class="pending">— signature pending OTP verification —</div></div>
       </div>
       </body></html>`);
     win.document.close();
@@ -485,6 +468,9 @@ export default function VendorAcceptPage() {
   }
   if (!contract) {
     return <div style={{ padding: 32, color: "var(--fg-3)" }}>Contract not found.</div>;
+  }
+  if (viewerRole === "fulfilment_member") {
+    return <AcceptSkeleton />; // on its way to the contract page
   }
 
   const A = arc || {};
@@ -500,12 +486,16 @@ export default function VendorAcceptPage() {
   const buFull     = isGroup ? hotels.map((h) => h.name).join(", ") : hotelName + (hotelCity ? ` · ${hotelCity}` : "");
   const hotelNameOf = (id) => hotels.find((h) => Number(h.hotel_id) === Number(id))?.name || `Hotel ${id}`;
   const companyName = A.company_name || "Workwise Hospitality";
+  // Same GSTINs the contract PDF prints: the vendor's quoted (else registered) GSTIN and
+  // the lead hotel's (else its company's) for the buyer.
+  const vendorGstin = contract.vendor_gstin || null;
+  const buyerGstin  = A.purchaser_gstin || null;
   const buyerName  = A.buyer_name || "Buyer Procurement Lead";
   const buyerRole  = A.buyer_designation || "Procurement Lead";
   const category   = A.category_title || "";
   const cStart     = A.contract_start_at || null;
   const cEnd       = A.contract_end_at || null;
-  const terms      = buildTerms(A);
+  const terms      = buildCommercialTerms(A);
 
   // Per-step section state for the progressive-flow treatment (done / active /
   // locked). Steps: 1 = confirm lines, 2 = accept terms, 3 = sign.
@@ -667,6 +657,8 @@ export default function VendorAcceptPage() {
         {/* LEFT: contract document */}
         <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
 
+          <FulfilledByPanel contractId={contractId} contract={contract} arc={arc} hotels={hotels} viewerRole={viewerRole} />
+
           <section className="section-card contract-paper" style={{ position: "relative", overflow: "hidden" }}>
             <div className="preview-stamp">DRAFT</div>
 
@@ -697,7 +689,7 @@ export default function VendorAcceptPage() {
                     <br />Authorised signatory: <strong style={{ color: "var(--fg)" }}>{buyerName}</strong>
                     {buyerRole ? ` · ${buyerRole}` : ""}
                   </div>
-                  <div className="p-gst">GSTIN: N/A</div>
+                  <div className="p-gst">GSTIN: {buyerGstin || "N/A"}</div>
                 </div>
                 <div className="vs-chip">VS</div>
                 <div className="party-card" style={{ borderColor: "rgba(67,56,202,0.28)", background: "var(--indigo-soft)" }}>
@@ -707,7 +699,7 @@ export default function VendorAcceptPage() {
                     Awarded vendor
                     <br />Authorised signatory: <strong style={{ color: "var(--fg)" }}>{vendorSignatory}</strong>
                   </div>
-                  <div className="p-gst">GSTIN: {contract.vendor_gstin || "N/A"}</div>
+                  <div className="p-gst">GSTIN: {vendorGstin || "N/A"}</div>
                 </div>
               </div>
               <div className="term-grid" style={{ marginTop: 16 }}>

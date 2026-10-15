@@ -19,6 +19,9 @@ jest.mock("next/router", () => ({
 import React from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import reducer from "@/redux/slice";
 
 import * as ArcApi from "@/services/arc_v2";
 import VendorAcceptPage from "@/pages/dashboard/vendor/rate-contracts/[contractId]/accept";
@@ -43,7 +46,7 @@ test("a group award names its hotels, splits each line by hotel and keeps quanti
     },
   });
 
-  render(<VendorAcceptPage />);
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
 
   expect(await screen.findByText("2 hotels")).toBeInTheDocument();
   expect(screen.getByTitle("Goa Resort")).toHaveTextContent("400");
@@ -53,4 +56,53 @@ test("a group award names its hotels, splits each line by hotel and keeps quanti
   const select = screen.getByRole("combobox");
   expect(within(select).queryByRole("option", { name: "Committed quantity" })).not.toBeInTheDocument();
   expect(within(select).getByRole("option", { name: "Base price / unit rate" })).toBeInTheDocument();
+});
+
+// Task 20 / D2: the parties block shows the same GSTINs the contract PDF prints
+// (contract.vendor_gstin, arc.purchaser_gstin from the vendor contract detail API).
+test("the parties block shows the buyer's and the vendor's GSTIN, N/A only when unknown", async () => {
+  const payload = (contract, arc) => ({
+    data: {
+      contract: { id: 77, status: "awaiting_acceptance", vendor_name: "Alpha Linen", ...contract },
+      arc: { arc_number: "ARC-1", title: "Linen", is_group: false, hotel_name: "Goa Resort", ...arc },
+      hotels: [],
+      lines: [],
+      clarifications: [],
+    },
+  });
+
+  ArcApi.vendorGetContract.mockResolvedValue(payload({ vendor_gstin: "27AABCH0971F1ZW" }, { purchaser_gstin: "30AAACH1234F1ZW" }));
+  const { unmount } = render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  expect(await screen.findByText("GSTIN: 30AAACH1234F1ZW")).toBeInTheDocument();
+  expect(screen.getByText("GSTIN: 27AABCH0971F1ZW")).toBeInTheDocument();
+  expect(screen.queryByText("GSTIN: N/A")).not.toBeInTheDocument();
+  unmount();
+
+  ArcApi.vendorGetContract.mockResolvedValue(payload({}, {}));
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  expect(await screen.findAllByText("GSTIN: N/A")).toHaveLength(2);
+});
+
+// Fix round 1: the unsigned preview is written with document.write, so every interpolated
+// server value is HTML-escaped.
+test("the unsigned preview escapes interpolated values", async () => {
+  const written = [];
+  const fakeWin = { document: { write: (h) => written.push(h), close: jest.fn() }, focus: jest.fn() };
+  const openSpy = jest.spyOn(window, "open").mockReturnValue(fakeWin);
+  ArcApi.vendorGetContract.mockResolvedValue({
+    data: {
+      contract: { id: 77, status: "awaiting_acceptance", vendor_name: "<b>Alpha</b>", vendor_gstin: "<img src=x onerror=1>" },
+      arc: { arc_number: "ARC-<1>", title: "T&C", is_group: false, hotel_name: "Goa", company_name: "<script>x</script>", purchaser_gstin: "\"><svg>", buyer_name: "<i>B</i>" },
+      hotels: [],
+      lines: [{ id: 1, variant_name: "<u>Towel</u>", uom: "pcs", unit_rate: 1, gst_pct: 5, committed_qty: 1 }],
+      clarifications: [],
+    },
+  });
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
+  fireEvent.click(await screen.findByRole("button", { name: /preview/i }));
+  const html = written.join("");
+  for (const raw of ["<img src=x", "<script>x", "<svg>", "<b>Alpha", "<i>B", "<u>Towel", "ARC-<1>"]) expect(html).not.toContain(raw);
+  expect(html).toContain("&lt;img src=x onerror=1&gt;");
+  expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
+  openSpy.mockRestore();
 });

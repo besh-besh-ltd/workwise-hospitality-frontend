@@ -28,6 +28,10 @@ import "@testing-library/jest-dom";
 
 import * as ArcApi from "@/services/arc_v2";
 import VendorAcceptPage from "@/pages/dashboard/vendor/rate-contracts/[contractId]/accept";
+// The accept page reads the vendor profile (network fulfilment panel), so it needs a store.
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import reducer from "@/redux/slice";
 
 beforeAll(() => {
   window.scrollTo = jest.fn();
@@ -46,7 +50,7 @@ const openOtpBoxes = async () => {
   });
   ArcApi.vendorRequestOtp.mockResolvedValue({ data: { otp_expires_at: null } });
 
-  render(<VendorAcceptPage />);
+  render(<Provider store={configureStore({ reducer })}><VendorAcceptPage /></Provider>);
   fireEvent.click(await screen.findByText("Confirm this line"));
   // Step 2: accept every commercial clause.
   document.querySelectorAll(".term-item").forEach((el) => fireEvent.click(el));

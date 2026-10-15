@@ -266,6 +266,10 @@ const Login = (props) => {
     loginWithGoogle,
     setEmployeeCode,
     loginError,
+    // Optional hand-off from a page that just activated an account (vendor network
+    // invite): the sign-in email to prefill and a confirmation to show above the form.
+    prefillIdentifier = "",
+    notice = "",
   } = props;
 
   const [showPassword, setShowPassword] = useState(false);
@@ -400,6 +404,17 @@ const Login = (props) => {
             </span>
           </div>
 
+          {notice && (
+            <div role="status" style={{
+              padding: '11px 14px', marginBottom: 20,
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: 10, fontSize: '0.82rem', color: '#166534',
+              fontFamily: 'Poppins, sans-serif', lineHeight: 1.4, fontWeight: 500,
+            }}>
+              {notice}
+            </div>
+          )}
+
           {loginError && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -418,7 +433,8 @@ const Login = (props) => {
           )}
 
           <Formik
-            initialValues={loginInitialValues}
+            initialValues={prefillIdentifier ? { ...loginInitialValues, identifier: prefillIdentifier } : loginInitialValues}
+            enableReinitialize={!!prefillIdentifier}
             validationSchema={loginSchema}
             onSubmit={(values) => {
               const identifier = values.identifier.trim();

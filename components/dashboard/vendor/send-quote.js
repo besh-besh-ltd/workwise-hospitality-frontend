@@ -29,6 +29,7 @@ import { Alert, OverlayTrigger, Tooltip as BsTooltip } from "react-bootstrap";
 import { Tooltip } from "react-tooltip";
 import GrandTotalBreakup from "@/components/shared/GrandTotalBreakup";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
+import RfqAssignmentBanner, { isRoutingPending } from "@/components/dashboard/vendor/network/RfqAssignmentBanner";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm", disabled = false }) => {
   const baseStyle = {
@@ -1669,6 +1670,37 @@ return { deletedTerms, createdTerms, updatedTerms };
   useEffect(() => {
     console.log("EXTRACTED DATA:", extractedQuotes.data)
   }, [extractedQuotes.data])
+
+  // Vendor Networks: the RFQ is routed to this member entity and waits for its reply. It
+  // quotes or regrets only once it accepts (the server refuses with ROUTING_REQUIRED until
+  // then), so the form waits behind the inquiry page's banner.
+  if (isRoutingPending(rfqDetails)) {
+    return (
+      <>
+        <div className="mb-4">
+          <h1 className='pageTitle'>Fill your quotation</h1>
+          <p className='pageSubtitle'>Fill in your quotation details below</p>
+        </div>
+        <RfqAssignmentBanner
+          assignment={rfqDetails.network_assignment}
+          rfqLabel={`${rfqDetails.is_tender === 1 ? "Tender" : "RFQ"} #${rfqDetails.rfq_no}`}
+          onReplied={(decision) => {
+            if (decision === "DECLINE") router.push("/dashboard/vendor/network/assigned");
+            else getRFQdetails();
+          }}
+        />
+        <div className="mt-3">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`)}
+          >
+            Back to the RFQ
+          </button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

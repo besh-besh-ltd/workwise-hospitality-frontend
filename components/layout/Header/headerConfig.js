@@ -124,8 +124,19 @@ export const roleMenus = {
     // ── CATALOGUE
     { href: "/dashboard/vendor/product-management", label: "Product Management", targetMenu: "nav", requiresSubscription: true, group: "Catalogue", section: null },
 
+    // ── NETWORK — vendor networks (spec §9). The admin destinations are for an
+    // ORG_ADMIN only; "Assigned to me" is for anyone acting as a non-principal
+    // entity of a network. visibleRoleMenu enforces both.
+    { href: "/dashboard/vendor/network",          label: "Overview", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/entities", label: "Entities & seats", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/team",     label: "Team",     targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/coverage", label: "Coverage", targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/routing",  label: "Routing",  targetMenu: "nav", requiresNetworkAdmin: true, group: "Network", section: null },
+    { href: "/dashboard/vendor/network/assigned", label: "Assigned to me", targetMenu: "nav", requiresNetworkMember: true, group: "Network", section: null },
+
     // ── ACCOUNT
     { href: "/dashboard/vendor/subscription", label: "Subscription",  targetMenu: "nav", group: "Account", section: null },
+    { href: "/dashboard/vendor/network",      label: "Set up network", targetMenu: "nav", requiresNoNetwork: true, group: "Account", section: null },
     { href: "/dashboard/notifications",       label: "Notifications", targetMenu: "nav", group: "Account", section: null },
     { href: "/dashboard/vendor/editprofile", label: "Profile", targetMenu: "popup", icon: "person" },
   ],
@@ -141,10 +152,32 @@ export const roleMenus = {
  * hospitality-only entry had to be remembered in three places. Items now
  * declare `hospitalityOnly` and the rule lives here once.
  */
-export const visibleRoleMenu = (currentUserType, { isHospitalityCompany } = {}) => {
+export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession } = {}) => {
   const baseMenu = roleMenus[currentUserType] || [];
-  if (isHospitalityCompany) return baseMenu;
-  return baseMenu.filter((item) => !item.hospitalityOnly);
+  return baseMenu.filter((item) => {
+    if (item.hospitalityOnly && !isHospitalityCompany) return false;
+    if (!networkAllows(item, profile, isGuestSession)) return false;
+    return true;
+  });
+};
+
+/**
+ * Vendor-network gates, read from the loaded get-profile (`profile`; null or
+ * undefined while it is still loading). Admin items need the ORG_ADMIN role;
+ * member items need a network and an acting entity that is not the principal.
+ * "Set up network" needs a loaded vendor (user_type 3) profile whose `network`
+ * is explicitly null (the server's "in no network"), outside a guest
+ * emailed-link session, so it never flashes before the profile arrives.
+ */
+export const canSetUpNetwork = (profile, isGuestSession) =>
+  !!profile && Number(profile.user_type) === 3 && profile.network === null && !isGuestSession;
+
+const networkAllows = (item, profile, isGuestSession) => {
+  const network = profile?.network;
+  if (item.requiresNetworkAdmin && network?.role !== "ORG_ADMIN") return false;
+  if (item.requiresNetworkMember && !(network && !network.is_principal)) return false;
+  if (item.requiresNoNetwork && !canSetUpNetwork(profile, isGuestSession)) return false;
+  return true;
 };
 
 export const websiteMenu = [
