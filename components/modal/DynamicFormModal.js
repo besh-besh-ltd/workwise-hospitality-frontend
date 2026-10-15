@@ -20,6 +20,7 @@ import {
 } from '@/utils/schema';
 import RoleScopeSelector from "@/components/hospitality/RoleScopeSelector";
 import CommonFormInput from '@/components/shared/CommonFormInput';
+import { parseMobile, formatMobile } from '@/utils/mobile';
 
 // Custom styles for Product Select Component
 const customStyles = {
@@ -90,16 +91,6 @@ const DynamicFormModal = ({
     }
 
     // For account edit form
-    const parseMobile = (mobile) => {
-        if (!mobile) return { countryCode: "+91", mobileNumber: "" };
-        
-        const parts = mobile.split('-');
-        if (parts.length === 2) {
-            return { countryCode: parts[0], mobileNumber: parts[1] };
-        }
-        return { countryCode: "+91", mobileNumber: mobile };
-    };
-
     const { countryCode, mobileNumber } = accountData?.mobile
         ? parseMobile(accountData.mobile)
         : { countryCode: "+91", mobileNumber: "" };
@@ -378,7 +369,7 @@ const DynamicFormModal = ({
 
         const processAccountEdit = (values, resetForm) => {
             // Format mobile with country code
-            const formattedMobile = `${values.countryCode}-${values.mobile}`;
+            const formattedMobile = formatMobile(values.countryCode, values.mobile);
             
             // Determine status value - handle all possible formats
             let statusValue;

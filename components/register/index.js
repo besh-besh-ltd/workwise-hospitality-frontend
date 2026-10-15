@@ -19,6 +19,7 @@ import BankDetailsStep from "./steps/BankDetailsStep";
 import ReviewPayStep from "./steps/ReviewPayStep";
 import RegistrationProgressBanner from "./RegistrationProgressBanner";
 import styles from "./Register.module.css";
+import { toStoredMobile, MOBILE_MAX_LENGTH } from "@/utils/mobile";
 
 // ── AutoSave (renders inside Formik tree) ──────────
 const AutoSave = ({ saveDraft, currentStep, saveFiles, documentFiles }) => {
@@ -482,7 +483,7 @@ const Register = ({
     const shape = {
       name: yup.string().required("Name is required").min(2, "Name not less than 2 characters short").max(50, "Name not more than 50 characters long"),
       email: yup.string().email().matches(/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/, "Please enter valid email address").required("Email is required"),
-      mobile: yup.string().matches(/^[+]?[0-9\s-]{7,15}$/, "Please enter a valid mobile number (7-15 digits, optional +)").min(7, "Mobile number must be at least 7 digits long").max(15, "Mobile number must not be more than 15 digits long").required("Mobile number is required"),
+      mobile: yup.string().matches(/^[+]?[0-9\s-]{7,15}$/, "Please enter a valid mobile number (7-15 digits, optional +)").min(7, "Mobile number must be at least 7 digits long").max(15, "Mobile number must not be more than 15 digits long").test("fits-with-country-code", "This number is too long for the selected country code", function fitsWithCountryCode(value) { return !value || toStoredMobile(this.parent.countryCode, value).length <= MOBILE_MAX_LENGTH; }).required("Mobile number is required"),
       organization_name: yup.string().required("Organization name is required"),
       register_as: yup.string().required("Register as is required"),
       password: yup.string().required("Password is required").min(8, "Password must be 8 characters long").matches(/[0-9]/, "Password requires a number").matches(/[a-z]/, "Password requires a lowercase letter").matches(/[A-Z]/, "Password requires an uppercase letter").matches(/[^\w]/, "Password requires a symbol"),
@@ -536,8 +537,9 @@ const Register = ({
     const selectedHotelNames = hotelOptions.filter((opt) => selectedHotels.includes(opt.value)).map((opt) => opt.label);
     const needsFssai = requiresFssaiForSelection(selectedCategories);
 
-    const cleanMobile = values.mobile.trim().replace(/^0+/, "").replace(/^\+\d+\-/, "");
-    const fullMobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
+    // Never truncate: a cut-down number is a wrong number. The schema below
+    // refuses one that does not fit, so the user is told instead.
+    const fullMobile = toStoredMobile(values.countryCode, values.mobile);
 
     const { countryCode: _cc, confirm_password, categories: _categories, subcategories: _subcategories, ...updatedValues } = {
       ...values,
