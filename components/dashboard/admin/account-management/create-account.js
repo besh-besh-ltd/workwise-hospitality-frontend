@@ -8,6 +8,7 @@ import { HiArrowLeft } from "react-icons/hi";
 import { createBuyerCompanyUser } from "@/services/Auth";
 import { createAccountSchema } from "@/utils/schema";
 import { formatMobile } from "@/utils/mobile";
+import { getApiFieldErrors } from "@/utils/apiError";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import { getDepartments } from "@/services/rbac";
 import { getHospitalityCompanies, getHospitalityHotels } from "@/services/hospitality";
@@ -175,7 +176,7 @@ const CreateAccountPage = () => {
     }
   };
 
-  const handleSubmit = async (values, { resetForm, setSubmitting }) => {
+  const handleSubmit = async (values, { resetForm, setSubmitting, setFieldError }) => {
     setLoading(true);
     try {
       const formattedMobile = formatMobile(values.countryCode, values.mobile);
@@ -293,6 +294,14 @@ const CreateAccountPage = () => {
         message = errorMessages.length > 0 ? errorMessages[0] : message;
       } else if (error?.message) {
         message = error.message;
+      }
+
+      // A refusal about one field (an employee code another account holds) is
+      // also shown under that field — the toast may be gone before the admin
+      // finds which value was wrong.
+      const fieldErrors = getApiFieldErrors(error);
+      if (fieldErrors) {
+        Object.entries(fieldErrors).forEach(([field, text]) => setFieldError(field, text));
       }
 
       toast.error(message);
