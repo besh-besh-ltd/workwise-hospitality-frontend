@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector } from "react-redux";
 import Pagination from "@/components/shared/Pagination";
 import { apiErrorMessage } from "@/components/dashboard/admin/shared/apiError";
+import { getApiFieldErrors } from "@/utils/apiError";
 import CustomRolePermissionsModal from "@/components/modal/CustomRolePermissionsModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { sendPasswordReset } from "@/services/Auth";
@@ -379,6 +380,14 @@ const ManageAccountsPage = () => {
         toast.error(errData.message || "Failed to update user");
         retryEditModalData();
         return;
+      }
+      // A refusal about one field — an employee code another account already
+      // holds — is said here and handed back to the modal, which shows it
+      // under that field.
+      const fieldErrors = getApiFieldErrors(err);
+      if (fieldErrors) {
+        toast.error(apiErrorMessage(err, "Failed to update user"));
+        return { fieldErrors };
       }
       // Any other code the server rejected with — say its sentence rather than
       // a generic failure. DUPLICATE_ROLE_SCOPE ("This role assignment already

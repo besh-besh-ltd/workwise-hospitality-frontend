@@ -14,7 +14,7 @@
 // getApiErrorMessage has to read BOTH shapes and always return a string.
 
 import { AxiosError } from "axios";
-import { getApiErrorMessage, getApiErrorData } from "./apiError";
+import { getApiErrorMessage, getApiErrorData, getApiFieldErrors } from "./apiError";
 
 const SERVER_MSG = "One or more selected business units are no longer available.";
 
@@ -101,5 +101,38 @@ describe("getApiErrorData", () => {
     expect(getApiErrorData(new Error("boom"))).toBeNull();
     expect(getApiErrorData(null)).toBeNull();
     expect(getApiErrorData({})).toBeNull();
+  });
+});
+
+// An API refusal about ONE field — today, an employee code another account
+// already holds — names the field so the form can put the sentence under it.
+// The body deliberately carries no `errors` object: lib/axios.js toasts every
+// key of one, which would say the same thing twice.
+describe("getApiFieldErrors", () => {
+  const TAKEN = "Employee code EMP0417 is already used by Ravi Menon.";
+  const axiosErrorWith = (data, status = 409) => {
+    const err = new AxiosError(`Request failed with status code ${status}`, "ERR_BAD_REQUEST", {}, {});
+    err.response = { status, data };
+    return err;
+  };
+  const takenBody = { status: 0, code: "EMPLOYEE_CODE_TAKEN", field: "employee_code", message: TAKEN };
+
+  it("reads the field through the services/*.js { message: error } wrap", () => {
+    expect(getApiFieldErrors({ message: axiosErrorWith(takenBody) })).toEqual({ employee_code: TAKEN });
+  });
+
+  it("reads an unwrapped AxiosError too", () => {
+    expect(getApiFieldErrors(axiosErrorWith(takenBody))).toEqual({ employee_code: TAKEN });
+  });
+
+  it("returns null for a refusal that names no field", () => {
+    expect(getApiFieldErrors({ message: axiosErrorWith({ status: 0, message: "Nope" }) })).toBeNull();
+  });
+
+  it("returns null for anything that is not a usable field + sentence", () => {
+    expect(getApiFieldErrors(null)).toBeNull();
+    expect(getApiFieldErrors(new Error("Network Error"))).toBeNull();
+    expect(getApiFieldErrors({ message: axiosErrorWith({ field: "employee_code", message: "" }) })).toBeNull();
+    expect(getApiFieldErrors({ message: axiosErrorWith({ field: { x: 1 }, message: TAKEN }) })).toBeNull();
   });
 });

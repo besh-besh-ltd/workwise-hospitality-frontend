@@ -171,7 +171,7 @@ const EditAccountModal = ({
     department_id: initialDepartmentValues,
   };
 
-  const handleSubmit = (values) => {
+  const handleSubmit = async (values, { setFieldError }) => {
     // Belt-and-braces: the submit button is disabled until the prefetch lands,
     // but Formik can also be submitted via Enter.
     if (!canSubmit) return;
@@ -268,7 +268,11 @@ const EditAccountModal = ({
       payload.confirm_clear_all_scopes = true;
     }
 
-    onSave(payload);
+    // The parent makes the request. A refusal about one field — an employee
+    // code another account already holds — comes back as `fieldErrors`, and
+    // belongs under that field, where the admin typed the value.
+    const result = await onSave(payload);
+    Object.entries(result?.fieldErrors || {}).forEach(([field, text]) => setFieldError(field, text));
   };
 
   const isAdmin = account.role === 7;
