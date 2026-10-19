@@ -24,6 +24,9 @@ import { getProjectTableDataById, getProjectsByHospitalityContext, getProjectHos
 import { getMyHospitalityContexts } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
+import usePolicyCoverage from "@/hooks/usePolicyCoverage";
+import { usableRfqProcesses } from "@/utils/policyCoverage";
+import RfqProcessField from "./RfqProcessField";
 import { getUnits } from "@/services/units";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -396,7 +399,7 @@ const CreateRFQ = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [processes, setProcesses] = useState([]);
+  const [allProcesses, setProcesses] = useState([]);
   // Captured submit error for structured-code surfacing (process scope /
   // missing approval policy). Renders via ProcessScopeErrorBanner above the
   // submit footer; cleared on next successful action.
@@ -724,6 +727,7 @@ const CreateRFQ = () => {
       const procs = (response?.data?.data || response?.data || []).map((p) => ({
         value: p.id,
         label: p.name,
+        process_type: p.process_type,
       }));
       // Scope filter: when the user's role grants a specific subset of
       // processes (allowedProcessIds is an array, not null), narrow the list
@@ -736,6 +740,16 @@ const CreateRFQ = () => {
       console.error("Error fetching processes:", error);
     }
   };
+
+  // Offer only the RFQ processes that have a working RFQ workflow at the
+  // chosen unit. If coverage can't be loaded, `coverage` stays null and the
+  // full RFQ-type list is shown as before: never block creation on it.
+  // Edit mode keeps the existing process untouched.
+  const coverageHotelId = selectedHotelIds[0] ?? rfqFormDataFromStore?.hotel_id ?? null;
+  const { coverage } = usePolicyCoverage({ hotelId: coverageHotelId, enabled: !isEditMode });
+  const rfqTypeProcesses = usableRfqProcesses(allProcesses, null);
+  const processes = isEditMode ? allProcesses : usableRfqProcesses(allProcesses, coverage);
+  const noUsableProcess = !isEditMode && !!coverage && rfqTypeProcesses.length > 0 && processes.length === 0;
 
   // Pulled in its own callback so child components can ask the page to
   // refresh after adding / deleting a custom unit.
@@ -1242,7 +1256,9 @@ useEffect(() => {
     }
 
     // Process is required for RFQ creation
-    if (!formDataCopy.process_id) {
+    // (only when there is a process to pick: with none usable at this unit the
+    // form shows an explanation instead of a field nobody can fill)
+    if (processes.length > 0 && !formDataCopy.process_id) {
       return fail(2, "Please select a process", "process_id");
     }
 
@@ -2634,6 +2650,23 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(allowedProcessIds || [])]);
 
+  // Keep process_id consistent with what is usable at the chosen unit: a lone
+  // usable process is selected for the user; a selection that no longer works
+  // (unit changed) is cleared. Only acts once coverage is known.
+  useEffect(() => {
+    if (isEditMode || !coverage || isViewOnlyDraft || allProcesses.length === 0) return;
+    const current = rfqFormDataFromStore.process_id;
+    const stillUsable = processes.some((p) => p.value === current);
+    if (processes.length === 1) {
+      if (current !== processes[0].value) {
+        dispatch(setOtherFormFields({ field_name: "process_id", value: processes[0].value }));
+      }
+    } else if (current && !stillUsable) {
+      dispatch(setOtherFormFields({ field_name: "process_id", value: null }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverage, allProcesses, isEditMode, isViewOnlyDraft, rfqFormDataFromStore.process_id]);
+
   // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
   // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway
   useEffect(() => {
@@ -3687,24 +3720,17 @@ useEffect(() => {
                             )}
                           </div>
                         )}
-                        {processes.length > 0 && (
-                          <div className={`rfq-field${isMissing("process_id") ? " rfq-field--has-error" : ""}`}>
-                            <label className="rfq-label">Process <span className="rfq-required">*</span></label>
-                            <Select
-                              id="select_process-create_rfq_page"
-                              options={processes}
-                              value={processes.find(p => p.value === rfqFormDataFromStore.process_id) || null}
-                              onChange={(selected) => {
-                                dispatch(setOtherFormFields({ field_name: "process_id", value: selected?.value || null }));
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Select Process"
-                              classNamePrefix="react-select"
-                              isDisabled={isViewOnlyDraft || isEditMode}
-                            />
-                            {isMissing("process_id") && <small className="rfq-field__required-hint">Required</small>}
-                          </div>
-                        )}
+                        <RfqProcessField
+                          processes={processes}
+                          noneUsable={noUsableProcess}
+                          value={rfqFormDataFromStore.process_id}
+                          onChange={(value) => {
+                            dispatch(setOtherFormFields({ field_name: "process_id", value }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          disabled={isViewOnlyDraft || isEditMode}
+                          missing={isMissing("process_id")}
+                        />
                       </div>
                       <h4 className="rfq-section__subhead">Contact</h4>
                       <div className="rfq-grid-2">

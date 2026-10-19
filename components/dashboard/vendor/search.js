@@ -15,6 +15,8 @@ import { getRFQHotels } from "@/services/hospitality";
 import { useSelector } from "react-redux";
 import AddTenderItemModal from "@/components/modal/AddTenderItemModal";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
+import usePolicyCoverage from "@/hooks/usePolicyCoverage";
+import { isTenderAvailable } from "@/utils/policyCoverage";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import ProcurementHeader from "./ProcurementHeader";
@@ -52,6 +54,10 @@ const Search = ({ title, type }) => {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Hide the Tender card only when coverage says no Tender workflow exists;
+  // an unavailable lookup (or a logged-out visitor) keeps today's behaviour.
+  const { coverage: policyCoverage } = usePolicyCoverage({ enabled: isLoggedIn });
+  const showTenderCard = isTenderAvailable(policyCoverage);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchProduct, setSearchProduct] = useState("");
@@ -281,6 +287,7 @@ const Search = ({ title, type }) => {
                 Choose your procurement type to get started
               </p>
               <div className={styles.typeCards}>
+                {showTenderCard && (
                 <div
                   className={styles.typeCard}
                   onClick={() => handleOrderTypeSelect("tender")}
@@ -297,6 +304,7 @@ const Search = ({ title, type }) => {
                     <BsArrowRight size={16} />
                   </div>
                 </div>
+                )}
                 <div
                   className={styles.typeCard}
                   onClick={() => handleOrderTypeSelect("rfq")}

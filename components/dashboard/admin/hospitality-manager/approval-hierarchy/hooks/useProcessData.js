@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import {
   getApprovalProcesses,
@@ -6,10 +6,25 @@ import {
   updateApprovalProcess,
   deleteApprovalProcess,
 } from "@/services/process";
+import { apiErrorMessage, apiErrorPayload } from "../../../shared/apiError";
+import { formatProcessBlockers } from "../processBlockers";
 
 const useProcessData = (companyId) => {
   const [processes, setProcesses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const processesRef = useRef([]);
+  processesRef.current = processes;
+
+  // A refused deactivate/delete (409 PROCESS_IN_USE) lists what still depends
+  // on the process; anything else keeps the server's own message.
+  const refusalMessage = (error, id, fallback) => {
+    if (apiErrorMessage.codeOf(error) === "PROCESS_IN_USE") {
+      const name = processesRef.current.find((p) => p.id === id)?.name ?? "this process";
+      const text = formatProcessBlockers(name, apiErrorPayload(error)?.data?.blockers);
+      if (text) return text;
+    }
+    return apiErrorMessage(error, fallback);
+  };
 
   const loadProcesses = async () => {
     try {
@@ -64,7 +79,7 @@ const useProcessData = (companyId) => {
         await loadProcesses();
       } catch (error) {
         console.error("Error updating process:", error);
-        toast.error(error?.message?.response?.data?.message || "Failed to update process");
+        toast.error(refusalMessage(error, id, "Failed to update process"));
         throw error;
       }
     },
@@ -80,8 +95,11 @@ const useProcessData = (companyId) => {
       } catch (error) {
         console.error("Error deleting process:", error);
         toast.error(
-          error?.message?.response?.data?.message ||
+          refusalMessage(
+            error,
+            id,
             "Failed to delete process. It may have active policies or pending approvals."
+          )
         );
         throw error;
       }
