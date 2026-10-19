@@ -189,7 +189,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                   the totals above and continue to gate approvals; only this list cannot group them.
                 </div>
                 <div className={s.diagnosticBody}>
-                  Affected stages: {[...new Set(unmatchedPolicies.map((p) => p.entity_type))].join(", ")}.
+                  Affected stages: {[...new Set(unmatchedPolicies.map((p) => p.entity_type))].map((t) => stageLabel(t)).join(", ")}.
                 </div>
               </div>
             </div>

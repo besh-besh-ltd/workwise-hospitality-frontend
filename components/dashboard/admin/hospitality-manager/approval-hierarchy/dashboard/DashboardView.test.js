@@ -191,6 +191,9 @@ describe("<DashboardView> — diagnostic instead of a blank screen", () => {
     // of this class explains itself instead of looking like a blank page.
     expect(diag).toHaveTextContent("7");
     expect(diag).toHaveTextContent("2");
+    // Affected stages use the shared vocabulary, never raw entity types.
+    expect(diag).toHaveTextContent("Final Vendor Approval");
+    expect(diag.textContent).not.toMatch(/[A-Z]+_[A-Z]+/);
   });
 
   it("still shows the diagnostic when only SOME policies are unmatched", () => {
