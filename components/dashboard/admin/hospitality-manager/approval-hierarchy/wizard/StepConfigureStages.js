@@ -148,12 +148,12 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
         <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
           Group ARC approvals apply to <strong>every hotel in the company</strong>. Pick approvers with company-level
           access — an approver scoped to one hotel only counts when that hotel leads the group rate contract.
-          The <strong>Group ARC (Publish &amp; Base)</strong> stage is required; the rest are optional and fall back to it.
+          The <strong>Group ARC · Publish Approval</strong> stage is required; the rest are optional and fall back to it.
         </p>
       ) : isArc ? (
         <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
           ARC approvals are <strong>process-free</strong> — any eligible user in this business unit can be an approver.
-          The <strong>ARC (Publish &amp; Base)</strong> stage is required; the rest are optional and fall back to it.
+          The <strong>Unit ARC · Publish Approval</strong> stage is required; the rest are optional and fall back to it.
         </p>
       ) : selectedProcess?.name && (
         <p className={s.subtext} style={{ marginTop: -6, color: "#1e40af" }}>

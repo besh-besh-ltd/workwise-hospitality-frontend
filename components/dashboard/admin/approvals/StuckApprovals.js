@@ -9,6 +9,7 @@ import {
 } from "@/services/approval";
 import Loader from "@/components/shared/Loader";
 import InfoTip from "@/components/shared/InfoTip";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 import styles from "./Approvals.module.css";
 
 /**
@@ -62,15 +63,9 @@ const CLASS_META = {
   },
 };
 
-const ENTITY_LABEL = {
-  RFQ: "RFQ",
-  PO: "Purchase order",
-  NEGOTIATION: "Negotiation",
-  NEGOTIATION_QUOTE: "Negotiation quote",
-  TECHNICAL: "Technical evaluation",
-  ARC: "Rate contract",
-  ARC_PUBLISH: "Rate contract",
-};
+// Stage names come from the shared vocabulary; `is_group` (missing = Unit)
+// tells a Group ARC approval apart from a Unit ARC one.
+const entityLabel = (item) => item.entity_type === "MR" ? "Material requisition" : stageLabel(item.entity_type, { isGroup: !!item.is_group });
 
 const ageLabel = (days) => {
   if (days <= 0) return "today";
@@ -248,7 +243,7 @@ const StuckRow = ({ item, recommendation, onReassigned, reassigning, setReassign
               key — an admin sent to chase "RFQ #112" will not find it, because
               the listing, the emails and the PDF all say RFQ 1. */}
           <span className={styles.stuckEntity}>
-            {ENTITY_LABEL[item.entity_type] || item.entity_type}
+            {entityLabel(item)}
             {item.entity_ref ? ` ${item.entity_ref}` : ""}
           </span>
           <span className={styles.stuckUnit}>

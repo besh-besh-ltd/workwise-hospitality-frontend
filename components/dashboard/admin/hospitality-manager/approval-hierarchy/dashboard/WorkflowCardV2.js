@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope, BsBuilding } from "react-icons/bs";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { DS, PROCESS_TYPE_COLORS, getCardStageOrder, getEntityTypeConfig } from "../constants";
+import { stageLabel, stageShortLabel, stageDescription } from "../stageLabels";
 import s from "./WorkflowCardV2.module.scss";
 
 /**
@@ -26,9 +27,6 @@ const DeptList = ({ names }) => {
   );
 };
 
-const STAGE_FULL_NAMES = { RFQ: "RFQ Approval", TECHNICAL: "Technical Evaluation", NEGOTIATION: "Negotiation Rounds", NEGOTIATION_QUOTE: "Quote Finalization", PO: "Purchase Order", TENDER: "Tender Submission", ARC: "ARC (Publish & Base)", ARC_TECH: "ARC Technical Evaluation", ARC_NEGOTIATION: "ARC Negotiation", ARC_COMMITTEE: "ARC Committee Award", ARC_AMENDMENT: "ARC Amendment", ARC_GROUP: "Group ARC (Publish & Base)", ARC_GROUP_TECH: "Group ARC Technical Evaluation", ARC_GROUP_NEGOTIATION: "Group ARC Negotiation", ARC_GROUP_COMMITTEE: "Group ARC Committee Award", ARC_GROUP_AMENDMENT: "Group ARC Amendment" };
-const STAGE_DESCRIPTIONS = { RFQ: "Triggered when a new RFQ is submitted for approval", TECHNICAL: "Approves technical evaluation markings", NEGOTIATION: "Approves negotiation rounds", NEGOTIATION_QUOTE: "Final approval on vendor quotes after negotiation", PO: "Final sign-off before purchase order is issued", TENDER: "Approval gate when a tender is submitted", ARC: "Required — gates publishing a rate contract; default for every ARC stage", ARC_TECH: "Approves rate contract technical evaluation", ARC_NEGOTIATION: "Approves rate contract negotiation rounds", ARC_COMMITTEE: "ARC committee approval of finalised awards", ARC_AMENDMENT: "Approves post-award rate contract amendments", ARC_GROUP: "Required — gates publishing a group rate contract; default for every group stage", ARC_GROUP_TECH: "Approves group rate contract technical evaluation", ARC_GROUP_NEGOTIATION: "Approves group rate contract negotiation rounds", ARC_GROUP_COMMITTEE: "Group committee approval of finalised awards", ARC_GROUP_AMENDMENT: "Approves post-award group rate contract amendments" };
-const STAGE_SHORT = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Neg", NEGOTIATION_QUOTE: "NQ", PO: "PO", TENDER: "Tender", ARC: "ARC", ARC_TECH: "Tech", ARC_NEGOTIATION: "Neg", ARC_COMMITTEE: "Committee", ARC_AMENDMENT: "Amend", ARC_GROUP: "Group", ARC_GROUP_TECH: "Tech", ARC_GROUP_NEGOTIATION: "Neg", ARC_GROUP_COMMITTEE: "Committee", ARC_GROUP_AMENDMENT: "Amend" };
 
 const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDisplayInfo }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -102,8 +100,8 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                   <div className={s.tooltip}>
                     <div className={s.tooltipInner}>
                       <div className={s.ttStage}>Stage {i + 1}</div>
-                      <div className={s.ttName}>{STAGE_FULL_NAMES[stage.entity_type]}</div>
-                      <div className={s.ttDesc}>{STAGE_DESCRIPTIONS[stage.entity_type]}</div>
+                      <div className={s.ttName}>{stageLabel(stage.entity_type)}</div>
+                      <div className={s.ttDesc}>{stageDescription(stage.entity_type)}</div>
                       <span className={s.ttLevels} style={{ background: hasLevels ? "rgba(66,139,65,0.2)" : "rgba(255,255,255,0.15)", color: hasLevels ? "#a3e6a0" : "rgba(255,255,255,0.6)" }}>
                         {hasLevels ? `${stage.steps.length} level${stage.steps.length !== 1 ? "s" : ""} — click to expand` : "Not configured"}
                       </span>
@@ -119,7 +117,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                     {i + 1}
                     {hasLevels && <span className={s.countBadge} style={{ color: config.color }}>{stage.steps.length}</span>}
                   </div>
-                  <span className={s.stageLabel}>{STAGE_SHORT[stage.entity_type]}</span>
+                  <span className={s.stageLabel}>{stageShortLabel(stage.entity_type)}</span>
                 </div>
                 {!isLast && (
                   <div className={`${s.line} ${hasLevels && nextHasLevels ? s.lineDone : ""}`} style={hasLevels && nextHasLevels ? { "--from": config.color, "--to": getEntityTypeConfig(stages[i + 1].entity_type).color } : undefined} />
@@ -134,7 +132,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
           <div className={s.detail}>
             <div className={s.detailHeader}>
               <expandedConfig.icon size={14} style={{ color: expandedConfig.color }} />
-              <span className={s.detailTitle}>{STAGE_FULL_NAMES[expandedData.entity_type]}</span>
+              <span className={s.detailTitle}>{stageLabel(expandedData.entity_type)}</span>
               <span className={s.detailCount}>
                 {expandedData.steps.length > 0
                   ? `${expandedData.steps.length} level${expandedData.steps.length !== 1 ? "s" : ""}`

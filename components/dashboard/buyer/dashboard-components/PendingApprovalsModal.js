@@ -6,6 +6,7 @@ import useDashboardQuery from "@/hooks/useDashboardQuery";
 import useDialogA11y from "@/hooks/useDialogA11y";
 import { approvalHref } from "@/components/dashboard/shared/dashboardLinks";
 import styles from "./PendingApprovalsModal.module.scss";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 // Every row links through approvalHref — the one place that knows where an
 // approver acts on each approval type (RFQ detail stage + decision card, PO
@@ -24,17 +25,26 @@ export const approvalRowHref = (item) =>
 // One label + tone per approval type the engine can raise; `tone` keys a small
 // colour dot so the queue is scannable.
 const ENTITY_CONFIG = {
-  RFQ:               { label: "RFQ approval",            tone: "blue" },
-  TENDER:            { label: "Tender approval",         tone: "green" },
-  TECHNICAL:         { label: "Technical evaluation",    tone: "slate" },
-  NEGOTIATION:       { label: "Negotiation round",       tone: "amber" },
-  NEGOTIATION_QUOTE: { label: "Negotiated quote",        tone: "violet" },
-  PO:                { label: "Purchase order approval", tone: "rose" },
-  ARC_PUBLISH:       { label: "Rate contract — publish",   tone: "blue" },
-  ARC_TECH:          { label: "Rate contract — technical", tone: "cyan" },
-  ARC_COMMITTEE:     { label: "Rate contract — committee", tone: "violet" },
-  ARC_AMENDMENT:     { label: "Rate contract — amendment", tone: "amber" },
+  RFQ:               { tone: "blue" },
+  TENDER:            { tone: "green" },
+  TECHNICAL:         { tone: "slate" },
+  NEGOTIATION:       { tone: "amber" },
+  NEGOTIATION_QUOTE: { tone: "violet" },
+  PO:                { tone: "rose" },
+  ARC_PUBLISH:       { tone: "blue" },
+  ARC_TECH:          { tone: "cyan" },
+  ARC_NEGOTIATION:   { tone: "amber" },
+  ARC_COMMITTEE:     { tone: "violet" },
+  ARC_AMENDMENT:     { tone: "amber" },
   MR:                { label: "Material requisition",      tone: "green" },
+};
+
+// Unit and Group ARC items of the same stage are different queues, so they
+// group apart. `is_group` arrives on every item; a missing flag means Unit.
+const groupKeyOf = (item) => (item.is_group ? `${item.entity_type}::GROUP` : item.entity_type);
+const splitGroupKey = (key) => {
+  const [type, group] = String(key).split("::");
+  return { type, isGroup: group === "GROUP" };
 };
 
 const TONE_DOT = {
@@ -89,12 +99,12 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
   // Preserve a stable, sensible group order (sourcing → contracts → orders).
   const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
   const grouped = items.reduce((acc, item) => {
-    (acc[item.entity_type] = acc[item.entity_type] || []).push(item);
+    (acc[groupKeyOf(item)] = acc[groupKeyOf(item)] || []).push(item);
     return acc;
   }, {});
   const groupKeys = Object.keys(grouped).sort((a, b) => {
-    const ia = ORDER.indexOf(a); const ib = ORDER.indexOf(b);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    const ia = ORDER.indexOf(splitGroupKey(a).type); const ib = ORDER.indexOf(splitGroupKey(b).type);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
   });
 
   return (
@@ -164,10 +174,9 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
           ) : (
             groupKeys.map((type) => {
               const entries = grouped[type];
-              const config = ENTITY_CONFIG[type] || {
-                label: type.replace(/_/g, " "),
-                tone: "neutral",
-              };
+              const { type: entityType, isGroup } = splitGroupKey(type);
+              const base = ENTITY_CONFIG[entityType] || { tone: "neutral" };
+              const config = { ...base, label: base.label || stageLabel(entityType, { isGroup }) };
               return (
                 <div key={type} className={styles.group}>
                   <div className={styles.groupHeader}>

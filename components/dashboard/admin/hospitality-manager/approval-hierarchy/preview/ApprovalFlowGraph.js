@@ -1,15 +1,15 @@
 import React, { useState, useCallback } from "react";
 import { BsChevronDown, BsPeopleFill, BsPersonFill, BsEnvelope, BsPlayFill, BsFlagFill } from "react-icons/bs";
 import { RFQ_PROCESS_STAGES, getEntityTypeConfig, DS } from "../constants";
+import { stageShortLabel } from "../stageLabels";
 import s from "./ApprovalFlowGraph.module.scss";
 
 const ApprovalFlowGraph = ({ stages = [], getApproverDisplayInfo, compact = false, selectedDepartmentId = null }) => {
   const [openAccordions, setOpenAccordions] = useState({});
   const toggleAccordion = useCallback((key) => { setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] })); }, []);
 
-  const shortLabels = { RFQ: "RFQ", TECHNICAL: "Tech", NEGOTIATION: "Negotiation", NEGOTIATION_QUOTE: "Neg. Quote", PO: "PO", TENDER: "Tender", ARC: "ARC" };
   const stageConfigs = stages.length
-    ? stages.map((st) => ({ ...getEntityTypeConfig(st.entity_type), shortLabel: shortLabels[st.entity_type], steps: st.steps || [] }))
+    ? stages.map((st) => ({ ...getEntityTypeConfig(st.entity_type), shortLabel: stageShortLabel(st.entity_type), steps: st.steps || [] }))
     : RFQ_PROCESS_STAGES.map((st) => ({ ...getEntityTypeConfig(st.value), shortLabel: st.shortLabel, steps: [] }));
 
   return (

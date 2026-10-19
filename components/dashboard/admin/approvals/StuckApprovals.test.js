@@ -183,3 +183,21 @@ describe("handing it to somebody else", () => {
     await waitFor(() => expect(mockGet.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 });
+
+describe("stage names", () => {
+  it("uses the shared vocabulary and tells Group ARC from Unit ARC", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        counts: COUNTS,
+        total: 2,
+        items: [
+          { ...BLOCKED_ROW, id: 1, entity_type: "ARC_TECH", is_group: true },
+          { ...BLOCKED_ROW, id: 2, entity_type: "NEGOTIATION_QUOTE" },
+        ],
+      },
+    });
+    render(<StuckApprovals />);
+    expect(await screen.findByText(/Group ARC · Technical Approval/)).toBeInTheDocument();
+    expect(screen.getByText(/Final Vendor Approval/)).toBeInTheDocument();
+  });
+});

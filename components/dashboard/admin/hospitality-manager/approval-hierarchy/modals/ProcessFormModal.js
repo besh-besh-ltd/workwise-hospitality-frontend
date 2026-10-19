@@ -2,12 +2,16 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import { BsXLg } from "react-icons/bs";
 import { DS, PROCESS_TYPES, PROCESS_TYPE_COLORS } from "../constants";
+import { stageShortLabel } from "../stageLabels";
 import s from "./ProcessFormModal.module.scss";
 
+const flowDesc = (types) => types.map(stageShortLabel).join(" > ");
+const RFQ_FLOW = flowDesc(["RFQ", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO"]);
+const TENDER_FLOW = flowDesc(["TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC"]);
 const PROCESS_TYPE_OPTIONS = [
-  { value: PROCESS_TYPES.RFQ, label: "RFQ", desc: "RFQ > Tech > Negotiation > Neg. Quote > PO" },
-  { value: PROCESS_TYPES.TENDER, label: "Tender", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
-  { value: PROCESS_TYPES.ARC, label: "ARC", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
+  { value: PROCESS_TYPES.RFQ, label: "RFQ", desc: RFQ_FLOW },
+  { value: PROCESS_TYPES.TENDER, label: "Tender", desc: TENDER_FLOW },
+  { value: PROCESS_TYPES.ARC, label: "ARC", desc: TENDER_FLOW },
 ];
 
 const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {

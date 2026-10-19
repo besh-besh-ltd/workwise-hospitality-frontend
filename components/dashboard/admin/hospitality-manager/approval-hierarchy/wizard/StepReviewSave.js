@@ -2,18 +2,21 @@ import React from "react";
 import { BsCheckCircleFill, BsDiagram3 } from "react-icons/bs";
 import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
 import { DS, PROCESS_TYPE_COLORS } from "../constants";
+import { stageShortLabel as sh } from "../stageLabels";
 import s from "./StepReviewSave.module.scss";
 
+const flow = (types) => types.map(sh).join(" > ");
+const ARC_FLOW = flow(["ARC", "ARC_TECH", "ARC_NEGOTIATION", "ARC_COMMITTEE", "ARC_AMENDMENT"]);
 const FLOW_LABELS = {
-  RFQ: "RFQ > Technical > Negotiation > Neg. Quote > PO",
-  ARC: "Publish > Technical > Negotiation > Committee > Amendment",
-  ARC_GROUP: "Publish > Technical > Negotiation > Committee > Amendment",
+  RFQ: flow(["RFQ", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO"]),
+  ARC: ARC_FLOW,
+  ARC_GROUP: ARC_FLOW,
 };
 
 const StepReviewSave = ({ process, stages, hotel, getApproverDisplayInfo, isArcGroup = false }) => {
   const processName = process?.name || "Unknown Process";
   const processType = (process?.process_type || "RFQ").toUpperCase();
-  const flowLabel = FLOW_LABELS[processType] || "Tender > Technical > Negotiation > Neg. Quote > ARC";
+  const flowLabel = FLOW_LABELS[processType] || flow(["TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC"]);
   const typeColor = PROCESS_TYPE_COLORS[processType] || DS.primary;
   const totalLevels = (stages || []).reduce((sum, st) => sum + (st.steps?.length || 0), 0);
   const configuredStages = (stages || []).filter((st) => st.steps?.length > 0).length;

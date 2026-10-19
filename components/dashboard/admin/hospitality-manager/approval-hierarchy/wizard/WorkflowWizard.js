@@ -8,6 +8,7 @@ import StepSelectProcessOnly from "./StepSelectProcessOnly";
 import StepConfigureStages from "./StepConfigureStages";
 import StepReviewSave from "./StepReviewSave";
 import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, FLOW_TYPE } from "../constants";
+import { stageLabel } from "../stageLabels";
 import { buildWorkflowStagePayloads } from "../workflowPayloads";
 import s from "./WorkflowWizard.module.scss";
 
@@ -31,8 +32,8 @@ const buildArcStagesFromPolicies = (policies) =>
 
 // Process-free flows have a fixed stage set and a required base stage.
 const PROCESS_FREE_FLOWS = {
-  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: "ARC (Publish & Base)", review: { name: "ARC (Rate Contracts)", process_type: "ARC" } },
-  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: "Group ARC (Publish & Base)", review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
+  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: stageLabel("ARC"), review: { name: "Unit ARC", process_type: "ARC" } },
+  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: stageLabel("ARC_GROUP"), review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
 };
 const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ entity_type: st.value, steps: [] }));
 

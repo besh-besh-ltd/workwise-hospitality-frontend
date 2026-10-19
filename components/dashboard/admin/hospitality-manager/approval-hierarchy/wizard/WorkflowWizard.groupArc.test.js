@@ -51,17 +51,17 @@ describe("Group ARC workflow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     // Listed once in the stage editor and again in the live preview.
-    expect(screen.getAllByText("Group ARC Approval").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Group ARC Committee Award").length).toBeGreaterThan(0);
-    expect(screen.queryByText("ARC Committee Award")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Group ARC · Publish Approval").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Group ARC · Committee Approval").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Unit ARC · Committee Approval")).not.toBeInTheDocument();
     expect(screen.getByText(/approvers with company-level access/i)).toBeInTheDocument();
 
     // The base stage gates publishing, so it cannot be left empty even when an
     // optional stage has approvers.
-    fireEvent.click(screen.getAllByText("Group ARC Technical Evaluation")[0]);
+    fireEvent.click(screen.getAllByText("Group ARC · Technical Approval")[0]);
     fireEvent.click(screen.getByRole("button", { name: /add first level/i }));
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Group ARC \(Publish & Base\)/));
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Group ARC · Publish Approval/));
   });
 
   test("cannot start a second Group ARC workflow when the company already has one", () => {

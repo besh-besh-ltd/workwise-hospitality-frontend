@@ -588,7 +588,7 @@ export const modulePageData = {
   // PO & Payment Lifecycle Management
   payments: {
     hero: {
-      title: "From Vendor Finalization to Final Payment-All in One Flow",
+      title: "From Final Vendor Selection to Final Payment-All in One Flow",
       subtitle: "Define PO approval hierarchies, auto‑generate POs, and track every milestone-from dispatches and GRNs to client and supplier payments.",
       primaryButton: {
         label: "Try PO Management Module",
