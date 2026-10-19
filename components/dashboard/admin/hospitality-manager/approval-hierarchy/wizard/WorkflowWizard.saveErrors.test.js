@@ -89,3 +89,69 @@ test("any other failure code shows the server message inline and as a string toa
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.any(String)));
   expect(await screen.findByText(serverMessage)).toBeInTheDocument();
 });
+
+const newStagesSetup = () => {
+  const props = {
+    processes: [{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }],
+    hotel: { id: 12, name: "Goa Beach Resort" },
+    companyId: "4", hotelId: "12",
+    getApproverOptions: jest.fn(() => [{ value: 7, label: "RFQ Creator" }]),
+    getApproverDisplayInfo: jest.fn(() => ({ name: "RFQ Creator", email: "", type: "Role", typeLabel: "User Role", users: [] })),
+    onCreateProcess: jest.fn(), onSave: jest.fn(), onCancel: jest.fn(),
+  };
+  // RFQ has an id (update path); TECHNICAL is new (create path).
+  render(
+    <WorkflowWizard
+      {...props}
+      editingProcess={{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }}
+      editingPolicies={[
+        { id: 11, entity_type: "RFQ", hotel_id: 12, process_id: 2, steps: [step] },
+        { entity_type: "TECHNICAL", hotel_id: 12, process_id: 2, steps: [step] },
+      ]}
+    />
+  );
+  const save = () => {
+    fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+  };
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  return { props, save };
+};
+
+test("retry after a partial failure updates the stage the first run created", async () => {
+  let rfqFails = true;
+  updateApprovalPolicy.mockImplementation((payload) =>
+    payload.entity_type === "RFQ" && rfqFails ? rejection({ status: 3, code: "X", message: "nope" }) : Promise.resolve({ status: 1 })
+  );
+  createApprovalPolicy.mockResolvedValue({ status: 1, data: { id: 501 } });
+  const { save } = newStagesSetup();
+
+  save();
+  await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  const techCreates = () => createApprovalPolicy.mock.calls.filter(([p]) => p.entity_type === "TECHNICAL").length;
+  expect(techCreates()).toBe(1);
+
+  rfqFails = false;
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  save();
+  await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  expect(techCreates()).toBe(1);
+  expect(updateApprovalPolicy).toHaveBeenCalledWith(expect.objectContaining({ entity_type: "TECHNICAL", id: 501 }));
+});
+
+test("a failure plus an impact warning tells the admin the warned stage was not applied", async () => {
+  updateApprovalPolicy.mockImplementation((payload) =>
+    payload.entity_type === "RFQ"
+      ? rejection({ status: 3, code: "X", message: "nope" })
+      : Promise.resolve({ status: 0, code: "APPROVAL_IMPACT_WARNING", data: { entity_type: "TECHNICAL", pending_count: 2 } })
+  );
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+
+  await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  expect(toast.error.mock.calls[0][0]).toBe(
+    "Couldn't save RFQ Approval — not applied yet (affects pending approvals; save again to review): Technical Approval"
+  );
+});

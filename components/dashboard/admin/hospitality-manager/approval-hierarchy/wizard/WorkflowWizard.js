@@ -156,9 +156,16 @@ const WorkflowWizard = ({
 
   const handleBack = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
 
+  // Policies created by an earlier attempt in this wizard session. Payloads are
+  // rebuilt from the stale `editingPolicies` prop, so without this a retry would
+  // create the same stage a second time.
+  const createdIds = React.useRef({});
+
   const saveStagePayload = async (payload) => {
-    const fn = payload.id ? updateApprovalPolicy : createApprovalPolicy;
-    const response = await fn(payload);
+    const knownId = payload.id || createdIds.current[payload.entity_type];
+    const body = knownId ? { ...payload, id: knownId } : payload;
+    const response = await (knownId ? updateApprovalPolicy : createApprovalPolicy)(body);
+    if (!knownId && response?.data?.id) createdIds.current[payload.entity_type] = response.data.id;
     if (response?.status === 0 && response?.code === "APPROVAL_IMPACT_WARNING") return { kind: "warning", warning: response.data };
     return { kind: "success", response };
   };
@@ -207,12 +214,12 @@ const WorkflowWizard = ({
     return { pending, saved, failures };
   };
 
-  const reportFailures = (failures, saved) => {
+  const reportFailures = (failures, saved, pending = []) => {
     const errors = {};
     failures.forEach((f) => { errors[f.entityType] = f.error; });
     setStageErrors(errors);
     failures.forEach((f) => {
-      toast.error(`Couldn't save ${f.label}${saved.length ? ` — saved: ${saved.join(", ")}` : ""}`);
+      toast.error(`Couldn't save ${f.label}${saved.length ? ` — saved: ${saved.join(", ")}` : ""}${pending.length ? ` — not applied yet (affects pending approvals; save again to review): ${pending.map((p) => stageLabel(p.payload.entity_type)).join(", ")}` : ""}`);
     });
     // The messages live on the stage editor, not the review page.
     setCurrentStep(2);
@@ -226,7 +233,7 @@ const WorkflowWizard = ({
       const { payloads, toDelete } = buildStagePayloads();
       for (const id of toDelete) { try { await deleteApprovalPolicy(id); } catch (e) { /* non-fatal */ } }
       const { pending, saved, failures } = await runSaves(payloads);
-      if (failures.length) { reportFailures(failures, saved); setSaving(false); return; }
+      if (failures.length) { reportFailures(failures, saved, pending); setSaving(false); return; }
       if (pending.length === 0) { toast.success("Workflow saved successfully"); onSave(); return; }
       setImpactWarning({ pending });
     } catch (error) {
