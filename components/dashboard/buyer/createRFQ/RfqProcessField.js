@@ -8,19 +8,19 @@ export const NO_RFQ_WORKFLOW_MESSAGE =
  * The "Process" field of the RFQ create form, driven by what actually has a
  * working RFQ workflow at the chosen unit:
  *   - none usable  -> an explanation instead of a required select nobody can fill
- *   - exactly one  -> shown read-only (the caller auto-selects it)
+ *   - exactly one, coverage KNOWN -> shown read-only (the caller auto-selects it)
  *   - several      -> the required select
  */
 const RfqProcessField = ({
   processes,
-  noneUsable,
+  fieldState,
   value,
   onChange,
   disabled,
   missing,
   selectId = "select_process-create_rfq_page",
 }) => {
-  if (noneUsable) {
+  if (fieldState === "none") {
     return (
       <div className="rfq-field">
         <label className="rfq-label">Process</label>
@@ -30,7 +30,7 @@ const RfqProcessField = ({
   }
   if (!processes || processes.length === 0) return null;
 
-  if (processes.length === 1) {
+  if (fieldState === "readonly" && processes.length === 1) {
     return (
       <div className="rfq-field">
         <label className="rfq-label">Process</label>

@@ -25,7 +25,7 @@ import { getMyHospitalityContexts } from "@/services/hospitality";
 import { getDepartments } from "@/services/rbac";
 import { getApprovalProcesses } from "@/services/process";
 import usePolicyCoverage from "@/hooks/usePolicyCoverage";
-import { usableRfqProcesses } from "@/utils/policyCoverage";
+import { usableRfqProcesses, processFieldState, nextProcessId } from "@/utils/policyCoverage";
 import RfqProcessField from "./RfqProcessField";
 import { getUnits } from "@/services/units";
 import HotelFilter from "@/components/shared/HotelFilter";
@@ -399,7 +399,7 @@ const CreateRFQ = () => {
   const [userHotelMappings, setUserHotelMappings] = useState([]);
   const [selectedHotelIds, setSelectedHotelIds] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [allProcesses, setProcesses] = useState([]);
+  const [allProcesses, setAllProcesses] = useState([]);
   // Captured submit error for structured-code surfacing (process scope /
   // missing approval policy). Renders via ProcessScopeErrorBanner above the
   // submit footer; cleared on next successful action.
@@ -735,7 +735,7 @@ const CreateRFQ = () => {
       const filtered = (Array.isArray(allowedProcessIds))
         ? procs.filter((p) => allowedProcessIds.includes(Number(p.value)))
         : procs;
-      setProcesses(filtered);
+      setAllProcesses(filtered);
     } catch (error) {
       console.error("Error fetching processes:", error);
     }
@@ -745,11 +745,13 @@ const CreateRFQ = () => {
   // chosen unit. If coverage can't be loaded, `coverage` stays null and the
   // full RFQ-type list is shown as before: never block creation on it.
   // Edit mode keeps the existing process untouched.
-  const coverageHotelId = selectedHotelIds[0] ?? rfqFormDataFromStore?.hotel_id ?? null;
-  const { coverage } = usePolicyCoverage({ hotelId: coverageHotelId, enabled: !isEditMode });
+  const coverageHotelIds = selectedHotelIds.length
+    ? selectedHotelIds
+    : rfqFormDataFromStore?.hotel_id ? [rfqFormDataFromStore.hotel_id] : [];
+  const { coverage } = usePolicyCoverage({ hotelIds: coverageHotelIds, enabled: !isEditMode });
   const rfqTypeProcesses = usableRfqProcesses(allProcesses, null);
   const processes = isEditMode ? allProcesses : usableRfqProcesses(allProcesses, coverage);
-  const noUsableProcess = !isEditMode && !!coverage && rfqTypeProcesses.length > 0 && processes.length === 0;
+  const processState = isEditMode ? "select" : processFieldState(rfqTypeProcesses, coverage);
 
   // Pulled in its own callback so child components can ask the page to
   // refresh after adding / deleting a custom unit.
@@ -2655,14 +2657,10 @@ useEffect(() => {
   // (unit changed) is cleared. Only acts once coverage is known.
   useEffect(() => {
     if (isEditMode || !coverage || isViewOnlyDraft || allProcesses.length === 0) return;
-    const current = rfqFormDataFromStore.process_id;
-    const stillUsable = processes.some((p) => p.value === current);
-    if (processes.length === 1) {
-      if (current !== processes[0].value) {
-        dispatch(setOtherFormFields({ field_name: "process_id", value: processes[0].value }));
-      }
-    } else if (current && !stillUsable) {
-      dispatch(setOtherFormFields({ field_name: "process_id", value: null }));
+    const current = rfqFormDataFromStore.process_id ?? null;
+    const next = nextProcessId(current, processes, coverage);
+    if (next !== current) {
+      dispatch(setOtherFormFields({ field_name: "process_id", value: next }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coverage, allProcesses, isEditMode, isViewOnlyDraft, rfqFormDataFromStore.process_id]);
@@ -3722,7 +3720,7 @@ useEffect(() => {
                         )}
                         <RfqProcessField
                           processes={processes}
-                          noneUsable={noUsableProcess}
+                          fieldState={processState}
                           value={rfqFormDataFromStore.process_id}
                           onChange={(value) => {
                             dispatch(setOtherFormFields({ field_name: "process_id", value }));

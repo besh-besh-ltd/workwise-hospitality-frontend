@@ -53,7 +53,8 @@ describe("StartRFQ — direct ?orderType=tender", () => {
     getPolicyCoverage.mockResolvedValue({ data: { process_free: [], by_process: { 5: ["TENDER"] } } });
     render(<StartRFQ />);
     await waitFor(() => expect(getPolicyCoverage).toHaveBeenCalled());
-    expect(await screen.findByText("Pick the business units")).toBeInTheDocument();
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(screen.getByText("Pick the business units")).toBeInTheDocument();
     expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
   });
 

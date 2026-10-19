@@ -56,8 +56,9 @@ const Search = ({ title, type }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   // Hide the Tender card only when coverage says no Tender workflow exists;
   // an unavailable lookup (or a logged-out visitor) keeps today's behaviour.
-  const { coverage: policyCoverage } = usePolicyCoverage({ enabled: isLoggedIn });
-  const showTenderCard = isTenderAvailable(policyCoverage);
+  const { coverage: policyCoverage, loading: coverageLoading } = usePolicyCoverage({ enabled: isLoggedIn });
+  // No flicker: while the lookup is in flight the card waits.
+  const showTenderCard = !coverageLoading && isTenderAvailable(policyCoverage);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchProduct, setSearchProduct] = useState("");
