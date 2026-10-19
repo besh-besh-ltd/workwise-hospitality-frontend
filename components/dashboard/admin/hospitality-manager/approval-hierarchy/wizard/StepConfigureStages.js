@@ -73,8 +73,14 @@ const AddLevelsBulk = ({ getApproverOptions, onAdd }) => {
   );
 };
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, stageErrors = {} }) => {
   const [expandedStage, setExpandedStage] = useState(0);
+
+  // A failed save must be visible: open the first stage that has an error.
+  React.useEffect(() => {
+    const idx = (stages || []).findIndex((st) => stageErrors[st.entity_type]);
+    if (idx >= 0) setExpandedStage(idx);
+  }, [stageErrors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddStep = (si) => {
     const ns = stages.map((st, i) => {
@@ -190,6 +196,9 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                         </div>
                       </div>
                     </div>
+                    {stageErrors[stage.entity_type]?.message && (
+                      <div role="alert" style={{ color: "#b91c1c", fontSize: 13, margin: "6px 0 0 48px" }}>{stageErrors[stage.entity_type].message}</div>
+                    )}
                     {isExpanded && (
                       <div className={s.stageBody}>
                         {steps.length === 0 ? (
@@ -201,7 +210,12 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
-                              <ApprovalStepCard key={stepIdx} step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
+                              <React.Fragment key={stepIdx}>
+                              <ApprovalStepCard step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
+                              {stageErrors[stage.entity_type]?.levels?.[step.step_order ?? stepIdx + 1] && (
+                                <div role="alert" style={{ color: "#b91c1c", fontSize: 13, margin: "-4px 0 10px" }}>{stageErrors[stage.entity_type].levels[step.step_order ?? stepIdx + 1]}</div>
+                              )}
+                              </React.Fragment>
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
                             <AddLevelsBulk getApproverOptions={getApproverOptions} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />

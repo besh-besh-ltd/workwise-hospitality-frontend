@@ -9,6 +9,7 @@ import StepConfigureStages from "./StepConfigureStages";
 import StepReviewSave from "./StepReviewSave";
 import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, FLOW_TYPE } from "../constants";
 import { stageLabel } from "../stageLabels";
+import { apiErrorMessage, apiErrorPayload } from "@/components/dashboard/admin/shared/apiError";
 import { buildWorkflowStagePayloads } from "../workflowPayloads";
 import s from "./WorkflowWizard.module.scss";
 
@@ -59,6 +60,8 @@ const WorkflowWizard = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [impactWarning, setImpactWarning] = useState(null);
+  // { [entity_type]: { message, levels: { [step_order]: message } } }
+  const [stageErrors, setStageErrors] = useState({});
   const [wizardForm, setWizardForm] = useState(() => ({
     flow_type: editingFlow,
     process_id: editingFlow === FLOW_TYPE.PROCESS && isEditing ? editingProcess?.id : null,
@@ -169,18 +172,65 @@ const WorkflowWizard = ({
     processId: wizardForm.process_id,
   });
 
+  // Turn one stage's failed save into the stage-level error shown inline plus
+  // the short toast. The server's long sentence stays out of the toast.
+  const describeFailure = (err, entityType) => {
+    const label = stageLabel(entityType);
+    const body = apiErrorPayload(err);
+    if (body?.code === "APPROVER_ROLE_CANNOT_APPROVE") {
+      const levels = {};
+      let stageMessage = null;
+      for (const st of body.data?.steps || []) {
+        const msg = `Level ${st.step_order}: ${st.role_title} can't approve ${stageLabel(body.data?.entity_type || entityType)} — this role does the work but holds no approve permission. Pick an approver role or a named person.`;
+        if (st.step_order != null) levels[st.step_order] = msg; else stageMessage = msg;
+      }
+      return { label, error: { message: stageMessage || (Object.keys(levels).length ? null : apiErrorMessage(err, `Couldn't save ${label}`)), levels } };
+    }
+    return { label, error: { message: apiErrorMessage(err, `Couldn't save ${label}`), levels: {} } };
+  };
+
+  // Save every payload, carrying on past a failure so one bad stage doesn't
+  // strand the others, and report exactly which stages failed.
+  const runSaves = async (items, extra = {}) => {
+    const pending = [];
+    const saved = [];
+    const failures = [];
+    for (const payload of items) {
+      try {
+        const r = await saveStagePayload({ ...payload, ...extra });
+        if (r.kind === "warning") pending.push({ payload, warning: r.warning });
+        else if (payload.steps?.length) saved.push(stageLabel(payload.entity_type));
+      } catch (err) {
+        failures.push({ entityType: payload.entity_type, ...describeFailure(err, payload.entity_type) });
+      }
+    }
+    return { pending, saved, failures };
+  };
+
+  const reportFailures = (failures, saved) => {
+    const errors = {};
+    failures.forEach((f) => { errors[f.entityType] = f.error; });
+    setStageErrors(errors);
+    failures.forEach((f) => {
+      toast.error(`Couldn't save ${f.label}${saved.length ? ` — saved: ${saved.join(", ")}` : ""}`);
+    });
+    // The messages live on the stage editor, not the review page.
+    setCurrentStep(2);
+  };
+
   const handleSave = async () => {
     if (!validateStep(2)) return;
     setSaving(true);
+    setStageErrors({});
     try {
       const { payloads, toDelete } = buildStagePayloads();
       for (const id of toDelete) { try { await deleteApprovalPolicy(id); } catch (e) { /* non-fatal */ } }
-      const pending = [];
-      for (const payload of payloads) { const r = await saveStagePayload(payload); if (r.kind === "warning") pending.push({ payload, warning: r.warning }); }
+      const { pending, saved, failures } = await runSaves(payloads);
+      if (failures.length) { reportFailures(failures, saved); setSaving(false); return; }
       if (pending.length === 0) { toast.success("Workflow saved successfully"); onSave(); return; }
       setImpactWarning({ pending });
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.message || "Failed to save workflow");
+      toast.error(apiErrorMessage(error, error?.message && typeof error.message === "string" ? error.message : "Failed to save workflow"));
       setSaving(false);
     }
   };
@@ -188,14 +238,16 @@ const WorkflowWizard = ({
   const handleConfirmImpact = async () => {
     if (!impactWarning?.pending?.length) { setImpactWarning(null); setSaving(false); return; }
     try {
-      for (const { payload } of impactWarning.pending) await saveStagePayload({ ...payload, confirmed_approval_impact: true });
-      toast.success("Workflow saved and pending approvals updated"); setImpactWarning(null); onSave();
-    } catch (error) { toast.error(error?.response?.data?.message || error?.message || "Failed to apply changes"); }
+      const { saved, failures } = await runSaves(impactWarning.pending.map((p) => p.payload), { confirmed_approval_impact: true });
+      setImpactWarning(null);
+      if (failures.length) { reportFailures(failures, saved); return; }
+      toast.success("Workflow saved and pending approvals updated"); onSave();
+    } catch (error) { toast.error(apiErrorMessage(error, "Failed to apply changes")); }
     finally { setSaving(false); }
   };
 
   const handleCancelImpact = () => {
-    const skipped = impactWarning?.pending?.map((p) => p.payload.entity_type).join(", ");
+    const skipped = impactWarning?.pending?.map((p) => stageLabel(p.payload.entity_type)).join(", ");
     setImpactWarning(null); setSaving(false);
     if (skipped) toast.info(`Changes to ${skipped} were not applied. Other stages saved.`);
   };
@@ -237,7 +289,7 @@ const WorkflowWizard = ({
           }}
         />
       );
-      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} />;
+      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} stageErrors={stageErrors} />;
       case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} />;
       default: return null;
     }
@@ -281,7 +333,7 @@ const WorkflowWizard = ({
             {impactWarning.pending.map(({ payload, warning }) => (
               <div key={`${payload.entity_type}-${payload.id || "new"}`} style={{ border: "1px solid #f3d28a", background: DS.orangeTint, borderRadius: 8, padding: 12, marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <strong style={{ fontSize: 13 }}>{warning.entity_type}</strong>
+                  <strong style={{ fontSize: 13 }}>{stageLabel(warning.entity_type || payload.entity_type)}</strong>
                   <span style={{ fontSize: 12, color: "#92400e" }}>{warning.pending_count} pending</span>
                 </div>
                 {warning.instances?.length > 0 && (
