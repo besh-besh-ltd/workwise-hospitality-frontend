@@ -1,4 +1,5 @@
 "use client";
+import { isArcRole, ARC_ROLE_HINT } from "@/utils/roleArc";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { BsChevronDown, BsChevronRight, BsPencil, BsShieldLock } from "react-icons/bs";
@@ -133,6 +134,7 @@ const AccessPage = () => {
                 <BsShieldLock size={10} /> Built-in
               </span>
             )}
+            {isArcRole(role) && <span className={styles.arcChip}>{ARC_ROLE_HINT}</span>}
             {coverage && (
               <span className={styles.coverageChip}>
                 {coverage.granted} of {totalPermissions}

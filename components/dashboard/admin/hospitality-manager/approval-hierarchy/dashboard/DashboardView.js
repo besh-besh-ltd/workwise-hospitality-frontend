@@ -18,7 +18,7 @@ export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "Unit ARC", process_type:
 // business unit's page because it governs group rate contracts led by any hotel.
 export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (company-wide)", process_type: "ARC_GROUP", is_arc: true, is_arc_group: true };
 
-const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
+const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview, roles, getUsersByRole }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -130,9 +130,9 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
           {processGroups.map((group) => {
             if (group.policies.length === 0) return null;
             if (group.isOrphan) return group.policies.map((policy) => (
-              <WorkflowCardV2 key={policy.id} process={{ id: null, name: stageLabel(policy.entity_type), process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
+              <WorkflowCardV2 key={policy.id} process={{ id: null, name: stageLabel(policy.entity_type), process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} roles={roles} getUsersByRole={getUsersByRole} />
             ));
-            return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} />;
+            return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} roles={roles} getUsersByRole={getUsersByRole} />;
           })}
           {processGroups.filter((g) => !g.isOrphan && g.policies.length === 0).length > 0 && (
             <>

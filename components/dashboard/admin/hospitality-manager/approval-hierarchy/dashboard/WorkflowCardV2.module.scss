@@ -195,3 +195,18 @@
   .tooltip { display: none; }
   .detail { margin: 0 14px 10px; }
 }
+
+.doneBy {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  font-size: 12px;
+}
+.doneByTitle { font-weight: 600; color: #475569; margin-bottom: 4px; }
+.doneByRole { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.doneByRoleName { font-weight: 500; color: #1e293b; }
+.doneByNames { color: #475569; }
+.doneByMore { color: #64748b; font-weight: 600; }
+.doneByCaption { margin-top: 4px; font-size: 11px; color: #94a3b8; }

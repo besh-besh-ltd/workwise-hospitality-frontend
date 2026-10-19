@@ -264,7 +264,7 @@ const WorkflowWizard = ({
   // appear). ARC is process-free → processId = null = every eligible user
   // (already the wildcard-permissive path).
   const wizardProcessId = isArc ? null : (wizardForm.process_id || null);
-  const getApproverOptionsForProcess = (type, dept) => getApproverOptions(type, dept, wizardProcessId);
+  const getApproverOptionsForProcess = (type, dept, entityType = null) => getApproverOptions(type, dept, wizardProcessId, entityType);
   const getApproverDisplayInfoForProcess = (step, dept) => getApproverDisplayInfo(step, dept, wizardProcessId);
 
   // For Step 3 review header: real process for process flows, a synthetic

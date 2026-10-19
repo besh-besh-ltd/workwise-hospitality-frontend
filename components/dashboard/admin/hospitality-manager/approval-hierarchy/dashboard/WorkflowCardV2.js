@@ -28,7 +28,37 @@ const DeptList = ({ names }) => {
 };
 
 
-const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDisplayInfo }) => {
+const DONE_BY_LIMIT = 5;
+
+/**
+ * Who does the work at a stage (creates the RFQ, evaluates the quotes) as
+ * opposed to who approves it. Roles come from performs_entity_types, so this
+ * is the answer to "who are our RFQ Creators / Technical Evaluators?".
+ */
+const DoneBy = ({ entityType, processId, roles, getUsersByRole }) => {
+  if (!Array.isArray(roles) || typeof getUsersByRole !== "function") return null;
+  const performers = roles
+    .filter((r) => Array.isArray(r.performs_entity_types) && r.performs_entity_types.includes(entityType))
+    .map((r) => ({ role: r, users: getUsersByRole(r.id, null, processId ?? null) || [] }));
+  if (performers.length === 0) return null;
+  return (
+    <div className={s.doneBy}>
+      <div className={s.doneByTitle}>Done by</div>
+      {performers.map(({ role, users }) => (
+        <div key={role.id} className={s.doneByRole}>
+          <span className={s.doneByRoleName}>{role.title}</span>
+          <span className={s.doneByNames}>
+            {users.length === 0 ? "No one assigned" : users.slice(0, DONE_BY_LIMIT).map((u) => u.name).join(", ")}
+          </span>
+          {users.length > DONE_BY_LIMIT && <span className={s.doneByMore}>{`+${users.length - DONE_BY_LIMIT}`}</span>}
+        </div>
+      ))}
+      <div className={s.doneByCaption}>Does the work — not an approval level</div>
+    </div>
+  );
+};
+
+const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDisplayInfo, roles, getUsersByRole }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [expandedStage, setExpandedStage] = useState(null);
   const [openUsers, setOpenUsers] = useState({});
@@ -139,6 +169,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                   : "No levels"}
               </span>
             </div>
+            <DoneBy entityType={expandedData.entity_type} processId={process?.id} roles={roles} getUsersByRole={getUsersByRole} />
             {expandedData.steps.length === 0 ? (
               <div className={s.detailEmpty}>No approval levels configured for this stage</div>
             ) : (

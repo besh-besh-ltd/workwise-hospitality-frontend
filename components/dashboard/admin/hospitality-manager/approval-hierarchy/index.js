@@ -28,6 +28,7 @@ const ApprovalHierarchyRedesigned = () => {
     loading: dataLoading,
     refresh: refreshPolicies,
     getApproverOptions,
+    getUsersByRole,
     getApproverDisplayInfo,
     handleDeletePolicy,
     getDeptSubGraphPreview,
@@ -182,6 +183,8 @@ const ApprovalHierarchyRedesigned = () => {
           onDeleteProcess={handleDeleteProcess}
           getApproverDisplayInfo={getApproverDisplayInfo}
           getDeptSubGraphPreview={getDeptSubGraphPreview}
+          roles={roles}
+          getUsersByRole={getUsersByRole}
 
         />
       ) : (
