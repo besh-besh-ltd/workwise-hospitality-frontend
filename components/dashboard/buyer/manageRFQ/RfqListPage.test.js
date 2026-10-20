@@ -132,6 +132,7 @@ describe("RfqListPage — pending kinds are visually distinct", () => {
       pending_reasons: [{ kind: "approval", code: "QUOTATION_APPROVAL", label: "Your approval", count: 1, entity_type: "NEGOTIATION_QUOTE", instance_id: 55 }],
     })], { approval: 1, response: 0, evaluation: 0 }));
 
+    expect((await screen.findAllByText("Final Vendor Approval")).length).toBeGreaterThan(0);
     const chip = await screen.findByText("Your approval");
     expect(chip).toHaveClass("needs-action-pill");
     expect(chip).toHaveClass("k-approval");

@@ -41,7 +41,7 @@ const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ 
 const WorkflowWizard = ({
   editingProcess, editingPolicies, processes, hotel,
   companyId, hotelId, getApproverOptions, getApproverDisplayInfo,
-  onCreateProcess, onSave, onCancel, groupWorkflowExists = false,
+  onCreateProcess, onSave, onCancel, onWrite, groupWorkflowExists = false,
 }) => {
   const isEditing = !!editingProcess;
   const isArcGroupEditing = isEditing && !!editingProcess?.is_arc_group;
@@ -159,25 +159,43 @@ const WorkflowWizard = ({
   // Policies created by an earlier attempt in this wizard session. Payloads are
   // rebuilt from the stale `editingPolicies` prop, so without this a retry would
   // create the same stage a second time.
+  // Keyed by flow + process + entity type: after a partial failure the admin may
+  // go back and pick a different process or flow, and the retry must not
+  // update the old one's policy (the backend would move it).
   const createdIds = React.useRef({});
+  const createdKey = (entityType) => `${wizardForm.flow_type}:${wizardForm.process_id ?? "none"}:${entityType}`;
 
   const saveStagePayload = async (payload) => {
-    const knownId = payload.id || createdIds.current[payload.entity_type];
+    const key = createdKey(payload.entity_type);
+    const knownId = payload.id || createdIds.current[key];
     const body = knownId ? { ...payload, id: knownId } : payload;
     const response = await (knownId ? updateApprovalPolicy : createApprovalPolicy)(body);
-    if (!knownId && response?.data?.id) createdIds.current[payload.entity_type] = response.data.id;
+    if (!knownId && response?.data?.id) createdIds.current[key] = response.data.id;
     if (response?.status === 0 && response?.code === "APPROVAL_IMPACT_WARNING") return { kind: "warning", warning: response.data };
+    if (onWrite) onWrite();
     return { kind: "success", response };
   };
 
-  const buildStagePayloads = () => buildWorkflowStagePayloads({
-    flowType: wizardForm.flow_type,
-    stages: wizardForm.stages,
-    editingPolicies,
-    companyId,
-    hotelId,
-    processId: wizardForm.process_id,
-  });
+  // This session's created policies for the current flow/process, shaped like
+  // editing policies so both the update and the delete paths see them.
+  const sessionPolicies = () => {
+    const prefix = `${wizardForm.flow_type}:${wizardForm.process_id ?? "none"}:`;
+    return Object.entries(createdIds.current)
+      .filter(([k]) => k.startsWith(prefix))
+      .map(([k, id]) => ({ id, entity_type: k.slice(prefix.length) }));
+  };
+
+  const buildStagePayloads = () => {
+    const known = new Set((editingPolicies || []).map((p) => p.entity_type));
+    return buildWorkflowStagePayloads({
+      flowType: wizardForm.flow_type,
+      stages: wizardForm.stages,
+      editingPolicies: [...(editingPolicies || []), ...sessionPolicies().filter((p) => !known.has(p.entity_type))],
+      companyId,
+      hotelId,
+      processId: wizardForm.process_id,
+    });
+  };
 
   // Turn one stage's failed save into the stage-level error shown inline plus
   // the short toast. The server's long sentence stays out of the toast.
@@ -188,7 +206,7 @@ const WorkflowWizard = ({
       const levels = {};
       let stageMessage = null;
       for (const st of body.data?.steps || []) {
-        const msg = `Level ${st.step_order}: ${st.role_title} can't approve ${stageLabel(body.data?.entity_type || entityType)} — this role does the work but holds no approve permission. Pick an approver role or a named person.`;
+        const msg = `Level ${st.step_order}: ${st.role_title} can't approve ${stageLabel(body.data?.entity_type || entityType)} — it has no approve permission for this stage. Pick an approver role or a named person.`;
         if (st.step_order != null) levels[st.step_order] = msg; else stageMessage = msg;
       }
       return { label, error: { message: stageMessage || (Object.keys(levels).length ? null : apiErrorMessage(err, `Couldn't save ${label}`)), levels } };
@@ -231,7 +249,13 @@ const WorkflowWizard = ({
     setStageErrors({});
     try {
       const { payloads, toDelete } = buildStagePayloads();
-      for (const id of toDelete) { try { await deleteApprovalPolicy(id); } catch (e) { /* non-fatal */ } }
+      for (const id of toDelete) {
+        try {
+          await deleteApprovalPolicy(id);
+          if (onWrite) onWrite();
+          Object.keys(createdIds.current).forEach((k) => { if (createdIds.current[k] === id) delete createdIds.current[k]; });
+        } catch (e) { /* non-fatal */ }
+      }
       const { pending, saved, failures } = await runSaves(payloads);
       if (failures.length) { reportFailures(failures, saved, pending); setSaving(false); return; }
       if (pending.length === 0) { toast.success("Workflow saved successfully"); onSave(); return; }
@@ -273,6 +297,19 @@ const WorkflowWizard = ({
     ? processFree.review
     : processes?.find((p) => p.id === wizardForm.process_id);
 
+  // A level error is keyed by level number, so it must go as soon as that
+  // stage's levels change or it would land on whichever level now has that number.
+  const handleStagesChange = (stages) => {
+    setStageErrors((prev) => {
+      const changed = (stages || []).filter((st) => prev[st.entity_type] && (wizardForm.stages || []).find((o) => o.entity_type === st.entity_type) !== st);
+      if (!changed.length) return prev;
+      const next = { ...prev };
+      changed.forEach((st) => { delete next[st.entity_type]; });
+      return next;
+    });
+    setWizardForm((prev) => ({ ...prev, stages }));
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 1: return (
@@ -296,7 +333,7 @@ const WorkflowWizard = ({
           }}
         />
       );
-      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={(stages) => setWizardForm((prev) => ({ ...prev, stages }))} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} stageErrors={stageErrors} />;
+      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={handleStagesChange} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} stageErrors={stageErrors} />;
       case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} />;
       default: return null;
     }

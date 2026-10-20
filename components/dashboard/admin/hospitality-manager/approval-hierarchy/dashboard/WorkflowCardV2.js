@@ -169,7 +169,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
                   : "No levels"}
               </span>
             </div>
-            <DoneBy entityType={expandedData.entity_type} processId={process?.id} roles={roles} getUsersByRole={getUsersByRole} />
+            <DoneBy entityType={expandedData.entity_type} processId={process?.is_arc || process?.is_arc_group || !Number.isFinite(Number(process?.id)) ? null : process.id} roles={roles} getUsersByRole={getUsersByRole} />
             {expandedData.steps.length === 0 ? (
               <div className={s.detailEmpty}>No approval levels configured for this stage</div>
             ) : (

@@ -16,6 +16,7 @@ import useRFQLifecycleSummary from "@/hooks/useRFQLifecycleSummary";
 import ApprovalActionModal from "@/components/dashboard/buyer/approval/ApprovalActionModal";
 
 import styles from "./RFQLifecycleJourneyV2.module.scss";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 const fmtDate = (d) =>
   d ? moment.utc(d).utcOffset("+05:30").format("DD MMM YY") : null;
@@ -164,7 +165,7 @@ const deriveUpNext = (phase, phases, idx) => {
     ua?.approver_steps?.length
   ) {
     list.push({
-      name: "Commercial Approval",
+      name: stageLabel("NEGOTIATION_QUOTE"),
       detail: "Approval of finalised commercial quotes",
     });
   }

@@ -89,7 +89,7 @@ describe("deleting an in-use process", () => {
     );
     render(<Harness />);
     fireEvent.click(await screen.findByTitle("Delete"));
-    fireEvent.click(screen.getByText("Delete", { selector: "button" }));
+    fireEvent.click(screen.getByText("Deactivate", { selector: "button" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     const msg = toast.error.mock.calls[0][0];
@@ -98,7 +98,7 @@ describe("deleting an in-use process", () => {
     expect(msg).toContain("1 open RFQ (555)");
     expect(msg).toContain("2 role grants");
 
-    await waitFor(() => expect(screen.queryByText("Delete Process")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Deactivate process")).not.toBeInTheDocument());
     await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
     expect(unhandled).toEqual([]);
   });
@@ -109,7 +109,7 @@ describe("deleting an in-use process", () => {
     });
     render(<Harness />);
     fireEvent.click(await screen.findByTitle("Delete"));
-    fireEvent.click(screen.getByText("Delete", { selector: "button" }));
+    fireEvent.click(screen.getByText("Deactivate", { selector: "button" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Nope"));
   });
 });

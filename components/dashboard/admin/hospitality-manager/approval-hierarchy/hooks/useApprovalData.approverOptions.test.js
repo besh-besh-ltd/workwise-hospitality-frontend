@@ -54,3 +54,19 @@ describe("getApproverOptions for ROLE", () => {
     expect(api.getApproverOptions("ROLE", null, null, "RFQ")[0].isDisabled).toBeFalsy();
   });
 });
+
+describe("getUsersByRole for process-free ARC cards", () => {
+  it("does not drop a process-scoped holder when handed a synthetic ARC id", async () => {
+    getRoles.mockResolvedValue({ data: { data: [{ id: 5, title: "ARC Creator", approvable_entity_types: [], performs_entity_types: ["ARC"] }] } });
+    const { getBatchUserRoleScopes } = require("@/services/rbac");
+    const { getCompanyUserMappings } = require("@/services/hospitality");
+    getCompanyUserMappings.mockResolvedValue({ data: [{ user_id: 10, name: "Asha", email: "a@x.com" }] });
+    getBatchUserRoleScopes.mockResolvedValue({ data: { 10: [{ role_id: 5, company_id: 1, hotel_id: 2, process_id: 77 }] } });
+    const hook = renderHook(() => useApprovalData(1, 2));
+    await waitFor(() => expect(hook.result.current.roles).toHaveLength(1));
+    await waitFor(() => expect(hook.result.current.getUsersByRole(5, null, "__ARC__")).toHaveLength(1));
+    expect(hook.result.current.getUsersByRole(5, null, "__ARC_GROUP__")).toHaveLength(1);
+    // a real, different process still filters
+    expect(hook.result.current.getUsersByRole(5, null, 78)).toHaveLength(0);
+  });
+});

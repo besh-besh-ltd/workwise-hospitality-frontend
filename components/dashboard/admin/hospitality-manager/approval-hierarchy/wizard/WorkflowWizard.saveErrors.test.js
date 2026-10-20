@@ -73,7 +73,7 @@ test("a rejected stage is explained inline and in a string toast; other stages s
   expect(updateApprovalPolicy).toHaveBeenCalledWith(expect.objectContaining({ entity_type: "TECHNICAL" }));
   expect(props.onSave).not.toHaveBeenCalled();
   expect(
-    await screen.findByText("Level 1: RFQ Creator can't approve RFQ Approval — this role does the work but holds no approve permission. Pick an approver role or a named person.")
+    await screen.findByText("Level 1: RFQ Creator can't approve RFQ Approval — it has no approve permission for this stage. Pick an approver role or a named person.")
   ).toBeInTheDocument();
 });
 
@@ -154,4 +154,34 @@ test("a failure plus an impact warning tells the admin the warned stage was not 
   expect(toast.error.mock.calls[0][0]).toBe(
     "Couldn't save RFQ Approval — not applied yet (affects pending approvals; save again to review): Technical Approval"
   );
+});
+
+
+test("a level error goes away as soon as that stage's levels change", async () => {
+  updateApprovalPolicy.mockImplementation((payload) =>
+    payload.entity_type === "RFQ"
+      ? rejection({
+          status: 3, code: "APPROVER_ROLE_CANNOT_APPROVE", message: serverMessage,
+          data: { entity_type: "RFQ", steps: [{ step_order: 1, role_id: 7, role_title: "RFQ Creator" }] },
+        })
+      : Promise.resolve({ status: 1 })
+  );
+  render(
+    <WorkflowWizard
+      processes={[{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }]}
+      hotel={{ id: 12, name: "Goa" }} companyId="4" hotelId="12"
+      getApproverOptions={jest.fn(() => [{ value: 7, label: "RFQ Creator" }])}
+      getApproverDisplayInfo={jest.fn(() => ({ name: "RFQ Creator", email: "", type: "Role", typeLabel: "User Role", users: [] }))}
+      onCreateProcess={jest.fn()} onSave={jest.fn()} onCancel={jest.fn()}
+      editingProcess={{ id: 2, name: "Day to Day Procurement", process_type: "RFQ" }}
+      editingPolicies={[{ id: 11, entity_type: "RFQ", hotel_id: 12, process_id: 2, steps: [step, { ...step, step_order: 2 }] }]}
+    />
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+  expect(await screen.findByText(/^Level 1: RFQ Creator can't approve/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getAllByTitle("Remove level")[0]);
+  expect(screen.queryByText(/can't approve/)).not.toBeInTheDocument();
 });

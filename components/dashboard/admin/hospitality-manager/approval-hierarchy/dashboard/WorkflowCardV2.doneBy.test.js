@@ -56,4 +56,17 @@ describe("WorkflowCardV2 Done by row", () => {
     open({ roles: undefined, getUsersByRole: undefined });
     expect(screen.queryByText(/done by/i)).not.toBeInTheDocument();
   });
+
+  it("asks for ARC holders with no process filter, and says so when nobody holds the role", () => {
+    const arcRoles = [{ id: 9, title: "ARC Creator", approvable_entity_types: [], performs_entity_types: ["ARC"] }];
+    const lookup = jest.fn(() => []);
+    open({
+      process: { id: "__ARC__", name: "Unit ARC", process_type: "ARC", is_arc: true },
+      policies: [{ id: 3, entity_type: "ARC", process_id: null, steps: [{ id: 1, step_order: 1, decision_rule: "ANY" }] }],
+      roles: arcRoles,
+      getUsersByRole: lookup,
+    });
+    expect(lookup).toHaveBeenCalledWith(9, null, null);
+    expect(screen.getByText("No one assigned")).toBeInTheDocument();
+  });
 });

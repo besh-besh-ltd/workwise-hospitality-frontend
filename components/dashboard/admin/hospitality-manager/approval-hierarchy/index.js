@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { BsArrowLeft } from "react-icons/bs";
 import SkeletonLoader from "./dashboard/SkeletonLoader";
@@ -17,6 +17,8 @@ const ApprovalHierarchyRedesigned = () => {
   const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' | 'wizard'
   const [editingProcess, setEditingProcess] = useState(null);
   const [editingPolicies, setEditingPolicies] = useState([]);
+  // Set once the open wizard has written or deleted any stage.
+  const wizardWrote = useRef(false);
 
   const {
     hotel,
@@ -93,6 +95,7 @@ const ApprovalHierarchyRedesigned = () => {
   );
 
   const handleWizardSave = useCallback(() => {
+    wizardWrote.current = false;
     refreshPolicies();
     refreshProcesses();
     setEditingProcess(null);
@@ -101,10 +104,16 @@ const ApprovalHierarchyRedesigned = () => {
   }, [refreshPolicies, refreshProcesses]);
 
   const handleWizardCancel = useCallback(() => {
+    // A partial save leaves the dashboard showing the pre-save policies.
+    if (wizardWrote.current) {
+      wizardWrote.current = false;
+      refreshPolicies();
+      refreshProcesses();
+    }
     setEditingProcess(null);
     setEditingPolicies([]);
     setViewMode("dashboard");
-  }, []);
+  }, [refreshPolicies, refreshProcesses]);
 
   if (loading) {
     return (
@@ -200,6 +209,7 @@ const ApprovalHierarchyRedesigned = () => {
           onCreateProcess={handleCreateProcess}
           onSave={handleWizardSave}
           onCancel={handleWizardCancel}
+          onWrite={() => { wizardWrote.current = true; }}
           groupWorkflowExists={policies.some((p) => !p.process_id && isArcGroupEntityType(p.entity_type))}
         />
       )}

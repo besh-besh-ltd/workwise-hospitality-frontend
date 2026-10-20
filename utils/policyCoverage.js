@@ -22,9 +22,11 @@ export const isRfqProcessUsable = (processId, coverage) => {
  * Narrow the RFQ-type processes to the ones that work at the chosen unit.
  * `processes` are {value,label,process_type}. ARC/TENDER-type processes never
  * belong in the RFQ create form.
+ * A tender is not narrowed at all: coverage describes RFQ workflows, and a
+ * tender's process may be of any type.
  */
-export const usableRfqProcesses = (processes, coverage) =>
-  (processes || [])
+export const usableRfqProcesses = (processes, coverage, { isTender = false } = {}) =>
+  isTender ? (processes || []) : (processes || [])
     .filter((p) => !p.process_type || String(p.process_type).toUpperCase() === "RFQ")
     .filter((p) => isRfqProcessUsable(p.value, coverage));
 
@@ -59,8 +61,8 @@ export const mergeCoverages = (list) => {
  * pick from. Unknown coverage always means the required select (today's
  * behaviour) so the user can never be left unable to choose.
  */
-export const processFieldState = (rfqProcesses, coverage) => {
-  if (!coverage) return "select";
+export const processFieldState = (rfqProcesses, coverage, { isTender = false } = {}) => {
+  if (isTender || !coverage) return "select";
   if (!rfqProcesses || rfqProcesses.length === 0) return "select";
   const usable = usableRfqProcesses(rfqProcesses, coverage);
   if (usable.length === 0) return "none";
@@ -72,8 +74,8 @@ export const processFieldState = (rfqProcesses, coverage) => {
  * auto-select the lone usable process, clear an id that is no longer usable,
  * otherwise keep what is there.
  */
-export const nextProcessId = (currentProcessId, usableProcesses, coverage) => {
-  if (!coverage) return currentProcessId ?? null;
+export const nextProcessId = (currentProcessId, usableProcesses, coverage, { isTender = false } = {}) => {
+  if (isTender || !coverage) return currentProcessId ?? null;
   if (usableProcesses.length === 1) return usableProcesses[0].value;
   if (currentProcessId && !usableProcesses.some((p) => p.value === currentProcessId)) return null;
   return currentProcessId ?? null;

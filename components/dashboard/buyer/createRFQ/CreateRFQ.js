@@ -749,9 +749,11 @@ const CreateRFQ = () => {
     ? selectedHotelIds
     : rfqFormDataFromStore?.hotel_id ? [rfqFormDataFromStore.hotel_id] : [];
   const { coverage } = usePolicyCoverage({ hotelIds: coverageHotelIds, enabled: !isEditMode });
-  const rfqTypeProcesses = usableRfqProcesses(allProcesses, null);
-  const processes = isEditMode ? allProcesses : usableRfqProcesses(allProcesses, coverage);
-  const processState = isEditMode ? "select" : processFieldState(rfqTypeProcesses, coverage);
+  // Coverage describes RFQ workflows, so a tender skips the narrowing.
+  const isTenderDraft = rfqFormDataFromStore?.is_tender === 1;
+  const rfqTypeProcesses = usableRfqProcesses(allProcesses, null, { isTender: isTenderDraft });
+  const processes = isEditMode ? allProcesses : usableRfqProcesses(allProcesses, coverage, { isTender: isTenderDraft });
+  const processState = isEditMode ? "select" : processFieldState(rfqTypeProcesses, coverage, { isTender: isTenderDraft });
 
   // Pulled in its own callback so child components can ask the page to
   // refresh after adding / deleting a custom unit.
@@ -2658,12 +2660,12 @@ useEffect(() => {
   useEffect(() => {
     if (isEditMode || !coverage || isViewOnlyDraft || allProcesses.length === 0) return;
     const current = rfqFormDataFromStore.process_id ?? null;
-    const next = nextProcessId(current, processes, coverage);
+    const next = nextProcessId(current, processes, coverage, { isTender: isTenderDraft });
     if (next !== current) {
       dispatch(setOtherFormFields({ field_name: "process_id", value: next }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coverage, allProcesses, isEditMode, isViewOnlyDraft, rfqFormDataFromStore.process_id]);
+  }, [coverage, allProcesses, isEditMode, isViewOnlyDraft, isTenderDraft, rfqFormDataFromStore.process_id]);
 
   // Fetch departments scoped to the selected hotel (covers manual selection, draft loading, auto-selection)
   // Skip when no hotel is selected — department dropdown won't show until hotel is chosen anyway

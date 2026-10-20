@@ -159,7 +159,8 @@ const useApprovalData = (companyId, hotelId) => {
       if (!roleId) return [];
       const cId = parseInt(companyId);
       const hId = parseInt(hotelId);
-      const pId = processId != null ? Number(processId) : null;
+      // Synthetic ARC ids ("__ARC__") are not process ids: no process filter.
+      const pId = processId != null && Number.isFinite(Number(processId)) ? Number(processId) : null;
       return users.filter((user) => {
         const scopes = userRoleScopes[user.user_id] || [];
         return scopes.some((scope) => {
@@ -183,7 +184,8 @@ const useApprovalData = (companyId, hotelId) => {
 
   const getApproverOptions = useCallback(
     (sourceType, departmentId, processId = null, entityType = null) => {
-      const pId = processId != null ? Number(processId) : null;
+      // Synthetic ARC ids ("__ARC__") are not process ids: no process filter.
+      const pId = processId != null && Number.isFinite(Number(processId)) ? Number(processId) : null;
       if (sourceType === "USER") {
         // Master policy context: no department filtering. When a process is
         // selected on the policy, only surface users who fall in that process —

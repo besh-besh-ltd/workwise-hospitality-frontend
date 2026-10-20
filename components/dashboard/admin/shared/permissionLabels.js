@@ -16,7 +16,7 @@ export const RESOURCE_LABELS = {
   RFQ: "RFQ Creation",
   BOQ: "BOQ (Tender Creation)",
   TE: "Technical Evaluation",
-  ARC: "Unit ARC",
+  ARC: "Annual Rate Contracts",
   "ARC-TECH": "ARC Technical Evaluation",
   "ARC-COMM": "ARC Commercial",
   "ARC-COMMITTEE": "ARC Committee",
