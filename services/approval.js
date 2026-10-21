@@ -322,3 +322,25 @@ export const revokeApprovalDelegation = (id) =>
       reject({ message: error });
     }
   });
+
+// Entity types that have an active, matching policy for the caller's units.
+// `hotel_id` is optional; the company is derived server-side from the session,
+// so never pass a company id here.
+export const getPolicyCoverage = (params = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.keys(params).forEach((key) => {
+        if (params[key] !== null && params[key] !== undefined && params[key] !== "") {
+          queryParams.append(key, params[key]);
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosInstance.get(
+        `/general/hospitality/approval/policy-coverage${queryString ? `?${queryString}` : ""}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });

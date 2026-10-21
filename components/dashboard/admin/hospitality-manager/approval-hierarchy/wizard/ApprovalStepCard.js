@@ -3,6 +3,7 @@ import Select from "react-select";
 import { BsGripVertical, BsTrash3, BsExclamationTriangleFill, BsPeopleFill, BsPersonFill } from "react-icons/bs";
 import { approverSourceTypes, decisionRules, DS } from "../constants";
 import st from "./ApprovalStepCard.module.scss";
+import { formatApproverOption } from "./formatApproverOption";
 
 const selectStyles = {
   control: (base, state) => ({
@@ -17,7 +18,7 @@ const selectStyles = {
   menuPortal: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop }) => {
+const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, entityType, getApproverOptions, getApproverDisplayInfo, onChange, onRemove, onDragStart, onDragOver, onDragEnd, onDrop }) => {
   const approverInfo = getApproverDisplayInfo(step, selectedDepartmentId);
 
   return (
@@ -46,7 +47,7 @@ const ApprovalStepCard = ({ step, index, totalSteps, selectedDepartmentId, getAp
         </div>
         <div className={st.field}>
           <div className={st.label}>{step.approver_source_type === "USER" ? "Select User" : step.approver_source_type === "ROLE" ? "Select Role" : "Select Approver"}</div>
-          <Select key={`approver-${index}-${step.approver_source_type}`} options={getApproverOptions(step.approver_source_type, selectedDepartmentId)} value={step.approver_source_id ? getApproverOptions(step.approver_source_type, selectedDepartmentId).find((o) => o.value === step.approver_source_id) || null : null} onChange={(option) => onChange(index, "approver_source_id", option?.value || null)} isDisabled={!step.approver_source_type} placeholder={!step.approver_source_type ? "Select type first..." : "Search..."} isClearable={false} menuPlacement="auto" menuPortalTarget={typeof document !== "undefined" ? document.body : null} menuPosition="fixed" maxMenuHeight={280} styles={selectStyles} />
+          <Select key={`approver-${index}-${step.approver_source_type}`} options={getApproverOptions(step.approver_source_type, selectedDepartmentId, entityType)} value={step.approver_source_id ? getApproverOptions(step.approver_source_type, selectedDepartmentId, entityType).find((o) => o.value === step.approver_source_id) || null : null} onChange={(option) => onChange(index, "approver_source_id", option?.value || null)} isDisabled={!step.approver_source_type} placeholder={!step.approver_source_type ? "Select type first..." : "Search..."} isClearable={false} formatOptionLabel={formatApproverOption} menuPlacement="auto" menuPortalTarget={typeof document !== "undefined" ? document.body : null} menuPosition="fixed" maxMenuHeight={280} styles={selectStyles} />
           {step.approver_source_id && approverInfo.email && <small className="d-block mt-1" style={{ fontSize: 11, color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>{approverInfo.email}</small>}
           {!selectedDepartmentId && step.approver_source_type && step.approver_source_id && <small className="d-block mt-1" style={{ fontSize: 11, fontStyle: "italic", color: DS.muted, fontFamily: "'Poppins', sans-serif" }}>Approvers filtered by department at runtime</small>}
           {step.approver_source_type === "ROLE" && step.approver_source_id && approverInfo.users.length === 0 && (

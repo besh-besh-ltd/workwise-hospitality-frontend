@@ -1,3 +1,4 @@
+import { stageLabel, stageShortLabel, stageDescription } from "./stageLabels";
 import {
   BsFileEarmarkText,
   BsClipboard2Check,
@@ -43,27 +44,30 @@ export const PROCESS_TYPE_COLORS = {
 /** Append hex-alpha to a hex color. Usage: alpha(DS.primary, '40') → '#2E5BA840' */
 export const alpha = (hex, a) => `${hex}${a}`;
 
-export const entityTypes = [
-  { value: "RFQ", label: "RFQ Approval", description: "Request for Quotation", icon: BsFileEarmarkText, color: "#2E5BA8" },
-  { value: "TENDER", label: "Tender Approval", description: "Tender submissions", icon: BsClipboard2Check, color: "#428B41" },
-  { value: "PO", label: "Purchase Order Approval", description: "Purchase orders", icon: BsCart4, color: "#7c3aed" },
-  { value: "NEGOTIATION", label: "Negotiation Approval", description: "Negotiation rounds", icon: BsChatDots, color: "#ea580c" },
-  { value: "NEGOTIATION_QUOTE", label: "Negotiation Quotes Approval", description: "Vendor quote updates", icon: BsChatQuote, color: "#0891b2" },
-  { value: "TECHNICAL", label: "Technical Approval", description: "Technical evaluations", icon: BsGear, color: "#64748b" },
-  { value: "ARC", label: "ARC Approval", description: "Rate contract publish & base approval", icon: BsShieldCheck, color: "#db2777" },
+const ENTITY_TYPE_DEFS = [
+  { value: "RFQ", description: "Request for Quotation", icon: BsFileEarmarkText, color: "#2E5BA8" },
+  { value: "TENDER", description: "Tender submissions", icon: BsClipboard2Check, color: "#428B41" },
+  { value: "PO", description: "Purchase orders", icon: BsCart4, color: "#7c3aed" },
+  { value: "NEGOTIATION", description: "Negotiation rounds", icon: BsChatDots, color: "#ea580c" },
+  { value: "NEGOTIATION_QUOTE", description: "Vendor quote updates", icon: BsChatQuote, color: "#0891b2" },
+  { value: "TECHNICAL", description: "Technical evaluations", icon: BsGear, color: "#64748b" },
+  { value: "ARC", description: "Rate contract publish & base approval", icon: BsShieldCheck, color: "#db2777" },
   // ARC (Rate Contract) v2 per-stage entity types — process-free flow.
-  { value: "ARC_TECH", label: "ARC Technical Evaluation", description: "Rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
-  { value: "ARC_NEGOTIATION", label: "ARC Negotiation", description: "Rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
-  { value: "ARC_COMMITTEE", label: "ARC Committee Award", description: "Rate contract committee award approval", icon: BsShieldCheck, color: "#db2777" },
-  { value: "ARC_AMENDMENT", label: "ARC Amendment", description: "Rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
+  { value: "ARC_TECH", description: "Rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
+  { value: "ARC_NEGOTIATION", description: "Rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
+  { value: "ARC_COMMITTEE", description: "Rate contract committee award approval", icon: BsShieldCheck, color: "#db2777" },
+  { value: "ARC_AMENDMENT", description: "Rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
   // Group rate contracts (one ARC covering several hotels) — a separate,
   // company-wide workflow. Group ARCs never fall back to the single-hotel ARC one.
-  { value: "ARC_GROUP", label: "Group ARC Approval", description: "Group rate contract publish & base approval", icon: BsShieldCheck, color: "#be185d" },
-  { value: "ARC_GROUP_TECH", label: "Group ARC Technical Evaluation", description: "Group rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
-  { value: "ARC_GROUP_NEGOTIATION", label: "Group ARC Negotiation", description: "Group rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
-  { value: "ARC_GROUP_COMMITTEE", label: "Group ARC Committee Award", description: "Group rate contract committee award approval", icon: BsShieldCheck, color: "#be185d" },
-  { value: "ARC_GROUP_AMENDMENT", label: "Group ARC Amendment", description: "Group rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
+  { value: "ARC_GROUP", description: "Group rate contract publish & base approval", icon: BsShieldCheck, color: "#be185d" },
+  { value: "ARC_GROUP_TECH", description: "Group rate contract technical evaluation approval", icon: BsGear, color: "#0e7490" },
+  { value: "ARC_GROUP_NEGOTIATION", description: "Group rate contract negotiation approval", icon: BsChatDots, color: "#ea580c" },
+  { value: "ARC_GROUP_COMMITTEE", description: "Group rate contract committee award approval", icon: BsShieldCheck, color: "#be185d" },
+  { value: "ARC_GROUP_AMENDMENT", description: "Group rate contract post-award amendment approval", icon: BsFileEarmarkText, color: "#7c3aed" },
 ];
+
+// Labels come from the one shared stage vocabulary (stageLabels.js).
+export const entityTypes = ENTITY_TYPE_DEFS.map((e) => ({ ...e, label: stageLabel(e.value) }));
 
 export const approverSourceTypes = [
   { value: "USER", label: "Specific User" },
@@ -81,20 +85,20 @@ export const getEntityTypeConfig = (value) => {
 
 // RFQ route: RFQ → Technical → Negotiation → Negotiation Quote → PO
 export const RFQ_PROCESS_STAGES = [
-  { value: "RFQ", label: "RFQ", description: "Request for Quotation", shortLabel: "RFQ" },
-  { value: "TECHNICAL", label: "Technical", description: "Technical evaluation", shortLabel: "Tech" },
-  { value: "NEGOTIATION", label: "Negotiation", description: "Negotiation rounds", shortLabel: "Negotiation" },
-  { value: "NEGOTIATION_QUOTE", label: "Negotiation Quote", description: "Vendor quote finalization", shortLabel: "Neg. Quote" },
-  { value: "PO", label: "PO", description: "Purchase Order", shortLabel: "PO" },
+  { value: "RFQ", label: stageLabel("RFQ"), description: stageDescription("RFQ"), shortLabel: stageShortLabel("RFQ") },
+  { value: "TECHNICAL", label: stageLabel("TECHNICAL"), description: stageDescription("TECHNICAL"), shortLabel: stageShortLabel("TECHNICAL") },
+  { value: "NEGOTIATION", label: stageLabel("NEGOTIATION"), description: stageDescription("NEGOTIATION"), shortLabel: stageShortLabel("NEGOTIATION") },
+  { value: "NEGOTIATION_QUOTE", label: stageLabel("NEGOTIATION_QUOTE"), description: stageDescription("NEGOTIATION_QUOTE"), shortLabel: stageShortLabel("NEGOTIATION_QUOTE") },
+  { value: "PO", label: stageLabel("PO"), description: stageDescription("PO"), shortLabel: stageShortLabel("PO") },
 ];
 
 // Tender/ARC route: Tender → Technical → Negotiation → Negotiation Quote → ARC
 export const TENDER_PROCESS_STAGES = [
-  { value: "TENDER", label: "Tender", description: "Tender submissions", shortLabel: "Tender" },
-  { value: "TECHNICAL", label: "Technical", description: "Technical evaluation", shortLabel: "Tech" },
-  { value: "NEGOTIATION", label: "Negotiation", description: "Negotiation rounds", shortLabel: "Negotiation" },
-  { value: "NEGOTIATION_QUOTE", label: "Negotiation Quote", description: "Vendor quote finalization", shortLabel: "Neg. Quote" },
-  { value: "ARC", label: "ARC", description: "ARC Committee Approval", shortLabel: "ARC" },
+  { value: "TENDER", label: stageLabel("TENDER"), description: stageDescription("TENDER"), shortLabel: stageShortLabel("TENDER") },
+  { value: "TECHNICAL", label: stageLabel("TECHNICAL"), description: stageDescription("TECHNICAL"), shortLabel: stageShortLabel("TECHNICAL") },
+  { value: "NEGOTIATION", label: stageLabel("NEGOTIATION"), description: stageDescription("NEGOTIATION"), shortLabel: stageShortLabel("NEGOTIATION") },
+  { value: "NEGOTIATION_QUOTE", label: stageLabel("NEGOTIATION_QUOTE"), description: stageDescription("NEGOTIATION_QUOTE"), shortLabel: stageShortLabel("NEGOTIATION_QUOTE") },
+  { value: "ARC", label: stageLabel("ARC"), description: stageDescription("ARC"), shortLabel: stageShortLabel("ARC") },
 ];
 
 // ARC (Rate Contract) route — a PROCESS-FREE flow. Unlike RFQ/Tender, ARC
@@ -105,11 +109,11 @@ export const TENDER_PROCESS_STAGES = [
 // falls back to it when its own policy is missing — so ARC is REQUIRED, the
 // rest are optional overrides for granular approver chains.
 export const ARC_PROCESS_STAGES = [
-  { value: "ARC", label: "ARC (Publish & Base)", description: "Required — gates publishing the rate contract and is the default for every stage below.", shortLabel: "ARC", required: true },
-  { value: "ARC_TECH", label: "Technical Evaluation", description: "Approval of technical evaluation results.", shortLabel: "Tech" },
-  { value: "ARC_NEGOTIATION", label: "Negotiation", description: "Approval of negotiation rounds.", shortLabel: "Negotiation" },
-  { value: "ARC_COMMITTEE", label: "Committee Award", description: "ARC committee approval of finalised awards.", shortLabel: "Committee" },
-  { value: "ARC_AMENDMENT", label: "Amendment", description: "Approval of post-award amendments.", shortLabel: "Amendment" },
+  { value: "ARC", label: stageLabel("ARC"), description: "Required — gates publishing the rate contract and is the default for every stage below.", shortLabel: stageShortLabel("ARC"), required: true },
+  { value: "ARC_TECH", label: stageLabel("ARC_TECH"), description: "Approval of technical evaluation results.", shortLabel: stageShortLabel("ARC_TECH") },
+  { value: "ARC_NEGOTIATION", label: stageLabel("ARC_NEGOTIATION"), description: "Approval of negotiation rounds.", shortLabel: stageShortLabel("ARC_NEGOTIATION") },
+  { value: "ARC_COMMITTEE", label: stageLabel("ARC_COMMITTEE"), description: "ARC committee approval of finalised awards.", shortLabel: stageShortLabel("ARC_COMMITTEE") },
+  { value: "ARC_AMENDMENT", label: stageLabel("ARC_AMENDMENT"), description: "Approval of post-award amendments.", shortLabel: stageShortLabel("ARC_AMENDMENT") },
 ];
 
 /** Entity types owned by the process-free ARC flow. */
@@ -122,11 +126,11 @@ export const isArcEntityType = (entityType) => ARC_ENTITY_ORDER.includes(entityT
 // hierarchy governs every group rate contract whichever hotel leads it. A group
 // ARC never falls back to the single-hotel ARC workflow (and vice versa).
 export const ARC_GROUP_PROCESS_STAGES = [
-  { value: "ARC_GROUP", label: "Group ARC (Publish & Base)", description: "Required — gates publishing a group rate contract and is the default for every stage below.", shortLabel: "Group ARC", required: true },
-  { value: "ARC_GROUP_TECH", label: "Technical Evaluation", description: "Approval of technical evaluation results.", shortLabel: "Tech" },
-  { value: "ARC_GROUP_NEGOTIATION", label: "Negotiation", description: "Approval of negotiation rounds.", shortLabel: "Negotiation" },
-  { value: "ARC_GROUP_COMMITTEE", label: "Committee Award", description: "Group committee approval of finalised awards.", shortLabel: "Committee" },
-  { value: "ARC_GROUP_AMENDMENT", label: "Amendment", description: "Approval of post-award amendments.", shortLabel: "Amendment" },
+  { value: "ARC_GROUP", label: stageLabel("ARC_GROUP"), description: "Required — gates publishing a group rate contract and is the default for every stage below.", shortLabel: stageShortLabel("ARC_GROUP"), required: true },
+  { value: "ARC_GROUP_TECH", label: stageLabel("ARC_GROUP_TECH"), description: "Approval of technical evaluation results.", shortLabel: stageShortLabel("ARC_GROUP_TECH") },
+  { value: "ARC_GROUP_NEGOTIATION", label: stageLabel("ARC_GROUP_NEGOTIATION"), description: "Approval of negotiation rounds.", shortLabel: stageShortLabel("ARC_GROUP_NEGOTIATION") },
+  { value: "ARC_GROUP_COMMITTEE", label: stageLabel("ARC_GROUP_COMMITTEE"), description: "Group committee approval of finalised awards.", shortLabel: stageShortLabel("ARC_GROUP_COMMITTEE") },
+  { value: "ARC_GROUP_AMENDMENT", label: stageLabel("ARC_GROUP_AMENDMENT"), description: "Approval of post-award amendments.", shortLabel: stageShortLabel("ARC_GROUP_AMENDMENT") },
 ];
 export const ARC_GROUP_ENTITY_ORDER = ARC_GROUP_PROCESS_STAGES.map((s) => s.value);
 /** True when an entity_type belongs to the Group ARC (company-wide) flow. */

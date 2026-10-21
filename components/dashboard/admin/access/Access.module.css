@@ -321,3 +321,15 @@
     margin-left: 0;
   }
 }
+
+.arcChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}

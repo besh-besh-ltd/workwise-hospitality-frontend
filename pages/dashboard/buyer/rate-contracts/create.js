@@ -1119,7 +1119,7 @@ export default function CreateRateContractPage() {
             <div className="type-row" style={{ marginBottom: 14 }}>
               <div className={`cat-card ${!isGroup ? "selected" : ""}`} onClick={() => chooseScope(false)}>
                 <div className="cc-ic"><BuildingIcon size={20} /></div>
-                <div><div className="cc-name">Single hotel</div><div className="cc-meta">One property runs and uses this contract</div></div>
+                <div><div className="cc-name">Unit</div><div className="cc-meta">One property runs and uses this contract</div></div>
               </div>
               <div className={`cat-card ${isGroup ? "selected" : ""}`} onClick={() => chooseScope(true)}>
                 <div className="cc-ic"><BuildingIcon size={20} /></div>

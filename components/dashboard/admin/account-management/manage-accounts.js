@@ -19,20 +19,23 @@ import {
 } from "react-icons/bs";
 
 // Friendly labels + icons + accent colours per approval entity type.
-// Mirrors backend's ENTITY_LABELS so admins see "Vendor Finalization" instead
+// Labels come from the shared stage vocabulary so admins see "Final Vendor Approval" instead
 // of "NEGOTIATION_QUOTE", with a colour-coded icon for quick recognition.
 const ENTITY_META = {
-  RFQ:                { label: "RFQ",                 Icon: BsFileEarmarkText,   color: "#2563eb", bg: "#eff6ff" },
-  TENDER:             { label: "Tender",              Icon: BsFileEarmarkRuled,  color: "#4f46e5", bg: "#eef2ff" },
-  TECHNICAL:          { label: "Technical Evaluation",Icon: BsClipboardCheck,    color: "#0891b2", bg: "#ecfeff" },
-  NEGOTIATION:        { label: "Negotiation",         Icon: BsChatLeftDots,      color: "#d97706", bg: "#fffbeb" },
-  NEGOTIATION_QUOTE:  { label: "Vendor Finalization", Icon: BsCheck2Square,      color: "#7c3aed", bg: "#f5f3ff" },
-  ARC:                { label: "ARC Document",        Icon: BsAward,             color: "#b45309", bg: "#fef3c7" },
-  PO:                 { label: "Purchase Order",      Icon: BsCart3,             color: "#059669", bg: "#ecfdf5" },
+  RFQ:                { Icon: BsFileEarmarkText,   color: "#2563eb", bg: "#eff6ff" },
+  TENDER:             { Icon: BsFileEarmarkRuled,  color: "#4f46e5", bg: "#eef2ff" },
+  TECHNICAL:          { Icon: BsClipboardCheck,    color: "#0891b2", bg: "#ecfeff" },
+  NEGOTIATION:        { Icon: BsChatLeftDots,      color: "#d97706", bg: "#fffbeb" },
+  NEGOTIATION_QUOTE:  { Icon: BsCheck2Square,      color: "#7c3aed", bg: "#f5f3ff" },
+  ARC:                { Icon: BsAward,             color: "#b45309", bg: "#fef3c7" },
+  PO:                 { Icon: BsCart3,             color: "#059669", bg: "#ecfdf5" },
   INDENT:             { label: "Indent",              Icon: BsClipboard,         color: "#475569", bg: "#f8fafc" },
 };
-const getEntityMeta = (type) =>
-  ENTITY_META[type] || { label: type || "Approval", Icon: BsFileEarmarkText, color: "#64748b", bg: "#f1f5f9" };
+const getEntityMeta = (type) => {
+  const meta = ENTITY_META[type] || { Icon: BsFileEarmarkText, color: "#64748b", bg: "#f1f5f9" };
+  const label = STAGE_LABELS[type] ? stageLabel(type) : meta.label || (type ? stageLabel(type) : "Approval");
+  return { ...meta, label };
+};
 import { getCompanyUsersDetailed, updateUserAccount } from "@/services/Auth";
 import {
   getHospitalityCompanies,
@@ -43,6 +46,7 @@ import {
 } from "@/services/hospitality";
 import { getUserRoleScopes, getUserDepartments } from "@/services/rbac";
 import { toast } from "react-toastify";
+import { STAGE_LABELS, stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 import { sendLog, SeverityNumber } from "@/lib/otel";
 
 import StatsBar from "./manage-accounts/StatsBar";

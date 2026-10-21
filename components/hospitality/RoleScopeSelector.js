@@ -1,3 +1,4 @@
+import { isArcRole, ARC_ROLE_HINT } from "@/utils/roleArc";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { HiX, HiPencil } from "react-icons/hi";
@@ -606,7 +607,7 @@ export default function RoleScopeSelector({ onAddRole, existingRoles, selectedDe
                     </option>
                     {roles.map((role) => (
                       <option key={role.id} value={role.id}>
-                        {role.title}
+                        {role.title}{isArcRole(role) ? ` · ${ARC_ROLE_HINT}` : ""}
                       </option>
                     ))}
                   </select>

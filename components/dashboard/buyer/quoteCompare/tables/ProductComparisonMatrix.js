@@ -35,6 +35,7 @@ import MissingCostIndicator from "./MissingCostIndicator";
 import RegretStateCell from "./RegretStateCell";
 import EmptyValue from "./EmptyValue";
 import styles from "./QuoteCompareTables.module.scss";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 const baseMetricRows = [
   { key: "quantity", label: "Quantity" },
@@ -888,7 +889,7 @@ const ProductComparisonMatrix = ({
           <ApprovalWorkflowSection
             entityType="NEGOTIATION_QUOTE"
             entityId={proditem.id}
-            entityLabel={`Quote Approval - ${proditem?.product_details?.[0]?.product_name || "Product"}`}
+            entityLabel={`${stageLabel("NEGOTIATION_QUOTE")} – ${proditem?.product_details?.[0]?.product_name || "Product"}`}
             hospitalityCompanyId={hospitalityCompanyId}
             hotelId={hotelId}
             departmentId={departmentId}

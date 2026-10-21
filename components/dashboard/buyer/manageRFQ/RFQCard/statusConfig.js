@@ -1,4 +1,5 @@
 import { BsClockFill, BsCheckCircleFill, BsXCircleFill, BsAwardFill, BsExclamationOctagonFill } from 'react-icons/bs';
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 export const STATUS_CONFIG = {
   PENDING_APPROVAL: {
@@ -249,8 +250,8 @@ export const LIFECYCLE_CONFIG = {
   },
   QUOTATION_APPROVAL: {
     step: 6,
-    label: 'Quotation Approval',
-    shortLabel: 'Quote Approval',
+    label: stageLabel('NEGOTIATION_QUOTE'),
+    shortLabel: stageLabel('NEGOTIATION_QUOTE'),
     description: 'Selected vendor quotes are pending approval',
     color: '#d946ef',
     gradient: 'linear-gradient(135deg, #fdf4ff 0%, #f5d0fe 100%)',

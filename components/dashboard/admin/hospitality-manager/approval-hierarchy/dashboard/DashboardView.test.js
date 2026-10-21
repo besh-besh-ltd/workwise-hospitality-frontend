@@ -113,14 +113,14 @@ describe("<DashboardView> — card totals reconcile with the KPI row", () => {
     expect(meta).not.toBeNull();
     expect(meta.textContent).toContain("6/6 stages");
     expect(meta.textContent).toContain("12 levels");
-    expect(stageLabels(container)).toEqual(["RFQ", "Tech", "Neg", "NQ", "PO", "Tender"]);
+    expect(stageLabels(container)).toEqual(["RFQ", "Tech", "Round", "Final", "PO", "Tender"]);
   });
 
   it("does not paint ARC or Amendment into an RFQ process's flow", () => {
     const { container } = renderView();
     const labels = stageLabels(container);
 
-    expect(labels).toEqual(["RFQ", "Tech", "Neg", "NQ", "PO", "Tender"]);
+    expect(labels).toEqual(["RFQ", "Tech", "Round", "Final", "PO", "Tender"]);
     expect(labels).not.toContain("ARC");
     expect(labels).not.toContain("Amend");
     // …and the card's own totals drop the stage it no longer shows.
@@ -151,7 +151,7 @@ describe("<DashboardView> — card totals reconcile with the KPI row", () => {
       { ...POLICIES[0], id: 950, process_id: null, entity_type: "ARC" },
     ];
     renderView({ policies: arcFree });
-    expect(screen.getByText("ARC (Rate Contracts)")).toBeInTheDocument();
+    expect(screen.getByText("Unit ARC")).toBeInTheDocument();
     expect(screen.queryByTestId("arc-misrouted-diagnostic")).not.toBeInTheDocument();
   });
 
@@ -159,7 +159,7 @@ describe("<DashboardView> — card totals reconcile with the KPI row", () => {
     const canonical = POLICIES.filter((p) => !["TENDER", "ARC"].includes(p.entity_type));
     const { container } = renderView({ policies: canonical });
 
-    expect(stageLabels(container)).toEqual(["RFQ", "Tech", "Neg", "NQ", "PO"]);
+    expect(stageLabels(container)).toEqual(["RFQ", "Tech", "Round", "Final", "PO"]);
     expect(container.querySelector(".card .meta").textContent).toContain("5/5 stages");
     expect(kpi("Workflow Stages")).toBe("5");
   });
@@ -171,7 +171,7 @@ describe("<DashboardView> — card totals reconcile with the KPI row", () => {
     ];
     const { container } = renderView({ policies: arcOnly, processes: [] });
 
-    expect(screen.getByText("ARC (Rate Contracts)")).toBeInTheDocument();
+    expect(screen.getByText("Unit ARC")).toBeInTheDocument();
     expect(container.querySelector("[data-testid='workflow-diagnostic']")).toBeNull();
   });
 });
@@ -191,6 +191,9 @@ describe("<DashboardView> — diagnostic instead of a blank screen", () => {
     // of this class explains itself instead of looking like a blank page.
     expect(diag).toHaveTextContent("7");
     expect(diag).toHaveTextContent("2");
+    // Affected stages use the shared vocabulary, never raw entity types.
+    expect(diag).toHaveTextContent("Final Vendor Approval");
+    expect(diag.textContent).not.toMatch(/[A-Z]+_[A-Z]+/);
   });
 
   it("still shows the diagnostic when only SOME policies are unmatched", () => {
@@ -338,5 +341,19 @@ describe("Group ARC workflow — company-wide, process-free", () => {
     expect(screen.getByText("Group ARC (company-wide)")).toBeInTheDocument();
     expect(screen.queryByText(/ARC_GROUP Approval/)).toBeNull();
     expect(screen.queryByText("Uncategorized")).toBeNull();
+  });
+});
+
+describe("<DashboardView> — one stage vocabulary", () => {
+  it("renders Unit ARC and Final Vendor Approval, never the retired names", () => {
+    const arcOnly = [
+      { ...POLICIES[0], id: 900, process_id: null, entity_type: "ARC" },
+    ];
+    const { container } = renderView({ policies: [...POLICIES, ...arcOnly] });
+    expect(screen.getAllByText("Unit ARC").length).toBeGreaterThan(0);
+    const text = container.textContent;
+    expect(text).toContain("Final Vendor Approval");
+    expect(text).not.toContain("Quote Finalization");
+    expect(text).not.toContain("ARC (Rate Contracts)");
   });
 });

@@ -53,6 +53,10 @@ const ConfirmationModal = ({
         setIsProcessing(true);
         try {
             await onConfirm?.(requireComment ? comment.trim() : undefined);
+        } catch (err) {
+            // A rejecting onConfirm must not become an unhandled rejection or
+            // leave the spinner stuck; the caller owns telling the user why.
+            console.error("Confirmation action failed:", err);
         } finally {
             setIsProcessing(false);
         }

@@ -3,10 +3,11 @@ import Select from "react-select";
 import { BsPlus, BsInfoCircle, BsCheckCircleFill, BsLock } from "react-icons/bs";
 import ProcessFormModal from "../modals/ProcessFormModal";
 import { DS, PROCESS_TYPE_COLORS, FLOW_TYPE } from "../constants";
+import { stageShortLabel } from "../stageLabels";
 import s from "./StepSelectProcessOnly.module.scss";
 
 const processTypeLabel = (t) => { const u = (t || "").toUpperCase(); if (u === "RFQ") return "RFQ"; if (u === "TENDER" || u === "ARC") return "Tender / ARC"; return u; };
-const processTypeFlow = (t) => { const u = (t || "").toUpperCase(); return u === "RFQ" ? "RFQ > Tech > Negotiation > Neg. Quote > PO" : "Tender > Tech > Negotiation > Neg. Quote > ARC"; };
+const processTypeFlow = (t) => { const u = (t || "").toUpperCase(); return (u === "RFQ" ? ["RFQ", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO"] : ["TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC"]).map(stageShortLabel).join(" > "); };
 
 const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreateProcess, isEditing = false, flowType = FLOW_TYPE.PROCESS, onFlowChange, groupWorkflowExists = false }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -57,11 +58,11 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
       <h4 className={s.heading}>Select Workflow Type</h4>
       <p className={s.subtext}>
         Choose what this approval workflow governs. <strong>RFQ / Tender</strong> workflows are tied to a process;
-        <strong> ARC</strong> (Annual Rate Contracts) and <strong>Group ARC</strong> run without a process.
+        <strong> Unit ARC</strong> (Annual Rate Contracts for one hotel) and <strong>Group ARC</strong> run without a process.
       </p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         {flowCard(FLOW_TYPE.PROCESS, "RFQ / Tender (process-based)", "Configure a process and its RFQ→PO or Tender→ARC stages.", DS.primary)}
-        {flowCard(FLOW_TYPE.ARC, "ARC — Rate Contracts (no process)", "Publish, tech-eval, negotiation, committee & amendment approvals. No process required.", "#db2777")}
+        {flowCard(FLOW_TYPE.ARC, "Unit ARC (no process)", "Publish, tech-eval, negotiation, committee & amendment approvals. No process required.", "#db2777")}
         {flowCard(FLOW_TYPE.ARC_GROUP, "Group ARC — covers several hotels (company-wide)", "One approval hierarchy for rate contracts that cover two or more hotels.", "#be185d")}
       </div>
       {isEditing && <small className="d-block mb-3" style={{ fontSize: 12, color: DS.muted }}>Workflow type cannot be changed when editing.</small>}
@@ -81,7 +82,7 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
           <p>
             <strong>Group ARC approvals are company-wide:</strong> one approval hierarchy for every group rate
             contract in the company, whichever hotel leads it. Group rate contracts never use a single hotel&apos;s
-            ARC workflow. The <strong>Group ARC (Publish &amp; Base)</strong> stage is required and is the default
+            ARC workflow. The <strong>Group ARC · Publish Approval</strong> stage is required and is the default
             for Technical, Negotiation, Committee and Amendment.
           </p>
         </div>
@@ -89,9 +90,9 @@ const StepSelectProcessOnly = ({ selectedProcessId, processes, onChange, onCreat
         <div className={s.infoBox}>
           <BsInfoCircle size={18} style={{ color: "#db2777", flexShrink: 0, marginTop: 2 }} />
           <p>
-            <strong>ARC approvals are process-free.</strong> You'll configure approvers for
-            <strong> ARC (Publish &amp; Base)</strong>, Technical, Negotiation, Committee and Amendment.
-            The <strong>ARC (Publish &amp; Base)</strong> stage is required — it gates publishing a rate
+            <strong>Unit ARC approvals are process-free.</strong> You'll configure approvers for
+            <strong> Unit ARC · Publish Approval</strong>, Technical, Negotiation, Committee and Amendment.
+            The <strong>Unit ARC · Publish Approval</strong> stage is required — it gates publishing a rate
             contract and is the default for every other stage. Continue to configure approvers.
           </p>
         </div>

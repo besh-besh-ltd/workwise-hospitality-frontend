@@ -24,6 +24,7 @@ import { fyToRange, currentFyRange, defaultFyState } from "@/utils/financialYear
 import FyFilter from "@/components/shared/FyFilter";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import CopyRFQModal from "./CopyRFQModal";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 /* ─── status / lifecycle metadata (label · tone · tooltip copy · progress) ─── */
 const STAGE_TOTAL = 10;
@@ -39,7 +40,7 @@ const STATUS_META = {
   RFQ_STUCK_COMMERCIAL:      { label: "Ended · No Quotes", tone: "expiring", order: 2, desc: "The bid window closed with no vendor quotes received." },
   COMMERCIAL_EVALUATION:     { label: "Commercial Evaluation", tone: "committee", order: 5, desc: "All products have technically cleared vendors, ready for commercial review." },
   NEGOTIATION_ONGOING:       { label: "Negotiation", tone: "eval", order: 6, desc: "A negotiation round is currently active with vendors." },
-  QUOTATION_APPROVAL:        { label: "Quote Approval", tone: "committee", order: 7, desc: "Finalized quotes are awaiting approval." },
+  QUOTATION_APPROVAL:        { label: stageLabel("NEGOTIATION_QUOTE"), tone: "committee", order: 7, desc: "Finalized quotes are awaiting approval." },
   AWAITING_PO:               { label: "Awaiting PO", tone: "awaiting", order: 8, desc: "Quotes finalized — purchase orders can now be raised." },
   PO_APPROVAL:               { label: "PO Approval", tone: "committee", order: 9, desc: "Purchase orders are pending approval." },
   PO_VENDOR_REJECTED:        { label: "PO Vendor Rejected", tone: "expiring", order: 8, desc: "A vendor rejected the purchase order." },

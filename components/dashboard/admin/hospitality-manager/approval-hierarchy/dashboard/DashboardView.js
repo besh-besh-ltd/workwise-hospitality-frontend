@@ -5,6 +5,7 @@ import WorkflowCardV2 from "./WorkflowCardV2";
 import EmptyState from "./EmptyState";
 import DepartmentSubGraphPreview from "../preview/DepartmentSubGraphPreview";
 import { DS, isArcEntityType, isArcGroupEntityType, getMisroutedArcPolicies, getEntityTypeConfig } from "../constants";
+import { stageLabel } from "../stageLabels";
 import s from "./DashboardView.module.scss";
 
 /** Ids may arrive as numbers or strings depending on the endpoint. */
@@ -12,12 +13,12 @@ const sameId = (a, b) => a !== null && a !== undefined && b !== null && b !== un
 
 // Synthetic "process" representing the process-free ARC flow so ARC policies
 // (process_id = NULL, entity_type ARC_*) group into one editable card.
-export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "ARC (Rate Contracts)", process_type: "ARC", is_arc: true };
+export const ARC_FLOW_PROCESS = { id: "__ARC__", name: "Unit ARC", process_type: "ARC", is_arc: true };
 // The company-wide Group ARC workflow (hotel_id NULL policies) — shown on every
 // business unit's page because it governs group rate contracts led by any hotel.
 export const ARC_GROUP_FLOW_PROCESS = { id: "__ARC_GROUP__", name: "Group ARC (company-wide)", process_type: "ARC_GROUP", is_arc: true, is_arc_group: true };
 
-const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview }) => {
+const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onEditWorkflow, onDeleteWorkflow, onDeletePolicy, onCreateProcess, onUpdateProcess, onDeleteProcess, getApproverDisplayInfo, getDeptSubGraphPreview, roles, getUsersByRole }) => {
   const [previewPolicy, setPreviewPolicy] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -129,9 +130,9 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
           {processGroups.map((group) => {
             if (group.policies.length === 0) return null;
             if (group.isOrphan) return group.policies.map((policy) => (
-              <WorkflowCardV2 key={policy.id} process={{ id: null, name: `${policy.entity_type} Approval`, process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} />
+              <WorkflowCardV2 key={policy.id} process={{ id: null, name: stageLabel(policy.entity_type), process_type: "RFQ" }} policies={[policy]} onEdit={() => onDeletePolicy?.(policy.id)} onDelete={() => onDeletePolicy?.(policy.id)} getApproverDisplayInfo={getApproverDisplayInfo} roles={roles} getUsersByRole={getUsersByRole} />
             ));
-            return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} />;
+            return <WorkflowCardV2 key={group.process.id} process={group.process} policies={group.policies} onEdit={onEditWorkflow} onDelete={onDeleteWorkflow} getApproverDisplayInfo={getApproverDisplayInfo} roles={roles} getUsersByRole={getUsersByRole} />;
           })}
           {processGroups.filter((g) => !g.isOrphan && g.policies.length === 0).length > 0 && (
             <>
@@ -166,7 +167,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                   </div>
                 ))}
                 <div className={s.diagnosticBody}>
-                  Configure them on the <b>ARC (Rate Contracts)</b> card instead, then delete these.
+                  Configure them on the <b>Unit ARC</b> card instead, then delete these.
                 </div>
               </div>
             </div>
@@ -188,7 +189,7 @@ const DashboardView = ({ policies, processes, departments, onCreateWorkflow, onE
                   the totals above and continue to gate approvals; only this list cannot group them.
                 </div>
                 <div className={s.diagnosticBody}>
-                  Affected stages: {[...new Set(unmatchedPolicies.map((p) => p.entity_type))].join(", ")}.
+                  Affected stages: {[...new Set(unmatchedPolicies.map((p) => p.entity_type))].map((t) => stageLabel(t)).join(", ")}.
                 </div>
               </div>
             </div>

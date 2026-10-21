@@ -65,7 +65,22 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
   const initials = getInitials(account.name);
   const avatarColor = getAvatarColor(account.name);
   const dedupedMappings = dedupeHospitalityMappings(mappings || []);
-  const uniqueRoles = Array.from(new Set((roleScopes || []).map((s) => s.role_title).filter(Boolean)));
+  // One chip per grant (role + where it applies), not per title: the same role
+  // held at two units is two different pieces of access.
+  const unitNames = new Map(
+    (mappings || []).filter((m) => m.mapping_type === 1 && m.hospitality_hotel_id != null).map((m) => [Number(m.hospitality_hotel_id), m.hotel_name])
+  );
+  const scopeLabel = (s) => (s.hotel_id ? unitNames.get(Number(s.hotel_id)) || s.hotel_name || "One unit" : "All units");
+  const roleChips = [];
+  const seenChips = new Set();
+  (roleScopes || []).forEach((s) => {
+    if (!s.role_title) return;
+    const label = `${s.role_title} · ${scopeLabel(s)}`;
+    const key = `${s.role_title}|${s.company_id ?? ""}|${s.hotel_id ?? ""}`;
+    if (seenChips.has(key)) return;
+    seenChips.add(key);
+    roleChips.push({ key, label });
+  });
   const depts = departments || [];
 
   return (
@@ -100,11 +115,11 @@ const UserRow = ({ account, isHospitality, mappings, roleScopes, departments, on
       {isHospitality && (
         <td>
           <TruncatedBadges
-            items={uniqueRoles}
+            items={roleChips}
             maxVisible={2}
-            getLabel={(title) => title}
-            renderBadge={(title) => (
-              <span key={title} className={styles.roleBadge}>{title}</span>
+            getLabel={(chip) => chip.label}
+            renderBadge={(chip) => (
+              <span key={chip.key} className={styles.roleBadge}>{chip.label}</span>
             )}
           />
         </td>
