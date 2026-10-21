@@ -12,6 +12,7 @@ import { BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPencilSquare, BsShieldC
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
 import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
+import { PassingScoreLabel, VendorScoreValue } from './TechEvalScoreParts';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
 import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore } from '@/utils/techEvalScoring';
@@ -629,12 +630,7 @@ const ClauseProductItem = ({
             {!vendorResponse && (
               <div className="mt-3">
                 {minimumPassingScore !== null && (
-                  <div className={styles.passingScore}>
-                    <div className={styles.passingScoreIcon}>
-                      <BsShieldCheck size={13} />
-                    </div>
-                    <span><strong>Minimum passing score:</strong> {minimumPassingScore}%</span>
-                  </div>
+                  <PassingScoreLabel minimumPassingScore={minimumPassingScore} />
                 )}
                 {quotedVendorsOnly && vendors && vendors.length > 0 && !vendors.some(v => v.has_quoted) && (
                   <div className="text-center py-4" style={{ background: '#f8f9fa', borderRadius: 8 }}>
@@ -698,7 +694,7 @@ const ClauseProductItem = ({
                                   {/* Score + status */}
                                   {vendorEvaluated && vendor.calculated_score !== undefined && vendor.calculated_score !== null ? (
                                     <div className={styles.vendorScoreLine}>
-                                      <span className={styles.vendorScore}>{vendor.calculated_score}%</span>
+                                      <VendorScoreValue score={vendor.calculated_score} />
                                       {vendor.is_passed !== undefined && vendor.is_passed !== null && (
                                         <span className={`badge rounded-pill py-1 px-2 ${vendor.is_passed ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
                                           {vendor.is_passed ? "Pass" : "Fail"}

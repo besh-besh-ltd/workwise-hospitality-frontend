@@ -482,9 +482,9 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         onClose();
     };
     const minScoreNum = parseInt(minScoreInput);
-    // Scored marks only; the sampling clause is a pass/fail requirement.
+    // Matches the backend score: SUM(buyer_marks)/SUM(weightage) over ALL
+    // clauses, sampling included.
     const totalClauseMarks = (previousClauses || [])
-        .filter(c => c.clause_type !== 'sampling')
         .reduce((sum, c) => sum + (Number(c.weightage) || 0), 0);
     const minScoreOutOfRange =
         minScoreInput !== "" && !isNaN(minScoreNum) &&

@@ -36,4 +36,18 @@ describe("AddClause passing-score field", () => {
     fireEvent.change(input, { target: { value: "100" } });
     expect(screen.getByText("100% = 125 of 125 marks")).toBeInTheDocument();
   });
+
+  it("counts the sampling clause in the total (matches backend score)", async () => {
+    const mixed = [1, 2, 3, 4].map((i) => ({ id: i, clause_text: `C${i}`, clause_type: "regular", weightage: 25, files: [] }))
+      .concat([{ id: 5, clause_text: "Sampling", clause_type: "sampling", weightage: 25, files: [] }]);
+    getClausesByRfqProductId.mockResolvedValue({ success: true, minimum_passing_score: 60, data: mixed });
+    render(
+      <AddClauseModal show onClose={jest.fn()} product={{ id: 1, name: "P" }} rfq_id={1} onClauseChange={jest.fn()} />
+    );
+    const input = await screen.findByPlaceholderText("e.g. 60");
+    await waitFor(() => expect(input).toHaveValue(60));
+    expect(screen.getByText("60% = 75 of 125 marks")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "100" } });
+    expect(screen.getByText("100% = 125 of 125 marks")).toBeInTheDocument();
+  });
 });
