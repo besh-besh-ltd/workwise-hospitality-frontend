@@ -482,6 +482,10 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
         onClose();
     };
     const minScoreNum = parseInt(minScoreInput);
+    // Scored marks only; the sampling clause is a pass/fail requirement.
+    const totalClauseMarks = (previousClauses || [])
+        .filter(c => c.clause_type !== 'sampling')
+        .reduce((sum, c) => sum + (Number(c.weightage) || 0), 0);
     const minScoreOutOfRange =
         minScoreInput !== "" && !isNaN(minScoreNum) &&
         (minScoreNum < 0 || minScoreNum > 100);
@@ -541,7 +545,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                     <div className="rfq-clause-minscore-row__input-wrap">
                         <Form.Control
                             type="number"
-                            placeholder="100"
+                            placeholder="e.g. 60"
                             min="0"
                             max="100"
                             className="rfq-clause-input rfq-clause-input--narrow"
@@ -561,6 +565,11 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange, openTo
                             : minimumPassingScore === null || minimumPassingScore === undefined ? "Set" : "Update"}
                     </button>
                 </div>
+                {minScoreInput !== "" && !minScoreOutOfRange && !isNaN(minScoreNum) && totalClauseMarks > 0 && (
+                    <p className="rfq-clause-minscore-row__hint">
+                        {`${minScoreNum}% = ${Math.round((minScoreNum * totalClauseMarks) / 100 * 100) / 100} of ${totalClauseMarks} marks`}
+                    </p>
+                )}
                 {minScoreOutOfRange && (
                     <p className="rfq-clause-modal__error">Minimum passing percentage must be between 0 and 100</p>
                 )}
