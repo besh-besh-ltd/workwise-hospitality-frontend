@@ -890,6 +890,7 @@ const ApprovalWorkflowSection = ({
                     notEvaluatedVendors={instance.metadata.not_evaluated_vendors || []}
                     roundNumber={instance.metadata.evaluation_round || 1}
                     showSummary={true}
+                    warnWhenNonePass={status === "PENDING"}
                   />
                 )}
 

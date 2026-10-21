@@ -25,7 +25,8 @@ import { BsBuilding, BsPerson, BsEnvelope, BsTelephone, BsCalendar3, BsGeoAlt, B
 import styles from "./TechnicalEvaluation.module.scss";
 import { Tooltip } from "react-tooltip";
 import ReadMore from "@/components/shared/ReadMore";
-import { summariseEvaluationProgress } from "@/utils/techEvalScoring";
+import { summariseEvaluationProgress, listLeftOutResponders, leftOutWarningText, countHiddenResponders } from "@/utils/techEvalScoring";
+import { HiddenRespondersNotice, ProductSubmitButton } from "./TechEvalReopenParts";
 
 
 
@@ -497,6 +498,19 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
     }
   };
 
+  // Warning naming responders who would be left out of the round being submitted
+  const getLeftOutWarning = (productIds) => {
+    const names = [];
+    (clauseInfo || [])
+      .filter((p) => productIds.includes(p.rfq_product_id))
+      .forEach((p) => {
+        listLeftOutResponders(p.vendors, p.clauses).forEach((n) => {
+          if (!names.includes(n)) names.push(n);
+        });
+      });
+    return leftOutWarningText(names);
+  };
+
   // Get per-product submit state
   const getProductSubmitState = (productId) => {
     const pStatus = productEvaluationStatus.get(productId);
@@ -921,6 +935,9 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
                         />
                       </div>
                     )}
+                    {quotedVendorsOnly && clauseInfo && clauseInfo.length > 0 && (
+                      <HiddenRespondersNotice count={countHiddenResponders(clauseInfo)} />
+                    )}
 
                     {currentRfq && clauseInfo !== undefined &&
                       currentRfq.products?.map((product, productIndex) => {
@@ -1024,14 +1041,12 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
                                     if (ps.isPending) return <div className={styles.productSubmitRow}><span className={styles.productSubmitPending}>Approval Pending</span></div>;
                                     return (
                                       <div className={styles.productSubmitRow}>
-                                        <button
-                                          className={`btn btn-sm ${styles.productSubmitBtn}`}
+                                        <ProductSubmitButton
                                           disabled={!ps.canSubmit}
-                                          onClick={(e) => { e.stopPropagation(); handleProductSubmit(product.id); }}
                                           title={!isBidExpired ? "Bid deadline hasn't passed yet" : !ps.hasEvaluated ? "Score at least one vendor first" : "Submit this product for approval"}
-                                        >
-                                          Submit for Approval
-                                        </button>
+                                          leftOutWarning={getLeftOutWarning([product.id])}
+                                          onSubmit={() => handleProductSubmit(product.id)}
+                                        />
                                       </div>
                                     );
                                   })()}
@@ -1068,6 +1083,12 @@ const BuyerTechnicalEvaluation = ({ rfqId: rfqIdProp, rfq: preloadedRfq = null, 
                         productCount={clauseInfo.length}
                         evaluatedProductCount={evaluatedProductCount}
                         isBidExpired={isBidExpired}
+                        leftOutWarning={getLeftOutWarning(
+                          clauseInfo.filter((rp) => {
+                            const st = productEvaluationStatus.get(rp.rfq_product_id);
+                            return st?.evaluatedVendorCount > 0 && !st?.workflowComplete && !st?.isPendingApproval;
+                          }).map((rp) => rp.rfq_product_id)
+                        )}
                       />
                     )}
                   </>

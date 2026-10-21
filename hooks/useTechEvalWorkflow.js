@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getTechEvalStatus } from "@/services/rfq";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { deriveTechEvalStatusFlags } from "@/utils/techEvalScoring";
 import {
   TECH_EVAL_WORKFLOW_STATES,
   TARGET_PASSED_VENDORS,
@@ -67,6 +68,13 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
       return TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL;
     }
 
+    // A blocked evaluation re-opened by a deadline extension is NOT finished,
+    // even when every vendor of the earlier round has a verdict: vendors who
+    // quote in the new window still need evaluating.
+    if (data.reopened === true) {
+      return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
+    }
+
     // Check if there are vendors pending evaluation
     const hasPendingVendors = data.vendors?.pending_evaluation?.length > 0;
     if (hasPendingVendors) {
@@ -103,7 +111,12 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
   const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
   const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
 
+  const statusFlags = deriveTechEvalStatusFlags(data, totalPassedVerified);
+
   return {
+    // Stuck / reopened status (falls back to the pre-reopen rule on old backends)
+    ...statusFlags,
+
     // Raw data from API
     techEvalId: data?.tech_evaluation_id || null,
     isComplete: data?.is_complete || false,

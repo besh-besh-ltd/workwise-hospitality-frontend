@@ -93,3 +93,69 @@ export function applyLocalScore(response, { buyerId, marks, remark, scorerName }
     score_timestamp: new Date().toISOString(),
   };
 }
+
+/**
+ * Stuck / reopened flags for one product's tech-eval status payload.
+ *
+ * The backend sends `is_stuck`, `bid_window_open`, `reopened` and
+ * `eligible_unscored_vendors`. An older backend sends none of them; then the
+ * rule is the one the screen always used: blocked with nobody passed.
+ *
+ * @param {object|null} data - tech-eval status payload
+ * @param {number} totalPassedVerified
+ */
+export function deriveTechEvalStatusFlags(data, totalPassedVerified = 0) {
+  const blocked = data?.blocked_insufficient_vendors === true;
+  return {
+    isStuck:
+      typeof data?.is_stuck === 'boolean'
+        ? data.is_stuck
+        : blocked && totalPassedVerified === 0,
+    bidWindowOpen:
+      typeof data?.bid_window_open === 'boolean' ? data.bid_window_open : null,
+    reopened: data?.reopened === true,
+    eligibleUnscoredVendors: Array.isArray(data?.eligible_unscored_vendors)
+      ? data.eligible_unscored_vendors
+      : [],
+  };
+}
+
+const vendorDisplayName = (v) =>
+  v?.vendor_name || (v?.rfq_product_vendor_id ? `VEN-${v.rfq_product_vendor_id}` : `Vendor ${v?.vendor_id}`);
+
+/**
+ * Vendors who answered the technical questions but will not be in the round
+ * being submitted: still outstanding (not verified in an earlier round, not
+ * replaced out) and not fully scored — including ones that never quoted and so
+ * cannot be scored at all.
+ *
+ * @returns {string[]} display names
+ */
+export function listLeftOutResponders(vendors, clauses) {
+  return (Array.isArray(vendors) ? vendors : [])
+    .filter((v) => v?.is_verified !== true && v?.is_replaced_out !== true)
+    .filter((v) => !isVendorFullyScored(clauses, v?.vendor_id))
+    .map(vendorDisplayName);
+}
+
+/** Submit-time warning text, or null when nobody is left out. */
+export function leftOutWarningText(names) {
+  if (!names || names.length === 0) return null;
+  return `${names.length} vendor(s) who answered won't be in this round: ${names.join(', ')}. Continue?`;
+}
+
+/**
+ * How many distinct vendors the "Quoted Vendors Only" filter is hiding: they
+ * answered the questions but have not quoted.
+ */
+export function countHiddenResponders(rfqProducts) {
+  const ids = new Set();
+  (Array.isArray(rfqProducts) ? rfqProducts : []).forEach((p) => {
+    (p?.vendors || []).forEach((v) => {
+      if (v?.has_quoted === false && v?.is_replaced_out !== true && v?.is_verified !== true) {
+        ids.add(String(v.vendor_id));
+      }
+    });
+  });
+  return ids.size;
+}
