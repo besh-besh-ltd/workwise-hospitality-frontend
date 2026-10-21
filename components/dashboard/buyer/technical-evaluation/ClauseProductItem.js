@@ -16,7 +16,7 @@ import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
 import { PassingScoreLabel, VendorScoreValue } from './TechEvalScoreParts';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
-import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore } from '@/utils/techEvalScoring';
+import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore, nextRoundNumber } from '@/utils/techEvalScoring';
 import styles from './TechnicalEvaluation.module.scss';
 
 
@@ -1237,7 +1237,7 @@ const ClauseProductItem = ({
           reopened={reopened}
           bidWindowOpen={bidWindowOpen}
           eligibleUnscoredCount={eligibleUnscoredVendors.length}
-          currentRound={currentRound}
+          nextRound={nextRoundNumber(rounds, currentRound)}
           bidEndDate={currentRfq?.bid_end_date}
           extendHref={`/dashboard/buyer/rfq-management-edit?id=${rfq_id}`}
         />

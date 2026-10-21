@@ -39,14 +39,14 @@ export const TechEvalStatusBanner = ({
   reopened,
   bidWindowOpen,
   eligibleUnscoredCount = 0,
-  currentRound = 1,
+  nextRound = 1,
   bidEndDate,
   extendHref,
 }) => {
   if (reopened && bidWindowOpen === false && eligibleUnscoredCount > 0) {
     return (
       <Banner tone="amber" title="New vendors ready for evaluation">
-        {eligibleUnscoredCount} vendor(s) quoted since the last round. Evaluate them and submit Round {currentRound}.
+        {eligibleUnscoredCount} vendor(s) quoted since the last round. Evaluate them and submit Round {nextRound}.
       </Banner>
     );
   }
@@ -66,7 +66,7 @@ export const TechEvalStatusBanner = ({
   if (reopened && bidWindowOpen === true) {
     return (
       <Banner tone="amber" title="Technical evaluation reopened">
-        Bidding is open again until {formatDeadline(bidEndDate)}. Vendors who quote can be evaluated after bidding closes.
+        Bidding is open{formatDeadline(bidEndDate) ? ` until ${formatDeadline(bidEndDate)}` : ''}. Vendors who quote can be evaluated after bidding closes.
       </Banner>
     );
   }

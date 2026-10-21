@@ -159,3 +159,14 @@ export function countHiddenResponders(rfqProducts) {
   });
   return ids.size;
 }
+
+/**
+ * The round the next submit creates: the backend uses MAX(round_number) + 1
+ * over the round history; the stored current_round lags after a reopen.
+ */
+export function nextRoundNumber(rounds, currentRound = 1) {
+  const nums = (Array.isArray(rounds) ? rounds : [])
+    .map((r) => Number(r?.round_number ?? r?.round))
+    .filter((n) => Number.isFinite(n));
+  return nums.length ? Math.max(...nums) + 1 : (Number(currentRound) || 1) + 1;
+}

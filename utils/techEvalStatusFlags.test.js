@@ -3,6 +3,7 @@ import {
   listLeftOutResponders,
   leftOutWarningText,
   countHiddenResponders,
+  nextRoundNumber,
 } from "./techEvalScoring";
 
 describe("deriveTechEvalStatusFlags", () => {
@@ -46,5 +47,16 @@ describe("responders left out of a round", () => {
       { vendors: [{ vendor_id: 738, has_quoted: false }, { vendor_id: 1, has_quoted: true }] },
       { vendors: [{ vendor_id: 738, has_quoted: false }] },
     ])).toBe(1);
+  });
+});
+
+describe("nextRoundNumber", () => {
+  it("is max round in history + 1 (stored current_round lags after reopen)", () => {
+    expect(nextRoundNumber([{ round_number: 1 }], 1)).toBe(2);
+    expect(nextRoundNumber([{ round_number: 1 }, { round_number: 3 }], 1)).toBe(4);
+  });
+  it("falls back to currentRound + 1 without a history", () => {
+    expect(nextRoundNumber([], 1)).toBe(2);
+    expect(nextRoundNumber(undefined, 2)).toBe(3);
   });
 });

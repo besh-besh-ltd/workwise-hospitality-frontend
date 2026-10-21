@@ -30,11 +30,16 @@ describe("TechEvalStatusBanner", () => {
   it("reopened with the window open: shows the new deadline", () => {
     render(<TechEvalStatusBanner reopened bidWindowOpen bidEndDate="2026-10-30T18:00" isStuck={false} />);
     expect(screen.getByText("Technical evaluation reopened")).toBeInTheDocument();
-    expect(screen.getByText("Bidding is open again until 2026-10-30 18:00. Vendors who quote can be evaluated after bidding closes.")).toBeInTheDocument();
+    expect(screen.getByText("Bidding is open until 2026-10-30 18:00. Vendors who quote can be evaluated after bidding closes.")).toBeInTheDocument();
+  });
+
+  it("reopened with the window open but no deadline known: no dangling 'until .'", () => {
+    render(<TechEvalStatusBanner reopened bidWindowOpen isStuck={false} />);
+    expect(screen.getByText("Bidding is open. Vendors who quote can be evaluated after bidding closes.")).toBeInTheDocument();
   });
 
   it("reopened, window closed, one eligible vendor: says new vendors are ready (not stuck)", () => {
-    render(<TechEvalStatusBanner reopened bidWindowOpen={false} eligibleUnscoredCount={1} currentRound={2} isStuck={false} />);
+    render(<TechEvalStatusBanner reopened bidWindowOpen={false} eligibleUnscoredCount={1} nextRound={2} isStuck={false} />);
     expect(screen.getByText("New vendors ready for evaluation")).toBeInTheDocument();
     expect(screen.getByText("1 vendor(s) quoted since the last round. Evaluate them and submit Round 2.")).toBeInTheDocument();
     expect(screen.queryByText("No vendor passed technical evaluation")).not.toBeInTheDocument();
