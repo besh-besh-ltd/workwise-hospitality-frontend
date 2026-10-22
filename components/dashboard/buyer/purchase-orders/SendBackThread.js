@@ -2,16 +2,23 @@ import React, { useState } from "react";
 import styles from "./SendBack.module.scss";
 import { FilePicker } from "./SendBackDialog";
 import { fmtDateTime } from "./shared";
-import { REASON_LABELS, TARGET_LABELS, levelText } from "./sendBackReasons";
+import {
+  REASON_LABELS,
+  TARGET_LABELS,
+  levelText,
+  isRejectionRoute,
+  SIDE_REQUEST,
+  SIDE_RESPONSE,
+} from "./sendBackReasons";
 
-const isRejection = (row) =>
-  row.route === "CANCEL" || row.resolution === "REJECTED" || row.resolution === "CANCELLED";
+const isRejection = (row) => isRejectionRoute(row.route);
 
 const STATUS_TEXT = {
   OPEN: "Waiting for an answer",
   ANSWERED: "Answered",
   RESUMED: "Answered",
   WITHDRAWN: "Withdrawn",
+  SUPERSEDED: "No longer needed",
   CLOSED: "Closed",
 };
 
@@ -99,15 +106,15 @@ export default function SendBackThread({ rows, currentUserId, canWithdraw, stepL
         const isTarget = open && row.target?.id != null && row.target.id === currentUserId;
         const mayWithdraw =
           open && ((row.requested_by?.id != null && row.requested_by.id === currentUserId) || canWithdraw);
-        const reqFiles = (row.files || []).filter((f) => !/resp/i.test(f.side || ""));
-        const respFiles = (row.files || []).filter((f) => /resp/i.test(f.side || ""));
+        const reqFiles = (row.files || []).filter((f) => f.side === SIDE_REQUEST);
+        const respFiles = (row.files || []).filter((f) => f.side === SIDE_RESPONSE);
         const tone = open ? styles.entryOpen : rejection ? styles.entryRejected : styles.entryDone;
 
         return (
           <article key={row.id} className={`${styles.entry} ${tone}`}>
             <div className={styles.entryTitle}>
               {rejection
-                ? row.resolution === "CANCELLED" || row.route === "CANCEL"
+                ? row.route === "CANCEL"
                   ? `Cancelled: ${reason}`
                   : `Rejected: ${reason}`
                 : `Asked for information: ${reason}`}

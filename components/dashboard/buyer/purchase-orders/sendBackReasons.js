@@ -71,3 +71,10 @@ export const levelText = (label) => {
 
 export const MAX_FILES = 10;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Pinned by migration 20261022100000_po_send_backs.sql (ruling R16).
+export const ROUTE_INFO_REQUEST = "INFO_REQUEST"; // also COMMERCIAL | CANCEL | TECHNICAL
+export const SIDE_REQUEST = "REQUEST";
+export const SIDE_RESPONSE = "RESPONSE";
+// A row is a rejection iff its route is not INFO_REQUEST.
+export const isRejectionRoute = (route) => route !== ROUTE_INFO_REQUEST;

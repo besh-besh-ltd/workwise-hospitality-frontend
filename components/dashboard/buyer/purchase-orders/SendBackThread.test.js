@@ -55,6 +55,38 @@ describe("SendBackThread", () => {
     expect(screen.getByRole("link", { name: "quote.pdf" })).toHaveAttribute("href", "https://files/quote.pdf");
   });
 
+  it("lists request files and response files under their own side, by exact value", () => {
+    setup([
+      open({
+        status: "ANSWERED",
+        response_text: "See attached",
+        files: [
+          { id: 1, side: "REQUEST", name: "ask.pdf", url: "https://f/ask.pdf" },
+          { id: 2, side: "RESPONSE", name: "answer.png", url: "https://f/answer.png" },
+        ],
+      }),
+    ]);
+    const answer = screen.getByText("See attached");
+    const askLink = screen.getByRole("link", { name: "ask.pdf" });
+    const ansLink = screen.getByRole("link", { name: "answer.png" });
+    // request files come before the answer text, response files after it
+    expect(askLink.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(answer.compareDocumentPosition(ansLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("treats any route but INFO_REQUEST as a rejection: CANCEL is a cancellation, COMMERCIAL a rejection", () => {
+    setup([
+      open({ id: 10, route: "CANCEL", status: "CLOSED", resolution: "CANCELLED", reason_category: "NOT_REQUIRED", comment: "Not needed" }),
+      open({ id: 11, route: "COMMERCIAL", status: "CLOSED", resolution: null, reason_category: "RENEGOTIATE" }),
+      open({ id: 12, status: "CLOSED", resolution: "REJECTED", reason_category: "OTHER" }),
+    ]);
+    expect(screen.getByText("Cancelled: Not needed any more")).toBeInTheDocument();
+    expect(screen.getByText("Rejected: Re-negotiate or change the vendor")).toBeInTheDocument();
+    // resolution alone never turns an info request into a rejection
+    expect(screen.getByText("Asked for information: Something else")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/REJECTED|CANCELLED|INFO_REQUEST/);
+  });
+
   it("shows the answer once given, and a rejection as a rejection", () => {
     setup([
       open({
