@@ -257,6 +257,9 @@ const QuoteComparison = ({
   const [tip, setTip] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
   const toastTimer = useRef(null);
+  // Draft POs created by the approval just confirmed — approving is the moment
+  // a PO is drafted, and initiating it is a separate step that gets forgotten.
+  const [draftedPos, setDraftedPos] = useState([]);
 
   // vendor ordering + per-cell kebab + quote history
   const [vendorSort, setVendorSort] = useState("price"); // price | tech | track
@@ -1108,11 +1111,20 @@ const QuoteComparison = ({
     let approved = 0;
     let rejected = 0;
     let fail = 0;
+    const drafted = [];
     for (const pid of Object.keys(approveSel)) {
       const approveReason = (approveReasons[pid] || "").trim() || null;
       try {
         // eslint-disable-next-line no-await-in-loop
-        await approveNegotiationQuotes(pid, approveReason, departmentId);
+        const res = await approveNegotiationQuotes(pid, approveReason, departmentId);
+        // The approval is what drafts the purchase order. An older backend
+        // sends no drafted_pos, in which case nothing extra is shown.
+        const list = res?.data?.data?.drafted_pos || res?.data?.drafted_pos || res?.drafted_pos;
+        if (Array.isArray(list)) {
+          list.forEach((d) => {
+            if (d?.id != null && !drafted.some((x) => x.id === d.id)) drafted.push(d);
+          });
+        }
         approved++;
       } catch (e) {
         fail++;
@@ -1133,6 +1145,7 @@ const QuoteComparison = ({
     clearDecisions();
     await fetchView({ silent: true });
     if (approved || rejected) showToast(`${approved} approved · ${rejected} rejected · buyer notified`);
+    if (drafted.length) setDraftedPos(drafted);
     if (fail) toast.error(`${fail} decision${fail > 1 ? "s" : ""} failed.`);
   };
 
@@ -3811,6 +3824,39 @@ const QuoteComparison = ({
               <div className={styles.rtAction}>
                 → Pick another vendor below, or force re-select the same one.
               </div>
+            </div>
+          </Portal>
+        )}
+        {draftedPos.length > 0 && (
+          <Portal>
+            <div className={styles.draftedPo} data-testid="qc-drafted-po" role="status">
+              <div className={styles.draftedPoList}>
+                {draftedPos.map((d) => (
+                  <div key={d.id} className={styles.draftedPoRow}>
+                    <span>
+                      Draft PO {d.po_number || d.id} created.{" "}
+                      {d.can_initiate ? null : "A PO initiator will initiate it."}
+                    </span>
+                    {d.can_initiate && (
+                      <button
+                        type="button"
+                        className={styles.draftedPoLink}
+                        onClick={() => router.push(`/dashboard/buyer/purchase-orders/${d.id}?action=initiate`)}
+                      >
+                        Initiate it now →
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={styles.draftedPoClose}
+                aria-label="Dismiss"
+                onClick={() => setDraftedPos([])}
+              >
+                <X size={14} />
+              </button>
             </div>
           </Portal>
         )}

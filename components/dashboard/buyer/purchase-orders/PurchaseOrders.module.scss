@@ -645,6 +645,7 @@
     border-radius: 4px;
     font-weight: 500;
     border: 1px solid rgba(37, 99, 235, 0.18);
+    &[href] { text-decoration: none; &:hover { text-decoration: underline; } }
   }
   .amount { font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--fg); letter-spacing: -0.005em; font-variant-numeric: tabular-nums; }
   .ago { font-size: 11.5px; color: var(--fg-3); }
@@ -873,6 +874,15 @@
   strong { color: var(--fg-2); font-weight: 600; }
 }
 
+/* Guided initiation (arrived from the RFQ page, or just initiated): the same
+   neutral note with a short body and, once done, the next-step buttons. */
+.guideNote { align-items: flex-start; }
+.guideBody { display: flex; flex-direction: column; gap: 4px; min-width: 0; line-height: 1.5; }
+.guideActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; a { text-decoration: none; } }
+/* Two-second highlight on the Initiate row; none for reduced motion. */
+.initiateRing { border-radius: 10px; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); transition: box-shadow 0.3s ease; }
+@media (prefers-reduced-motion: reduce) { .initiateRing { box-shadow: none; transition: none; } }
+
 /* ───────────── Who can initiate this draft ─────────────
    The people named directly under .heroPendingNote, beside the disabled Force
    Initiate control. Same neutral card as the note above it — one explanation in
@@ -893,6 +903,7 @@
   color: var(--fg-4);
 }
 .initiatorsMsg { font-size: 12px; color: var(--fg-3); line-height: 1.5; }
+.initiatorsAdminNote { margin-top: 4px; font-size: 11px; color: var(--fg-4, var(--fg-3)); code { font-family: 'Geist Mono', monospace; font-size: 10.5px; } }
 .initiatorList {
   list-style: none;
   margin: 0;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useSelector } from "react-redux";
@@ -223,7 +223,7 @@ const ROSTER_VISIBLE = 8;
    the button. Every failure renders nothing at all: the note above still
    stands on its own, and a permission hint may never be the reason a purchase
    order page breaks. */
-const WhoCanInitiate = ({ poId }) => {
+const WhoCanInitiate = ({ poId, plain = false }) => {
   const { status, initiators, total } = usePoInitiators(poId);
   const [expanded, setExpanded] = useState(false);
 
@@ -247,10 +247,21 @@ const WhoCanInitiate = ({ poId }) => {
            this business unit holds the grant, so there is no colleague to ask
            and the PO cannot move until an administrator changes that. Said
            plainly, because an empty box would read as a broken block. */
-        <div className={styles.initiatorsMsg}>
-          Nobody in this business unit holds the <strong>awarding · create</strong> permission, so this
-          purchase order cannot be initiated by anyone yet. Ask your administrator to grant it.
-        </div>
+        plain ? (
+          <div className={styles.initiatorsMsg}>
+            <strong>No one can initiate this purchase order yet.</strong> Nobody here can initiate purchase
+            orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for
+            this business unit.
+            <div className={styles.initiatorsAdminNote}>
+              Admin note: this needs <code>awarding · create</code> on this business unit.
+            </div>
+          </div>
+        ) : (
+          <div className={styles.initiatorsMsg}>
+            Nobody in this business unit holds the <strong>awarding · create</strong> permission, so this
+            purchase order cannot be initiated by anyone yet. Ask your administrator to grant it.
+          </div>
+        )
       ) : (
         <>
           <ul className={styles.initiatorList} id="po-initiators-list">
@@ -321,6 +332,14 @@ const PODetail = ({ id }) => {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(null); // 'approved' | 'rejected' | null
   const [initiating, setInitiating] = useState(false);
+  // What the last Initiate click on THIS page did: { kind: 'done', queue } or
+  // { kind: 'already' }. Drives the "who has it now" note and the next steps.
+  const [initiateResult, setInitiateResult] = useState(null);
+  // 2-second highlight on the action row when arriving from the RFQ guide.
+  const [ring, setRing] = useState(false);
+  const initiateBtnRef = useRef(null);
+  const guidedRef = useRef(false);
+  const ringTimer = useRef(null);
   const [preview, setPreview] = useState(null);
   const [otherChargesOpen, setOtherChargesOpen] = useState(false);
   const [globalChargesOpen, setGlobalChargesOpen] = useState(false);
@@ -396,6 +415,15 @@ const PODetail = ({ id }) => {
   // explanation instead of a missing button (see the hero note below).
   const canWrite = canUpdate || canCreate;
 
+  /* Who may initiate is the SERVER's answer (`can_initiate` on the detail
+     payload: the same predicate the initiate route enforces, process axis
+     included). The permission hook above has no process axis, so it can
+     disagree. It stays only as the fallback while an older backend, which
+     sends no `can_initiate`, is still serving. */
+  const serverGate = typeof po?.can_initiate === "boolean";
+  const canInitiate = serverGate ? po.can_initiate : canWrite;
+  const guideAction = router.query?.action === "initiate";
+
   const fetchDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -421,8 +449,10 @@ const PODetail = ({ id }) => {
       } catch (_) {
         // preview is optional — grand total still shown from PO data
       }
+      return data;
     } catch (e) {
       setError(true);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -431,6 +461,36 @@ const PODetail = ({ id }) => {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  /* Arriving from the RFQ page's guide (?action=initiate): once, bring the
+     Initiate control into view, focus it and ring it for two seconds. UI only —
+     POST /po/initiate/:id remains the gate. Not for a PO that is past draft or
+     that this viewer cannot initiate (those get a note, no scroll). */
+  useEffect(() => {
+    if (!guideAction || guidedRef.current || loading || permissionsLoading || !po) return;
+    if (po.status !== "draft" || !canInitiate) return;
+    guidedRef.current = true;
+    const row = document.getElementById("po-initiate-action");
+    if (row && typeof row.scrollIntoView === "function") row.scrollIntoView({ block: "center" });
+    if (initiateBtnRef.current) initiateBtnRef.current.focus({ preventScroll: true });
+    const reduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduced) {
+      setRing(true);
+      ringTimer.current = setTimeout(() => setRing(false), 2000);
+    }
+  }, [guideAction, loading, permissionsLoading, po, canInitiate]);
+
+  useEffect(() => () => clearTimeout(ringTimer.current), []);
+
+  /* Drop ?action so a refresh or Back does not replay the scroll. */
+  const dropActionParam = () => {
+    if (!router.query?.action) return;
+    const { action: _drop, ...rest } = router.query;
+    router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+  };
 
   const handleBack = () => {
     if (window.history.length > 1) router.back();
@@ -497,14 +557,22 @@ const PODetail = ({ id }) => {
     (po?.workflow || []).find((n) => n.status === "rejected" && n.reason)?.reason || null;
 
   const coversAllProducts = po?.covers_all_products !== false;
-  const isForceInitiate = !coversAllProducts;
+  // The server classifies the draft: 'complete' | 'split' | 'partial'. A split
+  // is one vendor's share of a fully awarded RFQ — every other product is
+  // already on another PO, so there is nothing to wait for and nothing to
+  // force. Only an old payload without the field falls back to coverage.
+  const initiateKind = po?.initiate_kind || null;
+  const isSplit = initiateKind === "split";
+  const isForceInitiate = initiateKind ? initiateKind === "partial" : !coversAllProducts;
 
   /* What the button is about to do, in the buyer's words.
      Deliberately does NOT say "sends it to the vendor": the PO reaches the
      vendor only when the approval policy auto-approves (purchaseOrderModel
      `initiatePurchaseOrder`); otherwise it goes to the approvers first. The
      freeze and the split are the parts the buyer cannot see from this page. */
-  const initiateHelp = isForceInitiate
+  const initiateHelp = isSplit
+    ? "Sends this purchase order for approval. It covers its share of this RFQ; the other products are already on other purchase orders, so nothing else is waiting. The PO document is generated now, and the approvers are notified — or, if no approval step applies, it goes to the vendor for acceptance."
+    : isForceInitiate
     ? `Sends this purchase order for approval even though it covers only ${
         po?.po_product_count ?? "some"
       } of ${po?.rfq_product_count ?? "the"} products on this RFQ. Initiating freezes it — any product finalized afterwards is raised as a separate purchase order. The PO document is generated now and the approvers are notified. This cannot be undone.`
@@ -525,12 +593,18 @@ const PODetail = ({ id }) => {
          error (the PO IS initiated) nor a success (this click did not do it),
          so it gets the neutral toast — a green one told people a double-click
          had worked. */
-      if (res?.data?.already_initiated) {
+      const already = !!res?.data?.already_initiated;
+      if (already) {
         toast.info(message);
       } else {
         toast.success(message);
       }
+      // The detail refetch drops `sibling_drafts` (empty once this PO is no
+      // longer initiatable), so the queue is read from the page as it was.
+      const queue = Array.isArray(po?.sibling_drafts) ? po.sibling_drafts : [];
       await fetchDetail();
+      setInitiateResult(already ? { kind: "already" } : { kind: "done", queue });
+      dropActionParam();
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || "Failed to initiate Purchase Order";
       toast.error(message);
@@ -606,6 +680,19 @@ const PODetail = ({ id }) => {
   const items = Array.isArray(po.items) ? po.items : [];
   const vendor = po.vendor || {};
   const rfq = po.rfq || {};
+  const rfqHref = rfq.id
+    ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}&stage=purchase-order`
+    : null;
+  // `initiated_by` is the id on an older backend and {id,name,at} on this one.
+  const initiatedBy = po.initiated_by && typeof po.initiated_by === "object" ? po.initiated_by : null;
+  const initiatedById = initiatedBy ? initiatedBy.id : po.initiated_by;
+  const siblingQueue = initiateResult?.kind === "done" ? initiateResult.queue || [] : [];
+  const nextDraft = siblingQueue[0] || null;
+  const autoApproved = po.status === "acceptance_pending" || po.status === "approved";
+  const showAlreadyNote =
+    po.status !== "draft" &&
+    (initiateResult?.kind === "already" || (guideAction && !initiateResult));
+  const showDoneNote = initiateResult?.kind === "done" && po.status !== "draft";
   const comparison = Array.isArray(po.comparison) ? po.comparison : [];
   const docs = Array.isArray(po.docs) ? po.docs : [];
   // The generated PO document (po_pdf_url) is surfaced in docs as type "po".
@@ -757,7 +844,13 @@ const PODetail = ({ id }) => {
               {rfq.number && (
                 <>
                   <span className={styles.sep}>·</span>
-                  <span className={`${styles.rfqLink} ${styles.mono}`}>RFQ #{rfq.number}</span>
+                  {rfqHref ? (
+                    <Link href={rfqHref} className={`${styles.rfqLink} ${styles.mono}`}>
+                      RFQ #{rfq.number}
+                    </Link>
+                  ) : (
+                    <span className={`${styles.rfqLink} ${styles.mono}`}>RFQ #{rfq.number}</span>
+                  )}
                 </>
               )}
               {isCallOff && (
@@ -788,7 +881,22 @@ const PODetail = ({ id }) => {
                 a broken page. It names the permission rather than a role
                 because roles are per-tenant and this page cannot know which
                 one carries the grant here. */}
-            {po.status === "draft" && !canWrite && (
+            {po.status === "draft" && !canInitiate && serverGate && (
+              <>
+                <div className={styles.heroPendingNote}>
+                  <span className={styles.clockIc}>
+                    <AlertCircle size={14} />
+                  </span>
+                  <span>
+                    <strong>Waiting for a PO initiator.</strong> Draft PO {po.po_number || po.id} is ready but
+                    has not been initiated yet. You can&apos;t initiate this purchase order for this business
+                    unit. Any of these people can:
+                  </span>
+                </div>
+                <WhoCanInitiate poId={id} plain />
+              </>
+            )}
+            {po.status === "draft" && !canInitiate && !serverGate && (
               <>
                 <div className={styles.heroPendingNote}>
                   <span className={styles.clockIc}>
@@ -826,7 +934,7 @@ const PODetail = ({ id }) => {
                 PO that was ever resubmitted. handleUpdatePO authorises only
                 `initiated_by` to edit, so this note appears for exactly the
                 person who can do something about it. Client feedback item 7. */}
-            {po.status === "rejected" && po.initiated_by === userProfile?.id && (
+            {po.status === "rejected" && initiatedById === userProfile?.id && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
                   <AlertCircle size={14} />
@@ -838,7 +946,76 @@ const PODetail = ({ id }) => {
                 </span>
               </div>
             )}
-            {po.status === "draft" && canWrite && (
+            {po.status === "draft" && canInitiate && guideAction && !initiateResult && (
+              <div className={`${styles.heroPendingNote} ${styles.guideNote}`}>
+                <span className={styles.clockIc}>
+                  <Send size={14} />
+                </span>
+                <div className={styles.guideBody}>
+                  <strong>You&apos;re here to initiate this purchase order.</strong>
+                  <span>
+                    1. Check the vendor and total above. 2. Check the lines below. 3. Press{" "}
+                    <strong>Initiate</strong> (top right).
+                  </span>
+                  <span>
+                    After you initiate, it goes to the PO approvers, then to {vendor.name || "the vendor"} for
+                    acceptance.
+                  </span>
+                </div>
+              </div>
+            )}
+            {showDoneNote && (
+              <div className={`${styles.heroPendingNote} ${styles.guideNote}`} role="status">
+                <span className={styles.clockIc}>
+                  <Check size={14} />
+                </span>
+                <div className={styles.guideBody}>
+                  {autoApproved ? (
+                    <span>
+                      <strong>Initiated and approved automatically.</strong> It has gone to{" "}
+                      {vendor.name || "the vendor"} for acceptance.
+                    </span>
+                  ) : (
+                    <span>
+                      <strong>Initiated.</strong> PO {po.po_number || po.id} is now with{" "}
+                      {currentApproverNames || "its approvers"} for approval.
+                    </span>
+                  )}
+                  {(rfqHref || nextDraft) && (
+                    <div className={styles.guideActions}>
+                      {rfqHref && (
+                        <Link href={rfqHref} className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}>
+                          <ArrowLeft size={12} />
+                          Back to RFQ {rfq.number}
+                        </Link>
+                      )}
+                      {nextDraft && (
+                        <Link
+                          href={`${PO_ROUTE}/${nextDraft.id}?action=initiate`}
+                          className={`${styles.btn} ${styles.btnSuccess} ${styles.btnSm}`}
+                        >
+                          Next draft: PO {nextDraft.po_number || nextDraft.id} ({siblingQueue.length} left)
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {showAlreadyNote && (
+              <div className={styles.heroPendingNote} role="status">
+                <span className={styles.clockIc}>
+                  <AlertCircle size={14} />
+                </span>
+                <span>
+                  PO {po.po_number || po.id} was already initiated
+                  {initiatedBy?.name ? ` by ${initiatedBy.name}` : ""}
+                  {initiatedBy?.at ? ` on ${fmtDateOnly(initiatedBy.at)}` : ""}. It is now{" "}
+                  {po.status_label || statusLabel(po.status)}.
+                </span>
+              </div>
+            )}
+            {po.status === "draft" && canInitiate && !(guideAction && !initiateResult) && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
                   <AlertCircle size={14} />
@@ -881,7 +1058,10 @@ const PODetail = ({ id }) => {
             )}
           </div>
 
-          <div className={styles.heroActions}>
+          <div
+            id="po-initiate-action"
+            className={`${styles.heroActions} ${ring ? styles.initiateRing : ""}`}
+          >
             {poDocUrl ? (
               <a
                 className={`${styles.btn} ${styles.btnSecondary}`}
@@ -911,25 +1091,28 @@ const PODetail = ({ id }) => {
                 who award a PO do not hold `awarding.create`: in production 53
                 users can finalise (`quote-compare.create`) and 32 can
                 initiate, and only 4 of the finalisers are in that second set. */}
-            {po.status === "draft" && (
+            {po.status === "draft" && (canInitiate || !serverGate) && (
               <button
+                ref={initiateBtnRef}
                 /* Neutral, not green, when it cannot be pressed: `btnSuccess`
                    only fades to 0.6 opacity when disabled, which still reads
                    as the page's primary call to action and invites the click
                    it will not accept. The unavailable state should look like
                    the disabled "Download PO" beside it. */
+                /* heroDecisionBtn: hidden on phones, where Initiate lives in the
+                   sticky bar instead (only when the viewer can press it). */
                 className={`${styles.btn} ${
-                  !canWrite
+                  !canInitiate
                     ? styles.btnSecondary
                     : isForceInitiate
                     ? styles.btnWarnStrong
                     : styles.btnSuccess
-                }`}
+                } ${canInitiate ? styles.heroDecisionBtn : ""}`}
                 type="button"
-                disabled={initiating || !canWrite}
-                onClick={canWrite ? () => setInitiateOpen(true) : undefined}
+                disabled={initiating || !canInitiate}
+                onClick={canInitiate ? () => setInitiateOpen(true) : undefined}
                 title={
-                  canWrite
+                  canInitiate
                     ? undefined
                     : "You do not have permission to initiate a purchase order for this business unit."
                 }
@@ -938,7 +1121,7 @@ const PODetail = ({ id }) => {
                 {initiating ? "Initiating…" : isForceInitiate ? "Force Initiate" : "Initiate"}
               </button>
             )}
-            {po.status === "draft" && canWrite && (
+            {po.status === "draft" && canInitiate && (
               <InfoTip
                 text={initiateHelp}
                 label={
@@ -1368,7 +1551,7 @@ const PODetail = ({ id }) => {
                     <button
                       className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
                       type="button"
-                      onClick={() => router.push(`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}`)}
+                      onClick={() => router.push(rfqHref)}
                     >
                       <ExternalLink size={12} />
                       Open RFQ
@@ -1973,6 +2156,8 @@ const PODetail = ({ id }) => {
             ? `This purchase order does <strong>not</strong> include every product on its RFQ — it covers ${escapeHtml(
                 po.po_product_count
               )} of ${escapeHtml(po.rfq_product_count)}. Any product finalized after this PO is initiated will be clubbed into a <strong>separate purchase order</strong>. Are you sure you want to force initiate?`
+            : isSplit
+            ? `This purchase order covers its share of the products awarded on its RFQ. The other products are already on other purchase orders. It will now go for approval, or be sent to the vendor directly, depending on the approval workflow configured for this business unit.`
             : `This purchase order covers every product on its RFQ. It will now go for approval, or be sent to the vendor directly, depending on the approval workflow configured for this business unit.`
         }
         confirmButtonColor={isForceInitiate ? "warning" : "success"}
@@ -2030,6 +2215,30 @@ const PODetail = ({ id }) => {
 
       {/* Phone decision bar. Same visibility rule as the desktop action card;
           display:none above 768px, so desktop keeps its in-page buttons. */}
+      {po.status === "draft" && canInitiate && (
+        <MobileActionBar
+          label="Initiate purchase order"
+          summary={
+            <>
+              <span>
+                PO <span className={styles.mono}>#{po.po_number || po.id}</span> total
+              </span>
+              <strong>{inr(pricing.total ?? po.total_value)}</strong>
+            </>
+          }
+        >
+          <MobileActionButton
+            variant="approve"
+            className={mobileBarStyles.wide}
+            aria-label={isForceInitiate ? "Force initiate purchase order" : "Initiate purchase order"}
+            disabled={initiating}
+            onClick={() => setInitiateOpen(true)}
+          >
+            <Send size={16} />
+            {initiating ? "Initiating…" : isForceInitiate ? "Force Initiate" : "Initiate"}
+          </MobileActionButton>
+        </MobileActionBar>
+      )}
       {isPending && awaitingMe && canApprove && (
         <MobileActionBar
           label="PO decision"
