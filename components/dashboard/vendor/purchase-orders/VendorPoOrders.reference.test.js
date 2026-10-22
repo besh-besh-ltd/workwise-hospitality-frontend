@@ -140,8 +140,14 @@ describe("phone card layout keeps every cell on its own slot", () => {
     expect(rule(b, 7)).toMatch(/display: none/); // Actions
   });
 
-  it("title is clamped to 2 lines, 3 on phones", () => {
-    expect(scss).toMatch(/\.refTitle\s*{[^}]*-webkit-line-clamp: 2/);
-    expect(scss).toMatch(/Phone layer[\s\S]*\.refTitle\s*{[^}]*-webkit-line-clamp: 3/);
+  it("title is clamped to 2 lines, 3 on phones, and the phone rule is as specific as the base rule", () => {
+    // Base rule is nested inside `.poTable { }` => `.poTable .refTitle` (0,2,0).
+    // A bare `.refTitle` override (0,1,0) silently loses; require the same scope.
+    const base = scss.slice(0, scss.indexOf("Phone layer"));
+    const poTable = base.slice(base.indexOf("\n.poTable {"));
+    expect(poTable).toMatch(/\.refTitle\s*{[^}]*-webkit-line-clamp: 2/);
+    const phone = scss.slice(scss.indexOf("Phone layer"));
+    expect(phone).toMatch(/\.poTable \.refTitle\s*{[^}]*-webkit-line-clamp: 3/);
+    expect(phone).not.toMatch(/^[ \t]*\.refTitle\s*{[^}]*-webkit-line-clamp/m);
   });
 });
