@@ -725,6 +725,7 @@
 /* Draft PO created by the approval just confirmed. Sits above the toast and
    stays until dismissed: the next step is a different person's click. */
 .draftedPo { @include qc-tokens; position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 24px)); background: var(--fg); color: white; padding: 11px 12px 11px 18px; border-radius: 10px; font-size: 12.5px; z-index: 2002; box-shadow: var(--shadow-lg); display: flex; align-items: flex-start; gap: 12px; }
+@media (max-width: 768px) { .draftedPo { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } }
 .draftedPoList { display: flex; flex-direction: column; gap: 6px; }
 .draftedPoRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .draftedPoLink { background: none; border: 0; padding: 0; color: #86efac; font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }

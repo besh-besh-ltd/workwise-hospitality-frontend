@@ -19,6 +19,10 @@ jest.mock("next/router", () => ({
     push: (...a) => mockPush(...a),
   }),
 }));
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ href, children, ...rest }) => <a href={href} {...rest}>{children}</a>,
+}));
 jest.mock("react-toastify", () => ({
   __esModule: true,
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn(), warn: jest.fn() },
@@ -106,8 +110,10 @@ describe("after approving the award", () => {
 
     const note = await screen.findByTestId("qc-drafted-po");
     expect(note).toHaveTextContent("Draft PO 139141 created.");
-    fireEvent.click(within(note).getByRole("button", { name: /initiate it now/i }));
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/purchase-orders/139141?action=initiate");
+    expect(within(note).getByRole("link", { name: /initiate it now/i })).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/purchase-orders/139141?action=initiate"
+    );
   });
 
   test("a draft the approver cannot initiate says who will, and offers no link", async () => {
@@ -118,7 +124,7 @@ describe("after approving the award", () => {
 
     const note = await screen.findByTestId("qc-drafted-po");
     expect(note).toHaveTextContent("Draft PO 139141 created. A PO initiator will initiate it.");
-    expect(within(note).queryByRole("button", { name: /initiate it now/i })).toBeNull();
+    expect(within(note).queryByRole("link", { name: /initiate it now/i })).toBeNull();
   });
 
   test("an older backend (no drafted_pos) shows nothing extra", async () => {

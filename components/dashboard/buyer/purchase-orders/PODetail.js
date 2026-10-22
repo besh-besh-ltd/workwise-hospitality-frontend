@@ -249,8 +249,7 @@ const WhoCanInitiate = ({ poId, plain = false }) => {
            plainly, because an empty box would read as a broken block. */
         plain ? (
           <div className={styles.initiatorsMsg}>
-            <strong>No one can initiate this purchase order yet.</strong> Nobody here can initiate purchase
-            orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for
+            <strong>No one can initiate this purchase order yet.</strong> Ask your administrator to give someone the PO Initiator or Commercial Approver role for
             this business unit.
             <div className={styles.initiatorsAdminNote}>
               Admin note: this needs <code>awarding · create</code> on this business unit.
@@ -264,6 +263,7 @@ const WhoCanInitiate = ({ poId, plain = false }) => {
         )
       ) : (
         <>
+          {plain && <div className={styles.initiatorsMsg}>Any of these people can:</div>}
           <ul className={styles.initiatorList} id="po-initiators-list">
             {visible.map((p, i) => (
               <li className={styles.initiatorRow} key={p.user_id ?? `${p.name}-${i}`}>
@@ -336,10 +336,11 @@ const PODetail = ({ id }) => {
   // { kind: 'already' }. Drives the "who has it now" note and the next steps.
   const [initiateResult, setInitiateResult] = useState(null);
   // 2-second highlight on the action row when arriving from the RFQ guide.
-  const [ring, setRing] = useState(false);
+  const [ring, setRing] = useState(null); // null | "hero" | "bar"
   const initiateBtnRef = useRef(null);
   const guidedRef = useRef(false);
   const ringTimer = useRef(null);
+  const focusTimer = useRef(null);
   const [preview, setPreview] = useState(null);
   const [otherChargesOpen, setOtherChargesOpen] = useState(false);
   const [globalChargesOpen, setGlobalChargesOpen] = useState(false);
@@ -470,20 +471,36 @@ const PODetail = ({ id }) => {
     if (!guideAction || guidedRef.current || loading || permissionsLoading || !po) return;
     if (po.status !== "draft" || !canInitiate) return;
     guidedRef.current = true;
-    const row = document.getElementById("po-initiate-action");
-    if (row && typeof row.scrollIntoView === "function") row.scrollIntoView({ block: "center" });
-    if (initiateBtnRef.current) initiateBtnRef.current.focus({ preventScroll: true });
-    const reduced =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!reduced) {
-      setRing(true);
-      ringTimer.current = setTimeout(() => setRing(false), 2000);
-    }
+    // One check for both layouts: the Initiate control that is actually
+    // rendered is the hero button on desktop and the bottom-bar button on a
+    // phone (the hero one is display:none there). Deferred a tick because the
+    // bar mounts into a portal after the first paint.
+    focusTimer.current = setTimeout(() => {
+      const shown = (el) => !!el && el.getClientRects().length > 0;
+      const bar = document.querySelector("[data-initiate-bar-control]");
+      const target = !shown(initiateBtnRef.current) && shown(bar) ? bar : initiateBtnRef.current;
+      const onBar = target === bar && target !== initiateBtnRef.current;
+      const scrollEl = onBar ? null : document.getElementById("po-initiate-action");
+      if (scrollEl && typeof scrollEl.scrollIntoView === "function") scrollEl.scrollIntoView({ block: "center" });
+      if (target) target.focus({ preventScroll: true });
+      const reduced =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduced) {
+        setRing(onBar ? "bar" : "hero");
+        ringTimer.current = setTimeout(() => setRing(null), 2000);
+      }
+    }, 0);
   }, [guideAction, loading, permissionsLoading, po, canInitiate]);
 
-  useEffect(() => () => clearTimeout(ringTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(ringTimer.current);
+      clearTimeout(focusTimer.current);
+    },
+    []
+  );
 
   /* Drop ?action so a refresh or Back does not replay the scroll. */
   const dropActionParam = () => {
@@ -892,7 +909,7 @@ const PODetail = ({ id }) => {
                   <span>
                     <strong>Waiting for a PO initiator.</strong> Draft PO {po.po_number || po.id} is ready but
                     has not been initiated yet. You can&apos;t initiate this purchase order for this business
-                    unit. Any of these people can:
+                    unit.
                   </span>
                 </div>
                 <WhoCanInitiate poId={id} plain />
@@ -949,7 +966,7 @@ const PODetail = ({ id }) => {
               </div>
             )}
             {po.status === "draft" && canInitiate && guideAction && !initiateResult && (
-              <div className={`${styles.heroPendingNote} ${styles.guideNote}`}>
+              <div className={`${styles.heroPendingNote} ${styles.guideNote}`} role="status">
                 <span className={styles.clockIc}>
                   <Send size={14} />
                 </span>
@@ -957,7 +974,7 @@ const PODetail = ({ id }) => {
                   <strong>You&apos;re here to initiate this purchase order.</strong>
                   <span>
                     1. Check the vendor and total above. 2. Check the lines below. 3. Press{" "}
-                    <strong>Initiate</strong> (top right).
+                    <strong>Initiate</strong>.
                   </span>
                   <span>
                     After you initiate, it goes to the PO approvers, then to {vendor.name || "the vendor"} for
@@ -1062,7 +1079,7 @@ const PODetail = ({ id }) => {
 
           <div
             id="po-initiate-action"
-            className={`${styles.heroActions} ${ring ? styles.initiateRing : ""}`}
+            className={`${styles.heroActions} ${ring === "hero" ? styles.initiateRing : ""}`}
           >
             {poDocUrl ? (
               <a
@@ -2231,7 +2248,8 @@ const PODetail = ({ id }) => {
         >
           <MobileActionButton
             variant="approve"
-            className={mobileBarStyles.wide}
+            className={`${mobileBarStyles.wide} ${ring === "bar" ? styles.initiateRing : ""}`}
+            data-initiate-bar-control=""
             aria-label={isForceInitiate ? "Force initiate purchase order" : "Initiate purchase order"}
             disabled={initiating}
             onClick={() => setInitiateOpen(true)}

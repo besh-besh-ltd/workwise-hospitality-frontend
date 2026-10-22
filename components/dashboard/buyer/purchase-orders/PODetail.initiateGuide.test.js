@@ -122,7 +122,7 @@ describe("arriving with ?action=initiate on a draft the viewer can initiate", ()
     expect(document.getElementById("po-initiate-action")).toContainElement(heroButton());
     expect(screen.getByText(/you're here to initiate this purchase order/i)).toBeInTheDocument();
     expect(screen.getByText(/check the vendor and total above/i)).toHaveTextContent(
-      "1. Check the vendor and total above. 2. Check the lines below. 3. Press Initiate (top right)."
+      "1. Check the vendor and total above. 2. Check the lines below. 3. Press Initiate."
     );
     expect(
       screen.getByText(/after you initiate, it goes to the po approvers, then to NovaTech Hospitality Solutions for acceptance/i)
@@ -221,8 +221,38 @@ describe("a viewer who cannot initiate", () => {
     expect(heroButton()).toBeNull();
     expect(screen.getByText(/you can't initiate this purchase order/i)).toBeInTheDocument();
     expect(await screen.findByText(/no one can initiate this purchase order yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/any of these people can/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nobody here can initiate/i)).not.toBeInTheDocument();
     expect(screen.getByText(/PO Initiator or Commercial Approver role/i)).toBeInTheDocument();
     expect(scrollSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("moving from one draft to the next (same mounted page, new id)", () => {
+  test("the second PO gets its own guide note, focus and ring", async () => {
+    const { rerender } = await mount({ sibling_drafts: [{ id: 53, po_number: "139142" }] }, {
+      after: { status: "pending_approval", status_label: "Pending approval", can_initiate: false, current_approvers: [{ name: "Ravi Shah" }] },
+    });
+    fireEvent.click(heroButton());
+    fireEvent.click(confirmButton());
+    await screen.findByText(/is now with/i);
+
+    // The page keys PODetail on the id, so the next draft is a fresh mount.
+    scrollSpy.mockClear();
+    mockRouter.query = { id: "53", action: "initiate" };
+    getPODetailFull.mockReset();
+    getPODetailFull.mockResolvedValue(po({ id: 53, po_number: "139142" }));
+    rerender(<PODetail key="53" id="53" />);
+    await screen.findByText(/you're here to initiate this purchase order/i);
+    expect(screen.queryByText(/is now with/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(heroButton()).toHaveFocus());
+    expect(scrollSpy).toHaveBeenCalled();
+    expect(document.getElementById("po-initiate-action").className).toMatch(/initiateRing/);
+  });
+
+  test("the page component keys PODetail on the id", () => {
+    const src = require("fs").readFileSync(require("path").join(process.cwd(), "pages/dashboard/buyer/purchase-orders/[id].js"), "utf8");
+    expect(src).toMatch(/<PODetail key=\{id\}/);
   });
 });
 

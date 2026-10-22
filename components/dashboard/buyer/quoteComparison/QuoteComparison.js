@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { toast } from "react-toastify";
 import moment from "moment";
 import {
@@ -3838,13 +3839,12 @@ const QuoteComparison = ({
                       {d.can_initiate ? null : "A PO initiator will initiate it."}
                     </span>
                     {d.can_initiate && (
-                      <button
-                        type="button"
+                      <Link
+                        href={`/dashboard/buyer/purchase-orders/${d.id}?action=initiate`}
                         className={styles.draftedPoLink}
-                        onClick={() => router.push(`/dashboard/buyer/purchase-orders/${d.id}?action=initiate`)}
                       >
                         Initiate it now →
-                      </button>
+                      </Link>
                     )}
                   </div>
                 ))}
