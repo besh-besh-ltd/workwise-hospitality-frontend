@@ -20,7 +20,8 @@ const UnifiedSubmitForApproval = ({
   onCancel,
   productCount,
   evaluatedProductCount = 0,
-  isBidExpired = false
+  isBidExpired = false,
+  leftOutWarning = null
 }) => {
   // Don't show button if user doesn't have write permissions
   if (!canWrite || permissionsLoading) return null;
@@ -154,7 +155,7 @@ const UnifiedSubmitForApproval = ({
         onClose={onCancel}
         onConfirm={onConfirm}
         title="Submit All Products for Approval"
-        description={`Are you sure you want to submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for technical evaluation approval?\n\nOnly products with at least one vendor evaluated will be submitted. Once submitted, the evaluation will be sent to the approver for review.`}
+        description={`Are you sure you want to submit ${evaluatedProductCount} of ${productCount} evaluated product(s) for technical evaluation approval?\n\nOnly products with at least one vendor evaluated will be submitted. Once submitted, the evaluation will be sent to the approver for review.${leftOutWarning ? `\n\n${leftOutWarning}` : ''}`}
         confirmButtonColor="primary"
         confirmButtonText={unifiedSubmitLoading ? "Submitting..." : "Submit All"}
         cancelButtonText="Cancel"

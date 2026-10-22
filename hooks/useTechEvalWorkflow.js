@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getTechEvalStatus } from "@/services/rfq";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { deriveTechEvalStatusFlags } from "@/utils/techEvalScoring";
 import {
   TECH_EVAL_WORKFLOW_STATES,
   TARGET_PASSED_VENDORS,
@@ -50,12 +51,29 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Calculate remaining vendors needed
+  // Use the actual passed_verified array length as source of truth (more reliable than stored field)
+  const passedVerifiedCount = data?.vendors?.passed_verified?.length ?? 0;
+  const storedTotalPassedVerified = data?.total_passed_verified ?? 0;
+  // Use the maximum of actual count and stored value to ensure progress is always accurate
+  const totalPassedVerified = Math.max(passedVerifiedCount, storedTotalPassedVerified);
+  const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
+  const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
+
+  const statusFlags = deriveTechEvalStatusFlags(data, totalPassedVerified);
+
   // Compute workflow state based on API response
   const computeWorkflowState = useCallback(() => {
     if (!data) return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
+    // An evaluation locked before the reopen rule existed (blocked, nobody
+    // passed) can have vendors who quoted after the last round. The backend
+    // accepts scoring them only in that blocked, zero-passed recoverable
+    // case, once bidding has closed; treat it like a reopened evaluation.
+    const hasRecoverableVendors = statusFlags.recoverable;
+
     // If workflow is complete, return COMPLETED
-    if (data.is_complete) {
+    if (data.is_complete && !hasRecoverableVendors) {
       return TECH_EVAL_WORKFLOW_STATES.COMPLETED;
     }
 
@@ -65,6 +83,13 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     );
     if (hasPendingRound) {
       return TECH_EVAL_WORKFLOW_STATES.PENDING_APPROVAL;
+    }
+
+    // A blocked evaluation re-opened by a deadline extension is NOT finished,
+    // even when every vendor of the earlier round has a verdict: vendors who
+    // quote in the new window still need evaluating.
+    if ((data.reopened === true && !statusFlags.isStuck) || hasRecoverableVendors) {
+      return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
     }
 
     // Check if there are vendors pending evaluation
@@ -85,7 +110,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
 
     // Otherwise, awaiting next round (need to fetch replacement vendors)
     return TECH_EVAL_WORKFLOW_STATES.AWAITING_NEXT_ROUND;
-  }, [data]);
+  }, [data, statusFlags.recoverable, statusFlags.isStuck]);
 
   const workflowState = computeWorkflowState();
 
@@ -94,19 +119,16 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     ? data.rounds[data.rounds.length - 1]
     : null;
 
-  // Calculate remaining vendors needed
-  // Use the actual passed_verified array length as source of truth (more reliable than stored field)
-  const passedVerifiedCount = data?.vendors?.passed_verified?.length ?? 0;
-  const storedTotalPassedVerified = data?.total_passed_verified ?? 0;
-  // Use the maximum of actual count and stored value to ensure progress is always accurate
-  const totalPassedVerified = Math.max(passedVerifiedCount, storedTotalPassedVerified);
-  const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
-  const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
 
   return {
+    // Stuck / reopened status (falls back to the pre-reopen rule on old backends)
+    ...statusFlags,
+
     // Raw data from API
     techEvalId: data?.tech_evaluation_id || null,
-    isComplete: data?.is_complete || false,
+    // A recoverable evaluation is complete on the server but still open to
+    // scoring and Round 2 submission, so it must not read as finished.
+    isComplete: (data?.is_complete || false) && !statusFlags.recoverable,
     currentRound: data?.current_round || 1,
     totalPassedVerified,
     requiredPassedVendors,

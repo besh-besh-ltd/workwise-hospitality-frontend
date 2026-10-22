@@ -11,7 +11,7 @@ const TechEvalVendorStatusDisplay = ({
   notEvaluatedVendors = [],
   roundNumber = 1,
   showSummary = true,
-  minimumPassingScore = null,
+  warnWhenNonePass = false,
 }) => {
   if ((!vendors || vendors.length === 0) && (!notEvaluatedVendors || notEvaluatedVendors.length === 0)) {
     return null;
@@ -47,6 +47,11 @@ const TechEvalVendorStatusDisplay = ({
           </div>
         </Card.Header>
         <Card.Body className="p-2">
+          {warnWhenNonePass && vendors.length > 0 && passedVendors.length === 0 && (
+            <div className="alert alert-warning py-2 px-3 mb-2" role="alert" style={{ fontSize: '0.82rem' }}>
+              No vendor in this round passes. Approving blocks this line until the bid deadline is extended.
+            </div>
+          )}
           {/* Passed Vendors */}
           {passedVendors.length > 0 && (
             <div className="mb-2">
@@ -58,7 +63,7 @@ const TechEvalVendorStatusDisplay = ({
                 {passedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
-                    ? `${!minimumPassingScore ? 100 : vendor.calculated_score}%`
+                    ? `${vendor.calculated_score}%`
                     : '';
                   return (
                     <Badge
@@ -88,7 +93,7 @@ const TechEvalVendorStatusDisplay = ({
                 {failedVendors.map((vendor, index) => {
                   const vendorLabel = vendor.rfq_product_vendor_id ? `VEN-${vendor.rfq_product_vendor_id}` : `Vendor ${vendor.vendor_id}`;
                   const score = vendor.calculated_score !== undefined && vendor.calculated_score !== null
-                    ? `${!minimumPassingScore ? 100 : vendor.calculated_score}%`
+                    ? `${vendor.calculated_score}%`
                     : '';
                   return (
                     <Badge
