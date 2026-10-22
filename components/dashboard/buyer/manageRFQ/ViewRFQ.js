@@ -680,6 +680,23 @@ const ViewRFQ = ({
     }
   }, [data?.id, data?.is_tender, router.query.id]);
 
+  // Come back to this tab and the PO guide may point at a draft someone else
+  // has since initiated. Re-pull when the tab becomes visible, debounced so a
+  // flurry of focus events costs one request.
+  useEffect(() => {
+    let timer = null;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { refreshLifecycle(); }, 1000);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearTimeout(timer);
+    };
+  }, [refreshLifecycle]);
+
   // The one pending approval (if any) this user must decide on. Drives BOTH the
   // decision card and the legacy right-rail fallback below, so the approver can
   // never end up with two competing Approve controls.
@@ -1149,7 +1166,11 @@ const ViewRFQ = ({
               />
             )}
             {selectedStage === "purchase-order" && (
-              <PurchaseOrderStage rfq={data} stage={lifecycle.stages.find((s) => s.key === "purchase-order")} />
+              <PurchaseOrderStage
+                rfq={data}
+                currentUserId={currentUser?.id}
+                stage={lifecycle.stages.find((s) => s.key === "purchase-order")}
+              />
             )}
           </div>
         </main>

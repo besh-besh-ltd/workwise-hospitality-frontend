@@ -1,6 +1,6 @@
 // RFQ lifecycle stage rail — the slim, connected JOURNEY driving the single
 // authoritative RFQ workspace page. States come from the server-computed
-// lifecycle (GET /rfq/:id/lifecycle): locked | active | complete | skipped.
+// lifecycle (GET /rfq/:id/lifecycle): locked | open | active | complete | skipped.
 // Selection ≠ current: users can open any unlocked stage (past stages render
 // read-only). Cloned from ArcStageTimeline (same CSS / journey framing).
 
@@ -54,6 +54,14 @@ function describe(stage) {
         return { node: "lapsed", icon: I.bolt, tone: "danger", text: "Published without approval" };
       }
       return { node: "ended", icon: I.skip, tone: "slate", text: stage.summary || "Closed" };
+    case "open": {
+      // Holds work the user can open (e.g. draft POs on a partially awarded
+      // RFQ) but is not where the RFQ currently stands — so it is clickable,
+      // never "current", and says how many drafts are waiting.
+      const n = Number(stage.draft_count);
+      const text = Number.isFinite(n) && n > 0 ? `${n} ${n === 1 ? "draft" : "drafts"}` : "Open";
+      return { node: "open", icon: I.clock, tone: "warn", text };
+    }
     case "locked":
       return { node: "locked", icon: I.lock, tone: "dim", text: "Not reached" };
     case "active":
