@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { arcLabel } from "./PoReference";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -65,6 +66,17 @@ const rfqIdentity = (rfq = {}) => {
   if (!rfq.number) return "";
   const title = String(rfq.title || "").trim();
   return title ? `RFQ #${rfq.number} — ${title}` : `RFQ #${rfq.number}`;
+};
+
+/* Call-off POs have no RFQ; they name the rate contract the same way:
+   "ARC ARC-77 — Linen rate contract", or just the number without a title. */
+const arcIdentity = (po = {}) => {
+  const co = po.call_off || {};
+  const no = String(po.arc_number || co.arc_number || "").trim();
+  if (!no) return "";
+  const title = String(po.arc_title || co.arc_title || "").trim();
+  const label = arcLabel(no);
+  return title ? `${label} — ${title}` : label;
 };
 
 const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
@@ -220,6 +232,8 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
   const isCallOff = !!po.is_call_off;
   const callOff = po.call_off || {};
+  // What the accept/reject confirmations name: the RFQ, or the ARC for a call-off.
+  const dialogRef = isCallOff ? arcIdentity(po) : rfqIdentity(rfq);
   // The vendor contract page is keyed by the contract id, not the ARC id.
   const arcHref = callOff.arc_contract_id
     ? `/dashboard/vendor/rate-contracts/${callOff.arc_contract_id}`
@@ -291,6 +305,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                   <span className={`${styles.rfqLink} ${styles.mono}`}>
                     Released PO{callOff.arc_number ? ` · ${callOff.arc_number}` : ""}
                   </span>
+                  {arcIdentity(po) && <span className={styles.rfqTitle}>{arcIdentity(po)}</span>}
                 </>
               )}
             </div>
@@ -749,7 +764,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         description={`Are you sure you want to accept PO #${escapeHtml(
           po.po_number || ""
         )}${
-          rfqIdentity(rfq) ? ` for ${escapeHtml(rfqIdentity(rfq))}` : ""
+          dialogRef ? ` for ${escapeHtml(dialogRef)}` : ""
         }? This confirms your commitment to fulfill this order as per the specified terms.`}
         confirmButtonColor="success"
         confirmButtonText="Yes, Accept PO"
@@ -764,7 +779,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         description={`Are you sure you want to reject PO #${escapeHtml(
           po.po_number || ""
         )}${
-          rfqIdentity(rfq) ? ` for ${escapeHtml(rfqIdentity(rfq))}` : ""
+          dialogRef ? ` for ${escapeHtml(dialogRef)}` : ""
         }? The buyer will be notified and will need to finalize another vendor.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject PO"

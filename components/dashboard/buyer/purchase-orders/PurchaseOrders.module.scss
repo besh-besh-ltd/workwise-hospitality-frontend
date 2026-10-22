@@ -648,6 +648,16 @@
   }
   .amount { font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--fg); letter-spacing: -0.005em; font-variant-numeric: tabular-nums; }
   .ago { font-size: 11.5px; color: var(--fg-3); }
+  .refTitle {
+    font-size: 12px;
+    color: var(--fg-2);
+    margin-top: 2px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
   .initiator { display: flex; align-items: center; gap: 6px;
     .iniAvatar {
       width: 22px; height: 22px;
@@ -1833,6 +1843,7 @@
   font-size: 12px;
   color: var(--fg-3);
 }
+.vAttnRef { margin-top: 4px; font-size: 12px; color: var(--fg-2); }
 .vAttnBuyer { color: var(--fg); font-weight: 600; }
 .vAttnRight {
   display: flex;
@@ -2309,15 +2320,18 @@
     td:nth-child(7),
     td:nth-child(9) { display: none; }
   }
-  /* Vendor: Status · PO # · Buyer / Hotel · Value · Created · Actions */
+  /* Vendor: Status · PO # · RFQ / Contract · Buyer / Hotel · Value · Created · Actions */
   .poCardsVendor tbody {
     td:nth-child(2) { grid-column: 1; grid-row: 1; }
-    td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+    td:nth-child(5) { grid-column: 2; grid-row: 1; text-align: right; }
     td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
-    td:nth-child(1) { grid-column: 1; grid-row: 3; }
-    td:nth-child(5) { grid-column: 2; grid-row: 3; text-align: right; }
-    td:nth-child(6) { display: none; }
+    td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
+    td:nth-child(1) { grid-column: 1; grid-row: 4; }
+    td:nth-child(6) { grid-column: 2; grid-row: 4; text-align: right; }
+    td:nth-child(7) { display: none; }
+    td:nth-child(3):empty { display: none; }
   }
+  .refTitle { -webkit-line-clamp: 3; }
   /* Loading / empty rows are one full-width cell. */
   .poCards tbody td[colspan] { grid-column: 1 / -1; grid-row: auto; display: block; }
 

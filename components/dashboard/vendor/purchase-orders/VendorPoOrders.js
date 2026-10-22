@@ -19,6 +19,7 @@ import {
 import { getVendorPoListView, downloadVendorPoExcel } from "@/services/po";
 import styles, { inr, fmtDateTime, relAgo, Sk } from "@/components/dashboard/buyer/purchase-orders/shared";
 import { vendorStatusLabel } from "./vendorPoStatus";
+import PoReference from "./PoReference";
 
 const PO_ROUTE = "/dashboard/vendor/purchase-orders";
 const PAGE_LIMIT = 20;
@@ -196,7 +197,7 @@ const VendorPoOrders = () => {
                 <Search size={13} />
                 <input
                   type="text"
-                  placeholder="Search PO #, buyer…"
+                  placeholder="Search PO #, RFQ #, title, ARC, buyer…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -286,6 +287,7 @@ const VendorPoOrders = () => {
                 <tr>
                   <th>Status</th>
                   <th>PO #</th>
+                  <th>RFQ / Contract</th>
                   <th>Buyer / Hotel</th>
                   <th className={styles.thRight}>Value</th>
                   <th>Created</th>
@@ -296,14 +298,14 @@ const VendorPoOrders = () => {
                 {loading && rows.length === 0 ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={`sk-${i}`}>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <Sk h={20} />
                       </td>
                     </tr>
                   ))
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <div className={styles.emptyState}>
                         <div className={styles.ic}>
                           <FileText size={20} />
@@ -336,6 +338,9 @@ const VendorPoOrders = () => {
                         >
                           {p.is_call_off ? "Released Order" : "RFQ"}
                         </span>
+                      </td>
+                      <td>
+                        <PoReference po={p} />
                       </td>
                       <td>
                         <div className={styles.vName} style={{ fontSize: "12.5px", color: "var(--fg)" }}>
