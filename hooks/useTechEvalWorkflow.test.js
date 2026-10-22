@@ -46,4 +46,29 @@ describe("useTechEvalWorkflow stuck / reopened", () => {
     expect(r.isStuck).toBe(false);
     expect(r.bidWindowOpen).toBe(true);
   });
+
+  const l2 = {
+    ...blockedRoundOne, is_complete: true, reopened: false, is_stuck: false,
+    bid_window_open: false, eligible_unscored_vendors: [{ vendor_id: 738, vendor_name: "V738" }],
+  };
+
+  it("L2: locked-before-reopen-rule eval with eligible unscored vendors and closed window is EVALUATING", async () => {
+    const r = await load(l2);
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.EVALUATING);
+  });
+
+  it("L2 with an empty eligible list stays COMPLETED", async () => {
+    const r = await load({ ...l2, eligible_unscored_vendors: [] });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
+
+  it("is_complete with the new fields absent stays COMPLETED", async () => {
+    const r = await load({ ...blockedRoundOne, is_complete: true });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
+
+  it("eligible vendors but window still open stays COMPLETED", async () => {
+    const r = await load({ ...l2, bid_window_open: true });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
 });

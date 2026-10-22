@@ -80,3 +80,29 @@ it("reopened, window closed: banner for new vendors, C scoreable, unquoted respo
   await waitFor(() => expect(screen.getByTitle("Click to score")).toHaveAttribute("role", "button"));
   expect(screen.queryByTitle("Evaluation locked")).not.toBeInTheDocument();
 });
+
+it("L2 (locked before the reopen rule): eligible vendor is scoreable, verified vendor stays locked, banner shows", async () => {
+  getTechEvalStatus.mockResolvedValue({
+    data: { data: { ...status, is_complete: true, reopened: false } },
+  });
+  render(
+    <ClauseProductItem
+      rfq_id={536894}
+      product={{ id: 10 }}
+      currentUserProfile={{}}
+      clauseInfo={clauseInfo}
+      currentRfq={{ id: 536894, bid_end_date: "2020-01-01 10:00" }}
+      vendors={vendors}
+      refetch={jest.fn()}
+      selectedVendors={[]}
+      minimumPassingScore={60}
+      canWrite
+      quotedVendorsOnly={false}
+    />
+  );
+  expect(await screen.findByText("New vendors ready for evaluation")).toBeInTheDocument();
+  expect(screen.getByText("1 vendor(s) quoted since the last round. Evaluate them and submit Round 2.")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTitle("Click to score")).toHaveAttribute("role", "button"));
+  expect(screen.getByTitle(/Cannot edit/)).not.toHaveAttribute("role", "button");
+  expect(screen.queryByTitle("Evaluation locked")).not.toBeInTheDocument();
+});

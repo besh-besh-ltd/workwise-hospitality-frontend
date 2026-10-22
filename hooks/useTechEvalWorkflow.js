@@ -55,8 +55,16 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
   const computeWorkflowState = useCallback(() => {
     if (!data) return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
+    // An evaluation locked before the reopen rule existed can still have
+    // vendors who quoted after the last round; the server accepts scoring
+    // them once bidding has closed, so treat it like a reopened evaluation.
+    const hasRecoverableVendors =
+      data.bid_window_open === false &&
+      Array.isArray(data.eligible_unscored_vendors) &&
+      data.eligible_unscored_vendors.length > 0;
+
     // If workflow is complete, return COMPLETED
-    if (data.is_complete) {
+    if (data.is_complete && !hasRecoverableVendors) {
       return TECH_EVAL_WORKFLOW_STATES.COMPLETED;
     }
 
@@ -71,7 +79,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     // A blocked evaluation re-opened by a deadline extension is NOT finished,
     // even when every vendor of the earlier round has a verdict: vendors who
     // quote in the new window still need evaluating.
-    if (data.reopened === true) {
+    if (data.reopened === true || hasRecoverableVendors) {
       return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
     }
 
