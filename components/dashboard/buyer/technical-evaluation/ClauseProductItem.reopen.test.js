@@ -29,7 +29,7 @@ jest.mock("@/components/dashboard/buyer/approval", () => ({ __esModule: true, Ap
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { getTechEvalStatus } from "@/services/rfq";
+import { getTechEvalStatus, fetchVendorAgreement, getTechClearedVendorsResult, getClausesByRfqProductId } from "@/services/rfq";
 import ClauseProductItem from "./ClauseProductItem";
 
 const status = {
@@ -178,4 +178,44 @@ it("renders the minimum passing score, and omits the label when it is undefined"
   await waitFor(() => expect(getTechEvalStatus).toHaveBeenCalled());
   expect(screen.queryByText(/Minimum passing score:/)).not.toBeInTheDocument();
   expect(document.body.textContent).not.toMatch(/undefined%/);
+});
+
+// Legacy accept/reject buttons write a verdict with no round; the server
+// answers 409 TECH_EVAL_USE_ROUND on a blocked, zero-passed evaluation.
+const ROUND_TITLE = "Score this vendor and submit the round for approval";
+const oneVendor = { label: "Vendor C", value: 3, vendor_id: 3, vendor_name: "Vendor C" };
+const renderSingleVendor = async () => {
+  fetchVendorAgreement.mockResolvedValue({ status: 1, data: [{ clause_id: 11, vendor_response: "I Agree" }] });
+  getTechClearedVendorsResult.mockResolvedValue({ status: 0, data: {} });
+  getClausesByRfqProductId.mockResolvedValue({ status: 1, data: [] });
+  renderItem({ selectedVendor: oneVendor, selectedVendors: [oneVendor] });
+  await screen.findByText("Technically Accepted");
+};
+
+it("reopened eval: accept and reject buttons are disabled and point to the round", async () => {
+  getTechEvalStatus.mockResolvedValue({ data: { data: status } });
+  await renderSingleVendor();
+  await waitFor(() => expect(screen.getByRole("button", { name: /Technically Accepted/ })).toBeDisabled());
+  expect(screen.getByRole("button", { name: /Technically Accepted/ })).toHaveAttribute("title", ROUND_TITLE);
+  expect(screen.getByRole("button", { name: /Technically Not Accepted/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Technically Not Accepted/ })).toHaveAttribute("title", ROUND_TITLE);
+});
+
+it("recoverable (L2) eval: accept and reject buttons are disabled", async () => {
+  getTechEvalStatus.mockResolvedValue({ data: { data: { ...status, is_complete: true, reopened: false } } });
+  await renderSingleVendor();
+  await waitFor(() => expect(screen.getByRole("button", { name: /Technically Accepted/ })).toBeDisabled());
+  expect(screen.getByRole("button", { name: /Technically Accepted/ })).toHaveAttribute("title", ROUND_TITLE);
+  expect(screen.getByRole("button", { name: /Technically Not Accepted/ })).toBeDisabled();
+});
+
+it("ordinary open eval, bidding closed: accept and reject buttons stay enabled", async () => {
+  getTechEvalStatus.mockResolvedValue({
+    data: { data: { ...status, reopened: false, blocked_insufficient_vendors: false, eligible_unscored_vendors: [], rounds: [], vendors: { selected: [{}], passed_verified: [], failed_verified: [], pending_evaluation: [{}] } } },
+  });
+  await renderSingleVendor();
+  await waitFor(() => expect(getTechEvalStatus).toHaveBeenCalled());
+  expect(screen.getByRole("button", { name: /Technically Accepted/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Technically Not Accepted/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /Technically Accepted/ })).not.toHaveAttribute("title", ROUND_TITLE);
 });

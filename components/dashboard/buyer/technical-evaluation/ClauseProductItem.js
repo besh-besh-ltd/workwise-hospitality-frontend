@@ -135,6 +135,9 @@ const ClauseProductItem = ({
 
     // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
     const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
+    // A direct verdict is refused (409 TECH_EVAL_USE_ROUND) once the evaluation
+    // is reopened or recoverable: the verdict must come from a submitted round.
+    const verdictViaRound = !!(reopened || recoverable);
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         // When triggered from the ellipsis menu, a vendor object is passed.
@@ -946,11 +949,12 @@ const ClauseProductItem = ({
                                     <>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound}
                                             title={
-                                              isEditLocked ? "Evaluation locked"
+                                              verdictViaRound ? "Score this vendor and submit the round for approval"
+                                                : isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical acceptance is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
@@ -960,11 +964,12 @@ const ClauseProductItem = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound}
                                             title={
-                                              isEditLocked ? "Evaluation locked"
+                                              verdictViaRound ? "Score this vendor and submit the round for approval"
+                                                : isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical rejection is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
