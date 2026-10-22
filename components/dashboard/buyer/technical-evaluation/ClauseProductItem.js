@@ -126,6 +126,13 @@ const ClauseProductItem = ({
     // Locked during: PENDING_APPROVAL (submitted), AWAITING_NEXT_ROUND (approved), COMPLETED
     const isEditLocked = workflowState !== TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
+    // A locked-before-reopen evaluation (recoverable, not reopened) accepts
+    // scores only for vendors on the eligible list; the server answers 409 for
+    // anyone else. A reopened evaluation accepts any unverified vendor.
+    const eligibleVendorIds = new Set((eligibleUnscoredVendors || []).map((v) => String(v.vendor_id)));
+    const isVendorOutsideRecovery = (vendorId) =>
+        recoverable && !reopened && !eligibleVendorIds.has(String(vendorId));
+
     // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
     const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
 
@@ -635,7 +642,7 @@ const ClauseProductItem = ({
           <>
             {!vendorResponse && (
               <div className="mt-3">
-                {minimumPassingScore !== null && (
+                {minimumPassingScore != null && (
                   <PassingScoreLabel minimumPassingScore={minimumPassingScore} />
                 )}
                 {quotedVendorsOnly && vendors && vendors.length > 0 && !vendors.some(v => v.has_quoted) && (
@@ -788,7 +795,7 @@ const ClauseProductItem = ({
                                           const isScored = isResponseScored(response);
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
                                           const isVendorLocked = vendor.is_verified === true;
-                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed && !isVendorLocked;
+                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed && !isVendorLocked && !isVendorOutsideRecovery(vendor.vendor_id);
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;

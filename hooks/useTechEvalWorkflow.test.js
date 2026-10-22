@@ -81,4 +81,23 @@ describe("useTechEvalWorkflow stuck / reopened", () => {
     const r = await load({ ...l2, blocked_insufficient_vendors: false });
     expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
   });
+
+  it("reopened with the window open stays EVALUATING", async () => {
+    const r = await load({ ...blockedRoundOne, is_complete: false, reopened: true, is_stuck: false, bid_window_open: true });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.EVALUATING);
+  });
+
+  it("reopened but stuck again (window closed, nobody eligible) falls through to the ordinary rule", async () => {
+    const r = await load({
+      ...blockedRoundOne, is_complete: false, reopened: true, is_stuck: true,
+      bid_window_open: false, eligible_unscored_vendors: [],
+    });
+    // every selected vendor has a verdict, nothing pending
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
+
+  it("L2 hook result is not 'complete' while recoverable, but is when nothing is recoverable", async () => {
+    expect((await load(l2)).isComplete).toBe(false);
+    expect((await load({ ...l2, eligible_unscored_vendors: [] })).isComplete).toBe(true);
+  });
 });

@@ -130,3 +130,52 @@ it("completed eval WITH passes and eligible vendors: no banner, grid stays locke
   await waitFor(() => expect(screen.queryByTitle("Click to score")).not.toBeInTheDocument());
   expect(screen.queryByText("New vendors ready for evaluation")).not.toBeInTheDocument();
 });
+
+const renderItem = (props = {}) =>
+  render(
+    <ClauseProductItem
+      rfq_id={536894}
+      product={{ id: 10 }}
+      currentUserProfile={{}}
+      clauseInfo={clauseInfo}
+      currentRfq={{ id: 536894, bid_end_date: "2020-01-01 10:00" }}
+      vendors={vendors}
+      refetch={jest.fn()}
+      selectedVendors={[]}
+      minimumPassingScore={60}
+      canWrite
+      quotedVendorsOnly={false}
+      {...props}
+    />
+  );
+
+it("L2: only vendors on the eligible list are scoreable; another unverified quoted vendor stays locked", async () => {
+  getTechEvalStatus.mockResolvedValue({
+    data: { data: { ...status, is_complete: true, reopened: false } },
+  });
+  const five = [
+    ...vendors,
+    { vendor_id: 5, rfq_product_vendor_id: 505, has_quoted: true, is_verified: false },
+  ];
+  const clauses = [{
+    ...clauseInfo[0],
+    vendor_responses: [1, 3, 4, 5].map((id) => ({ vendor_id: id, vendor_response: "I Agree", buyer_id: id === 1 ? 9 : null, buyer_marks: id === 1 ? 10 : null })),
+  }];
+  renderItem({ vendors: five, clauseInfo: clauses });
+  await screen.findByText("New vendors ready for evaluation");
+  await waitFor(() => expect(screen.getAllByTitle("Click to score")).toHaveLength(1));
+  // Vendor 5 quoted but is not eligible: the server would answer 409.
+  expect(screen.queryAllByTitle("Click to score")).toHaveLength(1);
+});
+
+it("renders the minimum passing score, and omits the label when it is undefined", async () => {
+  getTechEvalStatus.mockResolvedValue({ data: { data: status } });
+  const { unmount } = renderItem();
+  expect(await screen.findByText(/Minimum passing score:/)).toBeInTheDocument();
+  unmount();
+  getTechEvalStatus.mockClear();
+  renderItem({ minimumPassingScore: undefined });
+  await waitFor(() => expect(getTechEvalStatus).toHaveBeenCalled());
+  expect(screen.queryByText(/Minimum passing score:/)).not.toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(/undefined%/);
+});

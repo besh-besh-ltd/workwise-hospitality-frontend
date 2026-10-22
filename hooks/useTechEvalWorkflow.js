@@ -88,7 +88,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     // A blocked evaluation re-opened by a deadline extension is NOT finished,
     // even when every vendor of the earlier round has a verdict: vendors who
     // quote in the new window still need evaluating.
-    if (data.reopened === true || hasRecoverableVendors) {
+    if ((data.reopened === true && !statusFlags.isStuck) || hasRecoverableVendors) {
       return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
     }
 
@@ -110,7 +110,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
 
     // Otherwise, awaiting next round (need to fetch replacement vendors)
     return TECH_EVAL_WORKFLOW_STATES.AWAITING_NEXT_ROUND;
-  }, [data, statusFlags.recoverable]);
+  }, [data, statusFlags.recoverable, statusFlags.isStuck]);
 
   const workflowState = computeWorkflowState();
 
@@ -126,7 +126,9 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
 
     // Raw data from API
     techEvalId: data?.tech_evaluation_id || null,
-    isComplete: data?.is_complete || false,
+    // A recoverable evaluation is complete on the server but still open to
+    // scoring and Round 2 submission, so it must not read as finished.
+    isComplete: (data?.is_complete || false) && !statusFlags.recoverable,
     currentRound: data?.current_round || 1,
     totalPassedVerified,
     requiredPassedVendors,
