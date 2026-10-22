@@ -72,6 +72,7 @@ import NegotiationAwardStage from "@/components/dashboard/buyer/rfq/stages/Negot
 import PurchaseOrderStage, { PO_AWAITING_ANCHOR_ID } from "@/components/dashboard/buyer/rfq/stages/PurchaseOrderStage";
 import { StageSkeleton, LifecycleContext } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import { getRfqLifecycle } from "@/services/rfq";
+import { reasonLabel } from "@/components/dashboard/buyer/rfq/holdSummary";
 import { parseNegotiationTime } from "@/utils/negotiationTime";
 
 import styles from "./ViewRFQ.module.scss";
@@ -617,6 +618,22 @@ const ProductCard = ({
 
 /* ─────────────────────────────  main component  ───────────────────────────── */
 
+// Stage text for PO_REJECTED. The newest approver rejection (rows arrive newest
+// first) names the reason; its comment rides the hover title and a secondary
+// line. Without rows or a reason it is just the stage label.
+function PoRejectedStage({ rows }) {
+  const r = (Array.isArray(rows) ? rows : []).find((x) => x?.rejection_type === "approver");
+  const label = r?.reason_category ? reasonLabel(r.reason_category) : null;
+  return (
+    <span className="kv-v" title={r?.rejection_reason || undefined}>
+      {label ? `PO rejected: ${label}` : "PO rejected by approver"}
+      {r?.rejection_reason && (
+        <span style={{ display: "block", fontSize: 11, fontStyle: "italic", fontWeight: 400 }}>“{r.rejection_reason}”</span>
+      )}
+    </span>
+  );
+}
+
 const ViewRFQ = ({
   data,
   onCloseRFQ,
@@ -983,7 +1000,11 @@ const ViewRFQ = ({
               {data.lifecycle_stage && (
                 <span className="kv">
                   <span className="kv-k">Stage</span>
-                  <span className="kv-v">{data.lifecycle_stage.replace(/_/g, " ").toLowerCase()}</span>
+                  {data.lifecycle_stage === "PO_REJECTED" ? (
+                    <PoRejectedStage rows={data.vendor_rejections} />
+                  ) : (
+                    <span className="kv-v">{data.lifecycle_stage.replace(/_/g, " ").toLowerCase()}</span>
+                  )}
                 </span>
               )}
             </>
