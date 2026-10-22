@@ -87,6 +87,11 @@ describe("SendBackThread", () => {
     expect(document.body.textContent).not.toMatch(/REJECTED|CANCELLED|INFO_REQUEST/);
   });
 
+  it("shows no status text for an unmapped status, never the raw code", () => {
+    setup([open({ status: "SOMETHING_NEW" })]);
+    expect(document.body.textContent).not.toMatch(/SOMETHING_NEW/);
+  });
+
   it("shows the answer once given, and a rejection as a rejection", () => {
     setup([
       open({

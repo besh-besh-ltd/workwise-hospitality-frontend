@@ -232,7 +232,8 @@ describe("phone Reject", () => {
     // A reason is required, but it is checked on submit with a visible message.
     fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
     expect(handlePOApproval).not.toHaveBeenCalled();
-    expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
+    expect(await screen.findByText("Choose a reason.")).toBeInTheDocument();
+    expect(screen.getByText("Write why you are rejecting this PO.")).toBeInTheDocument();
     expect(handlePOApproval).not.toHaveBeenCalled();
   });
 });

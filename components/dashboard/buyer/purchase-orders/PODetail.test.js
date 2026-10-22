@@ -281,7 +281,8 @@ describe("Reject confirmation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
     expect(handlePOApproval).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(screen.getByText("Choose a reason.")).toBeInTheDocument();
+    expect(screen.getByText("Write why you are rejecting this PO.")).toBeInTheDocument();
   });
 
   it("submits the modal's reason as the rejection remark", async () => {

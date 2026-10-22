@@ -120,7 +120,7 @@ export function FilePicker({ files, onChange, label = "Attachments (optional)" }
  *   stepLabel  the PO's current step label, e.g. "L3"
  *   onSubmit   ({ target_role, reason_category, comment, files }) => Promise
  */
-export default function SendBackDialog({ isOpen, onClose, targets, initial, stepLabel, onSubmit, busy }) {
+export default function SendBackDialog({ isOpen, onClose, targets, targetsFailed, initial, stepLabel, onSubmit, busy }) {
   const list = targetList(targets);
   const defaultFor = (reason) => {
     const role = DEFAULT_TARGET[reason];
@@ -154,7 +154,7 @@ export default function SendBackDialog({ isOpen, onClose, targets, initial, step
 
   const submit = async () => {
     setTouched(true);
-    if (invalid || busy) return;
+    if (invalid || busy || targetsFailed) return;
     await onSubmit({
       target_role: effectiveRole,
       reason_category: reason,
@@ -179,7 +179,12 @@ export default function SendBackDialog({ isOpen, onClose, targets, initial, step
         <legend className={styles.legend}>
           Who should answer? <span className={styles.req}>*</span>
         </legend>
-        {targets == null && <span className={styles.meta}>Loading people…</span>}
+        {targets == null && !targetsFailed && <span className={styles.meta}>Loading people…</span>}
+        {targetsFailed && (
+          <span className={styles.error} role="alert">
+            Couldn&apos;t load the people for this PO. Close and try again.
+          </span>
+        )}
         {list.map((t) => (
           <label key={t.target_role} className={`${styles.radio} ${t.available ? "" : styles.radioDisabled}`}>
             <input
@@ -239,7 +244,7 @@ export default function SendBackDialog({ isOpen, onClose, targets, initial, step
         <button type="button" className={`${styles.btn} ${styles.btnCancel}`} onClick={onClose} disabled={busy}>
           Cancel
         </button>
-        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={submit} disabled={busy}>
+        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={submit} disabled={busy || targetsFailed}>
           {busy ? "Sending…" : "Ask for info"}
         </button>
       </div>

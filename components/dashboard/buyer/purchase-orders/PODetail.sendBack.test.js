@@ -281,6 +281,19 @@ describe("Ask for info dialog", () => {
   });
 });
 
+describe("when the people cannot be loaded", () => {
+  it("Ask shows an error instead of loading forever, and cannot send", async () => {
+    getSendBackTargets.mockRejectedValue(new Error("500"));
+    await mount();
+    fireEvent.click(firstBtn(/^Ask for info$/));
+    await screen.findByText("Couldn't load the people for this PO. Close and try again.");
+    expect(screen.queryByText("Loading people…")).not.toBeInTheDocument();
+    const send = within(screen.getByRole("dialog")).getByRole("button", { name: "Ask for info" });
+    expect(send).toBeDisabled();
+    expect(createSendBack).not.toHaveBeenCalled();
+  });
+});
+
 describe("Reject dialog on the page", () => {
   it("shows the RFQ creator and PO creator names from the targets call", async () => {
     await mount();
@@ -448,6 +461,29 @@ describe("a stale page", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Waiting on Chitra Chawla."));
     await waitFor(() => expect(getPODetailFull).toHaveBeenCalledTimes(2));
     expect(getSendBacks).toHaveBeenCalledTimes(2);
+  });
+
+  it("a 409 from the phone Approve confirmation closes the confirmation and refetches", async () => {
+    await mount();
+    handlePOApproval.mockRejectedValue({ response: { status: 409, data: { message: "On hold." } } });
+    const region = await screen.findByRole("region", { name: "PO decision" });
+    fireEvent.click(within(region).getByRole("button", { name: "Approve purchase order" }));
+    await screen.findByText("Approve this purchase order?");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve PO" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("On hold."));
+    await waitFor(() => expect(screen.queryByText("Approve this purchase order?")).not.toBeInTheDocument());
+    expect(getSendBacks).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the last good thread when a refetch after a mutation fails", async () => {
+    getSendBacks.mockResolvedValueOnce([hold({ status: "ANSWERED" })]);
+    await mount();
+    await screen.findByText("Questions and rejections");
+    getSendBacks.mockRejectedValue(new Error("500"));
+    handlePOApproval.mockRejectedValue({ response: { status: 409, data: { message: "On hold." } } });
+    fireEvent.click(screen.getByRole("button", { name: /Approve PO/ }));
+    await waitFor(() => expect(getSendBacks).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Questions and rejections")).toBeInTheDocument();
   });
 
   it("a 409 on Approve refetches both and toasts", async () => {

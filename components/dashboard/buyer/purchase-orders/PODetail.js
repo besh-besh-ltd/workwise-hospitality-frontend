@@ -370,6 +370,7 @@ const PODetail = ({ id }) => {
   const [threadBusy, setThreadBusy] = useState(false);
   // /send-back/targets, fetched when either dialog opens. Names for the dialogs.
   const [targets, setTargets] = useState(null);
+  const [targetsFailed, setTargetsFailed] = useState(false);
   // Phone-only: the sticky bar's Approve asks first. On a 390px screen the bar
   // sits under the thumb, and one stray tap must not approve a ₹15L order.
   // Desktop's Approve buttons still submit directly, exactly as before.
@@ -496,7 +497,8 @@ const PODetail = ({ id }) => {
       setSendBacks(list);
       return list;
     } catch (_) {
-      setSendBacks(null);
+      // Keep the last good thread: only the very first load failing leaves it
+      // empty (state starts null).
       return null;
     }
   }, [id]);
@@ -509,9 +511,14 @@ const PODetail = ({ id }) => {
   useEffect(() => {
     if (!dialogOpen) return undefined;
     let live = true;
+    setTargetsFailed(false);
     getSendBackTargets(id)
       .then((t) => live && setTargets(targetList(t)))
-      .catch(() => live && setTargets(null));
+      .catch(() => {
+        if (!live) return;
+        setTargets(null);
+        setTargetsFailed(true);
+      });
     return () => {
       live = false;
     };
@@ -586,6 +593,7 @@ const PODetail = ({ id }) => {
     if (status === 403 || status === 404 || status === 409) {
       setRejectOpen(false);
       setAskOpen(false);
+      setApproveOpen(false);
       await Promise.all([fetchDetail(), fetchSendBacks()]);
     }
   };
@@ -667,6 +675,11 @@ const PODetail = ({ id }) => {
     } finally {
       setThreadBusy(false);
     }
+  };
+
+  const openAsk = () => {
+    setAskInitial(null);
+    setAskOpen(true);
   };
 
   const switchToAsk = ({ reason, comment: text }) => {
@@ -829,9 +842,6 @@ const PODetail = ({ id }) => {
   const rfqHref = rfq.id
     ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}&stage=purchase-order`
     : null;
-  // Ownership = the draft's creator (the one handleUpdatePO lets amend):
-  // `raised_by`, or the numeric `initiated_by` on an older backend.
-  const ownerId = po.raised_by?.id ?? (typeof po.initiated_by === "number" ? po.initiated_by : null);
   // Who initiated the latest approval, and when: {id,name,at} or null.
   const initiatedBy = po.approval_initiated_by || null;
   const siblingQueue = initiateResult?.kind === "done" ? initiateResult.queue || [] : [];
@@ -1293,10 +1303,7 @@ const PODetail = ({ id }) => {
                   className={`${styles.btn} ${styles.btnSecondary} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={actionsLocked}
-                  onClick={() => {
-                    setAskInitial(null);
-                    setAskOpen(true);
-                  }}
+                  onClick={openAsk}
                 >
                   <MessageCircleQuestion size={13} />
                   Ask for info
@@ -2156,10 +2163,7 @@ const PODetail = ({ id }) => {
                       className={`${styles.btn} ${styles.btnSecondary}`}
                       type="button"
                       disabled={actionsLocked}
-                      onClick={() => {
-                        setAskInitial(null);
-                        setAskOpen(true);
-                      }}
+                      onClick={openAsk}
                     >
                       <MessageCircleQuestion size={12} />
                       Ask for info
@@ -2370,6 +2374,7 @@ const PODetail = ({ id }) => {
             setAskInitial(null);
           }}
           targets={targets}
+          targetsFailed={targetsFailed}
           initial={askInitial}
           stepLabel={currentStepLabel}
           busy={asking}
@@ -2460,10 +2465,7 @@ const PODetail = ({ id }) => {
             variant="secondary"
             aria-label="Ask for information on purchase order"
             disabled={actionsLocked}
-            onClick={() => {
-              setAskInitial(null);
-              setAskOpen(true);
-            }}
+            onClick={openAsk}
           >
             <MessageCircleQuestion size={16} />
             Ask

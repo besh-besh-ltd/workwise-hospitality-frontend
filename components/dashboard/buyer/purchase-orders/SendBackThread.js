@@ -124,7 +124,7 @@ export default function SendBackThread({ rows, currentUserId, canWithdraw, stepL
               {!rejection && targetName ? ` asked ${targetName} (${targetRole})` : ""}
               {" · "}
               {fmtDateTime(row.created_at)}
-              {!rejection ? ` · ${STATUS_TEXT[row.status] || row.status}` : ""}
+              {!rejection && STATUS_TEXT[row.status] ? ` · ${STATUS_TEXT[row.status]}` : ""}
             </div>
             {row.comment && <p className={styles.quote}>{row.comment}</p>}
             <Files files={reqFiles} />
