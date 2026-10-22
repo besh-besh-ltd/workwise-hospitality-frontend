@@ -5,6 +5,7 @@
 // read-only). Cloned from ArcStageTimeline (same CSS / journey framing).
 
 import { Fragment } from "react";
+import { holdSummary } from "./holdSummary";
 
 const I = {
   tick:  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
@@ -28,6 +29,18 @@ const DONE_TEXT = {
 // Everything the renderer needs for one stage, from (state, reason, summary,
 // action).
 function describe(stage) {
+  const d = describeState(stage);
+  // On hold (derived, ruling R18): a PO in the PO phase is waiting on a named
+  // person. Only while the stage is live — a settled or locked stage keeps its
+  // own wording.
+  if (stage.key === "purchase-order" && ["active", "open"].includes(stage.state)) {
+    const hold = holdSummary(stage.phase?.purchase_orders);
+    if (hold) return { ...d, tone: "warn", text: hold.line, onHold: true };
+  }
+  return d;
+}
+
+function describeState(stage) {
   const action = stage.action || null;
   const yourCall = !!action?.required;
   const yourApproval = !!action?.can_approve;
@@ -141,7 +154,7 @@ export default function RfqStageTimeline({ stages, selectedKey, onSelect }) {
                 role="tab"
                 aria-selected={selected}
                 aria-disabled={locked}
-                className={`stg n-${d.node}${selected ? " is-selected" : ""}${locked ? " is-locked" : ""}${idx === hereIdx ? " is-here" : ""}`}
+                className={`stg n-${d.node}${selected ? " is-selected" : ""}${d.onHold ? " is-on-hold" : ""}${locked ? " is-locked" : ""}${idx === hereIdx ? " is-here" : ""}`}
                 title={`${stage.label} — ${d.text}`}
                 onClick={() => { if (!locked) onSelect(stage.key); }}
               >

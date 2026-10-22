@@ -23,6 +23,7 @@ import {
   ruleLabel,
   tallyStep,
 } from "@/components/dashboard/buyer/approval/approverState";
+import { holdLine } from "../holdSummary";
 import { removalReasonLabel, StageNoPermission } from "./StageShared";
 
 // Anchor for ?focus=approval deep links. The page-level decision card renders
@@ -992,6 +993,11 @@ function PoCard({ po, ordinal, share, showShare, facts, guide }) {
         {awaitingMe && <span className="your-action">Waiting on you</span>}
       </div>
       <div className="prop-body">
+        {po.hold && (
+          <div style={{ marginBottom: 10, padding: "8px 11px", borderRadius: 9, background: "var(--warn-soft)", border: "1px solid rgba(180,83,9,0.22)", color: "var(--warn)", fontSize: 12, fontWeight: 600 }}>
+            {holdLine(po.hold)}
+          </div>
+        )}
         {showApproval && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "8px 11px", borderRadius: 9, background: awaitingMe ? "rgba(180,83,9,0.07)" : "var(--surface-2)", border: `1px solid ${awaitingMe ? "rgba(180,83,9,0.22)" : "var(--border)"}` }}>
             {concluded ? (
@@ -1107,7 +1113,10 @@ export default function PurchaseOrderStage({ stage, rfq, currentUserId }) {
   // Array.sort is stable, so everything else keeps its server order.
   const decorated = pos.map((po) => ({ po, facts: poFacts(po, phase.approval_instances) }));
   const awaitingCount = decorated.filter((d) => d.facts.awaitingMe).length;
-  const ordered = [...decorated].sort((a, b) => (b.facts.awaitingMe ? 1 : 0) - (a.facts.awaitingMe ? 1 : 0));
+  // Held POs (an information request is open) come next: they are stuck, so
+  // they are what the reader needs to see first.
+  const rank = (d) => (d.facts.awaitingMe ? 2 : 0) + (d.po.hold ? 1 : 0);
+  const ordered = [...decorated].sort((a, b) => rank(b) - rank(a));
 
   // One approval panel per PO that has one, in the cards' own order. A PO with
   // no instance yet gets no panel — there is nothing to show, and its card

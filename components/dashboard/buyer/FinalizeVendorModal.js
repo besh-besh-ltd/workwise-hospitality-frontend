@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { addCommasToNumber, formatDisplayDate } from '@/utils/sharedFunctions';
+import Link from 'next/link';
+import { reasonLabel } from '@/components/dashboard/buyer/rfq/holdSummary';
+import { negotiationCreateRound } from '@/components/dashboard/shared/dashboardLinks';
 import styles from './FinalizeVendorModal.module.scss';
 
 const formatCurrency = (n) => {
@@ -73,6 +76,8 @@ const FinalizeVendorModal = ({
   // Backend orders DESC by rejected_at, so [0] is the latest event.
   const latestRejection = vendorRejectionEntries[0] || null;
   const wasApproverRejection = latestRejection?.rejection_type === 'approver';
+  // Only approver rejections carry a reason category; vendor rows never show one.
+  const rejectionReason = wasApproverRejection ? reasonLabel(latestRejection?.reason_category) : null;
 
   // Prior finalization records for this vendor — surfaced under the warning
   // so the buyer sees when this vendor was last picked + by whom.
@@ -168,7 +173,7 @@ const FinalizeVendorModal = ({
                 </div>
               </div>
             </div>
-            {(latestRejection.rejected_by_name || latestRejection.rejection_reason) && (
+            {(latestRejection.rejected_by_name || latestRejection.rejection_reason || rejectionReason) && (
               <div className={styles.warnPanelMeta}>
                 {latestRejection.rejected_by_name && (
                   <div>
@@ -176,6 +181,17 @@ const FinalizeVendorModal = ({
                     {wasApproverRejection && latestRejection.rejected_by_email
                       ? ` (${latestRejection.rejected_by_email})`
                       : ''}
+                  </div>
+                )}
+                {rejectionReason && (
+                  <div>
+                    <strong>Rejected for:</strong> {rejectionReason}
+                    {latestRejection.reason_category === 'RENEGOTIATE' && rfqId != null && (
+                      <>
+                        {' · '}
+                        <Link href={negotiationCreateRound(rfqId)}>Create negotiation round</Link>
+                      </>
+                    )}
                   </div>
                 )}
                 {latestRejection.rejection_reason && (
