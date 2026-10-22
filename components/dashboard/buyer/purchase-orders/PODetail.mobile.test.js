@@ -50,6 +50,14 @@ jest.mock("@/services/po", () => ({
   handlePOApproval: jest.fn(() => Promise.resolve({ message: "PO approved successfully" })),
   handlePOInitialization: jest.fn(() => Promise.resolve({})),
 }));
+jest.mock("@/services/poSendBack", () => ({
+  __esModule: true,
+  getSendBacks: jest.fn(() => Promise.resolve([])),
+  getSendBackTargets: jest.fn(() => Promise.resolve({ targets: [] })),
+  createSendBack: jest.fn(() => Promise.resolve({})),
+  respondToSendBack: jest.fn(() => Promise.resolve({})),
+  withdrawSendBack: jest.fn(() => Promise.resolve({})),
+}));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
   previewTotals: jest.fn(() => Promise.resolve(null)),
@@ -221,7 +229,10 @@ describe("phone Reject", () => {
     fireEvent.click(within(await bar()).getByRole("button", { name: "Reject purchase order" }));
 
     expect(await screen.findByText("Reject this purchase order?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reject PO" })).toBeDisabled();
+    // A reason is required, but it is checked on submit with a visible message.
+    fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
+    expect(handlePOApproval).not.toHaveBeenCalled();
+    expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
     expect(handlePOApproval).not.toHaveBeenCalled();
   });
 });

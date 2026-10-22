@@ -50,6 +50,14 @@ jest.mock("@/services/po", () => ({
   handlePOInitialization: jest.fn(),
   getPOInitiators: jest.fn(() => new Promise(() => {})),
 }));
+jest.mock("@/services/poSendBack", () => ({
+  __esModule: true,
+  getSendBacks: jest.fn(() => Promise.resolve([])),
+  getSendBackTargets: jest.fn(() => Promise.resolve({ targets: [] })),
+  createSendBack: jest.fn(() => Promise.resolve({})),
+  respondToSendBack: jest.fn(() => Promise.resolve({})),
+  withdrawSendBack: jest.fn(() => Promise.resolve({})),
+}));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
   previewTotals: jest.fn(),

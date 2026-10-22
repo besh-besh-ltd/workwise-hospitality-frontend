@@ -25,11 +25,24 @@ import {
   Circle,
   ChevronDown,
   Send,
+  MessageCircleQuestion,
 } from "lucide-react";
 import ReadMore from "@/components/shared/ReadMore";
 import InfoTip from "@/components/shared/InfoTip";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
+import {
+  getSendBackTargets,
+  getSendBacks,
+  createSendBack,
+  respondToSendBack,
+  withdrawSendBack,
+} from "@/services/poSendBack";
 import { previewTotals } from "@/services/pricing";
+import SendBackDialog from "./SendBackDialog";
+import RejectPoDialog from "./RejectPoDialog";
+import SendBackThread from "./SendBackThread";
+import sbStyles from "./SendBack.module.scss";
+import { REASON_LABELS, TARGET_LABELS, targetList } from "./sendBackReasons";
 import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
@@ -347,6 +360,16 @@ const PODetail = ({ id }) => {
   // Reject is a two-step action: the button opens the modal, the modal's
   // confirm submits. Nothing is sent from the button click itself.
   const [rejectOpen, setRejectOpen] = useState(false);
+  // Ask-for-info dialog, plus what the reject dialog's nudge carries into it.
+  const [askOpen, setAskOpen] = useState(false);
+  const [askInitial, setAskInitial] = useState(null);
+  const [asking, setAsking] = useState(false);
+  // The send-back rows for this PO (null = not loaded / failed). One fetch feeds
+  // both the thread and the "held" state: the hold is the row with status OPEN.
+  const [sendBacks, setSendBacks] = useState(null);
+  const [threadBusy, setThreadBusy] = useState(false);
+  // /send-back/targets, fetched when either dialog opens. Names for the dialogs.
+  const [targets, setTargets] = useState(null);
   // Phone-only: the sticky bar's Approve asks first. On a 390px screen the bar
   // sits under the thumb, and one stray tap must not approve a ₹15L order.
   // Desktop's Approve buttons still submit directly, exactly as before.
@@ -463,6 +486,37 @@ const PODetail = ({ id }) => {
     fetchDetail();
   }, [fetchDetail]);
 
+  // A failed fetch renders no thread and leaves the actions alone: the server's
+  // 409 guard is the real lock, this is only what the page can show.
+  const fetchSendBacks = useCallback(async () => {
+    if (!id) return null;
+    try {
+      const rows = await getSendBacks(id);
+      const list = Array.isArray(rows) ? rows : Array.isArray(rows?.send_backs) ? rows.send_backs : null;
+      setSendBacks(list);
+      return list;
+    } catch (_) {
+      setSendBacks(null);
+      return null;
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchSendBacks();
+  }, [fetchSendBacks]);
+
+  const dialogOpen = askOpen || rejectOpen;
+  useEffect(() => {
+    if (!dialogOpen) return undefined;
+    let live = true;
+    getSendBackTargets(id)
+      .then((t) => live && setTargets(targetList(t)))
+      .catch(() => live && setTargets(null));
+    return () => {
+      live = false;
+    };
+  }, [dialogOpen, id]);
+
   /* Arriving from the RFQ page's guide (?action=initiate): once, bring the
      Initiate control into view, focus it and ring it for two seconds. UI only —
      POST /po/initiate/:id remains the gate. Not for a PO that is past draft or
@@ -523,7 +577,20 @@ const PODetail = ({ id }) => {
   // wasn't on screen. The reason is now always asked for at the moment of the
   // decision, so the guard below is defence only, never the user's first
   // encounter with the requirement.
-  const decide = async (decision, reasonOverride) => {
+  // The server is the authority on holds and stale pages. A 403/404/409 means
+  // this page was out of date: reload the PO and the thread, then say why.
+  const handleActionError = async (e) => {
+    const message = e?.response?.data?.message || e?.message || "Something went wrong, please try again.";
+    const status = e?.response?.status;
+    toast.error(message);
+    if (status === 403 || status === 404 || status === 409) {
+      setRejectOpen(false);
+      setAskOpen(false);
+      await Promise.all([fetchDetail(), fetchSendBacks()]);
+    }
+  };
+
+  const decide = async (decision, reasonOverride, extra) => {
     const remarks = String(reasonOverride ?? comment).trim();
     if (decision === "rejected" && !remarks) {
       toast.error("Please add a reason before rejecting this PO.");
@@ -535,22 +602,77 @@ const PODetail = ({ id }) => {
         decision,
         type: "approval",
         remarks,
+        ...(extra || {}),
       });
       const message =
         res?.data?.message ||
         res?.message ||
-        (decision === "approved" ? "PO approved successfully" : "PO rejected · vendor notified");
+        (decision === "approved" ? "PO approved successfully" : "PO rejected");
       toast.success(message);
       setComment("");
       setRejectOpen(false);
       setApproveOpen(false);
-      await fetchDetail();
+      await Promise.all([fetchDetail(), fetchSendBacks()]);
     } catch (e) {
-      const message = e?.response?.data?.message || e?.message || "Something went wrong, please try again.";
-      toast.error(message);
+      await handleActionError(e);
     } finally {
       setSubmitting(null);
     }
+  };
+
+  // Reject with a reason. "Not needed any more" cancels the PO; every other
+  // reason sends no route and the server defaults it to commercial evaluation.
+  const rejectWithReason = ({ reason_category, comment: text }) =>
+    decide("rejected", text, {
+      reason_category,
+      ...(reason_category === "NOT_REQUIRED" ? { route: "CANCEL" } : {}),
+    });
+
+  const askForInfo = async (payload) => {
+    setAsking(true);
+    try {
+      const res = await createSendBack(id, payload);
+      toast.success(res?.message || "Your question has been sent. The PO is on hold until it is answered.");
+      setAskOpen(false);
+      setAskInitial(null);
+      await Promise.all([fetchDetail(), fetchSendBacks()]);
+    } catch (e) {
+      await handleActionError(e);
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const answerSendBack = async (sbId, payload) => {
+    setThreadBusy(true);
+    try {
+      await respondToSendBack(sbId, payload);
+      toast.success("Your answer has been sent.");
+      await Promise.all([fetchDetail(), fetchSendBacks()]);
+    } catch (e) {
+      await handleActionError(e);
+    } finally {
+      setThreadBusy(false);
+    }
+  };
+
+  const withdrawHold = async (sbId) => {
+    setThreadBusy(true);
+    try {
+      await withdrawSendBack(sbId);
+      toast.success("The request was withdrawn.");
+      await Promise.all([fetchDetail(), fetchSendBacks()]);
+    } catch (e) {
+      await handleActionError(e);
+    } finally {
+      setThreadBusy(false);
+    }
+  };
+
+  const switchToAsk = ({ reason, comment: text }) => {
+    setAskInitial({ reason, comment: text });
+    setRejectOpen(false);
+    setAskOpen(true);
   };
 
   // Initiate PO — drives the draft PO into the standard initiation flow
@@ -568,11 +690,6 @@ const PODetail = ({ id }) => {
   // Defaults to complete when the flag is absent (call-off POs, or an older
   // payload): the safe default is the plain confirmation, not a warning about a
   // condition we have not actually established.
-  // The rejecter's own words, already carried on the rejected workflow node
-  // (poDashboardModel surfaces the approval comment as the node's reason).
-  const rejectionReason =
-    (po?.workflow || []).find((n) => n.status === "rejected" && n.reason)?.reason || null;
-
   const coversAllProducts = po?.covers_all_products !== false;
   // The server classifies the draft: 'complete' | 'split' | 'partial'. A split
   // is one vendor's share of a fully awarded RFQ — every other product is
@@ -682,6 +799,18 @@ const PODetail = ({ id }) => {
   // when the backend says this PO is awaiting THE CURRENT USER. canApprove
   // additionally gates the buttons.
   const awaitingMe = po.awaiting_me === true;
+  // The existing can-approve condition. Ask for info, Reject and Withdraw all
+  // show exactly where Approve shows.
+  const canActOnStep = isPending && awaitingMe && canApprove;
+  // The hold is the OPEN row of GET /po/:id/send-backs, and nothing else.
+  const hold = (Array.isArray(sendBacks) ? sendBacks : []).find((r) => r.status === "OPEN") || null;
+  const held = !!hold;
+  const waitingText = hold
+    ? `Waiting on ${hold.target?.name || "the person asked"} (${
+        TARGET_LABELS[hold.target_role] || hold.target_role || "reply"
+      })`
+    : "";
+  const actionsLocked = !!submitting || held;
   const currentStepLabel = po.current_step_label || null;
   const currentApprovers = Array.isArray(po.current_approvers) ? po.current_approvers : [];
   const currentApproverNames = currentApprovers.map((a) => a.name).filter(Boolean).join(", ");
@@ -947,24 +1076,21 @@ const PODetail = ({ id }) => {
                 viewer, so it would answer a question this reader does not
                 have. What the action will actually do is on the control's
                 own InfoTip. */}
-            {/* A rejected PO that came back to YOU. The reject dialog has
-                always promised "returned to the initiator" and nothing acted on
-                it: production carries 46 rejected PO approvals and exactly one
-                PO that was ever resubmitted. handleUpdatePO authorises only
-                `initiated_by` to edit, so this note appears for exactly the
-                person who can do something about it. Client feedback item 7. */}
-            {po.status === "rejected" && ownerId != null && ownerId === userProfile?.id && (
-              <div className={styles.heroPendingNote}>
-                <span className={styles.clockIc}>
-                  <AlertCircle size={14} />
-                </span>
-                <span>
-                  This purchase order was rejected and{" "}
-                  <strong>sent back to you</strong> — amend it and raise it again.
-                  {rejectionReason ? ` Reason: “${rejectionReason}”` : ""}
-                </span>
+            {/* A PO raised to replace a rejected one says so, with the reason the
+                approver gave. A rejected PO itself shows its reason in the
+                thread and the audit trail below; nothing here promises that it
+                can be amended and raised again, because it cannot. */}
+            {po.replaces?.po_id != null && (
+              <div className={sbStyles.replaces} role="note">
+                Replaces{" "}
+                <Link href={`${PO_ROUTE}/${po.replaces.po_id}`}>PO #{po.replaces.po_number || po.replaces.po_id}</Link>
+                {po.replaces.reason_category
+                  ? `, rejected: ${REASON_LABELS[po.replaces.reason_category] || po.replaces.reason_category}`
+                  : ", which was rejected"}
+                {po.replaces.comment ? `. “${po.replaces.comment}”` : "."}
               </div>
             )}
+            {held && canActOnStep && <span className={sbStyles.waiting}>{waitingText}</span>}
             {po.status === "draft" && canInitiate && guideAction && !initiateResult && (
               <div className={`${styles.heroPendingNote} ${styles.guideNote}`} role="status">
                 <span className={styles.clockIc}>
@@ -1157,16 +1283,28 @@ const PODetail = ({ id }) => {
                 <button
                   className={`${styles.btn} ${styles.btnDangerStrong} ${styles.heroDecisionBtn}`}
                   type="button"
-                  disabled={!!submitting}
+                  disabled={actionsLocked}
                   onClick={() => setRejectOpen(true)}
                 >
                   <X size={13} />
                   Reject
                 </button>
                 <button
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.heroDecisionBtn}`}
+                  type="button"
+                  disabled={actionsLocked}
+                  onClick={() => {
+                    setAskInitial(null);
+                    setAskOpen(true);
+                  }}
+                >
+                  <MessageCircleQuestion size={13} />
+                  Ask for info
+                </button>
+                <button
                   className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                   type="button"
-                  disabled={!!submitting}
+                  disabled={actionsLocked}
                   onClick={() => decide("approved")}
                 >
                   <Check size={14} strokeWidth={2.4} />
@@ -1182,6 +1320,18 @@ const PODetail = ({ id }) => {
       <main className={`${styles.pageBody} ${styles.pageBodyAside}`}>
         {/* LEFT */}
         <div className={styles.sectionStack}>
+          {/* Questions and rejections: the history for everyone who can see this PO.
+              Nothing renders when the fetch failed or there is nothing to show. */}
+          <SendBackThread
+            rows={sendBacks}
+            currentUserId={userProfile?.id}
+            canWithdraw={canActOnStep}
+            stepLabel={currentStepLabel}
+            busy={threadBusy}
+            onRespond={answerSendBack}
+            onWithdraw={withdrawHold}
+          />
+
           {/* Decision summary — hidden when empty */}
           {decisionChecks.length > 0 && (
             <section className={styles.sectionCard}>
@@ -1975,9 +2125,10 @@ const PODetail = ({ id }) => {
                     {currentStepLabel ? `${currentStepLabel} approval · You` : "Approval · You"}
                   </div>
                   <div className={styles.sub}>
-                    Approve to route to the next approver. Rejecting asks you for a reason and
-                    returns the PO to the initiator.
+                    Approve to route to the next approver. Ask for info to hold the PO while a named
+                    person answers, or reject it with a reason.
                   </div>
+                  {held && <span className={sbStyles.waiting}>{waitingText}</span>}
                 </div>
                 <div className={styles.acBody}>
                   <textarea
@@ -1995,16 +2146,28 @@ const PODetail = ({ id }) => {
                     <button
                       className={`${styles.btn} ${styles.btnDangerStrong}`}
                       type="button"
-                      disabled={!!submitting}
+                      disabled={actionsLocked}
                       onClick={() => setRejectOpen(true)}
                     >
                       <X size={12} />
                       {submitting === "rejected" ? "Rejecting…" : "Reject"}
                     </button>
                     <button
+                      className={`${styles.btn} ${styles.btnSecondary}`}
+                      type="button"
+                      disabled={actionsLocked}
+                      onClick={() => {
+                        setAskInitial(null);
+                        setAskOpen(true);
+                      }}
+                    >
+                      <MessageCircleQuestion size={12} />
+                      Ask for info
+                    </button>
+                    <button
                       className={`${styles.btn} ${styles.btnSuccess}`}
                       type="button"
-                      disabled={!!submitting}
+                      disabled={actionsLocked}
                       onClick={() => decide("approved")}
                     >
                       <Check size={13} strokeWidth={2.4} />
@@ -2185,22 +2348,34 @@ const PODetail = ({ id }) => {
         showCloseButton
       />
 
-      <ConfirmationModal
-        isOpen={rejectOpen}
-        onClose={() => setRejectOpen(false)}
-        onConfirm={(reason) => decide("rejected", reason)}
-        title="Reject this purchase order?"
-        description={`PO #${escapeHtml(po.po_number || po.id)} will be rejected and returned to the initiator, and ${
-          escapeHtml(vendor.name) || "the vendor"
-        } will be notified. This cannot be undone — a new PO has to be raised to proceed.`}
-        confirmButtonColor="danger"
-        confirmButtonText="Reject PO"
-        cancelButtonText="Cancel"
-        showCloseButton
-        requireComment
-        commentLabel="Reason for rejection"
-        commentPlaceholder="Why is this PO being rejected? The initiator and the audit trail will show this."
-      />
+      {/* Reject with a reason. "Not needed any more" cancels the PO; every
+          other reason sends it back to commercial evaluation for re-award. */}
+      {rejectOpen && (
+        <RejectPoDialog
+          isOpen
+          onClose={() => setRejectOpen(false)}
+          poNumber={po.po_number || po.id}
+          targets={targets}
+          busy={submitting === "rejected"}
+          onSubmit={rejectWithReason}
+          onAskInstead={switchToAsk}
+        />
+      )}
+
+      {askOpen && (
+        <SendBackDialog
+          isOpen
+          onClose={() => {
+            setAskOpen(false);
+            setAskInitial(null);
+          }}
+          targets={targets}
+          initial={askInitial}
+          stepLabel={currentStepLabel}
+          busy={asking}
+          onSubmit={askForInfo}
+        />
+      )}
 
       {/* Phone approve confirmation — opened only by the sticky bar below,
           which exists only on phones. The optional comment is the same state
@@ -2268,23 +2443,36 @@ const PODetail = ({ id }) => {
                 PO <span className={styles.mono}>#{po.po_number || po.id}</span> total
               </span>
               <strong>{inr(pricing.total ?? po.total_value)}</strong>
+              {held && <span className={sbStyles.waiting}>{waitingText}</span>}
             </>
           }
         >
           <MobileActionButton
             variant="reject"
             aria-label="Reject purchase order"
-            disabled={!!submitting}
+            disabled={actionsLocked}
             onClick={() => setRejectOpen(true)}
           >
             <X size={16} />
             Reject
           </MobileActionButton>
           <MobileActionButton
+            variant="secondary"
+            aria-label="Ask for information on purchase order"
+            disabled={actionsLocked}
+            onClick={() => {
+              setAskInitial(null);
+              setAskOpen(true);
+            }}
+          >
+            <MessageCircleQuestion size={16} />
+            Ask
+          </MobileActionButton>
+          <MobileActionButton
             variant="approve"
             className={mobileBarStyles.wide}
             aria-label="Approve purchase order"
-            disabled={!!submitting}
+            disabled={actionsLocked}
             onClick={() => setApproveOpen(true)}
           >
             <Check size={17} strokeWidth={2.4} />
