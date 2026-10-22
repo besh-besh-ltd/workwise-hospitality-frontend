@@ -280,7 +280,7 @@ function poFacts(po, instances) {
     ? po.current_actors
     : (inst && inst.status === "PENDING" && t ? t.outstanding.map((r) => ({ user_id: r.ap?.user_id, name: r.ap?.user_name })) : []);
 
-  const initiatedBy = po?.initiated_by ?? inst?.initiated_by ?? null;
+  const initiatedBy = po?.approval_initiated_by ?? po?.initiated_by ?? inst?.initiated_by ?? null;
 
   // `inst` goes out too: the aside renders one panel per PO from exactly this
   // instance, so the panel and the card are reading one object, not two lookups

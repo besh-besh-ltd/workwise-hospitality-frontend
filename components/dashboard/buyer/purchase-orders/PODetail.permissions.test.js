@@ -580,6 +580,22 @@ describe("the note on a rejected PO", () => {
     expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
   });
 
+  it("follows raised_by (the draft creator) on the new backend", async () => {
+    await mount(rejected({ initiated_by: 999, raised_by: { id: VIEWER, name: "Me" } }));
+    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+  });
+
+  it("is not fooled by approval_initiated_by being the viewer when someone else raised it", async () => {
+    await mount(
+      rejected({
+        initiated_by: 999,
+        raised_by: { id: 999, name: "Someone Else" },
+        approval_initiated_by: { id: VIEWER, name: "Me", at: "2026-10-20T10:00:00Z" },
+      })
+    );
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+  });
+
   it("does not appear on a PO that was not rejected", async () => {
     await mount({ status: "approved", status_label: "Approved", initiated_by: VIEWER, workflow: [] });
     expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();

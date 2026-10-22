@@ -79,7 +79,9 @@ const po = (over = {}) => ({
   key_dates: [], activity: [], decision_checks: [], global_charges: [],
   can_initiate: true,
   initiate_kind: "complete",
-  initiated_by: null,
+  initiated_by: 1,
+  raised_by: { id: 1, name: "Creator" },
+  approval_initiated_by: null,
   sibling_drafts: [],
   ...over,
 });
@@ -188,7 +190,7 @@ describe("a PO that is no longer a draft", () => {
       status: "pending_approval",
       status_label: "Pending approval",
       can_initiate: false,
-      initiated_by: { id: 9, name: "Sagar Salve", at: "2026-10-20T10:00:00Z" },
+      approval_initiated_by: { id: 9, name: "Sagar Salve", at: "2026-10-20T10:00:00Z" },
     });
     expect(screen.getByText(/was already initiated by/i)).toHaveTextContent(
       /PO 139141 was already initiated by Sagar Salve on .*2026.* It is now Pending approval\./
@@ -202,7 +204,7 @@ describe("a PO that is no longer a draft", () => {
     await mount({}, {
       after: {
         status: "pending_approval", status_label: "Pending approval", can_initiate: false,
-        initiated_by: { id: 9, name: "Sagar Salve", at: "2026-10-20T10:00:00Z" },
+        approval_initiated_by: { id: 9, name: "Sagar Salve", at: "2026-10-20T10:00:00Z" },
       },
     });
     fireEvent.click(heroButton());

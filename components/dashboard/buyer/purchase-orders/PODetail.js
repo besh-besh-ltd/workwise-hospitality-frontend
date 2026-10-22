@@ -683,9 +683,11 @@ const PODetail = ({ id }) => {
   const rfqHref = rfq.id
     ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}&stage=purchase-order`
     : null;
-  // `initiated_by` is the id on an older backend and {id,name,at} on this one.
-  const initiatedBy = po.initiated_by && typeof po.initiated_by === "object" ? po.initiated_by : null;
-  const initiatedById = initiatedBy ? initiatedBy.id : po.initiated_by;
+  // Ownership = the draft's creator (the one handleUpdatePO lets amend):
+  // `raised_by`, or the numeric `initiated_by` on an older backend.
+  const ownerId = po.raised_by?.id ?? (typeof po.initiated_by === "number" ? po.initiated_by : null);
+  // Who initiated the latest approval, and when: {id,name,at} or null.
+  const initiatedBy = po.approval_initiated_by || null;
   const siblingQueue = initiateResult?.kind === "done" ? initiateResult.queue || [] : [];
   const nextDraft = siblingQueue[0] || null;
   const autoApproved = po.status === "acceptance_pending" || po.status === "approved";
@@ -934,7 +936,7 @@ const PODetail = ({ id }) => {
                 PO that was ever resubmitted. handleUpdatePO authorises only
                 `initiated_by` to edit, so this note appears for exactly the
                 person who can do something about it. Client feedback item 7. */}
-            {po.status === "rejected" && initiatedById === userProfile?.id && (
+            {po.status === "rejected" && ownerId != null && ownerId === userProfile?.id && (
               <div className={styles.heroPendingNote}>
                 <span className={styles.clockIc}>
                   <AlertCircle size={14} />

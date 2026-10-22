@@ -1119,7 +1119,7 @@ const QuoteComparison = ({
         const res = await approveNegotiationQuotes(pid, approveReason, departmentId);
         // The approval is what drafts the purchase order. An older backend
         // sends no drafted_pos, in which case nothing extra is shown.
-        const list = res?.data?.data?.drafted_pos || res?.data?.drafted_pos || res?.drafted_pos;
+        const list = res?.data?.data?.drafted_pos;
         if (Array.isArray(list)) {
           list.forEach((d) => {
             if (d?.id != null && !drafted.some((x) => x.id === d.id)) drafted.push(d);
