@@ -106,7 +106,21 @@ export function applyLocalScore(response, { buyerId, marks, remark, scorerName }
  */
 export function deriveTechEvalStatusFlags(data, totalPassedVerified = 0) {
   const blocked = data?.blocked_insufficient_vendors === true;
+  const reopened = data?.reopened === true;
+  const eligible = Array.isArray(data?.eligible_unscored_vendors)
+    ? data.eligible_unscored_vendors
+    : [];
+  const bidWindowOpen =
+    typeof data?.bid_window_open === 'boolean' ? data.bid_window_open : null;
+  // The server accepts scoring vendors who quoted after the last round only
+  // for a reopened evaluation, or a locked one that is blocked with nobody
+  // passed (techRecoverableSql), and only once bidding has closed.
+  const recoverable =
+    bidWindowOpen === false &&
+    eligible.length > 0 &&
+    (reopened || (blocked && totalPassedVerified === 0 && data?.is_complete === true));
   return {
+    recoverable,
     isStuck:
       typeof data?.is_stuck === 'boolean'
         ? data.is_stuck

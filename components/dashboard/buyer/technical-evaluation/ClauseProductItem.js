@@ -92,6 +92,7 @@ const ClauseProductItem = ({
       isStuck,
       bidWindowOpen,
       reopened,
+      recoverable,
       eligibleUnscoredVendors,
       rounds,
       latestRound,
@@ -1235,6 +1236,7 @@ const ClauseProductItem = ({
         <TechEvalStatusBanner
           isStuck={isStuck}
           reopened={reopened}
+          recoverable={recoverable}
           bidWindowOpen={bidWindowOpen}
           eligibleUnscoredCount={eligibleUnscoredVendors.length}
           nextRound={nextRoundNumber(rounds, currentRound)}

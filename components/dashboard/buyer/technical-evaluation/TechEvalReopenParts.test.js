@@ -39,10 +39,15 @@ describe("TechEvalStatusBanner", () => {
   });
 
   it("reopened, window closed, one eligible vendor: says new vendors are ready (not stuck)", () => {
-    render(<TechEvalStatusBanner reopened bidWindowOpen={false} eligibleUnscoredCount={1} nextRound={2} isStuck={false} />);
+    render(<TechEvalStatusBanner reopened recoverable bidWindowOpen={false} eligibleUnscoredCount={1} nextRound={2} isStuck={false} />);
     expect(screen.getByText("New vendors ready for evaluation")).toBeInTheDocument();
     expect(screen.getByText("1 vendor(s) quoted since the last round. Evaluate them and submit Round 2.")).toBeInTheDocument();
     expect(screen.queryByText("No vendor passed technical evaluation")).not.toBeInTheDocument();
+  });
+
+  it("eligible vendors but not recoverable (ordinary eval after bidding closes): no banner", () => {
+    const { container } = render(<TechEvalStatusBanner bidWindowOpen={false} eligibleUnscoredCount={2} isStuck={false} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("shows nothing when nothing is wrong", () => {

@@ -71,4 +71,14 @@ describe("useTechEvalWorkflow stuck / reopened", () => {
     const r = await load({ ...l2, bid_window_open: true });
     expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
   });
+
+  it("is_complete with passes > 0 and eligible vendors, window closed, stays COMPLETED", async () => {
+    const r = await load({ ...l2, total_passed_verified: 2 });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
+
+  it("is_complete, not blocked, eligible vendors, window closed, stays COMPLETED", async () => {
+    const r = await load({ ...l2, blocked_insufficient_vendors: false });
+    expect(r.workflowState).toBe(TECH_EVAL_WORKFLOW_STATES.COMPLETED);
+  });
 });

@@ -26,6 +26,29 @@ describe("deriveTechEvalStatusFlags", () => {
   });
 });
 
+describe("deriveTechEvalStatusFlags recoverable", () => {
+  const el = [{ vendor_id: 1 }];
+  const L2 = { is_complete: true, blocked_insufficient_vendors: true, bid_window_open: false, eligible_unscored_vendors: el };
+  it("L2 (complete, blocked, 0 passed, window closed, eligible) is recoverable", () => {
+    expect(deriveTechEvalStatusFlags(L2, 0).recoverable).toBe(true);
+  });
+  it("reopened + closed + eligible is recoverable", () => {
+    expect(deriveTechEvalStatusFlags({ ...L2, is_complete: false, reopened: true }, 0).recoverable).toBe(true);
+  });
+  it("completed with passes is not recoverable", () => {
+    expect(deriveTechEvalStatusFlags(L2, 2).recoverable).toBe(false);
+  });
+  it("ordinary eval (not blocked) is not recoverable", () => {
+    expect(deriveTechEvalStatusFlags({ ...L2, blocked_insufficient_vendors: false }, 0).recoverable).toBe(false);
+    expect(deriveTechEvalStatusFlags({ ...L2, blocked_insufficient_vendors: false, is_complete: false }, 0).recoverable).toBe(false);
+  });
+  it("window open, empty list or absent fields is not recoverable", () => {
+    expect(deriveTechEvalStatusFlags({ ...L2, bid_window_open: true }, 0).recoverable).toBe(false);
+    expect(deriveTechEvalStatusFlags({ ...L2, eligible_unscored_vendors: [] }, 0).recoverable).toBe(false);
+    expect(deriveTechEvalStatusFlags({ is_complete: true, blocked_insufficient_vendors: true }, 0).recoverable).toBe(false);
+  });
+});
+
 describe("responders left out of a round", () => {
   const clauses = [{ vendor_responses: [{ vendor_id: 1, buyer_id: 9 }, { vendor_id: 2 }] }];
   const vendors = [

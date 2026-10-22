@@ -7,3 +7,9 @@ Changes
 
 RED (impl reverted): Tests: 2 failed, 7 passed, 9 total (L2 hook + L2 mount).
 GREEN: npm test -- technical-evaluation approval rfq => 55 suites / 499 tests pass; npm run lint clean.
+
+## Review fix (2 Important)
+- Single `recoverable` flag in `deriveTechEvalStatusFlags` (utils/techEvalScoring.js): bid_window_open===false AND eligible non-empty AND (reopened OR (blocked AND passed===0 AND is_complete)). Mirrors backend techRecoverableSql.
+- Hook uses `statusFlags.recoverable` (derivation hoisted above computeWorkflowState); comment corrected. Banner takes a `recoverable` prop; ClauseProductItem passes it.
+- Tests added: flags (L2, reopened, passes, not blocked, window open/empty/absent), hook (passes>0 and not-blocked stay COMPLETED), banner (eligible but not recoverable => none), mounted (completed-with-passes: no banner, locked).
+- Result: npm test -- technical-evaluation approval rfq techEval: 60 suites / 551 tests pass; lint clean.

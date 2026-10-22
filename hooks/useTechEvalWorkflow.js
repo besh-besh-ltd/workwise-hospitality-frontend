@@ -51,17 +51,26 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Calculate remaining vendors needed
+  // Use the actual passed_verified array length as source of truth (more reliable than stored field)
+  const passedVerifiedCount = data?.vendors?.passed_verified?.length ?? 0;
+  const storedTotalPassedVerified = data?.total_passed_verified ?? 0;
+  // Use the maximum of actual count and stored value to ensure progress is always accurate
+  const totalPassedVerified = Math.max(passedVerifiedCount, storedTotalPassedVerified);
+  const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
+  const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
+
+  const statusFlags = deriveTechEvalStatusFlags(data, totalPassedVerified);
+
   // Compute workflow state based on API response
   const computeWorkflowState = useCallback(() => {
     if (!data) return TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
-    // An evaluation locked before the reopen rule existed can still have
-    // vendors who quoted after the last round; the server accepts scoring
-    // them once bidding has closed, so treat it like a reopened evaluation.
-    const hasRecoverableVendors =
-      data.bid_window_open === false &&
-      Array.isArray(data.eligible_unscored_vendors) &&
-      data.eligible_unscored_vendors.length > 0;
+    // An evaluation locked before the reopen rule existed (blocked, nobody
+    // passed) can have vendors who quoted after the last round. The backend
+    // accepts scoring them only in that blocked, zero-passed recoverable
+    // case, once bidding has closed; treat it like a reopened evaluation.
+    const hasRecoverableVendors = statusFlags.recoverable;
 
     // If workflow is complete, return COMPLETED
     if (data.is_complete && !hasRecoverableVendors) {
@@ -101,7 +110,7 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
 
     // Otherwise, awaiting next round (need to fetch replacement vendors)
     return TECH_EVAL_WORKFLOW_STATES.AWAITING_NEXT_ROUND;
-  }, [data]);
+  }, [data, statusFlags.recoverable]);
 
   const workflowState = computeWorkflowState();
 
@@ -110,16 +119,6 @@ export const useTechEvalWorkflow = ({ rfq_product_id, enabled = true }) => {
     ? data.rounds[data.rounds.length - 1]
     : null;
 
-  // Calculate remaining vendors needed
-  // Use the actual passed_verified array length as source of truth (more reliable than stored field)
-  const passedVerifiedCount = data?.vendors?.passed_verified?.length ?? 0;
-  const storedTotalPassedVerified = data?.total_passed_verified ?? 0;
-  // Use the maximum of actual count and stored value to ensure progress is always accurate
-  const totalPassedVerified = Math.max(passedVerifiedCount, storedTotalPassedVerified);
-  const requiredPassedVendors = data?.required_passed_vendors || TARGET_PASSED_VENDORS;
-  const remainingNeeded = Math.max(0, requiredPassedVendors - totalPassedVerified);
-
-  const statusFlags = deriveTechEvalStatusFlags(data, totalPassedVerified);
 
   return {
     // Stuck / reopened status (falls back to the pre-reopen rule on old backends)

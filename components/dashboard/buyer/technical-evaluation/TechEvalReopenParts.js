@@ -37,13 +37,14 @@ const Banner = ({ tone, title, children, action }) => {
 export const TechEvalStatusBanner = ({
   isStuck,
   reopened,
+  recoverable = false,
   bidWindowOpen,
   eligibleUnscoredCount = 0,
   nextRound = 1,
   bidEndDate,
   extendHref,
 }) => {
-  if (bidWindowOpen === false && eligibleUnscoredCount > 0) {
+  if (recoverable && eligibleUnscoredCount > 0) {
     return (
       <Banner tone="amber" title="New vendors ready for evaluation">
         {eligibleUnscoredCount} vendor(s) quoted since the last round. Evaluate them and submit Round {nextRound}.
