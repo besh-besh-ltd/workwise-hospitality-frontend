@@ -75,7 +75,7 @@ export function normalizeArcProducts({ items = [], quotes = [], qualifiedMap = {
 // end_date, vendor_targets}`); ARC persists them all inside a SINGLE round's
 // `products[]`, so we fold them together. `vendor_targets` already carries the
 // field-keyed `fields[]` the ARC backend (I1) accepts verbatim.
-export function buildArcCreatePayload(moduleRounds = [], endDateOverride = null) {
+export function buildArcCreatePayload(moduleRounds = [], endDateOverride = null, creatorRemarks = null) {
   const products = [];
   let endDate = endDateOverride;
   (moduleRounds || []).filter(Boolean).forEach((r) => {
@@ -86,5 +86,5 @@ export function buildArcCreatePayload(moduleRounds = [], endDateOverride = null)
       products.push({ arc_item_id: Number(r.rfq_product_id), vendor_targets: r.vendor_targets });
     }
   });
-  return { end_date: endDate, products };
+  return { end_date: endDate, products, creator_remarks: creatorRemarks?.trim() || null };
 }

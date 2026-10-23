@@ -145,7 +145,7 @@ export default function ArcCreateRoundPanel({ arcId }) {
     const rounds = [...wizard.queuedRounds];
     const current = wizard.buildCurrentRoundPayload();
     if (current?.payload) rounds.push(current.payload);
-    const payload = buildArcCreatePayload(rounds, wizard.endDateUtc);
+    const payload = buildArcCreatePayload(rounds, wizard.endDateUtc, wizard.roundRemarks);
     if (!payload.products || !payload.products.length) {
       toast.error("Nothing to submit — add at least one entry.");
       return;
@@ -358,6 +358,24 @@ export default function ArcCreateRoundPanel({ arcId }) {
               onChange={(e) => wizard.updateFormData({ end_date: e.target.value })}
               style={{ maxWidth: 280, marginBottom: 16 }}
             />
+
+            <label htmlFor="arc-round-remarks" className="label" style={{ display: "block", marginBottom: 4 }}>Remarks for approvers</label>
+            <div style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>
+              Why is this round being raised? Approvers and your team will see this. Vendors never do.
+            </div>
+            <textarea
+              id="arc-round-remarks"
+              className="input"
+              value={wizard.roundRemarks}
+              onChange={(e) => wizard.setRoundRemarks(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
+              style={{ width: "100%", maxWidth: 640, resize: "vertical" }}
+            />
+            <div style={{ fontSize: 12, color: "var(--fg-3)", margin: "4px 0 16px", maxWidth: 640, textAlign: "right" }}>
+              {wizard.roundRemarks.length}/1000
+            </div>
 
             {/* Queued + current entries */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
