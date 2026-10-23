@@ -871,7 +871,8 @@ function CannotInitiateGuide({ drafts, hotelName, raisedByMe }) {
     body = `${hotelName ? `Nobody at ${hotel}` : "Nobody in this business unit"} can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for ${hotel}.`;
   } else if (raisedByMe) {
     heading = many ? `${drafts.length} draft purchase orders are ready for a PO initiator` : `Draft PO ${poNo(first)} is ready for a PO initiator`;
-    body = `${many ? "Your approval created these drafts" : "Your approval created this draft"}. Initiating ${many ? "them is" : "it is"} a separate step, and you can't do it for ${hotel}. Any of these people can:`;
+    // raised_by raised the award for approval; someone else may have approved it.
+    body = `${many ? "You raised the award that created these drafts" : "You raised the award that created this draft"}. Initiating ${many ? "them is" : "it is"} a separate step, and you can't do it for ${hotel}. Any of these people can:`;
   } else {
     heading = many ? `${drafts.length} draft purchase orders are waiting for a PO initiator` : "Waiting for a PO initiator";
     body = many

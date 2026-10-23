@@ -153,7 +153,7 @@ describe("initiate guide — V2 / V3 / nobody", () => {
     const { container } = render_([draft({ raised_by: { id: 99, name: "Me" } })], { canInitiate: false, userId: 99 });
     expect(await screen.findByText("Draft PO 139141 is ready for a PO initiator")).toBeInTheDocument();
     const g = within(guide(container));
-    expect(g.getByText(/Your approval created this draft\. Initiating it is a separate step, and you can't do it for IRA Bhavnagar\. Any of these people can:/)).toBeInTheDocument();
+    expect(g.getByText(/You raised the award that created this draft\. Initiating it is a separate step, and you can't do it for IRA Bhavnagar\. Any of these people can:/)).toBeInTheDocument();
     expect(g.getByText("Bharat Bhusan Biswal")).toBeInTheDocument();
     expect(g.getByText("Varun Sahani")).toBeInTheDocument();
     expect(g.getByRole("link", { name: "View the draft" })).toHaveAttribute("href", "/dashboard/buyer/purchase-orders/41");
