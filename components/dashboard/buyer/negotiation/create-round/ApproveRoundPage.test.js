@@ -83,6 +83,7 @@ const bundle = (over = {}) => ({
       end_date: over.end_date ?? NAIVE_END,
       created_at: over.created_at ?? NAIVE_CREATED,
       created_by_name: "Asha Menon",
+      creator_remarks: "creator_remarks" in over ? over.creator_remarks : "Vendor quoted 12% above last round",
       rfq_product_id: 4501,
       product_name: "Bath towel 500gsm",
       vendor_approvals: [
@@ -190,7 +191,7 @@ describe("the reported bug — the deadline the approver is approving", () => {
     // Guard: the page must not have been made "correct" by rendering nothing.
     const { container } = await renderPage();
     expect(within(container).getByText(/Round 2/)).toBeInTheDocument();
-    expect(screen.getByText(/Asha Menon/)).toBeInTheDocument();
+    expect(screen.getByText(/created by Asha Menon/)).toBeInTheDocument();
     expect(screen.getByText("Priya Nair")).toBeInTheDocument();
     expect(within(container).getByRole("button", { name: /Approve/ })).toBeInTheDocument();
   });
@@ -223,5 +224,18 @@ describe("the page decides what is still pending off the INSTANT, not the digits
     await renderPage();
     expect(screen.queryByText(/No rounds awaiting your approval/)).not.toBeInTheDocument();
     expect(screen.getByText(/12:30 PM IST/)).toBeInTheDocument();
+  });
+});
+
+describe("creator's remarks", () => {
+  it("ApproveRoundPage shows the creator's remarks on the pending round", async () => {
+    const { container } = await renderPage();
+    expect(within(container).getByText("Creator's remarks")).toBeInTheDocument();
+    expect(within(container).getByText("Vendor quoted 12% above last round")).toBeInTheDocument();
+  });
+
+  it("shows nothing when the round has no remarks", async () => {
+    const { container } = await renderPage({ creator_remarks: null });
+    expect(within(container).queryByText("Creator's remarks")).not.toBeInTheDocument();
   });
 });

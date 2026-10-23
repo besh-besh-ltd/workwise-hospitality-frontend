@@ -584,3 +584,14 @@ describe("normalizeRoundDetail — approval.pendingWith drops a REMOVED approver
     expect(mTopLevel.round.approval.pendingWith).not.toContain("Removed Person");
   });
 });
+
+describe("creator remarks", () => {
+  it("roundDetailModel maps creator_remarks", () => {
+    const m = normalizeRoundDetail({ data: { round: { id: 1, creator_remarks: "Why" }, items: [] } });
+    expect(m.round.creatorRemarks).toBe("Why");
+  });
+  it("is empty when absent", () => {
+    const m = normalizeRoundDetail({ data: { round: { id: 1 }, items: [] } });
+    expect(m.round.creatorRemarks || "").toBe("");
+  });
+});
