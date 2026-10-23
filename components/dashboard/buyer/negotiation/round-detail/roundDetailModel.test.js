@@ -592,6 +592,6 @@ describe("creator remarks", () => {
   });
   it("is empty when absent", () => {
     const m = normalizeRoundDetail({ data: { round: { id: 1 }, items: [] } });
-    expect(m.round.creatorRemarks || "").toBe("");
+    expect(m.round.creatorRemarks).toBeNull();
   });
 });

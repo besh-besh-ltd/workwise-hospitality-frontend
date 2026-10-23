@@ -213,13 +213,17 @@ describe("remarks for approvers", () => {
     expect(
       screen.getByText("Why is this round being raised? Approvers and your team will see this. Vendors never do.")
     ).toBeInTheDocument();
-    const ta = screen.getByPlaceholderText(
-      "e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
-    );
+    const ta = screen.getByLabelText("Remarks for approvers");
     expect(ta.tagName).toBe("TEXTAREA");
     expect(ta).toHaveAttribute("maxlength", "1000");
     expect(ta).toHaveValue("abc");
     expect(screen.getByText("3/1000")).toBeInTheDocument();
+  });
+
+  it("tolerates remarks={null}: empty textarea and 0/1000 counter", () => {
+    renderWizard(LOCAL_END, { remarks: null, onRemarksChange: jest.fn() });
+    expect(screen.getByLabelText("Remarks for approvers")).toHaveValue("");
+    expect(screen.getByText("0/1000")).toBeInTheDocument();
   });
 
   it("typing calls onRemarksChange", () => {

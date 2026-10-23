@@ -873,19 +873,20 @@ const StepReview = ({
         )}
         {!readOnly && (
           <div style={{ marginTop: 16 }}>
-            <p className={styles.endDateTitle}>Remarks for approvers</p>
+            <label htmlFor="round-remarks" className={styles.endDateTitle} style={{ display: 'block' }}>Remarks for approvers</label>
             <p className={styles.endDateHint}>
               Why is this round being raised? Approvers and your team will see this. Vendors never do.
             </p>
             <textarea
-              value={remarks}
+              id="round-remarks"
+              value={remarks || ''}
               onChange={(e) => onRemarksChange && onRemarksChange(e.target.value)}
               maxLength={1000}
               rows={3}
               placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
               className={styles.remarksTextarea}
             />
-            <p className={styles.remarksCounter}>{remarks.length}/1000</p>
+            <p className={styles.remarksCounter}>{(remarks || '').length}/1000</p>
           </div>
         )}
         <div className={styles.reviewKeyValue} style={{ marginTop: 16 }}>
