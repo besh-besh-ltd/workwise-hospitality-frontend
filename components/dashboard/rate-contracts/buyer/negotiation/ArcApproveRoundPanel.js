@@ -184,7 +184,7 @@ export default function ArcApproveRoundPanel({ arcId, roundId }) {
                 <span><strong>{(round.vendor_ids || []).length}</strong> vendor{(round.vendor_ids || []).length === 1 ? "" : "s"} invited</span>
                 {round.target_price != null && <>{" · "}<span>Target: <strong>{fmtINR(round.target_price)}</strong></span></>}
               </div>
-              <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
+              <RoundRemarks remarks={round.creator_remarks} />
               {round.remarks && (
                 <div style={{ fontSize: 12.5, color: "var(--fg-3)", marginTop: 6, fontStyle: "italic" }}>
                   "{round.remarks}"
