@@ -269,6 +269,8 @@
 .btnSecondary { background: var(--surface); border-color: var(--border-strong); color: var(--fg);
   &:hover:not(:disabled) { background: var(--surface-3); }
 }
+// Two classes so it beats .btnSecondary on the same button regardless of order.
+.btnSecondary.btnDangerQuiet { color: var(--danger); border-color: #fecaca; background: var(--surface); }
 .btnGhost { color: var(--fg-2); background: transparent;
   &:hover { background: var(--surface-3); color: var(--fg); }
 }

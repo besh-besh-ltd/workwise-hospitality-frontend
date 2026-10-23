@@ -54,6 +54,7 @@ import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.c
 // panels; imported (never re-implemented) so the PO trail and the RFQ trail can
 // never drift into calling the same code two different things.
 import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
+import VendorRejectionRecovery from "@/components/dashboard/buyer/purchase-orders/VendorRejectionRecovery";
 import styles, {
   avatarClass,
   initialsOf,
@@ -845,7 +846,7 @@ const PODetail = ({ id }) => {
   const heroMod =
     po.status === "approved" || po.status === "delivered" || po.status === "completed"
       ? styles.heroApproved
-      : po.status === "rejected"
+      : po.status === "rejected" || po.status === "rejected_by_vendor"
       ? styles.heroRejected
       : "";
 
@@ -1197,6 +1198,9 @@ const PODetail = ({ id }) => {
                   </span>
                 )}
               </div>
+            )}
+            {po.status === "rejected_by_vendor" && (
+              <VendorRejectionRecovery poId={id} poNumber={po.po_number} isCallOff={isCallOff} onReinstated={fetchDetail} />
             )}
             {po.status === "draft" && canInitiate && !(guideAction && !initiateResult) && (
               <div className={styles.heroPendingNote}>
