@@ -66,7 +66,23 @@ describe("VendorRejectionUndo", () => {
   it("falls back to 'the buyer' when no buyer name is known", async () => {
     getVendorRejectionUndo.mockResolvedValue(avail({ available: false, deadline: null }));
     mount({ buyerName: null });
-    expect(await screen.findByText(/Contact the buyer — they can send/)).toBeInTheDocument();
+    expect(await screen.findByText(/Contact the buyer — they may be able to send/)).toBeInTheDocument();
+  });
+
+  it("promises 'they can' only when the expired window is the sole blocker", async () => {
+    getVendorRejectionUndo.mockResolvedValue(avail({ available: false, deadline: null, blockers: ["UNDO_WINDOW_EXPIRED"] }));
+    mount();
+    expect(await screen.findByText(/they can send the order back to you\.$/)).toBeInTheDocument();
+  });
+
+  it("softens to 'may be able to' when another blocker is present", async () => {
+    getVendorRejectionUndo.mockResolvedValue(avail({ available: false, deadline: null, blockers: ["PRODUCT_REAWARDED"] }));
+    const { unmount } = render(<VendorRejectionUndo poId={1} poNumber="1" buyerName="Kamat Hotels" onDone={jest.fn()} />);
+    expect(await screen.findByText("Rejected this by mistake? Contact Kamat Hotels — they may be able to send the order back to you.")).toBeInTheDocument();
+    unmount();
+    getVendorRejectionUndo.mockResolvedValue(avail({ available: false, deadline: null, blockers: ["UNDO_WINDOW_EXPIRED", "PRODUCT_REAWARDED"] }));
+    mount();
+    expect(await screen.findByText(/they may be able to send the order back to you\.$/)).toBeInTheDocument();
   });
 
   it("renders nothing on fetch error", async () => {

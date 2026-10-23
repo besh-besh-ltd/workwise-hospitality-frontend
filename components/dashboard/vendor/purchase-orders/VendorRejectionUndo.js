@@ -72,9 +72,13 @@ const VendorRejectionUndo = ({ poId, poNumber, buyerName, onDone }) => {
   };
 
   if (!state.available) {
+    // Buyers have no time window, so "they can" only holds when the expired
+    // window is the sole blocker; otherwise the buyer may be blocked too.
+    const blockers = Array.isArray(state.blockers) ? state.blockers : [];
+    const windowOnly = blockers.length === 1 && blockers[0] === "UNDO_WINDOW_EXPIRED";
     return (
       <div style={box}>
-        {`Rejected this by mistake? Contact ${buyerName || "the buyer"} — they can send the order back to you.`}
+        {`Rejected this by mistake? Contact ${buyerName || "the buyer"} — they ${windowOnly ? "can" : "may be able to"} send the order back to you.`}
       </div>
     );
   }
