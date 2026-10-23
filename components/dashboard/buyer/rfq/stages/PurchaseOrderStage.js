@@ -23,6 +23,7 @@ import {
   ruleLabel,
   tallyStep,
 } from "@/components/dashboard/buyer/approval/approverState";
+import { holdLine } from "../holdSummary";
 import { removalReasonLabel, StageNoPermission } from "./StageShared";
 
 // Anchor for ?focus=approval deep links. The page-level decision card renders
@@ -280,7 +281,7 @@ function poFacts(po, instances) {
     ? po.current_actors
     : (inst && inst.status === "PENDING" && t ? t.outstanding.map((r) => ({ user_id: r.ap?.user_id, name: r.ap?.user_name })) : []);
 
-  const initiatedBy = po?.initiated_by ?? inst?.initiated_by ?? null;
+  const initiatedBy = po?.approval_initiated_by ?? po?.initiated_by ?? inst?.initiated_by ?? null;
 
   // `inst` goes out too: the aside renders one panel per PO from exactly this
   // instance, so the panel and the card are reading one object, not two lookups
@@ -353,7 +354,7 @@ function RemovedApproverRow({ ap }) {
 // closed) who we are still waiting on, so a shut level still answers "what
 // happened here?". A real <button> with aria-expanded, because this is a
 // control, not a div someone hung a click handler on.
-function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
+function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix, hold }) {
   const [open, setOpen] = useState(defaultOpen);
   const t = tallyStep(step);
   const rule = ruleLabel(step?.decision_rule);
@@ -375,6 +376,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
   const cannotAct = unreachableCount
     ? `${unreachableCount} cannot act — account deactivated`
     : null;
+  // Held (an information request is open): the live level's approvers cannot
+  // decide until the person asked answers, so that person is who it waits on.
+  const heldNow = isCurrent && !!hold;
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -401,8 +405,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
             {t.notRequired.length > 0 ? ` · ${t.notRequired.length} not required` : ""}
             {t.notReached.length > 0 ? ` · ${t.notReached.length} not reached` : ""}
             {t.removed.length > 0 ? ` · ${t.removed.length} removed` : ""}
-            {!open && waitingOn ? ` · waiting on ${waitingOn}` : ""}
-            {!open && !waitingOn && cannotAct ? ` · ${cannotAct}` : ""}
+            {!open && heldNow ? ` · waiting on ${hold.target?.name || "the person asked"}` : ""}
+            {!open && !heldNow && waitingOn ? ` · waiting on ${waitingOn}` : ""}
+            {!open && !heldNow && !waitingOn && cannotAct ? ` · ${cannotAct}` : ""}
           </span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -420,7 +425,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
           {t.outstanding.length > 0 && (
             <>
               <GroupLabel tone={isCurrent ? "warn" : undefined}>
-                {isCurrent ? `Waiting on (${t.outstanding.length})` : `Not yet acted (${t.outstanding.length})`}
+                {heldNow
+                  ? `On hold, approvers (${t.outstanding.length})`
+                  : isCurrent ? `Waiting on (${t.outstanding.length})` : `Not yet acted (${t.outstanding.length})`}
               </GroupLabel>
               {t.outstanding.map((r, i) => <ApproverRow key={`p-${r.ap?.user_id ?? i}`} ap={r.ap} eff={r.eff} emphasise={isCurrent} />)}
             </>
@@ -542,6 +549,12 @@ function ApprovalProgress({ po, inst, named }) {
         </div>
       </div>
       <div className="section-body">
+        {/* Same line, same look as the card beside it. */}
+        {po?.hold && inst.status === "PENDING" && (
+          <div style={{ marginTop: 10, padding: "8px 11px", borderRadius: 9, background: "var(--warn-soft)", border: "1px solid rgba(180,83,9,0.22)", color: "var(--warn)", fontSize: 12, fontWeight: 600 }}>
+            {holdLine(po.hold)}
+          </div>
+        )}
         {steps.map((step) => {
           const isCurrent = isCurrentStep(step);
           return (
@@ -555,11 +568,71 @@ function ApprovalProgress({ po, inst, named }) {
               isCurrent={isCurrent}
               defaultOpen={Number(step.step_order) === openOrder}
               idPrefix={`po-approval-${inst.id ?? po?.id ?? "x"}`}
+              hold={po?.hold || null}
             />
           );
         })}
       </div>
     </div>
+  );
+}
+
+// The people who can initiate, with a way to reach each of them. Shared by the
+// legacy WhoCanInitiate block and the new V2/V3 guide so the two cannot drift:
+// same rows, same fold behind "+N more", same honesty about the server's cap.
+function InitiatorList({ poId, initiators, total }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? initiators : initiators.slice(0, INITIATORS_VISIBLE);
+  // `total` is the uncapped count and never below the rows in hand, so the
+  // button can promise people the capped response never listed.
+  const unlisted = total - initiators.length;
+  const listId = `po-initiators-${poId}`;
+  const linkStyle = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--primary)", textDecoration: "none", whiteSpace: "nowrap" };
+  return (
+    <>
+      <ul id={listId} style={{ listStyle: "none", margin: "9px 0 0", padding: 0 }}>
+        {visible.map((p, i) => (
+          <li className="mem-row" key={p.user_id ?? `${p.name}-${i}`}>
+            <div className="mr-av" aria-hidden="true">{initialsOf(p.name)}</div>
+            <div className="mr-meta">
+              <div className="mr-name">
+                {p.name || "Team member"}
+                {p.employee_code ? (
+                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>
+                    {p.employee_code}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mr-role">{p.role_title || "Purchase order initiator"}</div>
+            </div>
+            {/* A null email or mobile is an ordinary record here, so each
+                link exists only when there is something to link to —
+                never an empty mailto: and never the word "null". */}
+            <div className="mr-status" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+              {p.email ? <a href={mailtoHref(p.email)} style={linkStyle}><Mail size={11} />{p.email}</a> : null}
+              {p.mobile ? <a href={telHref(p.mobile)} style={linkStyle}><Phone size={11} />{p.mobile}</a> : null}
+              {!p.email && !p.mobile ? <span style={{ fontSize: 10.5, color: "var(--fg-4)" }}>No contact on record</span> : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {expanded && unlisted > 0 ? (
+        <div style={{ marginTop: 7, fontSize: 11.5, color: "var(--fg-3)" }}>
+          …and {unlisted} other{unlisted === 1 ? "" : "s"} also hold this permission.
+        </div>
+      ) : null}
+      {total > INITIATORS_VISIBLE ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((o) => !o)}
+          aria-expanded={expanded}
+          aria-controls={listId}
+          style={{ marginTop: 8, background: "none", border: "none", padding: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+        >
+          {expanded ? "Show fewer" : `+${total - INITIATORS_VISIBLE} more`}
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -584,8 +657,6 @@ function ApprovalProgress({ po, inst, named }) {
 // for every draft on the tab; it is made against the first of them.
 function WhoCanInitiate({ poId, draftCount }) {
   const { status, initiators, total, canInitiate } = usePoInitiators(poId);
-  const [expanded, setExpanded] = useState(false);
-
   // Still loading, the lookup failed (including the 404 an out-of-scope caller
   // gets), or the reader can initiate it themselves: nothing to add, and a
   // failed lookup must never cost this tab anything.
@@ -593,12 +664,6 @@ function WhoCanInitiate({ poId, draftCount }) {
 
   const drafts = draftCount === 1 ? "a draft purchase order" : `${draftCount} draft purchase orders`;
   const them = draftCount === 1 ? "it" : "them";
-  const visible = expanded ? initiators : initiators.slice(0, INITIATORS_VISIBLE);
-  // `total` is the uncapped count and never below the rows in hand, so the
-  // button can promise people the capped response never listed.
-  const unlisted = total - initiators.length;
-  const listId = `po-initiators-${poId}`;
-  const linkStyle = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--primary)", textDecoration: "none", whiteSpace: "nowrap" };
 
   return (
     <div className="guide" style={{ alignItems: "flex-start", marginBottom: 12 }}>
@@ -618,48 +683,224 @@ function WhoCanInitiate({ poId, draftCount }) {
           </div>
         ) : (
           <>
-            <ul id={listId} style={{ listStyle: "none", margin: "9px 0 0", padding: 0 }}>
-              {visible.map((p, i) => (
-                <li className="mem-row" key={p.user_id ?? `${p.name}-${i}`}>
-                  <div className="mr-av" aria-hidden="true">{initialsOf(p.name)}</div>
-                  <div className="mr-meta">
-                    <div className="mr-name">
-                      {p.name || "Team member"}
-                      {p.employee_code ? (
-                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 500, color: "var(--fg-4)", fontFamily: "'Geist Mono',monospace" }}>
-                          {p.employee_code}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mr-role">{p.role_title || "Purchase order initiator"}</div>
-                  </div>
-                  {/* A null email or mobile is an ordinary record here, so each
-                      link exists only when there is something to link to —
-                      never an empty mailto: and never the word "null". */}
-                  <div className="mr-status" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                    {p.email ? <a href={mailtoHref(p.email)} style={linkStyle}><Mail size={11} />{p.email}</a> : null}
-                    {p.mobile ? <a href={telHref(p.mobile)} style={linkStyle}><Phone size={11} />{p.mobile}</a> : null}
-                    {!p.email && !p.mobile ? <span style={{ fontSize: 10.5, color: "var(--fg-4)" }}>No contact on record</span> : null}
-                  </div>
+            <InitiatorList poId={poId} initiators={initiators} total={total} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── The initiate guide (t1 §6.2 / §6.3) ─────────────────────────────────
+//
+// Navigation only. Every control below is a link to the PO page; initiating,
+// approving and rejecting all happen THERE, where the lines and totals being
+// agreed to are on screen. Nothing here posts anything.
+//
+// It is gated on the server's phase-level `can_initiate` boolean. A backend
+// that predates the field omits it, and then none of this renders: the tab is
+// exactly what it was (the legacy WhoCanInitiate block above stays in charge).
+
+// Same string as the backend's buyerPoInitiate link helper.
+const initiateHref = (id) => `/dashboard/buyer/purchase-orders/${id}?action=initiate`;
+const poHref = (id) => `/dashboard/buyer/purchase-orders/${id}`;
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const poNo = (po) => po?.po_number || `PO-${po?.id}`;
+const vendorOf = (po) => po?.vendor_company || po?.vendor_name || "the vendor";
+const isCount = (v) => v != null && v !== "" && Number.isFinite(Number(v));
+
+// "1 day ago" — coarse on purpose; the exact date is on the card.
+function ageOf(value) {
+  const t = value ? new Date(value).getTime() : NaN;
+  if (!Number.isFinite(t)) return null;
+  const mins = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  if (mins < 60) return mins < 2 ? "just now" : `${mins} minutes ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${plural(hours, "hour", "hours")} ago`;
+  return `${plural(Math.floor(hours / 24), "day", "days")} ago`;
+}
+const ageShort = (value) => {
+  const a = ageOf(value);
+  return a ? a.replace(/ ago$/, "") : null;
+};
+const oldestFirst = (list) =>
+  [...list].sort((a, b) => (new Date(a?.created_at).getTime() || 0) - (new Date(b?.created_at).getTime() || 0));
+
+// "covers 8 of 9 products" — only when the server sent both counts.
+const coverage = (po) =>
+  isCount(po?.po_product_count) && isCount(po?.rfq_product_count)
+    ? `${Number(po.po_product_count)} of ${Number(po.rfq_product_count)} products`
+    : null;
+const stillAwarding = (po) => {
+  const n = Number(po?.products_unawarded);
+  return Number.isFinite(n) && n > 0 ? `${plural(n, "product is", "products are")} still being awarded.` : null;
+};
+
+const ROWS_SHOWN = 5;
+
+// V1 — the viewer can initiate.
+function InitiateGuide({ drafts }) {
+  const [showAll, setShowAll] = useState(false);
+  if (!drafts.length) return null;
+  const ordered = oldestFirst(drafts);
+
+  if (ordered.length > 1) {
+    const rows = showAll ? ordered : ordered.slice(0, ROWS_SHOWN);
+    return (
+      <div className="guide success" style={{ alignItems: "flex-start", marginBottom: 12 }}>
+        <div className="g-ic"><FileText size={14} strokeWidth={2} /></div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div><strong>{ordered.length} purchase orders are waiting for you to initiate</strong></div>
+          <div style={{ marginTop: 4 }}>Each one goes to its own approvers. Open each one and press Initiate.</div>
+          <ul style={{ listStyle: "none", margin: "9px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            {rows.map((po) => {
+              const lines = isCount(po.po_product_count) ? plural(Number(po.po_product_count), "line", "lines") : null;
+              const bits = [`PO ${poNo(po)}`, vendorOf(po), inr(po.total_amount), lines, ageShort(po.created_at)].filter(Boolean);
+              return (
+                <li key={po.id}>
+                  <Link href={initiateHref(po.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, textDecoration: "none", color: "inherit", padding: "7px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)" }}>
+                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bits.join(" · ")}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "var(--primary)", whiteSpace: "nowrap" }}>
+                      Open to initiate <ArrowRight size={13} strokeWidth={2.4} />
+                    </span>
+                  </Link>
                 </li>
+              );
+            })}
+          </ul>
+          {!showAll && ordered.length > ROWS_SHOWN ? (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              style={{ marginTop: 8, background: "none", border: "none", padding: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              {`Show all ${ordered.length}`}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const po = ordered[0];
+  const partial = po.initiate_kind === "partial";
+  const split = po.initiate_kind === "split";
+  const cover = coverage(po);
+  const awarding = stillAwarding(po);
+  const when = ageOf(po.created_at);
+  const who = po.raised_by?.name;
+
+  const button = (
+    <Link href={initiateHref(po.id)} className="btn btn-primary btn-sm" style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+      {partial ? `Open PO ${poNo(po)}` : `Open PO ${poNo(po)} to initiate`}
+      <ArrowRight size={13} strokeWidth={2.4} />
+    </Link>
+  );
+
+  if (partial) {
+    return (
+      <div className="guide warn" style={{ alignItems: "flex-start", marginBottom: 12 }}>
+        <div className="g-ic"><FileText size={14} strokeWidth={2} /></div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div><strong>You can initiate this purchase order now, or wait</strong></div>
+          <div style={{ marginTop: 4 }}>
+            {[`Draft PO ${poNo(po)} for ${vendorOf(po)} ${cover ? `covers ${cover}.` : "does not cover every product yet."}`, awarding].filter(Boolean).join(" ")}
+          </div>
+          <div style={{ marginTop: 4 }}>
+            If you wait, anything later awarded to this vendor is added to this draft automatically. If you initiate now, the PO is fixed as it is and later awards go on a separate PO.
+          </div>
+          {button}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="guide success" style={{ alignItems: "flex-start", marginBottom: 12 }}>
+      <div className="g-ic"><FileText size={14} strokeWidth={2} /></div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div><strong>Next step: initiate the purchase order</strong></div>
+        <div style={{ marginTop: 4 }}>
+          {`The award is approved and draft PO ${poNo(po)} for ${vendorOf(po)} (${inr(po.total_amount)}) is ready. It does not go to the approvers or the vendor until someone initiates it, and you can.`}
+        </div>
+        {split && cover && isCount(po.products_on_other_pos) ? (
+          <div style={{ marginTop: 4 }}>
+            {`This PO covers ${cover}. The other ${Number(po.products_on_other_pos)} ${Number(po.products_on_other_pos) === 1 ? "is" : "are"} already on another purchase order, so nothing else is waiting.`}
+          </div>
+        ) : null}
+        <ol style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+          <li>Open the draft purchase order.</li>
+          <li>Check the vendor, the lines and the total.</li>
+          <li>Press <strong>Initiate</strong>. It goes to the PO approvers, then to the vendor for acceptance.</li>
+        </ol>
+        {button}
+        {when ? (
+          <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--fg-3)", fontStyle: "italic" }}>
+            {/* raised_by is who raised the award for approval (the draft's
+                creator), not who approved it. */}
+            {who ? `Drafted ${when} from the award raised by ${who}.` : `Drafted ${when}.`}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// V2 / V3 / nobody — the viewer cannot initiate. Names come from the scoped
+// /po/:id/initiators lookup, in the order the server returns them.
+function CannotInitiateGuide({ drafts, hotelName, raisedByMe }) {
+  const first = drafts[0];
+  const hotel = hotelName || "this business unit";
+  const { status, initiators, total } = usePoInitiators(first?.id);
+  if (status !== "ready") return null;
+
+  const many = drafts.length > 1;
+  const nobody = initiators.length === 0 && total === 0;
+  const partialLine = !many && first.initiate_kind === "partial"
+    ? [coverage(first) ? `It covers ${coverage(first)}.` : null, stillAwarding(first)].filter(Boolean).join(" ")
+    : null;
+
+  let tone = "";
+  let heading;
+  let body;
+  if (nobody) {
+    tone = " danger";
+    heading = "No one can initiate this purchase order yet";
+    // Same words as the PO page (PODetail WhoCanInitiate).
+    body = `${hotelName ? `Nobody at ${hotel}` : "Nobody in this business unit"} can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for ${hotel}.`;
+  } else if (raisedByMe) {
+    heading = many ? `${drafts.length} draft purchase orders are ready for a PO initiator` : `Draft PO ${poNo(first)} is ready for a PO initiator`;
+    // raised_by raised the award for approval; someone else may have approved it.
+    body = `${many ? "You raised the award that created these drafts" : "You raised the award that created this draft"}. Initiating ${many ? "them is" : "it is"} a separate step, and you can't do it for ${hotel}. Any of these people can:`;
+  } else {
+    heading = many ? `${drafts.length} draft purchase orders are waiting for a PO initiator` : "Waiting for a PO initiator";
+    body = many
+      ? `These drafts are ready but have not been initiated yet. You can't initiate them for ${hotel}. Any of these people can:`
+      : `Draft PO ${poNo(first)} is ready but has not been initiated yet. You can't initiate it for ${hotel}. Any of these people can:`;
+  }
+
+  return (
+    <div className={`guide${tone}`} style={{ alignItems: "flex-start", marginBottom: 12 }}>
+      <div className="g-ic"><Users size={14} strokeWidth={2} /></div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div><strong>{heading}</strong></div>
+        <div style={{ marginTop: 4 }}>{body}</div>
+        {partialLine ? <div style={{ marginTop: 4 }}>{partialLine}</div> : null}
+        {nobody ? (
+          <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--fg-3)", fontStyle: "italic" }}>
+            Admin note: this needs awarding · create on this business unit.
+          </div>
+        ) : (
+          <>
+            <InitiatorList poId={first.id} initiators={initiators} total={total} />
+            <div style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {drafts.map((po) => (
+                <Link key={po.id} href={poHref(po.id)} style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)", textDecoration: "none" }}>
+                  {many ? `View PO ${poNo(po)}` : "View the draft"}
+                </Link>
               ))}
-            </ul>
-            {expanded && unlisted > 0 ? (
-              <div style={{ marginTop: 7, fontSize: 11.5, color: "var(--fg-3)" }}>
-                …and {unlisted} other{unlisted === 1 ? "" : "s"} also hold this permission.
-              </div>
-            ) : null}
-            {total > INITIATORS_VISIBLE ? (
-              <button
-                type="button"
-                onClick={() => setExpanded((o) => !o)}
-                aria-expanded={expanded}
-                aria-controls={listId}
-                style={{ marginTop: 8, background: "none", border: "none", padding: 0, font: "inherit", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-              >
-                {expanded ? "Show fewer" : `+${total - INITIATORS_VISIBLE} more`}
-              </button>
-            ) : null}
+            </div>
           </>
         )}
       </div>
@@ -672,7 +913,7 @@ function WhoCanInitiate({ poId, draftCount }) {
 // One PO, told as: what it is → where it is → who has it → what it's worth.
 // When it is waiting on the viewer the whole card lights up and says so; the
 // card IS the action, there is no button here to press.
-function PoCard({ po, ordinal, share, showShare, facts }) {
+function PoCard({ po, ordinal, share, showShare, facts, guide }) {
   const { approval, awaitingMe, stageLabel, actors, initiatedBy } = facts;
   const t = toneOf(po.status);
   const accent = awaitingMe ? "var(--warn)" : t.c;
@@ -712,8 +953,17 @@ function PoCard({ po, ordinal, share, showShare, facts }) {
   // it doesn't get repeated here; share is meaningless when there's one PO.
   const cells = [{ k: "Total value", v: inr(po.total_amount), cls: "pm-v success" }];
   if (showShare) cells.push({ k: "Share of total", v: `${share}%`, cls: "pm-v sub" });
-  cells.push({ k: "Initiated by", v: initiatedBy?.name || "—", cls: "pm-v sub" });
-  cells.push({ k: awaitingMe ? "Waiting on" : "Current action taker", v: actorNames || "—", cls: "pm-v sub" });
+  // A draft's `initiated_by` is whoever drafted it, not whoever initiated it —
+  // so once the backend says which is which, a draft reads "Raised by" and says
+  // what comes next instead of "Current action taker: —".
+  const draftCard = !!guide?.contract && po.status === "draft" && !facts.inst;
+  if (draftCard) {
+    cells.push({ k: "Raised by", v: po.raised_by?.name || initiatedBy?.name || "—", cls: "pm-v sub" });
+    cells.push({ k: "Action needed", v: guide.canInitiate ? "Next: initiate (you)" : "Next: a PO initiator", cls: "pm-v sub" });
+  } else {
+    cells.push({ k: "Initiated by", v: initiatedBy?.name || "—", cls: "pm-v sub" });
+    cells.push({ k: awaitingMe ? "Waiting on" : "Current action taker", v: actorNames || "—", cls: "pm-v sub" });
+  }
 
   return (
     <Link
@@ -761,6 +1011,11 @@ function PoCard({ po, ordinal, share, showShare, facts }) {
         {awaitingMe && <span className="your-action">Waiting on you</span>}
       </div>
       <div className="prop-body">
+        {po.hold && (
+          <div style={{ marginBottom: 10, padding: "8px 11px", borderRadius: 9, background: "var(--warn-soft)", border: "1px solid rgba(180,83,9,0.22)", color: "var(--warn)", fontSize: 12, fontWeight: 600 }}>
+            {holdLine(po.hold)}
+          </div>
+        )}
         {showApproval && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "8px 11px", borderRadius: 9, background: awaitingMe ? "rgba(180,83,9,0.07)" : "var(--surface-2)", border: `1px solid ${awaitingMe ? "rgba(180,83,9,0.22)" : "var(--border)"}` }}>
             {concluded ? (
@@ -827,7 +1082,7 @@ function PoCard({ po, ordinal, share, showShare, facts }) {
   );
 }
 
-export default function PurchaseOrderStage({ stage }) {
+export default function PurchaseOrderStage({ stage, rfq, currentUserId }) {
   // The server redacts stages this user may not read (rfqLifecycleShaper:
   // redactUnreadableStages) — phase detail is stripped before it leaves the
   // API, and can_read=false is what says so. This panel is the visible half.
@@ -876,7 +1131,10 @@ export default function PurchaseOrderStage({ stage }) {
   // Array.sort is stable, so everything else keeps its server order.
   const decorated = pos.map((po) => ({ po, facts: poFacts(po, phase.approval_instances) }));
   const awaitingCount = decorated.filter((d) => d.facts.awaitingMe).length;
-  const ordered = [...decorated].sort((a, b) => (b.facts.awaitingMe ? 1 : 0) - (a.facts.awaitingMe ? 1 : 0));
+  // Held POs (an information request is open) come next: they are stuck, so
+  // they are what the reader needs to see first.
+  const rank = (d) => (d.facts.awaitingMe ? 2 : 0) + (d.po.hold ? 1 : 0);
+  const ordered = [...decorated].sort((a, b) => rank(b) - rank(a));
 
   // One approval panel per PO that has one, in the cards' own order. A PO with
   // no instance yet gets no panel — there is nothing to show, and its card
@@ -889,6 +1147,10 @@ export default function PurchaseOrderStage({ stage }) {
   // Drafts nobody has moved on yet. They all belong to this RFQ, hence to one
   // business unit, so one lookup covers the lot (see WhoCanInitiate).
   const drafts = pos.filter((p) => p?.status === "draft" && p?.id != null);
+  // The initiate guide needs the server's own `can_initiate`. A backend that
+  // has not shipped it yet sends no boolean, and the tab stays as it was.
+  const contract = typeof phase.can_initiate === "boolean";
+  const canInitiate = phase.can_initiate === true;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -921,7 +1183,19 @@ export default function PurchaseOrderStage({ stage }) {
             )}
           </div>
           {drafts.length > 0 ? (
-            <WhoCanInitiate poId={drafts[0].id} draftCount={drafts.length} />
+            contract ? (
+              canInitiate ? (
+                <InitiateGuide drafts={drafts.filter((d) => d.initiate_awaiting_me !== false)} />
+              ) : (
+                <CannotInitiateGuide
+                  drafts={drafts}
+                  hotelName={rfq?.hotel_name || null}
+                  raisedByMe={currentUserId != null && drafts.every((d) => d.raised_by?.id != null && String(d.raised_by.id) === String(currentUserId))}
+                />
+              )
+            ) : (
+              <WhoCanInitiate poId={drafts[0].id} draftCount={drafts.length} />
+            )
           ) : null}
           <div className="prop-list">
             {ordered.map((d, idx) => (
@@ -929,6 +1203,7 @@ export default function PurchaseOrderStage({ stage }) {
                 key={d.po.id || d.po.po_number}
                 po={d.po}
                 facts={d.facts}
+                guide={{ contract, canInitiate }}
                 ordinal={idx + 1}
                 showShare={total > 1}
                 share={totalValue > 0 ? Math.round(((Number(d.po.total_amount) || 0) / totalValue) * 100) : 0}

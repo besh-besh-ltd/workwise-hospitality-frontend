@@ -57,8 +57,16 @@ jest.mock("@/components/shared/AccessDeniedPage", () => ({
 jest.mock("@/services/po", () => ({
   __esModule: true,
   getPODetailFull: jest.fn(),
-  handlePOApproval: jest.fn(() => Promise.resolve({ message: "PO rejected · vendor notified" })),
+  handlePOApproval: jest.fn(() => Promise.resolve({ message: "PO rejected" })),
   handlePOInitialization: jest.fn(() => Promise.resolve({})),
+}));
+jest.mock("@/services/poSendBack", () => ({
+  __esModule: true,
+  getSendBacks: jest.fn(() => Promise.resolve([])),
+  getSendBackTargets: jest.fn(() => Promise.resolve({ targets: [] })),
+  createSendBack: jest.fn(() => Promise.resolve({})),
+  respondToSendBack: jest.fn(() => Promise.resolve({})),
+  withdrawSendBack: jest.fn(() => Promise.resolve({})),
 }));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
@@ -214,7 +222,7 @@ const rosterOf = (title) => trailStep(title).querySelector("div[class~='roster']
 
 beforeEach(() => {
   jest.clearAllMocks();
-  handlePOApproval.mockResolvedValue({ message: "PO rejected · vendor notified" });
+  handlePOApproval.mockResolvedValue({ message: "PO rejected" });
 });
 
 /* ── 2a — the dead Send back control ────────────────────────────────────── */
@@ -245,51 +253,36 @@ describe("Reject confirmation", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("spells out the consequence — vendor notified, cannot be undone", async () => {
+  it("asks for a reason and states the consequence, with no vendor-notification copy", async () => {
     await mount();
     fireEvent.click(screen.getAllByRole("button", { name: /^Reject$/ })[0]);
     await screen.findByText("Reject this purchase order?");
 
+    fireEvent.click(screen.getByRole("radio", { name: "Re-negotiate or change the vendor" }));
     const body = document.body.textContent;
-    expect(body).toMatch(/NovaTech Hospitality Solutions will be notified/);
-    expect(body).toMatch(/cannot be undone/i);
+    expect(body).toMatch(/Back to commercial evaluation for re-award/);
+    expect(body).not.toMatch(/will be notified|vendor notified/i);
   });
 
-  // ConfirmationModal renders `description` through dangerouslySetInnerHTML.
-  // Every other call site on that prop interpolates buyer-authored text; this
-  // page is the first to interpolate a VENDOR-authored string (a vendor types
-  // their own company name), which without escaping is a stored-XSS path from a
-  // vendor into a buyer's browser. The modal is shared by ~37 call sites and is
-  // not ours to change, so the escaping is done on this side of the prop.
-  it("renders a vendor name containing markup as text, never as an element", async () => {
+  it("keeps the vendor name out of the dialog, so markup in it is never rendered", async () => {
     const evil = '<img src=x onerror="window.__xss=1">Nova & Sons';
     await mount({ vendor: { name: evil } });
     fireEvent.click(screen.getAllByRole("button", { name: /^Reject$/ })[0]);
     await screen.findByText("Reject this purchase order?");
 
-    const desc = document.querySelector("p[class~='desc']");
-    expect(desc).not.toBeNull();
-    // The payload never becomes a node — not in the modal, not anywhere else
-    // on the page (the hero and vendor card render the same string as JSX).
-    expect(desc.querySelector("img")).toBeNull();
     expect(document.querySelectorAll("img")).toHaveLength(0);
     expect(window.__xss).toBeUndefined();
-    // …and it is still shown, verbatim, as the text it is.
-    expect(desc.textContent).toContain(`${evil} will be notified`);
   });
 
-  it("keeps confirm disabled until a reason is typed", async () => {
+  it("will not submit until a reason and a comment are given", async () => {
     await mount();
     fireEvent.click(screen.getAllByRole("button", { name: /^Reject$/ })[0]);
     await screen.findByText("Reject this purchase order?");
 
-    const confirm = screen.getByRole("button", { name: "Reject PO" });
-    expect(confirm).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText(/Why is this PO being rejected/), {
-      target: { value: "Rate above the approved budget" },
-    });
-    expect(confirm).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
+    expect(handlePOApproval).not.toHaveBeenCalled();
+    expect(screen.getByText("Choose a reason.")).toBeInTheDocument();
+    expect(screen.getByText("Write why you are rejecting this PO.")).toBeInTheDocument();
   });
 
   it("submits the modal's reason as the rejection remark", async () => {
@@ -297,7 +290,8 @@ describe("Reject confirmation", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^Reject$/ })[0]);
     await screen.findByText("Reject this purchase order?");
 
-    fireEvent.change(screen.getByPlaceholderText(/Why is this PO being rejected/), {
+    fireEvent.click(screen.getByRole("radio", { name: "Something else" }));
+    fireEvent.change(screen.getByLabelText(/Reason for rejection/), {
       target: { value: "Rate above the approved budget" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
@@ -307,6 +301,7 @@ describe("Reject confirmation", () => {
       decision: "rejected",
       type: "approval",
       remarks: "Rate above the approved budget",
+      reason_category: "OTHER",
     });
   });
 
@@ -1057,5 +1052,51 @@ describe("call-off GST split", () => {
   test("an RFQ PO (no breakdown) and a single legacy GST row add no split rows", async () => {
     await mount();
     expect(rowTexts().some((t) => t.startsWith("Incl.") || HEAD.test(t))).toBe(false);
+  });
+});
+
+/* ── A PO that finished approval and waits for the vendor ──────────────── */
+// `acceptance_pending` counts as pending for gating, so it got the approval
+// note: "Pending approval — currently with." with no name after it, on a PO
+// that has no approver left. It is waiting for the vendor.
+
+describe("a PO waiting for the vendor to accept", () => {
+  const awaitingVendor = {
+    status: "acceptance_pending",
+    status_label: "Awaiting vendor acceptance",
+    awaiting_me: false,
+    current_step_label: null,
+    current_approvers: [],
+  };
+
+  it("names the vendor it is waiting for, in the hero", async () => {
+    await mount(awaitingVendor);
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Waiting for NovaTech Hospitality Solutions to accept this PO.");
+    expect(hero).not.toHaveTextContent(/Pending approval — currently with/);
+  });
+
+  it("says the same in the aside note, and 'currently with' nowhere", async () => {
+    await mount(awaitingVendor);
+    expect(screen.getByText(/No action is required from you right now/)).toHaveTextContent(
+      "Waiting for NovaTech Hospitality Solutions to accept this PO. No action is required from you right now."
+    );
+    expect(document.body).not.toHaveTextContent(/currently with/i);
+  });
+
+  it("falls back to 'the vendor' when the payload names none", async () => {
+    await mount({ ...awaitingVendor, vendor: {} });
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Waiting for the vendor to accept this PO.");
+  });
+
+  it("keeps the approval note for a PO still in approval", async () => {
+    await mount({ awaiting_me: false });
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Pending approval — currently with L3: Siddharth Kothari.");
+    expect(screen.getByText(/No action is required from you right now/)).toHaveTextContent(
+      "Currently with L3: Siddharth Kothari. No action is required from you right now."
+    );
+    expect(document.body).not.toHaveTextContent(/to accept this PO/);
   });
 });

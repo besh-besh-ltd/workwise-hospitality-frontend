@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { toast } from "react-toastify";
 import moment from "moment";
 import {
@@ -43,6 +44,8 @@ import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
 import { approveNegotiationQuotes, rejectNegotiationQuotes, getNegotiationApprovalBundle } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { reasonLabel } from "@/components/dashboard/buyer/rfq/holdSummary";
+import { negotiationCreateRound } from "@/components/dashboard/shared/dashboardLinks";
 
 import styles from "./QuoteComparison.module.scss";
 import ApprovalTrailDrawer from "./ApprovalTrail";
@@ -257,6 +260,9 @@ const QuoteComparison = ({
   const [tip, setTip] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
   const toastTimer = useRef(null);
+  // Draft POs created by the approval just confirmed — approving is the moment
+  // a PO is drafted, and initiating it is a separate step that gets forgotten.
+  const [draftedPos, setDraftedPos] = useState([]);
 
   // vendor ordering + per-cell kebab + quote history
   const [vendorSort, setVendorSort] = useState("price"); // price | tech | track
@@ -749,6 +755,63 @@ const QuoteComparison = ({
     }));
   }, [selections]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ─────────────── rejected purchase orders ───────────────
+     A rejected PO de-finalizes its products and sends them back here, and the
+     evaluator's notification links to this page. The rows are the RFQ
+     payload's `vendor_rejections` (rfqModel.getLivePoRejectionsForRfqs): one
+     per rejected PO x product, newest first, approver and vendor rejections
+     alike, as on the legacy Quote Compare. The server already drops a product
+     that has been awarded again; one awarded again on this page since the RFQ
+     was loaded is dropped here, from the view's own finalized_vendor. */
+  const sameProduct = (r, p) =>
+    String(r.product_variant_id) === String(p.product_variant_id) &&
+    Number(r.variant ?? 0) === Number(p.variant ?? 0);
+  const liveRejections = (Array.isArray(currentRFQMeta?.vendor_rejections) ? currentRFQMeta.vendor_rejections : [])
+    .filter((r) => {
+      const p = r.product_variant_id != null ? products.find((x) => sameProduct(r, x)) : null;
+      return !(p && p.finalized_vendor != null);
+    });
+  const rejectionKey = (r) => String(r.po_id ?? r.po_number);
+  // One banner per rejected PO, naming the products it sent back.
+  const rejectedPos = [];
+  liveRejections.forEach((r) => {
+    const key = rejectionKey(r);
+    let entry = rejectedPos.find((x) => x.key === key);
+    if (!entry) {
+      entry = { key, row: r, products: [] };
+      rejectedPos.push(entry);
+    }
+    const p = products.find((x) => sameProduct(r, x));
+    if (p && !entry.products.includes(p.name)) entry.products.push(p.name);
+  });
+  const rejectedVendorName = (r, vid) =>
+    vendorById(vid ?? r.vendor_id)?.name || r.vendor_organization || r.vendor_name || "This vendor";
+  // The finalise sheet warns when a pick repeats a rejected PO's vendor on a
+  // product that PO carried (on the vendor alone if a row names no product).
+  const selectionRejections = [];
+  Object.entries(selections).forEach(([pid, vid]) => {
+    const p = productById(pid);
+    const r = liveRejections.find(
+      (x) => String(x.vendor_id) === String(vid) && (x.product_variant_id == null || (p && sameProduct(x, p)))
+    );
+    if (r && !selectionRejections.some((s) => rejectionKey(s.row) === rejectionKey(r))) {
+      selectionRejections.push({ row: r, vendorName: rejectedVendorName(r, vid) });
+    }
+  });
+  // An approver's "Not needed any more" cancels the PO (route CANCEL): it is not
+  // a rejection, and nothing about it asks for a re-award. Older rows carry no
+  // route and read as before.
+  const isCancelRow = (r) => r?.route === "CANCEL";
+  const selectionRejectionLine = ({ row, vendorName }) => {
+    const poNo = row.po_number || row.po_id;
+    if (isCancelRow(row)) {
+      return `An approver cancelled PO #${poNo}: not needed any more. Make sure it is still needed before re-awarding.`;
+    }
+    if (row.rejection_type === "vendor") return `${vendorName} rejected their last PO #${poNo}.`;
+    const label = reasonLabel(row.reason_category);
+    return `${vendorName}'s last PO #${poNo} was rejected${label ? `: ${label}` : ""}.`;
+  };
+
   const selectCell = (p, vid) => {
     setSelections((prev) => {
       const next = { ...prev };
@@ -1108,14 +1171,28 @@ const QuoteComparison = ({
     let approved = 0;
     let rejected = 0;
     let fail = 0;
+    // The first failure's own words (the service rejects with the server's
+    // body, e.g. PO_ON_HOLD's "Waiting on X."), shown after the count.
+    let failMessage = "";
+    const drafted = [];
     for (const pid of Object.keys(approveSel)) {
       const approveReason = (approveReasons[pid] || "").trim() || null;
       try {
         // eslint-disable-next-line no-await-in-loop
-        await approveNegotiationQuotes(pid, approveReason, departmentId);
+        const res = await approveNegotiationQuotes(pid, approveReason, departmentId);
+        // The approval is what drafts the purchase order. An older backend
+        // sends no drafted_pos, in which case nothing extra is shown. The axios
+        // interceptor has already unwrapped the response, so `res` is the body.
+        const list = res?.data?.drafted_pos;
+        if (Array.isArray(list)) {
+          list.forEach((d) => {
+            if (d?.id != null && !drafted.some((x) => x.id === d.id)) drafted.push(d);
+          });
+        }
         approved++;
       } catch (e) {
         fail++;
+        if (!failMessage && e?.message) failMessage = String(e.message);
       }
     }
     for (const pid of Object.keys(rejectSel)) {
@@ -1126,6 +1203,7 @@ const QuoteComparison = ({
         rejected++;
       } catch (e) {
         fail++;
+        if (!failMessage && e?.message) failMessage = String(e.message);
       }
     }
     setActionLoading(false);
@@ -1133,7 +1211,8 @@ const QuoteComparison = ({
     clearDecisions();
     await fetchView({ silent: true });
     if (approved || rejected) showToast(`${approved} approved · ${rejected} rejected · buyer notified`);
-    if (fail) toast.error(`${fail} decision${fail > 1 ? "s" : ""} failed.`);
+    if (drafted.length) setDraftedPos(drafted);
+    if (fail) toast.error(`${fail} decision${fail > 1 ? "s" : ""} failed.${failMessage ? ` ${failMessage}` : ""}`);
   };
 
   /* ─────────────── tooltip ─────────────── */
@@ -2919,6 +2998,64 @@ const QuoteComparison = ({
           </div>
         )}
 
+        {/* Why a product reads "Not finalized" again: its PO was rejected.
+            One banner per PO, with who, when, the reason and the comment. */}
+        {rejectedPos.map(({ key, row, products: backForAward }) => {
+          const poNo = row.po_number || row.po_id;
+          const vendorName = rejectedVendorName(row);
+          const isApprover = row.rejection_type !== "vendor";
+          const cancelled = isCancelRow(row);
+          const label = isApprover ? reasonLabel(row.reason_category) : null;
+          return (
+            <div
+              key={`po-rejection-${key}`}
+              className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner}`}
+              role="note"
+              aria-label={`PO #${poNo} ${cancelled ? "cancelled" : "rejected"}`}
+            >
+              <div className={styles.ic}>
+                <AlertTriangle size={13} />
+              </div>
+              <div>
+                <strong>
+                  {cancelled
+                    ? `PO #${poNo} cancelled: not needed any more.`
+                    : isApprover
+                    ? `PO #${poNo} for ${vendorName} was rejected by an approver.`
+                    : `${vendorName} rejected PO #${poNo}.`}
+                </strong>
+                <ul className={styles.frBannerList}>
+                  {(row.rejected_by_name || row.rejected_at) && (
+                    <li>
+                      {cancelled ? "Cancelled" : "Rejected"}
+                      {isApprover && row.rejected_by_name ? ` by ${row.rejected_by_name}` : ""}
+                      {row.rejected_at ? ` on ${fmtDateTime(row.rejected_at)}` : ""}.
+                    </li>
+                  )}
+                  {label && (
+                    <li>
+                      Reason: {label}
+                      {row.reason_category === "RENEGOTIATE" && !cancelled && (
+                        <>
+                          {" · "}
+                          <Link href={negotiationCreateRound(rfqInfo.id ?? rfq)}>Create negotiation round</Link>
+                        </>
+                      )}
+                    </li>
+                  )}
+                  {row.rejection_reason && <li>“{row.rejection_reason}”</li>}
+                  {backForAward.length > 0 && (
+                    <li>
+                      {cancelled ? "Products: " : "Back for award: "}
+                      {backForAward.join(", ")}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          );
+        })}
+
         {activeView !== "overall" ? (isPhone ? renderPhoneCards() : renderMatrix()) : renderOverall()}
 
         {/* Action dock — last child of the page content so its sticky position
@@ -3282,6 +3419,25 @@ const QuoteComparison = ({
                   )
               )}
             </div>
+            {/* Picking a vendor whose PO for this product was just rejected
+                repeats a path that already failed once; say so before the
+                buyer commits. */}
+            {selectionRejections.length > 0 && (
+              <div
+                className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner} ${styles.finalizeRejectionWarn}`}
+                role="note"
+                aria-label={selectionRejections.every((x) => isCancelRow(x.row)) ? "Previously cancelled" : "Previously rejected"}
+              >
+                <div className={styles.ic}>
+                  <AlertTriangle size={13} />
+                </div>
+                <ul className={styles.frBannerList}>
+                  {selectionRejections.map((s) => (
+                    <li key={`sel-rejection-${rejectionKey(s.row)}`}>{selectionRejectionLine(s)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className={styles.finalizeCommentBlock}>
               <label className={styles.chainLabel} htmlFor="qc-finalize-comment">
                 Comment <span className={styles.reqStar}>*</span>
@@ -3811,6 +3967,38 @@ const QuoteComparison = ({
               <div className={styles.rtAction}>
                 → Pick another vendor below, or force re-select the same one.
               </div>
+            </div>
+          </Portal>
+        )}
+        {draftedPos.length > 0 && (
+          <Portal>
+            <div className={styles.draftedPo} data-testid="qc-drafted-po" role="status">
+              <div className={styles.draftedPoList}>
+                {draftedPos.map((d) => (
+                  <div key={d.id} className={styles.draftedPoRow}>
+                    <span>
+                      Draft PO {d.po_number || d.id} created.{" "}
+                      {d.can_initiate ? null : "A PO initiator will initiate it."}
+                    </span>
+                    {d.can_initiate && (
+                      <Link
+                        href={`/dashboard/buyer/purchase-orders/${d.id}?action=initiate`}
+                        className={styles.draftedPoLink}
+                      >
+                        Initiate it now →
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={styles.draftedPoClose}
+                aria-label="Dismiss"
+                onClick={() => setDraftedPos([])}
+              >
+                <X size={14} />
+              </button>
             </div>
           </Portal>
         )}
