@@ -962,7 +962,9 @@ const ProductComparisonMatrix = ({
                     );
                     if (colRejection) {
                       statuses.push({
-                        label: colRejection.rejection_type === 'approver'
+                        label: colRejection.route === 'CANCEL'
+                          ? 'PO Cancelled: not needed'
+                          : colRejection.rejection_type === 'approver'
                           ? 'PO Rejected by Approver'
                           : 'PO Rejected by Vendor',
                         tone: 'danger',
@@ -1171,6 +1173,8 @@ const ProductComparisonMatrix = ({
         const latestRejection = vendorRejections[0];
         const rejectedVendorName = latestRejection.vendor_organization || latestRejection.vendor_name;
         const isApproverRejection = latestRejection.rejection_type === 'approver';
+        // An approver's "Not needed any more" cancels the PO (route CANCEL).
+        const isCancel = latestRejection.route === 'CANCEL';
 
         // Was the rejected vendor L1?
         const rejectedColumn = eligible.find(c => String(c.vendorId) === String(latestRejection.vendor_id));
@@ -1192,11 +1196,13 @@ const ProductComparisonMatrix = ({
           ? { bg: '#FEF2F2', border: '#FECACA', titleColor: '#991B1B', subColor: '#7F1D1D', metaBg: '#FEE2E2', metaColor: '#7F1D1D', chipBg: '#FECACA', chipColor: '#7F1D1D' }
           : { bg: '#FFF7ED', border: '#FED7AA', titleColor: '#9A3412', subColor: '#7C2D12', metaBg: '#FFEDD5', metaColor: '#7C2D12', chipBg: '#FED7AA', chipColor: '#7C2D12' };
 
-        const headline = isApproverRejection
+        const headline = isCancel
+          ? `An approver cancelled the PO for ${rejectedVendorName}: not needed any more. Check it is still needed before awarding it again.`
+          : isApproverRejection
           ? `Awarding approver rejected the PO for ${rejectedVendorName}`
           : `${rejectedVendorName} rejected the PO`;
 
-        const chipLabel = isApproverRejection ? 'Approver rejection' : 'Vendor rejection';
+        const chipLabel = isCancel ? 'Cancelled' : isApproverRejection ? 'Approver rejection' : 'Vendor rejection';
 
         return (
           <div
@@ -1255,7 +1261,7 @@ const ProductComparisonMatrix = ({
               >
                 {latestRejection.rejected_by_name && (
                   <div>
-                    <strong>Rejected by:</strong>{' '}
+                    <strong>{isCancel ? 'Cancelled by:' : 'Rejected by:'}</strong>{' '}
                     {latestRejection.rejected_by_name}
                     {isApproverRejection && latestRejection.rejected_by_email
                       ? ` (${latestRejection.rejected_by_email})`
@@ -1276,7 +1282,9 @@ const ProductComparisonMatrix = ({
               if (noAlternatives) {
                 return (
                   <div style={{ fontSize: 12.5, color: palette.subColor, marginTop: 8, lineHeight: 1.55 }}>
-                    {isApproverRejection
+                    {isCancel
+                      ? 'No other vendor has a valid quote for this product. Award it again only if it is still needed.'
+                      : isApproverRejection
                       ? 'The vendor was de-finalized. No other vendor has a valid quote for this product. You can re-finalize this vendor or extend the quote submission date.'
                       : 'No other vendor has quoted for this product. You may wait for additional quotes or finalize this vendor again below.'}
                   </div>

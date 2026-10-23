@@ -1,10 +1,11 @@
 // RFQ lifecycle stage rail — the slim, connected JOURNEY driving the single
 // authoritative RFQ workspace page. States come from the server-computed
-// lifecycle (GET /rfq/:id/lifecycle): locked | active | complete | skipped.
+// lifecycle (GET /rfq/:id/lifecycle): locked | open | active | complete | skipped.
 // Selection ≠ current: users can open any unlocked stage (past stages render
 // read-only). Cloned from ArcStageTimeline (same CSS / journey framing).
 
 import { Fragment } from "react";
+import { holdSummary } from "./holdSummary";
 
 const I = {
   tick:  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
@@ -28,6 +29,18 @@ const DONE_TEXT = {
 // Everything the renderer needs for one stage, from (state, reason, summary,
 // action).
 function describe(stage) {
+  const d = describeState(stage);
+  // On hold (derived, ruling R18): a PO in the PO phase is waiting on a named
+  // person. Only while the stage is live — a settled or locked stage keeps its
+  // own wording.
+  if (stage.key === "purchase-order" && ["active", "open"].includes(stage.state)) {
+    const hold = holdSummary(stage.phase?.purchase_orders);
+    if (hold) return { ...d, tone: "warn", text: hold.line };
+  }
+  return d;
+}
+
+function describeState(stage) {
   const action = stage.action || null;
   const yourCall = !!action?.required;
   const yourApproval = !!action?.can_approve;
@@ -54,6 +67,14 @@ function describe(stage) {
         return { node: "lapsed", icon: I.bolt, tone: "danger", text: "Published without approval" };
       }
       return { node: "ended", icon: I.skip, tone: "slate", text: stage.summary || "Closed" };
+    case "open": {
+      // Holds work the user can open (e.g. draft POs on a partially awarded
+      // RFQ) but is not where the RFQ currently stands — so it is clickable,
+      // never "current", and says how many drafts are waiting.
+      const n = Number(stage.draft_count);
+      const text = Number.isFinite(n) && n > 0 ? `${n} ${n === 1 ? "draft" : "drafts"}` : "Open";
+      return { node: "open", icon: I.clock, tone: "warn", text };
+    }
     case "locked":
       return { node: "locked", icon: I.lock, tone: "dim", text: "Not reached" };
     case "active":

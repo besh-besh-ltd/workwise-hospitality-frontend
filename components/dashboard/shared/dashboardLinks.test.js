@@ -166,6 +166,12 @@ describe("dashboardLinks builders", () => {
     expect(L.rfqListForStage("draft")).toBe("/dashboard/buyer/rfq-management?tab=drafts");
   });
 
+  test("an approver-rejected PO keeps its status filter (list-view filters on PO_REJECTED)", () => {
+    expect(L.rfqListForStage("PO_REJECTED")).toBe("/dashboard/buyer/rfq-management?status=PO_REJECTED");
+    expect(L.rfqList({ status: ["PO_VENDOR_REJECTED", "PO_REJECTED"] }))
+      .toBe("/dashboard/buyer/rfq-management?status=PO_VENDOR_REJECTED,PO_REJECTED");
+  });
+
   test("multi-value params are comma-joined and values are encoded", () => {
     expect(L.rfqList({ status: ["AWAITING_QUOTES", "TECHNICAL_AWAITING_QUOTES"], search: "a&b" }))
       .toBe("/dashboard/buyer/rfq-management?status=AWAITING_QUOTES,TECHNICAL_AWAITING_QUOTES&search=a%26b");

@@ -10,7 +10,9 @@ const PurchaseOrderDetailPage = () => {
   // detail component (it fetches keyed on id).
   if (!id) return null;
 
-  return <PODetail id={id} />;
+  // key: moving between POs (e.g. "Next draft") must not carry the previous
+  // PO's guide / result state into the next one.
+  return <PODetail key={id} id={id} />;
 };
 
 export default PurchaseOrderDetailPage;

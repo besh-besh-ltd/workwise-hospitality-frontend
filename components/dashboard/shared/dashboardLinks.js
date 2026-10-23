@@ -63,7 +63,7 @@ export const RFQ_STATUS_KEYS = [
   "DRAFT", "RFQ_APPROVAL", "AWAITING_QUOTES", "TECHNICAL_AWAITING_QUOTES", "TECHNICAL_EVALUATING",
   "TECHNICAL_APPROVING", "TECHNICAL_REJECTED", "RFQ_STUCK_TECHNICAL", "RFQ_STUCK_COMMERCIAL",
   "COMMERCIAL_EVALUATION", "NEGOTIATION_ONGOING", "QUOTATION_APPROVAL", "AWAITING_PO", "PO_APPROVAL",
-  "PO_VENDOR_REJECTED", "APPROVED_COMPLETED", "CLOSED", "WITHDRAWN",
+  "PO_VENDOR_REJECTED", "PO_REJECTED", "APPROVED_COMPLETED", "CLOSED", "WITHDRAWN",
 ];
 
 /** RFQ list tabs accepted by POST /rfq/list-view. */
@@ -189,6 +189,10 @@ export const negotiationList = ({ tab, needsMyApproval, search } = {}) =>
     search,
   })}`;
 
+/** Create a negotiation round for one RFQ (the Negotiation & Award stage and Quote Compare use this path). */
+export const negotiationCreateRound = (rfqId) =>
+  hasId(rfqId) ? `${BASE}/negotiation/${encodeURIComponent(rfqId)}/create` : negotiationList();
+
 /** Approve / reject a pending negotiation round for an RFQ. */
 export const negotiationRoundApproval = (rfqId) =>
   hasId(rfqId) ? `${BASE}/negotiation/${encodeURIComponent(rfqId)}/approve` : negotiationList({ needsMyApproval: true });
@@ -279,6 +283,6 @@ export const approvalQueue = (entityType) => {
 /** Every builder, for the route-contract test. */
 export const ALL_LINK_BUILDERS = {
   rfqDetail, resumeDraft, rfqList, rfqListView, rfqListForStage, techEval, quoteCompare,
-  negotiationForRfq, negotiationList, negotiationRoundApproval, poDetail, poList, poTracking,
+  negotiationForRfq, negotiationList, negotiationCreateRound, negotiationRoundApproval, poDetail, poList, poTracking,
   arcContract, materialRequisition, reports, approvalHref, approvalQueue,
 };
