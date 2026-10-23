@@ -373,6 +373,32 @@ describe("while the PO is held", () => {
     expect(within(region).getByRole("button", { name: "Reject purchase order" })).toBeDisabled();
   });
 
+  // A held PO cannot be approved, so the hero must not tell the step approver
+  // it is waiting on them; the hold line says who it is waiting on instead.
+  it("drops the hero's 'Waiting on you for approval' and keeps the hold line", async () => {
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    await within(hero).findByText("Waiting on Chitra Chawla (Commercial evaluator)");
+    expect(hero).not.toHaveTextContent(/Waiting on you for approval/);
+  });
+
+  it("says the same to a step approver whose roles lack the approve grant", async () => {
+    mockPerms.canApprove = false;
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    await within(hero).findByText("Waiting on Chitra Chawla (Commercial evaluator)");
+    expect(hero).not.toHaveTextContent(/Waiting on you for approval/);
+  });
+
+  it("keeps 'Waiting on you for approval' when nothing is held", async () => {
+    await mount();
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Waiting on you for approval — review the details and take action.");
+    expect(within(hero).queryByText(/Waiting on Chitra/)).not.toBeInTheDocument();
+  });
+
   it("only an OPEN row counts as a hold", async () => {
     getSendBacks.mockResolvedValue([hold({ status: "ANSWERED" })]);
     await mount();

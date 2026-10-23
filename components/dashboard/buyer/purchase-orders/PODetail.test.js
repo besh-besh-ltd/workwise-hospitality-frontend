@@ -1054,3 +1054,49 @@ describe("call-off GST split", () => {
     expect(rowTexts().some((t) => t.startsWith("Incl.") || HEAD.test(t))).toBe(false);
   });
 });
+
+/* ── A PO that finished approval and waits for the vendor ──────────────── */
+// `acceptance_pending` counts as pending for gating, so it got the approval
+// note: "Pending approval — currently with." with no name after it, on a PO
+// that has no approver left. It is waiting for the vendor.
+
+describe("a PO waiting for the vendor to accept", () => {
+  const awaitingVendor = {
+    status: "acceptance_pending",
+    status_label: "Awaiting vendor acceptance",
+    awaiting_me: false,
+    current_step_label: null,
+    current_approvers: [],
+  };
+
+  it("names the vendor it is waiting for, in the hero", async () => {
+    await mount(awaitingVendor);
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Waiting for NovaTech Hospitality Solutions to accept this PO.");
+    expect(hero).not.toHaveTextContent(/Pending approval — currently with/);
+  });
+
+  it("says the same in the aside note, and 'currently with' nowhere", async () => {
+    await mount(awaitingVendor);
+    expect(screen.getByText(/No action is required from you right now/)).toHaveTextContent(
+      "Waiting for NovaTech Hospitality Solutions to accept this PO. No action is required from you right now."
+    );
+    expect(document.body).not.toHaveTextContent(/currently with/i);
+  });
+
+  it("falls back to 'the vendor' when the payload names none", async () => {
+    await mount({ ...awaitingVendor, vendor: {} });
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Waiting for the vendor to accept this PO.");
+  });
+
+  it("keeps the approval note for a PO still in approval", async () => {
+    await mount({ awaiting_me: false });
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent("Pending approval — currently with L3: Siddharth Kothari.");
+    expect(screen.getByText(/No action is required from you right now/)).toHaveTextContent(
+      "Currently with L3: Siddharth Kothari. No action is required from you right now."
+    );
+    expect(document.body).not.toHaveTextContent(/to accept this PO/);
+  });
+});

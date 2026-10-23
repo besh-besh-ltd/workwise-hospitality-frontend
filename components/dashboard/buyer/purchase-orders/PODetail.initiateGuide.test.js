@@ -277,6 +277,29 @@ describe("a split draft", () => {
     await mount({ initiate_kind: "partial", covers_all_products: false, po_product_count: 8, rfq_product_count: 9 });
     expect(heroButton()).toHaveTextContent(/force initiate/i);
   });
+
+  // The steps note names the button the reader is about to look for. On a
+  // partial draft that button reads "Force Initiate"; the note said "Initiate".
+  test("the steps note on a partial draft names the Force Initiate button", async () => {
+    await mount({ initiate_kind: "partial", covers_all_products: false, po_product_count: 8, rfq_product_count: 9 });
+    expect(heroButton()).toHaveTextContent(/^Force Initiate$/);
+    expect(screen.getByText(/check the vendor and total above/i)).toHaveTextContent(
+      "1. Check the vendor and total above. 2. Check the lines below. 3. Press Force Initiate."
+    );
+  });
+
+  test("the steps note on a split draft names the plain Initiate button", async () => {
+    await mount({ initiate_kind: "split", covers_all_products: false, po_product_count: 4, rfq_product_count: 5 });
+    expect(screen.getByText(/check the vendor and total above/i)).toHaveTextContent(
+      "1. Check the vendor and total above. 2. Check the lines below. 3. Press Initiate."
+    );
+  });
+
+  test("an older payload without initiate_kind follows the coverage flag, like the button", async () => {
+    await mount({ initiate_kind: undefined, covers_all_products: false });
+    expect(heroButton()).toHaveTextContent(/^Force Initiate$/);
+    expect(screen.getByText(/check the vendor and total above/i)).toHaveTextContent(/3\. Press Force Initiate\.$/);
+  });
 });
 
 describe("phones", () => {

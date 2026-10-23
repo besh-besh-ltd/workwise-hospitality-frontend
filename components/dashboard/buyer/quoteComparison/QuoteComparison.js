@@ -44,6 +44,8 @@ import { getQuoteComparisonView } from "@/services/pricing";
 import { finalizeQuotation, getRFQById, getRfqs } from "@/services/rfq";
 import { approveNegotiationQuotes, rejectNegotiationQuotes, getNegotiationApprovalBundle } from "@/services/negotiation";
 import { formatRFQNumber } from "@/utils/sharedFunctions";
+import { reasonLabel } from "@/components/dashboard/buyer/rfq/holdSummary";
+import { negotiationCreateRound } from "@/components/dashboard/shared/dashboardLinks";
 
 import styles from "./QuoteComparison.module.scss";
 import ApprovalTrailDrawer from "./ApprovalTrail";
@@ -752,6 +754,56 @@ const QuoteComparison = ({
       total: vendorSelTotal(vid, prods),
     }));
   }, [selections]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ─────────────── rejected purchase orders ───────────────
+     A rejected PO de-finalizes its products and sends them back here, and the
+     evaluator's notification links to this page. The rows are the RFQ
+     payload's `vendor_rejections` (rfqModel.getLivePoRejectionsForRfqs): one
+     per rejected PO x product, newest first, approver and vendor rejections
+     alike, as on the legacy Quote Compare. The server already drops a product
+     that has been awarded again; one awarded again on this page since the RFQ
+     was loaded is dropped here, from the view's own finalized_vendor. */
+  const sameProduct = (r, p) =>
+    String(r.product_variant_id) === String(p.product_variant_id) &&
+    Number(r.variant ?? 0) === Number(p.variant ?? 0);
+  const liveRejections = (Array.isArray(currentRFQMeta?.vendor_rejections) ? currentRFQMeta.vendor_rejections : [])
+    .filter((r) => {
+      const p = r.product_variant_id != null ? products.find((x) => sameProduct(r, x)) : null;
+      return !(p && p.finalized_vendor != null);
+    });
+  const rejectionKey = (r) => String(r.po_id ?? r.po_number);
+  // One banner per rejected PO, naming the products it sent back.
+  const rejectedPos = [];
+  liveRejections.forEach((r) => {
+    const key = rejectionKey(r);
+    let entry = rejectedPos.find((x) => x.key === key);
+    if (!entry) {
+      entry = { key, row: r, products: [] };
+      rejectedPos.push(entry);
+    }
+    const p = products.find((x) => sameProduct(r, x));
+    if (p && !entry.products.includes(p.name)) entry.products.push(p.name);
+  });
+  const rejectedVendorName = (r, vid) =>
+    vendorById(vid ?? r.vendor_id)?.name || r.vendor_organization || r.vendor_name || "This vendor";
+  // The finalise sheet warns when a pick repeats a rejected PO's vendor on a
+  // product that PO carried (on the vendor alone if a row names no product).
+  const selectionRejections = [];
+  Object.entries(selections).forEach(([pid, vid]) => {
+    const p = productById(pid);
+    const r = liveRejections.find(
+      (x) => String(x.vendor_id) === String(vid) && (x.product_variant_id == null || (p && sameProduct(x, p)))
+    );
+    if (r && !selectionRejections.some((s) => rejectionKey(s.row) === rejectionKey(r))) {
+      selectionRejections.push({ row: r, vendorName: rejectedVendorName(r, vid) });
+    }
+  });
+  const selectionRejectionLine = ({ row, vendorName }) => {
+    const poNo = row.po_number || row.po_id;
+    if (row.rejection_type === "vendor") return `${vendorName} rejected their last PO #${poNo}.`;
+    const label = reasonLabel(row.reason_category);
+    return `${vendorName}'s last PO #${poNo} was rejected${label ? `: ${label}` : ""}.`;
+  };
 
   const selectCell = (p, vid) => {
     setSelections((prev) => {
@@ -2933,6 +2985,56 @@ const QuoteComparison = ({
           </div>
         )}
 
+        {/* Why a product reads "Not finalized" again: its PO was rejected.
+            One banner per PO, with who, when, the reason and the comment. */}
+        {rejectedPos.map(({ key, row, products: backForAward }) => {
+          const poNo = row.po_number || row.po_id;
+          const vendorName = rejectedVendorName(row);
+          const isApprover = row.rejection_type !== "vendor";
+          const label = isApprover ? reasonLabel(row.reason_category) : null;
+          return (
+            <div
+              key={`po-rejection-${key}`}
+              className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner}`}
+              role="note"
+              aria-label={`PO #${poNo} rejected`}
+            >
+              <div className={styles.ic}>
+                <AlertTriangle size={13} />
+              </div>
+              <div>
+                <strong>
+                  {isApprover
+                    ? `PO #${poNo} for ${vendorName} was rejected by an approver.`
+                    : `${vendorName} rejected PO #${poNo}.`}
+                </strong>
+                <ul className={styles.frBannerList}>
+                  {(row.rejected_by_name || row.rejected_at) && (
+                    <li>
+                      Rejected
+                      {isApprover && row.rejected_by_name ? ` by ${row.rejected_by_name}` : ""}
+                      {row.rejected_at ? ` on ${fmtDateTime(row.rejected_at)}` : ""}.
+                    </li>
+                  )}
+                  {label && (
+                    <li>
+                      Reason: {label}
+                      {row.reason_category === "RENEGOTIATE" && (
+                        <>
+                          {" · "}
+                          <Link href={negotiationCreateRound(rfqInfo.id ?? rfq)}>Create negotiation round</Link>
+                        </>
+                      )}
+                    </li>
+                  )}
+                  {row.rejection_reason && <li>“{row.rejection_reason}”</li>}
+                  {backForAward.length > 0 && <li>Back for award: {backForAward.join(", ")}</li>}
+                </ul>
+              </div>
+            </div>
+          );
+        })}
+
         {activeView !== "overall" ? (isPhone ? renderPhoneCards() : renderMatrix()) : renderOverall()}
 
         {/* Action dock — last child of the page content so its sticky position
@@ -3296,6 +3398,25 @@ const QuoteComparison = ({
                   )
               )}
             </div>
+            {/* Picking a vendor whose PO for this product was just rejected
+                repeats a path that already failed once; say so before the
+                buyer commits. */}
+            {selectionRejections.length > 0 && (
+              <div
+                className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner} ${styles.finalizeRejectionWarn}`}
+                role="note"
+                aria-label="Previously rejected"
+              >
+                <div className={styles.ic}>
+                  <AlertTriangle size={13} />
+                </div>
+                <ul className={styles.frBannerList}>
+                  {selectionRejections.map((s) => (
+                    <li key={`sel-rejection-${rejectionKey(s.row)}`}>{selectionRejectionLine(s)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className={styles.finalizeCommentBlock}>
               <label className={styles.chainLabel} htmlFor="qc-finalize-comment">
                 Comment <span className={styles.reqStar}>*</span>

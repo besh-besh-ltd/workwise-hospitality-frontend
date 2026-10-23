@@ -717,6 +717,9 @@
 .finalizeFailBanner .ic { margin-top: 1px; }
 .frBannerList { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .frBannerList li { font-size: 12.5px; line-height: 1.5; color: var(--fg-2); }
+/* The finalise sheet's "this vendor's last PO was rejected" warning. */
+.finalizeRejectionWarn { margin-top: 12px; }
+.finalizeRejectionWarn .frBannerList { margin-top: 3px; }
 
 /* Toast */
 .toast { @include qc-tokens; position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--fg); color: white; padding: 11px 18px; border-radius: 10px; font-size: 12.5px; z-index: 2002; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px; }

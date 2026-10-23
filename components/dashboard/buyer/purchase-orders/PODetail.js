@@ -838,6 +838,10 @@ const PODetail = ({ id }) => {
   const gstSplit = gstSplitRows(pricing);
   const items = Array.isArray(po.items) ? po.items : [];
   const vendor = po.vendor || {};
+  // Approval is done and the PO is with the vendor. isPending still covers it
+  // for gating; only the "who has it now" wording differs.
+  const awaitingVendor = po.status === "acceptance_pending";
+  const awaitingVendorText = `Waiting for ${vendor.name || "the vendor"} to accept this PO.`;
   const rfq = po.rfq || {};
   const rfqHref = rfq.id
     ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq.id}&stage=purchase-order`
@@ -1021,7 +1025,10 @@ const PODetail = ({ id }) => {
               )}
             </div>
 
-            {isPending && awaitingMe && (
+            {/* Not while the PO is held: it cannot be approved until the
+                person asked answers (or the question is withdrawn), and the
+                hold line below says who it is waiting on. */}
+            {isPending && awaitingMe && !held && (
               <div className={styles.heroWaiting}>
                 <span className={styles.clockIc}>
                   <Clock size={14} />
@@ -1100,7 +1107,7 @@ const PODetail = ({ id }) => {
                 {po.replaces.comment ? `. “${po.replaces.comment}”` : "."}
               </div>
             )}
-            {held && canActOnStep && <span className={sbStyles.waiting}>{waitingText}</span>}
+            {held && isPending && awaitingMe && <span className={sbStyles.waiting}>{waitingText}</span>}
             {po.status === "draft" && canInitiate && guideAction && !initiateResult && (
               <div className={`${styles.heroPendingNote} ${styles.guideNote}`} role="status">
                 <span className={styles.clockIc}>
@@ -1110,7 +1117,7 @@ const PODetail = ({ id }) => {
                   <strong>You&apos;re here to initiate this purchase order.</strong>
                   <span>
                     1. Check the vendor and total above. 2. Check the lines below. 3. Press{" "}
-                    <strong>Initiate</strong>.
+                    <strong>{isForceInitiate ? "Force Initiate" : "Initiate"}</strong>.
                   </span>
                   <span>
                     After you initiate, it goes to the PO approvers, then to {vendor.name || "the vendor"} for
@@ -1204,11 +1211,18 @@ const PODetail = ({ id }) => {
                 <span className={styles.clockIc}>
                   <Clock size={14} />
                 </span>
-                <span>
-                  Pending approval — currently with
-                  {currentStepLabel ? ` ${currentStepLabel}` : ""}
-                  {currentApproverNames ? `: ${currentApproverNames}` : ""}.
-                </span>
+                {/* acceptance_pending is past approval: it waits on the
+                    vendor, not on an approver, so there is no one "currently
+                    with" it to name. */}
+                {awaitingVendor ? (
+                  <span>{awaitingVendorText}</span>
+                ) : (
+                  <span>
+                    Pending approval — currently with
+                    {currentStepLabel ? ` ${currentStepLabel}` : ""}
+                    {currentApproverNames ? `: ${currentApproverNames}` : ""}.
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -2112,12 +2126,18 @@ const PODetail = ({ id }) => {
               <div className={styles.pendingNoteCard}>
                 <div className={styles.pnHead}>
                   <Clock size={13} />
-                  <span>Pending approval</span>
+                  <span>{awaitingVendor ? "Awaiting vendor acceptance" : "Pending approval"}</span>
                 </div>
                 <div className={styles.pnBody}>
-                  Currently with
-                  {currentStepLabel ? ` ${currentStepLabel}` : ""}
-                  {currentApproverNames ? `: ${currentApproverNames}` : ""}.
+                  {awaitingVendor ? (
+                    awaitingVendorText
+                  ) : (
+                    <>
+                      Currently with
+                      {currentStepLabel ? ` ${currentStepLabel}` : ""}
+                      {currentApproverNames ? `: ${currentApproverNames}` : ""}.
+                    </>
+                  )}
                   {" "}No action is required from you right now.
                 </div>
               </div>
@@ -2427,7 +2447,7 @@ const PODetail = ({ id }) => {
           }
         >
           <MobileActionButton
-            variant="approve"
+            variant={isForceInitiate ? "warn" : "approve"}
             className={`${mobileBarStyles.wide} ${ring === "bar" ? styles.initiateRing : ""}`}
             data-initiate-bar-control=""
             aria-label={isForceInitiate ? "Force initiate purchase order" : "Initiate purchase order"}

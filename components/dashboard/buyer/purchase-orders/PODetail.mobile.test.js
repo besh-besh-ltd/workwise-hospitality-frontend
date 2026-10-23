@@ -238,6 +238,36 @@ describe("phone Reject", () => {
   });
 });
 
+// The desktop Force Initiate is amber (btnWarnStrong) because initiating a
+// partial draft freezes it. The phone bar used the green approve variant, so
+// the same irreversible action read as the safe one on a phone.
+describe("phone Initiate bar", () => {
+  const initiateBar = () => screen.findByRole("region", { name: "Initiate purchase order" });
+  const draft = (over = {}) => ({
+    status: "draft",
+    status_label: "Draft",
+    awaiting_me: false,
+    can_initiate: true,
+    ...over,
+  });
+
+  it("shows a partial draft's Force Initiate in amber, like the desktop button", async () => {
+    await mount(draft({ initiate_kind: "partial", covers_all_products: false }));
+    const btn = within(await initiateBar()).getByRole("button", { name: "Force initiate purchase order" });
+    expect(btn).toHaveTextContent("Force Initiate");
+    expect(btn.className).toMatch(/\bwarn\b/);
+    expect(btn.className).not.toMatch(/\bapprove\b/);
+  });
+
+  it("keeps a plain Initiate green", async () => {
+    await mount(draft({ initiate_kind: "complete" }));
+    const btn = within(await initiateBar()).getByRole("button", { name: "Initiate purchase order" });
+    expect(btn).toHaveTextContent(/^Initiate$/);
+    expect(btn.className).toMatch(/\bapprove\b/);
+    expect(btn.className).not.toMatch(/\bwarn\b/);
+  });
+});
+
 describe("markup the phone layout depends on", () => {
   it("marks the hero Approve / Reject so phones can hide them in favour of the bar", async () => {
     await mount();
@@ -318,5 +348,18 @@ describe("phone CSS contract (PurchaseOrders.module.scss)", () => {
 
   it("reserves room for the taller (summary + buttons) bar", () => {
     expect(phone).toMatch(/--mobile-action-bar-h:\s*\d+px/);
+  });
+});
+
+// The bar's `warn` variant must be the same amber as the desktop Force
+// Initiate (PurchaseOrders.module.scss --warn: #b45309, rgb(180, 83, 9)).
+describe("phone CSS contract (MobileActionBar.module.css)", () => {
+  const css = fs.readFileSync(
+    path.join(process.cwd(), "components/shared/mobile/MobileActionBar.module.css"),
+    "utf8"
+  );
+
+  it("defines an amber warn variant matching the desktop Force Initiate", () => {
+    expect(css).toMatch(/\.warn\s*{[^}]*background:\s*#b45309;[^}]*color:\s*#ffffff;/);
   });
 });
