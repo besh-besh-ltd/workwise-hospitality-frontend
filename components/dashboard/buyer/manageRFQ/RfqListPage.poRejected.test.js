@@ -58,3 +58,21 @@ describe("RfqListPage: approver rejection reason on the pill", () => {
     expect(screen.getByText("PO rejected")).toBeInTheDocument();
   });
 });
+
+describe("RfqListPage: the rejection pill beside the status", () => {
+  it("names only the reason when the status already says the PO was rejected", async () => {
+    await renderList(mkRow({ status_key: "PO_REJECTED", lifecycle_stage: "PO_REJECTED", po_rejection: REJ }));
+    expect(screen.getByText("PO rejected by approver")).toBeInTheDocument();
+    expect(screen.getByText("Re-negotiate or change the vendor")).toBeInTheDocument();
+    expect(screen.queryByText("PO rejected: Re-negotiate or change the vendor")).toBeNull();
+  });
+
+  it("a PO cancelled as not needed reads as cancelled, never rejected", async () => {
+    await renderList(mkRow({ po_rejection: { ...REJ, route: "CANCEL", reason_category: "NOT_REQUIRED" } }));
+    const pill = screen.getByText("PO 138733 cancelled: not needed any more");
+    expect(pill.getAttribute("title")).not.toMatch(/reject/i);
+    fireEvent.mouseEnter(screen.getByText("Commercial Evaluation"));
+    await waitFor(() => expect(screen.getByText(/go back to the vendors/)).toBeInTheDocument());
+    expect(document.body.textContent).not.toMatch(/rejected by/i);
+  });
+});

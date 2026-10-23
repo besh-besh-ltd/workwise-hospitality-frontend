@@ -33,7 +33,6 @@
 
 .inner { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 14px; }
 .title { margin: 0; font-size: 16px; font-weight: 650; color: #0f172a; }
-.lede { margin: 4px 0 0; font-size: 13px; color: #475569; }
 
 .fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .legend { font-size: 12.5px; font-weight: 600; color: #0f172a; padding: 0; margin-bottom: 4px; }
@@ -104,7 +103,17 @@
   display: block; font-size: 12.5px; color: #92400e; background: #fffbeb;
   border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px;
 }
+/* In the phone action bar: one line (full text in its title), so the bar stays
+   within --mobile-action-bar-h. */
+.waitingBar { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .replaces {
   margin-top: 12px; font-size: 12.5px; color: #334155; background: #f1f5f9;
   border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
+}
+
+/* Phone (the PO pages' phone breakpoint): 44px touch targets. */
+@media (max-width: 768px) {
+  .radio { min-height: 44px; align-items: center; input { margin-top: 0; } }
+  .btn { min-height: 44px; }
+  .btnLink { min-height: 44px; }
 }

@@ -22,5 +22,5 @@ export function holdSummary(pos) {
   if (!holds.length) return null;
   const oldest = [...holds].sort((a, b) => time(a) - time(b))[0];
   const more = holds.length - 1;
-  return { count: holds.length, line: `${holdLine(oldest)}${more > 0 ? ` +${more} more` : ""}` };
+  return { line: `${holdLine(oldest)}${more > 0 ? ` +${more} more` : ""}` };
 }

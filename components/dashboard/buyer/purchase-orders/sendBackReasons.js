@@ -72,6 +72,26 @@ export const levelText = (label) => {
 export const MAX_FILES = 10;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+// The server's list (backend poValidation SEND_BACK_TYPES): the extension and
+// the declared type must match. A browser that cannot name a HEIC sends no type
+// (uploaded as application/octet-stream), which the server takes for HEIC/HEIF.
+export const FILE_TYPES = {
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".png": ["image/png"],
+  ".webp": ["image/webp"],
+  ".heic": ["image/heic", "image/heif", "application/octet-stream", ""],
+  ".heif": ["image/heif", "image/heic", "application/octet-stream", ""],
+  ".pdf": ["application/pdf"],
+};
+export const FILE_ACCEPT =
+  ".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
+export const isAllowedFile = (f) => {
+  const m = /\.[^.]+$/.exec(String(f?.name || ""));
+  const ext = m ? m[0].toLowerCase() : "";
+  return (FILE_TYPES[ext] || []).includes(String(f?.type || "").toLowerCase());
+};
+
 // Pinned by migration 20261022100000_po_send_backs.sql (ruling R16).
 export const ROUTE_INFO_REQUEST = "INFO_REQUEST"; // also COMMERCIAL | CANCEL | TECHNICAL
 export const SIDE_REQUEST = "REQUEST";

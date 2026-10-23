@@ -7,6 +7,10 @@
 // [{id, po_number, initiate_kind, can_initiate}]; the page names each draft and:
 //   can_initiate true  -> "Draft PO {no} created. Initiate it now →" (a link)
 //   can_initiate false -> "Draft PO {no} created. A PO initiator will initiate it."
+//
+// The axios interceptor already unwraps the HTTP response, so the service
+// resolves the body { status, message, data: { drafted_pos } }: the mocks below
+// are that body, not the raw axios response.
 
 const mockPush = jest.fn();
 jest.mock("next/router", () => ({
@@ -58,6 +62,7 @@ import "@testing-library/jest-dom";
 
 import { getQuoteComparisonView } from "@/services/pricing";
 import { approveNegotiationQuotes } from "@/services/negotiation";
+import { toast } from "react-toastify";
 import QuoteComparison from "./QuoteComparison";
 
 const SHARMA = 5512;
@@ -104,7 +109,8 @@ beforeEach(() => {
 describe("after approving the award", () => {
   test("a draft the approver can initiate is offered as a link to the PO page, in guide mode", async () => {
     approveNegotiationQuotes.mockResolvedValue({
-      data: { status: 1, data: { drafted_pos: [{ id: 139141, po_number: "139141", initiate_kind: "complete", can_initiate: true }] } },
+      status: 1,
+      data: { drafted_pos: [{ id: 139141, po_number: "139141", initiate_kind: "complete", can_initiate: true }] },
     });
     await approveAll();
 
@@ -118,7 +124,8 @@ describe("after approving the award", () => {
 
   test("a draft the approver cannot initiate says who will, and offers no link", async () => {
     approveNegotiationQuotes.mockResolvedValue({
-      data: { status: 1, data: { drafted_pos: [{ id: 139141, po_number: "139141", initiate_kind: "complete", can_initiate: false }] } },
+      status: 1,
+      data: { drafted_pos: [{ id: 139141, po_number: "139141", initiate_kind: "complete", can_initiate: false }] },
     });
     await approveAll();
 
@@ -128,9 +135,25 @@ describe("after approving the award", () => {
   });
 
   test("an older backend (no drafted_pos) shows nothing extra", async () => {
-    approveNegotiationQuotes.mockResolvedValue({ data: { status: 1, data: {} } });
+    approveNegotiationQuotes.mockResolvedValue({ status: 1, data: {} });
     await approveAll();
     await screen.findByText("1 approved · 0 rejected · buyer notified");
     expect(screen.queryByTestId("qc-drafted-po")).toBeNull();
+  });
+});
+
+// The service rejects with the server's body, so e.message is the server's own
+// words (PO_ON_HOLD: "Waiting on X."). The count stays; the reason is added.
+describe("when a decision fails", () => {
+  test("the toast keeps the count and adds the server's reason", async () => {
+    approveNegotiationQuotes.mockRejectedValue({ status: 0, code: "PO_ON_HOLD", message: "Waiting on Chitra Chawla." });
+    await approveAll();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("1 decision failed. Waiting on Chitra Chawla."));
+  });
+
+  test("with no message it is the count alone", async () => {
+    approveNegotiationQuotes.mockRejectedValue({});
+    await approveAll();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("1 decision failed."));
   });
 });

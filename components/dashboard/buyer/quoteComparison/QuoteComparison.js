@@ -798,8 +798,15 @@ const QuoteComparison = ({
       selectionRejections.push({ row: r, vendorName: rejectedVendorName(r, vid) });
     }
   });
+  // An approver's "Not needed any more" cancels the PO (route CANCEL): it is not
+  // a rejection, and nothing about it asks for a re-award. Older rows carry no
+  // route and read as before.
+  const isCancelRow = (r) => r?.route === "CANCEL";
   const selectionRejectionLine = ({ row, vendorName }) => {
     const poNo = row.po_number || row.po_id;
+    if (isCancelRow(row)) {
+      return `An approver cancelled PO #${poNo}: not needed any more. Make sure it is still needed before re-awarding.`;
+    }
     if (row.rejection_type === "vendor") return `${vendorName} rejected their last PO #${poNo}.`;
     const label = reasonLabel(row.reason_category);
     return `${vendorName}'s last PO #${poNo} was rejected${label ? `: ${label}` : ""}.`;
@@ -1164,6 +1171,9 @@ const QuoteComparison = ({
     let approved = 0;
     let rejected = 0;
     let fail = 0;
+    // The first failure's own words (the service rejects with the server's
+    // body, e.g. PO_ON_HOLD's "Waiting on X."), shown after the count.
+    let failMessage = "";
     const drafted = [];
     for (const pid of Object.keys(approveSel)) {
       const approveReason = (approveReasons[pid] || "").trim() || null;
@@ -1171,8 +1181,9 @@ const QuoteComparison = ({
         // eslint-disable-next-line no-await-in-loop
         const res = await approveNegotiationQuotes(pid, approveReason, departmentId);
         // The approval is what drafts the purchase order. An older backend
-        // sends no drafted_pos, in which case nothing extra is shown.
-        const list = res?.data?.data?.drafted_pos;
+        // sends no drafted_pos, in which case nothing extra is shown. The axios
+        // interceptor has already unwrapped the response, so `res` is the body.
+        const list = res?.data?.drafted_pos;
         if (Array.isArray(list)) {
           list.forEach((d) => {
             if (d?.id != null && !drafted.some((x) => x.id === d.id)) drafted.push(d);
@@ -1181,6 +1192,7 @@ const QuoteComparison = ({
         approved++;
       } catch (e) {
         fail++;
+        if (!failMessage && e?.message) failMessage = String(e.message);
       }
     }
     for (const pid of Object.keys(rejectSel)) {
@@ -1191,6 +1203,7 @@ const QuoteComparison = ({
         rejected++;
       } catch (e) {
         fail++;
+        if (!failMessage && e?.message) failMessage = String(e.message);
       }
     }
     setActionLoading(false);
@@ -1199,7 +1212,7 @@ const QuoteComparison = ({
     await fetchView({ silent: true });
     if (approved || rejected) showToast(`${approved} approved · ${rejected} rejected · buyer notified`);
     if (drafted.length) setDraftedPos(drafted);
-    if (fail) toast.error(`${fail} decision${fail > 1 ? "s" : ""} failed.`);
+    if (fail) toast.error(`${fail} decision${fail > 1 ? "s" : ""} failed.${failMessage ? ` ${failMessage}` : ""}`);
   };
 
   /* ─────────────── tooltip ─────────────── */
@@ -2991,27 +3004,30 @@ const QuoteComparison = ({
           const poNo = row.po_number || row.po_id;
           const vendorName = rejectedVendorName(row);
           const isApprover = row.rejection_type !== "vendor";
+          const cancelled = isCancelRow(row);
           const label = isApprover ? reasonLabel(row.reason_category) : null;
           return (
             <div
               key={`po-rejection-${key}`}
               className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner}`}
               role="note"
-              aria-label={`PO #${poNo} rejected`}
+              aria-label={`PO #${poNo} ${cancelled ? "cancelled" : "rejected"}`}
             >
               <div className={styles.ic}>
                 <AlertTriangle size={13} />
               </div>
               <div>
                 <strong>
-                  {isApprover
+                  {cancelled
+                    ? `PO #${poNo} cancelled: not needed any more.`
+                    : isApprover
                     ? `PO #${poNo} for ${vendorName} was rejected by an approver.`
                     : `${vendorName} rejected PO #${poNo}.`}
                 </strong>
                 <ul className={styles.frBannerList}>
                   {(row.rejected_by_name || row.rejected_at) && (
                     <li>
-                      Rejected
+                      {cancelled ? "Cancelled" : "Rejected"}
                       {isApprover && row.rejected_by_name ? ` by ${row.rejected_by_name}` : ""}
                       {row.rejected_at ? ` on ${fmtDateTime(row.rejected_at)}` : ""}.
                     </li>
@@ -3019,7 +3035,7 @@ const QuoteComparison = ({
                   {label && (
                     <li>
                       Reason: {label}
-                      {row.reason_category === "RENEGOTIATE" && (
+                      {row.reason_category === "RENEGOTIATE" && !cancelled && (
                         <>
                           {" · "}
                           <Link href={negotiationCreateRound(rfqInfo.id ?? rfq)}>Create negotiation round</Link>
@@ -3028,7 +3044,12 @@ const QuoteComparison = ({
                     </li>
                   )}
                   {row.rejection_reason && <li>“{row.rejection_reason}”</li>}
-                  {backForAward.length > 0 && <li>Back for award: {backForAward.join(", ")}</li>}
+                  {backForAward.length > 0 && (
+                    <li>
+                      {cancelled ? "Products: " : "Back for award: "}
+                      {backForAward.join(", ")}
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -3405,7 +3426,7 @@ const QuoteComparison = ({
               <div
                 className={`${styles.infoBanner} ${styles.warn} ${styles.finalizeFailBanner} ${styles.finalizeRejectionWarn}`}
                 role="note"
-                aria-label="Previously rejected"
+                aria-label={selectionRejections.every((x) => isCancelRow(x.row)) ? "Previously cancelled" : "Previously rejected"}
               >
                 <div className={styles.ic}>
                   <AlertTriangle size={13} />

@@ -109,10 +109,18 @@ const TONE_DOT = { draft: "#71717a", active: "#16a34a", expiring: "#b45309", eva
 
 // "PO rejected: {reason}" once the backend names the reason of an approver's
 // rejection; vendor rejections and older rows keep the plain "PO rejected".
-const poRejectedText = (r) =>
-  r?.rejection_type === "approver" && r?.reason_category
-    ? `PO rejected: ${reasonLabel(r.reason_category)}`
-    : "PO rejected";
+// Beside a PO_REJECTED status ("PO rejected by approver") only the reason is
+// left to say. An approver's "Not needed any more" cancels the PO (route
+// CANCEL), which is not a rejection.
+const isCancelled = (r) => r?.route === "CANCEL";
+const poRejectedText = (r, statusKey) => {
+  if (isCancelled(r)) return `PO ${r.po_number || r.po_id} cancelled: not needed any more`;
+  const label = r?.rejection_type === "approver" && r?.reason_category ? reasonLabel(r.reason_category) : null;
+  if (statusKey === "PO_REJECTED") return label;
+  return label ? `PO rejected: ${label}` : "PO rejected";
+};
+const poRejectedBy = (r) =>
+  isCancelled(r) ? "cancelled by" : r?.rejection_type === "vendor" ? "declined by" : "rejected by";
 
 function LifecycleTooltip({ statusKey, actionHolders, anchor, poRejection }) {
   if (!anchor || typeof document === "undefined") return null;
@@ -157,10 +165,10 @@ function LifecycleTooltip({ statusKey, actionHolders, anchor, poRejection }) {
       {poRejection && (
         <div style={{ padding: "9px 13px 10px", borderTop: "1px solid #f4f4f1", background: "#fef2f2" }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#b91c1c", marginBottom: 5 }}>
-            Sent back from PO approval
+            {isCancelled(poRejection) ? "Cancelled in PO approval" : "Sent back from PO approval"}
           </div>
           <div style={{ fontSize: 11.5, color: "#3f3f46", lineHeight: 1.45 }}>
-            PO #{poRejection.po_number} {poRejection.rejection_type === "vendor" ? "declined by " : "rejected by "}
+            PO #{poRejection.po_number} {poRejectedBy(poRejection)}{" "}
             <strong style={{ fontWeight: 600 }}>{poRejection.rejected_by_name || "an approver"}</strong>
             {poRejection.rejected_at ? ` on ${fmtServerDate(poRejection.rejected_at)}` : ""}
             {(poRejection.rejected_po_count || 1) > 1
@@ -736,12 +744,12 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
               {/* Visible without a hover: this RFQ is at an earlier stage
                   because a PO was rejected. Who, when and why are in the stage
                   popover. */}
-              {row.po_rejection && (
+              {row.po_rejection && poRejectedText(row.po_rejection, row.status_key) && (
                 <span
                   className="po-rejected-pill"
-                  title={`PO #${row.po_rejection.po_number} ${row.po_rejection.rejection_type === "vendor" ? "declined by" : "rejected by"} ${row.po_rejection.rejected_by_name || "an approver"}`}
+                  title={`PO #${row.po_rejection.po_number} ${poRejectedBy(row.po_rejection)} ${row.po_rejection.rejected_by_name || "an approver"}`}
                 >
-                  {poRejectedText(row.po_rejection)}
+                  {poRejectedText(row.po_rejection, row.status_key)}
                 </span>
               )}
             </div>

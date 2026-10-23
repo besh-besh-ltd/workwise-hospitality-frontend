@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import Modal from "react-modal";
 import styles from "./SendBack.module.scss";
 import {
@@ -8,6 +8,8 @@ import {
   DEFAULT_TARGET,
   MAX_FILES,
   MAX_FILE_BYTES,
+  FILE_ACCEPT,
+  isAllowedFile,
   targetList,
   findTarget,
   levelText,
@@ -39,8 +41,9 @@ export function DialogShell({ isOpen, onClose, title, label, accent = "info", bu
 
 /* Reason radios: real radios in a fieldset with a legend. */
 export function ReasonRadios({ name, reasons, value, onChange, error, disabled }) {
+  const errorId = `${name}-error`;
   return (
-    <fieldset className={styles.fieldset} disabled={disabled}>
+    <fieldset className={styles.fieldset} disabled={disabled} aria-describedby={error ? errorId : undefined}>
       <legend className={styles.legend}>
         What is this about? <span className={styles.req}>*</span>
       </legend>
@@ -51,7 +54,7 @@ export function ReasonRadios({ name, reasons, value, onChange, error, disabled }
         </label>
       ))}
       {error && (
-        <span className={styles.error} role="alert">
+        <span id={errorId} className={styles.error} role="alert">
           {error}
         </span>
       )}
@@ -59,15 +62,24 @@ export function ReasonRadios({ name, reasons, value, onChange, error, disabled }
   );
 }
 
-/* Optional attachments. Images and PDF only, up to 10 files of 10 MB: the same
-   limits the server enforces, checked here so the user hears it early. */
+/* Optional attachments. Photos (JPG, PNG, WEBP, HEIC) and PDF only, up to 10
+   files of 10 MB: the same limits the server enforces, checked here so the user
+   hears it early. */
 export function FilePicker({ files, onChange, label = "Attachments (optional)" }) {
   const [problem, setProblem] = useState("");
+  const problemId = useId();
   const onPick = (e) => {
     const picked = Array.from(e.target.files || []);
     const next = [...files, ...picked];
+    // Cleared on every path, refusals included, so the same file can be
+    // picked again once it has been fixed.
+    e.target.value = "";
     if (next.length > MAX_FILES) {
       setProblem(`You can attach up to ${MAX_FILES} files.`);
+      return;
+    }
+    if (!picked.every(isAllowedFile)) {
+      setProblem("Attach photos (JPG, PNG, WEBP or HEIC) or PDFs only.");
       return;
     }
     if (picked.some((f) => f.size > MAX_FILE_BYTES)) {
@@ -76,13 +88,18 @@ export function FilePicker({ files, onChange, label = "Attachments (optional)" }
     }
     setProblem("");
     onChange(next);
-    e.target.value = "";
   };
   return (
     <div className={styles.fileRow}>
       <label>
         <span className={styles.legend}>{label}</span>
-        <input type="file" multiple accept="image/*,application/pdf" onChange={onPick} />
+        <input
+          type="file"
+          multiple
+          accept={FILE_ACCEPT}
+          onChange={onPick}
+          aria-describedby={problem ? problemId : undefined}
+        />
       </label>
       {files.length > 0 && (
         <ul className={styles.fileList}>
@@ -102,7 +119,7 @@ export function FilePicker({ files, onChange, label = "Attachments (optional)" }
         </ul>
       )}
       {problem && (
-        <span className={styles.error} role="alert">
+        <span id={problemId} className={styles.error} role="alert">
           {problem}
         </span>
       )}
@@ -175,13 +192,21 @@ export default function SendBackDialog({ isOpen, onClose, targets, targetsFailed
         disabled={busy}
       />
 
-      <fieldset className={styles.fieldset} disabled={busy}>
+      <fieldset
+        className={styles.fieldset}
+        disabled={busy}
+        aria-describedby={touched && errors.person ? "sendback-person-error" : targetsFailed ? "sendback-people-failed" : undefined}
+      >
         <legend className={styles.legend}>
           Who should answer? <span className={styles.req}>*</span>
         </legend>
-        {targets == null && !targetsFailed && <span className={styles.meta}>Loading people…</span>}
+        {targets == null && !targetsFailed && (
+          <span className={styles.meta} role="status" aria-live="polite">
+            Loading people…
+          </span>
+        )}
         {targetsFailed && (
-          <span className={styles.error} role="alert">
+          <span id="sendback-people-failed" className={styles.error} role="alert">
             Couldn&apos;t load the people for this PO. Close and try again.
           </span>
         )}
@@ -207,7 +232,7 @@ export default function SendBackDialog({ isOpen, onClose, targets, targetsFailed
           </label>
         ))}
         {touched && errors.person && (
-          <span className={styles.error} role="alert">
+          <span id="sendback-person-error" className={styles.error} role="alert">
             {errors.person}
           </span>
         )}
@@ -225,9 +250,10 @@ export default function SendBackDialog({ isOpen, onClose, targets, targetsFailed
           onChange={(e) => setComment(e.target.value)}
           placeholder="What do you need to know or see before you can decide?"
           disabled={busy}
+          aria-describedby={touched && errors.comment ? "sendback-comment-error" : undefined}
         />
         {touched && errors.comment && (
-          <span className={styles.error} role="alert">
+          <span id="sendback-comment-error" className={styles.error} role="alert">
             {errors.comment}
           </span>
         )}

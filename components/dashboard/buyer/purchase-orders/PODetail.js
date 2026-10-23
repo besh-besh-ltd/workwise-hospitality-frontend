@@ -236,7 +236,7 @@ const ROSTER_VISIBLE = 8;
    the button. Every failure renders nothing at all: the note above still
    stands on its own, and a permission hint may never be the reason a purchase
    order page breaks. */
-const WhoCanInitiate = ({ poId, plain = false }) => {
+const WhoCanInitiate = ({ poId, plain = false, unit = null }) => {
   const { status, initiators, total } = usePoInitiators(poId);
   const [expanded, setExpanded] = useState(false);
 
@@ -262,8 +262,11 @@ const WhoCanInitiate = ({ poId, plain = false }) => {
            plainly, because an empty box would read as a broken block. */
         plain ? (
           <div className={styles.initiatorsMsg}>
-            <strong>No one can initiate this purchase order yet.</strong> Ask your administrator to give someone the PO Initiator or Commercial Approver role for
-            this business unit.
+            {/* Same words as the RFQ page's guide (PurchaseOrderStage). */}
+            <strong>No one can initiate this purchase order yet.</strong>{" "}
+            {unit
+              ? `Nobody at ${unit} can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for ${unit}.`
+              : "Nobody in this business unit can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for this business unit."}
             <div className={styles.initiatorsAdminNote}>
               Admin note: this needs <code>awarding · create</code> on this business unit.
             </div>
@@ -367,6 +370,9 @@ const PODetail = ({ id }) => {
   // The send-back rows for this PO (null = not loaded / failed). One fetch feeds
   // both the thread and the "held" state: the hold is the row with status OPEN.
   const [sendBacks, setSendBacks] = useState(null);
+  // False until the first thread fetch settles, either way. Until then the page
+  // cannot know whether the PO is held, so the decision buttons wait for it.
+  const [sendBacksLoaded, setSendBacksLoaded] = useState(false);
   const [threadBusy, setThreadBusy] = useState(false);
   // /send-back/targets, fetched when either dialog opens. Names for the dialogs.
   const [targets, setTargets] = useState(null);
@@ -500,6 +506,8 @@ const PODetail = ({ id }) => {
       // Keep the last good thread: only the very first load failing leaves it
       // empty (state starts null).
       return null;
+    } finally {
+      setSendBacksLoaded(true);
     }
   }, [id]);
 
@@ -514,10 +522,13 @@ const PODetail = ({ id }) => {
     setTargetsFailed(false);
     getSendBackTargets(id)
       .then((t) => live && setTargets(targetList(t)))
-      .catch(() => {
+      .catch((e) => {
         if (!live) return;
         setTargets(null);
         setTargetsFailed(true);
+        // Like every other action: a stale page (403/404/409) gets the
+        // server's words, a reload and no dialog.
+        handleActionError(e);
       });
     return () => {
       live = false;
@@ -823,7 +834,11 @@ const PODetail = ({ id }) => {
         TARGET_LABELS[hold.target_role] || hold.target_role || "reply"
       })`
     : "";
-  const actionsLocked = !!submitting || held;
+  // The person asked: the same test the thread uses to show them the answer box.
+  const askedMe = !!hold && hold.target?.id != null && hold.target.id === userProfile?.id;
+  const askedText = "You were asked for information. Answer below.";
+  const holdText = askedMe ? askedText : waitingText;
+  const actionsLocked = !!submitting || held || !sendBacksLoaded;
   const currentStepLabel = po.current_step_label || null;
   const currentApprovers = Array.isArray(po.current_approvers) ? po.current_approvers : [];
   const currentApproverNames = currentApprovers.map((a) => a.name).filter(Boolean).join(", ");
@@ -1028,7 +1043,7 @@ const PODetail = ({ id }) => {
             {/* Not while the PO is held: it cannot be approved until the
                 person asked answers (or the question is withdrawn), and the
                 hold line below says who it is waiting on. */}
-            {isPending && awaitingMe && !held && (
+            {isPending && awaitingMe && !held && sendBacksLoaded && (
               <div className={styles.heroWaiting}>
                 <span className={styles.clockIc}>
                   <Clock size={14} />
@@ -1058,7 +1073,7 @@ const PODetail = ({ id }) => {
                     unit.
                   </span>
                 </div>
-                <WhoCanInitiate poId={id} plain />
+                <WhoCanInitiate poId={id} plain unit={rfq.business_unit || null} />
               </>
             )}
             {po.status === "draft" && !canInitiate && !serverGate && (
@@ -1107,7 +1122,7 @@ const PODetail = ({ id }) => {
                 {po.replaces.comment ? `. “${po.replaces.comment}”` : "."}
               </div>
             )}
-            {held && isPending && awaitingMe && <span className={sbStyles.waiting}>{waitingText}</span>}
+            {held && isPending && awaitingMe && <span className={sbStyles.waiting}>{holdText}</span>}
             {po.status === "draft" && canInitiate && guideAction && !initiateResult && (
               <div className={`${styles.heroPendingNote} ${styles.guideNote}`} role="status">
                 <span className={styles.clockIc}>
@@ -1169,12 +1184,18 @@ const PODetail = ({ id }) => {
                 <span className={styles.clockIc}>
                   <AlertCircle size={14} />
                 </span>
-                <span>
-                  PO {po.po_number || po.id} was already initiated
-                  {initiatedBy?.name ? ` by ${initiatedBy.name}` : ""}
-                  {initiatedBy?.at ? ` on ${fmtDateOnly(initiatedBy.at)}` : ""}. It is now{" "}
-                  {po.status_label || statusLabel(po.status)}.
-                </span>
+                {/* A draft cancelled before anyone initiated it was replaced
+                    (merged, or re-awarded): it was never initiated at all. */}
+                {po.status === "cancelled" && !initiatedBy ? (
+                  <span>PO {po.po_number || po.id} was cancelled (it was replaced) and can no longer be initiated.</span>
+                ) : (
+                  <span>
+                    PO {po.po_number || po.id} was already initiated
+                    {initiatedBy?.name ? ` by ${initiatedBy.name}` : ""}
+                    {initiatedBy?.at ? ` on ${fmtDateOnly(initiatedBy.at)}` : ""}. It is now{" "}
+                    {po.status_label || statusLabel(po.status)}.
+                  </span>
+                )}
               </div>
             )}
             {po.status === "draft" && canInitiate && !(guideAction && !initiateResult) && (
@@ -1216,6 +1237,10 @@ const PODetail = ({ id }) => {
                     with" it to name. */}
                 {awaitingVendor ? (
                   <span>{awaitingVendorText}</span>
+                ) : held ? (
+                  /* Held: the approvers cannot act until the person asked
+                     answers, so the hold is who it is with. */
+                  <span>{askedMe ? askedText : `${waitingText}.`}</span>
                 ) : (
                   <span>
                     Pending approval — currently with
@@ -2131,6 +2156,8 @@ const PODetail = ({ id }) => {
                 <div className={styles.pnBody}>
                   {awaitingVendor ? (
                     awaitingVendorText
+                  ) : held ? (
+                    askedMe ? askedText : `${waitingText}.`
                   ) : (
                     <>
                       Currently with
@@ -2138,7 +2165,7 @@ const PODetail = ({ id }) => {
                       {currentApproverNames ? `: ${currentApproverNames}` : ""}.
                     </>
                   )}
-                  {" "}No action is required from you right now.
+                  {!askedMe && <>{" "}No action is required from you right now.</>}
                 </div>
               </div>
             )}
@@ -2147,7 +2174,11 @@ const PODetail = ({ id }) => {
             {isPending && awaitingMe && canApprove && (
               <div className={styles.actionCard}>
                 <div className={styles.acHead}>
-                  <div className={styles.hereNow}>Your action required</div>
+                  {/* Held, it is not the approver's move: a neutral header, as
+                      the dashboards drop "your action" for a held PO. */}
+                  <div className={`${styles.hereNow} ${held ? styles.hereNowHeld : ""}`}>
+                    {held ? "On hold" : "Your action required"}
+                  </div>
                   <div className={styles.title}>
                     {currentStepLabel ? `${currentStepLabel} approval · You` : "Approval · You"}
                   </div>
@@ -2155,7 +2186,7 @@ const PODetail = ({ id }) => {
                     Approve to route to the next approver. Ask for info to hold the PO while a named
                     person answers, or reject it with a reason.
                   </div>
-                  {held && <span className={sbStyles.waiting}>{waitingText}</span>}
+                  {held && <span className={sbStyles.waiting}>{holdText}</span>}
                 </div>
                 <div className={styles.acBody}>
                   <textarea
@@ -2468,7 +2499,11 @@ const PODetail = ({ id }) => {
                 PO <span className={styles.mono}>#{po.po_number || po.id}</span> total
               </span>
               <strong>{inr(pricing.total ?? po.total_value)}</strong>
-              {held && <span className={sbStyles.waiting}>{waitingText}</span>}
+              {held && (
+                <span className={`${sbStyles.waiting} ${sbStyles.waitingBar}`} title={holdText}>
+                  {holdText}
+                </span>
+              )}
             </>
           }
         >

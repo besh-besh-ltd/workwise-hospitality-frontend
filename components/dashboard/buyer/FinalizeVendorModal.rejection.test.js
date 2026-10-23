@@ -37,3 +37,16 @@ describe("FinalizeVendorModal: approver rejection reason", () => {
     expect(screen.queryByRole("link", { name: "Create negotiation round" })).toBeNull();
   });
 });
+
+describe("FinalizeVendorModal: a PO cancelled as not needed", () => {
+  const CANCEL = { ...REJ, route: "CANCEL", reason_category: "NOT_REQUIRED", rejection_reason: "Event called off" };
+
+  test("reads as cancelled, never rejected, and offers no negotiation round", () => {
+    render(<FinalizeVendorModal {...base(CANCEL)} />);
+    expect(screen.getByText("PO #1387 cancelled: not needed any more")).toBeInTheDocument();
+    expect(screen.getByText(/Make sure it is still needed before re-awarding/)).toBeInTheDocument();
+    expect(screen.getByText("Event called off")).toBeInTheDocument();
+    expect(screen.queryByText(/reject/i)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Create negotiation round" })).toBeNull();
+  });
+});

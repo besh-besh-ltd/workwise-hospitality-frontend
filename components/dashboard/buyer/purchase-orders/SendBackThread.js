@@ -16,7 +16,6 @@ const isRejection = (row) => isRejectionRoute(row.route);
 const STATUS_TEXT = {
   OPEN: "Waiting for an answer",
   ANSWERED: "Answered",
-  RESUMED: "Answered",
   WITHDRAWN: "Withdrawn",
   SUPERSEDED: "No longer needed",
   CLOSED: "Closed",

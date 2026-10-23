@@ -222,6 +222,27 @@ describe("a PO that is no longer a draft", () => {
   });
 });
 
+// A draft replaced (merged or re-awarded) before anyone initiated it is
+// cancelled, not "already initiated".
+describe("a draft that was replaced before it was initiated", () => {
+  test("says it was cancelled and can no longer be initiated", async () => {
+    await mount({ status: "cancelled", status_label: "Cancelled", can_initiate: false, approval_initiated_by: null });
+    expect(screen.getByText("PO 139141 was cancelled (it was replaced) and can no longer be initiated.")).toBeInTheDocument();
+    expect(screen.queryByText(/was already initiated/i)).not.toBeInTheDocument();
+    expect(heroButton()).toBeNull();
+  });
+
+  test("a cancelled PO that had been initiated keeps the initiated note", async () => {
+    await mount({
+      status: "cancelled",
+      status_label: "Cancelled",
+      can_initiate: false,
+      approval_initiated_by: { id: 9, name: "Sagar Salve", at: "2026-10-20T10:00:00Z" },
+    });
+    expect(screen.getByText(/was already initiated by Sagar Salve/i)).toHaveTextContent(/It is now Cancelled\./);
+  });
+});
+
 describe("a viewer who cannot initiate", () => {
   test("sees the reworded who-can-initiate block and no button", async () => {
     getPOInitiators.mockResolvedValue({ initiators: [], total: 0, can_initiate: false });
@@ -233,6 +254,27 @@ describe("a viewer who cannot initiate", () => {
     expect(screen.queryByText(/nobody here can initiate/i)).not.toBeInTheDocument();
     expect(screen.getByText(/PO Initiator or Commercial Approver role/i)).toBeInTheDocument();
     expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  // Same words as the RFQ page's guide: the hotel by name when the PO knows it.
+  test("names the hotel when the PO carries it", async () => {
+    getPOInitiators.mockResolvedValue({ initiators: [], total: 0, can_initiate: false });
+    await mount({ can_initiate: false, rfq: { number: "536552", id: 346, business_unit: "IRA Bhavnagar" } });
+    expect(
+      await screen.findByText(
+        /Nobody at IRA Bhavnagar can initiate purchase orders\. Ask your administrator to give someone the PO Initiator or Commercial Approver role for IRA Bhavnagar\./
+      )
+    ).toBeInTheDocument();
+  });
+
+  test("says 'this business unit' when it does not", async () => {
+    getPOInitiators.mockResolvedValue({ initiators: [], total: 0, can_initiate: false });
+    await mount({ can_initiate: false });
+    expect(
+      await screen.findByText(
+        /Nobody in this business unit can initiate purchase orders\. Ask your administrator to give someone the PO Initiator or Commercial Approver role for this business unit\./
+      )
+    ).toBeInTheDocument();
   });
 });
 

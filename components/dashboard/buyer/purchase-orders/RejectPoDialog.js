@@ -105,9 +105,10 @@ export default function RejectPoDialog({ isOpen, onClose, poNumber, targets, onS
           onChange={(e) => setComment(e.target.value)}
           placeholder="Say why, so the people who pick this up know what to change."
           disabled={busy}
+          aria-describedby={touched && errors.comment ? "reject-comment-error" : undefined}
         />
         {touched && errors.comment && (
-          <span className={styles.error} role="alert">
+          <span id="reject-comment-error" className={styles.error} role="alert">
             {errors.comment}
           </span>
         )}

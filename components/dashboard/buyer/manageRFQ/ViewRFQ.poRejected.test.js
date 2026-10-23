@@ -76,3 +76,15 @@ test("other stages are untouched", async () => {
   await go({ lifecycle_stage: "AWAITING_PO", vendor_rejections: ROWS });
   expect(screen.getByText("awaiting po")).toBeInTheDocument();
 });
+
+test("a PO cancelled as not needed reads as cancelled, with its comment", async () => {
+  await go({
+    vendor_rejections: [
+      { rejection_type: "approver", route: "CANCEL", po_number: "139200", reason_category: "NOT_REQUIRED", rejection_reason: "event called off" },
+      ...ROWS,
+    ],
+  });
+  const el = screen.getByText(/PO 139200 cancelled: not needed any more/);
+  expect(el).toHaveAttribute("title", "event called off");
+  expect(screen.queryByText(/PO rejected/)).toBeNull();
+});

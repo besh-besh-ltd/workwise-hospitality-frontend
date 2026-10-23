@@ -284,3 +284,42 @@ describe("warning in the finalise sheet", () => {
     expect(within(dialog).getByText("Alpha Vendor rejected their last PO #681508.")).toBeInTheDocument();
   });
 });
+
+// A PO an approver cancelled as "Not needed any more" is not a rejection: it
+// arrives with route 'CANCEL' and says so, with no re-award prompts.
+describe("a PO cancelled as not needed", () => {
+  const cancelled = (over = {}) =>
+    rejection({ route: "CANCEL", reason_category: "NOT_REQUIRED", rejection_reason: "Event called off.", ...over });
+
+  it("reads as cancelled, with the reason and the comment, and no negotiation link", async () => {
+    await mount({ rows: [cancelled()] });
+    const banner = await screen.findByRole("note", { name: "PO #681508 cancelled" });
+    expect(banner).toHaveTextContent("PO #681508 cancelled: not needed any more.");
+    expect(banner).toHaveTextContent(/Cancelled by Ravi Shah on 21 Oct 2026/);
+    expect(banner).toHaveTextContent("Reason: Not needed any more");
+    expect(banner).toHaveTextContent("“Event called off.”");
+    expect(banner).not.toHaveTextContent(/reject/i);
+    expect(within(banner).queryByRole("link")).not.toBeInTheDocument();
+    expect(banners()).toHaveLength(0);
+  });
+
+  it("the finalise sheet asks to make sure it is still needed", async () => {
+    await mount({ rows: [cancelled()] });
+    await screen.findByRole("note", { name: "PO #681508 cancelled" });
+    select(SCREEN.id, ALPHA);
+    const dialog = await openFinalise();
+    expect(
+      within(dialog).getByText(
+        "An approver cancelled PO #681508: not needed any more. Make sure it is still needed before re-awarding."
+      )
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/was rejected/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("note", { name: "Previously cancelled" })).toBeInTheDocument();
+  });
+
+  it("an old row with no route reads as today", async () => {
+    await mount({ rows: [rejection({ reason_category: "NOT_REQUIRED" })] });
+    const banner = await screen.findByRole("note", { name: "PO #681508 rejected" });
+    expect(banner).toHaveTextContent("PO #681508 for Alpha Vendor was rejected by an approver.");
+  });
+});

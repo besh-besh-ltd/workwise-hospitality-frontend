@@ -35,7 +35,7 @@ function describe(stage) {
   // own wording.
   if (stage.key === "purchase-order" && ["active", "open"].includes(stage.state)) {
     const hold = holdSummary(stage.phase?.purchase_orders);
-    if (hold) return { ...d, tone: "warn", text: hold.line, onHold: true };
+    if (hold) return { ...d, tone: "warn", text: hold.line };
   }
   return d;
 }
@@ -154,7 +154,7 @@ export default function RfqStageTimeline({ stages, selectedKey, onSelect }) {
                 role="tab"
                 aria-selected={selected}
                 aria-disabled={locked}
-                className={`stg n-${d.node}${selected ? " is-selected" : ""}${d.onHold ? " is-on-hold" : ""}${locked ? " is-locked" : ""}${idx === hereIdx ? " is-here" : ""}`}
+                className={`stg n-${d.node}${selected ? " is-selected" : ""}${locked ? " is-locked" : ""}${idx === hereIdx ? " is-here" : ""}`}
                 title={`${stage.label} — ${d.text}`}
                 onClick={() => { if (!locked) onSelect(stage.key); }}
               >

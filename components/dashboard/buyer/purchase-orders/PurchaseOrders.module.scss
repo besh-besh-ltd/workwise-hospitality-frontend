@@ -1403,6 +1403,11 @@
         box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.14);
         animation: warnPulse 2s ease-in-out infinite;
       }
+      /* Held: not the approver's move yet, so no amber and no pulse. */
+      &.hereNowHeld {
+        color: var(--fg-3);
+        &::before { background: var(--fg-4); box-shadow: none; animation: none; }
+      }
     }
     .title { margin-top: 5px; font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; }
     .sub { margin-top: 3px; font-size: 11.5px; color: var(--fg-3); line-height: 1.45; strong { color: var(--fg); } }

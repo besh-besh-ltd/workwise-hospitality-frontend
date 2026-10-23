@@ -76,8 +76,11 @@ const FinalizeVendorModal = ({
   // Backend orders DESC by rejected_at, so [0] is the latest event.
   const latestRejection = vendorRejectionEntries[0] || null;
   const wasApproverRejection = latestRejection?.rejection_type === 'approver';
+  // An approver's "Not needed any more" cancels the PO (route CANCEL): not a
+  // rejection, and no re-award prompt. Older rows carry no route.
+  const wasCancelled = latestRejection?.route === 'CANCEL';
   // Only approver rejections carry a reason category; vendor rows never show one.
-  const rejectionReason = wasApproverRejection ? reasonLabel(latestRejection?.reason_category) : null;
+  const rejectionReason = wasApproverRejection && !wasCancelled ? reasonLabel(latestRejection?.reason_category) : null;
 
   // Prior finalization records for this vendor — surfaced under the warning
   // so the buyer sees when this vendor was last picked + by whom.
@@ -94,13 +97,17 @@ const FinalizeVendorModal = ({
   ];
 
   const titleText = isWarning
-    ? 'Re-finalize a previously-rejected vendor?'
+    ? wasCancelled
+      ? 'Re-finalize a vendor whose last PO was cancelled?'
+      : 'Re-finalize a previously-rejected vendor?'
     : isReFinalize
       ? 'Re-finalize this vendor?'
       : 'Confirm finalization';
 
   const subtitleText = isWarning
-    ? `This vendor's last Purchase Order ${wasApproverRejection ? 'was rejected by an internal approver' : 'was rejected by the vendor'}. Picking them again will start a fresh approval cycle that could fail the same way unless the underlying reason has been addressed.`
+    ? wasCancelled
+      ? 'An approver cancelled this vendor\'s last Purchase Order as not needed any more. Make sure it is still needed before re-awarding.'
+      : `This vendor's last Purchase Order ${wasApproverRejection ? 'was rejected by an internal approver' : 'was rejected by the vendor'}. Picking them again will start a fresh approval cycle that could fail the same way unless the underlying reason has been addressed.`
     : isReFinalize
       ? 'Changing the finalized vendor will discard the current draft Purchase Order and restart approvals from the first step.'
       : 'This locks the selected vendor for this product and starts the Purchase Order approval workflow.';
@@ -127,7 +134,7 @@ const FinalizeVendorModal = ({
       <div className={`${styles.head} ${isWarning ? styles.headWarning : ''}`}>
         <div className={styles.headTopRow}>
           <span className={`${styles.kicker} ${isWarning ? styles.kickerWarning : ''}`}>
-            {isWarning ? 'Caution · Previously rejected' : 'Finalize Vendor'}
+            {isWarning ? (wasCancelled ? 'Caution · Previously cancelled' : 'Caution · Previously rejected') : 'Finalize Vendor'}
           </span>
           <button
             type="button"
@@ -165,7 +172,9 @@ const FinalizeVendorModal = ({
               <span className={styles.warnPanelIcon} aria-hidden="true">⚠️</span>
               <div>
                 <div className={styles.warnPanelTitle}>
-                  Last PO {wasApproverRejection ? 'rejected by approver' : 'rejected by vendor'}
+                  {wasCancelled
+                    ? `PO #${latestRejection.po_number || latestRejection.po_id} cancelled: not needed any more`
+                    : `Last PO ${wasApproverRejection ? 'rejected by approver' : 'rejected by vendor'}`}
                 </div>
                 <div className={styles.warnPanelSub}>
                   {latestRejection.po_number ? `PO #${latestRejection.po_number} · ` : ''}
@@ -177,7 +186,7 @@ const FinalizeVendorModal = ({
               <div className={styles.warnPanelMeta}>
                 {latestRejection.rejected_by_name && (
                   <div>
-                    <strong>Rejected by:</strong> {latestRejection.rejected_by_name}
+                    <strong>{wasCancelled ? 'Cancelled by:' : 'Rejected by:'}</strong> {latestRejection.rejected_by_name}
                     {wasApproverRejection && latestRejection.rejected_by_email
                       ? ` (${latestRejection.rejected_by_email})`
                       : ''}

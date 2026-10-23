@@ -354,7 +354,7 @@ function RemovedApproverRow({ ap }) {
 // closed) who we are still waiting on, so a shut level still answers "what
 // happened here?". A real <button> with aria-expanded, because this is a
 // control, not a div someone hung a click handler on.
-function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
+function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix, hold }) {
   const [open, setOpen] = useState(defaultOpen);
   const t = tallyStep(step);
   const rule = ruleLabel(step?.decision_rule);
@@ -376,6 +376,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
   const cannotAct = unreachableCount
     ? `${unreachableCount} cannot act — account deactivated`
     : null;
+  // Held (an information request is open): the live level's approvers cannot
+  // decide until the person asked answers, so that person is who it waits on.
+  const heldNow = isCurrent && !!hold;
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -402,8 +405,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
             {t.notRequired.length > 0 ? ` · ${t.notRequired.length} not required` : ""}
             {t.notReached.length > 0 ? ` · ${t.notReached.length} not reached` : ""}
             {t.removed.length > 0 ? ` · ${t.removed.length} removed` : ""}
-            {!open && waitingOn ? ` · waiting on ${waitingOn}` : ""}
-            {!open && !waitingOn && cannotAct ? ` · ${cannotAct}` : ""}
+            {!open && heldNow ? ` · waiting on ${hold.target?.name || "the person asked"}` : ""}
+            {!open && !heldNow && waitingOn ? ` · waiting on ${waitingOn}` : ""}
+            {!open && !heldNow && !waitingOn && cannotAct ? ` · ${cannotAct}` : ""}
           </span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -421,7 +425,9 @@ function ApprovalLevel({ step, isCurrent, defaultOpen, idPrefix }) {
           {t.outstanding.length > 0 && (
             <>
               <GroupLabel tone={isCurrent ? "warn" : undefined}>
-                {isCurrent ? `Waiting on (${t.outstanding.length})` : `Not yet acted (${t.outstanding.length})`}
+                {heldNow
+                  ? `On hold, approvers (${t.outstanding.length})`
+                  : isCurrent ? `Waiting on (${t.outstanding.length})` : `Not yet acted (${t.outstanding.length})`}
               </GroupLabel>
               {t.outstanding.map((r, i) => <ApproverRow key={`p-${r.ap?.user_id ?? i}`} ap={r.ap} eff={r.eff} emphasise={isCurrent} />)}
             </>
@@ -543,6 +549,12 @@ function ApprovalProgress({ po, inst, named }) {
         </div>
       </div>
       <div className="section-body">
+        {/* Same line, same look as the card beside it. */}
+        {po?.hold && inst.status === "PENDING" && (
+          <div style={{ marginTop: 10, padding: "8px 11px", borderRadius: 9, background: "var(--warn-soft)", border: "1px solid rgba(180,83,9,0.22)", color: "var(--warn)", fontSize: 12, fontWeight: 600 }}>
+            {holdLine(po.hold)}
+          </div>
+        )}
         {steps.map((step) => {
           const isCurrent = isCurrentStep(step);
           return (
@@ -556,6 +568,7 @@ function ApprovalProgress({ po, inst, named }) {
               isCurrent={isCurrent}
               defaultOpen={Number(step.step_order) === openOrder}
               idPrefix={`po-approval-${inst.id ?? po?.id ?? "x"}`}
+              hold={po?.hold || null}
             />
           );
         })}
@@ -824,7 +837,9 @@ function InitiateGuide({ drafts }) {
         {button}
         {when ? (
           <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--fg-3)", fontStyle: "italic" }}>
-            {who ? `Drafted ${when}, when ${who} approved the award.` : `Drafted ${when}.`}
+            {/* raised_by is who raised the award for approval (the draft's
+                creator), not who approved it. */}
+            {who ? `Drafted ${when} from the award raised by ${who}.` : `Drafted ${when}.`}
           </div>
         ) : null}
       </div>
@@ -834,8 +849,9 @@ function InitiateGuide({ drafts }) {
 
 // V2 / V3 / nobody — the viewer cannot initiate. Names come from the scoped
 // /po/:id/initiators lookup, in the order the server returns them.
-function CannotInitiateGuide({ drafts, hotel, raisedByMe }) {
+function CannotInitiateGuide({ drafts, hotelName, raisedByMe }) {
   const first = drafts[0];
+  const hotel = hotelName || "this business unit";
   const { status, initiators, total } = usePoInitiators(first?.id);
   if (status !== "ready") return null;
 
@@ -851,7 +867,8 @@ function CannotInitiateGuide({ drafts, hotel, raisedByMe }) {
   if (nobody) {
     tone = " danger";
     heading = "No one can initiate this purchase order yet";
-    body = `Nobody at ${hotel} can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for ${hotel}.`;
+    // Same words as the PO page (PODetail WhoCanInitiate).
+    body = `${hotelName ? `Nobody at ${hotel}` : "Nobody in this business unit"} can initiate purchase orders. Ask your administrator to give someone the PO Initiator or Commercial Approver role for ${hotel}.`;
   } else if (raisedByMe) {
     heading = many ? `${drafts.length} draft purchase orders are ready for a PO initiator` : `Draft PO ${poNo(first)} is ready for a PO initiator`;
     body = `${many ? "Your approval created these drafts" : "Your approval created this draft"}. Initiating ${many ? "them is" : "it is"} a separate step, and you can't do it for ${hotel}. Any of these people can:`;
@@ -1171,7 +1188,7 @@ export default function PurchaseOrderStage({ stage, rfq, currentUserId }) {
               ) : (
                 <CannotInitiateGuide
                   drafts={drafts}
-                  hotel={rfq?.hotel_name || "this hotel"}
+                  hotelName={rfq?.hotel_name || null}
                   raisedByMe={currentUserId != null && drafts.every((d) => d.raised_by?.id != null && String(d.raised_by.id) === String(currentUserId))}
                 />
               )

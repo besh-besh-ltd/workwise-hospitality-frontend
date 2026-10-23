@@ -78,7 +78,7 @@ describe("initiate guide — V1 (can initiate)", () => {
     expect(g.getByText(/It goes to the PO approvers, then to the vendor for acceptance\./)).toBeInTheDocument();
     const link = g.getByRole("link", { name: /Open PO 139141 to initiate/ });
     expect(link).toHaveAttribute("href", "/dashboard/buyer/purchase-orders/41?action=initiate");
-    expect(g.getByText(/Drafted 1 day ago, when Prashant Joshi approved the award\./)).toBeInTheDocument();
+    expect(g.getByText(/Drafted 1 day ago from the award raised by Prashant Joshi\./)).toBeInTheDocument();
   });
 
   test("V1 never asks who else can initiate", async () => {
@@ -212,6 +212,13 @@ describe("initiate guide — V2 / V3 / nobody", () => {
     expect(guide(container)).toHaveClass("danger");
     expect(screen.getByText(/Nobody at IRA Bhavnagar can initiate purchase orders\. Ask your administrator to give someone the PO Initiator or Commercial Approver role for IRA Bhavnagar\./)).toBeInTheDocument();
     expect(screen.getByText(/Admin note: this needs awarding · create on this business unit\./)).toBeInTheDocument();
+  });
+
+  test("zero initiators and no hotel name: 'this business unit', as on the PO page", async () => {
+    getPOInitiators.mockResolvedValue(answer({ initiators: [], total: 0 }));
+    render_([draft()], { canInitiate: false, rfq: { hotel_name: null } });
+    expect(await screen.findByText("No one can initiate this purchase order yet")).toBeInTheDocument();
+    expect(screen.getByText(/Nobody in this business unit can initiate purchase orders\. Ask your administrator to give someone the PO Initiator or Commercial Approver role for this business unit\./)).toBeInTheDocument();
   });
 
   test("a failed lookup renders no guide and costs nothing", async () => {

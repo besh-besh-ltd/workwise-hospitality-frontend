@@ -277,7 +277,7 @@ describe("Ask for info dialog", () => {
     );
     await waitFor(() => expect(getSendBacks).toHaveBeenCalledTimes(2));
     expect(getPODetailFull).toHaveBeenCalledTimes(2);
-    expect(toast.success).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Sent");
   });
 });
 
@@ -291,6 +291,31 @@ describe("when the people cannot be loaded", () => {
     const send = within(screen.getByRole("dialog")).getByRole("button", { name: "Ask for info" });
     expect(send).toBeDisabled();
     expect(createSendBack).not.toHaveBeenCalled();
+  });
+});
+
+// The people fetch is guarded like every other action: a stale page (the step
+// moved on, the PO went away) gets the server's words, a reload and no dialog.
+describe("when the people fetch says the page is stale", () => {
+  it("a 409 toasts the server's message, closes the dialog and reloads", async () => {
+    getSendBackTargets.mockRejectedValue({
+      response: { status: 409, data: { message: "This step is no longer waiting on you.", code: "STEP_NOT_PENDING" } },
+    });
+    await mount();
+    fireEvent.click(firstBtn(/^Ask for info$/));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This step is no longer waiting on you."));
+    await waitFor(() => expect(getPODetailFull).toHaveBeenCalledTimes(2));
+    expect(getSendBacks).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByText("Ask for information")).not.toBeInTheDocument());
+  });
+
+  it("a 404 from the Reject dialog does the same", async () => {
+    getSendBackTargets.mockRejectedValue({ response: { status: 404, data: { message: "Purchase order not found." } } });
+    await mount();
+    fireEvent.click(firstBtn(/^Reject$/));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Purchase order not found."));
+    await waitFor(() => expect(getPODetailFull).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText("Reject this purchase order?")).not.toBeInTheDocument());
   });
 });
 
@@ -412,6 +437,89 @@ describe("while the PO is held", () => {
     await mount();
     expect(screen.queryByText("Questions and rejections")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Approve PO/ })).toBeEnabled();
+  });
+});
+
+// The hold names the person asked to everyone. The person asked is told it is
+// theirs to answer; nobody is told "currently with" an approver who cannot act.
+describe("who the page says a held PO is waiting on", () => {
+  const ASKED = "You were asked for information. Answer below.";
+
+  it("tells the person asked that it is theirs to answer, in the summary and the side card", async () => {
+    mockUser.id = 13; // Chitra Chawla, the target; not an approver
+    mockPerms.canApprove = false;
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount({ awaiting_me: false });
+    await screen.findByLabelText("Your answer");
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(within(hero).getByText(ASKED)).toBeInTheDocument();
+    expect(screen.getAllByText(ASKED)).toHaveLength(2);
+    expect(screen.queryByText(/No action is required from you right now/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/currently with/i)).not.toBeInTheDocument();
+  });
+
+  it("shows anyone else the hold's waiting text, not the approver it is 'currently with'", async () => {
+    mockUser.id = 500;
+    mockPerms.canApprove = false;
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount({ awaiting_me: false });
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    await within(hero).findByText(/Waiting on Chitra Chawla \(Commercial evaluator\)/);
+    expect(screen.queryByText(/currently with/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(ASKED)).not.toBeInTheDocument();
+    expect(screen.getByText(/No action is required from you right now/)).toBeInTheDocument();
+  });
+
+  it("still says 'currently with' when nothing is held", async () => {
+    mockUser.id = 500;
+    mockPerms.canApprove = false;
+    await mount({ awaiting_me: false });
+    expect(screen.getByText(/Pending approval — currently with L3: Vishal Kamat/)).toBeInTheDocument();
+  });
+
+  it("heads a held approver's card 'On hold', not 'Your action required'", async () => {
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount();
+    await screen.findAllByText("Waiting on Chitra Chawla (Commercial evaluator)");
+    expect(screen.queryByText("Your action required")).not.toBeInTheDocument();
+    expect(screen.getByText("On hold")).toBeInTheDocument();
+  });
+
+  it("keeps 'Your action required' when nothing is held", async () => {
+    await mount();
+    expect(screen.getByText("Your action required")).toBeInTheDocument();
+  });
+
+  it("keeps the phone bar's hold line to one line, with the full text in its title", async () => {
+    getSendBacks.mockResolvedValue([hold()]);
+    await mount();
+    const region = await screen.findByRole("region", { name: "PO decision" });
+    const line = within(region).getByText("Waiting on Chitra Chawla (Commercial evaluator)");
+    expect(line).toHaveAttribute("title", "Waiting on Chitra Chawla (Commercial evaluator)");
+    expect(line.className).toMatch(/waitingBar/);
+  });
+});
+
+// Until the thread has loaded the page cannot know whether the PO is held, so
+// it must not offer Approve or say the PO is waiting on this viewer yet.
+describe("before the thread has loaded", () => {
+  it("keeps the decision buttons disabled and says nothing about waiting on you", async () => {
+    getSendBacks.mockReturnValue(new Promise(() => {}));
+    getPODetailFull.mockResolvedValue(po());
+    render(<PODetail id="605" />);
+    await screen.findByText("Items & pricing");
+    expect(screen.getByRole("button", { name: /Approve PO/ })).toBeDisabled();
+    screen.getAllByRole("button", { name: /^Reject$/ }).forEach((b) => expect(b).toBeDisabled());
+    screen.getAllByRole("button", { name: /^Ask for info$/ }).forEach((b) => expect(b).toBeDisabled());
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).not.toHaveTextContent(/Waiting on you for approval/);
+  });
+
+  it("enables them once the thread is in", async () => {
+    await mount();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Approve PO/ })).toBeEnabled());
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero).toHaveTextContent(/Waiting on you for approval/);
   });
 });
 

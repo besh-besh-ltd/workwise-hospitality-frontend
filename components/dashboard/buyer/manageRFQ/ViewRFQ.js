@@ -620,13 +620,16 @@ const ProductCard = ({
 
 // Stage text for PO_REJECTED. The newest approver rejection (rows arrive newest
 // first) names the reason; its comment rides the hover title and a secondary
-// line. Without rows or a reason it is just the stage label.
+// line. Without rows or a reason it is just the stage label. An approver's
+// "Not needed any more" cancels the PO (route CANCEL): not a rejection.
 function PoRejectedStage({ rows }) {
   const r = (Array.isArray(rows) ? rows : []).find((x) => x?.rejection_type === "approver");
   const label = r?.reason_category ? reasonLabel(r.reason_category) : null;
   return (
     <span className="kv-v" title={r?.rejection_reason || undefined}>
-      {label ? `PO rejected: ${label}` : "PO rejected by approver"}
+      {r?.route === "CANCEL"
+        ? `PO ${r.po_number || r.po_id} cancelled: not needed any more`
+        : label ? `PO rejected: ${label}` : "PO rejected by approver"}
       {r?.rejection_reason && (
         <span style={{ display: "block", fontSize: 11, fontStyle: "italic", fontWeight: 400 }}>“{r.rejection_reason}”</span>
       )}
