@@ -23,6 +23,7 @@ import {
   getVendorPoPdf,
 } from "@/services/po";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import VendorRejectionUndo from "./VendorRejectionUndo";
 import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
@@ -295,6 +296,10 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
               )}
             </div>
 
+            {po.status === "rejected_by_vendor" && (
+              <VendorRejectionUndo poId={po.id} poNumber={po.po_number} buyerName={buyerCompany} onDone={refresh} />
+            )}
+
             {awaitingMe && (
               <div className={styles.heroWaiting}>
                 <span className={styles.clockIc}>
@@ -323,7 +328,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                 {/* heroDecisionBtn: hidden on phones, where the sticky bar
                     at the bottom carries the same actions. */}
                 <button
-                  className={`${styles.btn} ${styles.btnDangerStrong} ${styles.heroDecisionBtn}`}
+                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnDangerQuiet} ${styles.heroDecisionBtn}`}
                   type="button"
                   disabled={submitting}
                   onClick={openReject}
@@ -760,14 +765,14 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         isOpen={rejectOpen}
         onClose={() => setRejectOpen(false)}
         onConfirm={confirmReject}
-        title="Reject Purchase Order"
-        description={`Are you sure you want to reject PO #${escapeHtml(
+        title="Reject this purchase order?"
+        description={`Rejecting PO #${escapeHtml(
           po.po_number || ""
         )}${
           rfqIdentity(rfq) ? ` for ${escapeHtml(rfqIdentity(rfq))}` : ""
-        }? The buyer will be notified and will need to finalize another vendor.`}
+        } cancels the order and the buyer will look for another vendor. If you meant to accept it, press Cancel. You can undo a rejection for 24 hours, as long as the buyer hasn't given the order to someone else.`}
         confirmButtonColor="danger"
-        confirmButtonText="Reject PO"
+        confirmButtonText="Yes, reject order"
         cancelButtonText="Cancel"
         customFooter={
           <div style={{ marginTop: 4 }}>

@@ -266,6 +266,7 @@
   &:focus-visible { box-shadow: var(--ring-danger); }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
+.btnDangerQuiet { color: var(--danger); border-color: #fecaca; background: var(--surface); }
 .btnSecondary { background: var(--surface); border-color: var(--border-strong); color: var(--fg);
   &:hover:not(:disabled) { background: var(--surface-3); }
 }

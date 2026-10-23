@@ -134,6 +134,12 @@ export const handleRejectPO = async (po_id, reason) => {
   return res;
 };
 
+// REQ-0032: undo a mistaken vendor rejection / buyer send-back.
+export const getVendorRejectionUndo = (poId) => axiosInstance.get(`/po/vendor/${poId}/rejection-undo`);
+export const withdrawVendorRejection = (poId) => axiosInstance.post(`/po/vendor/${poId}/withdraw-rejection`);
+export const getPoReinstateState = (poId) => axiosInstance.get(`/po/${poId}/reinstate`);
+export const reinstatePo = (poId, note) => axiosInstance.post(`/po/${poId}/reinstate`, { note });
+
 /* ─────────────────────────────────────────────────────────────────────────
    New Purchase Order dashboard module (cross-RFQ aggregation endpoints).
    Powers /dashboard/buyer/purchase-orders (Dashboard / Detail / Tracking /

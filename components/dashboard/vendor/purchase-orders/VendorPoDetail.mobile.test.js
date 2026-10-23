@@ -27,6 +27,8 @@ jest.mock("@/services/po", () => ({
   handleRaiseInvoice: jest.fn(() => Promise.resolve({})),
   handleMarkDispatched: jest.fn(() => Promise.resolve({})),
   getVendorPoPdf: jest.fn(() => Promise.resolve({})),
+  getVendorRejectionUndo: jest.fn(() => Promise.resolve({ data: { status: 1, data: { available: false, deadline: null, blockers: [] } } })),
+  withdrawVendorRejection: jest.fn(() => Promise.resolve({})),
 }));
 jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
   __esModule: true,
@@ -36,7 +38,7 @@ jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { handleAcceptPO, handleRejectPO, handleMarkDispatched } from "@/services/po";
+import { handleAcceptPO, handleRejectPO, handleMarkDispatched, getVendorRejectionUndo } from "@/services/po";
 import VendorPoDetail from "./VendorPoDetail";
 
 // PO #138898 as the vendor (uid 926) sees it: ₹65,35,100, awaiting acceptance.
@@ -96,16 +98,40 @@ describe("vendor phone action bar — a new order", () => {
     fireEvent.click(within(await bar()).getByRole("button", { name: /Reject/ }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("Reject Purchase Order");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Reject PO" }));
+    expect(dialog).toHaveTextContent("Reject this purchase order?");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, reject order" }));
     expect(await within(dialog).findByText(/provide a reason/i)).toBeInTheDocument();
     expect(handleRejectPO).not.toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByPlaceholderText(/reason for rejecting/i), {
       target: { value: "Cannot meet the delivery date" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Reject PO" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, reject order" }));
     await waitFor(() => expect(handleRejectPO).toHaveBeenCalledWith(626, "Cannot meet the delivery date"));
+  });
+
+  it("reject confirm warns that rejection cancels the order and that undo lasts 24 hours", async () => {
+    mount();
+    fireEvent.click(within(await bar()).getByRole("button", { name: /Reject/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("cancels the order");
+    expect(dialog).toHaveTextContent("If you meant to accept it, press Cancel");
+    expect(dialog).toHaveTextContent("You can undo a rejection for 24 hours");
+  });
+
+  it("desktop Reject is the quiet style, not the strong red", () => {
+    mount();
+    const hero = within(screen.getByRole("heading", { level: 1 }).closest("section"));
+    const cls = hero.getByRole("button", { name: /^Reject/ }).className;
+    expect(cls).toContain("btnSecondary");
+    expect(cls).toContain("btnDangerQuiet");
+    expect(cls).not.toContain("btnDangerStrong");
+  });
+
+  it("a rejected PO mounts the undo panel in the hero", async () => {
+    getVendorRejectionUndo.mockResolvedValueOnce({ data: { status: 1, data: { available: true, deadline: "2026-10-24T10:30:00.000Z", blockers: [] } } });
+    mount({ status: "rejected_by_vendor" });
+    expect(await screen.findByText("Rejected by mistake?")).toBeInTheDocument();
   });
 
   it("marks the hero's own Reject / Accept for hiding on phones, but not Download PO", () => {
