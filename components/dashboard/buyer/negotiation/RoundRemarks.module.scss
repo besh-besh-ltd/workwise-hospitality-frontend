@@ -1,0 +1,30 @@
+.callout {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: #f7f7f5;
+  border: 1px solid #e8e8e3;
+  border-left: 3px solid #1f2937;
+  border-radius: 6px;
+  max-width: 100%;
+}
+
+.heading {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.by {
+  font-weight: 400;
+  color: #71717a;
+}
+
+.body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3f3f46;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

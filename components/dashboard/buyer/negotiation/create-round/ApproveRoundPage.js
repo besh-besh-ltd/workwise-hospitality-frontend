@@ -16,6 +16,7 @@ import ApprovalActionModal from '../../approval/ApprovalActionModal';
 import StepReview from './StepReview';
 import MobileActionBar, { MobileActionButton } from '@/components/shared/mobile/MobileActionBar';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
+import RoundRemarks from '../RoundRemarks';
 import styles from './CreateRound.module.scss';
 import { getApiErrorMessage } from '@/utils/apiError';
 
@@ -344,6 +345,7 @@ const ApproveRoundPage = () => {
                         {round.created_at ? ` · ${formatNegotiationDateTime(round.created_at)}` : ''}
                       </span>
                     </p>
+                    <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
                     {(approvers.length > 0 || removedApprovers.length > 0) && (
                       <div className={styles.approveJourney}>
                         {approvers.map((a) => (

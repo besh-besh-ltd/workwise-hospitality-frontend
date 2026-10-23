@@ -639,6 +639,9 @@ const StepReview = ({
   onRemoveQueuedRound,
   onEditQueuedRound,
   mode = 'product',
+  // Optional internal note for approvers (editable only in the wizard).
+  remarks = '',
+  onRemarksChange,
   // Read-only review (approval page): end date renders as static text,
   // validation errors are suppressed. Default keeps wizard behavior intact.
   readOnly = false,
@@ -867,6 +870,24 @@ const StepReview = ({
               </p>
             )}
           </>
+        )}
+        {!readOnly && (
+          <div style={{ marginTop: 16 }}>
+            <label htmlFor="round-remarks" className={styles.endDateTitle} style={{ display: 'block' }}>Remarks for approvers</label>
+            <p className={styles.endDateHint}>
+              Why is this round being raised? Approvers and your team will see this. Vendors never do.
+            </p>
+            <textarea
+              id="round-remarks"
+              value={remarks || ''}
+              onChange={(e) => onRemarksChange && onRemarksChange(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
+              className={styles.remarksTextarea}
+            />
+            <p className={styles.remarksCounter}>{(remarks || '').length}/1000</p>
+          </div>
         )}
         <div className={styles.reviewKeyValue} style={{ marginTop: 16 }}>
           <span className={styles.reviewKey}>Negotiation fields</span>

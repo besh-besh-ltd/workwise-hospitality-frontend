@@ -58,6 +58,7 @@ import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
+import RoundRemarks from './RoundRemarks';
 import styles from './NegotiationUI.module.scss';
 
 ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
@@ -1935,6 +1936,7 @@ const NegotiationModal = ({
                               </div>
                             )}
                           </div>
+                          <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
 
                           {/* Vendors in this round */}
                           {round.vendors && round.vendors.length > 0 && (
@@ -2193,6 +2195,7 @@ const NegotiationModal = ({
                         </div>
                       </div>
 
+                      <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>
@@ -2394,6 +2397,7 @@ const NegotiationModal = ({
                           )}
                         </div>
                       </div>
+                      <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>

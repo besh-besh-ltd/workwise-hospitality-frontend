@@ -86,3 +86,22 @@ it("falls back to per-product status when the bundle is unavailable", async () =
   await waitFor(() => expect(screen.getByText("Approved")).toBeInTheDocument());
   expect(getQuoteApprovalStatus).toHaveBeenCalledTimes(3);
 });
+
+// ── REQ-0026: remarks survive the wizard's resets (state lives outside formData)
+describe("round remarks state", () => {
+  const { renderHook, act } = require("@testing-library/react");
+  const useCreateRoundState = require("./useCreateRoundState").default;
+
+  it("remarks survive switching mode and queuing another product", () => {
+    const { result } = renderHook(() => useCreateRoundState({ products: PRODUCTS }));
+    expect(result.current.roundRemarks).toBe("");
+    act(() => result.current.setRoundRemarks("keep me"));
+    act(() => result.current.setMode("rfq"));
+    expect(result.current.roundRemarks).toBe("keep me");
+    act(() => result.current.setMode("product"));
+    act(() => result.current.resetForAnotherProduct());
+    expect(result.current.roundRemarks).toBe("keep me");
+    act(() => result.current.cancelCurrentRound());
+    expect(result.current.roundRemarks).toBe("keep me");
+  });
+});

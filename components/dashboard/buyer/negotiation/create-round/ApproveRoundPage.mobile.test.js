@@ -66,6 +66,7 @@ const bundle = ({ pending = true } = {}) => ({
       end_date: "2026-08-13 07:00:00",
       created_at: "2026-08-12 07:05:35",
       created_by_name: "Asha Menon",
+      creator_remarks: "Vendor quoted 12% above last round",
       rfq_product_id: null,
       product_names: [
         { rfq_product_id: LINE_A, product_name: "Bath towel 500gsm" },
@@ -107,7 +108,7 @@ const renderPage = async (opts) => {
   approveNegotiationRound.mockResolvedValue({ status: 1, data: { published: true } });
   rejectNegotiationRound.mockResolvedValue({ status: 1 });
   const utils = render(<ApproveRoundPage />);
-  await screen.findByText(opts?.pending === false ? /No rounds awaiting your approval/ : /Asha Menon/);
+  await screen.findByText(opts?.pending === false ? /No rounds awaiting your approval/ : /created by Asha Menon/);
   return utils;
 };
 
@@ -219,5 +220,13 @@ describe("withhold-row target label", () => {
     expect(fieldTargetLabel({ name: "base_price", tax_demand: "590.4" })).toBe("base_price 590.4 (incl. tax)");
     expect(fieldTargetLabel({ name: "base_price", target: 500 })).toBe("base_price 500");
     expect(fieldTargetLabel({ name: "delivery_period" })).toBe("delivery_period");
+  });
+});
+
+describe("creator's remarks on the phone layout", () => {
+  it("ApproveRoundPage shows the creator's remarks on the pending round (phone)", async () => {
+    await renderPage();
+    expect(screen.getByText("Creator's remarks")).toBeInTheDocument();
+    expect(screen.getByText("Vendor quoted 12% above last round")).toBeInTheDocument();
   });
 });

@@ -1106,3 +1106,17 @@ describe("phone — the approver's decision is one thumb away", () => {
     expect(phoneBar()).not.toBeInTheDocument();
   });
 });
+
+describe("creator's remarks", () => {
+  it("round detail shows remarks", async () => {
+    await renderPage(mkPayload({ round: { creator_remarks: "Push on freight" } }));
+    expect(screen.getByText("Creator's remarks")).toBeInTheDocument();
+    expect(screen.getByText("Push on freight")).toBeInTheDocument();
+    expect(screen.getByText(/— Asha Menon/)).toBeInTheDocument();
+  });
+
+  it("shows nothing when there are no remarks", async () => {
+    await renderPage(mkPayload());
+    expect(screen.queryByText("Creator's remarks")).not.toBeInTheDocument();
+  });
+});

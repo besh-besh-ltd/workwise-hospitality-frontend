@@ -33,7 +33,7 @@ jest.mock("@/services/pricing", () => ({
 }));
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import StepReview from "./StepReview";
@@ -201,5 +201,41 @@ describe("THE SEAM — one component, two shapes, and they must not be confused"
     // In every zone: what is stored and what is shown are the same instant.
     const storedUtc = new Date(2026, 7, 13, 12, 30).toISOString();
     expect(hint).toContain(storedUtc.slice(11, 16));
+  });
+});
+
+// ── REQ-0026: optional internal remarks for approvers ──────────────────────
+
+describe("remarks for approvers", () => {
+  it("renders an optional remarks textarea with a 1000 limit and counter", () => {
+    renderWizard(LOCAL_END, { remarks: "abc", onRemarksChange: jest.fn() });
+    expect(screen.getByText("Remarks for approvers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Why is this round being raised? Approvers and your team will see this. Vendors never do.")
+    ).toBeInTheDocument();
+    const ta = screen.getByLabelText("Remarks for approvers");
+    expect(ta.tagName).toBe("TEXTAREA");
+    expect(ta).toHaveAttribute("maxlength", "1000");
+    expect(ta).toHaveValue("abc");
+    expect(screen.getByText("3/1000")).toBeInTheDocument();
+  });
+
+  it("tolerates remarks={null}: empty textarea and 0/1000 counter", () => {
+    renderWizard(LOCAL_END, { remarks: null, onRemarksChange: jest.fn() });
+    expect(screen.getByLabelText("Remarks for approvers")).toHaveValue("");
+    expect(screen.getByText("0/1000")).toBeInTheDocument();
+  });
+
+  it("typing calls onRemarksChange", () => {
+    const onRemarksChange = jest.fn();
+    renderWizard(LOCAL_END, { remarks: "", onRemarksChange });
+    fireEvent.change(screen.getByPlaceholderText(/Negotiated at unit level/), { target: { value: "hello" } });
+    expect(onRemarksChange).toHaveBeenCalledWith("hello");
+  });
+
+  it("readOnly StepReview renders no textarea", () => {
+    renderReadOnly();
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(screen.queryByText("Remarks for approvers")).toBeNull();
   });
 });

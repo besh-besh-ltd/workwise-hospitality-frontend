@@ -328,6 +328,7 @@ const CreateRoundPage = () => {
         rfq_id: rfqId,
         end_date: sharedEndDate,
         products,
+        creator_remarks: (wizard.roundRemarks || '').trim() || null,
       });
     } catch (error) {
       console.error('Create round error:', error);
@@ -638,6 +639,8 @@ const CreateRoundPage = () => {
             onEditQueuedRound={handleEditQueuedRound}
             chargeNamesList={chargeNamesList}
             mode={wizard.mode}
+            remarks={wizard.roundRemarks}
+            onRemarksChange={wizard.setRoundRemarks}
           />
         )}
       </div>
