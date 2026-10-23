@@ -34,6 +34,7 @@ import VendorStatusCell from "./VendorStatusCell";
 import MissingCostIndicator from "./MissingCostIndicator";
 import RegretStateCell from "./RegretStateCell";
 import EmptyValue from "./EmptyValue";
+import { SendBackLink } from "@/components/dashboard/buyer/purchase-orders/VendorRejectionRecovery";
 import styles from "./QuoteCompareTables.module.scss";
 import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
@@ -1268,6 +1269,8 @@ const ProductComparisonMatrix = ({
                 )}
               </div>
             )}
+
+            {!isApproverRejection && <SendBackLink poId={latestRejection.po_id} color={palette.titleColor} />}
 
             {(() => {
               if (noAlternatives) {
