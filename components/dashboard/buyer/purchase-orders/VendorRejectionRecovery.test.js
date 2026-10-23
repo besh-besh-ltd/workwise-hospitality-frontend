@@ -116,6 +116,60 @@ describe("VendorRejectionRecovery", () => {
     expect(screen.queryByRole("button", { name: "Send back to vendor" })).not.toBeInTheDocument();
   });
 
+  test("not permitted on a call-off PO names the material-requisition permission", async () => {
+    getPoReinstateState.mockResolvedValue(state({ permitted: false, available: false }));
+    mount({ isCallOff: true });
+    expect(
+      await screen.findByText(
+        "Only users with material-requisition · create on the requisition's hotel can send it back to the vendor."
+      )
+    ).toBeInTheDocument();
+  });
+
+  test("the send-back dialog has an accessible name and the note is described by help text and error", async () => {
+    getPoReinstateState.mockResolvedValue(state());
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Send back to vendor" }));
+    expect(screen.getByRole("dialog", { name: "Send PO #138898 back to the vendor" })).toBeInTheDocument();
+    const ta = screen.getByLabelText(NOTE_LABEL);
+    expect(ta).toHaveAttribute("aria-describedby", "po-send-back-help");
+    fireEvent.change(ta, { target: { value: " " } });
+    fireEvent.click(screen.getByTestId("send-back-confirm"));
+    await screen.findByRole("alert");
+    expect(ta).toHaveAttribute("aria-invalid", "true");
+    expect(ta).toHaveAttribute("aria-describedby", "po-send-back-help po-send-back-error");
+    expect(document.getElementById("po-send-back-help")).toHaveTextContent("The vendor won't see this note.");
+    expect(document.getElementById("po-send-back-error")).toHaveTextContent("Add a note saying why");
+  });
+
+  test("a 400 keeps the modal open and the note, and shows the server message inline", async () => {
+    getPoReinstateState.mockResolvedValue(state());
+    reinstatePo.mockRejectedValue({
+      response: { status: 400, data: { status: 0, code: "NOTE_TOO_LONG", message: "Note is too long." } },
+    });
+    const onReinstated = mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Send back to vendor" }));
+    fireEvent.change(screen.getByLabelText(NOTE_LABEL), { target: { value: "my careful note" } });
+    fireEvent.click(screen.getByTestId("send-back-confirm"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Note is too long.");
+    expect(screen.getByRole("dialog", { name: "Send PO #138898 back to the vendor" })).toBeInTheDocument();
+    expect(screen.getByLabelText(NOTE_LABEL)).toHaveValue("my careful note");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(onReinstated).not.toHaveBeenCalled();
+  });
+
+  test("a non-400 failure toasts, closes the modal and reloads state", async () => {
+    getPoReinstateState.mockResolvedValue(state());
+    reinstatePo.mockRejectedValue({ response: { status: 409, data: { status: 0, code: "PRODUCT_REAWARDED", message: "Re-awarded." } } });
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Send back to vendor" }));
+    fireEvent.change(screen.getByLabelText(NOTE_LABEL), { target: { value: "x" } });
+    fireEvent.click(screen.getByTestId("send-back-confirm"));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Re-awarded."));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(getPoReinstateState).toHaveBeenCalledTimes(2);
+  });
+
   test("renders nothing when the state fails to load", async () => {
     getPoReinstateState.mockRejectedValue(new Error("x"));
     const { container } = render(<VendorRejectionRecovery poId={1} poNumber="1" onReinstated={() => {}} />);

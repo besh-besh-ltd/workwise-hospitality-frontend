@@ -27,7 +27,7 @@ export const SendBackLink = ({ poId, color = "inherit" }) => {
   );
 };
 
-const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
+const VendorRejectionRecovery = ({ poId, poNumber, isCallOff = false, onReinstated }) => {
   const [state, setState] = useState(null); // null = loading / error -> render nothing
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -78,6 +78,11 @@ const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
       await reinstatePo(poId, trimmed);
       done = true;
     } catch (e) {
+      if (e?.response?.status === 400) {
+        // NOTE_REQUIRED / NOTE_TOO_LONG: keep the modal open and the typed note.
+        if (alive.current) setError(e?.response?.data?.message || "Check the note and try again.");
+        return;
+      }
       toast.error(e?.response?.data?.message || e?.message || "Couldn't send this order back.");
       if (alive.current) setOpen(false);
       await load();
@@ -117,7 +122,9 @@ const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
 
   let body;
   if (!state.permitted) {
-    body = "Only users with quote-compare · create on this business unit can send it back to the vendor.";
+    body = `Only users with ${
+      isCallOff ? "material-requisition · create on the requisition's hotel" : "quote-compare · create on this business unit"
+    } can send it back to the vendor.`;
   } else if (!state.available) {
     body = `This order can't be sent back: ${recoveryBlockerMessage(blockers[0])}`;
   } else {
@@ -145,6 +152,7 @@ const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
       <Modal
         isOpen={open}
         onRequestClose={close}
+        contentLabel={`Send PO #${poNumber} back to the vendor`}
         ariaHideApp={false}
         style={{
           overlay: { backgroundColor: "rgba(15,23,42,0.5)", zIndex: 2000 },
@@ -157,6 +165,7 @@ const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
         </label>
         <textarea
           id="po-send-back-note"
+          aria-describedby={error ? "po-send-back-help po-send-back-error" : "po-send-back-help"}
           className="form-control"
           rows={4}
           maxLength={NOTE_MAX}
@@ -169,11 +178,11 @@ const VendorRejectionRecovery = ({ poId, poNumber, onReinstated }) => {
           aria-invalid={error ? "true" : "false"}
         />
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", marginTop: 4 }}>
-          <span>The vendor won&apos;t see this note.</span>
+          <span id="po-send-back-help">The vendor won&apos;t see this note.</span>
           <span>{`${note.length}/${NOTE_MAX}`}</span>
         </div>
         {error && (
-          <div role="alert" style={{ color: "#b91c1c", fontSize: 12.5, marginTop: 6 }}>
+          <div id="po-send-back-error" role="alert" style={{ color: "#b91c1c", fontSize: 12.5, marginTop: 6 }}>
             {error}
           </div>
         )}

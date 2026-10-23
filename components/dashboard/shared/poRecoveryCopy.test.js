@@ -30,4 +30,10 @@ describe("recoveryBlockerMessage", () => {
       expect(m).not.toBe(fallback);
     });
   });
+
+  it("says a newer PO was raised (it blocks even if that PO is cancelled/rejected)", () => {
+    expect(recoveryBlockerMessage("REPLACEMENT_PO_EXISTS")).toBe(
+      "A newer purchase order has been raised for some items on this order."
+    );
+  });
 });

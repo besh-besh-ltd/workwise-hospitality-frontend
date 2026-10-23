@@ -840,7 +840,7 @@ const PODetail = ({ id }) => {
               </div>
             )}
             {po.status === "rejected_by_vendor" && (
-              <VendorRejectionRecovery poId={id} poNumber={po.po_number} onReinstated={fetchDetail} />
+              <VendorRejectionRecovery poId={id} poNumber={po.po_number} isCallOff={isCallOff} onReinstated={fetchDetail} />
             )}
             {po.status === "draft" && canWrite && (
               <div className={styles.heroPendingNote}>

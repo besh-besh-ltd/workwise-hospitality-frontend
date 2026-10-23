@@ -4,7 +4,7 @@ const COPY = {
   UNDO_WINDOW_EXPIRED: "The 24-hour window to undo has passed.",
   RFQ_CLOSED: "The RFQ has been closed.",
   PRODUCT_REAWARDED: "Some items on this order have been awarded to another vendor.",
-  REPLACEMENT_PO_EXISTS: "A newer purchase order already covers some items on this order.",
+  REPLACEMENT_PO_EXISTS: "A newer purchase order has been raised for some items on this order.",
   AWARD_APPROVAL_PENDING: "A new award for some items is waiting for approval.",
   NEGOTIATION_IN_PROGRESS: "A negotiation round is open or awaiting approval for some items.",
   VENDOR_NOT_QUALIFIED: "The vendor no longer passes the technical evaluation for some items.",
