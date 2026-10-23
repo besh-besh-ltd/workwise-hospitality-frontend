@@ -671,6 +671,31 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   }
 }
 
+.remarksTextarea {
+  width: 100%;
+  max-width: 640px;
+  padding: 10px 14px;
+  border: 1px solid $divider-strong;
+  border-radius: 8px;
+  font-size: 14px;
+  background: $surface;
+  outline: none;
+  resize: vertical;
+
+  &:focus {
+    border-color: $primary-soft;
+    box-shadow: $ring;
+  }
+}
+
+.remarksCounter {
+  font-size: 12px;
+  color: $ink-soft;
+  margin: 4px 0 0;
+  max-width: 640px;
+  text-align: right;
+}
+
 .endDateInputError {
   border-color: $danger !important;
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;

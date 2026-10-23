@@ -31,6 +31,9 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     negotiation_fields: [],
   });
   const [endDateError, setEndDateError] = useState(false);
+  // Internal note for approvers. Deliberately NOT in formData: the mode /
+  // queue / cancel resets rebuild formData and would silently drop it.
+  const [roundRemarks, setRoundRemarks] = useState('');
   const [showTargetWarning, setShowTargetWarning] = useState(false);
   // Local queue of completed-but-not-yet-submitted rounds. Each entry is a
   // ready-to-send `createNegotiationRound` payload + display metadata.
@@ -458,6 +461,8 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     selectedVendorIds,
     vendorTargets,
     formData,
+    roundRemarks,
+    setRoundRemarks,
     effectiveFields,
     showTargetWarning,
     endDateError,
