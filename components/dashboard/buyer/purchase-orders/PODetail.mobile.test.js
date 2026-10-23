@@ -50,6 +50,14 @@ jest.mock("@/services/po", () => ({
   handlePOApproval: jest.fn(() => Promise.resolve({ message: "PO approved successfully" })),
   handlePOInitialization: jest.fn(() => Promise.resolve({})),
 }));
+jest.mock("@/services/poSendBack", () => ({
+  __esModule: true,
+  getSendBacks: jest.fn(() => Promise.resolve([])),
+  getSendBackTargets: jest.fn(() => Promise.resolve({ targets: [] })),
+  createSendBack: jest.fn(() => Promise.resolve({})),
+  respondToSendBack: jest.fn(() => Promise.resolve({})),
+  withdrawSendBack: jest.fn(() => Promise.resolve({})),
+}));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
   previewTotals: jest.fn(() => Promise.resolve(null)),
@@ -221,8 +229,42 @@ describe("phone Reject", () => {
     fireEvent.click(within(await bar()).getByRole("button", { name: "Reject purchase order" }));
 
     expect(await screen.findByText("Reject this purchase order?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reject PO" })).toBeDisabled();
+    // A reason is required, but it is checked on submit with a visible message.
+    fireEvent.click(screen.getByRole("button", { name: "Reject PO" }));
     expect(handlePOApproval).not.toHaveBeenCalled();
+    expect(await screen.findByText("Choose a reason.")).toBeInTheDocument();
+    expect(screen.getByText("Write why you are rejecting this PO.")).toBeInTheDocument();
+    expect(handlePOApproval).not.toHaveBeenCalled();
+  });
+});
+
+// The desktop Force Initiate is amber (btnWarnStrong) because initiating a
+// partial draft freezes it. The phone bar used the green approve variant, so
+// the same irreversible action read as the safe one on a phone.
+describe("phone Initiate bar", () => {
+  const initiateBar = () => screen.findByRole("region", { name: "Initiate purchase order" });
+  const draft = (over = {}) => ({
+    status: "draft",
+    status_label: "Draft",
+    awaiting_me: false,
+    can_initiate: true,
+    ...over,
+  });
+
+  it("shows a partial draft's Force Initiate in amber, like the desktop button", async () => {
+    await mount(draft({ initiate_kind: "partial", covers_all_products: false }));
+    const btn = within(await initiateBar()).getByRole("button", { name: "Force initiate purchase order" });
+    expect(btn).toHaveTextContent("Force Initiate");
+    expect(btn.className).toMatch(/\bwarn\b/);
+    expect(btn.className).not.toMatch(/\bapprove\b/);
+  });
+
+  it("keeps a plain Initiate green", async () => {
+    await mount(draft({ initiate_kind: "complete" }));
+    const btn = within(await initiateBar()).getByRole("button", { name: "Initiate purchase order" });
+    expect(btn).toHaveTextContent(/^Initiate$/);
+    expect(btn.className).toMatch(/\bapprove\b/);
+    expect(btn.className).not.toMatch(/\bwarn\b/);
   });
 });
 
@@ -306,5 +348,18 @@ describe("phone CSS contract (PurchaseOrders.module.scss)", () => {
 
   it("reserves room for the taller (summary + buttons) bar", () => {
     expect(phone).toMatch(/--mobile-action-bar-h:\s*\d+px/);
+  });
+});
+
+// The bar's `warn` variant must be the same amber as the desktop Force
+// Initiate (PurchaseOrders.module.scss --warn: #b45309, rgb(180, 83, 9)).
+describe("phone CSS contract (MobileActionBar.module.css)", () => {
+  const css = fs.readFileSync(
+    path.join(process.cwd(), "components/shared/mobile/MobileActionBar.module.css"),
+    "utf8"
+  );
+
+  it("defines an amber warn variant matching the desktop Force Initiate", () => {
+    expect(css).toMatch(/\.warn\s*{[^}]*background:\s*#b45309;[^}]*color:\s*#ffffff;/);
   });
 });
