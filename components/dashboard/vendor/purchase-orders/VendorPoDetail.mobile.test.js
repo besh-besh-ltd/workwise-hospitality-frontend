@@ -27,7 +27,7 @@ jest.mock("@/services/po", () => ({
   handleRaiseInvoice: jest.fn(() => Promise.resolve({})),
   handleMarkDispatched: jest.fn(() => Promise.resolve({})),
   getVendorPoPdf: jest.fn(() => Promise.resolve({})),
-  getVendorRejectionUndo: jest.fn(() => Promise.resolve({ data: { status: 1, data: { available: false, deadline: null, blockers: [] } } })),
+  getVendorRejectionUndo: jest.fn(() => Promise.resolve({ status: 1, data: { available: false, deadline: null, blockers: [] } })),
   withdrawVendorRejection: jest.fn(() => Promise.resolve({})),
 }));
 jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
@@ -129,7 +129,7 @@ describe("vendor phone action bar — a new order", () => {
   });
 
   it("a rejected PO mounts the undo panel in the hero", async () => {
-    getVendorRejectionUndo.mockResolvedValueOnce({ data: { status: 1, data: { available: true, deadline: "2026-10-24T10:30:00.000Z", blockers: [] } } });
+    getVendorRejectionUndo.mockResolvedValueOnce({ status: 1, data: { available: true, deadline: "2026-10-24T10:30:00.000Z", blockers: [] } });
     mount({ status: "rejected_by_vendor" });
     expect(await screen.findByText("Rejected by mistake?")).toBeInTheDocument();
   });

@@ -9,14 +9,15 @@ jest.mock("@/services/po", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import { getVendorRejectionUndo, withdrawVendorRejection } from "@/services/po";
 import VendorRejectionUndo from "./VendorRejectionUndo";
 
 const avail = (over = {}) => ({
-  data: { status: 1, data: { available: true, deadline: "2026-10-24T10:30:00.000Z", blockers: [], ...over } },
+  status: 1,
+  data: { available: true, deadline: "2026-10-24T10:30:00.000Z", blockers: [], ...over },
 });
 
 const mount = (props = {}) => {
@@ -40,7 +41,7 @@ describe("VendorRejectionUndo", () => {
 
   it("confirming calls withdrawVendorRejection then onDone", async () => {
     getVendorRejectionUndo.mockResolvedValue(avail());
-    withdrawVendorRejection.mockResolvedValue({ data: { status: 1 } });
+    withdrawVendorRejection.mockResolvedValue({ status: 1, message: "ok" });
     const onDone = mount();
     fireEvent.click(await screen.findByRole("button", { name: "Accept this order instead" }));
     const dialog = await screen.findByRole("dialog");
@@ -72,6 +73,7 @@ describe("VendorRejectionUndo", () => {
     getVendorRejectionUndo.mockRejectedValue(new Error("boom"));
     mount();
     await waitFor(() => expect(getVendorRejectionUndo).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(screen.queryByText(/mistake/i)).not.toBeInTheDocument();
   });
 
@@ -89,5 +91,33 @@ describe("VendorRejectionUndo", () => {
     await waitFor(() => expect(getVendorRejectionUndo).toHaveBeenCalledTimes(2));
     expect(onDone).not.toHaveBeenCalled();
     expect(await screen.findByText(/Contact Kamat Hotels/)).toBeInTheDocument();
+  });
+
+  it("a double-click on confirm withdraws only once", async () => {
+    getVendorRejectionUndo.mockResolvedValue(avail());
+    let release;
+    withdrawVendorRejection.mockImplementation(() => new Promise((r) => { release = r; }));
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Accept this order instead" }));
+    const dialog = await screen.findByRole("dialog");
+    const yes = within(dialog).getByRole("button", { name: "Yes, accept PO" });
+    fireEvent.click(yes);
+    fireEvent.click(yes);
+    await act(async () => { release({ status: 1 }); });
+    expect(withdrawVendorRejection).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed refresh after a successful withdraw is not reported as a failed withdraw", async () => {
+    getVendorRejectionUndo.mockResolvedValue(avail());
+    withdrawVendorRejection.mockResolvedValue({ status: 1 });
+    const onDone = jest.fn(() => Promise.reject(new Error("refresh failed")));
+    mount({ onDone });
+    fireEvent.click(await screen.findByRole("button", { name: "Accept this order instead" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, accept PO" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(toast.success).toHaveBeenCalledWith("PO #138898 accepted.");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(getVendorRejectionUndo).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { getVendorRejectionUndo, withdrawVendorRejection } from "@/services/po";
+import styles, { fmtDateTime } from "@/components/dashboard/buyer/purchase-orders/shared";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import { fmtDateTime } from "@/components/dashboard/buyer/purchase-orders/shared";
 
 // REQ-0032: shown on a vendor-rejected PO. For 24 hours (while the buyer has
 // not given the order to someone else) the vendor can take the rejection back
@@ -11,6 +11,7 @@ const VendorRejectionUndo = ({ poId, poNumber, buyerName, onDone }) => {
   const [state, setState] = useState(null); // null = loading / error -> render nothing
   const [open, setOpen] = useState(false);
   const alive = useRef(true);
+  const submitting = useRef(false);
 
   useEffect(() => {
     alive.current = true;
@@ -22,7 +23,7 @@ const VendorRejectionUndo = ({ poId, poNumber, buyerName, onDone }) => {
   const load = useCallback(async () => {
     try {
       const res = await getVendorRejectionUndo(poId);
-      const d = res?.data?.data;
+      const d = res?.data;
       if (alive.current) setState(d && typeof d === "object" ? d : null);
     } catch {
       if (alive.current) setState(null);
@@ -34,15 +35,26 @@ const VendorRejectionUndo = ({ poId, poNumber, buyerName, onDone }) => {
   }, [load]);
 
   const confirm = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    let withdrawn = false;
     try {
       await withdrawVendorRejection(poId);
-      toast.success(`PO #${poNumber} accepted.`);
-      setOpen(false);
-      if (typeof onDone === "function") await onDone();
+      withdrawn = true;
     } catch (e) {
       toast.error(e?.response?.data?.message || e?.message || "Couldn't accept this order.");
       setOpen(false);
       await load();
+    } finally {
+      submitting.current = false;
+    }
+    if (!withdrawn) return;
+    toast.success(`PO #${poNumber} accepted.`);
+    setOpen(false);
+    try {
+      if (typeof onDone === "function") await onDone();
+    } catch (e) {
+      console.error("Refresh after withdrawing rejection failed:", e);
     }
   };
 
@@ -73,10 +85,7 @@ const VendorRejectionUndo = ({ poId, poNumber, buyerName, onDone }) => {
       <div style={{ margin: "4px 0 10px" }}>
         {`You can still accept this order until ${fmtDateTime(state.deadline)}, as long as the buyer hasn't given it to someone else.`}
       </div>
-      <button type="button" onClick={() => setOpen(true)} style={{
-        padding: "8px 14px", fontSize: 13, fontWeight: 600, color: "#fff",
-        background: "#16a34a", border: "none", borderRadius: 8, cursor: "pointer",
-      }}>
+      <button type="button" className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => setOpen(true)}>
         Accept this order instead
       </button>
       <ConfirmationModal
