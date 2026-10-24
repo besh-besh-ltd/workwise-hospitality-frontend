@@ -1,13 +1,8 @@
 import React from "react";
+import ShortLinkRedirect from "@/components/inventory/scan/ShortLinkRedirect";
 
-// Short-link landing (printed QR labels / SMS). A later task resolves
-// `/inventory/s/resolve?t&id` and redirects to the right screen; for now it is
-// a placeholder.
-const ShortLinkPage = () => (
-  <div className="main-body">
-    <h1 className="page-h1">Inventory</h1>
-    <p>Coming soon</p>
-  </div>
-);
+// Short-link landing for printed QR labels (/s/<t>/<id>). A bare route
+// (components/layout/index.js): no marketing header or footer.
+const ShortLinkPage = () => <ShortLinkRedirect />;
 
 export default ShortLinkPage;
