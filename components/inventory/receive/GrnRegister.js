@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
 import { ChevronLeft, ChevronRight, ClipboardList, Filter, RefreshCw, ScanBarcode, X } from "lucide-react";
 import { listGrns } from "@/services/inventory";
 import { errorInfo, fmtDay, fmtInstant, fmtQty, inr, routes } from "./receiveUtils";
+import { HotelFilter, StatusPill, useHotelOptions } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // GRN register: every goods receipt and reversal at the hotels the user can
@@ -21,24 +21,10 @@ const TABS = [
   { key: "reversed", label: "Reversed" },
   { key: "draft", label: "Drafts" },
 ];
-const STATUS = {
-  draft: { label: "Draft", tone: "pillNeutral" },
-  posted: { label: "Posted", tone: "pillOk" },
-  partially_reversed: { label: "Partly reversed", tone: "pillWarn" },
-  reversed: { label: "Reversed", tone: "pillBad" },
-};
 
 const GrnRegister = () => {
   const router = useRouter();
-  const userProfile = useSelector((state) => state.userProfile);
-  const hotels = useMemo(() => {
-    const seen = new Map();
-    for (const m of userProfile?.hospitality_mappings || []) {
-      if (m?.hospitality_hotel_id == null || seen.has(Number(m.hospitality_hotel_id))) continue;
-      seen.set(Number(m.hospitality_hotel_id), m.hotel_name || `Hotel ${m.hospitality_hotel_id}`);
-    }
-    return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [userProfile]);
+  const hotels = useHotelOptions();
 
   const ready = router.isReady !== false;
   const queryPoId = ready && router.query?.poId && /^\d+$/.test(String(router.query.poId)) ? Number(router.query.poId) : null;
@@ -138,22 +124,7 @@ const GrnRegister = () => {
               ))}
             </div>
             <div className={styles.filterGrow} />
-            {hotels.length > 1 && (
-              <div>
-                <label className={styles.srOnly} htmlFor="grn-hotel">Hotel</label>
-                <select
-                  id="grn-hotel"
-                  className={styles.select}
-                  value={hotelId}
-                  onChange={(e) => resetPage(setHotelId)(e.target.value)}
-                >
-                  <option value="">All my hotels</option>
-                  {hotels.map((h) => (
-                    <option key={h.id} value={String(h.id)}>{h.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <HotelFilter id="grn-hotel" hotels={hotels} value={hotelId} onChange={resetPage(setHotelId)} />
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <label className={styles.srOnly} htmlFor="grn-from">From</label>
               <input
@@ -215,7 +186,6 @@ const GrnRegister = () => {
                 </thead>
                 <tbody>
                   {data.rows.map((r) => {
-                    const s = STATUS[r.status] || { label: r.status, tone: "pillNeutral" };
                     const open = () => router.push(routes.grn(r.id));
                     return (
                       <tr
@@ -249,10 +219,7 @@ const GrnRegister = () => {
                         <td className={styles.num} data-label="Lines">{fmtQty(r.lineCount)}</td>
                         <td className={styles.num} data-label="Value">{r.acceptedValue != null ? inr(r.acceptedValue) : "—"}</td>
                         <td data-label="Status">
-                          <span className={`${styles.pill} ${styles[s.tone]}`}>
-                            <span className={styles.dot} />
-                            {s.label}
-                          </span>
+                          <StatusPill status={r.status} />
                         </td>
                       </tr>
                     );

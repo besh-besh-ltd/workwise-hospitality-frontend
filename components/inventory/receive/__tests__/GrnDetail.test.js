@@ -66,7 +66,7 @@ const grn = (over = {}) => ({
       ],
     },
     {
-      id: 7002, poLineId: 12, productName: "Paneer", poUom: "kg", stockUom: "kg",
+      id: 7002, poLineId: 12, productName: "Paneer", invItemId: 10, itemName: "Paneer", poUom: "kg", stockUom: "kg",
       receivedQty: 5, acceptedQty: 5, rejectedQty: 0, rejectionReason: null, uomFactor: 1, stockQty: 5,
       unitCost: 320, markOutDepartmentName: "Kitchen", batchNo: "LOT-9", expiryDate: "2026-10-30", reversedQty: 0,
       allocations: [{ deliveryId: 5, phaseNo: 1, hotelId: 46, acceptedQty: 5, rejectedQty: 0 }],
@@ -154,7 +154,7 @@ describe("GrnDetail", () => {
   it("reverse sends the reason; NEGATIVE_STOCK names the item and the shortfall", async () => {
     await mount();
     reverseGrn.mockRejectedValueOnce(
-      apiError(409, "NEGATIVE_STOCK", { itemName: "Paneer", shortfall: 3, available: 2, requested: 5 },
+      apiError(409, "NEGATIVE_STOCK", { invItemId: 10, itemName: "Paneer", shortfall: 3, available: 2, requested: 5 },
         "Cannot reverse: 3 of Paneer has already left the store (2 in stock, 5 to reverse)")
     );
     fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
@@ -165,7 +165,9 @@ describe("GrnDetail", () => {
     await waitFor(() =>
       expect(reverseGrn).toHaveBeenCalledWith(900, { reason: "Posted against the wrong PO", lines: "all" })
     );
-    expect(await within(dialog).findByText("3 of Paneer has already left the store")).toBeInTheDocument();
+    // In the item's stock unit.
+    expect(await within(dialog).findByText("3 kg of Paneer has already left the store")).toBeInTheDocument();
+    expect(within(dialog).getByText(/2 kg in stock, 5 kg to reverse/)).toBeInTheDocument();
   });
 
   it("reversing some lines sends per-line qty; RTV_COVERED shows what was returned", async () => {

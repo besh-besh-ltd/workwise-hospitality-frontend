@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import {
-  ArrowLeft, Camera, FileDown, FileText, Loader2, PackageOpen, Printer, RefreshCw, ScanBarcode, Tag, Trash2, Truck,
+  ArrowLeft, Camera, FileDown, FileText, Loader2, PackageOpen, Printer, RefreshCw, ScanBarcode, Tag, Truck,
   Undo2, Upload, X,
 } from "lucide-react";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
@@ -12,7 +12,8 @@ import {
 } from "@/services/inventory";
 import ReverseGrnModal from "./ReverseGrnModal";
 import RtvModal from "./RtvModal";
-import { errorInfo, fmtDay, fmtInstant, fmtQty, fmtQtyUnit, inr, rejectionLabel, routes, subQty } from "./receiveUtils";
+import { addQty, errorInfo, fmtDay, fmtInstant, fmtQty, fmtQtyUnit, inr, rejectionLabel, routes, subQty } from "./receiveUtils";
+import { AttachKindSelect, AttachmentList, StatusPill } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // One goods receipt: header, lines with where each qty was booked (delivery
@@ -21,12 +22,6 @@ import styles from "./receive.module.scss";
 // `can`, so the gates come from grn.approve / grn.update at grn.hotelId; the
 // server re-checks every action.
 
-const STATUS = {
-  draft: { label: "Draft", tone: "pillNeutral" },
-  posted: { label: "Posted", tone: "pillOk" },
-  partially_reversed: { label: "Partly reversed", tone: "pillWarn" },
-  reversed: { label: "Reversed", tone: "pillBad" },
-};
 const RTV_STATUS = {
   draft: { label: "Draft", tone: "pillNeutral" },
   dispatched: { label: "Dispatched", tone: "pillInfo" },
@@ -38,26 +33,8 @@ const LAYOUTS = [
   { value: "A4_24", label: "A4 sheet · 24 labels" },
   { value: "THERMAL_50x25", label: "Thermal roll · 50 × 25 mm" },
 ];
-const KINDS = [
-  { value: "CHALLAN", label: "Challan" },
-  { value: "INVOICE", label: "Invoice" },
-  { value: "PHOTO", label: "Photo" },
-  { value: "OTHER", label: "Other" },
-];
-const kindLabel = (k) => KINDS.find((x) => x.value === k)?.label || "File";
-
 const openDoc = (url) => {
   if (url) window.open(url, "_blank", "noopener");
-};
-
-const StatusPill = ({ status, map = STATUS }) => {
-  const s = map[status] || { label: status, tone: "pillNeutral" };
-  return (
-    <span className={`${styles.pill} ${styles[s.tone]}`}>
-      <span className={styles.dot} />
-      {s.label}
-    </span>
-  );
 };
 
 const PrintLabelsModal = ({ show, grn, onHide }) => {
@@ -194,7 +171,7 @@ const GrnDetail = ({ id }) => {
     const held = {};
     for (const r of rtvs) {
       if (r.status === "cancelled") continue;
-      for (const l of r.lines || []) held[l.grnLineId] = (held[l.grnLineId] || 0) + Number(l.qty || 0);
+      for (const l of r.lines || []) held[l.grnLineId] = addQty(held[l.grnLineId] || 0, l.qty || 0);
     }
     return held;
   }, [rtvs]);
@@ -578,42 +555,14 @@ const GrnDetail = ({ id }) => {
                 </h2>
               </div>
               <div className={styles.cardBody}>
-                {(grn.attachments || []).length > 0 ? (
-                  <ul className={styles.attList}>
-                    {grn.attachments.map((a) => (
-                      <li key={a.id} className={styles.attItem}>
-                        <FileText size={14} aria-hidden="true" />
-                        <a href={a.url} target="_blank" rel="noopener noreferrer">{a.fileName || kindLabel(a.kind)}</a>
-                        <span className={`${styles.pill} ${styles.pillNeutral}`}>{kindLabel(a.kind)}</span>
-                        {isDraft && canUpdate && (
-                          <button
-                            type="button"
-                            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-                            onClick={() => onDeleteAttachment(a)}
-                            aria-label={`Remove ${a.fileName || kindLabel(a.kind)}`}
-                          >
-                            <Trash2 size={13} aria-hidden="true" />
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.fieldHint} style={{ margin: 0 }}>No challan or invoice attached yet.</p>
-                )}
+                <AttachmentList
+                  attachments={grn.attachments || []}
+                  onDelete={isDraft && canUpdate ? onDeleteAttachment : undefined}
+                  empty={<p className={styles.fieldHint} style={{ margin: 0 }}>No challan or invoice attached yet.</p>}
+                />
                 {canUpdate && grn.status !== "reversed" && (
                   <div className={styles.attActions}>
-                    <select
-                      className={styles.select}
-                      style={{ width: "auto" }}
-                      aria-label="Attach as"
-                      value={kind}
-                      onChange={(e) => setKind(e.target.value)}
-                    >
-                      {KINDS.map((k) => (
-                        <option key={k.value} value={k.value}>{k.label}</option>
-                      ))}
-                    </select>
+                    <AttachKindSelect value={kind} onChange={setKind} />
                     <label className={`${styles.btn} ${styles.btnSecondary} ${styles.fileBtn}`}>
                       {uploading ? <Loader2 size={14} className={styles.spin} aria-hidden="true" /> : <Upload size={14} aria-hidden="true" />}
                       <span>Add file</span>

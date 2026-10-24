@@ -36,6 +36,47 @@ export const fmtQty = (n) => {
 };
 export const fmtQtyUnit = (n, unit) => `${fmtQty(n)}${unit ? ` ${unit}` : ""}`;
 
+// ── Unit conversions ─────────────────────────────────────────────────────────
+// A conversion factor (stock units in one PO unit) is the server's
+// numeric(18,6): it is parsed, sent and compared at 6 decimal places, so
+// 1/12 = 0.083333 round-trips instead of becoming 0.0833 and "mismatching"
+// the stored factor. Scanned stock units use the same scale.
+const FACTOR_SCALE = 1000000;
+const toF = (v) => {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/,/g, "").trim();
+  if (s === "") return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.round(n * FACTOR_SCALE) : NaN;
+};
+/** A factor typed by hand: a number > 0 at 6 dp, else null. */
+export const parseFactor = (text) => {
+  const f = toF(text);
+  if (Number.isNaN(f) || f <= 0) return null;
+  return f / FACTOR_SCALE;
+};
+/** The text an input shows for a factor ("12", "0.083333"). */
+export const factorText = (n) => {
+  const f = parseFactor(n);
+  return f == null ? "" : String(f);
+};
+/** Display: up to 6 decimals. */
+export const fmtFactor = (n) => {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return "—";
+  return num.toLocaleString("en-IN", { maximumFractionDigits: 6 });
+};
+/** Exact a + b for stock-unit counts (6 dp). */
+export const addUnits = (a, b) => (toF(a) + toF(b)) / FACTOR_SCALE;
+/** Stock units → PO units at the server's 4 dp: units / factor, rounded once. */
+export const unitsToPoQty = (units, factor) => {
+  const f = toF(factor);
+  if (!(f > 0)) return null;
+  return fromQ(Math.round((toF(units) * SCALE) / f));
+};
+/** received × factor in stock units, rounded to 4 dp (the prompt's preview). */
+export const poQtyToUnits = (qty, factor) => fromQ(Math.round((toQ(qty) * toF(factor)) / FACTOR_SCALE));
+
 // Units that are weighed or measured rather than counted: a scan cannot mean
 // "one more", so it opens the qty pad instead (spec §10.2).
 const DECIMAL_UNITS = new Set([
@@ -89,6 +130,12 @@ export const newClientEventId = () => {
 };
 
 // ── Server refusals ──────────────────────────────────────────────────────────
+/** No HTTP answer at all (offline, timeout, dropped connection): the outcome is unknown. */
+export const isNetworkError = (err) => {
+  if (!err || (err?.response?.status ?? err?.message?.response?.status)) return false;
+  return !!err.isAxiosError || err.request != null || /network|timeout|ECONNABORTED/i.test(`${err.code || ""} ${err.message || ""}`);
+};
+
 /**
  * The inventory error envelope `{status, message, code, details}` from a
  * rejected service call, plus a display-safe message.
@@ -148,6 +195,13 @@ export const blankLine = (ctxLine, { departmentId = null } = {}) => ({
   matchDecided: false,
   remarks: "",
   scannedAt: 0,
+  // Scanning: stock units scanned since the qty was last typed (scanUnits) on
+  // top of the qty typed before that (scanBase), so received is always
+  // scanBase + scanUnits / factor rounded once, never a sum of rounded steps.
+  scanUnits: 0,
+  scanBase: null,
+  // The item's stored conversion when the server named it (UOM_FACTOR_MISMATCH).
+  knownFactor: null,
 });
 
 /** Entry state from a saved draft line (server Grn line). */
@@ -163,7 +217,7 @@ export const lineFromDraft = (d, ctxLine, defaults) => {
     expiryDate: d.expiryDate || "",
     markOut: d.markOutDepartmentId != null ? true : base.markOut,
     departmentId: d.markOutDepartmentId != null ? String(d.markOutDepartmentId) : base.departmentId,
-    uomFactor: d.uomFactor != null && ctxLine?.needsUomFactor ? qtyText(d.uomFactor) : "",
+    uomFactor: d.uomFactor != null && ctxLine?.needsUomFactor ? factorText(d.uomFactor) : "",
     mapToInvItemId: d.invItemId && ctxLine && !ctxLine.invItemId ? d.invItemId : null,
     matchDecided: !!(d.invItemId && ctxLine && !ctxLine.invItemId),
     remarks: d.remarks || "",
@@ -192,14 +246,14 @@ export const buildLinesPayload = (ctxLines, entries, { allowMarkOut = true } = {
     if (!e) continue;
     const { received, rejected, accepted, valid } = lineQty(e);
     if (!valid || (received === 0 && rejected === 0)) continue;
-    const factor = e.uomFactor !== "" ? parseQty(e.uomFactor) : null;
+    const factor = e.uomFactor !== "" ? parseFactor(e.uomFactor) : null;
     out.push({
       poLineId: l.poLineId,
       receivedQty: received,
       acceptedQty: accepted,
       rejectedQty: rejected,
       rejectionReason: rejected > 0 ? textOrNull(e.reason) : null,
-      uomFactor: factor && factor > 0 ? factor : null,
+      uomFactor: factor,
       mapToInvItemId: e.mapToInvItemId || null,
       markOutDepartmentId: allowMarkOut && e.markOut && e.departmentId ? Number(e.departmentId) : null,
       batchNo: l.trackExpiry ? textOrNull(e.batchNo) : null,
@@ -247,7 +301,7 @@ export const validateForPost = (ctxLines, entries, { allowMarkOut = true } = {})
     else if (accepted > 0 && l.trackExpiry && !e.expiryDate) errors[l.poLineId] = "Enter the expiry date";
     else if (allowMarkOut && accepted > 0 && e.markOut && !e.departmentId) {
       errors[l.poLineId] = "Pick the department to mark out to";
-    } else if (e.uomFactor !== "" && !(parseQty(e.uomFactor) > 0)) {
+    } else if (e.uomFactor !== "" && parseFactor(e.uomFactor) == null) {
       errors[l.poLineId] = "The unit conversion must be more than 0";
     }
   }

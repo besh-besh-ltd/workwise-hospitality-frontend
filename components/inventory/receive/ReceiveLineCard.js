@@ -12,7 +12,7 @@ import styles from "./receive.module.scss";
 // ReceiveLineRow, plus onStep(delta) and onOpenPad().
 
 const ReceiveLineCard = ({
-  line, entry, onChange, error = null, warnings = [], flash = false, showPrices = true, allowMarkOut = true,
+  line, entry, onChange, error = null, flash = false, showPrices = true, allowMarkOut = true,
   departments = [], allowItemSetup = true, suggestions = [], receivedAt, onOpenUom, onStep, onOpenPad,
 }) => {
   const name = line.productName;
@@ -75,7 +75,7 @@ const ReceiveLineCard = ({
         <span>Accepted <strong>{fmtQty(accepted ?? 0)}</strong></span>
         <span>Rejected <strong>{fmtQty(rejected ?? 0)}</strong></span>
         {line.needsUomFactor && (onOpenUom ? (
-          <button type="button" className={`${styles.pill} ${factorSet ? styles.pillOk : styles.pillWarn}`} onClick={onOpenUom}>
+          <button type="button" className={`${styles.pill} ${styles.pillBtn} ${factorSet ? styles.pillOk : styles.pillWarn}`} onClick={onOpenUom}>
             <Ruler size={11} aria-hidden="true" />
             {factorSet ? `1 ${unit} = ${entry.uomFactor} ${line.stockUom}` : "Set unit conversion"}
           </button>
@@ -90,7 +90,7 @@ const ReceiveLineCard = ({
       <details className={styles.cardMore} open={openMore || undefined}>
         <summary>
           <SlidersHorizontal size={15} aria-hidden="true" />
-          {line.trackExpiry ? "Reject, batch and expiry" : "Reject or mark out"}
+          {line.trackExpiry ? "Reject, batch and expiry" : allowMarkOut ? "Reject or mark out" : "Reject"}
         </summary>
         <div className={styles.cardFields}>
           <div className={styles.cardField}>
@@ -189,7 +189,7 @@ const ReceiveLineCard = ({
           onReset={() => onChange({ mapToInvItemId: null, matchDecided: false })}
         />
       )}
-      <LineMessages error={error} warnings={warnings} hint={hint} />
+      <LineMessages error={error} hint={hint} />
     </article>
   );
 };

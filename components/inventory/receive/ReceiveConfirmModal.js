@@ -1,22 +1,30 @@
 import React, { useId } from "react";
 import { Modal } from "react-bootstrap";
-import { Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
+import { shelfLifeHint } from "./ReceiveLineRow";
 import { fmtQtyUnit, lineQty, rejectionLabel, subQty } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
 // Last look before posting: per line, what is accepted into stock, what goes
 // back as rejected (and why), and what stays open on the PO afterwards. Units
-// differ per line, so nothing is summed across lines.
+// differ per line, so nothing is summed across lines. Short shelf life and
+// expired batches are flagged here (the server posts them with the same
+// SHORT_SHELF_LIFE / EXPIRED warnings). While `busy` (the post is in flight)
+// the sheet stays open with its buttons disabled, so a second tap can't post.
 //
-// Props: { show, lines (ReceiveContext lines), entries, hotelName, busy, onConfirm, onHide }
+// Props: { show, lines (ReceiveContext lines), entries, hotelName, receivedAt, busy, onConfirm, onHide }
 
-const ReceiveConfirmModal = ({ show, lines = [], entries = {}, hotelName, busy = false, onConfirm, onHide }) => {
+const ReceiveConfirmModal = ({ show, lines = [], entries = {}, hotelName, receivedAt, busy = false, onConfirm, onHide }) => {
   const titleId = useId();
   const rows = lines
     .map((l) => ({ line: l, entry: entries[l.poLineId], ...lineQty(entries[l.poLineId]) }))
     .filter((r) => r.entry && r.valid && (r.received > 0 || r.rejected > 0));
   const withRejects = rows.filter((r) => r.rejected > 0).length;
   const stillOpen = rows.filter((r) => subQty(r.line.openAtHotel, r.accepted) > 0).length;
+  const shelfWarnings = rows
+    .filter((r) => r.accepted > 0)
+    .map((r) => ({ line: r.line, text: shelfLifeHint(r.line, r.entry, receivedAt) }))
+    .filter((w) => w.text);
 
   return (
     <Modal
@@ -75,6 +83,17 @@ const ReceiveConfirmModal = ({ show, lines = [], entries = {}, hotelName, busy =
             </tbody>
           </table>
         </div>
+        {shelfWarnings.length > 0 && (
+          <ul className={styles.successList} aria-label="Check before posting">
+            {shelfWarnings.map((w) => (
+              <li key={w.line.poLineId} className={styles.lineWarn}>
+                <AlertTriangle size={14} aria-hidden="true" />
+                <strong>{w.line.productName}</strong>
+                <span>{w.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className={styles.sheetFoot}>
         <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={onHide} disabled={busy}>

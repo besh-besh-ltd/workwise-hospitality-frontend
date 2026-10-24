@@ -51,11 +51,16 @@ const ReverseGrnModal = ({ show, grn, onHide, onReversed }) => {
       const info = errorInfo(err, "Could not reverse this receipt.");
       const d = info.details || {};
       if (info.code === "NEGATIVE_STOCK") {
+        // Shortfall, stock and request are in the item's stock unit.
+        const stockLine = (grn.lines || []).find(
+          (l) => (d.invItemId != null && Number(l.invItemId) === Number(d.invItemId)) || (d.itemName && l.itemName === d.itemName)
+        );
+        const inStock = (n) => fmtQtyUnit(n, stockLine?.stockUom);
         setRefusal({
-          title: `${fmtQty(d.shortfall)} of ${d.itemName || "this item"} has already left the store`,
+          title: `${inStock(d.shortfall)} of ${d.itemName || "this item"} has already left the store`,
           detail:
             d.available != null && d.requested != null
-              ? `${fmtQty(d.available)} in stock, ${fmtQty(d.requested)} to reverse. Reverse less, or bring it back from the department first.`
+              ? `${inStock(d.available)} in stock, ${inStock(d.requested)} to reverse. Reverse less, or bring it back from the department first.`
               : "Reverse less, or bring it back from the department first.",
         });
       } else if (info.code === "CONFLICT" && d.reason === "RTV_COVERED") {

@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Delete, X } from "lucide-react";
-import { fmtQty, parseQty, qtyText } from "./receiveUtils";
+import { fmtQty, parseQty, qtyText, subQty } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
 // Numeric keypad for weighed / measured units (kg, L) and for editing a qty
@@ -9,12 +9,29 @@ import styles from "./receive.module.scss";
 //
 //   mode "add": the typed qty is added to what is already received (a scan);
 //   mode "set": the typed qty replaces it (tapping the qty on a card).
-// Props: { show, title, unit, initial, mode, receivedSoFar, openQty, onDone(qty), onHide }
+// Props: { show, title, unit, initial, mode, receivedSoFar, openQty, labels, onDone(qty), onHide }
+//
+// `labels` (optional, any subset) rewords the pad for another flow, e.g. mark out:
+//   qty    the line under the title    add: "Qty in this delivery", set: "Received qty"
+//   soFar  label for receivedSoFar     "Received so far" (null hides that figure)
+//   open   label for openQty           "Open"
+//   fill   quick-fill button           add: "Rest of open qty", set: "Open qty"
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"];
 
-const QtyPad = ({ show, title, unit, initial, mode = "add", receivedSoFar = 0, openQty = null, onDone, onHide }) => {
+const defaultLabels = (mode) => ({
+  qty: mode === "add" ? "Qty in this delivery" : "Received qty",
+  soFar: "Received so far",
+  open: "Open",
+  fill: mode === "add" ? "Rest of open qty" : "Open qty",
+});
+
+const QtyPad = ({
+  show, title, unit, initial, mode = "add", receivedSoFar = 0, openQty = null, labels = null, onDone, onHide,
+}) => {
   const titleId = useId();
+  const copy = defaultLabels(mode);
+  for (const [k, v] of Object.entries(labels || {})) if (v !== undefined) copy[k] = v;
   const [text, setText] = useState("");
 
   useEffect(() => {
@@ -31,6 +48,8 @@ const QtyPad = ({ show, title, unit, initial, mode = "add", receivedSoFar = 0, o
   };
   const back = () => setText((t) => t.slice(0, -1));
 
+  // "Open qty" fills what is still open: in add mode that is open − already received.
+  const fillQty = openQty == null ? null : mode === "add" ? Math.max(0, subQty(openQty, receivedSoFar || 0)) : Number(openQty);
   const qty = parseQty(text);
   const valid = qty !== null && qty > 0;
   const verb = mode === "add" ? "Add" : "Set";
@@ -53,7 +72,7 @@ const QtyPad = ({ show, title, unit, initial, mode = "add", receivedSoFar = 0, o
       <div className={styles.sheetHead}>
         <div>
           <h2 id={titleId} className={styles.sheetTitle}>{title}</h2>
-          <div className={styles.sheetSub}>{mode === "add" ? "Qty in this delivery" : "Received qty"}</div>
+          <div className={styles.sheetSub}>{copy.qty}</div>
         </div>
         <button type="button" className={styles.sheetClose} onClick={onHide} aria-label="Close">
           <X size={18} aria-hidden="true" />
@@ -78,8 +97,10 @@ const QtyPad = ({ show, title, unit, initial, mode = "add", receivedSoFar = 0, o
           placeholder="0"
         />
         <div className={styles.padMeta}>
-          <span>Received so far <span className={styles.mono}>{fmtQty(receivedSoFar)}</span></span>
-          {openQty != null && <span>Open <span className={styles.mono}>{fmtQty(openQty)}</span> {unit}</span>}
+          {copy.soFar != null && copy.soFar !== "" && (
+            <span>{copy.soFar} <span className={styles.mono}>{fmtQty(receivedSoFar)}</span></span>
+          )}
+          {openQty != null && <span>{copy.open} <span className={styles.mono}>{fmtQty(openQty)}</span> {unit}</span>}
         </div>
         <div className={styles.padGrid}>
           {KEYS.map((k) => (
@@ -95,9 +116,9 @@ const QtyPad = ({ show, title, unit, initial, mode = "add", receivedSoFar = 0, o
           <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setText("")}>
             Clear
           </button>
-          {openQty != null && openQty > 0 && (
-            <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setText(qtyText(openQty))}>
-              Open qty
+          {fillQty != null && fillQty > 0 && (
+            <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setText(qtyText(fillQty))}>
+              {copy.fill}
             </button>
           )}
         </div>

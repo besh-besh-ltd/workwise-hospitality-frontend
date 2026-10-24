@@ -45,14 +45,12 @@ jest.mock("@/services/inventory", () => ({
   updateGrn: jest.fn(),
   postGrn: jest.fn(),
   discardGrn: jest.fn(),
+  getGrn: jest.fn(),
   uploadGrnAttachment: jest.fn(),
   deleteGrnAttachment: jest.fn(),
   resolveScan: jest.fn(),
   addItemBarcode: jest.fn(),
   listItems: jest.fn(() => Promise.resolve({ rows: [] })),
-  getTokenReceiveContext: jest.fn(),
-  postTokenGrn: jest.fn(),
-  uploadTokenGrnAttachment: jest.fn(),
 }));
 
 const mockPush = jest.fn();
@@ -61,12 +59,8 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
-import {
-  getReceiveContext, createGrn, updateGrn, postGrn, resolveScan,
-  getTokenReceiveContext, postTokenGrn,
-} from "@/services/inventory";
+import { getReceiveContext, createGrn, updateGrn, postGrn, resolveScan } from "@/services/inventory";
 import ReceivePage from "../ReceivePage";
-import { createTokenReceiveAdapter } from "../receiveAdapter";
 
 const RICE = {
   poLineId: 11, productVariantId: 501, productName: "Basmati rice 25kg", unit: "bag",
@@ -133,11 +127,22 @@ const postAndConfirm = async () => {
   return dialog;
 };
 
+// POST /grn: post:false saves a draft; post:true answers from `postReplies`
+// (an Error rejects), else a fresh posted GRN.
+let postReplies = [];
+const replyToPosts = (...replies) => postReplies.push(...replies);
+const postCalls = () => createGrn.mock.calls.map((c) => c[0]).filter((input) => input.post === true);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 beforeEach(() => {
   jest.clearAllMocks();
-  createGrn.mockResolvedValue(draftGrn());
+  postReplies = [];
+  createGrn.mockImplementation((input) => {
+    if (!input.post) return Promise.resolve(draftGrn());
+    const next = postReplies.length ? postReplies.shift() : postedGrn();
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+  });
   updateGrn.mockResolvedValue(draftGrn());
-  postGrn.mockResolvedValue(postedGrn());
 });
 
 describe("ReceivePage", () => {
@@ -211,32 +216,33 @@ describe("ReceivePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Post receipt" }));
     expect(within(rowFor("Basmati rice 25kg").parentElement).getByText("Pick a reason for the rejected qty")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Post this receipt?" })).toBeNull();
-    expect(postGrn).not.toHaveBeenCalled();
+    expect(createGrn).not.toHaveBeenCalled();
 
     fireEvent.change(field("Rejection reason for Basmati rice 25kg"), { target: { value: "damaged" } });
     await postAndConfirm();
 
-    await waitFor(() => expect(postGrn).toHaveBeenCalled());
-    expect(createGrn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        poId: 52, hotelId: 46, post: false,
-        lines: [expect.objectContaining({ poLineId: 11, receivedQty: 10, acceptedQty: 8, rejectedQty: 2, rejectionReason: "damaged" })],
-      })
-    );
-    const [grnId, clientEventId] = postGrn.mock.calls[0];
-    expect(grnId).toBe(900);
-    expect(clientEventId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    // One request records and posts the receipt, keyed by the session.
     expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(postCalls()).toEqual([
+      expect.objectContaining({
+        poId: 52, hotelId: 46, post: true, clientEventId: expect.stringMatching(UUID),
+        lines: [expect.objectContaining({ poLineId: 11, receivedQty: 10, acceptedQty: 8, rejectedQty: 2, rejectionReason: "damaged" })],
+      }),
+    ]);
+    expect(postGrn).not.toHaveBeenCalled();
+    expect(updateGrn).not.toHaveBeenCalled();
     expect(screen.getByText("GRN/46/2026-27/00012")).toBeInTheDocument();
   });
 
   it("OVER_RECEIPT error shows max acceptable on the line", async () => {
     await mount();
-    postGrn.mockRejectedValueOnce(
+    replyToPosts(
       apiError(409, "OVER_RECEIPT", { poLineId: 11, maxAcceptable: 24, requested: 30 }, "Only 24 bag more can be accepted here")
     );
     type("Received qty for Basmati rice 25kg", "30");
     await postAndConfirm();
+    // The confirmation stays open (busy) until the server answers.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Post this receipt?" })).toBeNull());
 
     const row = rowFor("Basmati rice 25kg").parentElement;
     expect(await within(row).findByText(/Max acceptable 24 bag/)).toBeInTheDocument();
@@ -245,11 +251,7 @@ describe("ReceivePage", () => {
 
   it("UOM factor prompt appears and resubmits with uomFactor", async () => {
     await mount();
-    postGrn
-      .mockRejectedValueOnce(
-        apiError(400, "VALIDATION", { code_detail: "UOM_FACTOR_REQUIRED", poLineId: 13, poUnit: "box", stockUom: "piece" })
-      )
-      .mockResolvedValueOnce(postedGrn());
+    replyToPosts(apiError(400, "VALIDATION", { code_detail: "UOM_FACTOR_REQUIRED", poLineId: 13, poUnit: "box", stockUom: "piece" }));
     type("Received qty for Dish soap", "2");
     await postAndConfirm();
 
@@ -259,21 +261,25 @@ describe("ReceivePage", () => {
     fireEvent.click(within(prompt).getByRole("button", { name: "Save and post" }));
 
     await screen.findByText("Receipt posted");
-    expect(updateGrn).toHaveBeenCalledWith(
-      900,
-      expect.objectContaining({ lines: [expect.objectContaining({ poLineId: 13, receivedQty: 2, uomFactor: 12 })] })
-    );
-    expect(postGrn).toHaveBeenCalledTimes(2);
-    expect(postGrn.mock.calls[1][1]).not.toBe(postGrn.mock.calls[0][1]); // a fresh clientEventId per attempt
+    const [first, second] = postCalls();
+    expect(first.lines).toEqual([expect.objectContaining({ poLineId: 13, receivedQty: 2, uomFactor: null })]);
+    expect(second.lines).toEqual([expect.objectContaining({ poLineId: 13, receivedQty: 2, uomFactor: 12 })]);
+    // The refused attempt recorded nothing, so the same key posts the receipt.
+    expect(second.clientEventId).toBe(first.clientEventId);
+    expect(postCalls()).toHaveLength(2);
+    expect(updateGrn).not.toHaveBeenCalled();
   });
 
-  it("UOM_FACTOR_MISMATCH shows the current factor and lets the user accept it", async () => {
+  it("UOM_FACTOR_MISMATCH: \"Use F and post\" sends no factor, so the stored one applies", async () => {
     await mount();
-    postGrn
-      .mockRejectedValueOnce(
-        apiError(400, "VALIDATION", { code_detail: "UOM_FACTOR_MISMATCH", poLineId: 13, currentFactor: 12, suppliedFactor: 10 })
-      )
-      .mockResolvedValueOnce(postedGrn());
+    // The receiver sets 10 ahead of posting; the item already has 12.
+    fireEvent.click(within(rowFor("Dish soap")).getByRole("button", { name: /Set unit conversion/ }));
+    const setPrompt = await screen.findByRole("dialog", { name: "Unit conversion needed" });
+    fireEvent.change(within(setPrompt).getByLabelText("How many piece in one box?"), { target: { value: "10" } });
+    fireEvent.click(within(setPrompt).getByRole("button", { name: "Use this conversion" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Unit conversion needed" })).toBeNull());
+
+    replyToPosts(apiError(400, "VALIDATION", { code_detail: "UOM_FACTOR_MISMATCH", poLineId: 13, currentFactor: 12, suppliedFactor: 10 }));
     type("Received qty for Dish soap", "1");
     await postAndConfirm();
 
@@ -282,10 +288,36 @@ describe("ReceivePage", () => {
     fireEvent.click(within(prompt).getByRole("button", { name: "Use 12 and post" }));
 
     await screen.findByText("Receipt posted");
-    expect(updateGrn).toHaveBeenCalledWith(
-      900,
-      expect.objectContaining({ lines: [expect.objectContaining({ poLineId: 13, uomFactor: 12 })] })
+    const [first, second] = postCalls();
+    expect(first.lines).toEqual([expect.objectContaining({ poLineId: 13, uomFactor: 10 })]);
+    expect(second.lines).toEqual([expect.objectContaining({ poLineId: 13, uomFactor: null })]);
+    expect(postCalls()).toHaveLength(2);
+  });
+
+  it("a 0.083333 factor goes out at 6 dp and a mismatch on it settles in one more post", async () => {
+    await mount();
+    fireEvent.click(within(rowFor("Dish soap")).getByRole("button", { name: /Set unit conversion/ }));
+    const setPrompt = await screen.findByRole("dialog", { name: "Unit conversion needed" });
+    fireEvent.change(within(setPrompt).getByLabelText("How many piece in one box?"), { target: { value: "0.083333" } });
+    fireEvent.click(within(setPrompt).getByRole("button", { name: "Use this conversion" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Unit conversion needed" })).toBeNull());
+    expect(within(rowFor("Dish soap")).getByRole("button", { name: /1 box = 0.083333 piece/ })).toBeInTheDocument();
+
+    // The server's stored factor differs only past 4 dp: one "use it" ends it.
+    replyToPosts(
+      apiError(400, "VALIDATION", { code_detail: "UOM_FACTOR_MISMATCH", poLineId: 13, currentFactor: 0.083334, suppliedFactor: 0.083333 })
     );
+    type("Received qty for Dish soap", "24");
+    await postAndConfirm();
+
+    const prompt = await screen.findByRole("dialog", { name: "Unit conversion needed" });
+    fireEvent.click(within(prompt).getByRole("button", { name: "Use 0.083334 and post" }));
+    await screen.findByText("Receipt posted");
+
+    const [first, second] = postCalls();
+    expect(first.lines[0].uomFactor).toBe(0.083333);
+    expect(second.lines[0].uomFactor).toBeNull();
+    expect(postCalls()).toHaveLength(2);
   });
 
   it("mark-out-on-arrival sends markOutDepartmentId", async () => {
@@ -297,8 +329,8 @@ describe("ReceivePage", () => {
     fireEvent.change(field("Department for Basmati rice 25kg"), { target: { value: "8" } });
     await postAndConfirm();
 
-    await waitFor(() => expect(postGrn).toHaveBeenCalled());
-    expect(createGrn.mock.calls[0][0].lines).toEqual([
+    await screen.findByText("Receipt posted");
+    expect(postCalls()[0].lines).toEqual([
       expect.objectContaining({ poLineId: 11, receivedQty: 5, acceptedQty: 5, rejectedQty: 0, markOutDepartmentId: 8 }),
     ]);
   });
@@ -318,7 +350,7 @@ describe("ReceivePage", () => {
 
   it("post warnings show on the line, never as errors", async () => {
     await mount();
-    postGrn.mockResolvedValueOnce(
+    replyToPosts(
       postedGrn({
         warnings: [{ code: "SHORT_SHELF_LIFE", poLineId: 12, message: "Paneer has 2 days of shelf life left (minimum 3)" }],
       })
@@ -413,44 +445,5 @@ describe("ReceivePage", () => {
     expect(input).toHaveAttribute("accept", "image/*,application/pdf");
     expect(input).toHaveAttribute("capture", "environment");
     expect(screen.getByText("Delivery documents")).toBeInTheDocument();
-  });
-});
-
-describe("ReceivePage in token mode", () => {
-  it("hides prices, fixes the hotel and posts through the injected adapter", async () => {
-    getTokenReceiveContext.mockResolvedValue(
-      ctx({
-        hotelChoices: [{ id: 46, name: "Orchid Mumbai" }],
-        lines: [{ ...RICE, costPerPoUnit: undefined }],
-      })
-    );
-    postTokenGrn.mockResolvedValue(postedGrn());
-    render(
-      <ReceivePage
-        poId="52"
-        adapter={createTokenReceiveAdapter("tok-abc")}
-        showPrices={false}
-        fixedHotel
-        allowItemSetup={false}
-        allowMarkOut={false}
-        renderScanner={() => null}
-      />
-    );
-    await screen.findByText("Basmati rice 25kg");
-    expect(screen.queryByText(/₹/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /Change hotel/ })).toBeNull();
-    expect(screen.queryByLabelText("Mark out on arrival for Basmati rice 25kg")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
-
-    type("Received qty for Basmati rice 25kg", "3");
-    await postAndConfirm();
-    await screen.findByText("Receipt posted");
-    expect(postTokenGrn).toHaveBeenCalledWith(
-      "tok-abc",
-      expect.objectContaining({ post: true, clientEventId: expect.any(String), lines: [expect.objectContaining({ receivedQty: 3 })] })
-    );
-    expect(getReceiveContext).not.toHaveBeenCalled();
-    expect(createGrn).not.toHaveBeenCalled();
-    expect(postGrn).not.toHaveBeenCalled();
   });
 });

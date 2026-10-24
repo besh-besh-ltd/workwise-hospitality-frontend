@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { AlertTriangle, CircleAlert, Ruler } from "lucide-react";
 import RejectReasonSelect from "./RejectReasonSelect";
 import ItemMatchPrompt from "./ItemMatchPrompt";
-import { daysBetween, fmtQty, inr, lineQty, qtyText } from "./receiveUtils";
+import { daysBetween, fmtFactor, fmtQty, inr, lineQty, qtyText } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
 // One PO line on the desktop Receive table. Its own <tbody>: the inputs row,
@@ -10,14 +10,16 @@ import styles from "./receive.module.scss";
 // Accepted follows received − rejected; typing an accepted qty moves the rest
 // to rejected. Shared line props (also ReceiveLineCard):
 //   line (ReceiveContext line), entry (form state), onChange(patch), error,
-//   warnings[], flash, showPrices, allowMarkOut, departments, allowItemSetup,
+//   flash, showPrices, allowMarkOut, departments, allowItemSetup,
 //   suggestions[], receivedAt, onOpenUom()
+// Shelf-life hints (the server's SHORT_SHELF_LIFE / EXPIRED rules) show under
+// the line while typing and again on the confirmation.
 
 export const shelfLifeHint = (line, entry, receivedAt) => {
   if (!line.trackExpiry || !entry.expiryDate || !receivedAt) return null;
   const days = daysBetween(receivedAt, entry.expiryDate);
   if (days == null) return null;
-  if (days < 0) return `Expired on this date; consider rejecting it (short shelf life)`;
+  if (days < 0) return "Already expired: reject it as short shelf life, or check the date";
   if (line.minShelfLifeDays != null && days < line.minShelfLifeDays) {
     return `${days} day${days === 1 ? "" : "s"} of shelf life left (minimum ${line.minShelfLifeDays})`;
   }
@@ -58,7 +60,7 @@ export const AcceptedInput = ({ entry, onChange, label, className }) => {
   );
 };
 
-const LineMessages = ({ error, warnings = [], hint }) => (
+const LineMessages = ({ error, hint }) => (
   <>
     {error && (
       <div className={`${styles.lineMsg} ${styles.lineError}`} role="alert">
@@ -66,18 +68,18 @@ const LineMessages = ({ error, warnings = [], hint }) => (
         <span>{error}</span>
       </div>
     )}
-    {[...warnings, ...(hint ? [hint] : [])].map((w) => (
-      <div key={w} className={`${styles.lineMsg} ${styles.lineWarn}`}>
+    {hint && (
+      <div className={`${styles.lineMsg} ${styles.lineWarn}`}>
         <AlertTriangle size={14} aria-hidden="true" />
-        <span>{w}</span>
+        <span>{hint}</span>
       </div>
-    ))}
+    )}
   </>
 );
 export { LineMessages };
 
 const ReceiveLineRow = ({
-  index, line, entry, onChange, error = null, warnings = [], flash = false, showPrices = true,
+  index, line, entry, onChange, error = null, flash = false, showPrices = true,
   allowMarkOut = true, departments = [], allowItemSetup = true, suggestions = [], receivedAt, onOpenUom,
 }) => {
   const name = line.productName;
@@ -86,7 +88,7 @@ const ReceiveLineRow = ({
   const done = Number(line.openAtHotel) <= 0;
   const hint = shelfLifeHint(line, entry, receivedAt);
   const showMatch = allowItemSetup && !line.invItemId && suggestions.length > 0;
-  const hasDetail = line.trackExpiry || showMatch || !!error || warnings.length > 0 || !!hint;
+  const hasDetail = line.trackExpiry || showMatch || !!error || !!hint;
   const factorSet = entry.uomFactor !== "";
 
   return (
@@ -98,14 +100,14 @@ const ReceiveLineRow = ({
           <div className={styles.itMeta}>
             <span>Max <span className={styles.mono}>{fmtQty(line.maxAcceptable)}</span> {unit}</span>
             {line.uomFactor != null && line.stockUom && line.stockUom !== line.unit && (
-              <span>1 {unit} = <span className={styles.mono}>{fmtQty(line.uomFactor)}</span> {line.stockUom}</span>
+              <span>1 {unit} = <span className={styles.mono}>{fmtFactor(line.uomFactor)}</span> {line.stockUom}</span>
             )}
             {showPrices && line.costPerPoUnit != null && (
               <span className={styles.mono}>{inr(line.costPerPoUnit)} / {unit}</span>
             )}
             {line.trackExpiry && <span className={`${styles.pill} ${styles.pillNeutral}`}>Expiry tracked</span>}
             {line.needsUomFactor && (onOpenUom ? (
-              <button type="button" className={`${styles.pill} ${factorSet ? styles.pillOk : styles.pillWarn}`} onClick={onOpenUom}>
+              <button type="button" className={`${styles.pill} ${styles.pillBtn} ${factorSet ? styles.pillOk : styles.pillWarn}`} onClick={onOpenUom}>
                 <Ruler size={11} aria-hidden="true" />
                 {factorSet ? `1 ${unit} = ${entry.uomFactor} ${line.stockUom}` : "Set unit conversion"}
               </button>
@@ -239,7 +241,7 @@ const ReceiveLineRow = ({
                 onReset={() => onChange({ mapToInvItemId: null, matchDecided: false })}
               />
             )}
-            <LineMessages error={error} warnings={warnings} hint={hint} />
+            <LineMessages error={error} hint={hint} />
           </td>
         </tr>
       )}

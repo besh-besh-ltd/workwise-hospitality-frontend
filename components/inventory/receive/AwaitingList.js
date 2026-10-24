@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, ClipboardList, PackageCheck, RefreshCw, ScanBarcode, Search, Truck } from "lucide-react";
 import ScanInput from "@/components/inventory/scan/ScanInput";
 import { getAwaitingDeliveries } from "@/services/inventory";
 import { errorInfo, fmtDay, fmtQty, inr, routes } from "./receiveUtils";
+import { HotelFilter, useHotelOptions } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // Awaiting deliveries: every PO with goods still to come in at the hotels the
@@ -37,15 +37,7 @@ const EMPTY_SUB = {
 
 const AwaitingList = () => {
   const router = useRouter();
-  const userProfile = useSelector((state) => state.userProfile);
-  const hotels = useMemo(() => {
-    const seen = new Map();
-    for (const m of userProfile?.hospitality_mappings || []) {
-      if (m?.hospitality_hotel_id == null || seen.has(Number(m.hospitality_hotel_id))) continue;
-      seen.set(Number(m.hospitality_hotel_id), m.hotel_name || `Hotel ${m.hospitality_hotel_id}`);
-    }
-    return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [userProfile]);
+  const hotels = useHotelOptions();
 
   const [filter, setFilter] = useState("all");
   const [hotelId, setHotelId] = useState("");
@@ -94,7 +86,11 @@ const AwaitingList = () => {
   const onScan = (result) => {
     if (!result) return;
     if (result.kind === "dispatch" && result.poId != null) {
-      router.push(routes.receive(result.poId, { dispatchId: result.dispatchId }));
+      // The note's own hotel when the scan names it, else the hotel this list
+      // is filtered to; with neither, Receive asks (and says if the note is
+      // for another hotel).
+      const dispatchHotel = result.hotelId ?? (hotelId || undefined);
+      router.push(routes.receive(result.poId, { hotelId: dispatchHotel, dispatchId: result.dispatchId }));
     } else if (result.kind === "po" && result.poId != null) {
       router.push(routes.receive(result.poId, { hotelId: hotelId || undefined }));
     } else if (result.kind === "grn" && result.grnId != null) {
@@ -152,25 +148,15 @@ const AwaitingList = () => {
               ))}
             </div>
             <div className={styles.filterGrow} />
-            {hotels.length > 1 && (
-              <div>
-                <label className={styles.srOnly} htmlFor="awaiting-hotel">Hotel</label>
-                <select
-                  id="awaiting-hotel"
-                  className={styles.select}
-                  value={hotelId}
-                  onChange={(e) => {
-                    setHotelId(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All my hotels</option>
-                  {hotels.map((h) => (
-                    <option key={h.id} value={String(h.id)}>{h.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <HotelFilter
+              id="awaiting-hotel"
+              hotels={hotels}
+              value={hotelId}
+              onChange={(v) => {
+                setHotelId(v);
+                setPage(1);
+              }}
+            />
             <div className={styles.searchBox}>
               <Search size={14} aria-hidden="true" />
               <input

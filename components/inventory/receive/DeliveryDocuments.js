@@ -1,6 +1,7 @@
 import React, { useId, useState } from "react";
-import { Camera, FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
+import { Camera, Loader2, Upload } from "lucide-react";
 import { fmtDay } from "./receiveUtils";
+import { AttachKindSelect, AttachmentList } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // "Delivery documents": the vendor's paperwork for this delivery (challan,
@@ -10,14 +11,6 @@ import styles from "./receive.module.scss";
 // Props: { header, onChange(patch), dispatches[], onPickDispatch(id), attachments[],
 //          pendingFiles[], onUpload(file, kind), onDelete(attachment), onRemovePending(index),
 //          uploading, canDelete }
-
-const KINDS = [
-  { value: "CHALLAN", label: "Challan" },
-  { value: "INVOICE", label: "Invoice" },
-  { value: "PHOTO", label: "Photo" },
-  { value: "OTHER", label: "Other" },
-];
-const kindLabel = (k) => KINDS.find((x) => x.value === k)?.label || "File";
 
 const Field = ({ label, children, full = false, htmlFor }) => (
   <div className={full ? styles.formFull : undefined}>
@@ -93,56 +86,15 @@ const DeliveryDocuments = ({
 
       <div style={{ marginTop: 16 }}>
         <span className={styles.label}>Attachments</span>
-        {attachments.length + pendingFiles.length > 0 ? (
-          <ul className={styles.attList}>
-            {attachments.map((a) => (
-              <li key={a.id} className={styles.attItem}>
-                <FileText size={14} aria-hidden="true" />
-                <a href={a.url} target="_blank" rel="noopener noreferrer">{a.fileName || kindLabel(a.kind)}</a>
-                <span className={`${styles.pill} ${styles.pillNeutral}`}>{kindLabel(a.kind)}</span>
-                {canDelete && onDelete && (
-                  <button
-                    type="button"
-                    className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-                    onClick={() => onDelete(a)}
-                    aria-label={`Remove ${a.fileName || kindLabel(a.kind)}`}
-                  >
-                    <Trash2 size={13} aria-hidden="true" />
-                  </button>
-                )}
-              </li>
-            ))}
-            {pendingFiles.map((p, i) => (
-              <li key={`p-${i}`} className={styles.attItem}>
-                <Paperclip size={14} aria-hidden="true" />
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{p.file.name}</span>
-                <span className={`${styles.pill} ${styles.pillNeutral}`}>Uploads on post</span>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-                  onClick={() => onRemovePending(i)}
-                  aria-label={`Remove ${p.file.name}`}
-                >
-                  <Trash2 size={13} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className={styles.fieldHint}>Photograph the signed challan and the invoice so accounts can match them.</p>
-        )}
+        <AttachmentList
+          attachments={attachments}
+          pendingFiles={pendingFiles}
+          onDelete={canDelete ? onDelete : undefined}
+          onRemovePending={onRemovePending}
+          empty={<p className={styles.fieldHint}>Photograph the signed challan and the invoice so accounts can match them.</p>}
+        />
         <div className={styles.attActions}>
-          <select
-            className={styles.select}
-            style={{ width: "auto" }}
-            aria-label="Attach as"
-            value={kind}
-            onChange={(e) => setKind(e.target.value)}
-          >
-            {KINDS.map((k) => (
-              <option key={k.value} value={k.value}>{k.label}</option>
-            ))}
-          </select>
+          <AttachKindSelect value={kind} onChange={setKind} />
           <label className={`${styles.btn} ${styles.btnSecondary} ${styles.fileBtn}`}>
             {uploading ? <Loader2 size={14} className={styles.spin} aria-hidden="true" /> : <Camera size={14} aria-hidden="true" />}
             <span>Take photo</span>

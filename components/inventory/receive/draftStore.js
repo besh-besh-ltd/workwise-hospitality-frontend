@@ -1,7 +1,7 @@
 // The device copy of an in-progress receipt, in IndexedDB, keyed
 // `grn-draft:<poId>:<hotelId>` (spec §10.2: a dropped signal loses nothing).
 // The server draft is the shared copy; this one covers the seconds between
-// autosaves and token sessions, which have no server draft.
+// autosaves, and a draft create or post whose reply never came.
 //
 // Every call is best effort: no IndexedDB (jsdom, private mode, build-time
 // evaluation) makes them no-ops, and nothing here touches `indexedDB` at

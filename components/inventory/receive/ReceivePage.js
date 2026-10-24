@@ -2,10 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
-import {
-  ArrowLeft, Building2, CheckCircle2, CloudOff, FileText, Loader2, PackageCheck, PackageOpen, RefreshCw, Save,
-  ScanBarcode, Send,
-} from "lucide-react";
+import { FileText, Loader2, RotateCcw, Save, ScanBarcode, Send } from "lucide-react";
 import ScanInput from "@/components/inventory/scan/ScanInput";
 import LinkUnknownCodeSheet from "@/components/inventory/scan/LinkUnknownCodeSheet";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
@@ -18,124 +15,49 @@ import QtyPad from "./QtyPad";
 import UomFactorPrompt from "./UomFactorPrompt";
 import DeliveryDocuments from "./DeliveryDocuments";
 import ReceiveConfirmModal from "./ReceiveConfirmModal";
-import { buyerReceiveAdapter } from "./receiveAdapter";
-import { clearLocalDraft, grnDraftKey, loadLocalDraft, saveLocalDraft } from "./draftStore";
 import {
-  HEADER_FIELDS, addQty, blankHeader, blankLine, buildGrnInput, errorInfo, fmtQty, fmtQtyUnit, hasContent,
-  isDecimalUnit, lineFromDraft, lineQty, newClientEventId, parseQty, qtyText, routes, subQty, toQ, validateForPost,
+  BlockedState, DiscardDraftModal, ErrorState, LoadingState, PickHotelState, PostedState, QueuedState, ReceiveEyebrow,
+  ReceiveFrame, ReceiveNotice,
+} from "./ReceiveStates";
+import { GRN_POST_KIND, buyerReceiveAdapter as api } from "./receiveAdapter";
+import useReceiveDraft, { AlreadyPosted } from "./useReceiveDraft";
+import useReceiveScan from "./useReceiveScan";
+import { earlierPostMessage, isFreshPost, postErrorAction, postedGrnOf } from "./receivePost";
+import { applyDispatch, formFromContext } from "./receiveFormState";
+import {
+  blankHeader, buildGrnInput, errorInfo, factorText, isNetworkError, lineQty, parseQty, routes, subQty, validateForPost,
 } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
 // Receive one delivery against one PO at one hotel: pick the hotel, scan or
 // type what arrived, note rejects / batches / documents, confirm, post.
 //
-// The same screen runs for a signed-in receiver and (task D5) for a site rep
-// on an emailed link. Everything mode-specific comes in through props:
+// Signed-in receivers only. A site rep on an emailed link uses
+// TokenReceivePage (task D5), built from the same line, pad, confirm and
+// documents components; it has no drafts, no outbox and no device copy.
 //
-//   poId              PO id (the buyer adapter loads by it; a token adapter ignores it)
+//   poId              PO id
 //   initialHotelId    preselected hotel (?hotelId=); otherwise the server picks or we ask
 //   dispatchId        ?dispatch=: prefill received qty + challan from that dispatch note
-//   adapter           service calls (receiveAdapter.js); default buyerReceiveAdapter
-//   showPrices        false hides every price (token views never show prices)
-//   fixedHotel        true hides "Change hotel"
-//   allowItemSetup    false: no unit-conversion prompt, no "Is this the same as…?",
-//                     no linking unknown codes (all need inventory.update)
-//   allowMarkOut      false hides "Mark out on arrival" and never sends it
-//   buyerLinks        false hides links into buyer pages (GRN register, PO, awaiting)
-//   renderScanner     ({context, disabled, onResolved, onUnknown, lines}) => node, to
-//                     replace the default ScanInput (which calls the buyer resolve route)
-//   renderBlocked     ({reason, message, context, reload}) => node, to replace a
-//                     "nothing to receive" state
+//                     (once; a draft or another hotel skips it, with a notice)
 //   onPosted(grn)     after a successful post
 //   onHotelChange(id) after the receiver picks a hotel (the page syncs ?hotelId=)
 //
-// Drafts: an adapter with createDraft keeps a server draft (autosaved every
-// 10 s while dirty, on blur and when the tab hides) plus a device copy in
-// IndexedDB; posting saves the draft, then posts it by id through the outbox
-// with a fresh clientEventId (replay-safe: a posted draft answers as itself).
-// Without drafts the receipt posts in one request keyed by the session's
-// clientEventId, kept with the device copy so a retry never posts twice.
-
-const AUTOSAVE_MS = 10000;
-const BLUR_SAVE_MS = 800;
-const LOCAL_SAVE_MS = 400;
-const FLASH_MS = 1200;
-
-const sameUnit = (a, b) =>
-  !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-
-/** 'YYYY-MM-DD' stays; an ISO instant becomes its IST calendar day. */
-const dayOf = (v) => {
-  if (!v) return "";
-  const s = String(v);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const t = Date.parse(s);
-  if (Number.isNaN(t)) return "";
-  return new Date(t + 330 * 60000).toISOString().slice(0, 10);
-};
-
-const withoutPoId = (input) => {
-  const out = { ...input };
-  delete out.poId;
-  return out;
-};
-
-/** createGrn replayed a session key whose receipt is already posted. */
-class AlreadyPosted extends Error {
-  constructor(grn) {
-    super("This receipt is already posted");
-    this.postedGrn = grn;
-  }
-}
-
-const ScanToast = ({ name, unit, delta, total, onUndo }) => (
-  <div className={styles.toastRow}>
-    <div style={{ minWidth: 0 }}>
-      <div className={styles.toastQty}>+{fmtQty(delta)} (now {fmtQty(total)})</div>
-      <div className={styles.toastName}>{name}{unit ? ` · ${unit}` : ""}</div>
-    </div>
-    <button type="button" className={styles.toastUndo} onClick={onUndo}>
-      Undo
-    </button>
-  </div>
-);
-
-const BLOCKED_COPY = {
-  received: {
-    title: "Everything on this PO has been received",
-    sub: "Nothing is left to receive here. Its goods receipts show what came in.",
-    ok: true,
-  },
-  closed_short: {
-    title: "This PO was closed short",
-    sub: "The buyer closed the rest of this order, so nothing is left to receive.",
-    ok: true,
-  },
-  not_ready: { title: "This PO can't be received yet", sub: null },
-  not_found: { title: "Purchase order not found", sub: "It may have been removed, or it isn't at a hotel you receive for." },
-  forbidden: { title: "You can't receive this PO", sub: null },
-  no_hotel: { title: "No hotel to receive at", sub: "None of this PO's hotels is one you receive for." },
-};
+// Posting is ONE request keyed by the session's clientEventId (useReceiveDraft):
+// the server posts the draft holding the key, or replays it on a retry. It
+// goes through the offline outbox (kind grn_post); while the outbox has no
+// queue, a dropped reply keeps the screen and offers Retry with the same key.
 
 const ReceivePage = ({
   poId,
   initialHotelId,
   dispatchId = null,
-  adapter = buyerReceiveAdapter,
-  showPrices = true,
-  fixedHotel = false,
-  allowItemSetup = true,
-  allowMarkOut = true,
-  buyerLinks = true,
-  renderScanner,
-  renderBlocked,
   onPosted,
   onHotelChange,
 }) => {
   const router = useRouter();
   const isMobile = useIsMobile();
   const pendingCount = usePendingCount();
-  const drafts = typeof adapter?.createDraft === "function";
 
   const [view, setView] = useState({ phase: "loading" });
   const [ctx, setCtx] = useState(null);
@@ -146,23 +68,20 @@ const ReceivePage = ({
   const [entries, setEntries] = useState({});
   const [lineErrors, setLineErrors] = useState({});
   const [formError, setFormError] = useState(null);
+  const [canRetry, setCanRetry] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [saveState, setSaveState] = useState({ status: "idle", at: null });
   const [posting, setPosting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [uomPrompt, setUomPrompt] = useState(null);
-  const [pad, setPad] = useState(null);
-  const [unknownCode, setUnknownCode] = useState(null);
-  const [flashId, setFlashId] = useState(null);
   const [attachments, setAttachments] = useState([]);
-  const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [attachError, setAttachError] = useState(null);
-  const [restored, setRestored] = useState(false);
+  const [notice, setNotice] = useState(null);
 
   // Synchronous mirrors: scans, autosave timers and the post path read the
   // latest values, not the ones captured by a render.
-  const adapterRef = useRef(adapter);
   const ctxRef = useRef(null);
   const hotelIdRef = useRef(hotelId);
   const headerRef = useRef(header);
@@ -170,30 +89,16 @@ const ReceivePage = ({
   const dirtyRef = useRef(false);
   const editVersionRef = useRef(0);
   const touchedRef = useRef(false);
-  const grnIdRef = useRef(null);
-  const sessionKeyRef = useRef(null);
-  const createUncertainRef = useRef(false);
-  const saveChainRef = useRef(Promise.resolve());
   const postingRef = useRef(false);
   const loadSeqRef = useRef(0);
-  const toastSeqRef = useRef(0);
-  const flashTimerRef = useRef(null);
-  const blurTimerRef = useRef(null);
   const mountedRef = useRef(true);
-  const pendingFilesRef = useRef(pendingFiles);
+  const dispatchPendingRef = useRef(dispatchId);
+  const settleSpentRef = useRef(null);
 
-  useEffect(() => {
-    adapterRef.current = adapter;
-  });
-  useEffect(() => {
-    pendingFilesRef.current = pendingFiles;
-  }, [pendingFiles]);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      clearTimeout(flashTimerRef.current);
-      clearTimeout(blurTimerRef.current);
     };
   }, []);
 
@@ -215,106 +120,111 @@ const ReceivePage = ({
     commitDirty(true);
   }, [commitDirty]);
 
+  const form = useMemo(() => ({
+    ctxRef, headerRef, entriesRef, dirtyRef, editVersionRef, touchedRef, mountedRef, loadSeqRef,
+    commitEntries, commitHeader, commitDirty,
+  }), [commitEntries, commitHeader, commitDirty]);
+
+  const session = useReceiveDraft({
+    poId,
+    form,
+    active: view.phase === "ready",
+    watch: { header, entries, dirty, hotelId },
+    postingRef,
+    onSpent: (grn) => settleSpentRef.current?.(grn),
+  });
+  const { startSession, restoreLocal } = session;
+
   const lines = useMemo(() => ctx?.lines || [], [ctx]);
   const lineById = useMemo(() => new Map(lines.map((l) => [Number(l.poLineId), l])), [lines]);
   const hotel = ctx?.hotel || null;
   const po = ctx?.po || null;
 
   const invHotelIds = useMemo(() => (hotelId ? [Number(hotelId)] : []), [hotelId]);
-  const invPerms = useModulePermissions({ moduleKey: "inventory", hotelIds: invHotelIds, enabled: allowItemSetup });
-  const canSetupItems = allowItemSetup && (invPerms.loading || invPerms.canUpdate);
+  const invPerms = useModulePermissions({ moduleKey: "inventory", hotelIds: invHotelIds });
+  // Fail closed: nothing that needs inventory.update shows while it is loading.
+  const canSetupItems = !invPerms.loading && !!invPerms.canUpdate;
+
+  // ── Edits ─────────────────────────────────────────────────────────────────
+  const patchLine = useCallback((id, patch) => {
+    const prev = entriesRef.current;
+    if (!prev[id]) return;
+    commitEntries({ ...prev, [id]: { ...prev[id], ...patch } });
+    setLineErrors((errs) => {
+      if (!(id in errs)) return errs;
+      const next = { ...errs };
+      delete next[id];
+      return next;
+    });
+    setFormError(null);
+    setCanRetry(false);
+    markEdited();
+  }, [commitEntries, markEdited]);
+
+  /** A field typed on a row or card: a typed received qty restarts the scan count. */
+  const editLine = useCallback((id, patch) =>
+    patchLine(id, "received" in patch ? { ...patch, scanUnits: 0, scanBase: null } : patch), [patchLine]);
+
+  const patchHeader = useCallback((patch) => {
+    commitHeader({ ...headerRef.current, ...patch });
+    setFormError(null);
+    setCanRetry(false);
+    markEdited();
+  }, [commitHeader, markEdited]);
+
+  const pickDispatch = useCallback((id) => {
+    const dsp = (ctxRef.current?.dispatches || []).find((x) => String(x.id) === String(id));
+    const hdr = headerRef.current;
+    if (!dsp) {
+      patchHeader({ dispatchId: "" });
+      return;
+    }
+    // Fill only what the receiver has not entered yet.
+    const next = applyDispatch(dsp, entriesRef.current, hdr);
+    if (next.entries !== entriesRef.current) commitEntries(next.entries);
+    patchHeader(next.header);
+  }, [commitEntries, patchHeader]);
+
+  const scan = useReceiveScan({
+    form: { entriesRef, ctxRef, patchLine },
+    lines,
+    lineById,
+    pickDispatch,
+    canLinkCodes: canSetupItems,
+    router,
+  });
 
   // ── Form initialisation ───────────────────────────────────────────────────
-  const initForm = useCallback((data) => {
-    const deptDefault = data.po?.departmentId ?? null;
-    const draft = drafts ? data.draft : null;
-    const draftLines = new Map((draft?.lines || []).map((d) => [Number(d.poLineId), d]));
-    let nextEntries = {};
-    for (const l of data.lines || []) {
-      const d = draftLines.get(Number(l.poLineId));
-      nextEntries[l.poLineId] = d
-        ? lineFromDraft(d, l, { departmentId: deptDefault })
-        : blankLine(l, { departmentId: deptDefault });
-    }
-    let nextHeader = blankHeader();
-    if (draft) {
-      for (const k of HEADER_FIELDS) {
-        if (draft[k] == null) continue;
-        nextHeader[k] = /Date$|^receivedAt$/.test(k) ? dayOf(draft[k]) || nextHeader[k] : String(draft[k]);
-      }
-      nextHeader.dispatchId = draft.dispatchId ? String(draft.dispatchId) : "";
-    } else if (dispatchId) {
-      const dsp = (data.dispatches || []).find((x) => String(x.id) === String(dispatchId));
-      if (dsp) {
-        for (const dl of dsp.lines || []) {
-          const e = nextEntries[dl.poLineId];
-          if (e && !(toQ(e.received) > 0)) nextEntries = { ...nextEntries, [dl.poLineId]: { ...e, received: qtyText(dl.qty) } };
-        }
-        nextHeader = {
-          ...nextHeader,
-          dispatchId: String(dsp.id),
-          vendorChallanNo: dsp.challanNo || "",
-          vendorChallanDate: dayOf(dsp.challanDate) || "",
-          ewayBillNo: dsp.ewayBillNo || "",
-          vehicleNo: dsp.vehicleNo || "",
-        };
-      }
-    }
-    grnIdRef.current = draft?.id ?? null;
-    sessionKeyRef.current = draft?.clientEventId || newClientEventId();
-    createUncertainRef.current = false;
+  /** Fresh form state for a loaded context. Returns the server draft it resumed (or null). */
+  const initForm = useCallback((data, { ignoreDraft = false } = {}) => {
+    const draft = ignoreDraft ? null : data.draft || null;
+    const dispatchWanted = dispatchPendingRef.current;
+    dispatchPendingRef.current = null; // a ?dispatch= applies to the first receipt only
+    const { entries: nextEntries, header: nextHeader, note } = formFromContext(data, { draft, dispatchId: dispatchWanted });
+    startSession(draft);
     editVersionRef.current = 0;
     touchedRef.current = false;
     commitEntries(nextEntries);
     commitHeader(nextHeader);
     commitDirty(false);
     setAttachments(draft?.attachments || []);
-    setPendingFiles([]);
     setLineErrors({});
     setFormError(null);
+    setCanRetry(false);
     setAttachError(null);
-    setRestored(false);
-    setSaveState({ status: draft ? "saved" : "idle", at: null });
+    setNotice(note);
     return draft;
-  }, [drafts, dispatchId, commitEntries, commitHeader, commitDirty]);
-
-  /** The device copy wins only if it is newer than the server draft and nobody typed yet. */
-  const restoreLocal = useCallback(async (data, draft, seq) => {
-    const hid = data.hotel?.id;
-    if (!hid) return;
-    const local = await loadLocalDraft(grnDraftKey(data.po?.id ?? poId, hid));
-    if (!local || seq !== loadSeqRef.current || touchedRef.current || !mountedRef.current) return;
-    if (draft && local.draftId != null && Number(local.draftId) !== Number(draft.id)) return;
-    const serverAt = draft?.updatedAt ? Date.parse(draft.updatedAt) || 0 : 0;
-    if (!(Number(local.savedAt) > serverAt)) return;
-    const deptDefault = data.po?.departmentId ?? null;
-    const next = {};
-    for (const l of data.lines || []) {
-      next[l.poLineId] = { ...blankLine(l, { departmentId: deptDefault }), ...(local.entries?.[l.poLineId] || {}) };
-    }
-    if (!draft && local.sessionKey) {
-      sessionKeyRef.current = local.sessionKey;
-      createUncertainRef.current = true; // a create may have landed without us hearing back
-    }
-    commitEntries(next);
-    commitHeader({ ...blankHeader(), ...(local.header || {}) });
-    commitDirty(true);
-    setRestored(true);
-  }, [poId, commitEntries, commitHeader, commitDirty]);
+  }, [startSession, commitEntries, commitHeader, commitDirty]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   const load = useCallback(async (hid) => {
     const seq = ++loadSeqRef.current;
     setView({ phase: "loading" });
     try {
-      const data = await adapterRef.current.getContext(poId, hid);
+      const data = await api.getContext(poId, hid);
       if (seq !== loadSeqRef.current || !mountedRef.current) return;
       ctxRef.current = data;
       setCtx(data);
-      if (data?.receivable === false) {
-        setView({ phase: "blocked", reason: data.notReceivableReason || "not_ready", message: null });
-        return;
-      }
       if (!data?.hotel) {
         const choices = data?.hotelChoices || [];
         if (choices.length === 1 && hid == null) {
@@ -330,7 +240,19 @@ const ReceivePage = ({
       setHotelId(Number(data.hotel.id));
       const draft = initForm(data);
       setView({ phase: "ready" });
-      restoreLocal(data, draft, seq);
+      const local = await restoreLocal(data, draft, seq);
+      if (!local || seq !== loadSeqRef.current || !mountedRef.current) return;
+      if (local.kind === "restored") {
+        setNotice({ tone: "note", text: "Restored the entries you had not saved yet on this device." });
+      } else if (local.grn) {
+        setNotice({
+          tone: "warn",
+          text: `Your earlier receipt for this order was already posted${local.grn.grnNumber ? ` (${local.grn.grnNumber})` : ""}.`,
+          grnId: local.grn.id ?? null,
+        });
+      } else if (!local.hasServerDraft) {
+        setNotice({ tone: "note", text: "Your saved draft is no longer available." });
+      }
     } catch (err) {
       if (seq !== loadSeqRef.current || !mountedRef.current) return;
       const info = errorInfo(err, "Could not load this purchase order.");
@@ -361,315 +283,90 @@ const ReceivePage = ({
     load(hid);
   };
 
-  // ── Drafts ────────────────────────────────────────────────────────────────
-  /**
-   * Save the server draft. Saves run one at a time (a second create with the
-   * same session key would answer with the first draft, unchanged).
-   * `snapshot` overrides {header, entries} for a save that must include an
-   * edit made in the same tick (the post path).
-   */
-  const saveDraft = useCallback(({ force = false, snapshot = null } = {}) => {
-    const job = async () => {
-      const ad = adapterRef.current;
-      const data = ctxRef.current;
-      if (typeof ad.createDraft !== "function" || !data?.hotel) return null;
-      const hdr = snapshot?.header || headerRef.current;
-      const ents = snapshot?.entries || entriesRef.current;
-      if (!force && !dirtyRef.current) return null;
-      if (!force && !grnIdRef.current && !hasContent(hdr, ents)) return null;
-      const version = editVersionRef.current;
-      const input = buildGrnInput({
-        poId: data.po.id, hotelId: data.hotel.id, header: hdr, ctxLines: data.lines || [], entries: ents, allowMarkOut,
-      });
-      if (mountedRef.current) setSaveState({ status: "saving", at: null });
-      try {
-        let grn;
-        if (grnIdRef.current) {
-          grn = await ad.updateDraft(grnIdRef.current, { ...withoutPoId(input), post: false });
-        } else {
-          grn = await ad.createDraft({ ...input, post: false, clientEventId: sessionKeyRef.current });
-          if (grn?.status && grn.status !== "draft") throw new AlreadyPosted(grn);
-          grnIdRef.current = grn?.id ?? null;
-          if (createUncertainRef.current && grnIdRef.current) {
-            createUncertainRef.current = false;
-            grn = await ad.updateDraft(grnIdRef.current, { ...withoutPoId(input), post: false });
-          }
-        }
-        if (mountedRef.current) {
-          if (editVersionRef.current === version) commitDirty(false);
-          setSaveState({ status: "saved", at: Date.now() });
-        }
-        return grn;
-      } catch (err) {
-        if (!grnIdRef.current && errorInfo(err).httpStatus == null) createUncertainRef.current = true;
-        if (mountedRef.current) setSaveState({ status: "error", at: null });
-        throw err;
-      }
-    };
-    const run = saveChainRef.current.then(job, job);
-    saveChainRef.current = run.catch(() => {});
-    return run;
-  }, [allowMarkOut, commitDirty]);
-
-  const finishPosted = useCallback(async (result, ad) => {
-    const grn = result && result.id == null && result.grn && typeof result.grn === "object" ? result.grn : result;
-    const data = ctxRef.current;
-    const uploadFailures = [];
-    if (typeof ad.createDraft !== "function" && grn?.id) {
-      for (const p of pendingFilesRef.current) {
-        try {
-          await ad.uploadAttachment(grn.id, p.file, p.kind);
-        } catch (err) {
-          uploadFailures.push({ name: p.file.name, message: errorInfo(err, "Upload failed").message });
-        }
-      }
-    }
-    if (data?.hotel) clearLocalDraft(grnDraftKey(data.po?.id ?? poId, data.hotel.id));
-    grnIdRef.current = null;
-    sessionKeyRef.current = newClientEventId();
-    createUncertainRef.current = false;
+  // ── Outcomes ──────────────────────────────────────────────────────────────
+  const finishPosted = useCallback(async (grn) => {
     commitDirty(false);
+    await session.clearLocal();
+    session.rotateKey();
     if (!mountedRef.current) return;
-    setPendingFiles([]);
-    setView({ phase: "posted", grn, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [], uploadFailures });
+    setNotice(null);
+    setFormError(null);
+    setCanRetry(false);
+    setUomPrompt(null);
+    setView({ phase: "posted", grn, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [] });
     onPosted?.(grn);
-  }, [poId, commitDirty, onPosted]);
+  }, [session, commitDirty, onPosted]);
 
-  // Autosave while dirty.
+  /** The key turned out to be posted already, and not by this screen's entries: start over, keep them. */
+  const showEarlier = useCallback((grn) => {
+    session.rotateKey();
+    commitDirty(true);
+    session.saveLocalNow();
+    if (!mountedRef.current) return;
+    setAttachments([]); // they went with the posted receipt
+    setConfirmOpen(false);
+    setUomPrompt(null);
+    setFormError(null);
+    setCanRetry(false);
+    setNotice({ tone: "warn", text: earlierPostMessage(grn), grnId: grn?.id ?? null });
+  }, [session, commitDirty]);
+
+  const settleSpent = useCallback((grn) =>
+    (session.verdictFor(grn) === "ours" ? finishPosted(grn) : Promise.resolve(showEarlier(grn))),
+  [session, finishPosted, showEarlier]);
   useEffect(() => {
-    if (!drafts || view.phase !== "ready") return undefined;
-    const t = setInterval(() => {
-      if (dirtyRef.current && !postingRef.current) saveDraft().catch(() => {});
-    }, AUTOSAVE_MS);
-    return () => clearInterval(t);
-  }, [drafts, view.phase, saveDraft]);
+    settleSpentRef.current = settleSpent;
+  });
 
-  // Save when the tab hides (phone locked, app switched).
-  useEffect(() => {
-    if (!drafts || view.phase !== "ready") return undefined;
-    const onHide = () => {
-      if (document.visibilityState === "hidden" && dirtyRef.current && !postingRef.current) saveDraft().catch(() => {});
-    };
-    document.addEventListener("visibilitychange", onHide);
-    return () => document.removeEventListener("visibilitychange", onHide);
-  }, [drafts, view.phase, saveDraft]);
-
-  // Device copy, a moment after each edit.
-  useEffect(() => {
-    if (view.phase !== "ready" || !dirty || !hotelId || !ctxRef.current) return undefined;
-    const key = grnDraftKey(ctxRef.current.po?.id ?? poId, hotelId);
-    const t = setTimeout(() => {
-      saveLocalDraft(key, {
-        savedAt: Date.now(),
-        draftId: grnIdRef.current,
-        sessionKey: sessionKeyRef.current,
-        header: headerRef.current,
-        entries: entriesRef.current,
-      });
-    }, LOCAL_SAVE_MS);
-    return () => clearTimeout(t);
-  }, [header, entries, dirty, hotelId, view.phase, poId]);
-
-  const onFormBlur = () => {
-    if (!drafts) return;
-    clearTimeout(blurTimerRef.current);
-    blurTimerRef.current = setTimeout(() => {
-      if (dirtyRef.current && !postingRef.current) saveDraft().catch(() => {});
-    }, BLUR_SAVE_MS);
-  };
-
+  // ── Drafts ────────────────────────────────────────────────────────
   const onSaveDraftClick = async () => {
     try {
-      const grn = await saveDraft({ force: true });
+      const grn = await session.saveDraft({ force: true });
       if (grn) toast.success("Draft saved");
     } catch (err) {
       if (err instanceof AlreadyPosted) {
-        await finishPosted(err.postedGrn, adapterRef.current);
+        await settleSpent(err.postedGrn);
         return;
       }
       setFormError(errorInfo(err, "Could not save the draft. Your entries are kept on this device.").message);
     }
   };
 
-  // ── Edits ─────────────────────────────────────────────────────────────────
-  const patchLine = useCallback((id, patch) => {
-    const prev = entriesRef.current;
-    if (!prev[id]) return;
-    commitEntries({ ...prev, [id]: { ...prev[id], ...patch } });
-    setLineErrors((errs) => {
-      if (!(id in errs)) return errs;
-      const next = { ...errs };
-      delete next[id];
-      return next;
-    });
-    setFormError(null);
-    markEdited();
-  }, [commitEntries, markEdited]);
-
-  const patchHeader = useCallback((patch) => {
-    commitHeader({ ...headerRef.current, ...patch });
-    setFormError(null);
-    markEdited();
-  }, [commitHeader, markEdited]);
-
-  const pickDispatch = useCallback((id) => {
-    const dsp = (ctxRef.current?.dispatches || []).find((x) => String(x.id) === String(id));
-    const hdr = headerRef.current;
-    if (!dsp) {
-      patchHeader({ dispatchId: "" });
-      return;
-    }
-    // Fill only what the receiver has not entered yet.
-    let next = entriesRef.current;
-    for (const dl of dsp.lines || []) {
-      const e = next[dl.poLineId];
-      if (e && !(toQ(e.received) > 0)) next = { ...next, [dl.poLineId]: { ...e, received: qtyText(dl.qty) } };
-    }
-    if (next !== entriesRef.current) commitEntries(next);
-    patchHeader({
-      dispatchId: String(dsp.id),
-      vendorChallanNo: hdr.vendorChallanNo || dsp.challanNo || "",
-      vendorChallanDate: hdr.vendorChallanDate || dayOf(dsp.challanDate) || "",
-      ewayBillNo: hdr.ewayBillNo || dsp.ewayBillNo || "",
-      vehicleNo: hdr.vehicleNo || dsp.vehicleNo || "",
-    });
-  }, [commitEntries, patchHeader]);
-
-  const flash = (id) => {
-    setFlashId(id);
-    clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setFlashId(null), FLASH_MS);
-  };
-
-  /** Add `delta` (PO units) to a line's received qty; returns the new total. */
-  const addToLine = (line, delta, { scanned = false, gs1 = null } = {}) => {
-    const e = entriesRef.current[line.poLineId];
-    if (!e) return 0;
-    const total = Math.max(0, addQty(parseQty(e.received) ?? 0, delta));
-    const patch = { received: qtyText(total) };
-    if (scanned) patch.scannedAt = Date.now();
-    if (gs1 && line.trackExpiry) {
-      if (gs1.batch && !e.batchNo) patch.batchNo = gs1.batch;
-      if (gs1.expiry && !e.expiryDate) patch.expiryDate = gs1.expiry;
-    }
-    patchLine(line.poLineId, patch);
-    return total;
-  };
-
-  const undoScan = (poLineId, delta) => {
-    const e = entriesRef.current[poLineId];
-    if (!e) return;
-    const total = Math.max(0, subQty(parseQty(e.received) ?? 0, delta));
-    patchLine(poLineId, { received: qtyText(total) });
-  };
-
-  const showScanToast = (line, delta, total) => {
-    toastSeqRef.current += 1;
-    const toastId = `receive-scan-${line.poLineId}-${toastSeqRef.current}`;
-    toast(
-      <ScanToast
-        name={line.productName}
-        unit={line.unit}
-        delta={delta}
-        total={total}
-        onUndo={() => {
-          undoScan(line.poLineId, delta);
-          toast.dismiss(toastId);
-        }}
-      />,
-      { toastId, autoClose: 4000, closeOnClick: false, hideProgressBar: true }
-    );
-  };
-
-  /** One scan (or linked code) of `packFactor` stock units onto a PO line. */
-  const applyItemScan = (line, packFactor, gs1 = null) => {
-    const e = entriesRef.current[line.poLineId];
-    if (!e) return;
-    const factor = Number(e.uomFactor) > 0
-      ? Number(e.uomFactor)
-      : Number(line.uomFactor) > 0
-        ? Number(line.uomFactor)
-        : sameUnit(line.unit, line.stockUom) ? 1 : null;
-    if (isDecimalUnit(line.unit) || factor == null) {
-      const received = parseQty(e.received) ?? 0;
-      setPad({
-        poLineId: line.poLineId, mode: "add", scanned: true, gs1,
-        initial: Math.max(0, subQty(line.openAtHotel, received)),
-      });
-      return;
-    }
-    const delta = Number(qtyText((Number(packFactor) > 0 ? Number(packFactor) : 1) / factor));
-    const total = addToLine(line, delta, { scanned: true, gs1 });
-    flash(line.poLineId);
-    showScanToast(line, delta, total);
-  };
-
-  const onScanResolved = (result, meta) => {
-    const data = ctxRef.current;
-    if (!result || !data) return;
-    const thisPo = Number(data.po?.id);
-    if (result.kind === "item") {
-      const it = result.item || {};
-      const line = it.poLineId != null
-        ? lineById.get(Number(it.poLineId))
-        : lines.find((l) => l.invItemId != null && Number(l.invItemId) === Number(it.invItemId));
-      if (!line) {
-        toast.warn(`${it.displayName || "That item"} isn't on this PO`);
-        return;
+  const confirmDiscard = async () => {
+    setDiscarding(true);
+    try {
+      await session.discard();
+      if (!mountedRef.current) return;
+      initForm(ctxRef.current, { ignoreDraft: true });
+      setNotice({ tone: "note", text: "Draft discarded." });
+    } catch (err) {
+      if (err instanceof AlreadyPosted) await settleSpent(err.postedGrn);
+      else if (mountedRef.current) setFormError(errorInfo(err, "Could not discard the draft. Try again.").message);
+    } finally {
+      if (mountedRef.current) {
+        setDiscarding(false);
+        setDiscardOpen(false);
       }
-      applyItemScan(line, it.packFactor, result.gs1 || meta?.parsed?.gs1 || null);
-    } else if (result.kind === "dispatch") {
-      if (result.poId != null && Number(result.poId) !== thisPo) {
-        if (buyerLinks) router.push(routes.receive(result.poId, { dispatchId: result.dispatchId }));
-        else toast.warn("That dispatch note is for another order");
-        return;
-      }
-      pickDispatch(String(result.dispatchId));
-      toast.info("Receiving against that dispatch note");
-    } else if (result.kind === "po") {
-      if (Number(result.poId) === thisPo) toast.info("You are already receiving this PO");
-      else if (buyerLinks) router.push(routes.receive(result.poId));
-      else toast.warn("That code is for another order");
-    } else if (result.kind === "grn") {
-      toast.info("That is a goods receipt, not an item on this delivery");
     }
   };
 
-  const onScanUnknown = (code) => {
-    if (allowItemSetup && canSetupItems && code) setUnknownCode(code);
-    else toast.warn(`${code || "That code"} isn't recognised. Enter the qty by hand.`);
-  };
-
-  const onCodeLinked = (info) => {
-    setUnknownCode(null);
-    const line = info?.poLineId != null
-      ? lineById.get(Number(info.poLineId))
-      : lines.find((l) => l.invItemId != null && Number(l.invItemId) === Number(info?.invItemId));
-    if (line) applyItemScan(line, info.packFactor);
-  };
-
-  // ── Pad, unit conversion ──────────────────────────────────────────────────
-  const onPadDone = (qty) => {
-    const p = pad;
-    setPad(null);
-    const line = p && lineById.get(Number(p.poLineId));
-    if (!line) return;
-    if (p.mode === "add") {
-      if (!(qty > 0)) return;
-      const total = addToLine(line, qty, { scanned: p.scanned, gs1: p.gs1 });
-      flash(line.poLineId);
-      if (p.scanned) showScanToast(line, qty, total);
-    } else {
-      patchLine(line.poLineId, { received: qtyText(qty) });
-    }
-  };
-
+  // ── Unit conversion ───────────────────────────────────────────────────────
   const applyFactor = (factor) => {
     const p = uomPrompt;
     setUomPrompt(null);
-    if (!p || !(Number(factor) > 0)) return;
+    if (!p) return;
+    let patch;
+    if (p.mode === "mismatch") {
+      // The item already has a conversion: send none and the server uses it
+      // (no inventory.update needed). Keep it for scans.
+      patch = { uomFactor: "", knownFactor: factorText(p.currentFactor) || null };
+    } else {
+      const text = factorText(factor);
+      if (!text) return;
+      patch = { uomFactor: text };
+    }
     const prev = entriesRef.current;
-    const next = { ...prev, [p.poLineId]: { ...prev[p.poLineId], uomFactor: qtyText(factor) } };
+    const next = { ...prev, [p.poLineId]: { ...prev[p.poLineId], ...patch } };
     commitEntries(next);
     setLineErrors((errs) => {
       const n = { ...errs };
@@ -683,123 +380,103 @@ const ReceivePage = ({
   // ── Posting ───────────────────────────────────────────────────────────────
   const handlePostError = (err) => {
     const info = errorInfo(err, "Could not post this receipt. Try again.");
-    const d = info.details || {};
-    const lineId = d.poLineId != null ? Number(d.poLineId) : null;
-    const line = lineId != null ? lineById.get(lineId) : null;
-
-    if (info.code === "OVER_RECEIPT" && line) {
-      const asked = d.requested != null ? `; this receipt has ${fmtQty(d.requested)}` : "";
-      setLineErrors({ [lineId]: `Max acceptable ${fmtQtyUnit(d.maxAcceptable, line.unit)} at this hotel${asked}` });
-      setFormError("One line is more than this PO allows. Fix it, then post again.");
-    } else if (info.code === "VALIDATION" && d.code_detail === "UOM_FACTOR_REQUIRED" && line) {
-      if (canSetupItems) {
-        setUomPrompt({ mode: "required", poLineId: lineId, poUnit: d.poUnit, stockUom: d.stockUom, thenPost: true });
-      } else {
-        setLineErrors({ [lineId]: info.message });
-      }
-    } else if (info.code === "VALIDATION" && d.code_detail === "UOM_FACTOR_MISMATCH" && line) {
-      setUomPrompt({
-        mode: "mismatch", poLineId: lineId, currentFactor: d.currentFactor, suppliedFactor: d.suppliedFactor, thenPost: true,
-      });
-    } else if (info.code === "CONFLICT" && d.reason === "PO_NOT_RECEIVABLE") {
-      const rs = d.receiptStatus;
-      setView({ phase: "blocked", reason: rs === "received" || rs === "closed_short" ? rs : "not_ready", message: info.message });
-    } else if (line) {
-      setLineErrors({ [lineId]: info.message });
-    } else if (info.httpStatus == null) {
-      setFormError(
-        "The connection dropped before the server answered. Post again when you have signal; a receipt is never recorded twice."
-      );
-    } else {
-      setFormError(info.message);
+    const act = postErrorAction(info, { network: isNetworkError(err), lineById, canSetupItems });
+    if (act.blocked) {
+      setView({ phase: "blocked", ...act.blocked });
+      return;
     }
+    if (act.lineErrors) setLineErrors(act.lineErrors);
+    if (act.formError) setFormError(act.formError);
+    setCanRetry(!!act.retry);
+    if (act.uomPrompt) setUomPrompt(act.uomPrompt);
   };
 
-  const runPost = async (entriesOverride = null) => {
+  const onQueued = async () => {
+    commitDirty(false);
+    await session.clearLocal();
+    session.rotateKey();
+    if (mountedRef.current) setView({ phase: "queued" });
+  };
+
+  async function runPost(entriesOverride = null) {
     if (postingRef.current) return;
     const data = ctxRef.current;
     if (!data?.hotel) return;
     postingRef.current = true;
     setPosting(true);
     setFormError(null);
-    const ad = adapterRef.current;
-    const ents = entriesOverride || entriesRef.current;
-    const hdr = headerRef.current;
+    setCanRetry(false);
+    const input = buildGrnInput({
+      poId: data.po.id,
+      hotelId: data.hotel.id,
+      header: headerRef.current,
+      ctxLines: data.lines || [],
+      entries: entriesOverride || entriesRef.current,
+    });
+    let key = null;
     try {
-      let grnId = null;
-      if (typeof ad.createDraft === "function") {
-        const draft = await saveDraft({ force: true, snapshot: { header: hdr, entries: ents } });
-        grnId = draft?.id ?? grnIdRef.current;
-      }
-      const input = buildGrnInput({
-        poId: data.po.id, hotelId: data.hotel.id, header: hdr, ctxLines: data.lines || [], entries: ents, allowMarkOut,
-      });
-      // A saved draft posts by id, so every attempt gets a fresh key; a
-      // one-shot post keeps the session key so a retry replays, never doubles.
-      const clientEventId = grnId ? newClientEventId() : sessionKeyRef.current;
-      const { queued, result } = await submitOrQueue({
-        kind: ad.postKind || "grn.post",
-        clientEventId,
-        payload: { grnId, clientEventId, input },
-        send: (payload) => ad.post(payload),
-      });
-      if (queued) {
-        clearLocalDraft(grnDraftKey(data.po.id, data.hotel.id));
-        grnIdRef.current = null;
-        sessionKeyRef.current = newClientEventId();
-        commitDirty(false);
-        if (mountedRef.current) setView({ phase: "queued" });
+      await session.beforePost();
+      key = session.sessionKeyRef.current;
+      await session.notePosting();
+      const payload = { grnId: session.grnIdRef.current, clientEventId: key, input };
+      const outcome = await submitOrQueue({ kind: GRN_POST_KIND, clientEventId: key, payload, send: (p) => api.post(p) });
+      if (outcome?.queued) {
+        await onQueued();
         return;
       }
-      await finishPosted(result, ad);
+      const grn = postedGrnOf(outcome?.result);
+      if (isFreshPost(grn) || session.verdictFor(grn) === "ours") await finishPosted(grn);
+      else showEarlier(grn);
     } catch (err) {
-      if (err instanceof AlreadyPosted) await finishPosted(err.postedGrn, ad);
-      else if (mountedRef.current) handlePostError(err);
+      if (err instanceof AlreadyPosted) {
+        await settleSpent(err.postedGrn);
+      } else {
+        if (key && isNetworkError(err)) session.markLost(key);
+        if (mountedRef.current) handlePostError(err);
+      }
     } finally {
       postingRef.current = false;
-      if (mountedRef.current) setPosting(false);
+      if (mountedRef.current) {
+        setPosting(false);
+        setConfirmOpen(false);
+      }
     }
-  };
+  }
 
   const requestPost = () => {
     if (postingRef.current) return;
-    const errs = validateForPost(lines, entriesRef.current, { allowMarkOut });
+    const errs = validateForPost(lines, entriesRef.current);
     if (errs) {
-      const { form, ...perLine } = errs;
+      const { form: formMsg, ...perLine } = errs;
       setLineErrors(perLine);
-      setFormError(form || "Fix the highlighted lines, then post.");
+      setFormError(formMsg || "Fix the highlighted lines, then post.");
+      setCanRetry(false);
       return;
     }
     setLineErrors({});
     setFormError(null);
+    setCanRetry(false);
     setConfirmOpen(true);
   };
 
-  const confirmPost = () => {
-    setConfirmOpen(false);
-    runPost();
-  };
+  // The sheet stays open (busy) until the post settles: a second tap is a no-op.
+  const confirmPost = () => runPost();
 
   // ── Attachments ───────────────────────────────────────────────────────────
   const onUpload = async (file, kind) => {
     setAttachError(null);
-    const ad = adapterRef.current;
-    if (typeof ad.createDraft !== "function") {
-      setPendingFiles((list) => [...list, { file, kind }]);
-      return;
-    }
     setUploading(true);
     try {
-      let id = grnIdRef.current;
+      let id = session.grnIdRef.current;
       if (!id) {
-        const g = await saveDraft({ force: true });
-        id = g?.id ?? grnIdRef.current;
+        const g = await session.saveDraft({ force: true });
+        id = g?.id ?? session.grnIdRef.current;
       }
-      const att = await ad.uploadAttachment(id, file, kind);
+      const att = await api.uploadAttachment(id, file, kind);
       if (mountedRef.current && att) setAttachments((list) => [...list, att]);
     } catch (err) {
       if (err instanceof AlreadyPosted) {
-        await finishPosted(err.postedGrn, ad);
+        await settleSpent(err.postedGrn);
         return;
       }
       if (mountedRef.current) setAttachError(errorInfo(err, "Could not upload that file. Try again.").message);
@@ -809,11 +486,11 @@ const ReceivePage = ({
   };
 
   const onDeleteAttachment = async (att) => {
-    const ad = adapterRef.current;
-    if (!grnIdRef.current || typeof ad.deleteAttachment !== "function") return;
+    const id = session.grnIdRef.current;
+    if (!id) return;
     setAttachError(null);
     try {
-      await ad.deleteAttachment(grnIdRef.current, att.id);
+      await api.deleteAttachment(id, att.id);
       setAttachments((list) => list.filter((a) => a.id !== att.id));
     } catch (err) {
       setAttachError(errorInfo(err, "Could not remove that file.").message);
@@ -823,7 +500,7 @@ const ReceivePage = ({
   const changeHotel = async () => {
     if (dirtyRef.current) {
       try {
-        await saveDraft();
+        await session.saveDraft();
       } catch {
         // The device copy still holds the entries.
       }
@@ -855,221 +532,65 @@ const ReceivePage = ({
     });
   }, [lines, entries]);
 
-  const overlayOpen = confirmOpen || !!pad || !!uomPrompt || !!unknownCode;
+  const overlayOpen = confirmOpen || discardOpen || !!scan.pad || !!uomPrompt || !!scan.unknownCode;
   const scanPaused = overlayOpen || posting;
-  const canChangeHotel = !fixedHotel && (ctx?.hotelChoices?.length || 0) > 1;
+  const canChangeHotel = (ctx?.hotelChoices?.length || 0) > 1;
+  const canDiscard = session.draftId != null || dirty;
 
   const saveLabel = (() => {
-    if (!drafts) return null;
-    if (saveState.status === "saving") return "Saving…";
-    if (saveState.status === "error") return "Not saved yet";
+    const st = session.saveState.status;
+    if (st === "saving") return "Saving…";
+    if (st === "error") return "Not saved yet";
     if (dirty) return "Unsaved changes";
-    if (saveState.status === "saved") return "Draft saved";
+    if (st === "saved") return "Draft saved";
     return null;
   })();
 
   // ── Render: non-form states ───────────────────────────────────────────────
   const frame = (body, { title = po?.poNumber, sub = null } = {}) => (
-    <div className={styles.page}>
-      <section className={styles.pageHeader}>
-        <div className={styles.pageHeaderInner}>
-          <div className={styles.headMain}>
-            <div className={styles.eyebrow}>
-              {buyerLinks ? (
-                <Link href={routes.awaiting()}>
-                  <ArrowLeft size={12} aria-hidden="true" /> Awaiting deliveries
-                </Link>
-              ) : (
-                "Receive goods"
-              )}
-            </div>
-            <h1 className={styles.pageTitle}>
-              {title ? <span className={styles.titleMono}>{title}</span> : "Receive goods"}
-            </h1>
-            {sub}
-          </div>
-        </div>
-      </section>
-      <main className={styles.pageBody}>{body}</main>
-    </div>
+    <ReceiveFrame title={title} sub={sub}>{body}</ReceiveFrame>
   );
 
-  if (view.phase === "loading") {
-    return frame(
-      <div className={styles.card} aria-busy="true" aria-label="Loading the purchase order">
-        <div className={styles.cardBody}>
-          {[0, 1, 2, 3].map((i) => (
-            <span key={i} className={styles.sk} style={{ width: `${88 - i * 14}%`, marginBottom: 14 }} />
-          ))}
-        </div>
-      </div>,
-      { title: null }
-    );
-  }
-
+  if (view.phase === "loading") return frame(<LoadingState />, { title: null });
   if (view.phase === "error") {
-    return frame(
-      <div className={styles.stateCard} role="alert">
-        <div className={styles.stateIc}><PackageOpen size={20} aria-hidden="true" /></div>
-        <h2 className={styles.stateTitle}>Couldn&apos;t load this PO</h2>
-        <p className={styles.stateSub}>{view.message}</p>
-        <div className={styles.stateActions}>
-          <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => load(hotelIdRef.current)}>
-            <RefreshCw size={14} aria-hidden="true" /> Try again
-          </button>
-        </div>
-      </div>
-    );
+    return frame(<ErrorState message={view.message} onRetry={() => load(hotelIdRef.current)} />);
   }
-
   if (view.phase === "blocked") {
-    const custom = renderBlocked?.({
-      reason: view.reason, message: view.message, context: ctx, reload: () => load(hotelIdRef.current),
-    });
-    if (custom) return custom;
-    const copy = BLOCKED_COPY[view.reason] || BLOCKED_COPY.not_ready;
-    const poRef = po?.id ?? poId;
-    return frame(
-      <div className={styles.stateCard}>
-        <div className={`${styles.stateIc} ${copy.ok ? styles.stateIcOk : ""}`}>
-          {copy.ok ? <CheckCircle2 size={20} aria-hidden="true" /> : <PackageOpen size={20} aria-hidden="true" />}
-        </div>
-        <h2 className={styles.stateTitle}>{copy.title}</h2>
-        <p className={styles.stateSub}>{copy.sub || view.message || "Check with the buyer."}</p>
-        {buyerLinks && (
-          <div className={styles.stateActions}>
-            {(view.reason === "received" || view.reason === "closed_short") && poRef != null && (
-              <Link href={routes.grnRegister({ poId: poRef })} className={`${styles.btn} ${styles.btnPrimary}`}>
-                View its GRNs
-              </Link>
-            )}
-            <Link href={routes.awaiting()} className={`${styles.btn} ${styles.btnSecondary}`}>
-              Back to awaiting deliveries
-            </Link>
-          </div>
-        )}
-      </div>
-    );
+    return frame(<BlockedState reason={view.reason} message={view.message} poId={po?.id ?? poId} />);
   }
-
   if (view.phase === "pickHotel") {
-    const choices = ctx?.hotelChoices || [];
-    return frame(
-      <div className={styles.stateCard} style={{ maxWidth: 720 }}>
-        <div className={styles.stateIc}><Building2 size={20} aria-hidden="true" /></div>
-        <h2 className={styles.stateTitle}>Which hotel is receiving?</h2>
-        <p className={styles.stateSub}>This PO delivers to more than one hotel. Pick the one these goods arrived at.</p>
-        <div className={styles.hotelPicker}>
-          {choices.map((h) => (
-            <button key={h.id} type="button" className={styles.hotelBtn} onClick={() => chooseHotel(h.id)}>
-              <Building2 size={16} aria-hidden="true" />
-              <span>{h.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>,
-      { sub: po?.vendorName ? <div className={styles.pageSub}>{po.vendorName}</div> : null }
-    );
-  }
-
-  if (view.phase === "queued") {
-    return frame(
-      <div className={styles.stateCard} role="status">
-        <div className={styles.stateIc}><CloudOff size={20} aria-hidden="true" /></div>
-        <h2 className={styles.stateTitle}>Saved on this device</h2>
-        <p className={styles.stateSub}>
-          There is no connection right now. The receipt posts by itself when the signal is back
-          {pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}.
-        </p>
-        {buyerLinks && (
-          <div className={styles.stateActions}>
-            <Link href={routes.awaiting()} className={`${styles.btn} ${styles.btnSecondary}`}>
-              Back to awaiting deliveries
-            </Link>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (view.phase === "posted") {
-    const { grn, warnings = [], uploadFailures = [] } = view;
-    const anyOpen = lines.some((l) => {
-      const { accepted } = lineQty(entries[l.poLineId]);
-      return subQty(l.openAtHotel, accepted || 0) > 0;
+    return frame(<PickHotelState choices={ctx?.hotelChoices || []} onPick={chooseHotel} />, {
+      sub: po?.vendorName ? <div className={styles.pageSub}>{po.vendorName}</div> : null,
     });
+  }
+  if (view.phase === "queued") return frame(<QueuedState pendingCount={pendingCount} />);
+  if (view.phase === "posted") {
+    const canReceiveMore = lines.some((l) => subQty(l.openAtHotel, lineQty(entries[l.poLineId]).accepted || 0) > 0);
     return frame(
-      <div className={styles.stateCard} role="status">
-        <div className={`${styles.stateIc} ${styles.stateIcOk}`}><PackageCheck size={20} aria-hidden="true" /></div>
-        <h2 className={styles.stateTitle}>Receipt posted</h2>
-        <p className={styles.stateSub}>
-          {grn?.grnNumber ? <span className={styles.mono}>{grn.grnNumber}</span> : null}
-          {grn?.grnNumber ? <br /> : null}
-          Accepted goods are in stock{hotel?.name ? ` at ${hotel.name}` : ""}.
-        </p>
-        {warnings.length > 0 && (
-          <ul className={styles.successList} aria-label="Warnings">
-            {warnings.map((w, i) => (
-              <li key={`${w.poLineId}-${w.code}-${i}`} className={styles.lineWarn}>
-                <strong>{lineById.get(Number(w.poLineId))?.productName || "Line"}</strong>
-                <span>{w.message}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {uploadFailures.length > 0 && (
-          <ul className={styles.successList} aria-label="Files not uploaded">
-            {uploadFailures.map((f) => (
-              <li key={f.name} className={styles.lineError}>
-                <strong>{f.name}</strong>
-                <span>{f.message}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className={styles.stateActions}>
-          {buyerLinks && grn?.id != null && (
-            <Link href={routes.grn(grn.id)} className={`${styles.btn} ${styles.btnPrimary}`}>
-              <FileText size={14} aria-hidden="true" /> View GRN
-            </Link>
-          )}
-          {anyOpen && (
-            <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => load(hotelIdRef.current)}>
-              Receive another delivery
-            </button>
-          )}
-          {buyerLinks && (
-            <Link href={routes.awaiting()} className={`${styles.btn} ${styles.btnSecondary}`}>
-              Back to awaiting deliveries
-            </Link>
-          )}
-        </div>
-      </div>
+      <PostedState
+        grn={view.grn}
+        warnings={view.warnings}
+        hotelName={hotel?.name}
+        lineName={(id) => lineById.get(Number(id))?.productName}
+        canReceiveMore={canReceiveMore}
+        onReceiveMore={() => load(hotelIdRef.current)}
+      />
     );
   }
 
   // ── Render: the receive form ──────────────────────────────────────────────
-  const scanner = renderScanner ? (
-    renderScanner({
-      context: `po:${po.id}`, disabled: scanPaused, onResolved: onScanResolved, onUnknown: onScanUnknown, lines,
-    })
-  ) : (
-    <ScanInput context={`po:${po.id}`} onResolved={onScanResolved} onUnknown={onScanUnknown} disabled={scanPaused} />
-  );
 
   const lineProps = (l) => ({
     line: l,
     entry: entries[l.poLineId],
-    onChange: (patch) => patchLine(l.poLineId, patch),
+    onChange: (patch) => editLine(l.poLineId, patch),
     error: lineErrors[l.poLineId] || null,
-    flash: flashId === l.poLineId,
-    showPrices,
-    allowMarkOut,
+    flash: scan.flashId === l.poLineId,
     departments: ctx?.departments || [],
-    allowItemSetup: allowItemSetup && canSetupItems,
+    allowItemSetup: canSetupItems,
     suggestions: ctx?.itemSuggestions?.[l.poLineId] || [],
     receivedAt: header.receivedAt,
-    onOpenUom: allowItemSetup && canSetupItems
+    onOpenUom: canSetupItems
       ? () => setUomPrompt({ mode: "required", poLineId: l.poLineId, poUnit: l.unit, stockUom: l.stockUom, thenPost: false })
       : undefined,
   });
@@ -1086,10 +607,27 @@ const ReceivePage = ({
           {counts.withQty} of {lines.length} entered{counts.scanned ? ` · ${counts.scanned} scanned` : ""}
         </span>
       </div>
-      <div className={styles.scanDock} data-testid="scan-dock">{scanner}</div>
+      <div className={styles.scanDock} data-testid="scan-dock">
+        <ScanInput
+          context={`po:${po.id}`}
+          onResolved={scan.onScanResolved}
+          onUnknown={scan.onScanUnknown}
+          disabled={scanPaused}
+        />
+      </div>
       {formError && (
-        <div className={styles.formError} role="alert" style={{ marginTop: 14 }}>
-          {formError}
+        <div className={`${styles.formError} ${styles.formErrorRow}`} role="alert" style={{ marginTop: 14 }}>
+          <span>{formError}</span>
+          {canRetry && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
+              onClick={() => runPost()}
+              disabled={posting}
+            >
+              <RotateCcw size={13} aria-hidden="true" /> Retry posting
+            </button>
+          )}
         </div>
       )}
       {lines.length === 0 ? (
@@ -1102,13 +640,8 @@ const ReceivePage = ({
             <ReceiveLineCard
               key={l.poLineId}
               {...lineProps(l)}
-              onStep={(delta) => addToLine(l, delta)}
-              onOpenPad={() =>
-                setPad({
-                  poLineId: l.poLineId, mode: "set", scanned: false, gs1: null,
-                  initial: parseQty(entries[l.poLineId]?.received) ?? 0,
-                })
-              }
+              onStep={(delta) => scan.stepLine(l, delta)}
+              onOpenPad={() => scan.openSetPad(l)}
             />
           ))}
         </div>
@@ -1123,7 +656,7 @@ const ReceivePage = ({
                 <th className={styles.num}>Received</th>
                 <th className={styles.num}>Accepted</th>
                 <th className={styles.num}>Rejected</th>
-                {allowMarkOut && <th>Mark out</th>}
+                <th>Mark out</th>
               </tr>
             </thead>
             {lines.map((l, i) => (
@@ -1150,12 +683,9 @@ const ReceivePage = ({
           dispatches={ctx?.dispatches || []}
           onPickDispatch={pickDispatch}
           attachments={attachments}
-          pendingFiles={pendingFiles}
           onUpload={onUpload}
-          onDelete={drafts ? onDeleteAttachment : undefined}
-          onRemovePending={(i) => setPendingFiles((list) => list.filter((_, j) => j !== i))}
+          onDelete={onDeleteAttachment}
           uploading={uploading}
-          canDelete={drafts}
         />
         {attachError && (
           <div className={styles.formError} role="alert" style={{ margin: "12px 0 0" }}>
@@ -1173,20 +703,15 @@ const ReceivePage = ({
     </>
   );
 
+  const padLine = scan.pad ? lineById.get(Number(scan.pad.poLineId)) : null;
+  const uomLine = uomPrompt ? lineById.get(Number(uomPrompt.poLineId)) : null;
+
   return (
-    <div className={styles.page} onBlur={onFormBlur}>
+    <div className={styles.page} onBlur={session.onFormBlur}>
       <section className={styles.pageHeader}>
         <div className={styles.pageHeaderInner}>
           <div className={styles.headMain}>
-            <div className={styles.eyebrow}>
-              {buyerLinks ? (
-                <Link href={routes.awaiting()}>
-                  <ArrowLeft size={12} aria-hidden="true" /> Awaiting deliveries
-                </Link>
-              ) : (
-                "Receive goods"
-              )}
-            </div>
+            <ReceiveEyebrow />
             <h1 className={styles.pageTitle}>
               <span className={styles.titleMono}>{po.poNumber}</span>
               {po.isCallOff && <span className={`${styles.pill} ${styles.pillIndigo}`}>Call-off</span>}
@@ -1202,10 +727,23 @@ const ReceivePage = ({
                   Change hotel
                 </button>
               )}
-              {buyerLinks && po.id != null && (
+              {po.id != null && (
                 <>
                   <span className={styles.subSep} aria-hidden="true">·</span>
                   <Link href={routes.po(po.id)} className={styles.btnLink}>Open PO</Link>
+                </>
+              )}
+              {canDiscard && (
+                <>
+                  <span className={styles.subSep} aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    className={`${styles.btnLink} ${styles.btnLinkDanger}`}
+                    onClick={() => setDiscardOpen(true)}
+                    disabled={posting}
+                  >
+                    Discard draft
+                  </button>
                 </>
               )}
             </div>
@@ -1217,21 +755,19 @@ const ReceivePage = ({
               )}
               {saveLabel && (
                 <span className={styles.saveState} aria-live="polite">
-                  {saveState.status === "saving" && <Loader2 size={12} className={styles.spin} aria-hidden="true" />}
+                  {session.saveState.status === "saving" && <Loader2 size={12} className={styles.spin} aria-hidden="true" />}
                   {saveLabel}
                 </span>
               )}
-              {drafts && (
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnSecondary}`}
-                  onClick={onSaveDraftClick}
-                  disabled={posting}
-                >
-                  <Save size={14} aria-hidden="true" />
-                  Save draft
-                </button>
-              )}
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnSecondary}`}
+                onClick={onSaveDraftClick}
+                disabled={posting}
+              >
+                <Save size={14} aria-hidden="true" />
+                Save draft
+              </button>
               <button
                 type="button"
                 className={`${styles.btn} ${styles.btnSuccess}`}
@@ -1247,11 +783,7 @@ const ReceivePage = ({
 
       <main className={styles.pageBody}>
         <div className={styles.stack}>
-          {restored && (
-            <div className={`${styles.lineMsg} ${styles.lineNote}`} role="status">
-              Restored the entries you had not saved yet on this device.
-            </div>
-          )}
+          <ReceiveNotice notice={notice} onDismiss={() => setNotice(null)} />
           {isMobile ? (
             <>
               {itemsCard}
@@ -1277,12 +809,10 @@ const ReceivePage = ({
             </span>
           }
         >
-          {drafts && (
-            <MobileActionButton variant="secondary" onClick={onSaveDraftClick} disabled={posting}>
-              <Save size={16} aria-hidden="true" />
-              Save draft
-            </MobileActionButton>
-          )}
+          <MobileActionButton variant="secondary" onClick={onSaveDraftClick} disabled={posting}>
+            <Save size={16} aria-hidden="true" />
+            Save draft
+          </MobileActionButton>
           <MobileActionButton variant="primary" onClick={requestPost} disabled={posting || lines.length === 0}>
             {postLabel}
           </MobileActionButton>
@@ -1295,30 +825,35 @@ const ReceivePage = ({
           lines={lines}
           entries={entries}
           hotelName={hotel.name}
+          receivedAt={header.receivedAt}
+          busy={posting}
           onConfirm={confirmPost}
           onHide={() => setConfirmOpen(false)}
         />
       )}
-      {pad && lineById.get(Number(pad.poLineId)) && (
+      {discardOpen && (
+        <DiscardDraftModal busy={discarding} onConfirm={confirmDiscard} onHide={() => setDiscardOpen(false)} />
+      )}
+      {scan.pad && padLine && (
         <QtyPad
           show
-          title={lineById.get(Number(pad.poLineId)).productName}
-          unit={lineById.get(Number(pad.poLineId)).unit}
-          initial={pad.initial}
-          mode={pad.mode}
-          receivedSoFar={parseQty(entries[pad.poLineId]?.received) ?? 0}
-          openQty={lineById.get(Number(pad.poLineId)).openAtHotel}
-          onDone={onPadDone}
-          onHide={() => setPad(null)}
+          title={padLine.productName}
+          unit={padLine.unit}
+          initial={scan.pad.initial}
+          mode={scan.pad.mode}
+          receivedSoFar={parseQty(entries[scan.pad.poLineId]?.received) ?? 0}
+          openQty={padLine.openAtHotel}
+          onDone={scan.onPadDone}
+          onHide={scan.closePad}
         />
       )}
-      {uomPrompt && lineById.get(Number(uomPrompt.poLineId)) && (
+      {uomPrompt && uomLine && (
         <UomFactorPrompt
           show
           mode={uomPrompt.mode}
-          productName={lineById.get(Number(uomPrompt.poLineId)).productName}
-          poUnit={uomPrompt.poUnit || lineById.get(Number(uomPrompt.poLineId)).unit}
-          stockUom={uomPrompt.stockUom || lineById.get(Number(uomPrompt.poLineId)).stockUom}
+          productName={uomLine.productName}
+          poUnit={uomPrompt.poUnit || uomLine.unit}
+          stockUom={uomPrompt.stockUom || uomLine.stockUom}
           receivedQty={lineQty(entries[uomPrompt.poLineId]).received || 0}
           currentFactor={uomPrompt.currentFactor}
           suppliedFactor={uomPrompt.suppliedFactor}
@@ -1329,14 +864,14 @@ const ReceivePage = ({
           onHide={() => setUomPrompt(null)}
         />
       )}
-      {unknownCode && (
+      {scan.unknownCode && (
         <LinkUnknownCodeSheet
           show
-          code={unknownCode}
+          code={scan.unknownCode}
           poLines={lines}
           hotelId={hotel.id}
-          onHide={() => setUnknownCode(null)}
-          onLinked={onCodeLinked}
+          onHide={scan.closeUnknown}
+          onLinked={scan.onCodeLinked}
         />
       )}
     </div>

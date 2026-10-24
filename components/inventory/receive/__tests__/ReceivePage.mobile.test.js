@@ -53,9 +53,6 @@ jest.mock("@/services/inventory", () => ({
   resolveScan: jest.fn(),
   addItemBarcode: jest.fn(),
   listItems: jest.fn(() => Promise.resolve({ rows: [] })),
-  getTokenReceiveContext: jest.fn(),
-  postTokenGrn: jest.fn(),
-  uploadTokenGrnAttachment: jest.fn(),
 }));
 
 import React from "react";
@@ -63,6 +60,8 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import "@testing-library/jest-dom";
 import { getReceiveContext, resolveScan } from "@/services/inventory";
 import ReceivePage from "../ReceivePage";
+import ReceiveLineCard from "../ReceiveLineCard";
+import { blankLine } from "../receiveUtils";
 
 const line = (poLineId, productName, unit, open, over = {}) => ({
   poLineId, productVariantId: 500 + poLineId, productName, unit, invItemId: poLineId, stockUom: unit, uomFactor: 1,
@@ -74,7 +73,12 @@ const ctx = {
   po: { id: 52, poNumber: "PO/2026/0052", vendorName: "Fresh Farms", isCallOff: false, departmentId: 7 },
   hotel: { id: 46, name: "Orchid Mumbai" },
   hotelChoices: [{ id: 46, name: "Orchid Mumbai" }],
-  lines: [line(11, "Basmati rice 25kg", "bag", 24), line(12, "Toor dal", "bag", 10), line(13, "Sugar", "bag", 8)],
+  lines: [
+    line(11, "Basmati rice 25kg", "bag", 24),
+    line(12, "Toor dal", "bag", 10),
+    line(13, "Sugar", "bag", 8),
+    line(14, "Dish soap", "box", 6, { stockUom: "piece", uomFactor: null, needsUomFactor: true }),
+  ],
   dispatches: [],
   departments: [{ id: 7, title: "Kitchen" }],
   itemSuggestions: {},
@@ -96,7 +100,7 @@ describe("ReceivePage on a phone", () => {
 
     // Cards, not the desktop table.
     expect(screen.queryByRole("table", { name: "Receive lines" })).toBeNull();
-    expect(cardNames()).toEqual(["Basmati rice 25kg", "Toor dal", "Sugar"]);
+    expect(cardNames()).toEqual(["Basmati rice 25kg", "Toor dal", "Sugar", "Dish soap"]);
 
     // Sticky scan bar holds the one scan box; the Post button lives in the phone action bar.
     const dock = screen.getByTestId("scan-dock");
@@ -105,6 +109,10 @@ describe("ReceivePage on a phone", () => {
     const bar = await screen.findByRole("region", { name: "Receive actions" });
     expect(within(bar).getByRole("button", { name: "Post receipt" })).toBeInTheDocument();
     expect(within(bar).getByRole("button", { name: "Save draft" })).toBeInTheDocument();
+
+    // The unit-conversion pill is a real (44px on a phone) button.
+    const soapCard = screen.getAllByTestId("receive-card")[3];
+    expect(within(soapCard).getByRole("button", { name: /Set unit conversion/ })).toHaveClass("pillBtn");
 
     // Big steppers on each card.
     const sugar = screen.getAllByTestId("receive-card")[2];
@@ -124,11 +132,33 @@ describe("ReceivePage on a phone", () => {
     fireEvent.keyDown(box, { key: "Enter" });
 
     await waitFor(() => expect(cardNames()[0]).toBe("Sugar"));
-    expect(cardNames()).toEqual(["Sugar", "Basmati rice 25kg", "Toor dal"]);
+    expect(cardNames()).toEqual(["Sugar", "Basmati rice 25kg", "Toor dal", "Dish soap"]);
   });
 });
 
 // jsdom can't apply media queries: pin the stylesheet contract instead.
+describe("ReceiveLineCard fold", () => {
+  const card = (l, props) =>
+    render(<ReceiveLineCard line={l} entry={blankLine(l)} onChange={jest.fn()} onStep={jest.fn()} onOpenPad={jest.fn()} {...props} />);
+
+  it("names only what it holds: no mark out when marking out is off", () => {
+    const sugar = line(13, "Sugar", "bag", 8);
+    const { unmount } = card(sugar, {});
+    expect(screen.getByText("Reject or mark out")).toBeInTheDocument();
+    unmount();
+
+    card(sugar, { allowMarkOut: false });
+    expect(screen.getByText("Reject")).toBeInTheDocument();
+    expect(screen.queryByText(/mark out/i)).toBeNull();
+    expect(screen.queryByLabelText("Mark out on arrival for Sugar")).toBeNull();
+  });
+
+  it("keeps the batch title on lines that track expiry", () => {
+    card(line(15, "Paneer", "kg", 20, { trackExpiry: true, minShelfLifeDays: 3 }), { allowMarkOut: false });
+    expect(screen.getByText("Reject, batch and expiry")).toBeInTheDocument();
+  });
+});
+
 describe("phone CSS contract (receive.module.scss)", () => {
   const css = fs.readFileSync(path.join(__dirname, "..", "receive.module.scss"), "utf8");
   const layer = css.slice(css.indexOf("Phone layer"));
@@ -167,6 +197,18 @@ describe("phone CSS contract (receive.module.scss)", () => {
   it("gives every card control a 44px target", () => {
     expect(phone).toMatch(/\.stepBtn\s*{[^}]*min-height:\s*44px;[^}]*min-width:\s*44px;/);
     expect(phone).toMatch(/\.cardField[^{]*{[^}]*min-height:\s*44px;/);
+  });
+
+  it("keeps every other phone tap target at 44px", () => {
+    expect(phone).toMatch(/\.tab\s*{[^}]*min-height:\s*44px;/);
+    expect(phone).toMatch(/\.toastUndo\s*{[^}]*min-height:\s*44px;/);
+    expect(phone).toMatch(/\.cardMore summary\s*{[^}]*min-height:\s*44px;/);
+    expect(phone).toMatch(/\.pillBtn\s*{[^}]*min-height:\s*44px;/);
+    expect(phone).toMatch(/\.btnLink\s*{[^}]*min-height:\s*44px;/);
+    expect(phone).toMatch(/\.iconBtn\s*{[^}]*min-width:\s*44px;/);
+    expect(phone).toMatch(/\.sheetClose\s*{[^}]*height:\s*44px;/);
+    // Nothing in the phone layer sizes a target below 44px.
+    expect(phone).not.toMatch(/min-(height|width):\s*([0-3]?\d|4[0-3])px/);
   });
 
   it("makes the post bar taller for its summary row", () => {

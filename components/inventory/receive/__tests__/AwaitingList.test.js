@@ -131,4 +131,21 @@ describe("AwaitingList", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?dispatch=31"));
   });
+
+  it("a dispatch QR carries the hotel: the note's own, else the hotel the list is filtered to", async () => {
+    render(<AwaitingList />);
+    await screen.findByText("PO/2026/0052");
+    const box = screen.getByLabelText("Scan or type a code");
+
+    resolveScan.mockResolvedValueOnce({ kind: "dispatch", code: "x", gs1: null, item: null, poId: 52, dispatchId: 31, hotelId: 46 });
+    fireEvent.change(box, { target: { value: "https://app/s/d/31" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?hotelId=46&dispatch=31"));
+
+    fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "47" } });
+    resolveScan.mockResolvedValueOnce({ kind: "dispatch", code: "y", gs1: null, item: null, poId: 52, dispatchId: 32 });
+    fireEvent.change(screen.getByLabelText("Scan or type a code"), { target: { value: "https://app/s/d/32" } });
+    fireEvent.keyDown(screen.getByLabelText("Scan or type a code"), { key: "Enter" });
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?hotelId=47&dispatch=32"));
+  });
 });

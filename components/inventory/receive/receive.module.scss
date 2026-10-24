@@ -269,7 +269,11 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   text-decoration: none;
   &:hover { text-decoration: underline; }
   &:focus-visible { outline: none; box-shadow: $ring; border-radius: 3px; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
 }
+.btnLinkDanger { color: $danger; }
+/* Icon-only buttons (remove a file). */
+.iconBtn { padding-left: 8px; padding-right: 8px; }
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -289,6 +293,13 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   line-height: 1.5;
 }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+/* A pill that opens something ("Set unit conversion"). */
+.pillBtn {
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { filter: brightness(0.97); }
+  &:focus-visible { outline: none; box-shadow: $ring; }
+}
 .pillOk { background: $success-soft; color: $success; border-color: rgba(21, 128, 61, 0.24); }
 .pillWarn { background: $warn-soft; color: $warn; border-color: rgba(180, 83, 9, 0.24); }
 .pillBad { background: $danger-soft; color: $danger; border-color: rgba(185, 28, 28, 0.22); }
@@ -645,6 +656,23 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   border: 1px solid rgba(185, 28, 28, 0.18);
   font-size: 12.5px;
 }
+/* An error with an action beside it ("Retry posting"). */
+.formErrorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  span { min-width: 0; }
+}
+/* Notice strip above the receive form (restored entries, an earlier post). */
+.notice {
+  margin-top: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  .btnLink { font-size: 12.5px; }
+}
+.noticeText { flex: 1 1 240px; min-width: 0; }
 .saveState { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: $ink-3; }
 .successList { margin: 14px 0 0; padding: 0; list-style: none; text-align: left; }
 .successList li { padding: 8px 0; border-top: 1px solid $border; display: flex; gap: 8px; align-items: flex-start; }
@@ -661,6 +689,7 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 
 /* Attachments */
 .attList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.attPending { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attItem {
   display: flex;
   align-items: center;
@@ -968,8 +997,16 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   }
   .input, .select { min-height: 44px; font-size: 16px; }
   .btn { min-height: 44px; }
-  .tab { min-height: 40px; }
+  .tab { min-height: 44px; }
   .hotelBtn { min-height: 56px; }
+
+  /* Every other tap target on a phone: 44px too. */
+  .toastUndo { min-height: 44px; min-width: 44px; }
+  .cardMore summary { min-height: 44px; }
+  .pillBtn { min-height: 44px; padding: 0 12px; font-size: 12.5px; }
+  .btnLink { display: inline-flex; align-items: center; min-height: 44px; }
+  .iconBtn { min-width: 44px; }
+  .sheetClose { width: 44px; height: 44px; }
 
   /* Lists restack as tap-to-open cards. */
   .listTable {
