@@ -3,7 +3,10 @@
 // clipped "Accept PO" off the right edge and the 7-column items table clipped
 // the Amount column. The phone now gets a sticky MobileActionBar carrying the
 // vendor's next step — Reject / Accept for a new order, then Mark dispatched,
-// then Raise invoice — each still behind its existing confirmation.
+// then Raise invoice — each behind its own dialog. Since inventory C4, Mark
+// dispatched opens a dispatch note (hotel, phase, quantities, challan) and
+// Raise invoice asks for the invoice number, date and amount; both stay on
+// offer delivery after delivery.
 //
 // jsdom can't apply media queries, so the bar is always in the DOM here; its
 // phone-only visibility is MobileActionBar's own CSS contract.
@@ -30,15 +33,20 @@ jest.mock("@/services/po", () => ({
   getVendorRejectionUndo: jest.fn(() => Promise.resolve({ status: 1, data: { available: false, deadline: null, blockers: [] } })),
   withdrawVendorRejection: jest.fn(() => Promise.resolve({})),
 }));
-jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
+// The Deliveries section (inventory C4) asks for the vendor's plan; this suite
+// is not about it, so the request never answers.
+jest.mock("@/services/inventory", () => ({
   __esModule: true,
-  default: ({ show }) => (show ? <div>raise invoice modal</div> : null),
+  getVendorPoDeliveries: jest.fn(() => new Promise(() => {})),
+  createDispatch: jest.fn(),
+  cancelDispatch: jest.fn(),
 }));
 
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { handleAcceptPO, handleRejectPO, handleMarkDispatched, getVendorRejectionUndo } from "@/services/po";
+import { handleAcceptPO, handleRejectPO, handleMarkDispatched, handleRaiseInvoice, getVendorRejectionUndo } from "@/services/po";
+import { createDispatch } from "@/services/inventory";
 import VendorPoDetail from "./VendorPoDetail";
 
 // PO #138898 as the vendor (uid 926) sees it: ₹65,35,100, awaiting acceptance.
@@ -144,21 +152,25 @@ describe("vendor phone action bar — a new order", () => {
 });
 
 describe("vendor phone action bar — fulfilment", () => {
-  it("offers Mark dispatched once the order is accepted, behind its confirmation", async () => {
+  it("offers Mark dispatched once the order is accepted, opening the dispatch note", async () => {
     mount({ status: "approved" });
     const region = await bar();
     expect(within(region).queryByRole("button", { name: /Accept PO/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Raise invoice/ })).not.toBeInTheDocument();
     fireEvent.click(within(region).getByRole("button", { name: /Mark dispatched/ }));
 
-    const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("Mark Dispatched");
+    expect(await screen.findByRole("dialog", { name: "Dispatch note" })).toBeInTheDocument();
+    expect(createDispatch).not.toHaveBeenCalled();
     expect(handleMarkDispatched).not.toHaveBeenCalled();
   });
 
-  it("offers Raise invoice once dispatched", async () => {
+  it("once dispatched, offers the next dispatch note and Raise invoice", async () => {
     mount({ status: "dispatched" });
-    fireEvent.click(within(await bar()).getByRole("button", { name: /Raise invoice/ }));
-    expect(await screen.findByText("raise invoice modal")).toBeInTheDocument();
+    const region = await bar();
+    expect(within(region).getByRole("button", { name: /Mark dispatched/ })).toBeInTheDocument();
+    fireEvent.click(within(region).getByRole("button", { name: /Raise invoice/ }));
+    expect(await screen.findByRole("dialog", { name: "Raise invoice" })).toBeInTheDocument();
+    expect(handleRaiseInvoice).not.toHaveBeenCalled();
   });
 
   it("shows no bar when there is nothing for the vendor to do", async () => {

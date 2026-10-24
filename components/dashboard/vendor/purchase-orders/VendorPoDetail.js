@@ -19,8 +19,6 @@ import {
 import {
   handleAcceptPO,
   handleRejectPO,
-  handleRaiseInvoice,
-  handleMarkDispatched,
   getVendorPoPdf,
 } from "@/services/po";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -28,7 +26,9 @@ import VendorRejectionUndo from "./VendorRejectionUndo";
 import { gstSplitRows } from "@/components/dashboard/shared/gstSplit";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.css";
-import RaiseInvoiceModal from "@/components/dashboard/vendor/order-book/RaiseInvoiceModal";
+import VendorDeliveries, { useVendorDeliveries } from "./deliveries/VendorDeliveries";
+import DispatchNoteModal from "./deliveries/DispatchNoteModal";
+import InvoiceModal from "./deliveries/InvoiceModal";
 import styles, {
   avatarClass,
   initialsOf,
@@ -54,6 +54,28 @@ const VENDOR_STATUS_LABELS = {
   delivered: "Received",
   completed: "Completed",
   rejected_by_vendor: "Rejected",
+};
+
+// Inventory (task C4). The Deliveries section shows from the moment the order
+// reaches the vendor; it is not asked for on an order they rejected.
+const DELIVERY_VIEW_STATUSES = [
+  "acceptance_pending", "sent", "approved", "dispatched", "GRN", "invoice_raised", "delivered", "completed",
+];
+// Goods can go out once accepted, delivery after delivery, until everything
+// is received or closed (the server's rule: dispatchService.createDispatch).
+const DISPATCH_STATUSES = ["approved", "dispatched", "GRN", "invoice_raised"];
+// One invoice per delivery, from the first dispatch on.
+const INVOICE_STATUSES = ["dispatched", "GRN", "invoice_raised"];
+// Invoicing a dispatch from its card also works on a completed order.
+const INVOICE_ON_DISPATCH_STATUSES = [...INVOICE_STATUSES, "completed"];
+const RECEIPT_DONE = ["received", "closed_short"];
+
+/* The dispatch the hero's Raise invoice bills by default: the latest one
+   still standing with no invoice yet, if any. */
+const nextUninvoicedDispatch = (deliveries) => {
+  const billed = new Set((deliveries?.invoices || []).map((i) => i.dispatchId).filter((id) => id != null));
+  const open = (deliveries?.dispatches || []).filter((d) => d.status !== "cancelled" && !billed.has(d.id));
+  return open.length ? open[open.length - 1].id : null;
 };
 
 const vendorStatusLabel = (po) =>
@@ -86,13 +108,17 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   const [submitting, setSubmitting] = useState(false);
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [dispatchOpen, setDispatchOpen] = useState(false);
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  // {hotelId, deliveryId} the dispatch note opens on (null = closed).
+  const [dispatchTarget, setDispatchTarget] = useState(null);
+  // {dispatchId} the invoice bills by default (null = closed).
+  const [invoiceTarget, setInvoiceTarget] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionError, setRejectionError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
 
   const po = data || {};
+  // Before the early returns: a hook must run on every render.
+  const deliveries = useVendorDeliveries(po.id, !!data && DELIVERY_VIEW_STATUSES.includes(po.status));
 
   const handleBack = () => {
     if (window.history.length > 1) router.back();
@@ -145,30 +171,20 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
     }
   };
 
-  const confirmDispatch = async () => {
-    try {
-      setSubmitting(true);
-      await handleMarkDispatched(po.id);
-      toast.success(`PO #${po.po_number} marked as dispatched.`);
-      setDispatchOpen(false);
-      await refresh();
-    } catch (e) {
-      toast.error(e?.response?.data?.message || e?.message || "Failed to mark dispatched");
-    } finally {
-      setSubmitting(false);
-    }
+  // After a dispatch note or an invoice: the deliveries and the PO (its
+  // status moves forward on the server) both change.
+  const afterDispatch = async () => {
+    setDispatchTarget(null);
+    await Promise.all([deliveries.reload(), refresh()]);
   };
 
-  const confirmInvoice = async (invoiceUrl) => {
-    try {
-      await handleRaiseInvoice(po.id, invoiceUrl);
-      toast.success(`Invoice raised for PO #${po.po_number}.`);
-      setInvoiceOpen(false);
-      await refresh();
-    } catch (e) {
-      toast.error(e?.response?.data?.message || e?.message || "Failed to raise invoice");
-    }
+  const afterInvoice = async () => {
+    setInvoiceTarget(null);
+    await Promise.all([deliveries.reload(), refresh()]);
   };
+
+  const openDispatch = (target = {}) => setDispatchTarget({ hotelId: null, deliveryId: null, ...target });
+  const openInvoice = (dispatchId = nextUninvoicedDispatch(deliveries.data)) => setInvoiceTarget({ dispatchId });
 
   // Download the PO PDF — opens the existing document, or asks the server to
   // generate it on demand (call-offs created before the PDF feature won't have
@@ -250,11 +266,14 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   // 'sent' is the legacy synonym for 'acceptance_pending' — both await the
   // vendor's accept/reject.
   const awaitingMe = po.status === "acceptance_pending" || po.status === "sent";
-  // Fulfilment sequence (one next-step at a time): Accept → Dispatch → (buyer GRN)
-  // → Raise invoice. After acceptance ('approved') the only vendor action is
-  // dispatch; the invoice opens once goods are on the way.
-  const canDispatch = po.status === "approved";
-  const canInvoice = po.status === "dispatched" || po.status === "GRN";
+  // Fulfilment: Accept → a dispatch note per delivery → an invoice per
+  // delivery. Dispatching stays open until the hotels have received (or the
+  // buyer has closed) everything; invoicing opens with the first dispatch.
+  const canDispatch =
+    DISPATCH_STATUSES.includes(po.status) && !RECEIPT_DONE.includes(deliveries.data?.receiptStatus);
+  const canInvoice = INVOICE_STATUSES.includes(po.status);
+  // Once accepted, dispatching is the next step; after that it is a repeat.
+  const dispatchIsNext = po.status === "approved";
 
   const heroMod =
     po.status === "approved" ||
@@ -365,10 +384,10 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
 
             {canDispatch && (
               <button
-                className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
+                className={`${styles.btn} ${dispatchIsNext ? styles.btnSuccess : styles.btnSecondary} ${styles.heroDecisionBtn}`}
                 type="button"
                 disabled={submitting}
-                onClick={() => setDispatchOpen(true)}
+                onClick={() => openDispatch()}
               >
                 <Truck size={13} />
                 Mark dispatched
@@ -379,7 +398,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                 className={`${styles.btn} ${styles.btnSuccess} ${styles.heroDecisionBtn}`}
                 type="button"
                 disabled={submitting}
-                onClick={() => setInvoiceOpen(true)}
+                onClick={() => openInvoice()}
               >
                 <Send size={13} />
                 Raise invoice
@@ -484,6 +503,23 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
               </tfoot>
             </table>
           </section>
+
+          {/* Deliveries — the buyer's plan (no prices), the vendor's dispatch
+              notes and invoices, and what the hotels received. */}
+          {DELIVERY_VIEW_STATUSES.includes(po.status) && (
+            <VendorDeliveries
+              poId={po.id}
+              data={deliveries.data}
+              loading={deliveries.loading}
+              error={deliveries.error}
+              onRetry={deliveries.reload}
+              canDispatch={canDispatch}
+              canInvoice={INVOICE_ON_DISPATCH_STATUSES.includes(po.status)}
+              onDispatch={openDispatch}
+              onInvoice={openInvoice}
+              onChanged={afterDispatch}
+            />
+          )}
 
           {/* Ordered by (buyer) — vendor's view of WHO placed the order. */}
           {(buyerCompany || isCallOff) && (
@@ -825,26 +861,31 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
         }
       />
 
-      <ConfirmationModal
-        isOpen={dispatchOpen}
-        onClose={() => setDispatchOpen(false)}
-        onConfirm={confirmDispatch}
-        title="Mark Dispatched"
-        description={`Are you sure you want to mark PO #${po.po_number || ""} as dispatched?`}
-        confirmButtonColor="success"
-        confirmButtonText="Yes, Mark Dispatched"
-        cancelButtonText="Cancel"
+      <DispatchNoteModal
+        show={dispatchTarget !== null}
+        onClose={() => setDispatchTarget(null)}
+        poId={po.id}
+        data={deliveries.data}
+        loading={deliveries.loading}
+        error={deliveries.error}
+        onRetry={deliveries.reload}
+        initial={dispatchTarget}
+        onDone={afterDispatch}
       />
 
-      <RaiseInvoiceModal
-        show={invoiceOpen}
-        onClose={() => setInvoiceOpen(false)}
-        onAction={confirmInvoice}
+      <InvoiceModal
+        show={invoiceTarget !== null}
+        onClose={() => setInvoiceTarget(null)}
+        poId={po.id}
+        poNumber={po.po_number}
+        dispatches={deliveries.data?.dispatches || []}
+        defaultDispatchId={invoiceTarget?.dispatchId ?? null}
+        onDone={afterInvoice}
       />
 
       {/* Phone action bar — the vendor's next step, pinned under the thumb.
           display:none above 768px, where the hero buttons are used instead.
-          Every action still goes through its confirmation modal. */}
+          Every action still goes through its own dialog. */}
       {(awaitingMe || canDispatch || canInvoice) && (
         <MobileActionBar
           label="Purchase order actions"
@@ -880,9 +921,9 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
           )}
           {canDispatch && (
             <MobileActionButton
-              variant="approve"
+              variant={dispatchIsNext ? "approve" : "secondary"}
               disabled={submitting}
-              onClick={() => setDispatchOpen(true)}
+              onClick={() => openDispatch()}
             >
               <Truck size={16} />
               Mark dispatched
@@ -892,7 +933,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
             <MobileActionButton
               variant="approve"
               disabled={submitting}
-              onClick={() => setInvoiceOpen(true)}
+              onClick={() => openInvoice()}
             >
               <Send size={16} />
               Raise invoice

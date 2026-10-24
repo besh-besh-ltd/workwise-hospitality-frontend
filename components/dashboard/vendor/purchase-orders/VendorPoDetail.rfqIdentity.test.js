@@ -29,9 +29,13 @@ jest.mock("@/services/po", () => ({
   getVendorPoDetail: jest.fn(),
   downloadPoPdf: jest.fn(),
 }));
-jest.mock("@/components/dashboard/vendor/order-book/RaiseInvoiceModal", () => ({
+// The Deliveries section (inventory C4) asks for the vendor's plan; this suite
+// is not about it, so the request never answers.
+jest.mock("@/services/inventory", () => ({
   __esModule: true,
-  default: () => null,
+  getVendorPoDeliveries: jest.fn(() => new Promise(() => {})),
+  createDispatch: jest.fn(),
+  cancelDispatch: jest.fn(),
 }));
 
 import React from "react";
