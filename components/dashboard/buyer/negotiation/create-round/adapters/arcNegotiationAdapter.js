@@ -99,6 +99,13 @@ export function buildArcCreatePayload(moduleRounds = [], endDateOverride = null,
 // An ARC-level entry is the RFQ module's RFQ-level card ("Whole rate contract").
 export const WHOLE_ARC_LABEL = 'Whole rate contract';
 
+// StepReview's naming for a round on the whole parent (its RFQ_WHOLE_SCOPE).
+export const ARC_WHOLE_SCOPE = {
+  name: WHOLE_ARC_LABEL,
+  chip: 'WHOLE ARC',
+  scope: 'Every item on the rate contract',
+};
+
 export function arcRoundToReviewEntries(round, products = []) {
   const vendorNames = new Map();
   (products || []).forEach((p) => (p.quotations || []).forEach((q) => {

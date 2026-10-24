@@ -167,6 +167,7 @@ describe("what the approver sees", () => {
     }));
     expect(within(container).getAllByText("Whole rate contract").length).toBeGreaterThan(0);
     expect(within(container).getByText("payment_terms 45 days")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/RFQ/);
   });
 });
 

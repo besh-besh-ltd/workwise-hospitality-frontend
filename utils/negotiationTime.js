@@ -120,6 +120,8 @@ export function negotiationRelative(raw, now = Date.now()) {
  * approver has signed off, so approval time comes out of their window.
  */
 export const MIN_ROUND_WINDOW_MINUTES = 120;
+export const MIN_ROUND_WINDOW_MS = MIN_ROUND_WINDOW_MINUTES * 60 * 1000;
+export const ROUND_DEADLINE_TOO_SOON_MESSAGE = "Pick a deadline at least 2 hours from now.";
 
 /**
  * Time left before a round's deadline, for approvers: `{ text, urgent, passed }`
@@ -151,8 +153,8 @@ export function roundTimeLeft(raw, now = Date.now()) {
  * LOCAL, deliberately — unlike everything else here. The control itself reads
  * and writes local wall clock, so a `min` built from `toISOString().slice(0,16)`
  * (UTC) is 5h30m adrift of the thing it is constraining and lets an Indian
- * buyer pick a deadline up to 5h30m in the past. Mirrors the pattern
- * ArcStepReview.js already had right.
+ * buyer pick a deadline up to 5h30m in the past. Mirrors the pattern the
+ * old ARC review step already had right.
  *
  * `offsetMs` pushes the floor forward — pass 5 * 60 * 1000 for "at least five
  * minutes out".
@@ -179,6 +181,18 @@ export function parseLocalDateTimeInput(value) {
   // ES2016+: a date-time form with no offset is parsed as local time.
   const d = new Date(String(value));
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Is a picker value (LOCAL wall clock) inside the minimum round window? The
+ * create endpoints refuse such a deadline; the wizards say so before the POST.
+ * Exactly the window is allowed, as on the server. An empty or unreadable
+ * value is false: the required-field check owns that case.
+ */
+export function isRoundDeadlineTooSoon(localValue, now = Date.now()) {
+  const d = parseLocalDateTimeInput(localValue);
+  if (!d) return false;
+  return d.getTime() - now < MIN_ROUND_WINDOW_MS;
 }
 
 /**

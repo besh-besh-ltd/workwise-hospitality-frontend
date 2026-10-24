@@ -50,6 +50,9 @@ import {
   negotiationRelative,
   roundTimeLeft,
   MIN_ROUND_WINDOW_MINUTES,
+  MIN_ROUND_WINDOW_MS,
+  ROUND_DEADLINE_TOO_SOON_MESSAGE,
+  isRoundDeadlineTooSoon,
   localDateTimeInputMin,
   parseLocalDateTimeInput,
   formatUtcDateTime,
@@ -212,6 +215,40 @@ describe(`THE ZONE TEST — the render must not move when the reader does (proce
     }).format(new Date("2026-08-12T19:30:00Z"));
     // "13 Aug 2026" in both spellings.
     expect(formatNegotiationDate("2026-08-12 19:30:00")).toBe(istDay.replace(/,/g, ""));
+  });
+});
+
+describe("isRoundDeadlineTooSoon — the 2 h floor on a new round's deadline", () => {
+  // The create endpoints refuse a deadline less than 2 hours out
+  // (helper/negotiation/roundWindow.js); the wizards say so before the POST.
+  // The value is the picker's LOCAL wall clock, so it is built from local
+  // getters here, in whatever zone the run uses.
+  const pad = (n) => String(n).padStart(2, "0");
+  const local = (ms) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const NOW = new Date(2026, 9, 24, 10, 0).getTime();
+  const HOUR = 3600 * 1000;
+
+  it("matches the server's floor and says what to do", () => {
+    expect(MIN_ROUND_WINDOW_MS).toBe(MIN_ROUND_WINDOW_MINUTES * 60 * 1000);
+    expect(ROUND_DEADLINE_TOO_SOON_MESSAGE).toBe("Pick a deadline at least 2 hours from now.");
+  });
+
+  it("refuses a deadline an hour out, and one already gone", () => {
+    expect(isRoundDeadlineTooSoon(local(NOW + HOUR), NOW)).toBe(true);
+    expect(isRoundDeadlineTooSoon(local(NOW - HOUR), NOW)).toBe(true);
+  });
+
+  it("accepts exactly two hours out, as the server does, and anything later", () => {
+    expect(isRoundDeadlineTooSoon(local(NOW + 2 * HOUR), NOW)).toBe(false);
+    expect(isRoundDeadlineTooSoon(local(NOW + 26 * HOUR), NOW)).toBe(false);
+  });
+
+  it("leaves an empty or unreadable value to the required-field check", () => {
+    expect(isRoundDeadlineTooSoon("", NOW)).toBe(false);
+    expect(isRoundDeadlineTooSoon("garbage", NOW)).toBe(false);
   });
 });
 

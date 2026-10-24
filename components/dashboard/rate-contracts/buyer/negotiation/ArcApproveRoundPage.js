@@ -22,6 +22,7 @@ import { getChargeNames } from "@/services/rfq";
 import { getApiErrorMessage } from "@/utils/apiError";
 import NegotiationApprovalView from "@/components/dashboard/buyer/negotiation/create-round/NegotiationApprovalView";
 import {
+  ARC_WHOLE_SCOPE,
   arcRoundToReviewEntries,
   normalizeArcProducts,
 } from "@/components/dashboard/buyer/negotiation/create-round/adapters/arcNegotiationAdapter";
@@ -103,6 +104,7 @@ export default function ArcApproveRoundPage({ arcId, roundId }) {
       chargeNamesList={chargeNamesList}
       toReviewEntries={arcRoundToReviewEntries}
       allowLineWithhold={false}
+      wholeScope={ARC_WHOLE_SCOPE}
       onApprove={(round, comment) =>
         ArcApi.approveArcNegotiationRound(arcId, round.id, comment ? { comment } : {})}
       onReject={(round, comment) =>

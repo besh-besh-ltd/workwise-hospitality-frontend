@@ -10,7 +10,7 @@ import {
   roundTimeLeft,
 } from '@/utils/negotiationTime';
 import ApprovalActionModal from '../../approval/ApprovalActionModal';
-import StepReview from './StepReview';
+import StepReview, { RFQ_WHOLE_SCOPE } from './StepReview';
 import MobileActionBar, { MobileActionButton } from '@/components/shared/mobile/MobileActionBar';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import RoundRemarks from '../RoundRemarks';
@@ -37,6 +37,7 @@ import styles from './CreateRound.module.scss';
 //   onDone             called when nothing is left awaiting this user
 //   focusRoundId       a round to list first (the one a notification linked)
 //   emptyExtra         extra content for the "nothing awaiting you" state
+//   wholeScope         how a round on the whole parent is named (StepReview)
 
 // Rounds awaiting THIS user's approval, still pending and not yet expired.
 const pendingRoundsOf = (bundle) => {
@@ -88,6 +89,7 @@ const NegotiationApprovalView = ({
   onBack,
   emptyExtra = null,
   focusRoundId = null,
+  wholeScope = RFQ_WHOLE_SCOPE,
 }) => {
   // { round, actionType: 'APPROVE' | 'REJECT' } while the modal is open.
   const [actionState, setActionState] = useState(null);
@@ -406,6 +408,7 @@ const NegotiationApprovalView = ({
                   mode="product"
                   readOnly
                   step3Errors={[]}
+                  wholeScope={wholeScope}
                 />
               </div>
             );
