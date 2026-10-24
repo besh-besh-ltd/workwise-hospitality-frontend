@@ -3,9 +3,9 @@
 jest.mock("next/dynamic", () => ({
   __esModule: true,
   default: () =>
-    function MockCamera({ onDetected }) {
+    function MockCamera({ onDetected, paused }) {
       return (
-        <div data-testid="camera">
+        <div data-testid="camera" data-paused={String(Boolean(paused))}>
           <button type="button" onClick={() => onDetected("CAM-1")}>see CAM-1</button>
           <button type="button" onClick={() => onDetected("CAM-2")}>see CAM-2</button>
         </div>
@@ -158,6 +158,67 @@ describe("ScanInput", () => {
     await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(2));
     expect(resolveScan.mock.calls).toEqual([["8901234567897", "po:12"], ["8901234567897", "po:12"]]);
     expect(onResolved.mock.calls[0][1]).toEqual(expect.objectContaining({ source: "wedge" }));
+  });
+
+  it("a scan ended by Tab is taken once and cleared from the box; a typed Tab just moves on", async () => {
+    jest.useFakeTimers({ now: 12_000_000 });
+    const onResolved = jest.fn();
+    resolveScan.mockResolvedValue(item({ code: "RICE-0001" }));
+    let tabbed;
+    try {
+      render(<ScanInput context="hotel:46" onResolved={onResolved} onUnknown={jest.fn()} />);
+      for (const key of "RICE-0001") {
+        fireEvent.keyDown(field(), { key });
+        act(() => {
+          jest.advanceTimersByTime(5);
+        });
+      }
+      fireEvent.change(field(), { target: { value: "RICE-0001" } });
+      tabbed = fireEvent.keyDown(field(), { key: "Tab" });
+      expect(tabbed).toBe(false); // the wedge kept focus in the box
+      expect(field()).toHaveValue("");
+
+      // Typed by hand, then Tab: the person is moving to the next field.
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      for (const key of "abc") {
+        fireEvent.keyDown(field(), { key });
+        act(() => {
+          jest.advanceTimersByTime(150);
+        });
+      }
+      fireEvent.change(field(), { target: { value: "abc" } });
+      expect(fireEvent.keyDown(field(), { key: "Tab" })).toBe(true);
+      expect(field()).toHaveValue("abc");
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+    await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(1));
+    expect(resolveScan.mock.calls).toEqual([["RICE-0001", "hotel:46"]]);
+  });
+
+  it("disabled keeps the camera running (no new permission prompt) but drops its reads", async () => {
+    resolveScan.mockResolvedValue(item({ code: "CAM-1" }));
+    const props = { context: "hotel:46", onResolved: jest.fn(), onUnknown: jest.fn() };
+    const { rerender } = render(<ScanInput {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Scan with camera" }));
+    expect(screen.getByTestId("camera")).toHaveAttribute("data-paused", "false");
+
+    rerender(<ScanInput {...props} disabled />);
+    expect(screen.getByTestId("camera")).toHaveAttribute("data-paused", "true");
+    fireEvent.click(screen.getByText("see CAM-1"));
+    // Still possible to switch the camera off while disabled.
+    expect(screen.getByRole("button", { name: "Stop camera" })).toBeEnabled();
+
+    rerender(<ScanInput {...props} />);
+    expect(screen.getByTestId("camera")).toHaveAttribute("data-paused", "false");
+    fireEvent.click(screen.getByText("see CAM-1"));
+    await waitFor(() => expect(props.onResolved).toHaveBeenCalledTimes(1));
+    expect(resolveScan).toHaveBeenCalledTimes(1);
   });
 
   it("a failed lookup shows the server's message and plays the error tone", async () => {

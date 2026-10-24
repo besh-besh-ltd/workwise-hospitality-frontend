@@ -101,11 +101,10 @@ export function useScanner({ onScan, context, enabled = true, wedge = true } = {
     scanFeedback.unlock();
     setActive(true);
   }, []);
+  // `enabled` does not switch the camera off: tearing the stream down and
+  // starting a new one costs a permission prompt on iOS home-screen apps.
+  // While disabled, reads are simply dropped (submit returns false).
   const stop = useCallback(() => setActive(false), []);
-
-  useEffect(() => {
-    if (!enabled) setActive(false);
-  }, [enabled]);
 
   return { start, stop, active, lastResult, error, pending, submit, onCameraCode };
 }

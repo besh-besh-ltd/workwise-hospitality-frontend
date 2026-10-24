@@ -14,6 +14,8 @@ import styles from "./Scan.module.scss";
 // onUnknown gets the code worth linking (the GTIN for a GS1 read) when the
 // server does not know it, typically to open LinkUnknownCodeSheet.
 // Mount one ScanInput per screen (it listens for wedge scans page-wide).
+// `disabled` stops taking reads but leaves an open camera running (paused),
+// so a busy step does not cost the user a new camera permission prompt.
 
 const unknownCodeOf = (result, parsed) =>
   result?.gs1?.gtin || parsed?.gs1?.gtin || result?.code || parsed?.code || "";
@@ -67,16 +69,18 @@ const ScanInput = ({
   };
 
   const onKeyDown = (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key !== "Enter" && e.key !== "Tab") return;
     // The wedge listener (window, capture phase) runs first. If it took this
-    // burst as a scan it prevented the Enter; the burst's characters also
-    // landed in the box, so clear them instead of submitting them twice.
+    // burst as a scan it prevented the Enter / Tab that ended it; the burst's
+    // characters also landed in the box, so clear them instead of submitting
+    // them twice. A Tab nobody claimed is a person moving to the next field.
     const claimedByWedge = e.nativeEvent?.defaultPrevented === true;
-    e.preventDefault();
     if (claimedByWedge) {
       setValue("");
       return;
     }
+    if (e.key === "Tab") return;
+    e.preventDefault();
     submitTyped();
   };
 
@@ -135,7 +139,7 @@ const ScanInput = ({
           type="button"
           className={`${styles.btn} ${styles.iconBtn} ${scanner.active ? styles.btnOn : ""}`}
           onClick={toggleCamera}
-          disabled={disabled}
+          disabled={disabled && !scanner.active}
           aria-label={scanner.active ? "Stop camera" : "Scan with camera"}
           title={scanner.active ? "Stop camera" : "Scan with camera"}
         >
@@ -153,7 +157,7 @@ const ScanInput = ({
         </button>
       </div>
 
-      {scanner.active && <LazyCameraScanner onDetected={scanner.onCameraCode} />}
+      {scanner.active && <LazyCameraScanner onDetected={scanner.onCameraCode} paused={disabled} />}
 
       <div role="status" aria-live="polite" className={`${styles.status} ${status ? styles[`status_${status.tone}`] : ""}`}>
         {status && (

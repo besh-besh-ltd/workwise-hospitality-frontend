@@ -15,7 +15,11 @@ import styles from "./Scan.module.scss";
 
 const KINDS = new Set(["i", "p", "g", "d"]);
 
-const isLocalPath = (path) => typeof path === "string" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\");
+// The server only ever names a dashboard screen; follow nothing else. An
+// allowlist, not a "starts with /" check: browsers strip tabs and newlines
+// from URLs, so "/\t/evil.example" would navigate off-site as //evil.example.
+const DASHBOARD_PATH = /^\/dashboard\/(buyer|vendor)\/[\w/-]+(\?[\w=&%-]*)?$/;
+const isDashboardPath = (path) => typeof path === "string" && DASHBOARD_PATH.test(path);
 
 const ShortLinkRedirect = () => {
   const router = useRouter();
@@ -41,7 +45,7 @@ const ShortLinkRedirect = () => {
     resolveShortLink(kind, num)
       .then((res) => {
         if (!live) return;
-        if (isLocalPath(res?.path)) router.replace(res.path);
+        if (isDashboardPath(res?.path)) router.replace(res.path);
         else setState("not_found");
       })
       .catch((err) => {

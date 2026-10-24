@@ -60,11 +60,31 @@ describe("ShortLinkRedirect (/s/<t>/<id>)", () => {
     expect(resolveShortLink.mock.calls).toEqual([["g", 999]]);
   });
 
-  it("never follows a path that is not a local route", async () => {
-    resolveShortLink.mockResolvedValueOnce({ path: "//evil.example/x" });
-    open("p", "7");
-    expect(await screen.findByRole("heading", { name: "Not found" })).toBeInTheDocument();
+  it("never follows a path that is not a dashboard route", async () => {
+    for (const path of [
+      "//evil.example/x",
+      "/\t/evil.example", // browsers drop the tab: //evil.example
+      "/\\evil.example",
+      "https://evil.example/dashboard/buyer/x",
+      "/dashboard/buyer/../../logout",
+      "/dashboard/buyer/inventory/grn/1\n",
+      "/admin/users",
+      "",
+      null,
+    ]) {
+      resolveShortLink.mockResolvedValueOnce({ path });
+      const view = open("p", "7");
+      expect(await screen.findByRole("heading", { name: "Not found" })).toBeInTheDocument();
+      view.unmount();
+    }
     expect(router.replace).not.toHaveBeenCalled();
+
+    for (const path of ["/dashboard/buyer/purchase-orders/7?tab=deliveries", "/dashboard/buyer/inventory/receive/7?dispatch=3"]) {
+      resolveShortLink.mockResolvedValueOnce({ path });
+      const view = open("p", "7");
+      await waitFor(() => expect(router.replace).toHaveBeenLastCalledWith(path));
+      view.unmount();
+    }
   });
 
   it("waits for the router before deciding", () => {

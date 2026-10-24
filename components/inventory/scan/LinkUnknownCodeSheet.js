@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Modal } from "react-bootstrap";
+import { CloseButton, Modal } from "react-bootstrap";
 import { Link2, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { addItemBarcode, listItems } from "@/services/inventory";
@@ -117,12 +117,27 @@ const LinkUnknownCodeSheet = ({ show, code, onHide, onLinked, poLines, hotelId }
     }
   };
 
+  // While the link is saving the sheet stays put (no close, Esc or backdrop):
+  // closing mid-save would hide whether the code got linked.
+  const hide = () => {
+    if (!saving) onHide?.();
+  };
+
   return (
-    <Modal show={show} onHide={onHide} centered dialogClassName={styles.sheetDialog} contentClassName={styles.sheet}>
-      <Modal.Header closeButton>
+    <Modal
+      show={show}
+      onHide={hide}
+      backdrop={saving ? "static" : true}
+      keyboard={!saving}
+      centered
+      dialogClassName={styles.sheetDialog}
+      contentClassName={styles.sheet}
+    >
+      <Modal.Header>
         <Modal.Title as="h2" className={styles.sheetTitle}>
           Link this code
         </Modal.Title>
+        <CloseButton aria-label="Close" onClick={hide} disabled={saving} />
       </Modal.Header>
       <Modal.Body className={styles.sheetBody}>
         <p className={styles.sheetLead}>
@@ -218,7 +233,7 @@ const LinkUnknownCodeSheet = ({ show, code, onHide, onLinked, poLines, hotelId }
         )}
       </Modal.Body>
       <Modal.Footer className={styles.sheetFooter}>
-        <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={onHide} disabled={saving}>
+        <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={hide} disabled={saving}>
           Cancel
         </button>
         <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={save} disabled={!canSave}>

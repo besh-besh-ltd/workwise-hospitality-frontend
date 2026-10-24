@@ -9,7 +9,7 @@ jest.mock("react-toastify", () => ({
 }));
 
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { listItems, addItemBarcode } from "@/services/inventory";
 import { toast } from "react-toastify";
@@ -74,6 +74,32 @@ describe("LinkUnknownCodeSheet", () => {
     expect(await screen.findByText("Code already linked to Sunflower oil")).toBeInTheDocument();
     expect(addItemBarcode).toHaveBeenCalledWith(41, { code: "ABC", packFactor: 1, source: "MANUFACTURER" });
     expect(onLinked).not.toHaveBeenCalled();
+  });
+
+  it("cannot be closed while the link is being saved", async () => {
+    let finish;
+    addItemBarcode.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const onHide = jest.fn();
+    render(
+      <LinkUnknownCodeSheet
+        show
+        code="X1"
+        onHide={onHide}
+        onLinked={jest.fn()}
+        poLines={[{ poLineId: 1, productName: "Rice", invItemId: 5, stockUom: "kg" }]}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
+    fireEvent.click(screen.getByLabelText("Rice"));
+    fireEvent.click(screen.getByRole("button", { name: "Link code" }));
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onHide).not.toHaveBeenCalled();
+    await act(async () => {
+      finish({ id: 1 });
+    });
+    expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
   });
 
   it("a pack factor must be a positive number", () => {

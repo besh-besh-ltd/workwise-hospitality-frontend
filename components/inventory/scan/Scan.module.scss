@@ -242,6 +242,20 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   font-weight: 600;
 }
 
+.cameraProblem {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .cameraNote { flex: 1 1 240px; }
+}
+
+.reticlePaused {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
 /* ── Link-code sheet (renders in a modal: values spelled out) ────────────── */
 
 .sheet {
