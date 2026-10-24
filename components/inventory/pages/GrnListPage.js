@@ -1,6 +1,6 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import GrnRegister from "@/components/inventory/receive/GrnRegister";
 
-const GrnListPage = () => <PagePlaceholder title="Inventory · GRNs" />;
+const GrnListPage = () => <GrnRegister />;
 
 export default GrnListPage;

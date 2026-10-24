@@ -1,6 +1,6 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import GrnDetail from "@/components/inventory/receive/GrnDetail";
 
-const GrnDetailPage = (props) => <PagePlaceholder title="Inventory · GRN" />;
+const GrnDetailPage = ({ id }) => <GrnDetail key={id} id={id} />;
 
 export default GrnDetailPage;

@@ -1,6 +1,6 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import AwaitingList from "@/components/inventory/receive/AwaitingList";
 
-const ReceiveListPage = () => <PagePlaceholder title="Inventory · Receive" />;
+const ReceiveListPage = () => <AwaitingList />;
 
 export default ReceiveListPage;
