@@ -183,7 +183,7 @@ describe("one row per RFQ", () => {
     expect(await rowCard()).toHaveAttribute("href", "/dashboard/buyer/negotiation/512");
   });
 
-  it("links an ARC card to the rate contract, which already lists its rounds", async () => {
+  it("links an ARC card to that rate contract's negotiation page", async () => {
     // ARC parents carry rfq_id = NULL by construction; the link must come off
     // arc_id or it points at /negotiation/null.
     await renderList(
@@ -200,7 +200,7 @@ describe("one row per RFQ", () => {
       ])
     );
     const card = screen.getByText("Annual linen contract").closest("a");
-    expect(card).toHaveAttribute("href", "/dashboard/buyer/rate-contracts/88?stage=commercial");
+    expect(card).toHaveAttribute("href", "/dashboard/buyer/negotiation/arc/88");
   });
 });
 
