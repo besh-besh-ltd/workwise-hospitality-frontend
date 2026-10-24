@@ -15,7 +15,6 @@
 // withholding.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import { getChargeNames } from "@/services/rfq";
@@ -38,8 +37,11 @@ export default function ArcApproveRoundPage({ arcId, roundId }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
-  const backUrl = `/dashboard/buyer/rate-contracts/${arcId}?stage=commercial`;
-  const back = () => router.push(backUrl);
+  // Back and done go to the round, not the rate contract: a policy-seat
+  // approver may hold no arc-comm.* key, and the Commercial stage is gated on
+  // one. The round page opens for the seat and links on to the rate contract.
+  const roundUrl = `/dashboard/buyer/negotiation/round/${roundId}`;
+  const back = () => router.push(roundUrl);
 
   const load = useCallback(async () => {
     if (!arcId) return;
@@ -111,14 +113,9 @@ export default function ArcApproveRoundPage({ arcId, roundId }) {
         ArcApi.rejectArcNegotiationRound(arcId, round.id, { comment })}
       refetchBundle={refetchBundle}
       onDone={back}
-      backLabel="Back to the rate contract"
+      backLabel="Back to the round"
       onBack={back}
       focusRoundId={roundId}
-      emptyExtra={roundId ? (
-        <Link href={`/dashboard/buyer/negotiation/round/${roundId}`} className={styles.btnSecondary}>
-          View round
-        </Link>
-      ) : null}
     />
   );
 }

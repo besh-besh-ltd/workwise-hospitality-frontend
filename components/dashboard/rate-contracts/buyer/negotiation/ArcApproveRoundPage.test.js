@@ -195,13 +195,38 @@ describe("deciding", () => {
   });
 });
 
+// A policy-seat approver may hold no arc-comm.* key. The rate contract's
+// Commercial stage is gated on one, so sending them there after they decide
+// lands them on a 403; the round page opens for the seat.
+describe("where the approver goes from here", () => {
+  const ROUND_PAGE = `/dashboard/buyer/negotiation/round/${ROUND_ID}`;
+
+  it("lands on the round's page once nothing else awaits them", async () => {
+    const { container } = await renderPage();
+    ArcApi.approveArcNegotiationRound.mockResolvedValue({ status: 1, data: { allApproved: true } });
+    ArcApi.getArcNegotiationApprovalBundle.mockResolvedValue({
+      status: 1,
+      data: bundle({ rounds: [round({ status: "ACTIVE" })], inst: instance({ status: "APPROVED", can_user_approve: false }) }),
+    });
+    fireEvent.click(within(container).getByRole("button", { name: /^approve$/i }));
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "Fine by me" } });
+    fireEvent.click(screen.getByRole("button", { name: /confirm approval/i }));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith(ROUND_PAGE));
+    expect(pushMock).not.toHaveBeenCalledWith(expect.stringContaining("/rate-contracts/"));
+  });
+
+  it("goes back to the round's page", async () => {
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /back to the round/i }));
+    expect(pushMock).toHaveBeenCalledWith(ROUND_PAGE);
+  });
+});
+
 describe("a round that is not waiting on this user", () => {
-  it("says so, and links to the round", async () => {
+  it("says so, and takes them to the round", async () => {
     await renderPage(bundle({ inst: instance({ can_user_approve: false }) }));
-    expect(screen.getByText(/No rounds awaiting your approval/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /view round/i })).toHaveAttribute(
-      "href",
-      `/dashboard/buyer/negotiation/round/${ROUND_ID}`
-    );
+    const empty = screen.getByText(/No rounds awaiting your approval/).closest("section");
+    fireEvent.click(within(empty).getByRole("button", { name: /back to the round/i }));
+    expect(pushMock).toHaveBeenCalledWith(`/dashboard/buyer/negotiation/round/${ROUND_ID}`);
   });
 });
