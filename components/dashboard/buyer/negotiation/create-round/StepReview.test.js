@@ -148,20 +148,23 @@ describe("caller 2 — the wizard, where formData.end_date is a LOCAL WALL CLOCK
     expect(screen.getByText(/Will be sent as/)).toHaveTextContent("13 Aug 2026, 07:00 UTC");
   });
 
-  it("the input's `min` is the viewer's LOCAL now, not UTC now", () => {
+  it("the input's `min` is the viewer's LOCAL time two hours on, not UTC", () => {
     // Inventory row 16. `new Date().toISOString().slice(0,16)` is UTC, but the
     // control reads and writes local wall clock — so in India the floor sat
     // 5h30m in the past and the browser accepted a deadline already gone.
+    // The floor is now the minimum round window (2 h) out, which the create
+    // endpoints enforce: approval time comes out of the vendors' window.
     renderWizard();
-    const now = new Date();
+    const floor = new Date(Date.now() + 2 * 3600 * 1000);
     const pad = (n) => String(n).padStart(2, "0");
-    const localNow =
-      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
-      `T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    expect(dateInput()).toHaveAttribute("min", localNow);
+    const localFloor =
+      `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}` +
+      `T${pad(floor.getHours())}:${pad(floor.getMinutes())}`;
+    expect(dateInput()).toHaveAttribute("min", localFloor);
+    expect(screen.getByText(/At least 2 hours from now/)).toBeInTheDocument();
 
-    if (now.getTimezoneOffset() !== 0) {
-      expect(dateInput().getAttribute("min")).not.toBe(new Date().toISOString().slice(0, 16));
+    if (floor.getTimezoneOffset() !== 0) {
+      expect(dateInput().getAttribute("min")).not.toBe(floor.toISOString().slice(0, 16));
     }
   });
 

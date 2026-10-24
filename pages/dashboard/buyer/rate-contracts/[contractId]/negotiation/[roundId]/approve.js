@@ -1,8 +1,10 @@
 // Routed approve page — review & approve/reject an ARC negotiation round.
-// Thin wrapper: reads contractId + roundId from query, renders ArcApproveRoundPanel.
+// Thin wrapper: reads contractId + roundId from query, renders ArcApproveRoundPage
+// (the RFQ negotiation approval page, fed from the ARC approval bundle). This is
+// the URL the ARC approval notification links to.
 // DashboardShell (sidebar + topbar) is provided by pages/_app.js.
 import { useRouter } from "next/router";
-import ArcApproveRoundPanel from "@/components/dashboard/rate-contracts/buyer/negotiation/ArcApproveRoundPanel";
+import ArcApproveRoundPageView from "@/components/dashboard/rate-contracts/buyer/negotiation/ArcApproveRoundPage";
 
 export default function ArcApproveRoundPage() {
   const router = useRouter();
@@ -18,5 +20,5 @@ export default function ArcApproveRoundPage() {
     );
   }
 
-  return <ArcApproveRoundPanel arcId={contractId} roundId={roundId} />;
+  return <ArcApproveRoundPageView arcId={contractId} roundId={roundId} />;
 }

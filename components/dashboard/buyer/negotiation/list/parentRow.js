@@ -41,12 +41,13 @@ export function parentKeyOf(row) {
 /**
  * Where the card goes.
  *
- * RFQ → the per-RFQ negotiation page (level 2, this change).
- * ARC → the rate-contract page, which ALREADY has a per-contract rounds list
- *       under its commercial stage. There is deliberately no ARC level 2.
+ * RFQ → the per-RFQ negotiation page (level 2).
+ * ARC → the same page keyed ARC:<id>. It used to go to the rate-contract page,
+ *       whose rounds list printed no targets and the same empty-quotes line for
+ *       every state (Phileein, 22 Oct 2026).
  */
 export function parentHref(row) {
-  if (isArcRow(row)) return `/dashboard/buyer/rate-contracts/${row.arc_id}?stage=commercial`;
+  if (isArcRow(row)) return `/dashboard/buyer/negotiation/arc/${row.arc_id}`;
   return `/dashboard/buyer/negotiation/${row.rfq_id}`;
 }
 
