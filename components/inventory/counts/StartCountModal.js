@@ -1,8 +1,8 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CloseButton, Modal } from "react-bootstrap";
-import { CircleAlert, EyeOff, Info, Loader2, Lock, Search } from "lucide-react";
-import { getCompanySettings, getStock, startCount } from "@/services/inventory";
+import { CircleAlert, EyeOff, Info, Loader2, Search } from "lucide-react";
+import { getStock, startCount } from "@/services/inventory";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { countPath, errorInfo, plural } from "./countUtils";
 import styles from "./counts.module.scss";
@@ -10,6 +10,8 @@ import styles from "./counts.module.scss";
 // Start a count at a hotel: FULL (every item stocked or levelled there) or
 // SELECTED (a spot check of picked items, at most 2000). A CONFLICT means an
 // item is already in an open or submitted count at that hotel: link to it.
+// Whether the count freezes stock is the hotel's setting, sent on the count:
+// the count page says so right after the start.
 //
 // Props: { show, onHide, hotels:[{id, name}], defaultHotelId?, onStarted(count) }
 
@@ -21,7 +23,6 @@ const StartCountModal = ({ show, onHide, hotels = [], defaultHotelId, onStarted 
   const [hotelId, setHotelId] = useState("");
   const [scope, setScope] = useState("FULL");
   const [isBlind, setIsBlind] = useState(true);
-  const [countFreeze, setCountFreeze] = useState(false);
   const [stockInfo, setStockInfo] = useState(null); // {stockStartedAt, total} for the hotel
   const [search, setSearch] = useState("");
   const [belowReorder, setBelowReorder] = useState(false);
@@ -45,18 +46,6 @@ const StartCountModal = ({ show, onHide, hotels = [], defaultHotelId, onStarted 
     setError(null);
     setClash(null);
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Count freeze is a company setting; best effort (the server enforces it).
-  useEffect(() => {
-    if (!show) return undefined;
-    let alive = true;
-    getCompanySettings()
-      .then((s) => alive && setCountFreeze(s?.countFreeze === true))
-      .catch(() => alive && setCountFreeze(false));
-    return () => {
-      alive = false;
-    };
-  }, [show]);
 
   // The hotel's stock list: whether stock has started, and the item picker.
   useEffect(() => {
@@ -156,7 +145,6 @@ const StartCountModal = ({ show, onHide, hotels = [], defaultHotelId, onStarted 
   const hide = () => {
     if (!saving) onHide?.();
   };
-  const hotelName = hotels.find((h) => String(h.id) === String(hotelId))?.name;
 
   return (
     <Modal
@@ -173,7 +161,7 @@ const StartCountModal = ({ show, onHide, hotels = [], defaultHotelId, onStarted 
         <Modal.Title as="h2" className={styles.sheetTitle}>
           Start a count
         </Modal.Title>
-        <CloseButton aria-label="Close" onClick={hide} disabled={saving} />
+        <CloseButton aria-label="Close" className={styles.sheetClose} onClick={hide} disabled={saving} />
       </Modal.Header>
       <Modal.Body className={styles.sheetBody}>
         <div className={styles.field}>
@@ -301,14 +289,6 @@ const StartCountModal = ({ show, onHide, hotels = [], defaultHotelId, onStarted 
           <div className={`${styles.notice} ${styles.noticeInfo}`}>
             <Info size={16} aria-hidden="true" />
             <span>Stock has not started at this hotel yet. Approving its first full count starts it.</span>
-          </div>
-        )}
-        {hotelId && countFreeze && (
-          <div className={`${styles.notice} ${styles.noticeWarn}`}>
-            <Lock size={16} aria-hidden="true" />
-            <span>
-              {`Count freeze is on: while this count is open, mark-out, returns and adjustments at ${hotelName || "this hotel"} are blocked. Submit or cancel the count to release them.`}
-            </span>
           </div>
         )}
 

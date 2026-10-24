@@ -1,105 +1,64 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { Check, CircleAlert, Clock3, EyeOff, Loader2, PackagePlus, RotateCcw, Search, Send } from "lucide-react";
-import { cancelCount, listItems, saveCountLines, submitCount } from "@/services/inventory";
-import { submitOrQueue } from "@/components/inventory/offline/outbox";
+import { CircleAlert, Clock3, EyeOff, Loader2, RotateCcw, Search, Send } from "lucide-react";
+import { cancelCount, submitCount } from "@/services/inventory";
 import ScanInput from "@/components/inventory/scan/ScanInput";
 import LinkUnknownCodeSheet from "@/components/inventory/scan/LinkUnknownCodeSheet";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import { getApiErrorMessage } from "@/utils/apiError";
-import {
-  byBinThenName,
-  countPath,
-  errorInfo,
-  escapeHtml,
-  fmtDateTime,
-  fmtQty,
-  fmtSignedQty,
-  newClientEventId,
-  plural,
-} from "./countUtils";
+import AddItemSearch from "./AddItemSearch";
+import CountLine from "./CountLine";
+import useCountLineSaver, { COUNTED, PENDING, stripFlags } from "./useCountLineSaver";
+import { byBinThenName, errorInfo, escapeHtml, plural } from "./countUtils";
 import styles from "./counts.module.scss";
+
+export { SAVE_DEBOUNCE_MS, stripFlags } from "./useCountLineSaver";
 
 // The counting screen of an open count (mobile first, scan first).
 //
 // Walk the store bin by bin: scan an item (or find it in the list), type what
-// is on the shelf. Each figure is saved a moment after the last keystroke via
-// the outbox (kind `count_lines`), one clientEventId per line save: a retry of
-// the same figure reuses it (the server answers a replay as success), a new
-// figure gets a new one. A line shows a check once the server has it.
+// is on the shelf. Saving is useCountLineSaver's job; this screen finds lines,
+// filters them, and submits or cancels the count.
 //
 // Blind counts never show system quantities or differences here, whoever is
-// counting; approvers read them on the review screen after submit.
+// counting.
 //
-// Props: { count, onCountChange(nextCount), onReload() }
+// Props: { count, onCountChange(nextCount), onReload() → Promise<Count|null> }
 
-export const SAVE_DEBOUNCE_MS = 700;
 // useWedgeScanner's burst gap: keys closer together than this are a scanner.
 const WEDGE_GAP_MS = 35;
-const MAX_LINES_PER_SAVE = 500;
-const QTY_RE = /^(\d+(\.\d{0,4})?|\.\d{1,4})$/;
-
-/** A counted quantity typed by hand, or null when it is not one. */
-const parseQty = (text) => {
-  const s = String(text ?? "").trim();
-  if (!QTY_RE.test(s)) return null;
-  const n = Number(s);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-};
-
-// Line entry states (only for lines touched in this session):
-//   blank    field cleared; nothing to send, the saved figure stands
-//   invalid  not a quantity; nothing to send
-//   dirty    waiting for the debounce
-//   saving   in flight with `eventId`
-//   queued   kept by the outbox until the connection is back
-//   error    refused or not delivered; `retry` when re-sending can help
-// A line save that lands after the count left `open` is final (PUT lines answers CONFLICT {status}).
-const CLOSED_MESSAGE = {
-  submitted: "This count was already submitted",
-  approved: "This count was already approved",
-  cancelled: "This count was cancelled",
-};
-const PENDING = new Set(["dirty", "saving", "queued", "error", "invalid"]);
-const COUNTED = new Set(["saved", "dirty", "saving", "queued"]);
-
-/** A replayed save answers `{...Count, replayed:true, no_op:true}`: keep the Count. */
-export const stripFlags = (c) => {
-  if (!c || typeof c !== "object") return c;
-  const out = { ...c };
-  delete out.replayed;
-  delete out.no_op;
-  return out;
-};
 
 const CountSession = ({ count, onCountChange, onReload }) => {
   const canCount = count?.can?.count === true && count?.status === "open";
   const canCancel = count?.can?.approve === true && (count?.status === "open" || count?.status === "submitted");
   const showFigures = count?.isBlind !== true;
 
-  const [entries, setEntries] = useState({});
-  const entriesRef = useRef(entries);
-  const [added, setAdded] = useState([]);
+  const [added, setAdded] = useState([]); // items found while counting that the count does not hold yet
   const addedRef = useRef(added);
-  const countRef = useRef(count);
-  useEffect(() => {
-    countRef.current = count;
-    // A figure the outbox kept offline and synced later: once the server's
-    // count carries it, the line is simply saved.
-    const server = new Map((count?.lines || []).map((l) => [Number(l.invItemId), l.countedQty]));
-    const synced = Object.entries(entriesRef.current).filter(
-      ([id, e]) => e.status === "queued" && server.get(Number(id)) != null && Number(server.get(Number(id))) === parseQty(e.draft)
-    );
-    if (synced.length) {
-      update((cur) => {
-        const out = { ...cur };
-        for (const [id] of synced) if (out[id]?.status === "queued") delete out[id];
-        return out;
-      });
+  const inputRefs = useRef(new Map());
+  const saverRef = useRef(null);
+
+  /** After a reload: a found item the count does not hold and nothing was typed for is stale. */
+  const pruneAdded = (fresh) => {
+    const latest = fresh || saverRef.current?.countRef.current;
+    const onCount = new Set((latest?.lines || []).map((l) => Number(l.invItemId)));
+    const live = saverRef.current?.entriesRef.current || {};
+    const focused = typeof document === "undefined" ? null : document.activeElement;
+    const keep = addedRef.current.filter((a) => {
+      if (onCount.has(a.invItemId)) return false;
+      const e = live[a.invItemId];
+      return (e && e.status !== "blank") || (focused && inputRefs.current.get(a.invItemId) === focused);
+    });
+    if (keep.length !== addedRef.current.length) {
+      addedRef.current = keep;
+      setAdded(keep);
     }
-  }, [count]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  const saver = useCountLineSaver({ count, onCountChange, onReload, onReloaded: pruneAdded, guard: canCount });
+  saverRef.current = saver;
+  const { entries, entriesRef } = saver;
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -110,212 +69,21 @@ const CountSession = ({ count, onCountChange, onReload }) => {
   const [confirm, setConfirm] = useState(null); // 'submit' | 'cancel'
   const [confirmText, setConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const inputRefs = useRef(new Map());
-  const timerRef = useRef(null);
-  const inFlightRef = useRef(null);
-  const againRef = useRef(false);
-  const closedRef = useRef(false); // the server said this count is no longer open: nothing more to save
   const burstRef = useRef(null);
-  const flushRef = useRef(() => Promise.resolve());
-
-  const update = useCallback((fn) => {
-    entriesRef.current = fn(entriesRef.current);
-    setEntries(entriesRef.current);
-  }, []);
 
   // ── Rows ───────────────────────────────────────────────────────────────────
-  const rows = useMemo(() => {
-    const server = count?.lines || [];
-    const ids = new Set(server.map((l) => Number(l.invItemId)));
-    const extra = added.filter((a) => !ids.has(a.invItemId));
-    return [...server, ...extra].sort(byBinThenName);
-  }, [count, added]);
+  const onCountIds = useMemo(() => new Set((count?.lines || []).map((l) => Number(l.invItemId))), [count]);
+  const rows = useMemo(
+    () => [...(count?.lines || []), ...added.filter((a) => !onCountIds.has(a.invItemId))].sort(byBinThenName),
+    [count, added, onCountIds]
+  );
 
   const stateOf = (row, entry) => (entry ? entry.status : row.countedQty != null ? "saved" : "todo");
 
   const counted = rows.filter((r) => COUNTED.has(stateOf(r, entries[r.invItemId]))).length;
   const pendingCount = Object.values(entries).filter((e) => PENDING.has(e.status)).length;
 
-  // ── Saving ─────────────────────────────────────────────────────────────────
-  const settleSaved = (batch, next) => {
-    if (next && typeof next === "object" && Array.isArray(next.lines)) {
-      const clean = stripFlags(next);
-      countRef.current = clean;
-      onCountChange?.(clean);
-    }
-    update((cur) => {
-      const out = { ...cur };
-      for (const l of batch) {
-        const e = out[l.invItemId];
-        if (e && e.status === "saving" && e.eventId === l.clientEventId) delete out[l.invItemId];
-      }
-      return out;
-    });
-  };
-
-  const markBatch = (batch, patchFor) =>
-    update((cur) => {
-      const out = { ...cur };
-      batch.forEach((l, index) => {
-        const e = out[l.invItemId];
-        if (!e || e.eventId !== l.clientEventId || e.status !== "saving") return; // edited since
-        const patch = patchFor(l, index);
-        if (patch) out[l.invItemId] = { ...e, ...patch };
-      });
-      return out;
-    });
-
-  const failBatch = (batch, err) => {
-    const { httpStatus, code, details } = errorInfo(err);
-    const message = getApiErrorMessage(err, "Not saved. Try again.");
-    let resend = false;
-
-    if (httpStatus === null) {
-      markBatch(batch, () => ({ status: "error", error: "Not saved: no connection", retry: true }));
-    } else if (code === "VALIDATION" && details.index != null && batch[details.index]) {
-      // One bad line sinks the whole save; send the others again on their own.
-      markBatch(batch, (l, i) =>
-        i === Number(details.index) ? { status: "error", error: message, retry: false } : { status: "dirty" }
-      );
-      resend = true;
-    } else if (code === "CONFLICT" && details.countId != null) {
-      const clash = new Set((details.invItemIds || []).map(Number));
-      const named = batch.some((l) => clash.has(l.invItemId));
-      const other = { id: details.countId, number: details.countNumber };
-      markBatch(batch, (l) =>
-        !named || clash.has(l.invItemId)
-          ? { status: "error", error: "Already being counted in", other, retry: false }
-          : { status: "dirty" }
-      );
-      resend = named;
-    } else if (code === "CONFLICT") {
-      // The count left `open` (submitted, approved or cancelled) before this save landed. That is
-      // final: drop every unsaved figure (none can be saved now), say so once, and reload.
-      if (!closedRef.current) toast.error(CLOSED_MESSAGE[details.status] || message);
-      closedRef.current = true;
-      clearTimeout(timerRef.current);
-      update(() => ({}));
-      onReload?.();
-    } else {
-      markBatch(batch, () => ({ status: "error", error: message, retry: httpStatus >= 500 }));
-    }
-    if (resend) againRef.current = true;
-  };
-
-  const flush = () => {
-    clearTimeout(timerRef.current);
-    if (closedRef.current) return Promise.resolve();
-    if (inFlightRef.current) {
-      againRef.current = true;
-      return inFlightRef.current;
-    }
-    const countId = countRef.current?.id;
-    const batch = [];
-    for (const [key, e] of Object.entries(entriesRef.current)) {
-      if (e.status !== "dirty") continue;
-      const qty = parseQty(e.draft);
-      if (qty === null) continue;
-      if (batch.length >= MAX_LINES_PER_SAVE) {
-        againRef.current = true;
-        break;
-      }
-      batch.push({ invItemId: Number(key), countedQty: qty, clientEventId: e.eventId || newClientEventId() });
-    }
-    if (!batch.length || !countId) return Promise.resolve();
-
-    update((cur) => {
-      const out = { ...cur };
-      for (const l of batch) out[l.invItemId] = { ...out[l.invItemId], status: "saving", eventId: l.clientEventId, error: null };
-      return out;
-    });
-
-    const run = (async () => {
-      try {
-        const res = await submitOrQueue({
-          kind: "count_lines",
-          clientEventId: newClientEventId(),
-          payload: { countId, lines: batch },
-          send: (p) => saveCountLines(p.countId, p.lines),
-        });
-        if (res?.queued) markBatch(batch, () => ({ status: "queued" }));
-        else settleSaved(batch, res?.result);
-      } catch (err) {
-        failBatch(batch, err);
-      } finally {
-        inFlightRef.current = null;
-        if (againRef.current) {
-          againRef.current = false;
-          flushRef.current();
-        }
-      }
-    })();
-    inFlightRef.current = run;
-    return run;
-  };
-  flushRef.current = flush;
-
-  const schedule = () => {
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => flushRef.current(), SAVE_DEBOUNCE_MS);
-  };
-
-  /** Send everything typed so far and wait until nothing is in flight. */
-  const settleAll = async () => {
-    clearTimeout(timerRef.current);
-    for (let i = 0; i < 6; i += 1) {
-      if (inFlightRef.current) await inFlightRef.current;
-      const dirty = Object.values(entriesRef.current).some((e) => e.status === "dirty");
-      if (!dirty && !inFlightRef.current) return;
-      await flushRef.current();
-    }
-  };
-
-  // Leaving the screen sends what is typed; closing the tab with unsaved
-  // figures asks first.
-  useEffect(
-    () => () => {
-      clearTimeout(timerRef.current);
-      if (Object.values(entriesRef.current).some((e) => e.status === "dirty")) flushRef.current();
-    },
-    []
-  );
-  const hasUnsaved = Object.values(entries).some((e) => ["dirty", "saving", "error", "invalid"].includes(e.status));
-  useEffect(() => {
-    if (!hasUnsaved || typeof window === "undefined") return undefined;
-    const warn = (e) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [hasUnsaved]);
-
   // ── Typing ─────────────────────────────────────────────────────────────────
-  const onQtyChange = (id, text) => {
-    const blank = String(text).trim() === "";
-    const qty = parseQty(text);
-    update((cur) => ({
-      ...cur,
-      [id]: {
-        draft: text,
-        eventId: null,
-        status: blank ? "blank" : qty === null ? "invalid" : "dirty",
-        error: !blank && qty === null ? "Enter 0 or more" : null,
-        retry: false,
-      },
-    }));
-    schedule();
-  };
-
-  const restoreEntry = (id, snapshot) =>
-    update((cur) => {
-      const out = { ...cur };
-      if (!snapshot) delete out[id];
-      else out[id] = snapshot.status === "saving" ? { ...snapshot, status: "dirty" } : snapshot;
-      return out;
-    });
-
   const onQtyKeyDown = (id, e) => {
     const now = Date.now();
     const { key } = e;
@@ -333,42 +101,23 @@ const CountSession = ({ count, onCountChange, onReload }) => {
     // and prevented its terminator: the code typed into this box is not a
     // quantity. Put the box back as it was; the scan itself is resolving.
     if (e.nativeEvent?.defaultPrevented) {
-      restoreEntry(id, burstRef.current?.id === id ? burstRef.current.snapshot : entriesRef.current[id]);
+      saver.restoreEntry(id, burstRef.current?.id === id ? burstRef.current.snapshot : entriesRef.current[id]);
       burstRef.current = null;
       return;
     }
     burstRef.current = null;
     if (key === "Enter") {
       e.preventDefault();
-      flushRef.current();
+      saver.flush();
       e.currentTarget.blur();
     }
-  };
-
-  const onQtyBlur = (id) => {
-    const e = entriesRef.current[id];
-    if (e?.status === "blank") restoreEntry(id, null);
-    if (Object.values(entriesRef.current).some((x) => x.status === "dirty")) flushRef.current();
-  };
-
-  const retry = (id) => {
-    update((cur) => (cur[id] ? { ...cur, [id]: { ...cur[id], status: "dirty", error: null } } : cur));
-    flushRef.current();
-  };
-  const retryAll = () => {
-    update((cur) => {
-      const out = { ...cur };
-      for (const [k, e] of Object.entries(out)) if (e.status === "error" && e.retry) out[k] = { ...e, status: "dirty", error: null };
-      return out;
-    });
-    flushRef.current();
   };
 
   // ── Finding a line ─────────────────────────────────────────────────────────
   const focusItem = (item) => {
     const id = Number(item?.invItemId);
     if (!id) return;
-    const onCount = (countRef.current?.lines || []).some((l) => Number(l.invItemId) === id);
+    const onCount = (saver.countRef.current?.lines || []).some((l) => Number(l.invItemId) === id);
     if (!onCount && !addedRef.current.some((a) => a.invItemId === id)) {
       // Found while counting: it joins the count when its figure is saved.
       const next = [
@@ -397,6 +146,14 @@ const CountSession = ({ count, onCountChange, onReload }) => {
       setPinned((p) => (p ? new Set([...p, id]) : p));
     }
     setFocusReq((r) => ({ id, n: (r?.n || 0) + 1 }));
+  };
+
+  /** Take a found item off again before its figure is saved. */
+  const removeAdded = (id) => {
+    saver.drop(id);
+    const next = addedRef.current.filter((a) => a.invItemId !== id);
+    addedRef.current = next;
+    setAdded(next);
   };
 
   // Focus each request once, as soon as its line is on screen (a line found
@@ -455,22 +212,33 @@ const CountSession = ({ count, onCountChange, onReload }) => {
     if (ids.length) setFocusReq((r) => ({ id: Number(ids[0]), n: (r?.n || 0) + 1 }));
   };
 
+  /** The lines of a count still without a figure, in walking order. */
+  const uncountedOf = (c) => (c?.lines || []).filter((l) => l.countedQty == null).sort(byBinThenName);
+
   const onSubmitClick = async () => {
     setBusy(true);
     try {
-      await settleAll();
+      await saver.settleAll();
+      // Figures the outbox kept may have synced since: ask the server first.
+      if (Object.values(entriesRef.current).some((e) => e.status === "queued")) await saver.recheckQueued();
     } finally {
       setBusy(false);
     }
-    const stuck = Object.values(entriesRef.current).filter((e) => PENDING.has(e.status)).length;
+    const open = Object.values(entriesRef.current);
+    const waiting = open.filter((e) => e.status === "queued").length;
+    const stuck = open.filter((e) => PENDING.has(e.status)).length;
+    if (waiting && waiting === stuck) {
+      toast.error(`${plural(waiting, "quantity", "quantities")} still waiting to sync. Sync them, then submit.`);
+      return;
+    }
     if (stuck) {
       toast.error(`${plural(stuck, "quantity", "quantities")} not saved yet. Fix or retry them, then submit.`);
       return;
     }
-    const latest = countRef.current;
-    const ids = new Set((latest?.lines || []).map((l) => Number(l.invItemId)));
-    const all = [...(latest?.lines || []), ...addedRef.current.filter((a) => !ids.has(a.invItemId))];
-    const left = all.filter((l) => l.countedQty == null).sort(byBinThenName);
+    // Only what the count holds decides: a found item with no figure yet is not on it.
+    const latest = saver.countRef.current;
+    const all = latest?.lines || [];
+    const left = uncountedOf(latest);
     const done = all.length - left.length;
     if (!done) {
       toast.error("Count at least one item before submitting.");
@@ -499,13 +267,18 @@ const CountSession = ({ count, onCountChange, onReload }) => {
       setConfirm(null);
       const { code, details } = errorInfo(err);
       if (code === "VALIDATION" && Array.isArray(details.uncounted)) {
-        const ids = details.uncounted.map((u) => u.invItemId);
-        showUncounted(ids, Number(details.uncountedTotal) || ids.length);
-        onReload?.();
+        // The server lists at most 50; the reloaded count names them all.
+        const fresh = await saver.reload();
+        const left = fresh ? uncountedOf(fresh).map((l) => l.invItemId) : [];
+        if (left.length) showUncounted(left, left.length);
+        else {
+          const ids = details.uncounted.map((u) => u.invItemId);
+          showUncounted(ids, Number(details.uncountedTotal) || ids.length);
+        }
         return;
       }
       toast.error(getApiErrorMessage(err, "Could not submit the count"));
-      if (code === "CONFLICT" || code === "NOT_FOUND") onReload?.();
+      if (code === "CONFLICT" || code === "NOT_FOUND") saver.reload();
     }
   };
 
@@ -519,7 +292,7 @@ const CountSession = ({ count, onCountChange, onReload }) => {
       setConfirm(null);
       toast.error(getApiErrorMessage(err, "Could not cancel the count"));
       const { code } = errorInfo(err);
-      if (code === "CONFLICT" || code === "NOT_FOUND") onReload?.();
+      if (code === "CONFLICT" || code === "NOT_FOUND") saver.reload();
     }
   };
 
@@ -529,150 +302,31 @@ const CountSession = ({ count, onCountChange, onReload }) => {
   const retryable = Object.values(entries).filter((e) => e.status === "error" && e.retry).length;
   const queued = Object.values(entries).filter((e) => e.status === "queued").length;
 
-  const renderState = (state, entry) => {
-    switch (state) {
-      case "saved":
-        return (
-          <span className={`${styles.lineState} ${styles.stateSaved}`} title="Saved">
-            <Check size={16} aria-hidden="true" />
-            <span className={styles.srOnly}>Saved</span>
-          </span>
-        );
-      case "saving":
-        return (
-          <span className={`${styles.lineState} ${styles.stateBusy}`} title="Saving">
-            <Loader2 size={16} className={styles.spin} aria-hidden="true" />
-            <span className={styles.srOnly}>Saving</span>
-          </span>
-        );
-      case "dirty":
-        return (
-          <span className={`${styles.lineState} ${styles.stateDirty}`} title="Waiting to save">
-            <span className={styles.dot} aria-hidden="true" />
-            <span className={styles.srOnly}>Waiting to save</span>
-          </span>
-        );
-      case "queued":
-        return (
-          <span className={`${styles.lineState} ${styles.stateQueued}`} title="Kept on this device until the connection is back">
-            <Clock3 size={16} aria-hidden="true" />
-            <span className={styles.srOnly}>Waiting for connection</span>
-          </span>
-        );
-      case "error":
-      case "invalid":
-        // The line's error text (below) says what went wrong.
-        return (
-          <span className={`${styles.lineState} ${styles.stateError}`} title={entry?.error || "Not saved"} aria-hidden="true">
-            <CircleAlert size={16} />
-          </span>
-        );
-      default:
-        return <span className={styles.lineState} aria-hidden="true" />;
-    }
-  };
-
   const renderLine = (row) => {
     const entry = entries[row.invItemId];
     const state = stateOf(row, entry);
-    const value = entry ? entry.draft : row.countedQty == null ? "" : String(row.countedQty);
-    const sys = showFigures && row.systemQtyAtCount != null ? row.systemQtyAtCount : null;
-    const diff = showFigures && state === "saved" && row.varianceQty != null ? row.varianceQty : null;
-    const needsCount = uncounted?.ids.has(row.invItemId) && !COUNTED.has(state);
-    const lineCls = [
-      styles.line,
-      focusReq?.id === row.invItemId ? styles.lineActive : "",
-      needsCount ? styles.lineNeedsCount : "",
-      state === "error" || state === "invalid" ? styles.lineHasError : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
+    const id = row.invItemId;
+    const found = row.isNew && !onCountIds.has(id) && state !== "saving" && state !== "queued";
     return (
-      <li key={row.invItemId} className={lineCls} data-state={state}>
-        <div className={styles.lineMain}>
-          <div className={styles.lineName}>{row.displayName}</div>
-          <div className={styles.lineMeta}>
-            {row.itemCode && <span className={styles.mono}>{row.itemCode}</span>}
-            {row.isNew && <span className={styles.tag}>Found while counting</span>}
-            {needsCount && <span className={`${styles.tag} ${styles.tagWarn}`}>Not counted yet</span>}
-            {state === "saved" && row.countedByName && (
-              <span className={styles.faint}>
-                {[row.countedByName, fmtDateTime(row.countedAt)].filter(Boolean).join(" · ")}
-              </span>
-            )}
-          </div>
-          {sys !== null && (
-            <div className={styles.lineFigures}>
-              <span className={styles.figLabel}>System</span>
-              <span className={styles.num}>{fmtQty(sys)}</span>
-              {diff !== null && (
-                <>
-                  <span className={styles.figLabel}>Diff</span>
-                  <span className={`${styles.num} ${diff < 0 ? styles.neg : diff > 0 ? styles.pos : styles.muted}`}>
-                    {fmtSignedQty(diff)}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className={styles.lineQty}>
-          {canCount ? (
-            <input
-              ref={(el) => {
-                if (el) inputRefs.current.set(row.invItemId, el);
-                else inputRefs.current.delete(row.invItemId);
-              }}
-              className={styles.qtyInput}
-              type="text"
-              inputMode="decimal"
-              enterKeyHint="done"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              // A scanner trigger pulled while this box has focus is a scan:
-              // the wedge claims it (see onQtyKeyDown), not a quantity.
-              data-scan-input="true"
-              aria-label={`Counted qty for ${row.displayName}`}
-              aria-invalid={state === "error" || state === "invalid" ? true : undefined}
-              placeholder="Qty"
-              value={value}
-              onChange={(e) => onQtyChange(row.invItemId, e.target.value)}
-              onKeyDown={(e) => onQtyKeyDown(row.invItemId, e)}
-              onBlur={() => onQtyBlur(row.invItemId)}
-            />
-          ) : (
-            <span className={`${styles.num} ${styles.qtyRead}`}>{fmtQty(row.countedQty)}</span>
-          )}
-          <span className={styles.uom}>{row.stockUom}</span>
-        </div>
-
-        {renderState(state, entry)}
-
-        {(state === "error" || state === "invalid") && entry?.error && (
-          <div className={styles.lineError} role="alert">
-            <span>
-              {entry.error}
-              {entry.other && (
-                <>
-                  {" "}
-                  <Link href={countPath(entry.other.id)} className={styles.inlineLink}>
-                    {entry.other.number || `count #${entry.other.id}`}
-                  </Link>
-                </>
-              )}
-            </span>
-            {entry.retry && (
-              <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={() => retry(row.invItemId)}>
-                <RotateCcw size={14} aria-hidden="true" />
-                Retry
-              </button>
-            )}
-          </div>
-        )}
-      </li>
+      <CountLine
+        key={id}
+        row={row}
+        entry={entry}
+        state={state}
+        showFigures={showFigures}
+        canCount={canCount}
+        active={focusReq?.id === id}
+        needsCount={uncounted?.ids.has(id) && !COUNTED.has(state)}
+        inputRef={(el) => {
+          if (el) inputRefs.current.set(id, el);
+          else inputRefs.current.delete(id);
+        }}
+        onChange={(text) => saver.setDraft(id, text)}
+        onKeyDown={(e) => onQtyKeyDown(id, e)}
+        onBlur={() => saver.leaveLine(id)}
+        onRetry={() => saver.retry(id)}
+        onRemove={canCount && found ? () => removeAdded(id) : undefined}
+      />
     );
   };
 
@@ -681,7 +335,11 @@ const CountSession = ({ count, onCountChange, onReload }) => {
       {count?.isBlind && (
         <div className={`${styles.notice} ${styles.noticeInfo}`}>
           <EyeOff size={16} aria-hidden="true" />
-          <span>Blind count: count what is on the shelf. Expected quantities stay hidden until the count is submitted.</span>
+          <span>
+            {count?.can?.approve === true
+              ? "Blind count: count what is on the shelf. Expected quantities stay hidden while counting; you see them on the review once the count is submitted."
+              : "Blind count: count what is on the shelf. Expected quantities stay hidden from counters."}
+          </span>
         </div>
       )}
 
@@ -766,7 +424,7 @@ const CountSession = ({ count, onCountChange, onReload }) => {
               <>
                 <CircleAlert size={16} aria-hidden="true" />
                 <span>{`${plural(retryable, "figure")} not saved.`}</span>
-                <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={retryAll}>
+                <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={saver.retryAll}>
                   <RotateCcw size={14} aria-hidden="true" />
                   Retry all
                 </button>
@@ -873,64 +531,6 @@ const CountSession = ({ count, onCountChange, onReload }) => {
         confirmButtonText="Yes, cancel it"
         cancelButtonText="Keep it"
       />
-    </div>
-  );
-};
-
-/**
- * Manual fallback for an item that is not on the count (and has no barcode):
- * search the item master and add it.
- */
-const AddItemSearch = ({ query, hotelId, onPick }) => {
-  const [state, setState] = useState({ loading: false, rows: null, error: null });
-  const seq = useRef(0);
-
-  useEffect(() => {
-    setState({ loading: false, rows: null, error: null });
-  }, [query]);
-
-  const search = async () => {
-    const n = ++seq.current;
-    setState({ loading: true, rows: null, error: null });
-    try {
-      const res = await listItems({ search: query, hotelId });
-      if (n !== seq.current) return;
-      setState({ loading: false, rows: res?.rows || [], error: null });
-    } catch (err) {
-      if (n !== seq.current) return;
-      setState({ loading: false, rows: null, error: getApiErrorMessage(err, "Could not search items") });
-    }
-  };
-
-  return (
-    <div className={styles.addSearch}>
-      <p>No item on this count matches “{query}”.</p>
-      {state.rows === null ? (
-        <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={search} disabled={state.loading}>
-          {state.loading ? <Loader2 size={15} className={styles.spin} aria-hidden="true" /> : <Search size={15} aria-hidden="true" />}
-          Search all items
-        </button>
-      ) : state.rows.length ? (
-        <ul className={styles.pickList}>
-          {state.rows.slice(0, 20).map((it) => (
-            <li key={it.id}>
-              <button
-                type="button"
-                className={styles.pickRow}
-                onClick={() => onPick({ invItemId: it.id, displayName: it.displayName, itemCode: it.itemCode, stockUom: it.stockUom })}
-              >
-                <PackagePlus size={16} aria-hidden="true" />
-                <span className={styles.pickName}>{it.displayName}</span>
-                {it.itemCode && <span className={styles.mono}>{it.itemCode}</span>}
-                <span className={styles.uom}>{it.stockUom}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.faint}>No item in the item master matches either.</p>
-      )}
-      {state.error && <p className={styles.errorText}>{state.error}</p>}
     </div>
   );
 };

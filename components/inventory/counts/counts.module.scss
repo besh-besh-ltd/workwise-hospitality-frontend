@@ -202,6 +202,12 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   &:hover:not(:disabled) { background: $slate-hover; border-color: $slate-hover; color: #ffffff; }
 }
 .btnSecondary { background: $surface; }
+.btnGhost {
+  border-color: transparent;
+  background: transparent;
+  color: $ink-3;
+  &:hover:not(:disabled) { background: $surface-2; color: $ink; box-shadow: none; }
+}
 .btnGhostDanger {
   border-color: transparent;
   background: transparent;
@@ -559,7 +565,8 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   grid-template-columns: minmax(0, 1fr) auto 32px;
   grid-template-areas:
     'main qty state'
-    'err err err';
+    'err err err'
+    'aside aside aside';
   align-items: center;
   gap: 4px 12px;
   padding: 10px 6px;
@@ -626,6 +633,7 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 .stateQueued { color: $warn; background: $warn-soft; }
 .stateError { color: $danger; }
 .stateDirty .dot { width: 8px; height: 8px; border-radius: 50%; background: $ink-4; }
+.lineAside { grid-area: aside; display: flex; justify-content: flex-end; }
 .lineError {
   grid-area: err;
   display: flex;
@@ -846,7 +854,8 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     grid-template-areas:
       'main state'
       'qty qty'
-      'err err';
+      'err err'
+      'aside aside';
     padding: 12px 4px;
   }
   .lineQty { justify-content: flex-end; }
@@ -869,6 +878,18 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     align-items: flex-end;
   }
   .sheet { border-radius: $radius-lg $radius-lg 0 0; max-height: 92vh; }
+  /* Bootstrap's close button is ~24px: grow its target, keep the glyph. */
+  .sheet .sheetClose {
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    margin: -10px -10px -10px auto;
+    background-position: center;
+  }
+  /* The back link above the title is a thumb target too. */
+  .eyebrow a { min-height: 44px; min-width: 44px; margin: -8px 0; }
   .sheetBody { overflow-y: auto; }
   .sheetFooter .btn { flex: 1 1 0; }
   .inlineSelect { min-width: 0; width: 100%; }

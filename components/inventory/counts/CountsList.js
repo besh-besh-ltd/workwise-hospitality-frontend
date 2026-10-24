@@ -25,6 +25,8 @@ const STATUS_TABS = [
 const CountsList = () => {
   const router = useRouter();
   const [hotels, setHotels] = useState(null);
+  const [hotelsError, setHotelsError] = useState(null);
+  const [hotelsKey, setHotelsKey] = useState(0);
   const [hotelId, setHotelId] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
@@ -35,16 +37,18 @@ const CountsList = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
 
-  // The hotels the user can read stock at (GET /stock lists them).
+  // The hotels the user can read stock at (GET /stock lists them). A failed
+  // fetch is not "no access": say so and offer a retry.
   useEffect(() => {
     let alive = true;
+    setHotelsError(null);
     getStock({})
       .then((res) => alive && setHotels(Array.isArray(res?.hotels) ? res.hotels : []))
-      .catch(() => alive && setHotels([]));
+      .catch((err) => alive && setHotelsError(getApiErrorMessage(err, "Could not load your hotels")));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [hotelsKey]);
 
   const hotelIds = useMemo(() => (hotels || []).map((h) => Number(h.id)), [hotels]);
   const { canCreate } = useModulePermissions({ moduleKey: "inventory", hotelIds, enabled: hotelIds.length > 0 });
@@ -94,6 +98,16 @@ const CountsList = () => {
       </section>
 
       <main className={styles.pageBody}>
+        {hotelsError && (
+          <div className={`${styles.notice} ${styles.noticeDanger}`} role="alert">
+            <strong>{hotelsError}</strong>
+            <span>Starting a count and the hotel filter need your hotels.</span>
+            <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={() => setHotelsKey((k) => k + 1)}>
+              <RotateCcw size={14} aria-hidden="true" />
+              Retry
+            </button>
+          </div>
+        )}
         <div className={styles.listBar}>
           <div className={styles.tabs} role="tablist" aria-label="Status">
             {STATUS_TABS.map(([key, label]) => (

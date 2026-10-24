@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, EyeOff, Lock, RotateCcw } from "lucide-react";
-import { getCompanySettings, getCount } from "@/services/inventory";
+import { getCount } from "@/services/inventory";
 import { getApiErrorMessage } from "@/utils/apiError";
 import CountSession, { stripFlags } from "./CountSession";
 import CountReview from "./CountReview";
@@ -15,24 +15,33 @@ import styles from "./counts.module.scss";
 const CountDetail = ({ id }) => {
   const [count, setCount] = useState(null);
   const [failure, setFailure] = useState(null); // {notFound, message}
-  const [countFreeze, setCountFreeze] = useState(false);
+  // Every load and every count a save hands back takes a number; an answer
+  // older than the latest is dropped, so a slow GET never puts back figures a
+  // save has moved past.
   const seq = useRef(0);
 
+  /** Fetch the count; resolves it, or null when it failed or a newer count arrived meanwhile. */
   const load = useCallback(async () => {
     const n = ++seq.current;
     setFailure(null);
     try {
       const data = await getCount(id);
-      if (n !== seq.current) return;
-      if (!data) setFailure({ notFound: true, message: "Count not found" });
-      else setCount(stripFlags(data));
+      if (n !== seq.current) return null;
+      if (!data) {
+        setCount(null);
+        setFailure({ notFound: true, message: "Count not found" });
+        return null;
+      }
+      const fresh = stripFlags(data);
+      setCount(fresh);
+      return fresh;
     } catch (err) {
-      if (n !== seq.current) return;
+      if (n !== seq.current) return null;
       const { httpStatus, code } = errorInfo(err);
-      setFailure({
-        notFound: httpStatus === 404 || code === "NOT_FOUND",
-        message: getApiErrorMessage(err, "Could not load this count"),
-      });
+      const notFound = httpStatus === 404 || code === "NOT_FOUND";
+      if (notFound) setCount(null); // gone (or out of reach) since it was opened
+      setFailure({ notFound, message: getApiErrorMessage(err, "Could not load this count") });
+      return null;
     }
   }, [id]);
 
@@ -40,19 +49,10 @@ const CountDetail = ({ id }) => {
     load();
   }, [load]);
 
-  // Count freeze is a company setting; show it while the count is open.
-  useEffect(() => {
-    let alive = true;
-    getCompanySettings()
-      .then((s) => alive && setCountFreeze(s?.countFreeze === true))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   const onCountChange = useCallback((next) => {
-    if (next && typeof next === "object") setCount(stripFlags(next));
+    if (!next || typeof next !== "object") return;
+    seq.current += 1;
+    setCount(stripFlags(next));
   }, []);
 
   if (!count) {
@@ -128,7 +128,8 @@ const CountDetail = ({ id }) => {
       </section>
 
       <main className={styles.pageBody}>
-        {countFreeze && count.status === "open" && (
+        {/* `countFreeze` is the hotel's effective setting, sent on the count. Only an open count freezes. */}
+        {count.countFreeze === true && count.status === "open" && (
           <div className={`${styles.notice} ${styles.noticeWarn}`}>
             <Lock size={16} aria-hidden="true" />
             <span>

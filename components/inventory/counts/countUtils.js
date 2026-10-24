@@ -36,9 +36,6 @@ export const fmtSignedQty = (n) => {
   return `${v > 0 ? "+" : MINUS}${qtyFormat.format(Math.abs(v))}`;
 };
 
-/** "₹1,234.50"; "" for null. */
-export const fmtMoney = (n) => (isNum(n) ? `${Number(n) < 0 ? MINUS : ""}₹${moneyFormat.format(Math.abs(Number(n)))}` : "");
-
 /** "+₹45.00", "−₹180.00", "₹0.00"; "" for null. */
 export const fmtSignedMoney = (n) => {
   if (!isNum(n)) return "";

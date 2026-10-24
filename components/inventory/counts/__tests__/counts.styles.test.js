@@ -40,4 +40,11 @@ describe("counts.module.scss", () => {
     expect(phone).toMatch(/\.qtyInput\s*{[^}]*width:\s*100%/);
     expect(phone).toMatch(/\.sheetDialog\s*{[^}]*bottom:\s*0/);
   });
+
+  it("on phones the back link and the start sheet's close button are 44px targets", () => {
+    const layer = css.slice(css.indexOf("Phone layer"));
+    const phone = block("@media (max-width: 768px)", layer);
+    expect(phone).toMatch(/\.sheet \.sheetClose\s*{[^}]*width:\s*44px;[^}]*height:\s*44px;/);
+    expect(phone).toMatch(/\.eyebrow a\s*{[^}]*min-height:\s*44px;[^}]*min-width:\s*44px;/);
+  });
 });
