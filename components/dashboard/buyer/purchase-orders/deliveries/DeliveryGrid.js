@@ -17,8 +17,9 @@ import { deliveryLabel, fmtQ, toQ } from "./planMath";
     deliveries   Delivery[]
     canEditDate(delivery) → bool   show a due-date input for this delivery
     dateValue(delivery) → 'YYYY-MM-DD' | ''   current (possibly pending) value
-    onDueDate(delivery, day)       every change of the input
-    onDueDateBlur(delivery)        the input lost focus
+    onDueDate(delivery, day)       every change of the input (a draft)
+    onDueDateCommit(delivery)      blur or Enter: save the draft
+    onDueDateCancel(delivery)      Escape: drop the draft
     reopenable   Map<deliveryLineId, 1/10000 units>  hand-closed, still closed
     onReopen(line, delivery)   when set, offer Reopen on reopenable rows
 */
@@ -40,7 +41,7 @@ const Qty = ({ q, label, strong }) => {
   );
 };
 
-export default function DeliveryGrid({ deliveries = [], canEditDate, dateValue, onDueDate, onDueDateBlur, reopenable, onReopen }) {
+export default function DeliveryGrid({ deliveries = [], canEditDate, dateValue, onDueDate, onDueDateCommit, onDueDateCancel, reopenable, onReopen }) {
   if (!deliveries.length) {
     return <div className={s.muted}>No deliveries are planned yet.</div>;
   }
@@ -88,7 +89,15 @@ export default function DeliveryGrid({ deliveries = [], canEditDate, dateValue, 
                             aria-label={`Due date for ${label}`}
                             value={dateValue ? dateValue(d) : d.dueDate || ""}
                             onChange={(e) => onDueDate(d, e.target.value)}
-                            onBlur={() => onDueDateBlur && onDueDateBlur(d)}
+                            onBlur={() => onDueDateCommit && onDueDateCommit(d)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (onDueDateCommit) onDueDateCommit(d);
+                              } else if (e.key === "Escape" && onDueDateCancel) {
+                                onDueDateCancel(d);
+                              }
+                            }}
                           />
                         </>
                       ) : d.dueDate ? (

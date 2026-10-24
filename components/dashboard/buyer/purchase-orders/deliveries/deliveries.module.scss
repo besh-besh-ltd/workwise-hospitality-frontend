@@ -4,44 +4,22 @@
    tokens (--fg, --border, --surface-*, --warn …) are inherited here. Modals
    render under <body>, outside `.page`, so their rules spell the values out. */
 
-/* ───────────── PO detail tab strip ───────────── */
-.tabBar {
+/* ───────────── PO detail tab strip ─────────────
+   The tabs themselves are PurchaseOrders.module.scss `.pageTabs` /
+   `.tabActive`; this strip only seats them under the hero (that class is
+   built for a page header: its top margin, padding and rule are reset). */
+.tabStrip {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-}
-.tabBarInner {
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 8px 18px;
-  display: flex;
-  gap: 2px;
+  padding: 0 18px;
   overflow-x: auto;
+  > div { margin-top: 0; padding: 8px 0; border-top: none; }
+  button:focus-visible { outline: none; box-shadow: var(--ring); }
 }
-.tab {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--fg-3);
-  padding: 8px 12px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
-  &:hover { background: var(--surface-3); color: var(--fg); }
-  &:focus-visible { outline: none; box-shadow: var(--ring); }
-}
-.tabActive {
-  color: var(--fg);
-  font-weight: 600;
-  background: var(--surface-3);
-}
+.tabPanel:focus-visible { outline: none; }
 
 /* ───────────── Section bits ───────────── */
+/* `.act`: small action buttons that need a 44px target on phones (Phone layer). */
 .headActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .sectionPad { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
 .muted { color: var(--fg-3); font-size: 12.5px; }
@@ -349,6 +327,9 @@
   .repActions { display: flex; justify-content: flex-end; gap: 8px; }
 }
 
+/* A site-rep link that no longer works. */
+.pastRow { opacity: 0.7; }
+
 /* ───────────── Modals (outside .page: literal values) ───────────── */
 .modalBody {
   font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -459,8 +440,9 @@
    Pinned by DeliveriesTab.test.js: jsdom has no media queries. The grid
    restacks into one card per item; each <td data-label> reads label → value. */
 @media (max-width: 768px) {
-  .tabBarInner { padding: 6px 12px; }
-  .tab { min-height: 44px; }
+  .tabStrip { padding: 0 12px; }
+  .tabStrip button { min-height: 44px; }
+  .act { min-height: 44px; }
   .grid {
     display: block;
     thead { display: none; }
@@ -491,4 +473,9 @@
   .lineRows { grid-template-columns: minmax(0, 1fr) 128px; }
   .listRow { padding: 11px 14px; }
   .mBtn { min-height: 44px; }
+  .mSelect, .mInput { min-height: 44px; }
+  .targetOpt { min-height: 44px; }
+  .targetOpt label { min-height: 44px; }
+  .rowPicks label { min-height: 44px; }
+  .targetOpt input[type='radio'], .rowPicks input[type='checkbox'] { width: 20px; height: 20px; }
 }

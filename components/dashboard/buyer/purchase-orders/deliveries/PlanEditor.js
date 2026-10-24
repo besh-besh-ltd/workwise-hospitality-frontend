@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Plus, Copy, Repeat, Trash2, Split } from "lucide-react";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
 import po from "../PurchaseOrders.module.scss";
 import s from "./deliveries.module.scss";
 import { toQ, qtyString, fmtQ, isQtyInput, splitEvenly, isDay, addDays } from "./planMath";
@@ -21,6 +21,19 @@ import { toQ, qtyString, fmtQ, isQtyInput, splitEvenly, isDay, addDays } from ".
 */
 
 const MAX_WEEKS = 26;
+
+/** One hotel's phases renumbered 1..n by due date; undated last, keeping their order. */
+function renumberByDate(list, hotelId) {
+  const mine = list
+    .filter((r) => r.hotelId === hotelId)
+    .sort((a, b) => {
+      const da = isDay(a.dueDate) ? a.dueDate : "9999-12-31";
+      const dbb = isDay(b.dueDate) ? b.dueDate : "9999-12-31";
+      return da === dbb ? a.phaseNo - b.phaseNo : da < dbb ? -1 : 1;
+    });
+  const phaseOf = new Map(mine.map((r, i) => [r.key, i + 1]));
+  return list.map((r) => (phaseOf.has(r.key) ? { ...r, phaseNo: phaseOf.get(r.key) } : r));
+}
 
 export default function PlanEditor({ hotels = [], poLines = [], deliveries = [], initialAction, onSave, onCancel }) {
   const keySeq = useRef(0);
@@ -105,6 +118,11 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
   const copyPhase = (row) =>
     setRows((list) => [...list, makeRow({ hotelId: row.hotelId, phaseNo: nextPhase(list, row.hotelId), remarks: row.remarks, qty: { ...row.qty } })]);
 
+  // Repeat weekly × N: the phase becomes N weekly phases from the chosen
+  // first date, each line split across them (remainder on the first). The
+  // hotel's other phases stay; afterwards the hotel's phases are renumbered
+  // by due date (undated ones last, in their old order), so phase numbers
+  // always follow the calendar.
   const applyRepeat = () => {
     const n = Number(repeat.count);
     setRows((list) => {
@@ -114,13 +132,12 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
         Object.entries(row.qty).filter(([, v]) => isQtyInput(v)).map(([id, v]) => [id, splitEvenly(toQ(v), n)])
       );
       const qtyAt = (k) => Object.fromEntries(Object.entries(shares).map(([id, sh]) => [id, qtyString(sh[k])]));
-      let phase = nextPhase(list, row.hotelId);
       const added = [];
       for (let k = 1; k < n; k += 1) {
-        added.push(makeRow({ hotelId: row.hotelId, phaseNo: phase, dueDate: addDays(repeat.start, 7 * k), remarks: row.remarks, qty: qtyAt(k) }));
-        phase += 1;
+        added.push(makeRow({ hotelId: row.hotelId, phaseNo: row.phaseNo + k / 100, dueDate: addDays(repeat.start, 7 * k), remarks: row.remarks, qty: qtyAt(k) }));
       }
-      return [...list.map((r) => (r.key === row.key ? { ...r, dueDate: repeat.start, qty: qtyAt(0) } : r)), ...added];
+      const next = [...list.map((r) => (r.key === row.key ? { ...r, dueDate: repeat.start, qty: qtyAt(0) } : r)), ...added];
+      return renumberByDate(next, row.hotelId);
     });
     setRepeat(null);
   };
@@ -149,10 +166,16 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
     if (blocker || saving) return;
     setSaving(true);
     setError(null);
+    const sent = body();
     try {
-      await onSave(body());
+      await onSave(sent);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Couldn't save the delivery plan."));
+      // A VALIDATION refusal about one delivery names it by its index in the
+      // body: say which phase that is.
+      const data = getApiErrorData(err);
+      const at = data?.code === "VALIDATION" ? sent[data?.details?.index] : null;
+      const message = getApiErrorMessage(err, "Couldn't save the delivery plan.");
+      setError(at ? `${hotelName(at.hotelId)} · Phase ${at.phaseNo}: ${message}` : message);
     } finally {
       setSaving(false);
     }
@@ -162,7 +185,7 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
     <div className={s.editor}>
       <div className={s.toolbar}>
         {hotels.length > 1 && (
-          <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`} onClick={() => setRows((list) => splitAcross(list))}>
+          <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} onClick={() => setRows((list) => splitAcross(list))}>
             <Split size={13} />
             Split equally across hotels
           </button>
@@ -180,7 +203,7 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
                 <option key={h.id} value={h.id}>{h.name}</option>
               ))}
             </select>
-            <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`} disabled={!addHotelId} onClick={addHotel}>
+            <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} disabled={!addHotelId} onClick={addHotel}>
               <Plus size={13} />
               Add hotel
             </button>
@@ -215,7 +238,7 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
               <span className={s.hName}>{name}</span>
               <button
                 type="button"
-                className={`${po.btn} ${po.btnGhost} ${po.btnSm}`}
+                className={`${po.btn} ${po.btnGhost} ${po.btnSm} ${s.act}`}
                 aria-label={`Add phase at ${name}`}
                 onClick={() => addPhase(hotelId)}
               >
@@ -285,10 +308,10 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
                         value={repeat.start}
                         onChange={(e) => setRepeat((p) => ({ ...p, start: e.target.value }))}
                       />
-                      <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`} disabled={!repeatValid} onClick={applyRepeat}>
+                      <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} disabled={!repeatValid} onClick={applyRepeat}>
                         Apply
                       </button>
-                      <button type="button" className={`${po.btn} ${po.btnGhost} ${po.btnSm}`} onClick={() => setRepeat(null)}>
+                      <button type="button" className={`${po.btn} ${po.btnGhost} ${po.btnSm} ${s.act}`} onClick={() => setRepeat(null)}>
                         Cancel
                       </button>
                     </div>
@@ -331,10 +354,10 @@ export default function PlanEditor({ hotels = [], poLines = [], deliveries = [],
       )}
       <div className={s.saveBar}>
         {blocker && <span className={s.why}>{blocker}</span>}
-        <button type="button" className={`${po.btn} ${po.btnSecondary}`} onClick={onCancel} disabled={saving}>
+        <button type="button" className={`${po.btn} ${po.btnSecondary} ${s.act}`} onClick={onCancel} disabled={saving}>
           Cancel
         </button>
-        <button type="button" className={`${po.btn} ${po.btnPrimary}`} onClick={submit} disabled={!!blocker || saving}>
+        <button type="button" className={`${po.btn} ${po.btnPrimary} ${s.act}`} onClick={submit} disabled={!!blocker || saving}>
           {saving ? "Saving…" : "Save plan"}
         </button>
       </div>

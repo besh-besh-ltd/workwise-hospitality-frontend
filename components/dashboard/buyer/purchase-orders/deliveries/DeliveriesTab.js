@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { Truck, PackageCheck, Ban, Lock, Split, Info, ListChecks } from "lucide-react";
+import { Truck, PackageCheck, Ban, Lock, Split, Info } from "lucide-react";
 import {
   getPoDeliveries,
   savePoDeliveryPlan,
@@ -9,26 +9,34 @@ import {
   shortClosePo,
   reopenShortClose,
 } from "@/services/inventory";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
 import po from "../PurchaseOrders.module.scss";
-import { inr, fmtDateOnly, fmtDateTime } from "../shared";
+import { fmtDateOnly, fmtDateTime } from "../shared";
 import s from "./deliveries.module.scss";
 import DeliveryGrid from "./DeliveryGrid";
 import PlanEditor from "./PlanEditor";
 import ShortCloseModal, { ReopenModal } from "./ShortCloseModal";
 import SiteRepPanel from "./SiteRepPanel";
-import { deliveryLabel, fmtQ, fmtQty, isDay, manualShortClosed, reasonLabel, toQ } from "./planMath";
+import Receipts, { words } from "./Receipts";
+import ShortCloseHistory from "./ShortCloseHistory";
+import ProgressByItem from "./ProgressByItem";
+import { deliveryLabel, isDay, manualShortClosed, toQ } from "./planMath";
 
 /*
   The PO detail page's Deliveries tab (spec §7): the hotel × phase plan with
   what each delivery has received, the plan editor, short-close and reopen,
   the PO's GRNs / dispatch notes / returns, and its site representatives.
 
-  Everything comes from GET /inventory/po/:poId/deliveries. Every write
+  Everything comes from GET /inventory/po/:poId/deliveries. Every plan write
   (save plan, move a due date, short-close, reopen) answers with that same
   payload, so the tab replaces its state with the answer instead of
-  refetching. What the user may do is the server's `can` block; nothing here
-  re-derives permissions, and no tenant id is ever sent.
+  refetching; an answer older than the latest request is dropped, so a slow
+  reply can't overwrite a newer one. What the user may do is the server's
+  `can` block; nothing here re-derives permissions, and no tenant id is sent.
+
+  "Received in the old flow" is receiptLegacy AND receiptStatus 'received'
+  (the server's predicate). The go-live backlog is flagged legacy with
+  nothing received and is received, planned and short-closed like any PO.
 
   Rendered inside the page's two-column body: a section stack and an aside.
 */
@@ -40,15 +48,12 @@ const RECEIPT_STATUS = {
   closed_short: { label: "Closed short", cls: "stClosed" },
 };
 
-const DISPOSITION = { REPLACE: "Replacement", CREDIT: "Credit note" };
-
-const words = (v) => {
-  const t = String(v || "").replace(/_/g, " ").trim().toLowerCase();
-  return t ? t[0].toUpperCase() + t.slice(1) : "—";
-};
-
 // Server refusals that mean "what you are looking at is stale".
 const STALE = new Set([403, 404, 409]);
+
+// A due date is sent once it is a whole date. Keyboard entry passes through
+// years like 0002 and 0020; those are never sent.
+const wholeDay = (v) => isDay(v) && v >= "2000-01-01";
 
 export default function DeliveriesTab({ poId }) {
   const [data, setData] = useState(null);
@@ -58,13 +63,31 @@ export default function DeliveriesTab({ poId }) {
   const [showShortClose, setShowShortClose] = useState(false);
   const [reopening, setReopening] = useState(null);
 
+  // Request ordering: every request that answers with the payload takes a
+  // number; only the latest one's answer is applied.
+  const latest = useRef(0);
+  const dropped = useRef(false);
+  const begin = () => ++latest.current;
+  const settle = (seq, next) => {
+    if (seq !== latest.current) {
+      dropped.current = true;
+      return false;
+    }
+    dropped.current = false;
+    setData(next);
+    return true;
+  };
+
   const load = useCallback(async () => {
+    const seq = ++latest.current;
     try {
       const next = await getPoDeliveries(poId);
+      if (seq !== latest.current) return;
+      dropped.current = false;
       setData(next);
       setLoadError(null);
     } catch (err) {
-      setLoadError(getApiErrorMessage(err, "Couldn't load deliveries."));
+      if (seq === latest.current) setLoadError(getApiErrorMessage(err, "Couldn't load deliveries."));
     }
   }, [poId]);
 
@@ -72,11 +95,23 @@ export default function DeliveriesTab({ poId }) {
     if (poId) load();
   }, [poId, load]);
 
-  const refreshIfStale = (err) => {
-    if (STALE.has(err?.response?.status)) load();
+  // The latest request failed: reload when the screen may be stale (the
+  // server said so, or an earlier answer was dropped in its favour).
+  const failed = (seq, err) => {
+    if (seq === latest.current && (STALE.has(err?.response?.status) || dropped.current)) load();
   };
 
   const reopenable = useMemo(() => manualShortClosed(data?.shortCloses), [data]);
+
+  // ── due dates: draft on change, commit on blur or Enter ──
+  const inFlightDate = useRef({});
+  const dropDraft = (id, only) =>
+    setDateDraft((m) => {
+      if (!(id in m) || (only !== undefined && m[id] !== only)) return m;
+      const rest = { ...m };
+      delete rest[id];
+      return rest;
+    });
 
   if (loadError && !data) {
     return (
@@ -87,7 +122,7 @@ export default function DeliveriesTab({ poId }) {
               {loadError}
             </div>
             <div>
-              <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`} onClick={load}>
+              <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} onClick={load}>
                 Try again
               </button>
             </div>
@@ -111,91 +146,94 @@ export default function DeliveriesTab({ poId }) {
   const can = data.can || {};
   const hotels = data.hotels || [];
   const deliveries = data.deliveries || [];
-  const poLines = data.poLines || [];
-  const grns = data.grns || [];
-  const dispatches = data.dispatches || [];
-  const rtvs = data.rtvs || [];
-  const shortCloses = data.shortCloses || [];
+  const legacyReceived = !!data.receiptLegacy && data.receiptStatus === "received";
   const receipt = RECEIPT_STATUS[data.receiptStatus] || { label: words(data.receiptStatus), cls: "stOpen" };
   const fullyDone = data.receiptStatus === "received" || data.receiptStatus === "closed_short";
   const anythingOpen = deliveries.some((d) => (d.lines || []).some((l) => toQ(l.openQty) > 0));
-  const planEditable = !!can.editPlan && data.editable === "all" && !data.receiptLegacy;
+  const planEditable = !!can.editPlan && data.editable === "all" && !legacyReceived;
   const unsplit = planEditable && hotels.length > 1 && deliveries.length > 0 && deliveries.every((d) => d.hotelId == null);
 
   // ── writes: each answer is the whole tab ──
   const savePlan = async (body) => {
+    const seq = begin();
     try {
       const next = await savePoDeliveryPlan(poId, body);
-      setData(next);
+      settle(seq, next);
       setEditing(null);
       toast.success("Delivery plan saved.");
     } catch (err) {
-      refreshIfStale(err);
+      if (getApiErrorData(err)?.code === "LOCKED" || err?.response?.status === 409) {
+        // The plan locked under the editor (goods dispatched or received
+        // meanwhile): nothing to fix there, so close it and show the plan.
+        setEditing(null);
+        toast.error(getApiErrorMessage(err, "The delivery plan can no longer change."));
+        load();
+        return;
+      }
+      failed(seq, err);
       throw err; // the editor shows why
     }
   };
 
-  const canEditDate = (d) => !!can.editPlan && !d.hasReceipts && d.status === "open" && !editing;
-  // Due dates save as soon as the input holds a whole date. Keyboard entry
-  // passes through partial years ("0002-11-20"), so only a year from 2000
-  // commits on change; clearing the field commits on blur. The draft shows
-  // what was typed until the server answers.
+  // Matches the server's patchDueDate: a live delivery (open, or partial by a
+  // short-close) with nothing received against it.
+  const canEditDate = (d) =>
+    !!can.editPlan && !legacyReceived && !d.hasReceipts && (d.status === "open" || d.status === "partial") && !editing;
   const dateValue = (d) => (d.id in dateDraft ? dateDraft[d.id] : d.dueDate || "");
-  const dropDraft = (id, only) =>
-    setDateDraft((m) => {
-      if (!(id in m) || (only !== undefined && m[id] !== only)) return m;
-      const rest = { ...m };
-      delete rest[id];
-      return rest;
-    });
-  const commitDueDate = async (d, day) => {
-    try {
-      const next = await patchDeliveryDueDate(poId, d.id, day);
-      setData(next);
-      toast.success(day ? `${deliveryLabel(d)} is now due ${fmtDateOnly(day)}.` : `${deliveryLabel(d)} has no due date now.`);
-      dropDraft(d.id, day || "");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Couldn't change the due date."));
-      dropDraft(d.id);
-      refreshIfStale(err);
-    }
+  const draftDueDate = (d, v) => {
+    if (v === (d.dueDate || "")) dropDraft(d.id);
+    else setDateDraft((m) => ({ ...m, [d.id]: v }));
   };
-  const wholeDay = (v) => isDay(v) && v >= "2000-01-01";
-  const changeDueDate = (d, day) => {
-    if (day === (d.dueDate || "")) {
+  const commitDueDate = async (d) => {
+    if (!(d.id in dateDraft)) return;
+    const v = dateDraft[d.id];
+    if (v !== "" && !wholeDay(v)) {
+      dropDraft(d.id); // half-typed: put the saved date back
+      return;
+    }
+    const day = v || null;
+    if (day === (d.dueDate || null)) {
       dropDraft(d.id);
       return;
     }
-    setDateDraft((m) => ({ ...m, [d.id]: day }));
-    if (wholeDay(day)) commitDueDate(d, day);
-  };
-  const leaveDueDate = (d) => {
-    if (!(d.id in dateDraft)) return;
-    const v = dateDraft[d.id];
-    if (v === "" && d.dueDate) commitDueDate(d, null);
-    else if (!wholeDay(v)) dropDraft(d.id);
+    if (inFlightDate.current[d.id] === v) return; // already on its way (Enter, then blur)
+    inFlightDate.current[d.id] = v;
+    const seq = begin();
+    try {
+      const next = await patchDeliveryDueDate(poId, d.id, day);
+      settle(seq, next);
+      toast.success(day ? `${deliveryLabel(d)} is now due ${fmtDateOnly(day)}.` : `${deliveryLabel(d)} has no due date now.`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Couldn't change the due date."));
+      failed(seq, err);
+    } finally {
+      if (inFlightDate.current[d.id] === v) delete inFlightDate.current[d.id];
+      dropDraft(d.id, v);
+    }
   };
 
   const shortClose = async (payload) => {
+    const seq = begin();
     try {
       const next = await shortClosePo(poId, payload);
-      setData(next);
+      settle(seq, next);
       setShowShortClose(false);
       toast.success("Short-closed. The vendor is no longer expected to deliver that quantity.");
     } catch (err) {
-      refreshIfStale(err);
+      failed(seq, err);
       throw err; // the dialog shows why
     }
   };
 
   const reopen = async (remarks) => {
+    const seq = begin();
     try {
       const next = await reopenShortClose(poId, { deliveryLineIds: [reopening.lineId], remarks });
-      setData(next);
+      settle(seq, next);
       setReopening(null);
       toast.success("Reopened. The vendor is expected to deliver it again.");
     } catch (err) {
-      refreshIfStale(err);
+      failed(seq, err);
       throw err;
     }
   };
@@ -205,6 +243,7 @@ export default function DeliveriesTab({ poId }) {
     : !anythingOpen
       ? "Nothing is open to close"
       : null;
+  const actBtn = (kind) => `${po.btn} ${kind} ${po.btnSm} ${s.act}`;
 
   return (
     <>
@@ -220,18 +259,15 @@ export default function DeliveriesTab({ poId }) {
               <span className={`${s.status} ${s[receipt.cls]}`}>{receipt.label}</span>
             </div>
             <div className={s.headActions}>
-              {can.receive && !data.receiptLegacy && !fullyDone && (
-                <Link
-                  href={`/dashboard/buyer/inventory/receive/${poId}`}
-                  className={`${po.btn} ${po.btnPrimary} ${po.btnSm}`}
-                >
+              {can.receive && !legacyReceived && !fullyDone && (
+                <Link href={`/dashboard/buyer/inventory/receive/${poId}`} className={actBtn(po.btnPrimary)}>
                   <PackageCheck size={13} aria-hidden="true" /> Receive goods
                 </Link>
               )}
-              {!data.receiptLegacy && (
+              {!legacyReceived && (
                 <button
                   type="button"
-                  className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`}
+                  className={actBtn(po.btnSecondary)}
                   disabled={!!shortCloseBlocked || !!editing}
                   title={shortCloseBlocked || undefined}
                   onClick={() => setShowShortClose(true)}
@@ -240,11 +276,7 @@ export default function DeliveriesTab({ poId }) {
                 </button>
               )}
               {planEditable && !editing && (
-                <button
-                  type="button"
-                  className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`}
-                  onClick={() => setEditing({})}
-                >
+                <button type="button" className={actBtn(po.btnSecondary)} onClick={() => setEditing({})}>
                   Edit plan
                 </button>
               )}
@@ -252,7 +284,7 @@ export default function DeliveriesTab({ poId }) {
           </div>
 
           <div className={s.sectionPad}>
-            {data.receiptLegacy && (
+            {legacyReceived && (
               <div className={`${s.banner} ${s.bannerInfo}`}>
                 <Info size={14} aria-hidden="true" />
                 <div className={s.bBody}>
@@ -264,16 +296,16 @@ export default function DeliveriesTab({ poId }) {
               </div>
             )}
 
-            {data.planLocked && !data.receiptLegacy && (
+            {data.planLocked && !legacyReceived && (
               <div className={`${s.banner} ${s.bannerInfo}`}>
                 <Lock size={14} aria-hidden="true" />
                 <div className={s.bBody}>
-                  <div className={s.bTitle}>Plan locked: quantities can&apos;t change</div>
+                  <div className={s.bTitle}>
+                    Plan locked: goods have been dispatched, received or short-closed, so quantities can&apos;t change.
+                  </div>
                   <div className={s.bSub}>
-                    {data.planLockedAt
-                      ? `Goods were first received ${fmtDateTime(data.planLockedAt)}.`
-                      : "Goods have been received against this plan."}
-                    {can.editPlan && " You can still move the due date of a delivery that hasn't received anything."}
+                    {can.editPlan ? "Due dates of phases with nothing received can still move." : null}
+                    {data.planLockedAt ? ` Locked ${fmtDateTime(data.planLockedAt)}.` : null}
                   </div>
                 </div>
               </div>
@@ -289,11 +321,7 @@ export default function DeliveriesTab({ poId }) {
                     receive what is planned for it.
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className={`${po.btn} ${po.btnPrimary} ${po.btnSm}`}
-                  onClick={() => setEditing({ initialAction: "split" })}
-                >
+                <button type="button" className={actBtn(po.btnPrimary)} onClick={() => setEditing({ initialAction: "split" })}>
                   Split by hotel
                 </button>
               </div>
@@ -302,7 +330,7 @@ export default function DeliveriesTab({ poId }) {
             {editing ? (
               <PlanEditor
                 hotels={hotels}
-                poLines={poLines}
+                poLines={data.poLines || []}
                 deliveries={deliveries}
                 initialAction={editing.initialAction}
                 onSave={savePlan}
@@ -313,8 +341,9 @@ export default function DeliveriesTab({ poId }) {
                 deliveries={deliveries}
                 canEditDate={canEditDate}
                 dateValue={dateValue}
-                onDueDate={changeDueDate}
-                onDueDateBlur={leaveDueDate}
+                onDueDate={draftDueDate}
+                onDueDateCommit={commitDueDate}
+                onDueDateCancel={(d) => dropDraft(d.id)}
                 reopenable={reopenable}
                 onReopen={
                   can.shortClose
@@ -333,179 +362,23 @@ export default function DeliveriesTab({ poId }) {
           </div>
         </section>
 
-        {/* Receipts */}
-        <section className={po.sectionCard}>
-          <div className={po.sectionHead}>
-            <div className={po.hLeft}>
-              <div className={po.ic}>
-                <PackageCheck size={13} />
-              </div>
-              <h2>Receipts</h2>
-            </div>
-          </div>
-          {grns.length + dispatches.length + rtvs.length === 0 ? (
-            <div className={s.sectionPad}>
-              <div className={s.muted}>Nothing has been dispatched or received yet.</div>
-            </div>
-          ) : (
-            <div className={s.list}>
-              {grns.map((g) => (
-                <div key={`g${g.id}`} className={s.listRow}>
-                  <div className={s.lMain}>
-                    <div className={s.lTitle}>
-                      <Link href={`/dashboard/buyer/inventory/grn/${g.id}`} className={s.docLink}>
-                        {g.grnNumber || `Draft GRN #${g.id}`}
-                      </Link>
-                      {g.docType === "REVERSAL" && <span className={s.muted}> · Reversal</span>}
-                    </div>
-                    <div className={s.lSub}>
-                      {[
-                        g.hotelName,
-                        g.receivedAt ? `Received ${fmtDateOnly(g.receivedAt)}` : null,
-                        `${g.lineCount} item${Number(g.lineCount) === 1 ? "" : "s"}`,
-                        g.postedByName ? `by ${g.postedByName}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  </div>
-                  <div className={s.lRight}>
-                    <span className={s.num}>{inr(g.acceptedValue)}</span>
-                    <span className={`${s.status} ${g.status === "posted" ? s.stReceived : s.stOpen}`}>{words(g.status)}</span>
-                  </div>
-                </div>
-              ))}
-              {dispatches.map((dn) => (
-                <div key={`d${dn.id}`} className={s.listRow}>
-                  <div className={s.lMain}>
-                    <div className={s.lTitle}>Dispatch note {dn.dispatchNumber || `#${dn.id}`}</div>
-                    <div className={s.lSub}>
-                      {[
-                        dn.phaseNo ? `${dn.hotelName || "To be allocated"} · Phase ${dn.phaseNo}` : dn.hotelName,
-                        dn.challanNo ? `Challan ${dn.challanNo}` : null,
-                        dn.expectedDeliveryDate ? `Expected ${fmtDateOnly(dn.expectedDeliveryDate)}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  </div>
-                  <div className={s.lRight}>
-                    <span className={`${s.status} ${s.stPartial}`}>{words(dn.status)}</span>
-                  </div>
-                </div>
-              ))}
-              {rtvs.map((r) => (
-                <div key={`r${r.id}`} className={s.listRow}>
-                  <div className={s.lMain}>
-                    <div className={s.lTitle}>Return {r.rtvNumber || `#${r.id} (draft)`}</div>
-                    <div className={s.lSub}>
-                      {[
-                        r.hotelName,
-                        DISPOSITION[r.disposition] || words(r.disposition),
-                        r.creditNoteRef ? `Credit note ${r.creditNoteRef}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  </div>
-                  <div className={s.lRight}>
-                    <span className={`${s.status} ${r.status === "closed" ? s.stReceived : r.status === "cancelled" ? s.stClosed : s.stWarn}`}>
-                      {words(r.status)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Short-close history */}
-        {shortCloses.length > 0 && (
-          <section className={po.sectionCard}>
-            <div className={po.sectionHead}>
-              <div className={po.hLeft}>
-                <div className={po.ic}>
-                  <Ban size={13} />
-                </div>
-                <h2>Short-close history</h2>
-              </div>
-            </div>
-            <div className={s.list}>
-              {shortCloses.map((r) => {
-                const where = `${r.hotelName || "To be allocated"} · Phase ${r.phaseNo}`;
-                const what = r.rtvId != null
-                  ? `Credit on ${r.rtvNumber || `return #${r.rtvId}`}`
-                  : `${r.action === "reopen" ? "Reopened" : "Closed"} · ${reasonLabel(r.reasonCode)}`;
-                return (
-                  <div key={r.id} className={s.listRow}>
-                    <div className={s.lMain}>
-                      <div className={s.lTitle}>
-                        {r.productName || `Line ${r.poLineId}`} · {where}
-                      </div>
-                      <div className={s.lSub}>{what}</div>
-                      {r.rtvId == null && r.remarks && <div className={s.lSub}>{r.remarks}</div>}
-                      <div className={s.lSub}>
-                        {[r.actedByName, r.actedAt ? fmtDateTime(r.actedAt) : null].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                    <div className={s.lRight}>
-                      <span className={s.num}>
-                        {fmtQty(r.qty)} {r.unit || ""}
-                      </span>
-                      <span className={`${s.status} ${r.action === "reopen" ? s.stPartial : s.stClosed}`}>
-                        {r.action === "reopen" ? "Reopened" : r.rtvId != null ? "Credited" : "Closed"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        <Receipts grns={data.grns} dispatches={data.dispatches} rtvs={data.rtvs} />
+        <ShortCloseHistory shortCloses={data.shortCloses} />
       </div>
 
       {/* Aside */}
       <div>
         <div className={po.asideStack}>
-          {poLines.length > 0 && (
-            <section className={po.sectionCard}>
-              <div className={po.sectionHead}>
-                <div className={po.hLeft}>
-                  <div className={po.ic}>
-                    <ListChecks size={13} />
-                  </div>
-                  <h2>Progress by item</h2>
-                </div>
-              </div>
-              <div className={s.progress}>
-                {poLines.map((l) => {
-                  const ordered = toQ(l.orderedQty);
-                  const kept = Math.max(0, toQ(l.acceptedQty) - toQ(l.returnedReplaceQty) - toQ(l.returnedCreditQty));
-                  const closed = toQ(l.shortClosedQty);
-                  const pct = (q) => (ordered > 0 ? `${Math.min(100, (q / ordered) * 100)}%` : "0%");
-                  return (
-                    <div key={l.id} className={s.pRow}>
-                      <div className={s.pName}>{l.productName || `Line ${l.id}`}</div>
-                      <div className={s.pBar} aria-hidden="true">
-                        <span className={s.pAccepted} style={{ width: pct(kept) }} />
-                        <span className={s.pClosed} style={{ width: pct(closed) }} />
-                      </div>
-                      <div className={s.pNums}>
-                        <span>
-                          {fmtQ(kept)} accepted · {fmtQty(l.openQty)} open
-                        </span>
-                        <span>
-                          of {fmtQty(l.orderedQty)} {l.unit || ""}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          <SiteRepPanel poId={poId} hotels={hotels} canManage={!!can.receive} canAdd={!fullyDone && !data.receiptLegacy} />
+          <ProgressByItem poLines={data.poLines} />
+          <SiteRepPanel
+            poId={poId}
+            hotels={hotels}
+            siteReps={data.siteReps || []}
+            canManage={!!can.manageSiteRep}
+            hotelIds={can.siteRepHotelIds || []}
+            canAdd={!fullyDone && !legacyReceived}
+            onChanged={load}
+          />
         </div>
       </div>
 

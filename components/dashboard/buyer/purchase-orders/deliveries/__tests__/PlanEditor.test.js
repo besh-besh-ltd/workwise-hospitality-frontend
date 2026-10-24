@@ -107,3 +107,90 @@ test("copy phase adds the next phase with the same quantities", () => {
   expect(screen.getByText("Over by 10 kg")).toBeInTheDocument();
   expect(save()).toBeDisabled();
 });
+
+test("repeat weekly keeps the hotel's other phases and renumbers them by date", () => {
+  const { onSave } = mount({
+    deliveries: [
+      delivery({ id: 1, phaseNo: 1, dueDate: "2026-11-02", lines: [
+        { id: 101, poLineId: 11, productName: "Basmati rice", unit: "kg", plannedQty: 6 },
+        { id: 102, poLineId: 12, productName: "Olive oil", unit: "litre", plannedQty: 6 },
+      ] }),
+      delivery({ id: 2, phaseNo: 2, dueDate: "2026-12-01", lines: [
+        { id: 103, poLineId: 11, productName: "Basmati rice", unit: "kg", plannedQty: 4 },
+      ] }),
+    ],
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Repeat Hotel A-1 · Phase 1 weekly" }));
+  type(screen.getByRole("spinbutton", { name: "Weekly deliveries" }), "3");
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+  // The December phase is now phase 4: numbers follow the calendar.
+  expect(screen.getByLabelText("Due date for Hotel A-1 · Phase 4")).toHaveValue("2026-12-01");
+  expect(qty("Basmati rice", "Hotel A-1 · Phase 4")).toHaveValue("4");
+
+  fireEvent.click(save());
+  expect(onSave.mock.calls[0][0].map((d) => [d.phaseNo, d.dueDate, d.lines.map((l) => l.plannedQty)])).toEqual([
+    [1, "2026-11-02", ["2", "2"]],
+    [2, "2026-11-09", ["2", "2"]],
+    [3, "2026-11-16", ["2", "2"]],
+    [4, "2026-12-01", ["4"]],
+  ]);
+});
+
+test("decimal quantities add up exactly: 0.1 + 0.2 plans 0.3", () => {
+  const lines = [{ id: 11, productName: "Saffron", unit: "kg", orderedQty: 0.3 }];
+  const onSave = jest.fn(() => Promise.resolve());
+  render(
+    <PlanEditor
+      hotels={[A1]}
+      poLines={lines}
+      deliveries={[delivery({ lines: [{ id: 101, poLineId: 11, productName: "Saffron", unit: "kg", plannedQty: 0.3 }] })]}
+      onSave={onSave}
+      onCancel={jest.fn()}
+    />
+  );
+  type(qty("Saffron", "Hotel A-1 · Phase 1"), "0.1");
+  expect(screen.getByText("0.2 kg left to allocate")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Add phase at Hotel A-1" }));
+  type(qty("Saffron", "Hotel A-1 · Phase 2"), "0.2");
+  expect(screen.getByText("Planned in full")).toBeInTheDocument();
+  fireEvent.click(save());
+  expect(onSave.mock.calls[0][0].map((d) => d.lines[0].plannedQty)).toEqual(["0.1", "0.2"]);
+});
+
+test("10.5 split across 3 hotels gives 3.5 each", () => {
+  const lines = [{ id: 11, productName: "Ghee", unit: "kg", orderedQty: 10.5 }];
+  render(
+    <PlanEditor
+      hotels={[A1, A2, A3]}
+      poLines={lines}
+      deliveries={[delivery({ hotelId: null, hotelName: null, lines: [{ id: 101, poLineId: 11, productName: "Ghee", unit: "kg", plannedQty: 10.5 }] })]}
+      initialAction="split"
+      onSave={jest.fn()}
+      onCancel={jest.fn()}
+    />
+  );
+  for (const h of ["Hotel A-1", "Hotel A-2", "Hotel A-3"]) {
+    expect(qty("Ghee", `${h} · Phase 1`)).toHaveValue("3.5");
+  }
+  expect(screen.getByText("Planned in full")).toBeInTheDocument();
+});
+
+test("a refusal about one delivery names its phase", async () => {
+  const onSave = jest.fn(() => Promise.reject({
+    response: { status: 422, data: { status: 0, code: "VALIDATION", message: "A delivery cannot be due before the purchase order was raised", details: { field: "dueDate", index: 1 } } },
+  }));
+  mount({
+    hotels: [A1, A2],
+    deliveries: [
+      delivery({ id: 1, hotelId: 1, lines: [{ id: 101, poLineId: 11, productName: "Basmati rice", unit: "kg", plannedQty: 10 }] }),
+      delivery({ id: 2, hotelId: 2, hotelName: "Hotel A-2", dueDate: "2020-01-01", lines: [{ id: 102, poLineId: 12, productName: "Olive oil", unit: "litre", plannedQty: 6 }] }),
+    ],
+    onSave,
+  });
+  fireEvent.click(save());
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Hotel A-2 · Phase 1: A delivery cannot be due before the purchase order was raised"
+  );
+});

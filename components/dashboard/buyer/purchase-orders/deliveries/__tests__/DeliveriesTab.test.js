@@ -27,8 +27,9 @@ import path from "path";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import {
-  getPoDeliveries, patchDeliveryDueDate, shortClosePo, reopenShortClose, revokeSiteRep,
+  getPoDeliveries, savePoDeliveryPlan, patchDeliveryDueDate, shortClosePo, reopenShortClose, revokeSiteRep,
 } from "@/services/inventory";
+import { toast } from "react-toastify";
 import { getPoDetails, handleAddSiteRep } from "@/services/po";
 import DeliveriesTab from "../DeliveriesTab";
 
@@ -67,7 +68,8 @@ const payload = (over = {}) => ({
   dispatches: [],
   rtvs: [],
   shortCloses: [],
-  can: { editPlan: true, shortClose: true, receive: true, reverse: false, manageSiteRep: true },
+  siteReps: [],
+  can: { editPlan: true, shortClose: true, receive: true, reverse: false, manageSiteRep: true, siteRepHotelIds: [1, 2] },
   ...over,
 });
 
@@ -82,7 +84,6 @@ const cell = (row, label) => row.querySelector(`[data-label="${label}"]`);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  getPoDetails.mockResolvedValue({ id: 52, site_reps: [] });
 });
 
 test("grid shows hotel×phase rows with open qty and overdue badge", async () => {
@@ -108,7 +109,9 @@ test("grid shows hotel×phase rows with open qty and overdue badge", async () =>
 test("locked plan allows only due date on phases without receipts", async () => {
   await mount(payload({ planLocked: true, planLockedAt: "2026-10-21T06:30:00.000Z", editable: "dates_only" }));
 
-  expect(screen.getByText("Plan locked: quantities can't change")).toBeInTheDocument();
+  expect(screen.getByText(/Plan locked: goods have been dispatched, received or short-closed, so quantities can't change/))
+    .toBeInTheDocument();
+  expect(screen.getByText(/Due dates of phases with nothing received can still move/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Edit plan" })).not.toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /Basmati rice for/ })).not.toBeInTheDocument();
   // Phase 1 at A-1 has receipts: its date is fixed.
@@ -117,30 +120,114 @@ test("locked plan allows only due date on phases without receipts", async () => 
   const updated = payload({ planLocked: true, editable: "dates_only" });
   updated.deliveries[1] = { ...updated.deliveries[1], dueDate: "2026-11-20" };
   patchDeliveryDueDate.mockResolvedValue(updated);
-  fireEvent.change(screen.getByLabelText("Due date for Hotel A-2 · Phase 1"), { target: { value: "2026-11-20" } });
+  const input = screen.getByLabelText("Due date for Hotel A-2 · Phase 1");
+  fireEvent.change(input, { target: { value: "2026-11-20" } });
+  fireEvent.blur(input);
 
   await waitFor(() => expect(patchDeliveryDueDate).toHaveBeenCalledWith(52, 22, "2026-11-20"));
   await waitFor(() => expect(screen.getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue("2026-11-20"));
 });
 
-test("a due date saves once it is a whole date; clearing it saves on blur", async () => {
+test("a due date is a draft until blur or Enter; half-typed years are never sent", async () => {
   await mount();
   const input = screen.getByLabelText("Due date for Hotel A-2 · Phase 1");
 
-  // Typing the year goes through 0002, 0020, 0202: none of those is sent.
+  // Typing goes through 0002, 0020, 0202 …: drafts, nothing sent.
+  for (const v of ["0002-11-20", "0020-11-20", "0202-11-20", "2026-11-20"]) {
+    fireEvent.change(input, { target: { value: v } });
+  }
+  expect(patchDeliveryDueDate).not.toHaveBeenCalled();
+  expect(input).toHaveValue("2026-11-20");
+
+  // Enter commits once; the blur that follows doesn't send it again.
+  const moved = payload();
+  moved.deliveries[1] = { ...moved.deliveries[1], dueDate: "2026-11-20" };
+  patchDeliveryDueDate.mockResolvedValue(moved);
+  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.blur(input);
+  await waitFor(() => expect(patchDeliveryDueDate).toHaveBeenCalledTimes(1));
+  expect(patchDeliveryDueDate).toHaveBeenCalledWith(52, 22, "2026-11-20");
+
+  // A half-typed date left on blur goes back to the saved one.
   fireEvent.change(input, { target: { value: "0002-11-20" } });
   fireEvent.blur(input);
-  expect(patchDeliveryDueDate).not.toHaveBeenCalled();
-  expect(input).toHaveValue("2026-11-09");
+  expect(input).toHaveValue("2026-11-20");
+  expect(patchDeliveryDueDate).toHaveBeenCalledTimes(1);
 
+  // Clearing saves "no date" on blur.
   const cleared = payload();
   cleared.deliveries[1] = { ...cleared.deliveries[1], dueDate: null };
   patchDeliveryDueDate.mockResolvedValue(cleared);
   fireEvent.change(input, { target: { value: "" } });
-  expect(patchDeliveryDueDate).not.toHaveBeenCalled();
+  expect(patchDeliveryDueDate).toHaveBeenCalledTimes(1);
   fireEvent.blur(input);
-  await waitFor(() => expect(patchDeliveryDueDate).toHaveBeenCalledWith(52, 22, null));
-  await waitFor(() => expect(within(group("Hotel A-2 · Phase 1")).getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue(""));
+  await waitFor(() => expect(patchDeliveryDueDate).toHaveBeenLastCalledWith(52, 22, null));
+  await waitFor(() => expect(screen.getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue(""));
+});
+
+test("an answer older than the latest request is dropped", async () => {
+  const data = payload();
+  data.deliveries[0] = { ...data.deliveries[0], status: "open", hasReceipts: false, overdue: false,
+    lines: [pl(201, 11, "Basmati rice", "kg", 10)] };
+  await mount(data);
+
+  // Two dates move; the first answer arrives last and must not win.
+  let answerFirst;
+  const first = { ...data, deliveries: [{ ...data.deliveries[0], dueDate: "2026-11-01" }, data.deliveries[1]] };
+  const second = { ...first, deliveries: [first.deliveries[0], { ...data.deliveries[1], dueDate: "2026-11-30" }] };
+  patchDeliveryDueDate
+    .mockImplementationOnce(() => new Promise((r) => { answerFirst = () => r(first); }))
+    .mockResolvedValueOnce(second);
+
+  const a1 = screen.getByLabelText("Due date for Hotel A-1 · Phase 1");
+  fireEvent.change(a1, { target: { value: "2026-11-01" } });
+  fireEvent.blur(a1);
+  const a2 = screen.getByLabelText("Due date for Hotel A-2 · Phase 1");
+  fireEvent.change(a2, { target: { value: "2026-11-30" } });
+  fireEvent.blur(a2);
+  await waitFor(() => expect(screen.getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue("2026-11-30"));
+
+  answerFirst();
+  await waitFor(() => expect(patchDeliveryDueDate).toHaveBeenCalledTimes(2));
+  await new Promise((r) => setTimeout(r, 0));
+  expect(screen.getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue("2026-11-30");
+});
+
+test("a go-live backlog PO (legacy, nothing received) is received and planned like any other", async () => {
+  await mount(payload({ receiptLegacy: true, receiptStatus: "not_received", grns: [] }));
+  expect(screen.queryByText("Received before stock tracking")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Receive goods/ })).toHaveAttribute("href", "/dashboard/buyer/inventory/receive/52");
+  expect(screen.getByRole("button", { name: "Short-close" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Edit plan" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add site rep" })).toBeInTheDocument();
+});
+
+test("a PO received in the old flow is read-only", async () => {
+  await mount(payload({ receiptLegacy: true, receiptStatus: "received", planLocked: true, editable: "dates_only" }));
+  expect(screen.getByText("Received before stock tracking")).toBeInTheDocument();
+  expect(screen.queryByText(/Plan locked/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Receive goods/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Short-close" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Edit plan" })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Due date for/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add site rep" })).not.toBeInTheDocument();
+});
+
+test("a plan that locked under the editor closes it, reloads and says why", async () => {
+  await mount();
+  fireEvent.click(screen.getByRole("button", { name: "Edit plan" }));
+  savePoDeliveryPlan.mockRejectedValue({
+    response: { status: 409, data: { status: 0, code: "LOCKED", message: "Goods have been dispatched or received against this purchase order, so its delivery quantities are fixed." } },
+  });
+  getPoDeliveries.mockResolvedValue(payload({ planLocked: true, editable: "dates_only" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+    "Goods have been dispatched or received against this purchase order, so its delivery quantities are fixed."
+  ));
+  await waitFor(() => expect(getPoDeliveries).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("button", { name: "Save plan" })).not.toBeInTheDocument();
+  expect(await screen.findByText(/Plan locked: goods have been dispatched/)).toBeInTheDocument();
 });
 
 test("an editable plan opens the editor", async () => {
@@ -203,7 +290,7 @@ test("Reopen is offered on hand-closed rows only, never on rows credited by a re
 });
 
 test("short-close follows can.shortClose", async () => {
-  await mount(payload({ can: { editPlan: false, shortClose: false, receive: false, reverse: false, manageSiteRep: false } }));
+  await mount(payload({ can: { editPlan: false, shortClose: false, receive: false, reverse: false, manageSiteRep: false, siteRepHotelIds: [] } }));
   expect(screen.getByRole("button", { name: "Short-close" })).toBeDisabled();
 });
 
@@ -220,24 +307,29 @@ test("an unsplit multi-hotel PO is asked to split by hotel", async () => {
   expect(screen.getByRole("textbox", { name: "Basmati rice for Hotel A-2 · Phase 1" })).toHaveValue("7");
 });
 
-test("site rep panel sends hotel_id on a multi-hotel PO, shows expiry and revokes", async () => {
-  getPoDetails.mockResolvedValue({
-    id: 52,
-    site_reps: [{ id: 31, name: "Ravi", email: "ravi@example.com", phone: "9876543210", hotel_id: 2,
-      expires_at: "2026-11-07T10:00:00.000Z", last_used_at: null, created_at: "2026-10-24T10:00:00.000Z" }],
-  });
-  await mount();
+const RAVI = { tokenId: 31, name: "Ravi", email: "ravi@example.com", phone: "9876543210", hotelId: 2, hotelName: "Hotel A-2",
+  expiresAt: "2026-11-07T10:00:00.000Z", lastUsedAt: null, createdAt: "2026-10-24T10:00:00.000Z", revoked: false, live: true };
+const OLD = { ...RAVI, tokenId: 30, name: "Sunil", revoked: true, live: false };
 
-  const reps = await screen.findByRole("region", { name: "Site representatives" });
-  expect(await within(reps).findByText("Ravi")).toBeInTheDocument();
+test("site rep panel sends hotel_id on a multi-hotel PO, shows expiry and revokes", async () => {
+  await mount(payload({ siteReps: [RAVI, OLD] }));
+
+  const reps = screen.getByRole("region", { name: "Site representatives" });
+  expect(within(reps).getByText("Ravi")).toBeInTheDocument();
   expect(within(reps).getByText(/Link expires 07 Nov 2026/)).toBeInTheDocument();
-  expect(within(reps).getByText(/Hotel A-2/)).toBeInTheDocument();
+  expect(within(reps).getByText(/Hotel A-2 · Link expires/)).toBeInTheDocument();
+  // A revoked link is listed as such, with nothing to do on it.
+  expect(within(reps).getByText(/Hotel A-2 · Revoked/)).toBeInTheDocument();
+  expect(within(reps).queryByRole("button", { name: "Revoke Sunil's link" })).not.toBeInTheDocument();
+  // The panel reads the Deliveries payload; the heavy PO read is gone.
+  expect(getPoDetails).not.toHaveBeenCalled();
 
   handleAddSiteRep.mockResolvedValue({ status: 1, message: "Site representative added.", data: { id: 32, email_sent: true } });
   fireEvent.click(within(reps).getByRole("button", { name: "Add site rep" }));
   fireEvent.change(within(reps).getByRole("textbox", { name: "Name" }), { target: { value: "Meera" } });
   fireEvent.change(within(reps).getByRole("textbox", { name: "Email" }), { target: { value: "meera@example.com" } });
   fireEvent.change(within(reps).getByRole("textbox", { name: "Phone" }), { target: { value: "9812345678" } });
+  expect(within(reps).getByRole("textbox", { name: "Name" })).toHaveAttribute("maxLength", "99");
   const send = within(reps).getByRole("button", { name: "Send link" });
   // A multi-hotel PO needs the hotel the person receives at.
   expect(send).toBeDisabled();
@@ -246,11 +338,41 @@ test("site rep panel sends hotel_id on a multi-hotel PO, shows expiry and revoke
   await waitFor(() => expect(handleAddSiteRep).toHaveBeenCalledWith({
     po_id: 52, hotel_id: 1, name: "Meera", email: "meera@example.com", phone: "9812345678",
   }));
+  // The tab reloads to show the new link.
+  await waitFor(() => expect(getPoDeliveries).toHaveBeenCalledTimes(2));
 
   revokeSiteRep.mockResolvedValue({ revoked: 1 });
   fireEvent.click(within(reps).getByRole("button", { name: "Revoke Ravi's link" }));
   fireEvent.click(await screen.findByRole("button", { name: "Revoke link" }));
   await waitFor(() => expect(revokeSiteRep).toHaveBeenCalledWith(52, 31));
+});
+
+test("no site-rep actions without the flag, and only at the caller's hotels", async () => {
+  await mount(payload({
+    siteReps: [RAVI],
+    can: { editPlan: true, shortClose: true, receive: false, reverse: false, manageSiteRep: false, siteRepHotelIds: [] },
+  }));
+  let reps = screen.getByRole("region", { name: "Site representatives" });
+  expect(within(reps).getByText("Ravi")).toBeInTheDocument();
+  expect(within(reps).queryByRole("button", { name: "Add site rep" })).not.toBeInTheDocument();
+  expect(within(reps).queryByRole("button", { name: /Revoke/ })).not.toBeInTheDocument();
+});
+
+test("a receiver at one hotel is offered that hotel only, and can't revoke another hotel's link", async () => {
+  await mount(payload({
+    siteReps: [RAVI],
+    can: { editPlan: false, shortClose: false, receive: true, reverse: false, manageSiteRep: true, siteRepHotelIds: [1] },
+  }));
+  const reps = screen.getByRole("region", { name: "Site representatives" });
+  // Ravi receives at Hotel A-2, where this user can't manage links.
+  expect(within(reps).queryByRole("button", { name: "Revoke Ravi's link" })).not.toBeInTheDocument();
+  fireEvent.click(within(reps).getByRole("button", { name: "Add site rep" }));
+  const hotel = within(reps).getByRole("combobox", { name: "Hotel" });
+  expect(within(hotel).getAllByRole("option").map((o) => o.textContent)).toEqual([
+    "Choose the hotel they receive at…", "Hotel A-1",
+  ]);
+  // The only choice is chosen.
+  expect(hotel).toHaveValue("1");
 });
 
 test("phone layer restacks the delivery grid as cards", () => {
@@ -260,4 +382,20 @@ test("phone layer restacks the delivery grid as cards", () => {
   expect(layer).toMatch(/@media \(max-width: 768px\)/);
   expect(layer).toMatch(/\.grid\s*{\s*display:\s*block;\s*thead\s*{\s*display:\s*none;/);
   expect(layer).toMatch(/content:\s*attr\(data-label\)/);
+});
+
+test("phone layer gives every small control a 44px target", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "deliveries.module.scss"), "utf8");
+  const layer = css.slice(css.indexOf("Phone layer"));
+  // .act is on Receive goods, Short-close, Edit plan, Split, Add phase / hotel, Add site rep, Send link.
+  for (const rule of [
+    /\.act\s*{\s*min-height:\s*44px;/,
+    /\.mSelect, \.mInput\s*{\s*min-height:\s*44px;/,
+    /\.targetOpt\s*{\s*min-height:\s*44px;/,
+    /\.targetOpt label\s*{\s*min-height:\s*44px;/,
+    /\.rowPicks label\s*{\s*min-height:\s*44px;/,
+    /\.tabStrip button\s*{\s*min-height:\s*44px;/,
+  ]) {
+    expect(layer).toMatch(rule);
+  }
 });

@@ -116,10 +116,43 @@ test("choosing a tab writes ?tab without a navigation", async () => {
   );
 });
 
+test("tabs are a tablist with a labelled panel and arrow-key navigation", async () => {
+  getPODetailFull.mockResolvedValue(po());
+  render(<PODetail id="29" />);
+  await screen.findByText("Items & pricing");
+
+  const details = screen.getByRole("tab", { name: "Details" });
+  const deliveries = screen.getByRole("tab", { name: "Deliveries" });
+  expect(screen.getByRole("tablist", { name: "Purchase order sections" })).toBeInTheDocument();
+  const panel = screen.getByRole("tabpanel");
+  expect(panel).toHaveAttribute("aria-labelledby", details.id);
+  expect(details).toHaveAttribute("aria-controls", panel.id);
+  expect(deliveries).toHaveAttribute("aria-controls", panel.id);
+  // Roving focus: only the selected tab is in the tab order.
+  expect(details).toHaveAttribute("tabindex", "0");
+  expect(deliveries).toHaveAttribute("tabindex", "-1");
+  // The Details body sits inside the panel.
+  expect(panel).toContainElement(screen.getByText("Items & pricing"));
+
+  fireEvent.keyDown(details, { key: "ArrowRight" });
+  expect(mockReplace).toHaveBeenLastCalledWith(
+    { pathname: "/dashboard/buyer/purchase-orders/[id]", query: { id: "29", tab: "deliveries" } }, undefined, { shallow: true }
+  );
+  expect(deliveries).toHaveFocus();
+
+  fireEvent.keyDown(details, { key: "End" });
+  expect(mockReplace).toHaveBeenCalledTimes(2);
+  fireEvent.keyDown(details, { key: "ArrowLeft" }); // wraps to the last tab
+  expect(mockReplace).toHaveBeenLastCalledWith(
+    { pathname: "/dashboard/buyer/purchase-orders/[id]", query: { id: "29", tab: "deliveries" } }, undefined, { shallow: true }
+  );
+});
+
 test("a draft PO has no Deliveries tab", async () => {
   mockQuery = { id: "29", tab: "deliveries" };
   getPODetailFull.mockResolvedValue(po({ status: "draft", status_label: "Draft" }));
   render(<PODetail id="29" />);
   expect(await screen.findByText("Items & pricing")).toBeInTheDocument();
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.queryByRole("tabpanel")).not.toBeInTheDocument();
 });

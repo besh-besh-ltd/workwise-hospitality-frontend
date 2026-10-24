@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { UserPlus } from "lucide-react";
-import { getPoDetails, handleAddSiteRep } from "@/services/po";
+import { handleAddSiteRep } from "@/services/po";
 import { revokeSiteRep } from "@/services/inventory";
 import { getApiErrorMessage } from "@/utils/apiError";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -11,23 +11,28 @@ import s from "./deliveries.module.scss";
 
 /*
   Site representatives: hotel staff outside the system who receive this PO
-  through an emailed link (spec §6.9). The live links come from GET /po/:po_id
-  (`site_reps`, the predicate token auth uses). A multi-hotel PO needs the
-  hotel the person receives at: the server refuses without it, and issuing a
-  link at a hotel replaces that hotel's previous link.
+  through an emailed link (spec §6.9). The links come with the Deliveries
+  payload (`siteReps`, no token); `live` is the predicate token auth uses.
 
-  Adding and revoking are gated on `canManage`; the server's gate is
-  grn.create at the link's hotel, which is the Deliveries `can.receive` flag.
+  Who may add or revoke is the server's: `can.manageSiteRep`, at the hotels
+  in `can.siteRepHotelIds` (grn.create there). Only those hotels are offered,
+  and only links at those hotels can be revoked. A multi-hotel PO needs the
+  hotel the person receives at; issuing a link at a hotel replaces that
+  hotel's previous link.
 
-  Props: poId, hotels [{id, name}], canManage, canAdd (false once the PO is
-  fully received or closed: the server refuses a new link then).
+  Props:
+    poId, hotels [{id, name}]   the PO's hotels
+    siteReps                    the payload's siteReps
+    canManage                   can.manageSiteRep
+    hotelIds                    can.siteRepHotelIds
+    canAdd                      false once nothing is left to receive
+    onChanged()                 reload the tab after an add or a revoke
 */
 
 const EMPTY = { name: "", email: "", phone: "", hotelId: "" };
+const PAST_SHOWN = 5;
 
-export default function SiteRepPanel({ poId, hotels = [], canManage = false, canAdd = true }) {
-  const [reps, setReps] = useState(null);
-  const [loadError, setLoadError] = useState(null);
+export default function SiteRepPanel({ poId, hotels = [], siteReps = [], canManage = false, hotelIds = [], canAdd = true, onChanged }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -35,26 +40,24 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
   const [revoking, setRevoking] = useState(null);
 
   const multiHotel = hotels.length > 1;
+  const choices = hotels.filter((h) => hotelIds.includes(h.id));
   const hotelName = (id) => hotels.find((h) => h.id === Number(id))?.name || null;
+  const mayRevoke = (r) => canManage && (r.hotelId == null ? hotelIds.length > 0 : hotelIds.includes(r.hotelId));
 
-  const load = useCallback(async () => {
-    try {
-      const data = await getPoDetails(poId);
-      setReps(Array.isArray(data?.site_reps) ? data.site_reps : []);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(getApiErrorMessage(err, "Couldn't load site representatives."));
-    }
-  }, [poId]);
-
-  useEffect(() => {
-    if (poId) load();
-  }, [poId, load]);
+  const live = siteReps.filter((r) => r.live);
+  const past = siteReps.filter((r) => !r.live).slice(0, PAST_SHOWN);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const filled = form.name.trim() && form.email.trim() && form.phone.trim();
   const canSend = !!filled && (!multiHotel || !!form.hotelId) && !busy;
-  const replaces = (reps || []).find((r) => multiHotel && form.hotelId && Number(r.hotel_id) === Number(form.hotelId));
+  const replaces = multiHotel && form.hotelId ? live.find((r) => r.hotelId === Number(form.hotelId)) : null;
+
+  const openForm = () => {
+    // One hotel to choose from: choose it.
+    setForm({ ...EMPTY, hotelId: multiHotel && choices.length === 1 ? String(choices[0].id) : "" });
+    setFormError(null);
+    setAdding(true);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -72,7 +75,7 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
       else toast.success(res?.message || "Site representative added.");
       setAdding(false);
       setForm(EMPTY);
-      load();
+      onChanged?.();
     } catch (err) {
       setFormError(getApiErrorMessage(err, "Couldn't add the site representative."));
     } finally {
@@ -83,15 +86,17 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
   const revoke = async () => {
     const rep = revoking;
     try {
-      await revokeSiteRep(poId, rep.id);
+      await revokeSiteRep(poId, rep.tokenId);
       toast.success(`${rep.name}'s link no longer works.`);
-      load();
+      onChanged?.();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Couldn't revoke the link."));
     } finally {
       setRevoking(null);
     }
   };
+
+  const where = (r) => (r.hotelId != null ? r.hotelName || hotelName(r.hotelId) || `Hotel #${r.hotelId}` : null);
 
   return (
     <section className={po.sectionCard} aria-labelledby="po-site-reps-heading">
@@ -103,21 +108,13 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
           <h2 id="po-site-reps-heading">Site representatives</h2>
         </div>
         {canManage && canAdd && !adding && (
-          <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`} onClick={() => setAdding(true)}>
+          <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} onClick={openForm}>
             Add site rep
           </button>
         )}
       </div>
 
-      {loadError ? (
-        <div className={s.sectionPad}>
-          <div className={s.errorText}>{loadError}</div>
-        </div>
-      ) : reps === null ? (
-        <div className={s.sectionPad}>
-          <div className={s.muted}>Loading…</div>
-        </div>
-      ) : reps.length === 0 ? (
+      {live.length === 0 ? (
         <div className={s.sectionPad}>
           <div className={s.muted}>
             Nobody outside the system can receive this PO. Add someone at the hotel and they get a receiving link by email.
@@ -125,37 +122,45 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
         </div>
       ) : (
         <div className={s.list}>
-          {reps.map((r) => {
-            const where = r.hotel_id != null ? hotelName(r.hotel_id) || `Hotel #${r.hotel_id}` : null;
-            return (
-              <div key={r.id} className={s.listRow}>
-                <div className={s.lMain}>
-                  <div className={s.lTitle}>{r.name}</div>
-                  <div className={s.lSub}>
-                    {[r.email, r.phone].filter(Boolean).join(" · ")}
-                  </div>
-                  <div className={s.lSub}>
-                    {where ? `${where} · ` : ""}Link expires {fmtDateOnly(r.expires_at)}
-                  </div>
-                  <div className={s.lSub}>
-                    {r.last_used_at ? `Last used ${fmtDateTime(r.last_used_at)}` : "Not used yet"}
-                  </div>
+          {live.map((r) => (
+            <div key={r.tokenId} className={s.listRow}>
+              <div className={s.lMain}>
+                <div className={s.lTitle}>{r.name}</div>
+                <div className={s.lSub}>{[r.email, r.phone].filter(Boolean).join(" · ")}</div>
+                <div className={s.lSub}>
+                  {where(r) ? `${where(r)} · ` : ""}Link expires {fmtDateOnly(r.expiresAt)}
                 </div>
-                {canManage && (
-                  <div className={s.lRight}>
-                    <button
-                      type="button"
-                      className={s.linkBtn}
-                      aria-label={`Revoke ${r.name}'s link`}
-                      onClick={() => setRevoking(r)}
-                    >
-                      Revoke
-                    </button>
-                  </div>
-                )}
+                <div className={s.lSub}>{r.lastUsedAt ? `Last used ${fmtDateTime(r.lastUsedAt)}` : "Not used yet"}</div>
               </div>
-            );
-          })}
+              {mayRevoke(r) && (
+                <div className={s.lRight}>
+                  <button
+                    type="button"
+                    className={`${s.linkBtn} ${s.act}`}
+                    aria-label={`Revoke ${r.name}'s link`}
+                    onClick={() => setRevoking(r)}
+                  >
+                    Revoke
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {past.length > 0 && (
+        <div className={s.list} aria-label="Links that no longer work">
+          {past.map((r) => (
+            <div key={r.tokenId} className={`${s.listRow} ${s.pastRow}`}>
+              <div className={s.lMain}>
+                <div className={s.lTitle}>{r.name}</div>
+                <div className={s.lSub}>
+                  {[where(r), r.revoked ? "Revoked" : "No longer works"].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -166,7 +171,7 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
               Hotel
               <select className={s.textInput} value={form.hotelId} onChange={set("hotelId")}>
                 <option value="">Choose the hotel they receive at…</option>
-                {hotels.map((h) => (
+                {choices.map((h) => (
                   <option key={h.id} value={h.id}>{h.name}</option>
                 ))}
               </select>
@@ -174,7 +179,7 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
           )}
           <label>
             Name
-            <input type="text" className={s.textInput} value={form.name} onChange={set("name")} maxLength={200} autoComplete="off" />
+            <input type="text" className={s.textInput} value={form.name} onChange={set("name")} maxLength={99} autoComplete="off" />
           </label>
           <label>
             Email
@@ -197,7 +202,7 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
           <div className={s.repActions}>
             <button
               type="button"
-              className={`${po.btn} ${po.btnGhost} ${po.btnSm}`}
+              className={`${po.btn} ${po.btnGhost} ${po.btnSm} ${s.act}`}
               onClick={() => {
                 setAdding(false);
                 setForm(EMPTY);
@@ -207,7 +212,7 @@ export default function SiteRepPanel({ poId, hotels = [], canManage = false, can
             >
               Cancel
             </button>
-            <button type="submit" className={`${po.btn} ${po.btnPrimary} ${po.btnSm}`} disabled={!canSend}>
+            <button type="submit" className={`${po.btn} ${po.btnPrimary} ${po.btnSm} ${s.act}`} disabled={!canSend}>
               {busy ? "Sending…" : "Send link"}
             </button>
           </div>

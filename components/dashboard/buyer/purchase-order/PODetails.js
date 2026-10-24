@@ -30,7 +30,6 @@ import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
 import RegeneratePOModal from './RegeneratePOModal';
-import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
 import NoTechClausesBanner from '@/components/shared/NoTechClausesBanner';
 import useHasTechClauses from '@/hooks/useHasTechClauses';
@@ -154,7 +153,6 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
     vendor_quote_product_files = [],
     vendor_tech_eval_files = [],
     buyer_tech_eval_files = [],
-    site_rep,
     payment_milestones,
     hsn_codes,
     gstin: fetchedGST,
@@ -180,7 +178,6 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
   })
   const [gstin, setGstin] = useState(fetchedGST);
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
-  const [showAddSiteRepModal, setShowAddSiteRepModal] = useState(false);
   const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   
   const [tasks, setTasks] = useState(null);
@@ -518,9 +515,10 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                 </button>
               )}
               {canWrite && (
-                <button className={styles.heroBtn} onClick={() => setShowAddSiteRepModal(true)} id="add-site-rep-po_details-purchase_order_page">
+                // Site reps are managed on the PO's Deliveries tab (hotel-aware links).
+                <Link className={styles.heroBtn} href={`/dashboard/buyer/purchase-orders/${id}?tab=deliveries`} id="add-site-rep-po_details-purchase_order_page">
                   <BsPersonPlus size={14} /> Site Rep
-                </button>
+                </Link>
               )}
               {canRegenerate && (
                 <button className={styles.heroBtn} onClick={() => setShowRegenerateModal(true)} id="regenerate_po-po_details-purchase_order_page">
@@ -1737,15 +1735,6 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
           cancelButtonText="No, cancel it"
         />
 
-        <AddSiteRepModal
-          show={showAddSiteRepModal}
-          onClose={() => setShowAddSiteRepModal(false)}
-          poId={id}
-          siteRep={site_rep} // or null/undefined if none
-          onAction={() => {
-            refetchPODetails();
-          }}
-        />
 
 
         {/* Receive goods: opens the line-level Receive screen (the parent's
