@@ -636,10 +636,9 @@ const POListing = ({
       />
       <ConfirmationModal
         isOpen={showGRNUpdateModal} onClose={handleMarkDispatchedCancel} onConfirm={handleMarkGRNConfirm}
-        title="Mark GRN for this PO"
-        description={`Are you sure you want to mark GRN for PO #${pendingPO?.po_number || "this purchase order"}?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ), That will indicate that the goods has been delivered to the site.`}
-        customFooter={`This Action Cannot be Reversed!`}
-        confirmButtonColor="success" confirmButtonText="Yes, Go Ahead" cancelButtonText="No, Cancel It"
+        title="Receive goods"
+        description={`Receive goods for PO #${pendingPO?.po_number || "this purchase order"}?\nThe Receive screen opens, where you record what arrived, line by line, with any rejections.`}
+        confirmButtonColor="success" confirmButtonText="Receive goods" cancelButtonText="Cancel"
       />
       <RegeneratePOModal
         show={showRegenerateModal}

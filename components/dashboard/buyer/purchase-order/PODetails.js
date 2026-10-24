@@ -30,7 +30,6 @@ import CommonFormInput from '@/components/shared/CommonFormInput';
 import { useRouter } from 'next/navigation';
 import PurchaseOrderEditView from './PurchaseOrderEditView';
 import RegeneratePOModal from './RegeneratePOModal';
-import AddSiteRepModal from './AddSiteRepModal';
 import ApproveModal from './ApproveModal';
 import NoTechClausesBanner from '@/components/shared/NoTechClausesBanner';
 import useHasTechClauses from '@/hooks/useHasTechClauses';
@@ -154,7 +153,6 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
     vendor_quote_product_files = [],
     vendor_tech_eval_files = [],
     buyer_tech_eval_files = [],
-    site_rep,
     payment_milestones,
     hsn_codes,
     gstin: fetchedGST,
@@ -180,7 +178,6 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
   })
   const [gstin, setGstin] = useState(fetchedGST);
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
-  const [showAddSiteRepModal, setShowAddSiteRepModal] = useState(false);
   const [showGRNUpdateModal, setShowGRNUpdateModal] = useState(false);
   
   const [tasks, setTasks] = useState(null);
@@ -518,9 +515,10 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
                 </button>
               )}
               {canWrite && (
-                <button className={styles.heroBtn} onClick={() => setShowAddSiteRepModal(true)} id="add-site-rep-po_details-purchase_order_page">
+                // Site reps are managed on the PO's Deliveries tab (hotel-aware links).
+                <Link className={styles.heroBtn} href={`/dashboard/buyer/purchase-orders/${id}?tab=deliveries`} id="add-site-rep-po_details-purchase_order_page">
                   <BsPersonPlus size={14} /> Site Rep
-                </button>
+                </Link>
               )}
               {canRegenerate && (
                 <button className={styles.heroBtn} onClick={() => setShowRegenerateModal(true)} id="regenerate_po-po_details-purchase_order_page">
@@ -534,7 +532,7 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
               )}
               {canWrite && status === 'dispatched' && (
                 <button className={`${styles.heroBtn} ${styles.heroBtnApprove} ${styles.heroBtnKeep}`} onClick={() => setShowGRNUpdateModal(true)}>
-                  <BsTruck size={14} /> Update to GRN
+                  <BsTruck size={14} /> Receive goods
                 </button>
               )}
               {showLegacyApprovalActions && (
@@ -1737,18 +1735,10 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
           cancelButtonText="No, cancel it"
         />
 
-        <AddSiteRepModal
-          show={showAddSiteRepModal}
-          onClose={() => setShowAddSiteRepModal(false)}
-          poId={id}
-          siteRep={site_rep} // or null/undefined if none
-          onAction={() => {
-            refetchPODetails();
-          }}
-        />
 
 
-        {/* PO Update Status to GRN */}
+        {/* Receive goods: opens the line-level Receive screen (the parent's
+            grn_update handler routes there) instead of flipping the status. */}
         <ConfirmationModal
           isOpen={showGRNUpdateModal}
           onClose={() => setShowGRNUpdateModal(false)}
@@ -1756,15 +1746,13 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
             if (handlePODecision) handlePODecision(id, { type: "grn_update" });
             setShowGRNUpdateModal(false);
           }}
-          title="Mark GRN for this PO"
-          description={`Are you sure you want to mark GRN for PO #${
+          title="Receive goods"
+          description={`Receive goods for PO #${
             po_number || "this purchase order"
-          }?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ),
-          That will indicate that the goods has been delivered to the site.`}
-          customFooter={`This Action Cannot be Reversed!`}
+          }?\nThe Receive screen opens, where you record what arrived, line by line, with any rejections.`}
           confirmButtonColor="success"
-          confirmButtonText="Yes, Go Ahead"
-          cancelButtonText="No, Cancel It"
+          confirmButtonText="Receive goods"
+          cancelButtonText="Cancel"
         />
 
         <RegeneratePOModal
