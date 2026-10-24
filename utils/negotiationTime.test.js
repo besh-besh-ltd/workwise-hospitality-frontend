@@ -48,6 +48,8 @@ import {
   formatNegotiationDateTime,
   formatNegotiationDeadline,
   negotiationRelative,
+  roundTimeLeft,
+  MIN_ROUND_WINDOW_MINUTES,
   localDateTimeInputMin,
   parseLocalDateTimeInput,
   formatUtcDateTime,
@@ -345,5 +347,35 @@ describe("negotiationRelative", () => {
     // empty pill.
     expect(negotiationRelative(null)).toBeNull();
     expect(negotiationRelative("garbage")).toBeNull();
+  });
+});
+
+describe("roundTimeLeft", () => {
+  const NOW = Date.parse(AS_ISO_Z);
+  const MIN = 60000;
+
+  it("reads the naive UTC deadline as an instant", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 90 * MIN).text).toBe("1h 30m");
+  });
+
+  it("is urgent inside the minimum round window — vendors get less than the floor", () => {
+    expect(MIN_ROUND_WINDOW_MINUTES).toBe(120);
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 90 * MIN)).toEqual({ text: "1h 30m", urgent: true, passed: false });
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 5 * 60 * MIN)).toEqual({ text: "5h", urgent: false, passed: false });
+  });
+
+  it("uses days past a day and minutes under an hour", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW - (2 * 24 + 3) * 60 * MIN).text).toBe("2d 3h");
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 24 * 60 * MIN).text).toBe("1d");
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 45 * MIN).text).toBe("45m");
+  });
+
+  it("says when the deadline has passed", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW + MIN)).toEqual({ text: null, urgent: true, passed: true });
+  });
+
+  it("returns null for an unusable deadline", () => {
+    expect(roundTimeLeft(null)).toBeNull();
+    expect(roundTimeLeft("garbage")).toBeNull();
   });
 });

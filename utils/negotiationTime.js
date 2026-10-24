@@ -114,6 +114,38 @@ export function negotiationRelative(raw, now = Date.now()) {
 }
 
 /**
+ * The shortest window a negotiation round may be opened with — mirrors the
+ * server's MIN_ROUND_WINDOW_MINUTES (helper/negotiation/roundWindow.js). A
+ * round's deadline is fixed at creation but vendors only see it once every
+ * approver has signed off, so approval time comes out of their window.
+ */
+export const MIN_ROUND_WINDOW_MINUTES = 120;
+
+/**
+ * Time left before a round's deadline, for approvers: `{ text, urgent, passed }`
+ * with text like "2d 3h", "1h 30m", "45m". Urgent once less than the minimum
+ * round window is left — the vendors would get less than the floor. Null when
+ * the timestamp is unusable.
+ */
+export function roundTimeLeft(raw, now = Date.now()) {
+  const d = parseNegotiationTime(raw);
+  if (!d) return null;
+  const ms = d.getTime() - now;
+  if (ms <= 0) return { text: null, urgent: true, passed: true };
+  const totalMin = Math.max(1, Math.floor(ms / 60000));
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  const text =
+    days > 0
+      ? hours > 0 ? `${days}d ${hours}h` : `${days}d`
+      : hours > 0
+      ? mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+      : `${mins}m`;
+  return { text, urgent: totalMin < MIN_ROUND_WINDOW_MINUTES, passed: false };
+}
+
+/**
  * The `min` for an `<input type="datetime-local">`, in the viewer's LOCAL zone.
  *
  * LOCAL, deliberately — unlike everything else here. The control itself reads
