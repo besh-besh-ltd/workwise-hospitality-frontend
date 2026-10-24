@@ -1,0 +1,135 @@
+/* TokenReceivePage.module.scss
+   The site-rep receive link is a bare route: no dashboard shell, so none of
+   the shell padding that receive.module.scss's .page cancels with negative
+   margins, and no 56px top bar for the phone scan dock to sit under. This
+   module is that page's own frame plus its few token-only parts; cards,
+   tables, buttons and pills come from receive.module.scss. */
+
+$bg: #f7f7f5;
+$surface: #ffffff;
+$surface-3: #f4f4f1;
+$border: #e8e8e3;
+$ink: #18181b;
+$ink-2: #3f3f46;
+$ink-3: #71717a;
+$warn: #b45309;
+$warn-soft: #fef7ed;
+$info: #2563eb;
+$info-soft: #eff6ff;
+$sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+/* ───────────── Page frame ───────────── */
+.page {
+  min-height: 100vh;
+  background: $bg;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15, 15, 14, 0.035) 1px, transparent 0);
+  background-size: 22px 22px;
+  color: $ink;
+  font-family: $sans;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  font-size: 13px;
+
+  * { box-sizing: border-box; }
+}
+
+.body { max-width: 1180px; }
+
+.linkNote {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $ink-3;
+}
+
+/* ───────────── Scan dock ───────────── */
+.scanDock {
+  padding: 12px 18px;
+  border-bottom: 1px solid $border;
+  background: $surface;
+}
+
+/* ───────────── Banners (unsent receipt, restored entries) ───────────── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.bannerWarn { background: $warn-soft; color: $warn; border: 1px solid rgba(180, 83, 9, 0.22); }
+.bannerInfo { background: $info-soft; color: $info; border: 1px solid rgba(37, 99, 235, 0.2); }
+.bannerText { flex: 1 1 auto; min-width: 0; }
+.bannerAction { flex-shrink: 0; }
+
+/* ───────────── Lines the link can't receive ───────────── */
+.blockedNote {
+  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12.5px;
+  color: $warn;
+}
+
+/* ───────────── Receipts from this link ───────────── */
+.receiptList { list-style: none; margin: 0; padding: 0; }
+.receipt {
+  padding: 14px 18px;
+  border-top: 1px solid $border;
+  &:first-child { border-top: none; }
+}
+.receiptHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.receiptMeta { font-size: 12.5px; color: $ink-3; }
+.receiptFiles {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  a { color: $ink-2; overflow-wrap: anywhere; }
+}
+.attachRow {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.attachLabel { font-size: 12px; font-weight: 600; color: $ink-2; }
+.kindSelect { width: auto; }
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   ≤768px: the scan bar sticks to the very top (this page has no shell bar),
+   nothing is wider than the screen, and the Post button lives in the sticky
+   MobileActionBar (its summary row makes it 112px tall). */
+@media (max-width: 768px) {
+  .page {
+    overflow-x: clip;
+    --mobile-action-bar-h: 112px;
+  }
+  .scanDock {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px;
+    box-shadow: 0 8px 16px -14px rgba(15, 15, 14, 0.35);
+  }
+  .banner { flex-direction: column; align-items: stretch; }
+  .bannerAction { width: 100%; }
+  .receipt { padding: 12px 14px; }
+  .kindSelect { width: 100%; }
+}

@@ -212,8 +212,12 @@ const Layout = (props) => {
   // Inventory short links (/s/<t>/<id>, from printed QR labels) are a scan
   // landing, not a marketing page: no public header or footer.
   const isInventoryShortLink = router.pathname === '/s/[t]/[id]';
+  // The site-rep receive link (/receive/token) is a standalone task for someone
+  // with no account: no public header, no dashboard shell.
+  const isSiteRepReceive = router.pathname === '/receive/token';
   const shouldHideNavbarFooter =
-    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage || isInventoryShortLink;
+    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage || isInventoryShortLink ||
+    isSiteRepReceive;
 
   // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
   // Public/marketing pages (and anonymous visits to /vendor/*) continue to use

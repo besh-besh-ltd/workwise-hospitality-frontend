@@ -3,13 +3,14 @@
 // unstyled there and overlaps the card. Other public pages keep the header.
 
 let mockPathname = "/vendor/network/accept-invite";
+let mockQuery = {};
 jest.mock("@/redux/store", () => ({ __esModule: true, store: { getState: () => ({ userProfile: null }) } }));
 jest.mock("react-redux", () => ({ __esModule: true, useDispatch: () => jest.fn() }));
 jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () => false }));
 jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardReload: jest.fn(), hardNavigate: jest.fn() }));
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ pathname: mockPathname, asPath: mockPathname, query: {}, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ pathname: mockPathname, asPath: mockPathname, query: mockQuery, push: jest.fn(), replace: jest.fn() }),
 }));
 jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
 jest.mock("./Header", () => ({ __esModule: true, default: () => <div data-testid="site-header" /> }));
@@ -29,6 +30,11 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Layout from "./index";
+import { verifyVendorToken } from "@/services/Auth";
+
+beforeEach(() => {
+  mockQuery = {};
+});
 
 test("the network invitation page renders without the site header", () => {
   mockPathname = "/vendor/network/accept-invite";
@@ -42,6 +48,16 @@ test("the inventory short-link landing renders without the site header", () => {
   render(<Layout><div data-testid="page" /></Layout>);
   expect(screen.getByTestId("page")).toBeInTheDocument();
   expect(screen.queryByTestId("site-header")).toBeNull();
+});
+
+test("the site-rep receive link renders bare, and its token is never sent for a vendor login", () => {
+  // A legacy link reaches /receive/token with its old ?token= forwarded by the redirect.
+  mockPathname = "/receive/token";
+  mockQuery = { t: "tok", token: "tok" };
+  render(<Layout><div data-testid="page" /></Layout>);
+  expect(screen.getByTestId("page")).toBeInTheDocument();
+  expect(screen.queryByTestId("site-header")).toBeNull();
+  expect(verifyVendorToken).not.toHaveBeenCalled();
 });
 
 test("other public pages keep the site header", () => {
