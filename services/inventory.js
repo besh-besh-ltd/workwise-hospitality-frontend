@@ -7,14 +7,18 @@ import axiosInstance from "@/lib/axios";
 const BASE = "/inventory";
 
 const unwrap = (res) => res?.data;
-const get = async (path, params, config) => unwrap(await axiosInstance.get(`${BASE}${path}`, { params, ...config }));
+// Explicit `params` win over any `config.params`.
+const get = async (path, params, config) =>
+  unwrap(await axiosInstance.get(`${BASE}${path}`, { ...config, params: { ...config?.params, ...params } }));
 const post = async (path, body, config) => unwrap(await axiosInstance.post(`${BASE}${path}`, body, config));
 const put = async (path, body, config) => unwrap(await axiosInstance.put(`${BASE}${path}`, body, config));
 const patch = async (path, body, config) => unwrap(await axiosInstance.patch(`${BASE}${path}`, body, config));
 const del = async (path, config) => unwrap(await axiosInstance.delete(`${BASE}${path}`, config));
 
-// Multipart: let the browser set the boundary, and allow slow uploads/imports.
-const UPLOAD_CONFIG = { headers: { "Content-Type": "multipart/form-data" }, timeout: 120000 };
+// Multipart: the shared instance defaults to JSON, which would make axios
+// stringify the FormData. `false` removes the header so the browser sets
+// multipart/form-data with its boundary. Slow uploads/imports get a long timeout.
+const UPLOAD_CONFIG = { headers: { "Content-Type": false }, timeout: 120000 };
 const fileForm = (file, kind) => {
   const form = new FormData();
   form.append("file", file);
@@ -135,7 +139,7 @@ export const uploadTokenGrnAttachment = async (token, id, file, kind) =>
     await tokenClient.post(
       `${BASE}/token/grn/${id}/attachments`,
       fileForm(file, kind),
-      tokenConfig(token, { timeout: 120000 })
+      tokenConfig(token, { timeout: 120000, headers: { "Content-Type": false } })
     )
   );
 
