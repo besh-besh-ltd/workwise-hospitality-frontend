@@ -131,3 +131,39 @@ export const openCaps = (data, hotelId) => {
   }
   return out;
 };
+
+/**
+ * {poLineId → scaled qty} on the road: the lines of dispatch notes still in
+ * transit, at one scope. A phase counts the notes naming that phase; a hotel
+ * (no phase) the notes going to that hotel; neither, every note on the PO.
+ * Open quantities count receipts only, so goods on the road are still "open"
+ * until the hotel receives them.
+ */
+export const inTransit = (data, { deliveryId = null, hotelId = null } = {}) => {
+  const out = new Map();
+  for (const ds of data?.dispatches || []) {
+    if (ds.status !== "in_transit") continue;
+    if (deliveryId != null) {
+      if (ds.deliveryId == null || Number(ds.deliveryId) !== Number(deliveryId)) continue;
+    } else if (hotelId != null) {
+      if (ds.hotelId == null || Number(ds.hotelId) !== Number(hotelId)) continue;
+    }
+    for (const l of ds.lines || []) {
+      const id = Number(l.poLineId);
+      out.set(id, (out.get(id) || 0) + Math.max(0, toQ(l.qty)));
+    }
+  }
+  return out;
+};
+
+/** {poLineId → scaled qty}: open less what is already on the road (never below 0). */
+export const netOfTransit = (open, onRoad) => {
+  const out = new Map();
+  for (const [id, q] of open) out.set(id, Math.max(0, q - (onRoad.get(id) || 0)));
+  return out;
+};
+
+/** A phase still waiting on goods that are not already on the road to it. */
+export const phaseNeedsGoods = (data, delivery) =>
+  isOpenDelivery(delivery) &&
+  [...netOfTransit(phaseOpen(delivery), inTransit(data, { deliveryId: delivery?.id })).values()].some((q) => q > 0);

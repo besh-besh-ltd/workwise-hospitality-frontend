@@ -142,6 +142,31 @@ describe("VendorDeliveries", () => {
     expect(onDispatch).toHaveBeenCalledWith({ hotelId: 46, deliveryId: 902 });
   });
 
+  it("offers no new dispatch for a phase whose open goods are all on the road", () => {
+    const withTransit = (qty, status = "in_transit") => vendorDeliveries({
+      dispatches: vendorDeliveries().dispatches.map((ds) => (ds.id === 72 ? { ...ds, status, lines: [{ ...ds.lines[0], qty }] } : ds)),
+    });
+    const puri = "Dispatch Lotus Puri · Phase 1";
+    const phaseHead = () => within(screen.getByRole("region", { name: "Delivery plan" }))
+      .getByText("Lotus Puri · Phase 1").closest("div");
+
+    // DSP/…/00004 carries all 10 POUFFE Puri's phase 1 still needs.
+    const { unmount } = render(<VendorDeliveries poId={626} data={withTransit(10)} loading={false} error="" canDispatch canInvoice />);
+    expect(screen.queryByRole("button", { name: puri })).not.toBeInTheDocument();
+    expect(phaseHead()).toHaveTextContent("On the road");
+    unmount();
+
+    // Only 4 of them: the other 6 still need a note.
+    const partial = render(<VendorDeliveries poId={626} data={withTransit(4)} loading={false} error="" canDispatch canInvoice />);
+    expect(screen.getByRole("button", { name: puri })).toBeInTheDocument();
+    partial.unmount();
+
+    // Withdrawn: nothing is on the road any more.
+    render(<VendorDeliveries poId={626} data={withTransit(10, "cancelled")} loading={false} error="" canDispatch canInvoice />);
+    expect(screen.getByRole("button", { name: puri })).toBeInTheDocument();
+    expect(phaseHead()).not.toHaveTextContent("On the road");
+  });
+
   it("offers no dispatch or invoice actions when the PO does not allow them", () => {
     mount({ canDispatch: false, canInvoice: false });
     expect(screen.queryByRole("button", { name: /^Dispatch / })).not.toBeInTheDocument();
@@ -208,7 +233,9 @@ describe("VendorPoDetail Deliveries", () => {
     ...over,
   });
 
-  it("loads the vendor's deliveries and opens a dispatch note from Mark dispatched", async () => {
+  const heroOf = () => within(screen.getByRole("heading", { level: 1 }).closest("section"));
+
+  it("loads the vendor's deliveries and opens the next dispatch note from the hero", async () => {
     getVendorPoDeliveries.mockResolvedValue(vendorDeliveries());
     render(<VendorPoDetail data={po()} loading={false} error={null} onRefresh={jest.fn()} />);
 
@@ -216,9 +243,31 @@ describe("VendorPoDetail Deliveries", () => {
     expect(getVendorPoDeliveries).toHaveBeenCalledWith(626);
     expect(plan).not.toHaveTextContent(PRICE_WORDS);
 
-    const hero = within(screen.getByRole("heading", { level: 1 }).closest("section"));
-    fireEvent.click(hero.getByRole("button", { name: /Mark dispatched/ }));
-    expect(await screen.findByRole("dialog", { name: "Dispatch note" })).toBeInTheDocument();
+    // Two notes have gone already: the hero offers the next one.
+    expect(heroOf().queryByRole("button", { name: /Mark dispatched/ })).not.toBeInTheDocument();
+    fireEvent.click(heroOf().getByRole("button", { name: /New dispatch note/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Dispatch note" });
+    // No hotel picked: the PO's open POUFFE less the 10 on the road to Puri.
+    expect(within(dialog).getByLabelText("Dispatch quantity for POUFFE")).toHaveValue("17");
+  });
+
+  it("calls the first dispatch Mark dispatched, and every one after it New dispatch note", async () => {
+    // Accepted, nothing sent yet (a withdrawn note does not count).
+    const none = vendorDeliveries({
+      dispatches: vendorDeliveries().dispatches.map((ds) => ({ ...ds, status: "cancelled" })),
+    });
+    getVendorPoDeliveries.mockResolvedValue(none);
+    const first = render(<VendorPoDetail data={po({ status: "approved" })} loading={false} error={null} onRefresh={jest.fn()} />);
+    await screen.findByRole("region", { name: "Delivery plan" });
+    expect(heroOf().getByRole("button", { name: /Mark dispatched/ })).toBeInTheDocument();
+    expect(heroOf().queryByRole("button", { name: /New dispatch note/ })).not.toBeInTheDocument();
+    first.unmount();
+
+    // One note on the road, PO still "approved" on the page: the next is a new note.
+    getVendorPoDeliveries.mockResolvedValue(vendorDeliveries());
+    render(<VendorPoDetail data={po({ status: "approved" })} loading={false} error={null} onRefresh={jest.fn()} />);
+    expect(await heroOf().findByRole("button", { name: /New dispatch note/ })).toBeInTheDocument();
+    expect(heroOf().queryByRole("button", { name: /Mark dispatched/ })).not.toBeInTheDocument();
   });
 
   it("does not ask for deliveries on an order the vendor rejected", async () => {

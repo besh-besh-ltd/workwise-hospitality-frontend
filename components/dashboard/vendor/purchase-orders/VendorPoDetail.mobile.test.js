@@ -167,7 +167,8 @@ describe("vendor phone action bar — fulfilment", () => {
   it("once dispatched, offers the next dispatch note and Raise invoice", async () => {
     mount({ status: "dispatched" });
     const region = await bar();
-    expect(within(region).getByRole("button", { name: /Mark dispatched/ })).toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: /New dispatch note/ })).toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Mark dispatched/ })).not.toBeInTheDocument();
     fireEvent.click(within(region).getByRole("button", { name: /Raise invoice/ }));
     expect(await screen.findByRole("dialog", { name: "Raise invoice" })).toBeInTheDocument();
     expect(handleRaiseInvoice).not.toHaveBeenCalled();

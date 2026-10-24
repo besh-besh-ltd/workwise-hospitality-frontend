@@ -129,4 +129,28 @@ describe("InvoiceModal", () => {
     expect(await within(dialog).findByText("File too large")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Raise invoice" })).toBeEnabled();
   });
+
+  it("keeps the file picked last when an earlier upload finishes after it", async () => {
+    const OLD_URL = "https://bucket.s3.ap-south-1.amazonaws.com/uploads/old.pdf";
+    let finishOld;
+    handleUploadFile
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
+      .mockResolvedValueOnce({ data: [{ file_path: FILE_URL }] });
+    handleRaiseInvoice.mockResolvedValue({ status: 1, data: { id: 3004 } });
+    const { dialog } = mount();
+    const input = within(dialog).getByLabelText("Invoice file");
+
+    fireEvent.change(input, { target: { files: [new File(["%PDF"], "old.pdf", { type: "application/pdf" })] } });
+    fireEvent.change(input, { target: { files: [new File(["%PDF"], "inv-131.pdf", { type: "application/pdf" })] } });
+    expect(await within(dialog).findByText(/inv-131\.pdf/)).toBeInTheDocument();
+
+    // The slow first upload lands now: it must not replace the second file.
+    finishOld({ data: [{ file_path: OLD_URL }] });
+    await waitFor(() => expect(within(dialog).queryByText(/old\.pdf/)).not.toBeInTheDocument());
+    expect(within(dialog).getByText(/inv-131\.pdf/)).toBeInTheDocument();
+
+    fill(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Raise invoice" }));
+    await waitFor(() => expect(handleRaiseInvoice).toHaveBeenCalledWith(626, FILE_URL, expect.any(Object)));
+  });
 });

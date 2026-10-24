@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { Send } from "lucide-react";
@@ -43,9 +43,13 @@ export default function InvoiceModal({ show, onClose, poId, poNumber, dispatches
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  // The latest upload: a slower earlier one (a file picked, then another, or
+  // the dialog closed and reopened) must not land over it.
+  const uploadSeq = useRef(0);
 
   useEffect(() => {
     if (!show) return;
+    uploadSeq.current += 1;
     setFile(emptyFile);
     setForm({ number: "", date: "", amount: "", dispatchId: defaultDispatchId != null ? String(defaultDispatchId) : "" });
     setErrors({});
@@ -65,13 +69,16 @@ export default function InvoiceModal({ show, onClose, poId, poNumber, dispatches
     const chosen = e.target.files?.[0] || null;
     if (!chosen) return;
     if (errors.file) setErrors((x) => ({ ...x, file: undefined }));
+    const seq = ++uploadSeq.current;
     setFile({ name: chosen.name, size: chosen.size, url: "", uploading: true, problem: "" });
     try {
       const res = await handleUploadFile(chosen);
       const url = res?.data?.[0]?.file_path;
       if (!url) throw new Error("The upload did not return a file link.");
+      if (seq !== uploadSeq.current) return;
       setFile((f) => ({ ...f, url, uploading: false }));
     } catch (err) {
+      if (seq !== uploadSeq.current) return;
       const problem = getApiErrorMessage(err, "Couldn't upload the file. Please try again.");
       setFile((f) => ({ ...f, url: "", uploading: false, problem }));
     }

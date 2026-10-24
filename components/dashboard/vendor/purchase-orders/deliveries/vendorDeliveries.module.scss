@@ -228,6 +228,21 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   &:hover { color: var(--accent-hover); }
   &:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 3px; }
 }
+/* A text action inside a sentence (the dispatch dialog's fallback). */
+.linkBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  &:hover:not(:disabled) { color: var(--accent-hover); }
+  &:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 3px; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
 
 /* ───────────── Loading / error ───────────── */
 .skeleton { display: grid; gap: 10px; }
@@ -454,6 +469,13 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
       border-bottom: 1px solid #e8e8e3;
     }
     td { display: block; padding: 0; border-bottom: none; }
+    td[data-label]::before {
+      content: attr(data-label) " ";
+      font-family: 'Geist', -apple-system, sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: #71717a;
+    }
   }
   .qtyInput { width: 110px; min-height: 44px; }
   .mBtn { min-height: 44px; }

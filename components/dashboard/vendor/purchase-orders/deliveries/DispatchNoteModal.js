@@ -3,6 +3,7 @@ import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { Truck } from "lucide-react";
 import { createDispatch } from "@/services/inventory";
+import { handleMarkDispatched } from "@/services/po";
 import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
 import { fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
 import vd from "./vendorDeliveries.module.scss";
@@ -16,6 +17,8 @@ import {
   isOpenDelivery,
   openCaps,
   phaseOpen,
+  inTransit,
+  netOfTransit,
   UNSPLIT_LABEL,
 } from "./deliveryFormat";
 
@@ -26,11 +29,18 @@ const FIELD_KEYS = ["challanNo", "challanDate", "expectedDeliveryDate", "ewayBil
 
 const asId = (v) => (v === "" || v == null ? null : Number(v));
 
+/* Where the goods already on the road are counted: the phase picked, else
+   the hotel, else the whole PO (the same scope as the starting quantities). */
+const roadScope = (hotelId, delivery) => (delivery ? { deliveryId: delivery.id } : { hotelId });
+
 /* Line quantities a fresh note starts with: what the phase still needs; with
    only a hotel, what is open there (its unsplit share included); with
-   neither, what is open on each PO line. */
+   neither, what is open on each PO line. Less, each time, what earlier notes
+   still have on the road there: open counts receipts only. The server's cap
+   (the Open column) stays the hard limit. */
 const startingQtys = (data, hotelId, delivery) => {
-  const source = delivery ? phaseOpen(delivery) : openCaps(data, hotelId);
+  const open = delivery ? phaseOpen(delivery) : openCaps(data, hotelId);
+  const source = netOfTransit(open, inTransit(data, roadScope(hotelId, delivery)));
   const out = {};
   for (const l of data?.poLines || []) out[l.id] = qtyInput(source.get(Number(l.id)) || 0);
   return out;
@@ -73,6 +83,8 @@ export default function DispatchNoteModal({
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const [markError, setMarkError] = useState("");
   const expectedTouched = useRef(false);
 
   const hotels = useMemo(() => data?.hotels || [], [data]);
@@ -97,6 +109,8 @@ export default function DispatchNoteModal({
     setErrors({});
     setServerError("");
     setSaving(false);
+    setMarking(false);
+    setMarkError("");
     expectedTouched.current = false;
   }, [show, data, initial, deliveries, hotels]);
 
@@ -105,6 +119,8 @@ export default function DispatchNoteModal({
   // Where the server caps quantities: the hotel named, else the phase's hotel.
   const capHotel = hotelId ?? (delivery?.hotelId ?? null);
   const caps = useMemo(() => openCaps(data, capHotel), [data, capHotel]);
+  const onRoad = inTransit(data, roadScope(hotelId, delivery));
+  const anyOnRoad = [...onRoad.values()].some((q) => q > 0);
   const rows = poLines.filter((l) => (caps.get(Number(l.id)) || 0) > 0);
 
   const phaseChoices = deliveries.filter(
@@ -241,6 +257,23 @@ export default function DispatchNoteModal({
     }
   };
 
+  // The plan did not load: the old one-click "dispatched" still tells the
+  // hotel the goods left (no quantities); a note can follow once it loads.
+  const markWithoutDetails = async () => {
+    if (marking) return;
+    setMarking(true);
+    setMarkError("");
+    try {
+      await handleMarkDispatched(poId);
+      toast.success("Marked dispatched. Add a dispatch note with the quantities once the plan loads.");
+      setMarking(false);
+      onDone?.(null);
+    } catch (err) {
+      setMarkError(getApiErrorMessage(err, "Couldn't mark the order dispatched. Please try again."));
+      setMarking(false);
+    }
+  };
+
   const fieldProps = (key) => ({
     id: `dn-${key}`,
     value: form[key],
@@ -261,21 +294,34 @@ export default function DispatchNoteModal({
     content = loading ? (
       <p className={vd.note}>Loading the delivery plan…</p>
     ) : (
-      <div className={vd.alert} role="alert">
-        {error || "Couldn't load the delivery plan."}{" "}
-        {onRetry && (
-          <button type="button" className={`${vd.mBtn} ${vd.mBtnSecondary}`} onClick={() => onRetry()}>
-            Try again
+      <>
+        <div className={vd.alert} role="alert">
+          {error || "Couldn't load the delivery plan."}{" "}
+          {onRetry && (
+            <button type="button" className={`${vd.mBtn} ${vd.mBtnSecondary}`} onClick={() => onRetry()} disabled={marking}>
+              Try again
+            </button>
+          )}
+        </div>
+        <p className={vd.note}>
+          Goods already left?{" "}
+          <button type="button" className={vd.linkBtn} onClick={markWithoutDetails} disabled={marking}>
+            {marking ? "Marking…" : "Mark dispatched without details"}
           </button>
+        </p>
+        {markError && (
+          <p className={vd.err} role="alert">
+            {markError}
+          </p>
         )}
-      </div>
+      </>
     );
   } else {
     content = (
       <>
         <p className={vd.intro}>
-          Tell the hotel what is on its way. Quantities start at what the chosen phase still needs; send less if the rest
-          follows later.
+          Tell the hotel what is on its way. Quantities start at what the chosen phase still needs, less what is already on
+          the road; send less if the rest follows later.
         </p>
         {serverError && (
           <p className={vd.alert} role="alert">
@@ -321,6 +367,7 @@ export default function DispatchNoteModal({
               <tr>
                 <th>Item</th>
                 <th className="num">Open</th>
+                {anyOnRoad && <th className="num">On the road</th>}
                 <th className="num">Dispatch now</th>
               </tr>
             </thead>
@@ -333,7 +380,12 @@ export default function DispatchNoteModal({
                       <div className={vd.itName}>{l.productName || "Item"}</div>
                       {l.unit && <div className={vd.itUnit}>{l.unit}</div>}
                     </td>
-                    <td className="num">{qtyText(fromQ(caps.get(Number(l.id)) || 0))}</td>
+                    <td className="num" data-label="Open">{qtyText(fromQ(caps.get(Number(l.id)) || 0))}</td>
+                    {anyOnRoad && (
+                      <td className="num" data-label="On the road">
+                        {(onRoad.get(Number(l.id)) || 0) > 0 ? qtyText(fromQ(onRoad.get(Number(l.id)))) : "—"}
+                      </td>
+                    )}
                     <td>
                       <div className={vd.qtyField}>
                         <input
@@ -413,18 +465,18 @@ export default function DispatchNoteModal({
   return (
     <Modal
       show={show}
-      onHide={saving ? undefined : onClose}
+      onHide={saving || marking ? undefined : onClose}
       centered
       backdrop="static"
       className={`${vd.dialog} ${vd.dialogWide}`}
       aria-labelledby="dispatch-note-title"
     >
-      <Modal.Header closeButton={!saving}>
+      <Modal.Header closeButton={!saving && !marking}>
         <Modal.Title id="dispatch-note-title">Dispatch note</Modal.Title>
       </Modal.Header>
       <Modal.Body>{content}</Modal.Body>
       <Modal.Footer>
-        <button type="button" className={`${vd.mBtn} ${vd.mBtnSecondary}`} onClick={onClose} disabled={saving}>
+        <button type="button" className={`${vd.mBtn} ${vd.mBtnSecondary}`} onClick={onClose} disabled={saving || marking}>
           Cancel
         </button>
         <button

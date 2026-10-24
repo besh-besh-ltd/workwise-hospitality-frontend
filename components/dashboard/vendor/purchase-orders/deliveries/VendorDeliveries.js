@@ -13,6 +13,7 @@ import {
   deliveryLabel,
   lineHasActivity,
   isOpenDelivery,
+  phaseNeedsGoods,
   REJECTION_LABELS,
   SHORT_CLOSE_LABELS,
   DELIVERY_STATUS,
@@ -200,6 +201,8 @@ function PlanBlock({ data, canDispatch, onDispatch }) {
         phases.map((d) => {
           const label = deliveryLabel(d);
           const status = DELIVERY_STATUS[d.status];
+          // A phase whose open goods are all on the road needs no new note.
+          const needsGoods = phaseNeedsGoods(data, d);
           return (
             <div key={d.id} className={vd.phase}>
               <div className={vd.phaseHead}>
@@ -211,7 +214,10 @@ function PlanBlock({ data, canDispatch, onDispatch }) {
                   <span>{d.dueDate ? `Due ${fmtDateOnly(d.dueDate)}` : "No due date"}</span>
                   {status && <Pill spec={status} />}
                   {d.overdue && <span className={`${po.pill} ${po.pillWarn}`}>Overdue</span>}
-                  {canDispatch && isOpenDelivery(d) && (
+                  {canDispatch && isOpenDelivery(d) && !needsGoods && (
+                    <span className={`${po.pill} ${po.pillInfo}`}>On the road</span>
+                  )}
+                  {canDispatch && needsGoods && (
                     <button
                       type="button"
                       className={`${po.btn} ${po.btnSecondary} ${po.btnSm}`}

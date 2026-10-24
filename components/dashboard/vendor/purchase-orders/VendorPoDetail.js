@@ -272,8 +272,14 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
   const canDispatch =
     DISPATCH_STATUSES.includes(po.status) && !RECEIPT_DONE.includes(deliveries.data?.receiptStatus);
   const canInvoice = INVOICE_STATUSES.includes(po.status);
-  // Once accepted, dispatching is the next step; after that it is a repeat.
+  // Once accepted, dispatching is the next step; after that it is a repeat,
+  // one note per delivery.
   const dispatchIsNext = po.status === "approved";
+  const hasDispatched =
+    (deliveries.data?.dispatches || []).some((d) => d.status !== "cancelled") ||
+    po.status === "dispatched" ||
+    po.status === "GRN";
+  const dispatchLabel = hasDispatched ? "New dispatch note" : "Mark dispatched";
 
   const heroMod =
     po.status === "approved" ||
@@ -390,7 +396,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
                 onClick={() => openDispatch()}
               >
                 <Truck size={13} />
-                Mark dispatched
+                {dispatchLabel}
               </button>
             )}
             {canInvoice && (
@@ -926,7 +932,7 @@ const VendorPoDetail = ({ data, loading, error, onRefresh }) => {
               onClick={() => openDispatch()}
             >
               <Truck size={16} />
-              Mark dispatched
+              {dispatchLabel}
             </MobileActionButton>
           )}
           {canInvoice && (

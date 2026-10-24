@@ -6,6 +6,9 @@
 // expected date). The server caps each quantity at what is open at that hotel
 // (its own phases plus the share not yet split by hotel), or on the PO line
 // when no hotel is named; the dialog checks the same before posting.
+// Open counts receipts only, so the starting quantities leave out what earlier
+// notes still have on the road (the fixture's DSP/47/…/00004: 10 POUFFE to
+// Lotus Puri, phase 1).
 
 jest.mock("react-toastify", () => ({
   __esModule: true,
@@ -17,11 +20,17 @@ jest.mock("@/services/inventory", () => ({
   createDispatch: jest.fn(),
   cancelDispatch: jest.fn(),
 }));
+jest.mock("@/services/po", () => ({
+  __esModule: true,
+  handleMarkDispatched: jest.fn(),
+}));
 
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { toast } from "react-toastify";
 import { createDispatch } from "@/services/inventory";
+import { handleMarkDispatched } from "@/services/po";
 import DispatchNoteModal from "../DispatchNoteModal";
 import { vendorDeliveries } from "../__fixtures__/vendorDeliveries.fixture";
 
@@ -32,6 +41,8 @@ const mount = (props = {}) => {
 };
 
 const qty = (dialog, product) => within(dialog).getByLabelText(`Dispatch quantity for ${product}`);
+/* Item | Open | On the road | Dispatch now, for one item's row. */
+const cells = (dialog, product) => within(qty(dialog, product).closest("tr")).getAllByRole("cell").map((c) => c.textContent);
 const set = (el, value) => fireEvent.change(el, { target: { value } });
 
 const fillPaperwork = (dialog) => {
@@ -87,20 +98,40 @@ describe("DispatchNoteModal", () => {
     expect(qty(dialog, "SIDE TABLE")).toHaveValue("17.5");
   });
 
-  it("with no hotel, starts at what is open on each PO line", () => {
+  it("with no hotel, starts at what is open on each PO line, less what is on the road", () => {
     const { dialog } = mount();
-    expect(qty(dialog, "POUFFE")).toHaveValue("27");
+    // POUFFE: 27 open on the PO, 10 of them already on the road to Puri.
+    expect(qty(dialog, "POUFFE")).toHaveValue("17");
     expect(qty(dialog, "SIDE TABLE")).toHaveValue("17.5");
+    expect(within(dialog).getByRole("columnheader", { name: "On the road" })).toBeInTheDocument();
+    expect(cells(dialog, "POUFFE").slice(1, 3)).toEqual(["27", "10"]);
+    expect(cells(dialog, "SIDE TABLE").slice(1, 3)).toEqual(["17.5", "—"]);
   });
 
-  it("opens on the phase picked from the plan", () => {
+  it("opens on the phase picked from the plan, net of the goods already on their way to it", async () => {
+    createDispatch.mockResolvedValue({ id: 82, dispatchNumber: "DSP/47/2026-27/00007" });
     const { dialog } = mount({ initial: { hotelId: 47, deliveryId: 903 } });
     expect(within(dialog).getByLabelText("Hotel")).toHaveValue("47");
     expect(within(dialog).getByLabelText("Phase")).toHaveValue("903");
-    expect(qty(dialog, "POUFFE")).toHaveValue("10");
+    // Puri's phase 1 needs 10 POUFFE and 10 are on the road: nothing to add.
+    expect(qty(dialog, "POUFFE")).toHaveValue("");
+    expect(cells(dialog, "POUFFE").slice(1, 3)).toEqual(["10", "10"]);
     // Nothing of Puri's phase 1 side tables is open (short-closed), so it
     // starts empty; the unsplit 2.5 could still go.
     expect(qty(dialog, "SIDE TABLE")).toHaveValue("");
+
+    // The default is a suggestion: the server's cap (Open) is the only limit.
+    set(qty(dialog, "POUFFE"), "4");
+    fillPaperwork(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Record dispatch" }));
+    await waitFor(() => expect(createDispatch).toHaveBeenCalledTimes(1));
+    expect(createDispatch.mock.calls[0][1].lines).toEqual([{ poLineId: 501, qty: "4" }]);
+  });
+
+  it("shows no On the road column when nothing is on the road there", () => {
+    const { dialog } = mount({ initial: { hotelId: 46, deliveryId: 902 } });
+    expect(within(dialog).queryByRole("columnheader", { name: "On the road" })).not.toBeInTheDocument();
+    expect(qty(dialog, "POUFFE")).toHaveValue("8");
   });
 
   it("does not post more than is open at the hotel, or nothing at all", async () => {
@@ -137,7 +168,7 @@ describe("DispatchNoteModal", () => {
     const [, payload] = createDispatch.mock.calls[0];
     expect(payload.hotelId).toBeNull();
     expect(payload.deliveryId).toBeNull();
-    expect(payload.lines).toEqual([{ poLineId: 501, qty: "27" }]);
+    expect(payload.lines).toEqual([{ poLineId: 501, qty: "17" }]);
   });
 
   it("keeps the dialog open with the server's reason when the dispatch is refused", async () => {
@@ -149,5 +180,30 @@ describe("DispatchNoteModal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Record dispatch" }));
     expect(await within(dialog).findByText("That delivery has nothing left to send")).toBeInTheDocument();
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("when the plan will not load, can still mark the order dispatched without details", async () => {
+    handleMarkDispatched.mockResolvedValue({ status: 1, message: "Marked as Dispatched for this PO." });
+    const onRetry = jest.fn();
+    const { dialog, onDone } = mount({ data: null, loading: false, error: "Network down", onRetry });
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Network down");
+    expect(within(dialog).getByRole("button", { name: "Record dispatch" })).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark dispatched without details" }));
+    await waitFor(() => expect(handleMarkDispatched).toHaveBeenCalledWith(626));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(null));
+    expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Marked dispatched/));
+    expect(createDispatch).not.toHaveBeenCalled();
+  });
+
+  it("says why when marking dispatched without details is refused", async () => {
+    handleMarkDispatched.mockRejectedValue({
+      response: { status: 403, data: { status: 0, message: "Your subscription has expired. Please renew to continue." } },
+    });
+    const { dialog, onDone } = mount({ data: null, loading: false, error: "Network down", onRetry: jest.fn() });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark dispatched without details" }));
+    expect(await within(dialog).findByText("Your subscription has expired. Please renew to continue.")).toBeInTheDocument();
+    expect(onDone).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "Mark dispatched without details" })).toBeEnabled();
   });
 });
