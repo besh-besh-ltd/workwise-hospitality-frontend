@@ -143,5 +143,7 @@ export const uploadTokenGrnAttachment = async (token, id, file, kind) =>
     )
   );
 
-// Buyer-side: revoke the site-rep link for a PO (normal authenticated call).
-export const revokeSiteRep = (poId) => post(`/po/${poId}/site-rep/revoke`);
+// Buyer-side: revoke a site-rep link for a PO (normal authenticated call).
+// With `tokenId` only that person's link is revoked; without it, every live link.
+export const revokeSiteRep = (poId, tokenId) =>
+  post(`/po/${poId}/site-rep/revoke`, tokenId ? { tokenId } : undefined);

@@ -55,6 +55,8 @@ import mobileBarStyles from "@/components/shared/mobile/MobileActionBar.module.c
 // never drift into calling the same code two different things.
 import { removalReasonLabel } from "@/components/dashboard/buyer/rfq/stages/StageShared";
 import VendorRejectionRecovery from "@/components/dashboard/buyer/purchase-orders/VendorRejectionRecovery";
+import DeliveriesTab from "./deliveries/DeliveriesTab";
+import dlStyles from "./deliveries/deliveries.module.scss";
 import styles, {
   avatarClass,
   initialsOf,
@@ -587,6 +589,14 @@ const PODetail = ({ id }) => {
     else router.push(PO_ROUTE);
   };
 
+  /* Tabs: the PO body ("Details", the default) and its Deliveries. The tab
+     lives in ?tab=deliveries so a link, a refresh or Back lands on it. */
+  const selectTab = (next) => {
+    const { tab: _drop, ...rest } = router.query || {};
+    const query = next === "deliveries" ? { ...rest, tab: "deliveries" } : rest;
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  };
+
   // Approve / Reject — reuse the existing PO approval endpoint and payload
   // shape: handlePOApproval(po_id, { decision, type: "approval", remarks }).
   //
@@ -999,6 +1009,10 @@ const PODetail = ({ id }) => {
     ? `/dashboard/buyer/material-requisitions/${callOff.mr_id}`
     : null;
 
+  // A draft has no delivery plan yet (it is created at submit-for-approval).
+  const showTabs = po.status !== "draft";
+  const activeTab = showTabs && router.query?.tab === "deliveries" ? "deliveries" : "details";
+
   return (
     <div className={styles.page}>
       <Breadcrumb onBack={handleBack} current={po.po_number || po.id} />
@@ -1366,7 +1380,34 @@ const PODetail = ({ id }) => {
         </div>
       </section>
 
-      {/* Body */}
+      {showTabs && (
+        <nav className={dlStyles.tabBar} aria-label="Purchase order sections">
+          <div className={dlStyles.tabBarInner} role="tablist">
+            {[
+              { key: "details", label: "Details" },
+              { key: "deliveries", label: "Deliveries" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t.key}
+                className={`${dlStyles.tab} ${activeTab === t.key ? dlStyles.tabActive : ""}`}
+                onClick={() => selectTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      {/* Body. The Details body below is the page as it always was. */}
+      {activeTab === "deliveries" ? (
+      <main className={`${styles.pageBody} ${styles.pageBodyAside}`}>
+        <DeliveriesTab poId={po.id ?? id} />
+      </main>
+      ) : (
       <main className={`${styles.pageBody} ${styles.pageBodyAside}`}>
         {/* LEFT */}
         <div className={styles.sectionStack}>
@@ -2366,6 +2407,7 @@ const PODetail = ({ id }) => {
           </div>
         </div>
       </main>
+      )}
 
       {/* Reject confirmation — the reason is collected HERE, at the moment of
           the decision, by both Reject buttons on this page. Confirm stays

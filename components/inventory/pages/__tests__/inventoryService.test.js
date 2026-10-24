@@ -97,6 +97,7 @@ const JSON_CASES = [
   ["printItemLabels", [{ layout: "A4_65" }], "post", `${B}/labels/items`, { layout: "A4_65" }],
   ["printGrnLabels", [9, { layout: "A4_24" }], "post", `${B}/labels/grn/9`, { layout: "A4_24" }],
   ["revokeSiteRep", [7], "post", `${B}/po/7/site-rep/revoke`, undefined],
+  ["revokeSiteRep", [7, 31], "post", `${B}/po/7/site-rep/revoke`, { tokenId: 31 }],
 ];
 
 describe("buyer calls use the shared instance with the contract method and path", () => {

@@ -534,7 +534,7 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
               )}
               {canWrite && status === 'dispatched' && (
                 <button className={`${styles.heroBtn} ${styles.heroBtnApprove} ${styles.heroBtnKeep}`} onClick={() => setShowGRNUpdateModal(true)}>
-                  <BsTruck size={14} /> Update to GRN
+                  <BsTruck size={14} /> Receive goods
                 </button>
               )}
               {showLegacyApprovalActions && (
@@ -1748,7 +1748,8 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
         />
 
 
-        {/* PO Update Status to GRN */}
+        {/* Receive goods: opens the line-level Receive screen (the parent's
+            grn_update handler routes there) instead of flipping the status. */}
         <ConfirmationModal
           isOpen={showGRNUpdateModal}
           onClose={() => setShowGRNUpdateModal(false)}
@@ -1756,15 +1757,13 @@ const PurchaseOrderDetails = ({ data, currentRfqData, handlePODecision, handleIn
             if (handlePODecision) handlePODecision(id, { type: "grn_update" });
             setShowGRNUpdateModal(false);
           }}
-          title="Mark GRN for this PO"
-          description={`Are you sure you want to mark GRN for PO #${
+          title="Receive goods"
+          description={`Receive goods for PO #${
             po_number || "this purchase order"
-          }?\nThis action will mark the status for this PO as GRN ( Goods Reciept Note ),
-          That will indicate that the goods has been delivered to the site.`}
-          customFooter={`This Action Cannot be Reversed!`}
+          }?\nThe Receive screen opens, where you record what arrived, line by line, with any rejections.`}
           confirmButtonColor="success"
-          confirmButtonText="Yes, Go Ahead"
-          cancelButtonText="No, Cancel It"
+          confirmButtonText="Receive goods"
+          cancelButtonText="Cancel"
         />
 
         <RegeneratePOModal
