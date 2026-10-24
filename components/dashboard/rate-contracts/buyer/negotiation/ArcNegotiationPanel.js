@@ -81,6 +81,8 @@ export default function ArcNegotiationPanel({ arc, items, vendors, qualifiedMap,
         <ArcRoundsList
           rounds={rounds}
           arcId={arc.id}
+          items={items}
+          vendors={vendors}
           canEvaluate={canEvaluate}
           onAfterChange={handleAfterChange}
         />
