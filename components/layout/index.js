@@ -209,8 +209,11 @@ const Layout = (props) => {
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
   // A vendor-network invitation is a focused, standalone task: no marketing header.
   const isNetworkInvitePage = router.pathname === '/vendor/network/accept-invite';
+  // Inventory short links (/s/<t>/<id>, from printed QR labels) are a scan
+  // landing, not a marketing page: no public header or footer.
+  const isInventoryShortLink = router.pathname === '/s/[t]/[id]';
   const shouldHideNavbarFooter =
-    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage;
+    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage || isInventoryShortLink;
 
   // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
   // Public/marketing pages (and anonymous visits to /vendor/*) continue to use

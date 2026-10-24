@@ -37,6 +37,13 @@ test("the network invitation page renders without the site header", () => {
   expect(screen.queryByTestId("site-header")).toBeNull();
 });
 
+test("the inventory short-link landing renders without the site header", () => {
+  mockPathname = "/s/[t]/[id]";
+  render(<Layout><div data-testid="page" /></Layout>);
+  expect(screen.getByTestId("page")).toBeInTheDocument();
+  expect(screen.queryByTestId("site-header")).toBeNull();
+});
+
 test("other public pages keep the site header", () => {
   mockPathname = "/for-vendors";
   render(<Layout><div data-testid="page" /></Layout>);

@@ -18,6 +18,7 @@ const SideNav = ({
   subSidebarRef,
   collapsed = false,
   onLogoutRequest,
+  navGrants = null,
 }) => {
   const router = useRouter();
   const { pathname } = router;
@@ -46,8 +47,8 @@ const SideNav = ({
   );
 
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession() }),
-    [currentUserType, isHospitalityCompany, userProfile]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession(), navGrants }),
+    [currentUserType, isHospitalityCompany, userProfile, navGrants]
   );
 
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");
