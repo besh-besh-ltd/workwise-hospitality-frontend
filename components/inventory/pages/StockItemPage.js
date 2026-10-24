@@ -1,6 +1,9 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import ItemCard from "@/components/inventory/stock/ItemCard";
 
-const StockItemPage = (props) => <PagePlaceholder title="Inventory · Stock item" />;
+// /dashboard/buyer/inventory/stock/[hotelId]/[itemId] (the route waits for the router).
+const StockItemPage = ({ hotelId, itemId }) => (
+  <ItemCard key={`${hotelId}/${itemId}`} hotelId={hotelId} invItemId={itemId} />
+);
 
 export default StockItemPage;
