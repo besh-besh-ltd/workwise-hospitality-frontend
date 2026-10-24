@@ -117,3 +117,48 @@ it("shows the server's message when the overview fails", async () => {
   expect(await screen.findByText("Stock value")).toBeInTheDocument();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
+
+it("shows only the error when the overview fails with nothing loaded", async () => {
+  getInventoryOverview.mockRejectedValueOnce({ response: { status: 500, data: { message: "Database unavailable" } } });
+  render(<OverviewPage />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Database unavailable");
+
+  // No empty panels claiming there is no stock, no zeroed tiles.
+  expect(screen.queryByText("Stock value")).not.toBeInTheDocument();
+  expect(screen.queryByText("Stock value by hotel")).not.toBeInTheDocument();
+  expect(screen.queryByText("Marked out this month")).not.toBeInTheDocument();
+  expect(screen.queryByText("No stock yet")).not.toBeInTheDocument();
+  expect(screen.queryByText("Nothing marked out")).not.toBeInTheDocument();
+});
+
+it("keeps the previous figures and puts the picker back when narrowing fails", async () => {
+  getInventoryOverview.mockResolvedValueOnce(overview());
+  getInventoryOverview.mockRejectedValueOnce({ response: { status: 500, data: { message: "Timed out" } } });
+  getInventoryOverview.mockResolvedValueOnce(
+    overview({
+      stockValueByHotel: [{ hotelId: 10102, hotelName: "Hotel A-2", value: 30000 }],
+      stockNotStartedHotels: [],
+    })
+  );
+  render(<OverviewPage />);
+  await screen.findByText("Stock value");
+  const picker = screen.getByLabelText("Hotel");
+
+  fireEvent.change(picker, { target: { value: "10102" } });
+  const alert = await screen.findByRole("alert");
+  expect(getInventoryOverview).toHaveBeenLastCalledWith({ hotelId: "10102" });
+
+  // The picker names the figures on screen again: all hotels, not Hotel A-2.
+  expect(picker).toHaveValue("");
+  expect(tile("Stock value")).toHaveTextContent("₹1.5L");
+  expect(tile("Stock value")).toHaveTextContent("2 hotels");
+  expect(alert).toHaveTextContent("Couldn't load Hotel A-2 (Timed out). Still showing All hotels.");
+
+  // Trying again asks for the hotel that failed, and the picker follows it.
+  fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+  await waitFor(() => expect(tile("Stock value")).toHaveTextContent("₹30.0K"));
+  expect(tile("Stock value")).toHaveTextContent("1 hotel");
+  expect(getInventoryOverview).toHaveBeenLastCalledWith({ hotelId: "10102" });
+  expect(picker).toHaveValue("10102");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

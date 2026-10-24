@@ -37,11 +37,16 @@ const EmptyPanel = ({ title, text }) => (
 );
 
 const OverviewPage = () => {
+  // hotelId is the hotel the figures on screen belong to ("" = all hotels);
+  // pendingHotelId is the one being fetched. The picker shows the pending
+  // choice while it loads and falls back to hotelId if the fetch fails, so it
+  // always names the figures beside it.
   const [hotelId, setHotelId] = useState("");
+  const [pendingHotelId, setPendingHotelId] = useState(null);
   const [hotelOptions, setHotelOptions] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // { message, hotelId } of the failed fetch
   const [denied, setDenied] = useState(false);
   const seq = useRef(0);
 
@@ -49,10 +54,12 @@ const OverviewPage = () => {
     const mine = ++seq.current;
     setLoading(true);
     setError(null);
+    setPendingHotelId(selected);
     try {
       const payload = await getInventoryOverview(selected ? { hotelId: selected } : {});
       if (mine !== seq.current) return;
       setData(payload || null);
+      setHotelId(selected);
       // The unfiltered answer lists every hotel in scope; keep it for the picker.
       if (!selected) {
         const hotels = payload?.hotels || [];
@@ -61,19 +68,28 @@ const OverviewPage = () => {
       }
     } catch (err) {
       if (mine !== seq.current) return;
-      if (err?.response?.status === 403) {
+      if (err?.response?.status === 403 && !selected) {
         setDenied(true);
       } else {
-        setError(getApiErrorMessage(err, "We couldn't load the inventory overview."));
+        setError({
+          message: getApiErrorMessage(err, "We couldn't load the inventory overview."),
+          hotelId: selected,
+        });
       }
     } finally {
-      if (mine === seq.current) setLoading(false);
+      if (mine === seq.current) {
+        setLoading(false);
+        setPendingHotelId(null);
+      }
     }
   }, []);
 
   useEffect(() => {
-    load(hotelId);
-  }, [hotelId, load]);
+    load("");
+  }, [load]);
+
+  const hotelLabel = (id) =>
+    id ? hotelOptions.find((h) => String(h.id) === String(id))?.name || "the selected hotel" : "All hotels";
 
   const stockValue = useMemo(
     () => (data?.stockValueByHotel || []).reduce((sum, h) => sum + (Number(h.value) || 0), 0),
@@ -108,6 +124,13 @@ const OverviewPage = () => {
   }));
 
   const firstLoad = loading && !data;
+  // Nothing loaded and the fetch failed: the error is the whole story.
+  const failedEmpty = !!error && !data;
+  // A failed narrowing keeps the figures already on screen; say whose they are.
+  const errorText =
+    error && data && error.hotelId !== hotelId
+      ? `Couldn't load ${hotelLabel(error.hotelId)} (${error.message}). Still showing ${hotelLabel(hotelId)}.`
+      : error?.message;
 
   return (
     <div className={styles.page}>
@@ -123,8 +146,8 @@ const OverviewPage = () => {
             Hotel
             <select
               className={styles.hotelSelect}
-              value={hotelId}
-              onChange={(e) => setHotelId(e.target.value)}
+              value={pendingHotelId ?? hotelId}
+              onChange={(e) => load(e.target.value)}
               disabled={hotelOptions.length === 0}
               aria-label="Hotel"
             >
@@ -150,18 +173,18 @@ const OverviewPage = () => {
 
       {error && (
         <div className={styles.error} role="alert">
-          <span>{error}</span>
+          <span>{errorText}</span>
           <button
             type="button"
             className={`${surfaceStyles.btn} ${surfaceStyles.btnSecondary}`}
-            onClick={() => load(hotelId)}
+            onClick={() => load(error.hotelId)}
           >
             Try again
           </button>
         </div>
       )}
 
-      {notStarted.length > 0 && (
+      {!failedEmpty && notStarted.length > 0 && (
         <ActionBanner
           tone="info"
           icon={ClipboardCheck}
@@ -212,26 +235,28 @@ const OverviewPage = () => {
         )
       )}
 
-      <div className={surfaceStyles.dashGrid}>
-        <DashPanel title="Stock value by hotel" icon={Warehouse} subtitle="At stock cost">
-          {firstLoad ? (
-            <SkeletonRankList rows={4} />
-          ) : hotelRows.length ? (
-            <RankList rows={hotelRows} />
-          ) : (
-            <EmptyPanel title="No stock yet" text="Stock appears here once goods are received or counted." />
-          )}
-        </DashPanel>
-        <DashPanel title="Marked out this month" icon={PackageMinus} subtitle="By department, net of returns">
-          {firstLoad ? (
-            <SkeletonRankList rows={4} />
-          ) : deptRows.length ? (
-            <RankList rows={deptRows} />
-          ) : (
-            <EmptyPanel title="Nothing marked out" text="No department has drawn stock this month." />
-          )}
-        </DashPanel>
-      </div>
+      {!failedEmpty && (
+        <div className={surfaceStyles.dashGrid}>
+          <DashPanel title="Stock value by hotel" icon={Warehouse} subtitle="At stock cost">
+            {firstLoad ? (
+              <SkeletonRankList rows={4} />
+            ) : hotelRows.length ? (
+              <RankList rows={hotelRows} />
+            ) : (
+              <EmptyPanel title="No stock yet" text="Stock appears here once goods are received or counted." />
+            )}
+          </DashPanel>
+          <DashPanel title="Marked out this month" icon={PackageMinus} subtitle="By department, net of returns">
+            {firstLoad ? (
+              <SkeletonRankList rows={4} />
+            ) : deptRows.length ? (
+              <RankList rows={deptRows} />
+            ) : (
+              <EmptyPanel title="Nothing marked out" text="No department has drawn stock this month." />
+            )}
+          </DashPanel>
+        </div>
+      )}
     </div>
   );
 };
