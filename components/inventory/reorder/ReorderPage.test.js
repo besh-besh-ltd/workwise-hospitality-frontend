@@ -62,8 +62,9 @@ const reorder = (o = {}) => ({
 
 const mount = async (data = reorder()) => {
   getReorder.mockResolvedValue(data);
-  render(<ReorderPage />);
+  const view = render(<ReorderPage />);
   await screen.findByText("Milk");
+  return view;
 };
 const rowOf = (name) => screen.getByText(name).closest("tr");
 
@@ -171,11 +172,40 @@ it("switching hotel goes through the URL", async () => {
   );
 });
 
-it("hides the MR controls unless the server says the caller may raise one here", async () => {
-  await mount(reorder({ can: undefined }));
-  expect(screen.queryByRole("button", { name: /Create MR draft/ })).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Department (MR)")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Copy to RFQ/ })).toBeInTheDocument();
+const MR_ACCESS_NOTE = "You can see what needs reordering here. To raise an MR, ask for MR Raiser access at this hotel.";
+
+it("a storekeeper who can't raise an MR sees the worklist, no contract column, and one note on MR access", async () => {
+  // What the server sends a Storekeeper with no mr.create here: no departments, no contract lines.
+  const plain = reorder().rows.map((r) => ({ ...r, contracted: null, contractedLines: [] }));
+  for (const can of [{ createMrDraft: false }, undefined]) {
+    const view = await mount(reorder({ can, departments: [], rows: plain }));
+    expect(within(rowOf("Milk")).getByText("16")).toBeInTheDocument();
+    expect(screen.getAllByText(MR_ACCESS_NOTE)).toHaveLength(1);
+    expect(screen.getByText(MR_ACCESS_NOTE).closest("[role='note']")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No contract/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Contract in another department/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Contract" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Create MR draft/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Department (MR)")).not.toBeInTheDocument();
+    expect(within(rowOf("Milk")).queryAllByRole("button")).toEqual([]);
+    expect(screen.getByRole("button", { name: /Copy to RFQ \(2\)/ })).toBeEnabled();
+    view.unmount();
+  }
+});
+
+it("an MR raiser sees the contract column and no MR access note", async () => {
+  await mount();
+  expect(screen.getByRole("columnheader", { name: "Contract" })).toBeInTheDocument();
+  expect(screen.queryByText(MR_ACCESS_NOTE)).not.toBeInTheDocument();
+  expect(within(rowOf("Milk")).getByText(/ARC-0005 · Dairy Co/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Create MR draft \(1\)/ })).toBeInTheDocument();
+});
+
+it("for an MR raiser, a row with no contract still says so", async () => {
+  await mount();
+  expect(within(rowOf("Bleach")).getByText("No contract: RFQ")).toBeInTheDocument();
+  expect(within(rowOf("Milk")).queryByText(/No contract/)).not.toBeInTheDocument();
 });
 
 it("a repeat of the same MR request keeps its clientEventId; a changed one gets a new key", async () => {
