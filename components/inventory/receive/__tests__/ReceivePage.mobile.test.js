@@ -134,6 +134,45 @@ describe("ReceivePage on a phone", () => {
     await waitFor(() => expect(cardNames()[0]).toBe("Sugar"));
     expect(cardNames()).toEqual(["Sugar", "Basmati rice 25kg", "Toor dal", "Dish soap"]);
   });
+
+  it("a scanner read while the Rejected box has focus scans the next item; the rejects stay", async () => {
+    let now = 40_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      render(<ReceivePage poId="52" />);
+      await screen.findByText("Basmati rice 25kg");
+      resolveScan.mockResolvedValue({
+        kind: "item", code: "8901234567893", gs1: null,
+        item: { invItemId: 13, displayName: "Sugar", stockUom: "bag", packFactor: 1, poLineId: 13 },
+      });
+      const rice = screen.getAllByTestId("receive-card")[0];
+      fireEvent.click(within(rice).getByRole("button", { name: "Add one bag of Basmati rice 25kg" }));
+      fireEvent.click(within(rice).getByRole("button", { name: "Add one bag of Basmati rice 25kg" }));
+      const rejected = within(rice).getByLabelText("Rejected qty for Basmati rice 25kg");
+      rejected.focus();
+      const key = (k, gap) => {
+        now += gap;
+        fireEvent.keyDown(rejected, { key: k });
+        fireEvent.change(rejected, { target: { value: `${rejected.value}${k}` } });
+      };
+      key("1", 2000);
+      now += 1000;
+      for (const k of "8901234567893") key(k, 6);
+      now += 6;
+      expect(fireEvent.keyDown(rejected, { key: "Enter" })).toBe(false);
+
+      expect(rejected).toHaveValue("1");
+      await waitFor(() => expect(cardNames()[0]).toBe("Sugar"));
+      const sugar = screen.getAllByTestId("receive-card")[0];
+      expect(within(sugar).getByRole("button", { name: "Edit received qty for Sugar" })).toHaveTextContent("1");
+      const riceNow = screen.getAllByTestId("receive-card")[1];
+      expect(within(riceNow).getByLabelText("Rejected qty for Basmati rice 25kg")).toHaveValue("1");
+      expect(within(riceNow).getByLabelText("Accepted qty for Basmati rice 25kg")).toHaveValue("1");
+      expect(within(riceNow).getByRole("button", { name: "Edit received qty for Basmati rice 25kg" })).toHaveTextContent("2");
+    } finally {
+      clock.mockRestore();
+    }
+  });
 });
 
 // jsdom can't apply media queries: pin the stylesheet contract instead.

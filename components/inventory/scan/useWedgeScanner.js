@@ -10,7 +10,11 @@ import { useEffect, useRef } from "react";
 // belong to that field and are ignored; a field marked `data-scan-input` (the
 // ScanInput box) is the exception. When a burst is claimed the terminator's
 // default is prevented, so it neither submits a form nor moves focus; that is
-// how ScanInput tells a wedge scan from a hand-typed Enter.
+// how ScanInput tells a wedge scan from a hand-typed Enter. Before the code is
+// handed on, the field the burst was typed into gets WEDGE_SCAN_EVENT (it
+// does not bubble; listen on window in the capture phase): a qty box marked
+// `data-scan-input` puts back what it held (useQtyScanGuard), so a scan that
+// is applied at once never counts on top of its own digits.
 //
 // GS1-128 and GS1 DataMatrix reads carry GS (FNC1) separators, a control
 // character no keyboard key types. Scanners send it as Ctrl+] (or Alt+029 on
@@ -23,6 +27,8 @@ import { useEffect, useRef } from "react";
 
 /** The default gap between a scanner's keystrokes (a person types far slower). */
 export const WEDGE_MAX_INTER_KEY_MS = 35;
+/** Sent to the burst's field when its burst is claimed as a scan. */
+export const WEDGE_SCAN_EVENT = "inventory:wedge-scan";
 const GS = "\x1d";
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"]);
 
@@ -103,6 +109,9 @@ export function useWedgeScanner({ onCode, minLength = 4, maxInterKeyMs = WEDGE_M
         reset();
         if (fresh && code.length >= minLength) {
           e.preventDefault();
+          if (typeof target?.dispatchEvent === "function" && typeof Event === "function") {
+            target.dispatchEvent(new Event(WEDGE_SCAN_EVENT));
+          }
           onCodeRef.current?.(code);
         }
         return;

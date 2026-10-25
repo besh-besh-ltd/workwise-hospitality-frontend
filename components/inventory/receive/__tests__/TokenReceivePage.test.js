@@ -622,6 +622,48 @@ describe("TokenReceivePage", () => {
     }
   });
 
+  test("a scanner read while a qty box has focus counts the item; it never lands in the qty", async () => {
+    let now = 50_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      await mount();
+      const rice = riceQty();
+      rice.focus();
+      const key = (k, gap) => {
+        now += gap;
+        fireEvent.keyDown(rice, { key: k });
+        fireEvent.change(rice, { target: { value: `${rice.value}${k}` } });
+      };
+      const wedge = (code) => {
+        for (const k of code) key(k, 5);
+        now += 5;
+        return fireEvent.keyDown(rice, { key: "Enter" });
+      };
+      key("5", 1500);
+      now += 1000;
+
+      // The rice sack's own code, scanned with its box still focused: 5 + 1.
+      expect(wedge("8901234567892")).toBe(false);
+      await waitFor(() => expect(rice).toHaveValue("6"));
+      now += 1000;
+
+      // Another item's code: the rice qty stays, that item's keypad opens.
+      wedge("PANEER-1");
+      expect(await screen.findByRole("dialog", { name: "Paneer" })).toBeInTheDocument();
+      expect(rice).toHaveValue("6");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull());
+
+      await postAndConfirm();
+      await screen.findByText("Receipt posted");
+      expect(postTokenGrn.mock.calls[0][1].lines).toEqual([
+        expect.objectContaining({ poLineId: 11, receivedQty: 6, acceptedQty: 6 }),
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   test("twelve single-piece scans of a 12-piece box make exactly 1 box", async () => {
     const SOAP_BOX = {
       ...SOAP, uomFactor: 12, needsUomFactor: false,

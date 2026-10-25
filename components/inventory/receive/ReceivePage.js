@@ -598,6 +598,8 @@ const ReceivePage = ({
     line: l,
     entry: entries[l.poLineId],
     onChange: (patch) => editLine(l.poLineId, patch),
+    // A scanner read typed into a qty box: the line as it was, scan count included.
+    onRestore: (prev) => patchLine(l.poLineId, prev),
     error: lineErrors[l.poLineId] || null,
     flash: scan.flashId === l.poLineId,
     departments: ctx?.departments || [],
