@@ -107,9 +107,17 @@ const CountSession = ({ count, onCountChange, onReload }) => {
     }
     burstRef.current = null;
     if (key === "Enter") {
+      // Save, then go on to the next line on screen (walking order); the last one closes the keyboard.
       e.preventDefault();
       saver.flush();
-      e.currentTarget.blur();
+      const order = visible.map((r) => r.invItemId);
+      const next = inputRefs.current.get(order[order.indexOf(id) + 1]);
+      if (next) {
+        next.focus();
+        if (typeof next.scrollIntoView === "function") next.scrollIntoView({ block: "center", behavior: "smooth" });
+      } else {
+        e.currentTarget.blur();
+      }
     }
   };
 
@@ -215,31 +223,56 @@ const CountSession = ({ count, onCountChange, onReload }) => {
   /** The lines of a count still without a figure, in walking order. */
   const uncountedOf = (c) => (c?.lines || []).filter((l) => l.countedQty == null).sort(byBinThenName);
 
-  const onSubmitClick = async () => {
-    setBusy(true);
-    try {
-      await saver.settleAll();
-      // Figures the outbox kept may have synced since: ask the server first.
-      if (Object.values(entriesRef.current).some((e) => e.status === "queued")) await saver.recheckQueued();
-    } finally {
-      setBusy(false);
+  /** Why the count can't be submitted yet (and say so), or null when it can. */
+  const submitBlocker = async () => {
+    await saver.settleAll();
+    // Figures the outbox kept may have synced since: ask the server first.
+    if (Object.values(entriesRef.current).some((e) => e.status === "queued")) await saver.recheckQueued();
+    if (saver.countRef.current?.status !== "open") return "closed"; // submitted or cancelled meanwhile
+
+    // Count saves still in the outbox (from this visit or an earlier one) would
+    // reach the server after the submit and be refused: their figures lost.
+    const waitingSaves = saver.pendingRef.current;
+    if (waitingSaves > 0) {
+      toast.error(`${plural(waitingSaves, "save")} still waiting to sync. Sync them, then submit.`);
+      return "waiting";
     }
     const open = Object.values(entriesRef.current);
     const waiting = open.filter((e) => e.status === "queued").length;
     const stuck = open.filter((e) => PENDING.has(e.status)).length;
     if (waiting && waiting === stuck) {
       toast.error(`${plural(waiting, "quantity", "quantities")} still waiting to sync. Sync them, then submit.`);
-      return;
+      return "waiting";
     }
     if (stuck) {
       toast.error(`${plural(stuck, "quantity", "quantities")} not saved yet. Fix or retry them, then submit.`);
-      return;
+      return "unsaved";
     }
-    // Only what the count holds decides: a found item with no figure yet is not on it.
-    const latest = saver.countRef.current;
-    const all = latest?.lines || [];
-    const left = uncountedOf(latest);
-    const done = all.length - left.length;
+    return null;
+  };
+
+  const onSubmitClick = async () => {
+    setBusy(true);
+    let latest;
+    let left;
+    try {
+      if (await submitBlocker()) return;
+      // Only what the count holds decides: a found item with no figure yet is not on it.
+      latest = saver.countRef.current;
+      left = uncountedOf(latest);
+      if (latest?.scope === "FULL" && left.length) {
+        // Another device may have counted these since this page loaded: look
+        // again before asking for them here, so its figures aren't counted over.
+        const fresh = await saver.reload();
+        if (fresh) {
+          latest = fresh;
+          left = uncountedOf(fresh);
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+    const done = (latest?.lines || []).length - left.length;
     if (!done) {
       toast.error("Count at least one item before submitting.");
       return;
@@ -302,6 +335,7 @@ const CountSession = ({ count, onCountChange, onReload }) => {
   const retryable = Object.values(entries).filter((e) => e.status === "error" && e.retry).length;
   const queued = Object.values(entries).filter((e) => e.status === "queued").length;
 
+  const lastVisibleId = visible.length ? visible[visible.length - 1].invItemId : null;
   const renderLine = (row) => {
     const entry = entries[row.invItemId];
     const state = stateOf(row, entry);
@@ -326,6 +360,7 @@ const CountSession = ({ count, onCountChange, onReload }) => {
         onBlur={() => saver.leaveLine(id)}
         onRetry={() => saver.retry(id)}
         onRemove={canCount && found ? () => removeAdded(id) : undefined}
+        last={id === lastVisibleId}
       />
     );
   };

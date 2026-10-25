@@ -112,9 +112,16 @@ const useCountLineSaver = ({ count, onCountChange, onReload, onReloaded, guard =
     [update]
   );
 
+  // Count saves the outbox still holds, from this visit or an earlier one. Only
+  // this kind: a stuck receipt or mark-out must not hold up a count.
+  const pending = Number(usePendingCount("count_lines")) || 0;
+  const pendingRef = useRef(pending);
+
+  // A newer count: queued figures it carries are saved; once the outbox holds
+  // no count saves, one it still lacks was given up on and offers Retry.
   useEffect(() => {
     countRef.current = count;
-    settleQueued(asCount(count), false);
+    settleQueued(asCount(count), pendingRef.current === 0);
   }, [count, settleQueued]);
 
   /** Fetch the count again; resolves the fresh Count, or null. */
@@ -125,19 +132,28 @@ const useCountLineSaver = ({ count, onCountChange, onReload, onReloaded, guard =
     return fresh;
   }, []);
 
-  // The outbox syncs on its own (back online, "Sync now"). When its pending
-  // count falls while figures here are queued, see what the server has now.
-  const pending = Number(usePendingCount()) || 0;
-  const pendingRef = useRef(pending);
+  /** Ask the server what it has now, then settle the queued figures against it. */
   const recheckQueued = useCallback(async () => {
+    const hadQueued = Object.values(entriesRef.current).some((e) => e.status === "queued");
     const fresh = await reload();
+    if (fresh && fresh.status && fresh.status !== "open") {
+      // Submitted (or cancelled) elsewhere before these figures synced: they can't be saved now.
+      if (hadQueued && !closedRef.current) toast.error(CLOSED_MESSAGE[fresh.status] || CLOSED_MESSAGE.submitted);
+      closedRef.current = true;
+      clearTimeout(timerRef.current);
+      update(() => ({}));
+      return;
+    }
     settleQueued(fresh, pendingRef.current === 0);
-  }, [reload, settleQueued]);
+  }, [reload, settleQueued, update]);
+
+  // The outbox syncs on its own (back online, "Sync now"). Whenever it sends
+  // count saves, see what the server has now: figures queued here settle, and
+  // ones queued on an earlier visit show up.
   useEffect(() => {
     const before = pendingRef.current;
     pendingRef.current = pending;
-    if (pending >= before) return;
-    if (Object.values(entriesRef.current).some((e) => e.status === "queued")) recheckQueued();
+    if (pending < before) recheckQueued();
   }, [pending, recheckQueued]);
 
   // ── Saving ─────────────────────────────────────────────────────────────────

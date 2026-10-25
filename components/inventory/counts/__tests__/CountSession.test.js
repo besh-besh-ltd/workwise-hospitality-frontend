@@ -17,7 +17,8 @@ jest.mock("@/components/inventory/offline/outbox", () => {
   return {
     __esModule: true,
     submitOrQueue: jest.fn(async ({ send, payload }) => ({ queued: false, result: await send(payload) })),
-    usePendingCount: () => {
+    usePendingCount: (kind) => {
+      mockOutbox.kinds.add(kind);
       const [n, setN] = React.useState(() => mockOutbox.pending);
       React.useEffect(() => {
         mockOutbox.listeners.add(setN);
@@ -27,7 +28,7 @@ jest.mock("@/components/inventory/offline/outbox", () => {
     },
   };
 });
-const mockOutbox = { pending: 0, listeners: new Set() };
+const mockOutbox = { pending: 0, listeners: new Set(), kinds: new Set() };
 // In-app navigation: Next's router events, with a real emitter.
 const mockRouterEvents = (() => {
   const handlers = {};
@@ -197,6 +198,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
   mockOutbox.pending = 0;
+  mockOutbox.kinds.clear();
   // Implementations set by one test must not leak into the next.
   [saveCountLines, submitCount, cancelCount, resolveScan].forEach((fn) => fn.mockReset());
   submitOrQueue.mockReset();
@@ -700,7 +702,7 @@ describe("CountSession", () => {
     expect(await screen.findByRole("button", { name: "Submit count" })).toBeInTheDocument();
   });
 
-  it("submitting while the outbox still holds a figure says it is waiting to sync", async () => {
+  it("submitting while the outbox still holds this visit's save says it is waiting to sync", async () => {
     const base = count({ lines: [line(), line({ id: 2, invItemId: 8, displayName: "Sugar", binLabel: "B-02", countedQty: 2 })] });
     submitOrQueue.mockImplementationOnce(async () => ({ queued: true }));
     mockOutbox.pending = 1;
@@ -714,9 +716,128 @@ describe("CountSession", () => {
     await act(async () => {});
 
     expect(onReload).toHaveBeenCalledTimes(1);
-    expect(toast.error).toHaveBeenCalledWith("1 quantity still waiting to sync. Sync them, then submit.");
+    expect(toast.error).toHaveBeenCalledWith("1 save still waiting to sync. Sync them, then submit.");
     expect(within(rowOf("Basmati rice")).getByText("Waiting for connection")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit count" })).toBeNull();
+  });
+
+  it("count saves queued on an earlier visit block submit, even of a spot check; once they sync the screen shows them", async () => {
+    // The page holds nothing queued itself: the outbox kept a save from before a reload.
+    const base = count({ scope: "SELECTED", lines: [line({ countedQty: 3 }), line({ id: 2, invItemId: 8, displayName: "Sugar", binLabel: "B-02" })] });
+    mockOutbox.pending = 1;
+    const onReload = jest.fn(() => answerWith(base, { 7: 3, 8: 2 }));
+    render(<Harness initial={base} onReload={onReload} />);
+    // Only count saves hold a count up: a stuck receipt or mark-out does not.
+    expect([...mockOutbox.kinds]).toEqual(["count_lines"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit for approval" }));
+    await act(async () => {});
+    expect(toast.error).toHaveBeenCalledWith("1 save still waiting to sync. Sync them, then submit.");
+    expect(screen.queryByRole("button", { name: "Submit count" })).toBeNull();
+    expect(submitCount).not.toHaveBeenCalled();
+
+    await setPending(0);
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(qtyBox("Sugar")).toHaveValue("2");
+    fireEvent.click(screen.getByRole("button", { name: "Submit for approval" }));
+    await act(async () => {});
+    expect(await screen.findByRole("button", { name: "Submit count" })).toBeInTheDocument();
+  });
+
+  it("with no count saves left in the outbox, a figure it gave up on offers Retry as soon as a newer count arrives", async () => {
+    const base = count({ scope: "SELECTED" });
+    submitOrQueue.mockImplementationOnce(async () => ({ queued: true }));
+    // Sugar's save answers with a count that never got Basmati's figure.
+    saveCountLines.mockImplementation(() => Promise.resolve(answerWith(base, { 8: 2 })));
+    render(<Harness initial={base} />);
+
+    fireEvent.change(qtyBox("Basmati rice"), { target: { value: "4" } });
+    await flushSave();
+    fireEvent.change(qtyBox("Sugar"), { target: { value: "2" } });
+    await flushSave();
+
+    const row = rowOf("Basmati rice");
+    expect(within(row).getByText(/not saved/i)).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it("a count submitted elsewhere before queued figures synced says so", async () => {
+    const base = count({ scope: "SELECTED" });
+    submitOrQueue.mockImplementationOnce(async () => ({ queued: true }));
+    const onReload = jest.fn(() => ({ ...base, status: "submitted", can: { count: false, approve: false } }));
+    render(<Harness initial={base} onReload={onReload} />);
+
+    fireEvent.change(qtyBox("Basmati rice"), { target: { value: "4" } });
+    await flushSave();
+    await setPending(1);
+    await setPending(0);
+
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("This count was already submitted");
+    expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("submitting with queued figures when the count was already submitted elsewhere stops there", async () => {
+    const base = count({ scope: "SELECTED", lines: [line(), line({ id: 2, invItemId: 8, displayName: "Sugar", binLabel: "B-02", countedQty: 2 })] });
+    submitOrQueue.mockImplementationOnce(async () => ({ queued: true }));
+    // The page keeps showing the session (a harness, not CountDetail), so the Submit path itself must stop.
+    const onReload = jest.fn(() => ({ ...base, status: "submitted" }));
+    render(<Harness initial={{ ...base }} onReload={onReload} />);
+
+    fireEvent.change(qtyBox("Basmati rice"), { target: { value: "4" } });
+    await flushSave();
+    fireEvent.click(screen.getByRole("button", { name: "Submit for approval" }));
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("This count was already submitted");
+    expect(screen.queryByRole("button", { name: "Submit count" })).toBeNull();
+    expect(submitCount).not.toHaveBeenCalled();
+  });
+
+  it("before asking for uncounted lines, a full count looks again: another device may have counted them", async () => {
+    const base = count({ lines: [line({ countedQty: 3 }), line({ id: 2, invItemId: 8, displayName: "Sugar", binLabel: "B-02" })] });
+    const onReload = jest.fn(() => answerWith(base, { 7: 3, 8: 2 }));
+    render(<Harness initial={base} onReload={onReload} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit for approval" }));
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/not counted yet/)).toBeNull();
+    expect(qtyBox("Sugar")).toHaveValue("2");
+    expect(await screen.findByRole("button", { name: "Submit count" })).toBeInTheDocument();
+  });
+
+  it("Enter saves and moves to the next line in walking order; on the last line it closes the keyboard", async () => {
+    const base = count({
+      lines: [
+        line({ id: 3, invItemId: 9, displayName: "Atta", binLabel: null }),
+        line({ id: 2, invItemId: 8, displayName: "Sugar", binLabel: "B-02" }),
+        line({ id: 1, invItemId: 7, displayName: "Basmati rice", binLabel: "A-01" }),
+      ],
+    });
+    saveCountLines.mockImplementation((id, lines) =>
+      Promise.resolve(answerWith(base, Object.fromEntries(lines.map((l) => [l.invItemId, l.countedQty]))))
+    );
+    render(<Harness initial={base} />);
+    expect(qtyBox("Basmati rice")).toHaveAttribute("enterkeyhint", "next");
+    expect(qtyBox("Atta")).toHaveAttribute("enterkeyhint", "done");
+
+    qtyBox("Basmati rice").focus();
+    fireEvent.change(qtyBox("Basmati rice"), { target: { value: "4" } });
+    fireEvent.keyDown(qtyBox("Basmati rice"), { key: "Enter" });
+    await act(async () => {});
+    expect(saveCountLines).toHaveBeenCalledWith(41, [{ invItemId: 7, countedQty: 4, clientEventId: expect.stringMatching(UUID) }]);
+    expect(qtyBox("Sugar")).toHaveFocus();
+
+    fireEvent.keyDown(qtyBox("Sugar"), { key: "Enter" });
+    expect(qtyBox("Atta")).toHaveFocus();
+    fireEvent.keyDown(qtyBox("Atta"), { key: "Enter" });
+    expect(qtyBox("Atta")).not.toHaveFocus();
+    expect(document.activeElement).toBe(document.body);
   });
 
   it.each([

@@ -52,8 +52,9 @@ const LineState = ({ state, entry }) => {
 };
 
 /**
- * Props: { row, entry, state, showFigures, canCount, active, needsCount, inputRef(el),
+ * Props: { row, entry, state, showFigures, canCount, active, needsCount, last, inputRef(el),
  *          onChange(text), onKeyDown(e), onBlur(), onRetry(), onRemove? }
+ * `last`: the last line on screen; its keyboard says "done", the others "next".
  * `onRemove` is given for a line found while counting that the count does not hold yet.
  */
 const CountLine = ({
@@ -64,6 +65,7 @@ const CountLine = ({
   canCount,
   active,
   needsCount,
+  last,
   inputRef,
   onChange,
   onKeyDown,
@@ -112,7 +114,7 @@ const CountLine = ({
             className={styles.qtyInput}
             type="text"
             inputMode="decimal"
-            enterKeyHint="done"
+            enterKeyHint={last ? "done" : "next"}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
