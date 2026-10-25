@@ -740,19 +740,25 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
    * recorded. The slot is written before the copy goes, so a reload in between
    * loses nothing.
    */
-  const openQueued = async (entry) => {
+  /**
+   * A waiting one (a try got no answer: it may be recorded) is taken back from
+   * the outbox before it is opened, so it isn't sent behind the reopened
+   * session. False (and says so) when it was sent or settled first.
+   */
+  const takeBack = async (entry) => {
+    if (entry.state !== "pending") return true;
+    const taken = await queue.discard(entry, { keepCopy: true });
+    if (!taken && mountedRef.current) {
+      toast.info("It was sent (or settled) before it could be opened. Its status below is up to date.");
+    }
+    return taken;
+  };
+
+  const openQueued = async (entry, { takenBack = false } = {}) => {
     if (openingRef.current || postingRef.current || !entry) return;
     openingRef.current = true;
     try {
-      // A waiting one (a try got no answer: it may be recorded) is taken back
-      // from the outbox first, so it isn't sent behind the reopened session.
-      if (entry.state === "pending") {
-        const taken = await queue.discard(entry, { keepCopy: true });
-        if (!taken) {
-          if (mountedRef.current) toast.info("It was sent (or settled) before it could be opened. Its status below is up to date.");
-          return;
-        }
-      }
+      if (!takenBack && !(await takeBack(entry))) return;
       const copy = entry.copy;
       const forHotel = Number(copy.hotelId);
       const failed = entry.state === "failed";
@@ -953,13 +959,16 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     if (postingRef.current || statusRef.current === "uncertain") return;
     openingRef.current = true; // keep the empty slot from reopening another one first
     try {
+      // The queued one is taken back before the current one is cleared: if it
+      // was sent first, the session on screen stays.
+      if (!(await takeBack(entry))) return;
       await clearOutSession(userId, hotelId);
       dismissToasts();
       resetSession(true);
     } finally {
       openingRef.current = false;
     }
-    await openQueued(entry);
+    await openQueued(entry, { takenBack: true });
   };
 
   const discardQueued = async (entry) => {
