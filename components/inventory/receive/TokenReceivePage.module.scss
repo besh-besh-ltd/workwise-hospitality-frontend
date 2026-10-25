@@ -1,0 +1,208 @@
+/* TokenReceivePage.module.scss
+   The site-rep receive link is a bare route: no dashboard shell, so none of
+   the shell padding that receive.module.scss's .page cancels with negative
+   margins, and no 56px top bar for the phone scan dock to sit under. This
+   module is that page's own frame plus its few token-only parts; cards,
+   tables, buttons and pills come from receive.module.scss. */
+
+$bg: #f7f7f5;
+$surface: #ffffff;
+$surface-3: #f4f4f1;
+$border: #e8e8e3;
+$ink: #18181b;
+$ink-2: #3f3f46;
+$ink-3: #71717a;
+$warn: #b45309;
+$warn-soft: #fef7ed;
+$info: #2563eb;
+$info-soft: #eff6ff;
+$sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+/* ───────────── Page frame ───────────── */
+.page {
+  min-height: 100vh;
+  background: $bg;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15, 15, 14, 0.035) 1px, transparent 0);
+  background-size: 22px 22px;
+  color: $ink;
+  font-family: $sans;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  font-size: 13px;
+
+  * { box-sizing: border-box; }
+}
+
+.body { max-width: 1180px; }
+
+.linkNote {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $ink-3;
+}
+
+/* ───────────── Scan dock ───────────── */
+.itemsCard { min-width: 0; }
+.scanDock {
+  padding: 12px 18px;
+  border-bottom: 1px solid $border;
+  background: $surface;
+}
+
+/* ───────────── Banners (unsent receipt, restored entries) ───────────── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.bannerWarn { background: $warn-soft; color: $warn; border: 1px solid rgba(180, 83, 9, 0.22); }
+.bannerInfo { background: $info-soft; color: $info; border: 1px solid rgba(37, 99, 235, 0.2); }
+.bannerText { flex: 1 1 auto; min-width: 0; margin: 0; }
+.bannerActions { display: flex; flex-shrink: 0; gap: 8px; }
+
+/* "Discard and start over?" */
+.discardBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  background: $surface;
+  color: $ink-2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.discardActions { display: flex; flex-shrink: 0; gap: 8px; }
+
+/* While a post is in flight or its outcome is unknown the lines and the
+   delivery documents sit in a disabled fieldset; no fieldset chrome. */
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* Files picked before posting, uploaded after "Receipt posted". */
+.uploadList {
+  list-style: none;
+  margin: 14px auto 0;
+  padding: 0;
+  max-width: 420px;
+  text-align: left;
+}
+.uploadItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12.5px;
+  color: $ink-2;
+  border-top: 1px solid $border;
+  &:first-child { border-top: none; }
+  &[data-status="done"] svg { color: #15803d; }
+  &[data-status="failed"] { color: $warn; }
+}
+.uploadName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.uploadStatus { flex-shrink: 0; max-width: 60%; text-align: right; }
+/* The same list on a receipt row, once "Receive another delivery" moved on. */
+.receiptUploads { margin: 8px 0 0; max-width: none; }
+
+/* A code on two different items: the scan box asks which one. */
+.scanChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.scanChoices > * { min-height: 44px; }
+
+/* ───────────── Lines the link can't receive ───────────── */
+.blockedNote {
+  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12.5px;
+  color: $warn;
+}
+
+/* ───────────── Receipts from this link ───────────── */
+.receiptList { list-style: none; margin: 0; padding: 0; }
+.receipt {
+  padding: 14px 18px;
+  border-top: 1px solid $border;
+  &:first-child { border-top: none; }
+}
+.receiptHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.receiptMeta { font-size: 12.5px; color: $ink-3; }
+.receiptFiles {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  a { color: $ink-2; overflow-wrap: anywhere; }
+}
+.attachRow {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.attachLabel { font-size: 12px; font-weight: 600; color: $ink-2; }
+.kindSelect { width: auto; }
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   ≤768px: the scan bar sticks to the very top (this page has no shell bar),
+   nothing is wider than the screen, and the Post button lives in the sticky
+   MobileActionBar (its summary row makes it 112px tall). */
+@media (max-width: 768px) {
+  .page {
+    overflow-x: clip;
+    --mobile-action-bar-h: 112px;
+  }
+  /* The shared .card clips with overflow:hidden, which makes the card the
+     sticky box and leaves the dock scrolling away. clip cuts the same corners
+     without making a scroll container, so the dock sticks to the viewport. */
+  .page .itemsCard { overflow: clip; }
+  /* No overflow:clip (iOS Safari before 16): the line above is dropped and the
+     card stays overflow:hidden, a scroll box. Let it overflow instead; its
+     rounded corners lose a little clipping, the dock keeps sticking. */
+  @supports not (overflow: clip) {
+    .page .itemsCard { overflow: visible; }
+  }
+  .scanDock {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px;
+    box-shadow: 0 8px 16px -14px rgba(15, 15, 14, 0.35);
+  }
+  .banner { flex-direction: column; align-items: stretch; }
+  .bannerActions { width: 100%; }
+  .discardBox { flex-direction: column; align-items: stretch; }
+  .discardActions { width: 100%; }
+  .discardActions > * { flex: 1; min-height: 44px; }
+  .scanChoices > * { flex: 1 1 100%; }
+  .receipt { padding: 12px 14px; }
+  .kindSelect { width: 100%; }
+}

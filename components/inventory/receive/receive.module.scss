@@ -934,7 +934,8 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 .toastQty { @include mono; font-weight: 700; }
 .toastName { color: $ink-3; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toastUndo {
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 12px;
   border: 1px solid $border-strong;
   border-radius: 8px;
