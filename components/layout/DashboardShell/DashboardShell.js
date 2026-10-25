@@ -132,10 +132,12 @@ const DashboardShell = ({ children }) => {
             navGrants={navGrants}
           />
           <div className={styles.main}>
-            {/* Offline sync (inventory outbox): on every buyer page, so queued
+            {/* Offline sync (inventory outbox): on every page of a signed-in
+                non-vendor session (buyer, admin, management, engineering,
+                finance, other all reach /dashboard/buyer/inventory), so queued
                 scans keep sending after the user leaves the scan screen. Before
                 the content: on phones it sits in the flow under the top bar. */}
-            {loggedinUser && currentUserType === "buyer" && <PendingSyncBadge />}
+            {loggedinUser && currentUserType !== "vendor" && <PendingSyncBadge />}
             <div className={styles.content}>{children}</div>
           </div>
         </div>

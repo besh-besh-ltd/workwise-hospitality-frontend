@@ -7,7 +7,7 @@ import { createReorderMrDraft, getReorder } from "@/services/inventory";
 import { addProductsToDraft } from "@/services/rfq";
 import { submit as submitMr } from "@/services/mr";
 import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
-import { newClientEventId } from "@/components/inventory/receive/receiveUtils";
+import { errorInfo, isNetworkError, newClientEventId } from "@/components/inventory/receive/receiveUtils";
 import styles from "./Reorder.module.scss";
 
 // Reorder worklist (spec §9): items at or below their reorder level at one
@@ -18,8 +18,11 @@ import styles from "./Reorder.module.scss";
 // which scopes them to the caller; the page only chooses among them. The MR
 // controls show only when the server says the caller may raise one here
 // (`can.createMrDraft`); a missing flag hides them. An MR draft carries a
-// clientEventId, kept while the request stays the same, so a double click or
-// a retry after a lost answer returns the same draft.
+// clientEventId: kept for a retry of the same request after an unknown outcome
+// (no answer, or a gateway error), so that retry returns the draft the lost
+// request made; new after any answer. Each contract line shows what the
+// contract has left (and, for a group contract, this hotel's share); open MR
+// quantities are shown beside "on order", never subtracted from it.
 
 const QTY_RE = /^\d+(\.\d{1,4})?$/;
 const parseQty = (text) => {
@@ -35,6 +38,25 @@ const fmtRate = (n) =>
     ? null
     : `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qtyText = (n) => (n == null ? "" : String(Number(n)));
+const withUom = (n, uom) => `${fmtQty(n)}${uom ? ` ${uom}` : ""}`;
+
+/** What a contract line has left: the whole contract, and this hotel's share of a group one. */
+const remainingText = (line) => {
+  if (line.remainingQty == null || Number.isNaN(Number(line.remainingQty))) return null;
+  const left = `${withUom(line.remainingQty, line.uom)} left on the contract`;
+  if (!line.isGroup || line.hotelRemainingQty == null) return left;
+  return `${left} · this hotel's share ${withUom(line.hotelRemainingQty, line.uom)}`;
+};
+
+/** A refused item's reason, from the server's VALIDATION details. */
+const refusalText = (r) => {
+  if (r.reason === "EXCEEDS_CONTRACT_REMAINING") {
+    return `${withUom(r.quantity, r.uom)} is more than the contract has left (${withUom(r.remaining, r.uom)})`;
+  }
+  if (r.reason === "NOT_CONTRACTED") return "No active contract for this department";
+  if (r.reason === "UOM_FACTOR_REQUIRED") return r.uom ? `Set how many ${r.stockUom || "units"} make one ${r.uom}` : "The contract has no unit";
+  return null;
+};
 
 const lineFor = (row, departmentId) =>
   (row.contractedLines || []).find((l) => Number(l.departmentId) === Number(departmentId)) || null;
@@ -65,7 +87,8 @@ const ReorderPage = () => {
   const [departmentId, setDepartmentId] = useState("");
   const [busy, setBusy] = useState(null); // "mr" | "rfq" | "submit" | null
   const [actionError, setActionError] = useState(null);
-  const [created, setCreated] = useState(null); // {mrId, mrNumber, count, skipped, submitted, warnings}
+  const [created, setCreated] = useState(null); // {mrId, mrNumber, count, skipped, replayed, draftWarnings, submitted, warnings}
+  const [refusedItems, setRefusedItems] = useState({}); // invItemId -> the server's reason for leaving it off
   const reqRef = useRef(0);
   const mrKeyRef = useRef({ sig: null, key: null });
   const routerRef = useRef(router);
@@ -101,6 +124,7 @@ const ReorderPage = () => {
       setQtys(Object.fromEntries(rows.map((r) => [r.invItemId, Number(r.suggestedQty) > 0 ? qtyText(r.suggestedQty) : ""])));
       setDepartmentId(bestDepartment(res?.departments || [], rows));
       setActionError(null);
+      setRefusedItems({});
     } catch (err) {
       if (req !== reqRef.current) return;
       setData(null);
@@ -152,16 +176,21 @@ const ReorderPage = () => {
         arcContractLineId: lineFor(r, departmentId).arcContractLineId,
       })),
     };
-    // Same request, same key: the server answers a repeat with the draft it made.
+    setRefusedItems({});
+    // A retry of the same request after an unknown outcome reuses its key, so
+    // the server answers with the draft the lost request made (if it did).
     const sig = JSON.stringify(request);
-    if (mrKeyRef.current.sig !== sig) mrKeyRef.current = { sig, key: newClientEventId() };
+    if (mrKeyRef.current.sig !== sig || !mrKeyRef.current.key) mrKeyRef.current = { sig, key: newClientEventId() };
     try {
       const res = await createReorderMrDraft({ ...request, clientEventId: mrKeyRef.current.key });
+      mrKeyRef.current = { sig: null, key: null };
       setCreated({
         mrId: res?.mrId,
         mrNumber: res?.mrNumber || `#${res?.mrId}`,
         count: res?.items?.length ?? mrRows.length,
         skipped: notContracted.length,
+        replayed: res?.replayed === true,
+        draftWarnings: Array.isArray(res?.warnings) ? res.warnings : [],
         submitted: false,
         warnings: 0,
       });
@@ -171,7 +200,18 @@ const ReorderPage = () => {
         return next;
       });
     } catch (err) {
-      setActionError(getApiErrorMessage(err, "Could not create the requisition."));
+      if (isNetworkError(err)) {
+        // Unknown outcome: keep the key for the retry.
+        setActionError(
+          "No answer from the server, so the requisition may have been created. Try again: the same request returns that draft instead of making a second one."
+        );
+      } else {
+        mrKeyRef.current = { sig: null, key: null };
+        const info = errorInfo(err, "Could not create the requisition.");
+        const lines = Array.isArray(info.details.lines) ? info.details.lines : [];
+        setRefusedItems(Object.fromEntries(lines.filter((l) => l?.invItemId != null).map((l) => [l.invItemId, l])));
+        setActionError(info.message);
+      }
     } finally {
       setBusy(null);
     }
@@ -325,7 +365,7 @@ const ReorderPage = () => {
         {created && (
           <div className={`${styles.notice} ${styles.noticeOk}`} role="status">
             <ClipboardList size={13} aria-hidden="true" />
-            <span className={styles.grow}>
+            <div className={styles.grow}>
               {created.submitted ? (
                 <>
                   <span className={styles.mono}>{created.mrNumber}</span> submitted for approval
@@ -335,13 +375,24 @@ const ReorderPage = () => {
                 </>
               ) : (
                 <>
-                  Draft requisition <span className={styles.mono}>{created.mrNumber}</span> created with {created.count}{" "}
+                  Draft requisition <span className={styles.mono}>{created.mrNumber}</span>{" "}
+                  {created.replayed ? "was already created by your earlier request, with" : "created with"} {created.count}{" "}
                   {created.count === 1 ? "item" : "items"}.
                   {created.skipped > 0 &&
                     ` ${created.skipped} selected ${created.skipped === 1 ? "item has" : "items have"} no contract for this department: copy ${created.skipped === 1 ? "it" : "them"} to an RFQ.`}
+                  {created.draftWarnings.length > 0 && (
+                    <ul className={styles.noticeList} aria-label="Over this hotel's share">
+                      {created.draftWarnings.map((w, i) => (
+                        <li key={`${w.invItemId}-${w.arcContractLineId}-${i}`}>
+                          {w.message ||
+                            `${nameOf.get(w.invItemId) || `Item ${w.invItemId}`}: ${fmtQty(w.quantity)} is more than this hotel's remaining share (${fmtQty(w.hotelRemainingQty)}).`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </>
               )}
-            </span>
+            </div>
             <span className={styles.noticeActions}>
               {!created.submitted && (
                 <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={submitCreated} disabled={!!busy}>
@@ -499,7 +550,12 @@ const ReorderPage = () => {
                               </span>
                             )}
                             {Number(r.openMrQty) > 0 && (
-                              <span className={styles.cellNote}>{fmtQty(r.openMrQty)} in open MRs</span>
+                              <span
+                                className={styles.cellNote}
+                                title="Quantity on draft and pending-approval requisitions at this hotel. Not counted in on order or the suggestion."
+                              >
+                                MR draft/pending: {fmtQty(r.openMrQty)}
+                              </span>
                             )}
                           </span>
                         </td>
@@ -526,20 +582,28 @@ const ReorderPage = () => {
                         </td>
                         <td data-label="Contract">
                           {line ? (
-                            <span className={styles.contract}>
-                              <span className={`${styles.dot} ${styles.dotOk}`} aria-hidden="true" />
-                              <span>
-                                {line.arcNumber || "ARC"}
-                                {line.vendorName ? ` · ${line.vendorName}` : ""}
-                                {fmtRate(line.unitRate) ? (
-                                  <span className={styles.mono}> · {fmtRate(line.unitRate)}{line.uom ? `/${line.uom}` : ""}</span>
-                                ) : null}
+                            <>
+                              <span className={styles.contract}>
+                                <span className={`${styles.dot} ${styles.dotOk}`} aria-hidden="true" />
+                                <span>
+                                  {line.arcNumber || "ARC"}
+                                  {line.vendorName ? ` · ${line.vendorName}` : ""}
+                                  {fmtRate(line.unitRate) ? (
+                                    <span className={styles.mono}> · {fmtRate(line.unitRate)}{line.uom ? `/${line.uom}` : ""}</span>
+                                  ) : null}
+                                </span>
                               </span>
-                            </span>
+                              {remainingText(line) && <span className={styles.contractNote}>{remainingText(line)}</span>}
+                            </>
                           ) : r.contracted ? (
                             <span className={styles.muted}>Contract in another department</span>
                           ) : (
                             <span className={styles.muted}>No contract: RFQ</span>
+                          )}
+                          {refusedItems[r.invItemId] && refusalText(refusedItems[r.invItemId]) && (
+                            <span className={`${styles.contractNote} ${styles.contractNoteBad}`}>
+                              {refusalText(refusedItems[r.invItemId])}
+                            </span>
                           )}
                         </td>
                       </tr>

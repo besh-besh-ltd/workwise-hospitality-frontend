@@ -7,7 +7,7 @@ const v8 = require("v8");
 if (typeof globalThis.structuredClone !== "function") {
   globalThis.structuredClone = (value) => v8.deserialize(v8.serialize(value));
 }
-const { IDBFactory } = require("fake-indexeddb");
+const { IDBFactory, IDBObjectStore } = require("fake-indexeddb");
 
 let mockProfile = { id: 407 };
 const mockStoreListeners = new Set();
@@ -32,13 +32,16 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { createGrn, postOut, saveCountLines } from "@/services/inventory";
 import {
   MAX_SERVER_ATTEMPTS,
+  MIN_NO_ANSWER_TRIES,
   NO_ANSWER_GIVE_UP_MS,
   OUTBOX_DB_NAME,
+  SERVER_GIVE_UP_MIN_MS,
   _resetOutboxForTests,
   discardPending,
   dismissFailed,
   flush,
   getOutboxStatus,
+  mayBeRecorded,
   onOutboxOutcome,
   outboxLinkFor,
   outboxReady,
@@ -174,6 +177,53 @@ const queueOffline = async (event) => {
   online = false;
   await submitOrQueue(event);
   online = true;
+};
+
+/** The backoff after `n` tries (mirrors outbox.js: 5 s doubling, capped at 5 min). */
+const backoffAfter = (n) => Math.min(5 * 60 * 1000, 5000 * 2 ** Math.max(0, n - 1));
+
+/**
+ * navigator.locks, as the browser has it: one holder per name, waiters in
+ * order, and `ifAvailable` handed `null` when the name is held or queued.
+ */
+const installLocks = () => {
+  const tails = new Map();
+  const open = new Map();
+  const request = jest.fn((name, optsOrWork, maybeWork) => {
+    const opts = typeof optsOrWork === "function" ? {} : optsOrWork || {};
+    const work = typeof optsOrWork === "function" ? optsOrWork : maybeWork;
+    if (opts.ifAvailable && (open.get(name) || 0) > 0) return Promise.resolve().then(() => work(null));
+    open.set(name, (open.get(name) || 0) + 1);
+    const run = (tails.get(name) || Promise.resolve()).then(() => work({ name })).finally(() => {
+      open.set(name, open.get(name) - 1);
+    });
+    tails.set(name, run.catch(() => {}));
+    return run;
+  });
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request } });
+  return request;
+};
+
+/** Another tab: a second copy of the module on the same device database and Web Locks. */
+const openOtherTab = () => {
+  let tab;
+  jest.isolateModules(() => {
+    tab = require("./outbox");
+  });
+  return tab;
+};
+
+/** A send whose answer the test gives. */
+const heldSend = () => {
+  const gate = {};
+  gate.send = jest.fn(
+    () =>
+      new Promise((resolve, reject) => {
+        gate.answer = resolve;
+        gate.fail = reject;
+      })
+  );
+  return gate;
 };
 
 beforeEach(async () => {
@@ -353,11 +403,50 @@ describe("submitOrQueue", () => {
   });
 
   it("sends of a kind hold a Web Lock for that kind", async () => {
-    const request = jest.fn((name, work) => work());
-    Object.defineProperty(navigator, "locks", { configurable: true, value: { request } });
+    const request = installLocks();
     postOut.mockResolvedValue({ id: 1 });
     await submitOrQueue(outEvent());
     expect(request).toHaveBeenCalledWith("workwise-inventory-outbox:out_post", expect.any(Function));
+  });
+
+  it("re-posting a waiting event keeps its tries and give-up clocks", async () => {
+    await queueOffline(outEvent());
+    postOut.mockRejectedValueOnce(httpError(500, { message: "boom" }));
+    await flush();
+    const [before] = await rawRows();
+    expect(before).toMatchObject({ attempts: 1, serverAttempts: 1 });
+    expect(before.firstServerFailureAtMs).toBeGreaterThan(0);
+
+    travel(1000);
+    // The screen posts it again (same clientEventId) before its backoff is due.
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: true, persisted: true });
+    const [after] = await rawRows();
+    expect(after).toMatchObject({
+      attempts: 1,
+      serverAttempts: 1,
+      firstServerFailureAtMs: before.firstServerFailureAtMs,
+      createdAtMs: before.createdAtMs,
+      seq: before.seq,
+      nextAttemptAt: before.nextAttemptAt,
+    });
+  });
+
+  it("re-posting an event its waiting copy just sent returns that answer and sends nothing more", async () => {
+    await queueOffline(outEvent());
+    postOut.mockResolvedValue({ id: 5 });
+    // Back online: the screen posts it again; the waiting copy goes first.
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5 } });
+    expect(postOut).toHaveBeenCalledTimes(1);
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+  });
+
+  it("re-posting an event sent on an earlier page sends it once for the server's answer and queues nothing", async () => {
+    await putRaw(rawOut("out-1", { status: "sent", payload: null, settledAtMs: Date.now() }));
+    postOut.mockResolvedValue({ id: 5, replayed: true });
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5, replayed: true } });
+    expect(postOut).toHaveBeenCalledTimes(1);
+    expect(await rawRows()).toEqual([expect.objectContaining({ id: "out_post:out-1", status: "sent" })]);
+    expect(peek(() => usePendingCount())).toBe(0);
   });
 });
 
@@ -451,40 +540,149 @@ describe("replaying queued events", () => {
     await expect(flush({ force: true })).resolves.toEqual({ sent: 1, failed: 0, pending: 0 });
   });
 
-  it(`after ${MAX_SERVER_ATTEMPTS} server failures the head becomes a failed item and its kind moves on`, async () => {
+  it(`given up (uncertain) after ${MAX_SERVER_ATTEMPTS} due server failures over at least 30 minutes; its kind moves on`, async () => {
+    const outcomes = [];
+    onOutboxOutcome((e) => outcomes.push(e));
     await queueOffline(outEvent("a"));
     await queueOffline(outEvent("b"));
     postOut.mockImplementation(async (p) => {
       if (p.clientEventId === "a") throw httpError(500, { message: "boom" });
       return { id: 2 };
     });
-    for (let i = 1; i < MAX_SERVER_ATTEMPTS; i += 1) {
-      await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 2 });
+    // Each retry waits out its backoff: 10 tries take about 20 minutes.
+    await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 2 });
+    for (let n = 1; n < MAX_SERVER_ATTEMPTS; n += 1) {
+      travel(backoffAfter(n) + 1);
+      await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 2 });
     }
-    await expect(flush({ force: true })).resolves.toEqual({ sent: 1, failed: 1, pending: 0 });
-    expect(postOut).toHaveBeenCalledTimes(MAX_SERVER_ATTEMPTS + 1);
+    expect(postOut).toHaveBeenCalledTimes(MAX_SERVER_ATTEMPTS);
+    expect((await rawRows()).find((r) => r.clientEventId === "a")).toMatchObject({ serverAttempts: MAX_SERVER_ATTEMPTS });
 
+    // Not before 30 minutes since the first failure.
+    travel(SERVER_GIVE_UP_MIN_MS);
+    await expect(flush()).resolves.toEqual({ sent: 1, failed: 1, pending: 0 });
+
+    const error = expect.objectContaining({
+      httpStatus: 500,
+      code: "GAVE_UP",
+      uncertain: true,
+      message: expect.stringContaining(`after ${MAX_SERVER_ATTEMPTS + 1} tries`),
+    });
     expect(peek(() => useFailedItems("out_post"))).toEqual([
-      expect.objectContaining({
-        clientEventId: "a",
-        payload: outEvent("a").payload,
-        error: expect.objectContaining({ httpStatus: 500, message: expect.stringContaining(`after ${MAX_SERVER_ATTEMPTS} tries`) }),
-      }),
+      expect.objectContaining({ clientEventId: "a", payload: outEvent("a").payload, error }),
+    ]);
+    expect(outcomes).toEqual([
+      expect.objectContaining({ clientEventId: "a", outcome: "failed", error }),
+      expect.objectContaining({ clientEventId: "b", outcome: "sent" }),
     ]);
     expect(getOutboxStatus("out_post", "b")).toBe("sent");
   });
 
-  it("an event with no answer for 3 days becomes a failed item", async () => {
+  it("Sync now, Retry now and coming back online do not spend the server-failure budget", async () => {
+    await queueOffline(outEvent());
+    postOut.mockRejectedValue(httpError(500, { message: "boom" }));
+    await flush(); // due: the first failure
+    for (let i = 0; i < MAX_SERVER_ATTEMPTS * 2; i += 1) {
+      await flush({ force: true });
+      await retryNow("out_post:out-1");
+    }
+    expect(postOut).toHaveBeenCalledTimes(1 + MAX_SERVER_ATTEMPTS * 4);
+    travel(SERVER_GIVE_UP_MIN_MS + 1);
+    await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", serverAttempts: 2 })]);
+  });
+
+  it.each([502, 503, 504])("a gateway %d is waited out like no answer: not given up on the attempt count", async (status) => {
+    await queueOffline(outEvent());
+    postOut.mockRejectedValue(httpError(status, { message: "Bad gateway" }));
+    await flush();
+    for (let n = 1; n <= MAX_SERVER_ATTEMPTS + 2; n += 1) {
+      travel(backoffAfter(n) + 1);
+      await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    }
+    expect(peek(() => usePendingItems())[0]).toEqual(expect.objectContaining({ mayBeRecorded: true }));
+    travel(NO_ANSWER_GIVE_UP_MS);
+    await expect(flush()).resolves.toEqual({ sent: 0, failed: 1, pending: 0 });
+    expect(peek(() => useFailedItems())[0].error).toEqual(
+      expect.objectContaining({ httpStatus: status, code: "NO_ANSWER", uncertain: true })
+    );
+  });
+
+  it(`no answer for 3 days of online tries (at least ${MIN_NO_ANSWER_TRIES}): given up, as uncertain`, async () => {
     await queueOffline(outEvent());
     postOut.mockRejectedValue(networkError());
     await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
-    expect(peek(() => usePendingItems())[0].lastError).toEqual(expect.objectContaining({ message: "No answer from the server" }));
+    const [waiting] = peek(() => usePendingItems());
+    expect(waiting.lastError).toEqual(expect.objectContaining({ message: "No answer from the server" }));
+    expect(mayBeRecorded(waiting)).toBe(true);
 
     travel(NO_ANSWER_GIVE_UP_MS + 60000);
+    // Three days on, but only the second unanswered try.
+    await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
     await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 1, pending: 0 });
-    expect(peek(() => useFailedItems())).toEqual([
-      expect.objectContaining({ payload: outEvent().payload, error: expect.objectContaining({ code: "NO_ANSWER" }) }),
+    const [failed] = peek(() => useFailedItems());
+    expect(failed).toEqual(
+      expect.objectContaining({ payload: outEvent().payload, error: expect.objectContaining({ code: "NO_ANSWER", uncertain: true }) })
+    );
+    expect(mayBeRecorded(failed)).toBe(true);
+  });
+
+  it("time spent offline does not count toward the 3 days", async () => {
+    await queueOffline(outEvent());
+    online = false;
+    travel(NO_ANSWER_GIVE_UP_MS * 2);
+    await flush(); // offline: nothing goes out
+    online = true;
+    postOut.mockRejectedValue(networkError());
+    for (let i = 0; i < MIN_NO_ANSWER_TRIES + 2; i += 1) {
+      await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    }
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", noAnswerTries: MIN_NO_ANSWER_TRIES + 2 })]);
+  });
+
+  it("a refusal is certain: no uncertain flag, and a waiting event nobody tried is not 'may be recorded'", async () => {
+    await queueOffline(outEvent());
+    expect(mayBeRecorded(peek(() => usePendingItems())[0])).toBe(false);
+    postOut.mockRejectedValueOnce(httpError(409, { code: "CONFLICT", message: "No" }));
+    await flush();
+    const [failed] = peek(() => useFailedItems());
+    expect(failed.error.uncertain).toBeUndefined();
+    expect(mayBeRecorded(failed)).toBe(false);
+  });
+
+  it("an outcome fires as soon as memory has it, before the device write, and the status agrees", async () => {
+    const put = jest.spyOn(IDBObjectStore.prototype, "put");
+    const seen = [];
+    onOutboxOutcome((e) => {
+      seen.push({
+        outcome: e.outcome,
+        status: getOutboxStatus(e.kind, e.clientEventId),
+        written: put.mock.calls.some(([row]) => row.id === e.id && row.status !== "pending"),
+      });
+    });
+    await queueOffline(outEvent("a"));
+    await queueOffline(outEvent("b"));
+    postOut.mockImplementation(async (p) => {
+      if (p.clientEventId === "a") return { id: 1 };
+      throw httpError(422, { message: "No" });
+    });
+    await flush();
+    expect(seen).toEqual([
+      { outcome: "sent", status: "sent", written: false },
+      { outcome: "failed", status: "failed", written: false },
     ]);
+    expect((await rawRows()).map((r) => r.status).sort()).toEqual(["failed", "sent"]);
+  });
+
+  it("a re-read of the device that finds nothing new changes nothing (no re-render)", async () => {
+    await queueOffline(outEvent());
+    online = false;
+    const items = renderHook(() => usePendingItems());
+    const first = items.result.current;
+    expect(first).toHaveLength(1);
+    await act(() => flush());
+    await act(() => flush());
+    expect(items.result.current).toBe(first);
   });
 
   it("sends a queued receipt with the grn_post sender", async () => {
@@ -538,6 +736,83 @@ describe("replaying queued events", () => {
     await flush({ force: true });
     expect(postOut).not.toHaveBeenCalled();
     await expect(discardPending("out_post:out-1")).resolves.toBe(false);
+  });
+});
+
+describe("two tabs", () => {
+  it("a stale tab cannot discard an event another tab sent meanwhile", async () => {
+    installLocks();
+    await queueOffline(outEvent());
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { out_post: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+
+    // This tab still lists it as waiting; the user discards it while tab 2's send is out.
+    expect(getOutboxStatus("out_post", "out-1")).toBe("pending");
+    const discard = discardPending("out_post:out-1");
+    gate.answer({ id: 9 });
+    await expect(tab2Flush).resolves.toEqual(expect.objectContaining({ sent: 1 }));
+    await expect(discard).resolves.toBe(false);
+
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    expect(await rawRows()).toEqual([expect.objectContaining({ id: "out_post:out-1", status: "sent" })]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("a stale tab cannot dismiss a failed item another tab has since sent", async () => {
+    installLocks();
+    await queueOffline(outEvent());
+    postOut.mockRejectedValueOnce(httpError(409, { code: "CONFLICT", message: "No" }));
+    await flush();
+    expect(getOutboxStatus("out_post", "out-1")).toBe("failed");
+
+    // The user opens it again in another tab and sends it.
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const sent = tab2.submitOrQueue({ ...outEvent(), send: gate.send });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+    gate.answer({ id: 9 });
+    await expect(sent).resolves.toEqual({ queued: false, result: { id: 9 } });
+
+    // This tab still shows the old failure; Dismiss must not bury the sent event.
+    await expect(dismissFailed("out_post:out-1")).resolves.toBe(false);
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("another tab's live first send is not listed as waiting here, nor discarded, nor sent twice", async () => {
+    installLocks();
+    await outboxReady();
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const sent = tab2.submitOrQueue({ ...outEvent(), send: gate.send });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+
+    postOut.mockResolvedValue({ id: 1 });
+    const ours = flush({ force: true }); // reads the device, then waits for tab 2's lock
+    await waitFor(() => expect(getOutboxStatus("out_post", "out-1")).toBe("pending"));
+    expect(peek(() => usePendingItems())).toEqual([]);
+    const discard = discardPending("out_post:out-1");
+
+    gate.answer({ id: 9 });
+    await expect(sent).resolves.toEqual({ queued: false, result: { id: 9 } });
+    await ours;
+    await expect(discard).resolves.toBe(false);
+    expect(postOut).not.toHaveBeenCalled();
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("a row a closed page left in flight is taken back on load when no tab holds its kind", async () => {
+    installLocks();
+    await putRaw(rawOut("left", { inFlight: true }));
+    await outboxReady();
+    expect(peek(() => usePendingItems())).toEqual([
+      expect.objectContaining({ clientEventId: "left", inFlight: false, mayBeRecorded: true, noAnswerTries: 1 }),
+    ]);
   });
 });
 

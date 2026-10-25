@@ -242,7 +242,103 @@ it("spells out the on-order flag, a missing suggestion and what open MRs already
   const milk = within(rowOf("Milk"));
   expect(milk.getByText(/plus open orders in a unit with no conversion to the stock unit, not counted/)).toBeInTheDocument();
   expect(milk.getByText("No suggestion: set a max level to get one")).toBeInTheDocument();
-  expect(milk.getByText("6 in open MRs")).toBeInTheDocument();
+  // Shown beside on order, not taken off it: on order stays 0.
+  expect(milk.getByText("MR draft/pending: 6")).toBeInTheDocument();
+  expect(within(milk.getByText("MR draft/pending: 6").closest("td")).getByText("0")).toBeInTheDocument();
+});
+
+it("each contract line says what the contract has left, and this hotel's share of a group contract", async () => {
+  await mount(
+    reorder({
+      rows: [
+        row({ contractedLines: [line({ departmentId: 3, arcContractLineId: 901, remainingQty: 120, isGroup: false, hotelRemainingQty: null })] }),
+        row({
+          invItemId: 2, displayName: "Bleach", stockUom: "bottle", productVariantId: 4002,
+          contractedLines: [line({ departmentId: 3, arcContractLineId: 902, uom: "bottle", remainingQty: 300, isGroup: true, hotelRemainingQty: 40 })],
+        }),
+      ],
+    })
+  );
+  expect(within(rowOf("Milk")).getByText("120 litre left on the contract")).toBeInTheDocument();
+  expect(within(rowOf("Bleach")).getByText("300 bottle left on the contract · this hotel's share 40 bottle")).toBeInTheDocument();
+});
+
+it("lists the draft's warnings: items over this hotel's share of a group contract", async () => {
+  await mount();
+  createReorderMrDraft.mockResolvedValue({
+    mrId: 77, mrNumber: "MR-2026-ABC12", hotelId: 46, departmentId: 3,
+    items: [{ invItemId: 1, productVariantId: 3001, arcContractId: 61, arcContractLineId: 901, quantity: 16, uom: "litre", unitRate: 52.5 }],
+    warnings: [{
+      invItemId: 1, arcContractLineId: 901, hotelId: 46, quantity: 16, hotelRemainingQty: 10,
+      message: "Milk: 16 is more than this hotel's remaining share (10). The group total has room, so the order can go ahead; head office will be told.",
+    }],
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Create MR draft/ }));
+  const list = await screen.findByRole("list", { name: "Over this hotel's share" });
+  expect(within(list).getByText(/Milk: 16 is more than this hotel's remaining share \(10\)/)).toBeInTheDocument();
+});
+
+it("a replayed request says the draft was already made", async () => {
+  await mount();
+  createReorderMrDraft.mockResolvedValue({
+    mrId: 77, mrNumber: "MR-2026-ABC12", replayed: true, no_op: true, warnings: [],
+    items: [{ invItemId: 1, arcContractLineId: 901, quantity: 16 }],
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Create MR draft/ }));
+  expect(await screen.findByText(/was already created by your earlier request, with 1 item/)).toBeInTheDocument();
+});
+
+it("a refusal over the contract's remaining quantity is shown on the row it concerns", async () => {
+  await mount();
+  createReorderMrDraft.mockRejectedValue(
+    Object.assign(new Error("Request failed with status code 422"), {
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: {
+          status: 0, code: "VALIDATION", message: "Milk: 16 litre is more than the contract has left (5 litre)",
+          details: {
+            field: "items", reason: "EXCEEDS_CONTRACT_REMAINING", remaining: 5, quantity: 16,
+            lines: [{ index: 0, invItemId: 1, displayName: "Milk", reason: "EXCEEDS_CONTRACT_REMAINING", arcContractLineId: 901, quantity: 16, remaining: 5, uom: "litre" }],
+          },
+        },
+      },
+    })
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Create MR draft/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Milk: 16 litre is more than the contract has left (5 litre)");
+  expect(within(rowOf("Milk")).getByText("16 litre is more than the contract has left (5 litre)")).toBeInTheDocument();
+});
+
+it("an answered request gets a new key next time; only an unknown outcome keeps it", async () => {
+  await mount();
+  const create = () => fireEvent.click(screen.getByRole("button", { name: /Create MR draft/ }));
+  const keys = () => createReorderMrDraft.mock.calls.map(([body]) => body.clientEventId);
+  const idle = () => waitFor(() => expect(screen.getByRole("button", { name: /Create MR draft/ })).not.toBeDisabled());
+
+  // A gateway error: the outcome is unknown, so the retry keeps the key.
+  createReorderMrDraft.mockRejectedValueOnce(
+    Object.assign(new Error("Request failed with status code 504"), { isAxiosError: true, response: { status: 504, data: "" } })
+  );
+  create();
+  expect(await screen.findByRole("alert")).toHaveTextContent(/may have been created/);
+  await idle();
+  // A refusal is an answer: nothing was made, the next try is a new request.
+  createReorderMrDraft.mockRejectedValueOnce(
+    Object.assign(new Error("Request failed with status code 422"), {
+      isAxiosError: true,
+      response: { status: 422, data: { status: 0, code: "VALIDATION", message: "No", details: {} } },
+    })
+  );
+  create();
+  await waitFor(() => expect(createReorderMrDraft).toHaveBeenCalledTimes(2));
+  await idle();
+  createReorderMrDraft.mockResolvedValueOnce({ mrId: 77, mrNumber: "MR-1", items: [], warnings: [] });
+  create();
+  await screen.findByText(/Draft requisition/);
+  const [a, b, c] = keys();
+  expect(b).toBe(a);
+  expect(c).not.toBe(b);
 });
 
 it("a load failure shows the server's message", async () => {

@@ -1,5 +1,6 @@
-// The inventory offline-sync chip is mounted by the shell on every buyer page
-// (queued scans keep sending after the user leaves the scan screen), before
+// The inventory offline-sync chip is mounted by the shell on every page of a
+// signed-in non-vendor session (queued scans keep sending after the user
+// leaves the scan screen), before
 // the page content. Rails, top bar and data hooks are stubbed; the chip
 // itself (next/dynamic) is a marker.
 let mockPathname = "/dashboard/buyer/inventory/out";
@@ -59,6 +60,15 @@ it("mounts it on other buyer pages too", async () => {
   mount();
   expect(await screen.findByTestId("pending-sync-badge")).toBeInTheDocument();
 });
+
+it.each(["admin", "management", "engineering", "finance", "other"])(
+  "mounts it for a signed-in %s session too (they reach inventory as well)",
+  async (type) => {
+    mockUserType = type;
+    mount();
+    expect(await screen.findByTestId("pending-sync-badge")).toBeInTheDocument();
+  }
+);
 
 it("leaves it out for a vendor", async () => {
   mockUserType = "vendor";

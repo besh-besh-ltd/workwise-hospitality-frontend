@@ -22,7 +22,7 @@ import React from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { postOut, saveCountLines } from "@/services/inventory";
-import { _resetOutboxForTests, flush, getOutboxStatus, outboxReady, submitOrQueue } from "./outbox";
+import { NO_ANSWER_GIVE_UP_MS, _resetOutboxForTests, flush, getOutboxStatus, outboxReady, submitOrQueue } from "./outbox";
 import PendingSyncBadge from "./PendingSyncBadge";
 
 let online = true;
@@ -54,7 +54,11 @@ const queueOffline = async (event) => {
   await submitOrQueue(event);
   online = true;
 };
-const openPanel = () => fireEvent.click(screen.getByRole("button", { name: /Pending sync|not recorded/ }));
+const openPanel = () => fireEvent.click(screen.getByRole("button", { name: /Pending sync|not recorded|not be recorded/ }));
+
+/** Move the clock forward (Date.now only; timers stay real). */
+let skew = 0;
+const realNow = Date.now.bind(Date);
 
 beforeEach(async () => {
   await _resetOutboxForTests();
@@ -65,6 +69,12 @@ beforeEach(async () => {
   localStorage.setItem("token", "tok-407");
   localStorage.setItem("persist:root", JSON.stringify({ userProfile: JSON.stringify({ id: 407 }), _persist: "{}" }));
   jest.resetAllMocks();
+  skew = 0;
+  jest.spyOn(Date, "now").mockImplementation(() => realNow() + skew);
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 it("shows nothing but an empty announcer when nothing is waiting", async () => {
@@ -198,4 +208,44 @@ it("says when an entry is kept on this page only", async () => {
   await screen.findByRole("button", { name: /Pending sync \(1\)/ });
   openPanel();
   expect(screen.getByText(/Kept on this page only: this browser could not save one entry on the device/)).toBeInTheDocument();
+});
+
+it("an entry given up on after days without an answer reads as maybe recorded: open it to check, or send it again", async () => {
+  await queueOffline(outEvent("a"));
+  postOut.mockRejectedValue(networkError());
+  render(<PendingSyncBadge autoSync={false} />);
+  await screen.findByRole("button", { name: /Pending sync \(1\)/ });
+  await act(() => flush());
+
+  // A try got no answer: the server may have it, so Discard says so.
+  openPanel();
+  fireEvent.click(screen.getByRole("button", { name: "Discard Mark out · 1 line" }));
+  expect(
+    screen.getByText("Discard it? It may already have been recorded; this device will stop sending it.")
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+
+  skew += NO_ANSWER_GIVE_UP_MS + 60000;
+  await act(() => flush({ force: true }));
+  await act(() => flush({ force: true }));
+
+  expect(await screen.findByText("1 entry may not have been recorded")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /1 may not be recorded/ })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.queryByText(/not recorded\b/)).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "May not have been recorded: Mark out · 1 line. Open it to check, or send it again."
+  );
+  const unsure = screen.getByRole("region", { name: "May not have been recorded" });
+  expect(within(unsure).getByText("May not have been recorded: open it to check, or send it again.")).toBeInTheDocument();
+  expect(within(unsure).getByText("No answer from the server for 3 days")).toBeInTheDocument();
+  expect(within(unsure).getByRole("link", { name: "Open Mark out · 1 line" })).toHaveAttribute(
+    "href",
+    "/dashboard/buyer/inventory/out?hotelId=46"
+  );
+
+  fireEvent.click(within(unsure).getByRole("button", { name: "Discard Mark out · 1 line" }));
+  expect(screen.getByText("Discard it? It may already have been recorded; it will not be sent again.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+  await waitFor(() => expect(screen.queryByText(/may not/)).not.toBeInTheDocument());
+  expect(getOutboxStatus("out_post", "a")).toBe("dismissed");
 });

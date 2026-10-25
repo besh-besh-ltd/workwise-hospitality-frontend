@@ -6,6 +6,7 @@ import {
   discardPending,
   dismissFailed,
   flush,
+  mayBeRecorded,
   outboxLinkFor,
   retryNow,
   useFailedItems,
@@ -15,12 +16,17 @@ import {
 } from "./outbox";
 import styles from "./PendingSyncBadge.module.scss";
 
-// What this device still owes the server, on every buyer dashboard page: a
-// small chip ("Pending sync (N)", "N not recorded") that opens a panel with
+// What this device still owes the server, on every dashboard page of a
+// signed-in, non-vendor session: a small chip ("Pending sync (N)", "N not
+// recorded", "N may not be recorded") that opens a panel with
 //   - each waiting event: what it is, why it is still waiting (offline, no
 //     answer, the server's status), Retry now, Discard (with a confirm);
-//   - each event the server refused or that was given up on: its message,
-//     Open (the screen that made it) and Discard (with a confirm).
+//   - each event the server refused (not recorded): its message, Open (the
+//     screen that made it) and Discard (with a confirm);
+//   - each event given up on after no answer or repeated server errors: the
+//     server may have recorded it, so the panel says to open it and check, or
+//     send it again (the same clientEventId: the server answers a repeat with
+//     the original).
 // Desktop: fixed bottom-right. Phone: in the page flow above the content, so
 // it never covers a scan bar or a bottom sheet. A new failure opens the panel
 // and is announced. Renders only the (empty) announcer when there is nothing
@@ -61,6 +67,22 @@ const waitingWhy = (item, online) => {
   return "No answer from the server yet: retrying";
 };
 
+/** Two kinds of failed item: refused (certain) and given up on (uncertain). */
+const isUnsure = (item) => item.error?.uncertain === true;
+
+const announce = (fresh) => {
+  const unsure = fresh.filter(isUnsure).length;
+  if (fresh.length === 1) {
+    const [item] = fresh;
+    return unsure
+      ? `May not have been recorded: ${nameOf(item)}. Open it to check, or send it again.`
+      : `Not recorded: ${nameOf(item)}. ${item.error?.message || "The server did not record this."}`;
+  }
+  if (!unsure) return `${fresh.length} entries were not recorded.`;
+  if (unsure === fresh.length) return `${fresh.length} entries may not have been recorded.`;
+  return `${fresh.length - unsure} entries were not recorded; ${unsure} may not have been.`;
+};
+
 const ConfirmDiscard = ({ question, onConfirm, onCancel, busy }) => (
   <div className={styles.confirm} role="group" aria-label={question}>
     <span className={styles.confirmText}>{question}</span>
@@ -73,6 +95,56 @@ const ConfirmDiscard = ({ question, onConfirm, onCancel, busy }) => (
       </button>
     </div>
   </div>
+);
+
+const FailedGroup = ({ label, title, items, question, messageOf, detailOf, confirmId, busyId, onAsk, onDiscard }) => (
+  <section className={styles.group} aria-label={label}>
+    <header className={`${styles.groupHead} ${styles.groupHeadDanger}`}>
+      <TriangleAlert size={13} aria-hidden="true" />
+      <span className={styles.groupTitle}>{title}</span>
+    </header>
+    <ul className={styles.list}>
+      {items.map((item) => {
+        const href = outboxLinkFor(item);
+        const detail = detailOf ? detailOf(item) : null;
+        return (
+          <li key={item.id} className={styles.item}>
+            <div className={styles.itemTop}>
+              <span className={styles.kind}>{kindLabel(item)}</span>
+              <span className={styles.when}>{fmtWhen(item.failedAt)}</span>
+            </div>
+            <div className={styles.summary}>{item.summary}</div>
+            <div className={styles.message}>{messageOf(item)}</div>
+            {detail && <div className={styles.why}>{detail}</div>}
+            {confirmId === item.id ? (
+              <ConfirmDiscard
+                question={question}
+                busy={busyId === item.id}
+                onConfirm={() => onDiscard(item)}
+                onCancel={() => onAsk(null)}
+              />
+            ) : (
+              <div className={styles.actions}>
+                {href && (
+                  <Link href={href} className={styles.linkBtn} aria-label={`Open ${nameOf(item)}`}>
+                    Open
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  className={styles.ghostBtn}
+                  onClick={() => onAsk(item.id)}
+                  aria-label={`Discard ${nameOf(item)}`}
+                >
+                  Discard
+                </button>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  </section>
 );
 
 const PendingSyncBadge = ({ autoSync = true }) => {
@@ -110,14 +182,12 @@ const PendingSyncBadge = ({ autoSync = true }) => {
     seenFailed.current = ids;
     if (!fresh.length) return;
     setOpen(true);
-    setAnnouncement(
-      fresh.length === 1
-        ? `Not recorded: ${nameOf(fresh[0])}. ${fresh[0].error?.message || "The server did not record this."}`
-        : `${fresh.length} entries were not recorded.`
-    );
+    setAnnouncement(announce(fresh));
   }, [failed, ready]);
 
   const pendingCount = pending.length;
+  const refused = failed.filter((f) => !isUnsure(f));
+  const unsure = failed.filter(isUnsure);
   const visible = pendingCount > 0 || failed.length > 0;
   const memoryOnly = pending.filter((i) => i.persisted === false).length;
 
@@ -178,8 +248,12 @@ const PendingSyncBadge = ({ autoSync = true }) => {
               <CloudOff size={14} className={styles.offIcon} aria-hidden="true" />
             )}
             {pendingCount > 0 && <span className={styles.label}>Pending sync ({pendingCount})</span>}
-            {pendingCount > 0 && failed.length > 0 && <span className={styles.sep} aria-hidden="true">·</span>}
-            {failed.length > 0 && <span className={styles.labelDanger}>{failed.length} not recorded</span>}
+            {pendingCount > 0 && refused.length > 0 && <span className={styles.sep} aria-hidden="true">·</span>}
+            {refused.length > 0 && <span className={styles.labelDanger}>{refused.length} not recorded</span>}
+            {pendingCount + refused.length > 0 && unsure.length > 0 && (
+              <span className={styles.sep} aria-hidden="true">·</span>
+            )}
+            {unsure.length > 0 && <span className={styles.labelDanger}>{unsure.length} may not be recorded</span>}
             <ChevronDown size={14} className={`${styles.chev} ${open ? styles.chevOpen : ""}`} aria-hidden="true" />
           </button>
 
@@ -215,7 +289,11 @@ const PendingSyncBadge = ({ autoSync = true }) => {
                         </div>
                         {confirmId === item.id ? (
                           <ConfirmDiscard
-                            question="Discard it? It will not be sent."
+                            question={
+                              mayBeRecorded(item)
+                                ? "Discard it? It may already have been recorded; this device will stop sending it."
+                                : "Discard it? It will not be sent."
+                            }
                             busy={busyId === item.id}
                             onConfirm={() => discard(item, false)}
                             onCancel={() => setConfirmId(null)}
@@ -247,54 +325,37 @@ const PendingSyncBadge = ({ autoSync = true }) => {
                 </section>
               )}
 
-              {failed.length > 0 && (
-                <section className={styles.group} aria-label="Not recorded">
-                  <header className={`${styles.groupHead} ${styles.groupHeadDanger}`}>
-                    <TriangleAlert size={13} aria-hidden="true" />
-                    <span className={styles.groupTitle}>
-                      {failed.length === 1 ? "1 entry was not recorded" : `${failed.length} entries were not recorded`}
-                    </span>
-                  </header>
-                  <ul className={styles.list}>
-                    {failed.map((item) => {
-                      const href = outboxLinkFor(item);
-                      return (
-                        <li key={item.id} className={styles.item}>
-                          <div className={styles.itemTop}>
-                            <span className={styles.kind}>{kindLabel(item)}</span>
-                            <span className={styles.when}>{fmtWhen(item.failedAt)}</span>
-                          </div>
-                          <div className={styles.summary}>{item.summary}</div>
-                          <div className={styles.message}>{item.error?.message || "The server did not record this."}</div>
-                          {confirmId === item.id ? (
-                            <ConfirmDiscard
-                              question="Discard it? It was not recorded and will not be sent."
-                              busy={busyId === item.id}
-                              onConfirm={() => discard(item, true)}
-                              onCancel={() => setConfirmId(null)}
-                            />
-                          ) : (
-                            <div className={styles.actions}>
-                              {href && (
-                                <Link href={href} className={styles.linkBtn} aria-label={`Open ${nameOf(item)}`}>
-                                  Open
-                                </Link>
-                              )}
-                              <button
-                                type="button"
-                                className={styles.ghostBtn}
-                                onClick={() => setConfirmId(item.id)}
-                                aria-label={`Discard ${nameOf(item)}`}
-                              >
-                                Discard
-                              </button>
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
+              {refused.length > 0 && (
+                <FailedGroup
+                  label="Not recorded"
+                  title={refused.length === 1 ? "1 entry was not recorded" : `${refused.length} entries were not recorded`}
+                  items={refused}
+                  question="Discard it? It was not recorded and will not be sent."
+                  messageOf={(item) => item.error?.message || "The server did not record this."}
+                  confirmId={confirmId}
+                  busyId={busyId}
+                  onAsk={setConfirmId}
+                  onDiscard={(item) => discard(item, true)}
+                />
+              )}
+
+              {unsure.length > 0 && (
+                <FailedGroup
+                  label="May not have been recorded"
+                  title={
+                    unsure.length === 1
+                      ? "1 entry may not have been recorded"
+                      : `${unsure.length} entries may not have been recorded`
+                  }
+                  items={unsure}
+                  question="Discard it? It may already have been recorded; it will not be sent again."
+                  messageOf={() => "May not have been recorded: open it to check, or send it again."}
+                  detailOf={(item) => item.error?.message}
+                  confirmId={confirmId}
+                  busyId={busyId}
+                  onAsk={setConfirmId}
+                  onDiscard={(item) => discard(item, true)}
+                />
               )}
             </div>
           )}

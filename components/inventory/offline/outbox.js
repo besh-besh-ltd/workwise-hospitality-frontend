@@ -23,24 +23,40 @@
 //     kind queues BEHIND it, so an older count_lines save is never applied
 //     after a newer one. Sends of one kind never overlap, in this tab (a
 //     promise chain) or across tabs (a Web Lock per kind, where supported).
-//     Each flush re-reads the device database first, so a long-lived tab sees
-//     what other tabs queued or sent.
+//     Each flush, Discard and Dismiss re-reads the device database under that
+//     lock first, so a long-lived tab acts on what other tabs queued or sent.
 //   - Write-ahead: the first send is recorded on the device BEFORE it goes
 //     out and removed on its answer, so a send that never settles (a 401
-//     parks the request) or a closed tab never loses it.
+//     parks the request) or a closed tab never loses it. A row marked in
+//     flight is another tab's live send until this tab holds the kind's lock;
+//     only then is it taken back as left behind by a page that is gone.
+//   - A "sent" row on the device is never overwritten (checked inside the
+//     same IndexedDB transaction as the write): a stale tab cannot turn a sent
+//     event into "dismissed", "failed" or "pending".
 //   - Outcomes:
 //       2xx (including `replayed:true`)        sent.
 //       4xx (except 408 / 429)                 final. First send: the RAW
 //                                              error is rethrown to the caller.
 //                                              Queued: a failed item that keeps
 //                                              its payload until discarded.
-//       5xx, 408, 429                          retried with backoff; after
-//                                              MAX_SERVER_ATTEMPTS answers like
-//                                              that, a failed item.
-//       no answer (offline, timeout, dropped)  retried with backoff; once the
-//                                              event is NO_ANSWER_GIVE_UP_MS old,
-//                                              a failed item.
-//     The first send and a replay classify an answer the same way.
+//       500, 501, 505+, 408, 429               retried with backoff. Given up
+//                                              (code GAVE_UP, uncertain) after
+//                                              MAX_SERVER_ATTEMPTS such answers
+//                                              to retries that were DUE (a forced
+//                                              "Sync now" / "Retry now" / online
+//                                              retry is not counted), and never
+//                                              sooner than SERVER_GIVE_UP_MIN_MS
+//                                              after the first one.
+//       no answer (timeout, dropped), and      retried with backoff. Given up
+//       a gateway's 502 / 503 / 504            (code NO_ANSWER, uncertain) once
+//                                              NO_ANSWER_GIVE_UP_MS have passed
+//                                              since the first such try made
+//                                              while ONLINE, and at least
+//                                              MIN_NO_ANSWER_TRIES online tries
+//                                              went unanswered. Time offline
+//                                              does not count.
+//     The first send and a replay classify an answer the same way. A give-up
+//     is uncertain: the server may have recorded it.
 //   - History: sent and discarded events are remembered for a few days
 //     (payload dropped), so `getOutboxStatus` can say what became of one.
 
@@ -59,10 +75,14 @@ const LOCK_PREFIX = "workwise-inventory-outbox:";
 const DEFAULT_SEND_TIMEOUT_MS = 60000;
 const RETRY_BASE_MS = 5000;
 const RETRY_MAX_MS = 5 * 60 * 1000;
-/** Server-side failures (5xx, 408, 429) before a queued event becomes a failed item. */
+/** Server failures (500, 408, 429, …) to DUE retries before a queued event is given up on… */
 export const MAX_SERVER_ATTEMPTS = 10;
-/** A queued event that still gets no answer at this age becomes a failed item. */
+/** …and never sooner than this after its first server failure. */
+export const SERVER_GIVE_UP_MIN_MS = 30 * 60 * 1000;
+/** With no answer (or a gateway 502/503/504) this long after the first such try made online… */
 export const NO_ANSWER_GIVE_UP_MS = 72 * 60 * 60 * 1000;
+/** …and at least this many unanswered online tries, a queued event is given up on. */
+export const MIN_NO_ANSWER_TRIES = 3;
 /** How long sent / discarded events are remembered for getOutboxStatus. */
 const HISTORY_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 /** Sends wait this long after another tab changed the token or the profile. */
@@ -111,8 +131,12 @@ export const registerSender = (kind, send) => {
 // ── State ────────────────────────────────────────────────────────────────────
 // Item: {id, kind, clientEventId, userId, payload, summary, seq, createdAt,
 //        createdAtMs, status: "pending"|"failed"|"sent"|"dismissed",
-//        inFlight, attempts, serverAttempts, nextAttemptAt, lastError,
-//        error, failedAt, settledAt, settledAtMs, persisted}
+//        inFlight, attempts (every try: drives the backoff), nextAttemptAt,
+//        serverAttempts (due tries the server failed), firstServerFailureAtMs,
+//        noAnswerTries (online tries with no answer), firstNoAnswerAtMs,
+//        mayBeRecorded (a try got no answer: the server may have it),
+//        lastError, error, failedAt, settledAt, settledAtMs,
+//        persisted (memory only), result (memory only: a sent event's answer)}
 const EMPTY = Object.freeze([]);
 let items = EMPTY;
 let ready = false;
@@ -126,6 +150,8 @@ let persistenceAsked = false;
 const listeners = new Set();
 const outcomeListeners = new Set();
 const chains = new Map();
+const sending = new Set(); // ids this tab is sending right now
+const TAB_ID = Math.random().toString(36).slice(2, 10);
 
 const notify = () => listeners.forEach((l) => l());
 const commit = (next) => {
@@ -265,25 +291,63 @@ const withStore = async (mode, fn) => {
   });
 };
 
-/** Write through to the device. True when the device has it. */
-const persist = async (op, value) => {
+/**
+ * Write through to the device. A put never replaces a stored "sent" row with
+ * anything else, and `guard(storedRow|null)` may refuse it too; both are
+ * checked inside the same readwrite transaction as the write.
+ * @returns {Promise<{persisted: boolean, refused?: true, current?: object|null}>}
+ *   persisted: the device holds a row for it; refused: the write was not
+ *   made, `current` being what the device holds.
+ */
+const persist = async (op, value, guard = null) => {
   try {
     const db = await openDb();
-    if (!db) return false;
-    await withStore("readwrite", (os) => (op === "put" ? os.put(value) : os.delete(value)));
-    return true;
+    if (!db) return { persisted: false };
+    const out = await withStore("readwrite", (os, set) => {
+      if (op !== "put") {
+        os.delete(value);
+        set({ persisted: true });
+        return;
+      }
+      const req = os.get(value.id);
+      req.onsuccess = () => {
+        const current = req.result ?? null;
+        const overSent = current?.status === "sent" && value.status !== "sent";
+        if (overSent || (guard && !guard(current))) {
+          set({ persisted: current != null, refused: true, current });
+          return;
+        }
+        os.put(value);
+        set({ persisted: true });
+      };
+    });
+    return out || { persisted: false };
   } catch (err) {
     warnOnce(err);
-    return false;
+    return { persisted: false };
   }
 };
 
 const isHistory = (i) => i.status === "sent" || i.status === "dismissed";
 
+/** Whether memory already holds this device row (every write stamps a new writeId). */
+const sameRow = (a, b) =>
+  a.id === b.id &&
+  a.writeId === b.writeId &&
+  a.status === b.status &&
+  (Number(a.attempts) || 0) === (Number(b.attempts) || 0) &&
+  !!a.inFlight === !!b.inFlight &&
+  (Number(a.noAnswerTries) || 0) === (Number(b.noAnswerTries) || 0) &&
+  (Number(a.nextAttemptAt) || 0) === (Number(b.nextAttemptAt) || 0) &&
+  (Number(a.settledAtMs) || 0) === (Number(b.settledAtMs) || 0);
+
 /**
  * Bring memory in line with the device: what other tabs (or an earlier page)
- * queued, sent or discarded. Our own in-flight sends, memory-only events and
- * anything changed here since the read started keep their memory version.
+ * queued, sent or discarded. This tab's own sends, memory-only events and
+ * anything changed here since the read started keep their memory version; a
+ * row the device holds unchanged keeps its memory object (and so its
+ * `result`), and nothing is committed when nothing changed. A row marked in
+ * flight stays so: it may be another tab's live send (see reclaimOrphans).
  */
 const loadFromDb = async () => {
   const startedAt = rev;
@@ -307,16 +371,16 @@ const loadFromDb = async () => {
       stale.push(r.id);
       continue;
     }
-    // A send recorded as in flight by a page that is gone: waiting again.
-    fromDb.set(r.id, r.inFlight ? { ...r, inFlight: false } : r);
+    fromDb.set(r.id, r);
   }
   const next = [];
   const seen = new Set();
   for (const i of items) {
     seen.add(i.id);
-    const keepMine = (touched.get(i.id) || 0) > startedAt || i.inFlight || i.persisted === false;
-    if (keepMine) next.push(i);
-    else if (fromDb.has(i.id)) next.push(fromDb.get(i.id));
+    const keepMine = (touched.get(i.id) || 0) > startedAt || sending.has(i.id) || i.persisted === false;
+    const stored = fromDb.get(i.id);
+    if (keepMine || (stored && sameRow(i, stored))) next.push(i);
+    else if (stored) next.push(stored);
     // else: settled and cleared by another tab
   }
   for (const [id, r] of fromDb) {
@@ -324,7 +388,9 @@ const loadFromDb = async () => {
     next.push(r);
   }
   for (const i of next) lastSeq = Math.max(lastSeq, Number(i.seq) || 0);
-  commit(next.sort(bySeq));
+  next.sort(bySeq);
+  const unchanged = next.length === items.length && next.every((i, k) => i === items[k]);
+  if (!unchanged) commit(next);
   for (const id of stale) persist("delete", id);
 };
 
@@ -332,28 +398,56 @@ const loadFromDb = async () => {
 const hydrate = () => {
   if (!hydration) {
     watchIdentity();
-    hydration = loadFromDb().finally(() => {
-      ready = true;
-      notify();
-    });
+    hydration = loadFromDb()
+      .then(reclaimWhereFree)
+      .finally(() => {
+        ready = true;
+        notify();
+      });
   }
   return hydration;
 };
 
-const putItem = async (item) => {
+/** What the device keeps of an item (memory-only fields dropped). */
+const storable = (item) => {
+  const s = { ...item };
+  delete s.persisted;
+  delete s.result;
+  return s;
+};
+
+/** Memory takes the device's row for `id` (or drops it when the device has none). */
+const adopt = (id, row) => {
+  const rest = items.filter((i) => i.id !== id);
+  commit(row ? [...rest, row].sort(bySeq) : rest);
+};
+
+/**
+ * Write an item: memory at once (synchronously, before the first await, so a
+ * caller can emit right after), then the device. When the device refuses it
+ * (a stored "sent" row, or `guard`), memory takes the device's row.
+ * @returns {Promise<{persisted: boolean, refused?: true, current?: object|null}>}
+ */
+const putItem = async (item, guard = null) => {
   rev += 1;
   touched.set(item.id, rev);
   const mine = rev;
-  const stored = { ...item };
-  delete stored.persisted;
-  commit([...items.filter((i) => i.id !== item.id), { ...stored, persisted: item.persisted }].sort(bySeq));
-  const ok = await persist("put", stored);
-  // Say whether the device holds it (unless something newer replaced it meanwhile).
+  const stored = { ...storable(item), writeId: `${TAB_ID}:${mine}` };
+  const inMemory = { ...stored, persisted: item.persisted };
+  if (item.result !== undefined) inMemory.result = item.result;
+  commit([...items.filter((i) => i.id !== item.id), inMemory].sort(bySeq));
+  const res = await persist("put", stored, guard);
+  // Unless something newer replaced it meanwhile: say whether the device holds it.
   if ((touched.get(item.id) || 0) === mine) {
-    const cur = items.find((i) => i.id === item.id);
-    if (cur && cur.persisted !== ok) commit(items.map((i) => (i.id === item.id ? { ...i, persisted: ok } : i)));
+    if (res.refused) adopt(item.id, res.current);
+    else {
+      const cur = items.find((i) => i.id === item.id);
+      if (cur && cur.persisted !== res.persisted) {
+        commit(items.map((i) => (i.id === item.id ? { ...i, persisted: res.persisted } : i)));
+      }
+    }
   }
-  return ok;
+  return res;
 };
 
 const dropItem = async (id) => {
@@ -363,23 +457,32 @@ const dropItem = async (id) => {
   await persist("delete", id);
 };
 
-/** Remember what became of an event, without its payload. */
-const settle = (item, status) => {
+/**
+ * Remember what became of an event, without its payload. `expect`: only when
+ * the device still holds it in that status (or never held it: memory only).
+ * `result` (a sent event's answer) stays in memory only.
+ */
+const settle = (item, status, { expect = null, result } = {}) => {
   const now = Date.now();
-  return putItem({
-    id: item.id,
-    kind: item.kind,
-    clientEventId: item.clientEventId,
-    userId: item.userId,
-    summary: item.summary,
-    seq: item.seq,
-    createdAt: item.createdAt,
-    createdAtMs: item.createdAtMs,
-    status,
-    payload: null,
-    settledAt: new Date(now).toISOString(),
-    settledAtMs: now,
-  });
+  const guard = expect ? (cur) => (cur ? cur.status === expect : item.persisted === false) : null;
+  return putItem(
+    {
+      id: item.id,
+      kind: item.kind,
+      clientEventId: item.clientEventId,
+      userId: item.userId,
+      summary: item.summary,
+      seq: item.seq,
+      createdAt: item.createdAt,
+      createdAtMs: item.createdAtMs,
+      status,
+      payload: null,
+      settledAt: new Date(now).toISOString(),
+      settledAtMs: now,
+      ...(result !== undefined ? { result } : {}),
+    },
+    guard
+  );
 };
 
 const askForPersistence = () => {
@@ -416,10 +519,14 @@ const noAnswer = (err) => {
   );
 };
 
-/** "no-answer" | "server" (5xx, 408, 429: try again) | "final" */
+/**
+ * "no-answer" | "gateway" (502/503/504: the app may not have seen it, or may
+ * have: like no answer) | "server" (other 5xx, 408, 429: try again) | "final"
+ */
 const classify = (err) => {
   if (noAnswer(err)) return "no-answer";
   const s = Number(statusOf(err));
+  if (GATEWAY_STATUSES.has(s)) return "gateway";
   if (s >= 500 || RETRYABLE_4XX.has(s)) return "server";
   return "final";
 };
@@ -469,11 +576,21 @@ const backoffMs = (attempts) => Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math
 // ── Outcomes ─────────────────────────────────────────────────────────────────
 /**
  * Listen for the outcome of every QUEUED event (an inline send answers its
- * caller directly and is not reported here).
+ * caller directly and is not reported here). The event fires right after the
+ * in-memory state changes, so getOutboxStatus() already agrees with it.
+ *
+ * "failed" comes in two kinds; tell them apart by `error.uncertain`:
+ *   - a refusal (4xx): `uncertain` absent, `code` the server's code. Not recorded.
+ *   - a give-up: `uncertain: true`, `code` "GAVE_UP" (the server kept failing:
+ *     5xx, 408, 429) or "NO_ANSWER" (no answer, or a gateway 502/503/504, for
+ *     3 days of online tries). The server MAY have recorded it: check the
+ *     document (or send it again with the same clientEventId, which the server
+ *     answers with the original) before treating it as lost.
  *
  * @param {(event: {id: string, clientEventId: string, kind: string,
  *   outcome: "sent"|"failed"|"discarded", result?: any, error?: {httpStatus: number|null,
- *   code: string|null, details: object, message: string, response?: {status: number, data: object}}}) => void} listener
+ *   code: string|null, details: object, message: string, uncertain?: true,
+ *   response?: {status: number, data: object}}}) => void} listener
  * @returns {() => void} unsubscribe
  */
 export const onOutboxOutcome = (listener) => {
@@ -512,73 +629,139 @@ const exclusive = (kind, work) => {
   return run;
 };
 
+/** Like exclusive, but skipped (resolves undefined) when another tab holds the kind's lock. */
+const exclusiveIfFree = (kind, work) => {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : null;
+  if (locks && typeof locks.request === "function") {
+    return new Promise((resolve) => {
+      resolve(locks.request(`${LOCK_PREFIX}${kind}`, { ifAvailable: true }, (lock) => (lock ? work() : undefined)));
+    }).catch(() => {});
+  }
+  return exclusive(kind, work).catch(() => {});
+};
+
+/**
+ * Under the kind's lock no tab is sending it, so a row still marked in flight
+ * was left by a page that closed mid-send: waiting again. Its try may have
+ * reached the server (mayBeRecorded); it counts as one unanswered try.
+ * Call inside exclusive(kind), after loadFromDb().
+ */
+const reclaimOrphans = async (kind) => {
+  const left = items.filter((i) => i.kind === kind && i.status === "pending" && i.inFlight && !sending.has(i.id));
+  for (const i of left) {
+    await putItem({
+      ...i,
+      inFlight: false,
+      mayBeRecorded: true,
+      noAnswerTries: (Number(i.noAnswerTries) || 0) + 1,
+      firstNoAnswerAtMs: Number(i.firstNoAnswerAtMs) || Number(i.createdAtMs) || Date.now(),
+    });
+  }
+};
+
+/** On page load: take back what a closed page left in flight, for kinds no other tab is sending. */
+const reclaimWhereFree = async () => {
+  const kinds = [...new Set(items.filter((i) => i.status === "pending" && i.inFlight).map((i) => i.kind))];
+  await Promise.all(
+    kinds.map((kind) =>
+      exclusiveIfFree(kind, async () => {
+        await loadFromDb();
+        await reclaimOrphans(kind);
+      })
+    )
+  );
+};
+
 const pendingOf = (kind, userId) =>
   items.filter(
     (i) => i.status === "pending" && !i.inFlight && i.userId === userId && (!kind || i.kind === kind)
   );
 const stillPending = (id) => items.some((i) => i.id === id && i.status === "pending");
 
-const fail = async (item, error) => {
-  await putItem({ ...item, inFlight: false, status: "failed", error, failedAt: new Date().toISOString() });
+/** Record a failed item; the outcome is emitted as soon as memory has it. */
+const fail = (item, error) => {
+  const write = putItem({ ...item, inFlight: false, status: "failed", error, failedAt: new Date().toISOString() });
   emit({ id: item.id, clientEventId: item.clientEventId, kind: item.kind, outcome: "failed", error });
+  return write;
 };
 
 /**
- * After an unanswered or server-failed send: wait and retry, or give up.
- * Returns "held" | "failed".
+ * After an unanswered or server-failed try: wait and retry, or give up.
+ * `due`: the try was due under the backoff (a forced one is not counted
+ * against the server-failure budget). Returns "held" | "failed".
  */
-const afterTrouble = async (item, err, how) => {
+const afterTrouble = async (item, err, how, { due = true } = {}) => {
+  const now = Date.now();
   const lastError = storedError(err, how === "no-answer" ? { message: "No answer from the server" } : {});
-  if (how === "no-answer") {
-    if (Date.now() - (Number(item.createdAtMs) || Date.now()) >= NO_ANSWER_GIVE_UP_MS) {
-      await fail(item, {
+  const next = { ...item };
+  if (how === "no-answer" || how === "gateway") {
+    next.mayBeRecorded = true;
+    if (!isOffline()) {
+      next.noAnswerTries = (Number(item.noAnswerTries) || 0) + 1;
+      next.firstNoAnswerAtMs = Number(item.firstNoAnswerAtMs) || now;
+    }
+    const tries = Number(next.noAnswerTries) || 0;
+    const since = Number(next.firstNoAnswerAtMs) || 0;
+    if (since && tries >= MIN_NO_ANSWER_TRIES && now - since >= NO_ANSWER_GIVE_UP_MS) {
+      await fail(next, {
         ...lastError,
         code: "NO_ANSWER",
-        message: "Not sent: no answer from the server for 3 days",
+        uncertain: true,
+        message: "No answer from the server for 3 days",
       });
       return "failed";
     }
   } else {
-    const serverAttempts = (Number(item.serverAttempts) || 0) + 1;
-    if (serverAttempts >= MAX_SERVER_ATTEMPTS) {
-      const status = lastError.httpStatus;
-      await fail(
-        { ...item, serverAttempts },
-        storedError(err, { message: `The server could not record this after ${serverAttempts} tries (${status}): ${lastError.message}` })
-      );
+    next.firstServerFailureAtMs = Number(item.firstServerFailureAtMs) || now;
+    if (due) next.serverAttempts = (Number(item.serverAttempts) || 0) + 1;
+    const tries = Number(next.serverAttempts) || 0;
+    if (tries >= MAX_SERVER_ATTEMPTS && now - next.firstServerFailureAtMs >= SERVER_GIVE_UP_MIN_MS) {
+      await fail(next, {
+        ...storedError(err, {
+          message: `The server kept failing after ${tries} tries (${lastError.httpStatus}): ${lastError.message}`,
+        }),
+        code: "GAVE_UP",
+        uncertain: true,
+      });
       return "failed";
     }
-    item = { ...item, serverAttempts };
   }
   const attempts = (Number(item.attempts) || 0) + 1;
-  await putItem({ ...item, inFlight: false, attempts, nextAttemptAt: Date.now() + backoffMs(attempts), lastError });
+  await putItem({ ...next, inFlight: false, attempts, nextAttemptAt: now + backoffMs(attempts), lastError });
   return "held";
 };
 
 /** Send one queued event: "sent" | "failed" | "held" (still queued). */
-const sendQueued = async (item, extraSenders) => {
+const sendQueued = async (item, extraSenders, { due = true } = {}) => {
   const send = (extraSenders && extraSenders[item.kind]) || senders.get(item.kind);
   if (typeof send !== "function") return "held";
+  sending.add(item.id);
   try {
     const result = await withTimeout(() => send(item.payload), sendTimeoutMs);
-    await settle(item, "sent");
+    const write = settle(item, "sent", { result });
     emit({ id: item.id, clientEventId: item.clientEventId, kind: item.kind, outcome: "sent", result });
+    await write;
     return "sent";
   } catch (err) {
     if (!stillPending(item.id)) return "held";
     const how = classify(err);
-    if (how !== "final") return afterTrouble(items.find((i) => i.id === item.id) || item, err, how);
-    await fail(item, storedError(err));
+    const current = items.find((i) => i.id === item.id) || item;
+    if (how !== "final") return afterTrouble(current, err, how, { due });
+    await fail(current, storedError(err));
     return "failed";
+  } finally {
+    sending.delete(item.id);
   }
 };
 
 /**
  * Send this user's waiting events of one kind, oldest first, until one is
- * held. Call inside exclusive(kind).
+ * held. Call inside exclusive(kind): it re-reads the device, takes back rows
+ * a closed page left in flight, and only then sends.
  */
 const flushKind = async (kind, owner, { force = false, senders: extra } = {}) => {
   await loadFromDb();
+  await reclaimOrphans(kind);
   const gate = { epoch: identityEpoch, token: readLocal("token") };
   let sent = 0;
   let failed = 0;
@@ -587,8 +770,9 @@ const flushKind = async (kind, owner, { force = false, senders: extra } = {}) =>
     const next = pendingOf(kind, owner)[0];
     if (!next) break;
     if (!gateOpen(next, gate)) break; // someone else is signed in, or just was: hold
-    if (!force && (Number(next.nextAttemptAt) || 0) > Date.now()) break;
-    const outcome = await sendQueued(next, extra);
+    const due = (Number(next.nextAttemptAt) || 0) <= Date.now();
+    if (!force && !due) break;
+    const outcome = await sendQueued(next, extra, { due });
     if (outcome === "sent") sent += 1;
     else if (outcome === "failed") failed += 1;
     else break;
@@ -611,7 +795,11 @@ export const flush = async ({ force = false, senders: extra } = {}) => {
   const owner = signedInOwner();
   if (!owner) return { sent: 0, failed: 0, pending: 0 };
   if (isOffline()) return { sent: 0, failed: 0, pending: pendingOf(null, owner).length };
-  const kinds = [...new Set(pendingOf(null, owner).map((i) => i.kind))];
+  // Kinds with something waiting, or a row in flight (another tab's live send,
+  // or one a closed page left: flushKind takes it back under the lock).
+  const kinds = [
+    ...new Set(items.filter((i) => i.status === "pending" && i.userId === owner).map((i) => i.kind)),
+  ];
   const results = await Promise.all(
     kinds.map((kind) => exclusive(kind, () => flushKind(kind, owner, { force, senders: extra })))
   );
@@ -647,7 +835,11 @@ const defaultSummary = (kind, payload) => {
   return OUTBOX_KIND_LABELS[kind] || kind;
 };
 
-/** Queue (or re-queue) an event; the same event keeps its place. True when the device holds it. */
+/**
+ * Queue (or re-queue) an event. The same event keeps its place, its tries
+ * and its give-up clocks (a re-post must not reset the budget).
+ * @returns {Promise<{persisted: boolean, refused?: true, current?: object|null}>}
+ */
 const enqueue = (base, patch = {}) => {
   const earlier = items.find((i) => i.id === base.id && i.status === "pending");
   const now = Date.now();
@@ -658,10 +850,14 @@ const enqueue = (base, patch = {}) => {
     seq: earlier?.seq ?? nextSeq(),
     status: "pending",
     inFlight: false,
-    attempts: 0,
-    serverAttempts: 0,
-    nextAttemptAt: 0,
-    lastError: null,
+    attempts: Number(earlier?.attempts) || 0,
+    serverAttempts: Number(earlier?.serverAttempts) || 0,
+    firstServerFailureAtMs: Number(earlier?.firstServerFailureAtMs) || 0,
+    noAnswerTries: Number(earlier?.noAnswerTries) || 0,
+    firstNoAnswerAtMs: Number(earlier?.firstNoAnswerAtMs) || 0,
+    mayBeRecorded: earlier?.mayBeRecorded === true,
+    nextAttemptAt: Number(earlier?.nextAttemptAt) || 0,
+    lastError: earlier?.lastError || null,
     ...patch,
   });
 };
@@ -674,6 +870,11 @@ const enqueue = (base, patch = {}) => {
  *   kind must have a registered sender (it replays a queued event); `send`
  *   makes the first attempt. `summary` labels the event in the sync panel
  *   ("Receipt for PO #12 · 3 lines" by default).
+ *   The same clientEventId again: a waiting copy is replaced (keeping its
+ *   place and its tries); one already sent is not queued or sent twice: its
+ *   answer, when this page still holds it, is returned as is; otherwise it is
+ *   sent once more inline for the answer (the server answers a repeated
+ *   clientEventId with the original) and nothing is queued.
  * @returns {Promise<{queued: true, persisted: boolean} | {queued: false, result: any}>}
  *   persisted:false: this browser could not store it; it lives only as long
  *   as this page.
@@ -695,37 +896,50 @@ export const submitOrQueue = async ({ kind, clientEventId, payload, send, summar
   return exclusive(kind, async () => {
     const id = itemId(kind, clientEventId);
     const base = { id, kind, clientEventId, userId: owner, payload: plain(payload), summary: summary || defaultSummary(kind, payload) };
-    // Sending it again replaces a refused copy: the caller holds it now.
+    const sentAlready = () => {
+      const known = items.find((i) => i.id === id);
+      return known?.status === "sent" && known.userId === owner ? known : null;
+    };
+    // Reads the device first; older events of this kind go first (and a waiting copy of this one).
+    await flushKind(kind, owner);
+    // Sending it again replaces a refused or given-up copy: the caller holds it now.
     if (items.some((i) => i.id === id && i.status === "failed")) await dropItem(id);
+    const done = sentAlready();
+    if (done && done.result !== undefined) return { queued: false, result: done.result };
+    if (done) return { queued: false, result: await withTimeout(() => send(payload), sendTimeoutMs) };
 
-    await flushKind(kind, owner); // older events of this kind go first
     if (isOffline() || pendingOf(kind, owner).length) {
-      const persisted = await enqueue(base);
+      const res = await enqueue(base);
       askForPersistence();
-      return { queued: true, persisted };
+      return { queued: true, persisted: res.persisted };
     }
 
     // Write-ahead: on the device before it goes out.
-    await enqueue(base, { inFlight: true });
+    sending.add(id);
     let result;
     try {
-      result = await withTimeout(() => send(payload), sendTimeoutMs);
-    } catch (err) {
-      const how = classify(err);
-      const current = items.find((i) => i.id === id);
-      if (how === "final" || !current) {
-        await dropItem(id);
-        throw err;
+      await enqueue(base, { inFlight: true });
+      try {
+        result = await withTimeout(() => send(payload), sendTimeoutMs);
+      } catch (err) {
+        const how = classify(err);
+        const current = items.find((i) => i.id === id);
+        if (how === "final" || !current) {
+          await dropItem(id);
+          throw err;
+        }
+        await afterTrouble(current, err, how, { due: true });
+        askForPersistence();
+        const now = items.find((i) => i.id === id);
+        if (now?.status === "failed") throw err; // gave up at once (only for an event already days old)
+        return { queued: true, persisted: now?.persisted !== false };
       }
-      await afterTrouble(current, err, how);
-      askForPersistence();
-      const now = items.find((i) => i.id === id);
-      if (now?.status === "failed") throw err; // gave up at once (only for an event already days old)
-      return { queued: true, persisted: now?.persisted !== false };
+      const current = items.find((i) => i.id === id);
+      if (current) await settle(current, "sent", { result });
+      return { queued: false, result };
+    } finally {
+      sending.delete(id);
     }
-    const current = items.find((i) => i.id === id);
-    if (current) await settle(current, "sent");
-    return { queued: false, result };
   });
 };
 
@@ -775,7 +989,9 @@ export const usePendingCount = (kind) => {
 
 /**
  * Events of `kind` (every kind when omitted) waiting to sync, oldest first:
- * `{id, kind, clientEventId, payload, summary, createdAt, attempts, lastError, persisted}`.
+ * `{id, kind, clientEventId, payload, summary, createdAt, attempts, lastError, persisted,
+ * mayBeRecorded}`. mayBeRecorded: a try got no answer, so the server may
+ * already hold it (see mayBeRecorded()).
  */
 export const usePendingItems = (kind) => {
   const snap = useSnapshot();
@@ -787,6 +1003,10 @@ export const usePendingItems = (kind) => {
  * given up on, oldest first:
  * `{id, kind, clientEventId, payload, summary, error, createdAt, failedAt}`.
  * `payload` is what was queued, so a screen can offer "Open again".
+ * `error.uncertain === true` marks a give-up (`error.code` "GAVE_UP" or
+ * "NO_ANSWER"): the server MAY have recorded it, so check before re-entering
+ * it (sending it again with the same clientEventId is safe: the server answers
+ * a repeat with the original). Without it, the server refused it: not recorded.
  */
 export const useFailedItems = (kind) => {
   const snap = useSnapshot();
@@ -806,27 +1026,49 @@ export const getOutboxStatus = (kind, clientEventId) => {
   return item.status;
 };
 
-/** Forget a failed item (the user has seen it, or the screen took it back). */
+/**
+ * Whether the server may already hold this event: a waiting event one of
+ * whose tries got no answer (or a gateway error), or a failed item that was
+ * given up on (`error.uncertain`).
+ */
+export const mayBeRecorded = (item) => item?.mayBeRecorded === true || item?.error?.uncertain === true;
+
+/**
+ * Forget a failed item (the user has seen it, or the screen took it back).
+ * Runs under the kind's lock on what the device holds now; false when it is
+ * no longer a failed item (sent, re-posted or dismissed in another tab).
+ */
 export const dismissFailed = async (id) => {
-  const owner = reduxOwner();
-  const item = items.find((i) => i.id === id && i.status === "failed");
-  if (!item || item.userId !== owner) return false;
-  await settle(item, "dismissed");
-  return true;
+  await hydrate();
+  const first = items.find((i) => i.id === id);
+  if (!first) return false;
+  return exclusive(first.kind, async () => {
+    await loadFromDb();
+    const owner = reduxOwner();
+    const item = items.find((i) => i.id === id && i.status === "failed");
+    if (!item || item.userId !== owner) return false;
+    const res = await settle(item, "dismissed", { expect: "failed" });
+    return !res.refused;
+  });
 };
 
 /**
  * Throw away a waiting event: it will not be sent. Waits for a send of its
- * kind in progress; false when it was sent or settled meanwhile.
+ * kind in progress (in any tab), then decides on what the device holds; false
+ * when it was sent or settled meanwhile.
  */
 export const discardPending = async (id) => {
+  await hydrate();
   const first = items.find((i) => i.id === id);
   if (!first) return false;
   return exclusive(first.kind, async () => {
+    await loadFromDb();
+    await reclaimOrphans(first.kind);
     const owner = reduxOwner();
     const item = items.find((i) => i.id === id && i.status === "pending" && !i.inFlight);
     if (!item || item.userId !== owner) return false;
-    await settle(item, "dismissed");
+    const res = await settle(item, "dismissed", { expect: "pending" });
+    if (res.refused) return false;
     emit({ id: item.id, clientEventId: item.clientEventId, kind: item.kind, outcome: "discarded" });
     return true;
   });
@@ -895,6 +1137,7 @@ const resetForTests = async ({ sendTimeout = DEFAULT_SEND_TIMEOUT_MS } = {}) => 
   lastIdentityEventAt = 0;
   sendTimeoutMs = sendTimeout;
   chains.clear();
+  sending.clear();
   outcomeListeners.clear();
   senders.clear();
   for (const [k, v] of Object.entries(DEFAULT_SENDERS)) senders.set(k, v);

@@ -69,8 +69,13 @@ jest.mock("../draftStore", () => {
   return {
     __esModule: true,
     __store: store,
-    grnDraftKey: (poId, hotelId) => `grn-draft:${poId}:${hotelId}`,
-    loadLocalDraft: jest.fn(async (key) => copy(store.get(key))),
+    // Same rules as the real module: per-user keys, another owner's copy ignored.
+    draftOwnerId: () => "407",
+    grnDraftKey: (userId, poId, hotelId) => (userId == null ? null : `grn-draft:${userId}:${poId}:${hotelId}`),
+    loadLocalDraft: jest.fn(async (key, ownerId) => {
+      const value = copy(store.get(key));
+      return value && String(value.ownerId) === String(ownerId) ? value : null;
+    }),
     saveLocalDraft: jest.fn(async (key, value) => {
       store.set(key, copy(value));
       return null;
@@ -132,7 +137,7 @@ const postOffline = async () => {
   expect(await screen.findByText("Waiting to sync")).toBeInTheDocument();
   expect(screen.getByText(/posts by itself as soon as there is a connection \(1 waiting\)/)).toBeInTheDocument();
   expect(postCalls()).toHaveLength(0); // nothing went out while offline
-  return draftStore.__store.get("grn-draft:52:46").sessionKey;
+  return draftStore.__store.get("grn-draft:407:52:46").sessionKey;
 };
 
 beforeEach(async () => {
