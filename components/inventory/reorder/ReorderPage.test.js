@@ -56,6 +56,7 @@ const reorder = (o = {}) => ({
     row({ invItemId: 3, displayName: "Napkins", itemCode: null, stockUom: "pack", qty: 6, reorderLevel: 6, maxQty: 6, onOrder: 2, suggestedQty: 0, productVariantId: 5003 }),
   ],
   groupOrdersOpen: [],
+  can: { createMrDraft: true },
   ...o,
 });
 
@@ -101,6 +102,7 @@ it("reorder page creates MR draft for contracted rows", async () => {
     hotelId: 46,
     departmentId: 3,
     items: [{ invItemId: 1, qty: 18, arcContractLineId: 901 }],
+    clientEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
   });
   expect(screen.getByText("MR-2026-ABC12")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /Open MR/ })).toHaveAttribute("href", "/dashboard/buyer/material-requisitions/77");
@@ -169,7 +171,82 @@ it("switching hotel goes through the URL", async () => {
   );
 });
 
+it("hides the MR controls unless the server says the caller may raise one here", async () => {
+  await mount(reorder({ can: undefined }));
+  expect(screen.queryByRole("button", { name: /Create MR draft/ })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Department (MR)")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Copy to RFQ/ })).toBeInTheDocument();
+});
+
+it("a repeat of the same MR request keeps its clientEventId; a changed one gets a new key", async () => {
+  await mount();
+  createReorderMrDraft.mockRejectedValue(
+    Object.assign(new Error("Network Error"), { isAxiosError: true, code: "ERR_NETWORK", request: {} })
+  );
+  const create = () => fireEvent.click(screen.getByRole("button", { name: /Create MR draft/ }));
+  create();
+  await waitFor(() => expect(createReorderMrDraft).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Create MR draft/ })).not.toBeDisabled());
+  create();
+  await waitFor(() => expect(createReorderMrDraft).toHaveBeenCalledTimes(2));
+  const [first, second] = createReorderMrDraft.mock.calls.map(([body]) => body.clientEventId);
+  expect(second).toBe(first);
+
+  await waitFor(() => expect(screen.getByRole("button", { name: /Create MR draft/ })).not.toBeDisabled());
+  fireEvent.change(screen.getByLabelText("Order qty for Milk"), { target: { value: "17" } });
+  create();
+  await waitFor(() => expect(createReorderMrDraft).toHaveBeenCalledTimes(3));
+  expect(createReorderMrDraft.mock.calls[2][0].clientEventId).not.toBe(first);
+});
+
+it("a hotel in the link the caller can't see falls back to their default hotel and leaves the URL", async () => {
+  mockQuery = { hotelId: "999", tab: "x" };
+  getReorder.mockImplementation(async (hotelId) => {
+    if (hotelId === "999") {
+      throw Object.assign(new Error("Request failed with status code 404"), {
+        isAxiosError: true,
+        response: { status: 404, data: { status: 0, code: "NOT_FOUND", message: "Hotel not found" } },
+      });
+    }
+    return reorder();
+  });
+  render(<ReorderPage />);
+  await screen.findByText("Milk");
+  expect(getReorder.mock.calls.map(([h]) => h)).toEqual(["999", undefined]);
+  expect(mockReplace).toHaveBeenCalledWith(
+    { pathname: "/dashboard/buyer/inventory/reorder", query: { tab: "x" } },
+    undefined,
+    { shallow: true }
+  );
+  expect(screen.queryByText("Hotel not found")).not.toBeInTheDocument();
+});
+
+it("Select all sits in the toolbar and toggles every row", async () => {
+  await mount();
+  const all = screen.getByRole("checkbox", { name: "Select all" });
+  expect(all).not.toBeChecked();
+  fireEvent.click(all);
+  for (const name of ["Milk", "Bleach", "Napkins"]) expect(screen.getByLabelText(`Select ${name}`)).toBeChecked();
+  fireEvent.click(all);
+  for (const name of ["Milk", "Bleach", "Napkins"]) expect(screen.getByLabelText(`Select ${name}`)).not.toBeChecked();
+});
+
+it("spells out the on-order flag, a missing suggestion and what open MRs already cover", async () => {
+  await mount(
+    reorder({
+      rows: [
+        row({ onOrderIncomplete: true, suggestedQty: null, openMrQty: 6 }),
+      ],
+    })
+  );
+  const milk = within(rowOf("Milk"));
+  expect(milk.getByText(/plus open orders in a unit with no conversion to the stock unit, not counted/)).toBeInTheDocument();
+  expect(milk.getByText("No suggestion: set a max level to get one")).toBeInTheDocument();
+  expect(milk.getByText("6 in open MRs")).toBeInTheDocument();
+});
+
 it("a load failure shows the server's message", async () => {
+  mockQuery = {};
   getReorder.mockRejectedValue(
     Object.assign(new Error("Request failed with status code 404"), {
       isAxiosError: true,

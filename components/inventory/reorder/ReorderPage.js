@@ -6,7 +6,8 @@ import { ClipboardList, ExternalLink, FileText, Info, RefreshCw, Send, ShoppingC
 import { createReorderMrDraft, getReorder } from "@/services/inventory";
 import { addProductsToDraft } from "@/services/rfq";
 import { submit as submitMr } from "@/services/mr";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
+import { newClientEventId } from "@/components/inventory/receive/receiveUtils";
 import styles from "./Reorder.module.scss";
 
 // Reorder worklist (spec §9): items at or below their reorder level at one
@@ -14,7 +15,11 @@ import styles from "./Reorder.module.scss";
 // go to a draft material requisition (contracted items, against the ARC line
 // for the chosen department) or to an RFQ draft (any item with a product).
 // The hotel list, departments and contract lines all come from GET /reorder,
-// which scopes them to the caller; the page only chooses among them.
+// which scopes them to the caller; the page only chooses among them. The MR
+// controls show only when the server says the caller may raise one here
+// (`can.createMrDraft`); a missing flag hides them. An MR draft carries a
+// clientEventId, kept while the request stays the same, so a double click or
+// a retry after a lost answer returns the same draft.
 
 const QTY_RE = /^\d+(\.\d{1,4})?$/;
 const parseQty = (text) => {
@@ -62,6 +67,9 @@ const ReorderPage = () => {
   const [actionError, setActionError] = useState(null);
   const [created, setCreated] = useState(null); // {mrId, mrNumber, count, skipped, submitted, warnings}
   const reqRef = useRef(0);
+  const mrKeyRef = useRef({ sig: null, key: null });
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   const queryHotel = router.isReady ? router.query.hotelId : undefined;
 
@@ -70,7 +78,22 @@ const ReorderPage = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await getReorder(hotelId || undefined);
+      let res;
+      try {
+        res = await getReorder(hotelId || undefined);
+      } catch (err) {
+        // A hotel in the link the caller can't see (or one that no longer
+        // exists): show their default hotel instead, and drop it from the URL.
+        const gone = hotelId && (getApiErrorData(err)?.code === "NOT_FOUND" || err?.response?.status === 404);
+        if (!gone) throw err;
+        if (req !== reqRef.current) return;
+        res = await getReorder(undefined);
+        if (req !== reqRef.current) return;
+        const r = routerRef.current;
+        const rest = { ...r.query };
+        delete rest.hotelId;
+        r.replace({ pathname: r.pathname, query: rest }, undefined, { shallow: true });
+      }
       if (req !== reqRef.current) return;
       const rows = res?.rows || [];
       setData(res || null);
@@ -95,6 +118,7 @@ const ReorderPage = () => {
   const rows = useMemo(() => data?.rows || [], [data]);
   const hotels = data?.hotels || [];
   const departments = data?.departments || [];
+  const canCreateMr = data?.can?.createMrDraft === true;
   const hotelId = data?.hotelId ?? null;
   const hotelName = hotels.find((h) => h.id === hotelId)?.name || "";
   const nameOf = useMemo(() => new Map(rows.map((r) => [r.invItemId, r.displayName])), [rows]);
@@ -119,16 +143,20 @@ const ReorderPage = () => {
     setBusy("mr");
     setActionError(null);
     setCreated(null);
+    const request = {
+      hotelId,
+      departmentId: Number(departmentId),
+      items: mrRows.map((r) => ({
+        invItemId: r.invItemId,
+        qty: parseQty(qtys[r.invItemId]),
+        arcContractLineId: lineFor(r, departmentId).arcContractLineId,
+      })),
+    };
+    // Same request, same key: the server answers a repeat with the draft it made.
+    const sig = JSON.stringify(request);
+    if (mrKeyRef.current.sig !== sig) mrKeyRef.current = { sig, key: newClientEventId() };
     try {
-      const res = await createReorderMrDraft({
-        hotelId,
-        departmentId: Number(departmentId),
-        items: mrRows.map((r) => ({
-          invItemId: r.invItemId,
-          qty: parseQty(qtys[r.invItemId]),
-          arcContractLineId: lineFor(r, departmentId).arcContractLineId,
-        })),
-      });
+      const res = await createReorderMrDraft({ ...request, clientEventId: mrKeyRef.current.key });
       setCreated({
         mrId: res?.mrId,
         mrNumber: res?.mrNumber || `#${res?.mrId}`,
@@ -337,6 +365,12 @@ const ReorderPage = () => {
         <section className={styles.card}>
           <div className={styles.toolbar}>
             <div className={styles.toolbarLeft}>
+              {rows.length > 0 && (
+                <label className={styles.selectAll}>
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} disabled={!!busy} />
+                  <span>Select all</span>
+                </label>
+              )}
               <span className={styles.count}>
                 <span className={styles.mono}>{rows.length}</span> {rows.length === 1 ? "item" : "items"} to reorder
                 {chosen.length > 0 && (
@@ -348,7 +382,7 @@ const ReorderPage = () => {
               </span>
             </div>
             <div className={styles.toolbarRight}>
-              {departments.length > 0 ? (
+              {!canCreateMr ? null : departments.length > 0 ? (
                 <div className={styles.fieldInline}>
                   <label className={styles.label} htmlFor={deptSelectId}>Department (MR)</label>
                   <select
@@ -366,7 +400,7 @@ const ReorderPage = () => {
               ) : (
                 <span className={styles.muted}>No department here you can raise a requisition for.</span>
               )}
-              {departments.length > 0 && (
+              {canCreateMr && departments.length > 0 && (
                 <button
                   type="button"
                   className={`${styles.btn} ${styles.btnPrimary}`}
@@ -391,7 +425,7 @@ const ReorderPage = () => {
             </div>
           </div>
 
-          {departments.length > 0 && notContracted.length > 0 && mrRows.length > 0 && (
+          {canCreateMr && departments.length > 0 && notContracted.length > 0 && mrRows.length > 0 && (
             <p className={styles.toolbarNote}>
               {notContracted.length} selected {notContracted.length === 1 ? "item has" : "items have"} no contract for this
               department and will stay off the requisition.
@@ -409,13 +443,7 @@ const ReorderPage = () => {
                 <thead>
                   <tr>
                     <th className={styles.colCheck}>
-                      <input
-                        type="checkbox"
-                        aria-label="Select all"
-                        checked={allChecked}
-                        onChange={toggleAll}
-                        disabled={!!busy}
-                      />
+                      <span className={styles.srOnly}>Selected</span>
                     </th>
                     <th>Item</th>
                     <th className={styles.num}>On hand</th>
@@ -435,13 +463,15 @@ const ReorderPage = () => {
                     return (
                       <tr key={r.invItemId} className={selected[r.invItemId] ? styles.rowOn : undefined}>
                         <td className={styles.colCheck} data-label="">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${r.displayName}`}
-                            checked={!!selected[r.invItemId]}
-                            onChange={() => toggle(r.invItemId)}
-                            disabled={!!busy}
-                          />
+                          <label className={styles.checkHit}>
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${r.displayName}`}
+                              checked={!!selected[r.invItemId]}
+                              onChange={() => toggle(r.invItemId)}
+                              disabled={!!busy}
+                            />
+                          </label>
                         </td>
                         <td data-label="Item">
                           <div className={styles.itemName}>{r.displayName}</div>
@@ -455,18 +485,33 @@ const ReorderPage = () => {
                         <td className={styles.num} data-label="Reorder at">{fmtQty(r.reorderLevel)}</td>
                         <td className={styles.num} data-label="Max">{fmtQty(r.maxQty)}</td>
                         <td className={styles.num} data-label="On order">
-                          {fmtQty(r.onOrder)}
-                          {r.onOrderIncomplete && (
-                            <span
-                              className={styles.flag}
-                              title="Some open orders use a unit with no conversion to the stock unit, so they are not counted."
-                            >
-                              {" "}+?
-                            </span>
-                          )}
+                          <span>
+                            {fmtQty(r.onOrder)}
+                            {r.onOrderIncomplete && (
+                              <span
+                                className={styles.flag}
+                                title="Some open orders use a unit with no conversion to the stock unit, so they are not counted."
+                              >
+                                <span aria-hidden="true">{" "}+?</span>
+                                <span className={styles.srOnly}>
+                                  {" "}plus open orders in a unit with no conversion to the stock unit, not counted
+                                </span>
+                              </span>
+                            )}
+                            {Number(r.openMrQty) > 0 && (
+                              <span className={styles.cellNote}>{fmtQty(r.openMrQty)} in open MRs</span>
+                            )}
+                          </span>
                         </td>
                         <td className={styles.num} data-label="Suggested">
-                          {r.suggestedQty == null ? <span className={styles.muted} title="Set a max level to get a suggestion">—</span> : fmtQty(r.suggestedQty)}
+                          {r.suggestedQty == null ? (
+                            <span className={styles.muted} title="Set a max level to get a suggestion">
+                              <span aria-hidden="true">—</span>
+                              <span className={styles.srOnly}>No suggestion: set a max level to get one</span>
+                            </span>
+                          ) : (
+                            fmtQty(r.suggestedQty)
+                          )}
                         </td>
                         <td className={styles.num} data-label="Order qty">
                           <input

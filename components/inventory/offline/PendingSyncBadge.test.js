@@ -1,8 +1,15 @@
-// The sync dock over the real outbox (in memory: jsdom has no IndexedDB).
+// The sync chip over the real outbox, on fake-indexeddb. services/inventory
+// and the signed-in profile are mocked.
+const v8 = require("v8");
+if (typeof globalThis.structuredClone !== "function") {
+  globalThis.structuredClone = (value) => v8.deserialize(v8.serialize(value));
+}
+const { IDBFactory } = require("fake-indexeddb");
+
 let mockProfile = { id: 407 };
 jest.mock("@/redux/store", () => ({
   __esModule: true,
-  store: { getState: () => ({ userProfile: mockProfile }) },
+  store: { getState: () => ({ userProfile: mockProfile }), subscribe: () => () => {} },
 }));
 jest.mock("@/services/inventory", () => ({
   __esModule: true,
@@ -12,43 +19,77 @@ jest.mock("@/services/inventory", () => ({
 }));
 
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { postOut, saveCountLines } from "@/services/inventory";
-import { _resetOutboxForTests, submitOrQueue } from "./outbox";
+import { _resetOutboxForTests, flush, getOutboxStatus, outboxReady, submitOrQueue } from "./outbox";
 import PendingSyncBadge from "./PendingSyncBadge";
 
 let online = true;
 Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => online });
 
 const networkError = () => Object.assign(new Error("Network Error"), { isAxiosError: true, code: "ERR_NETWORK", request: {} });
+const httpError = (status, data) =>
+  Object.assign(new Error(`Request failed with status code ${status}`), {
+    isAxiosError: true,
+    response: { status, data: { status: 0, ...data } },
+  });
 const outEvent = (key) => ({
   kind: "out_post",
   clientEventId: key,
   payload: { hotelId: 46, docType: "OUT", departmentId: 3, clientEventId: key, lines: [{ invItemId: 8, qty: 2 }] },
   send: (p) => postOut(p),
 });
+const countEvent = (key) => ({
+  kind: "count_lines",
+  clientEventId: key,
+  payload: { countId: 31, lines: [{ invItemId: 8, countedQty: 4, clientEventId: "l1" }] },
+  send: jest.fn(),
+});
+const conflict = () =>
+  httpError(409, { code: "CONFLICT", message: "This count was already submitted", details: { status: "submitted" } });
+
+const queueOffline = async (event) => {
+  online = false;
+  await submitOrQueue(event);
+  online = true;
+};
+const openPanel = () => fireEvent.click(screen.getByRole("button", { name: /Pending sync|not recorded/ }));
 
 beforeEach(async () => {
   await _resetOutboxForTests();
+  globalThis.indexedDB = new IDBFactory();
   online = true;
   mockProfile = { id: 407 };
+  localStorage.clear();
+  localStorage.setItem("token", "tok-407");
+  localStorage.setItem("persist:root", JSON.stringify({ userProfile: JSON.stringify({ id: 407 }), _persist: "{}" }));
   jest.resetAllMocks();
 });
 
-it("renders nothing when nothing is waiting", () => {
-  const { container } = render(<PendingSyncBadge />);
-  expect(container).toBeEmptyDOMElement();
+it("shows nothing but an empty announcer when nothing is waiting", async () => {
+  render(<PendingSyncBadge />);
+  await act(() => outboxReady());
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
 });
 
-it('shows "Pending sync (N)" and Sync now sends the waiting events', async () => {
+it('a collapsed "Pending sync (N)" chip opens to say why each entry waits; Sync now sends them', async () => {
   // Two mark-outs that got no answer: both wait (the first one's backoff is not due).
   postOut.mockRejectedValueOnce(networkError());
   await submitOrQueue(outEvent("a"));
   await submitOrQueue(outEvent("b"));
 
-  render(<PendingSyncBadge />);
-  expect(await screen.findByText("Pending sync (2)")).toBeInTheDocument();
+  render(<PendingSyncBadge autoSync={false} />);
+  const chip = await screen.findByRole("button", { name: /Pending sync \(2\)/ });
+  expect(chip).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("button", { name: /Sync now/ })).not.toBeInTheDocument();
+
+  openPanel();
+  expect(chip).toHaveAttribute("aria-expanded", "true");
+  const waiting = screen.getByRole("region", { name: "Waiting to sync" });
+  expect(within(waiting).getByText("No answer from the server yet: retrying")).toBeInTheDocument();
+  expect(within(waiting).getByText("Waiting to send")).toBeInTheDocument();
 
   postOut.mockResolvedValue({ id: 1 });
   fireEvent.click(screen.getByRole("button", { name: /Sync now/ }));
@@ -56,13 +97,24 @@ it('shows "Pending sync (N)" and Sync now sends the waiting events', async () =>
   expect(postOut.mock.calls.map(([p]) => p.clientEventId)).toEqual(["a", "a", "b"]);
 });
 
-it("sends what was queued offline as soon as the device is back online", async () => {
-  online = false;
+it("says what the server answered while it keeps retrying", async () => {
+  postOut.mockRejectedValueOnce(httpError(503, { message: "Service Unavailable" }));
   await submitOrQueue(outEvent("a"));
+  render(<PendingSyncBadge autoSync={false} />);
+  await screen.findByRole("button", { name: /Pending sync \(1\)/ });
+  openPanel();
+  expect(screen.getByText("The server answered 503: retrying")).toBeInTheDocument();
+});
+
+it("sends what was queued offline as soon as the device is back online", async () => {
+  await queueOffline(outEvent("a"));
+  online = false;
   render(<PendingSyncBadge />);
-  expect(await screen.findByText("Pending sync (1)")).toBeInTheDocument();
-  expect(screen.getByText(/Offline/)).toBeInTheDocument();
+  await screen.findByRole("button", { name: /Pending sync \(1\)/ });
+  openPanel();
+  expect(screen.getByText("Offline: sends when you are back online")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Sync now/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Retry now/ })).toBeDisabled();
 
   postOut.mockResolvedValue({ id: 1 });
   online = true;
@@ -73,30 +125,77 @@ it("sends what was queued offline as soon as the device is back online", async (
   expect(postOut).toHaveBeenCalledTimes(1);
 });
 
-it("lists an entry the server refused, with its message, until dismissed", async () => {
-  online = false;
-  await submitOrQueue({
-    kind: "count_lines",
-    clientEventId: "c1",
-    payload: { countId: 31, lines: [{ invItemId: 8, countedQty: 4, clientEventId: "l1" }] },
-    send: jest.fn(),
-  });
-  online = true;
-  saveCountLines.mockRejectedValue(
-    Object.assign(new Error("Request failed with status code 409"), {
-      isAxiosError: true,
-      response: { status: 409, data: { status: 0, code: "CONFLICT", message: "This count was already submitted", details: { status: "submitted" } } },
-    })
-  );
+it("Retry now sends one entry; Discard asks first and then never sends it", async () => {
+  await queueOffline(outEvent("a"));
+  await queueOffline(countEvent("c1"));
+  render(<PendingSyncBadge autoSync={false} />);
+  await screen.findByRole("button", { name: /Pending sync \(2\)/ });
+  openPanel();
+
+  postOut.mockResolvedValue({ id: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "Retry now: Mark out · 1 line" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Pending sync \(1\)/ })).toBeInTheDocument());
+  expect(getOutboxStatus("out_post", "a")).toBe("sent");
+
+  fireEvent.click(screen.getByRole("button", { name: "Discard Count #31 · 1 line" }));
+  expect(screen.getByText("Discard it? It will not be sent.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  expect(getOutboxStatus("count_lines", "c1")).toBe("pending");
+
+  fireEvent.click(screen.getByRole("button", { name: "Discard Count #31 · 1 line" }));
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+  await waitFor(() => expect(screen.queryByText(/Pending sync/)).not.toBeInTheDocument());
+  expect(getOutboxStatus("count_lines", "c1")).toBe("dismissed");
+  await act(() => flush({ force: true }));
+  expect(saveCountLines).not.toHaveBeenCalled();
+});
+
+it("a refusal while the page is open opens the panel, is announced, links back, and is discarded only after a confirm", async () => {
+  await queueOffline(countEvent("c1"));
+  saveCountLines.mockRejectedValue(conflict());
 
   render(<PendingSyncBadge />);
   expect(await screen.findByText("1 entry was not recorded")).toBeInTheDocument();
-  expect(screen.getByText("Count")).toBeInTheDocument();
-  expect(screen.getByText("Count #31 · 1 line")).toBeInTheDocument();
-  expect(screen.getByText("This count was already submitted")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /1 not recorded/ })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Not recorded: Count #31 · 1 line. This count was already submitted"
+  );
+  const failed = screen.getByRole("region", { name: "Not recorded" });
+  expect(within(failed).getByText("Count")).toBeInTheDocument();
+  expect(within(failed).getByText("This count was already submitted")).toBeInTheDocument();
+  expect(within(failed).getByRole("link", { name: "Open Count #31 · 1 line" })).toHaveAttribute(
+    "href",
+    "/dashboard/buyer/inventory/counts/31"
+  );
   expect(screen.queryByText(/Pending sync/)).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss Count #31 · 1 line" }));
+  fireEvent.click(within(failed).getByRole("button", { name: "Discard Count #31 · 1 line" }));
+  expect(screen.getByText("Discard it? It was not recorded and will not be sent.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Discard" }));
   await waitFor(() => expect(screen.queryByText(/not recorded/)).not.toBeInTheDocument());
+  expect(getOutboxStatus("count_lines", "c1")).toBe("dismissed");
   expect(saveCountLines).toHaveBeenCalledTimes(1);
+});
+
+it("a refusal stored before the page loaded shows in the chip without opening or announcing", async () => {
+  await queueOffline(countEvent("c1"));
+  saveCountLines.mockRejectedValue(conflict());
+  await flush();
+  await _resetOutboxForTests(); // a later page load
+
+  render(<PendingSyncBadge autoSync={false} />);
+  const chip = await screen.findByRole("button", { name: /1 not recorded/ });
+  expect(chip).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
+});
+
+it("says when an entry is kept on this page only", async () => {
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  globalThis.indexedDB = undefined;
+  await queueOffline(outEvent("a"));
+  online = false;
+  render(<PendingSyncBadge autoSync={false} />);
+  await screen.findByRole("button", { name: /Pending sync \(1\)/ });
+  openPanel();
+  expect(screen.getByText(/Kept on this page only: this browser could not save one entry on the device/)).toBeInTheDocument();
 });

@@ -1,5 +1,6 @@
-// The inventory offline-sync dock is mounted by the shell on the buyer
-// inventory routes only. Rails, top bar and data hooks are stubbed; the dock
+// The inventory offline-sync chip is mounted by the shell on every buyer page
+// (queued scans keep sending after the user leaves the scan screen), before
+// the page content. Rails, top bar and data hooks are stubbed; the chip
 // itself (next/dynamic) is a marker.
 let mockPathname = "/dashboard/buyer/inventory/out";
 let mockUserType = "buyer";
@@ -46,17 +47,17 @@ beforeEach(() => {
   mockUserType = "buyer";
 });
 
-it("mounts the sync dock on an inventory route", async () => {
+it("mounts the sync chip on an inventory route, before the page content", async () => {
   mount();
-  expect(await screen.findByTestId("pending-sync-badge")).toBeInTheDocument();
-  expect(screen.getByText("page")).toBeInTheDocument();
+  const chip = await screen.findByTestId("pending-sync-badge");
+  const page = screen.getByText("page");
+  expect(chip.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-it("leaves it out everywhere else", async () => {
+it("mounts it on other buyer pages too", async () => {
   mockPathname = "/dashboard/buyer/purchase-orders";
   mount();
-  await screen.findByText("page");
-  expect(screen.queryByTestId("pending-sync-badge")).not.toBeInTheDocument();
+  expect(await screen.findByTestId("pending-sync-badge")).toBeInTheDocument();
 });
 
 it("leaves it out for a vendor", async () => {

@@ -125,13 +125,25 @@ export const PickHotelState = ({ choices = [], onPick }) => (
 
 // Neutral on purpose: the outbox is first-in first-out, so a post can queue
 // behind an older one while the connection is fine.
-export const QueuedState = ({ pendingCount = 0 }) => (
+// persisted:false: the browser could not store it, so it lives only as long
+// as this tab (the outbox keeps it in memory).
+export const QueuedState = ({ pendingCount = 0, persisted = true }) => (
   <div className={styles.stateCard} role="status">
     <div className={styles.stateIc}><CloudUpload size={20} aria-hidden="true" /></div>
     <h2 className={styles.stateTitle}>Waiting to sync</h2>
     <p className={styles.stateSub}>
-      This receipt is saved on this device and posts by itself as soon as it can
-      {pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}. You can leave this page.
+      {persisted ? (
+        <>
+          This receipt is saved on this device and posts by itself as soon as there is a connection
+          {pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}. You can leave this page: the Pending sync chip on
+          any dashboard page shows its progress while you stay signed in.
+        </>
+      ) : (
+        <>
+          This browser could not save the receipt on the device, so it is kept on this page only. Keep this tab
+          open until it posts{pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}.
+        </>
+      )}
     </p>
     <div className={styles.stateActions}>
       <BackToAwaiting />

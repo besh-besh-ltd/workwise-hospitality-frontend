@@ -296,3 +296,64 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   }
   .qtyInput { min-height: 44px; width: 120px; }
 }
+
+/* ───────────── Selection hit areas, screen-reader text ───────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The whole cell area toggles the row: 36px here, 44px on phones. */
+.checkHit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin: -8px;
+  cursor: pointer;
+
+  input { width: 16px; height: 16px; margin: 0; accent-color: $slate; cursor: pointer; }
+}
+
+.selectAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px 0 6px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  color: $ink-2;
+  cursor: pointer;
+  user-select: none;
+
+  input { width: 16px; height: 16px; margin: 0; accent-color: $slate; cursor: pointer; }
+  &:hover { background: $surface-2; }
+  &:focus-within { border-color: $slate; box-shadow: $ring; }
+}
+
+.cellNote {
+  display: block;
+  color: $ink-3;
+  font-family: $sans;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .table {
+    td.colCheck { left: 0; top: 0; }
+    td.colCheck .checkHit { min-width: 44px; min-height: 44px; margin: 0; }
+    td.colCheck .checkHit input { width: 22px; height: 22px; }
+  }
+  .selectAll { min-height: 44px; }
+  .cellNote { text-align: right; }
+}
