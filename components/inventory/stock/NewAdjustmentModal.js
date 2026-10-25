@@ -8,7 +8,7 @@ import ItemPicker from "./ItemPicker";
 import useUserId from "./useUserId";
 import {
   ADJUSTMENT_REASONS, QTY_MAX_LENGTH, cleanQtyInput, errorInfo, freezeMessage, isUncertainFailure, lineProblems,
-  reasonDirection, sameLines,
+  messageOf, reasonDirection, sameLines,
 } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
@@ -24,8 +24,9 @@ import s from "./stock.module.scss";
 // or may not be recorded: the form locks under the same request key and
 // offers only "Submit again" (a replay is never recorded twice) or "Discard".
 // The lock (what was sent, under which key, and the form as it stood) is kept
-// in sessionStorage per signed-in user and hotel, so a reload or a closed tab
-// in the same session reopens it locked instead of losing the key.
+// in sessionStorage per signed-in user and hotel from before the request goes
+// out until a definite answer, so a reload or a tab closed mid-request in the
+// same session reopens it locked instead of losing the key.
 //
 // Props: { show, hotels [{id,name}] (only hotels where the caller has
 //          inventory.create), defaultHotelId, onHide,
@@ -173,6 +174,8 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
     setBusy(true);
     setFormError(null);
     const sentIds = payload.lines.map((l) => l.invItemId);
+    // Kept before it goes out: if the page goes before the answer, the key isn't lost.
+    writeLock(userId, payload, { reasonCode, lines, remarks });
     try {
       const res = await createAdjustment(payload);
       clearLock(userId, payload.hotelId);
@@ -185,8 +188,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
       const d = info.details || {};
       const uomOf = (id) => lines.find((l) => l.invItemId === id)?.stockUom || "";
       if (isUncertainFailure(info)) {
-        setUncertain(payload);
-        writeLock(userId, payload, { reasonCode, lines, remarks });
+        setUncertain(payload); // the lock written before the send stays
         setFormError(
           `${info.httpStatus ? "The server had a problem before it answered" : "The connection dropped before the server answered"}, ` +
             "so this adjustment may or may not be recorded. Submit again to find out: the same adjustment is never recorded twice."
@@ -206,7 +208,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
       } else {
         const found = lineProblems(info, sentIds, { uomOf, verb: "takes out" });
         if (Object.keys(found).length) setProblems(found);
-        else setFormError(info.message);
+        else setFormError(messageOf(info)); // a 404 not on a line: the hotel (C3)
       }
     } finally {
       busyRef.current = false;

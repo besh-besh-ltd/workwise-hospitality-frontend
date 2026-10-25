@@ -133,6 +133,10 @@ describe("StockList", () => {
     expect(getStock.mock.calls.map((c) => c[0])).toEqual([{ hotelId: 99, page: 1 }, { page: 1 }]);
     expect(screen.getByLabelText("Hotel")).toHaveValue("46");
     expect(screen.queryByRole("alert")).toBeNull();
+    // C3: a hotel you can't see answers like one that's gone, so the page says both
+    expect(screen.getByRole("status", { name: "Hotel not available" })).toHaveTextContent(
+      /This hotel isn't available to you, or no longer exists\. Showing .+ instead\./
+    );
   });
 
   test("stock list shows not-started banner", async () => {

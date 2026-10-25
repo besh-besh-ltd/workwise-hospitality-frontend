@@ -213,6 +213,29 @@ describe("OpeningStockTab", () => {
     expect(postOpeningStock).not.toHaveBeenCalled();
   });
 
+  test("a hotel that answers 404 (C3: can't see it, or it's gone) says so on open, on preview and on post", async () => {
+    const gone = () => apiError(404, "NOT_FOUND", {}, "Hotel not found");
+    const NA = "This hotel isn't available to you, or no longer exists.";
+    getHotelSettings.mockRejectedValueOnce(gone());
+    const first = render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    expect(await screen.findByText(NA)).toBeInTheDocument();
+    first.unmount();
+
+    previewOpeningStock.mockRejectedValueOnce(gone());
+    const second = render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    upload();
+    expect(await screen.findByText(NA)).toBeInTheDocument();
+    second.unmount();
+
+    previewOpeningStock.mockResolvedValue({ rows: [okRow()], okCount: 1, errorCount: 0 });
+    postOpeningStock.mockRejectedValueOnce(gone());
+    render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    upload();
+    await screen.findByRole("table", { name: "Opening stock preview" });
+    await postWithConfirm();
+    expect(await screen.findByText(NA)).toBeInTheDocument();
+  });
+
   test("while a count is open the post is off and says why", async () => {
     previewOpeningStock.mockResolvedValue({ rows: [okRow()], okCount: 1, errorCount: 0, stockStartedAt: STARTED, countFreeze: true });
     render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);

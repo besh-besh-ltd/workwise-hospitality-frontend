@@ -3,7 +3,7 @@ import { Modal } from "react-bootstrap";
 import { Check, Loader2, X, XCircle } from "lucide-react";
 import { getAdjustment } from "@/services/inventory";
 import { fmtInstant, inr } from "@/components/inventory/receive/receiveUtils";
-import { ADJUSTMENT_STATUS, errorInfo, fmtSigned, reasonLabel } from "./stockUtils";
+import { ADJUSTMENT_STATUS, errorInfo, fmtSigned, messageOf, reasonLabel } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -37,7 +37,7 @@ const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null,
     } catch (err) {
       if (seq !== seqRef.current) return;
       setLoaded({ id, adj: null });
-      setError(errorInfo(err, "Could not load this adjustment.").message);
+      setError(messageOf(errorInfo(err, "Could not load this adjustment."), "adjustment"));
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }

@@ -4,6 +4,7 @@ import {
   usePendingItems,
 } from "./outboxBridge";
 import { clearQueuedOut, listQueuedOuts, loadQueuedOut, saveQueuedOut } from "./outSession";
+import { isUncertainFailure } from "./stockUtils";
 
 // The signed-in user's mark-out sessions the outbox is holding (queued copies,
 // see outSession.js), with what became of each. Only the outbox's own word
@@ -16,13 +17,17 @@ import { clearQueuedOut, listQueuedOuts, loadQueuedOut, saveQueuedOut } from "./
 //                until discardPending answers (its status flips first)
 //   "failed"     the server refused it (`error`, errorInfo-shaped)
 //   "uncertain"  the outbox doesn't know it ("unknown"), or it was dismissed or
-//                discarded elsewhere: it may or may not be recorded
+//                discarded elsewhere, or the outbox gave up on it (`gaveUp`:
+//                72 h with no answer, or out of 5xx retries; `failed` and
+//                `error` say which): it may or may not be recorded
 //   "sent"       synced: onSynced(copy, result|null) runs once and the copy goes
 //
-// A missing event is never read as sent.
+// A missing event is never read as sent, and a give-up is never read as a
+// refusal.
 //
-// @returns {{loaded: boolean, entries: Array<{clientEventId, hotelId, copy, state, item, failed, error}>,
-//            track(copy): Promise, forget(clientEventId): Promise, discard(entry): Promise<boolean>}}
+// @returns {{loaded: boolean, entries: Array<{clientEventId, hotelId, copy, state, gaveUp, item, failed, error}>,
+//            track(copy): Promise, forget(clientEventId): Promise, discard(entry): Promise<boolean>,
+//            itemFor(clientEventId): object|null}}
 
 export const OUT_KIND = "out_post";
 /**
@@ -32,6 +37,14 @@ export const OUT_KIND = "out_post";
  * use it; an event that synced while the page was closed has none.
  */
 export const RESULT_GRACE_MS = 2000;
+
+/**
+ * A failed outbox item the server never actually refused: the outbox gave up
+ * (tagged `uncertain`, GAVE_UP or NO_ANSWER), or its last answer was none or
+ * a 5xx. Any of these may have been recorded.
+ */
+export const isGiveUp = (raw, info) =>
+  raw?.uncertain === true || info?.code === "GAVE_UP" || info?.code === "NO_ANSWER" || isUncertainFailure(info);
 
 const useQueuedOuts = ({ userId, onSynced }) => {
   const ready = useOutboxReady();
@@ -73,10 +86,8 @@ const useQueuedOuts = ({ userId, onSynced }) => {
   useEffect(() => {
     let cancelled = false;
     setLoadedFor(null);
-    if (!userId) {
-      setCopies([]);
-      return undefined;
-    }
+    setCopies([]); // another user's copies never linger
+    if (!userId) return undefined;
     const startedAt = revRef.current;
     (async () => {
       const index = await listQueuedOuts(userId);
@@ -143,6 +154,8 @@ const useQueuedOuts = ({ userId, onSynced }) => {
     const item = pendingItems.find((i) => i.clientEventId === cid) || null;
     const failed = failedItems.find((i) => i.clientEventId === cid) || null;
     let state;
+    let error = null;
+    let gaveUp = false;
     if (sent[cid]) state = "sent";
     else if (discarding[cid]) state = "discarding";
     else if (!outboxLoaded) state = "checking";
@@ -150,17 +163,24 @@ const useQueuedOuts = ({ userId, onSynced }) => {
       const status = getOutboxStatus(OUT_KIND, cid);
       if (status === "sent") state = "sent";
       else if (status === "pending") state = item ? "pending" : "sending";
-      else if (status === "failed") state = "failed";
-      else state = "uncertain"; // "unknown" or "dismissed": no word that it was recorded
+      else if (status === "failed") {
+        if (!failed) state = "checking"; // the failed list hasn't caught up: nothing is decided yet
+        else {
+          error = outcomeError(failed.error);
+          gaveUp = isGiveUp(failed.error, error);
+          state = gaveUp ? "uncertain" : "failed";
+        }
+      } else state = "uncertain"; // "unknown" or "dismissed": no word that it was recorded
     }
     return {
       clientEventId: cid,
       hotelId: Number(copy.hotelId),
       copy,
       state,
+      gaveUp,
       item,
       failed,
-      error: state === "failed" ? outcomeError(failed?.error) : null,
+      error,
       result: sent[cid]?.result ?? null,
     };
   });
@@ -218,7 +238,15 @@ const useQueuedOuts = ({ userId, onSynced }) => {
     [forget]
   );
 
-  return { loaded: !!userId && loadedFor === userId && outboxLoaded, entries, track, forget, discard };
+  // The outbox's own copy of an event (its exact payload), when it lists one.
+  const itemsRef = useRef({ pendingItems, failedItems });
+  itemsRef.current = { pendingItems, failedItems };
+  const itemFor = useCallback((clientEventId) => {
+    const { pendingItems: p, failedItems: f } = itemsRef.current;
+    return p.find((i) => i.clientEventId === clientEventId) || f.find((i) => i.clientEventId === clientEventId) || null;
+  }, []);
+
+  return { loaded: !!userId && loadedFor === userId && outboxLoaded, entries, track, forget, discard, itemFor };
 };
 
 export default useQueuedOuts;

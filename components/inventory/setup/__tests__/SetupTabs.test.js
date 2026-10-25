@@ -288,6 +288,24 @@ describe("HotelLevelsTab", () => {
     expect(await screen.findByText(/Reorder level can't be more than the max qty/)).toBeInTheDocument();
     expect(saveHotelItem).not.toHaveBeenCalled();
   });
+
+  test("a hotel that answers 404 (C3: can't see it, or it's gone) says it isn't available", async () => {
+    listHotelItems.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+  });
+
+  test("saving a row the server answers 404 for says the item or hotel isn't available", async () => {
+    listHotelItems.mockResolvedValue({
+      rows: [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", minQty: 2, reorderLevel: 4, maxQty: 10, binLabel: null }],
+      total: 1,
+    });
+    saveHotelItem.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    fireEvent.change(await screen.findByLabelText("Reorder level of Basmati rice"), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Basmati rice" }));
+    expect(await screen.findByText("This item or hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+  });
 });
 
 describe("SettingsTab", () => {
@@ -314,6 +332,20 @@ describe("SettingsTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save hotel settings" }));
     await waitFor(() => expect(saveHotelSettings).toHaveBeenCalledWith(46, { docCode: "MUM" }));
     expect(await screen.findByText("The document code MUM is used by another hotel")).toBeInTheDocument();
+  });
+
+  test("hotel settings answered 404 (C3) say the hotel isn't available, on load and on save", async () => {
+    getHotelSettings.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
+    const { unmount } = render(<SettingsTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+    unmount();
+
+    saveHotelSettings.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
+    render(<SettingsTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    expect(await screen.findByText(/Stock not started yet/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Document code"), { target: { value: "MUM" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save hotel settings" }));
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
   });
 
   test("without inventory.admin the settings are read-only", async () => {

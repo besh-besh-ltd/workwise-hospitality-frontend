@@ -8,7 +8,7 @@ import { fmtQty, inr } from "@/components/inventory/receive/receiveUtils";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getStock } from "@/services/inventory";
 import HotelSelect from "./HotelSelect";
-import { errorInfo, stockRoutes, toId } from "./stockUtils";
+import { HOTEL_NOT_AVAILABLE, errorInfo, isNotFound, messageOf, stockRoutes, toId } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -46,6 +46,7 @@ const StockList = ({ initialHotelId = null }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [fallback, setFallback] = useState(0);
+  const [hotelGone, setHotelGone] = useState(false); // the hotel asked for answered 404: showing the default
   const seqRef = useRef(0);
   const firstSearchRef = useRef(true);
   // The hotel last answered for. Later searches, filters and pages pin it, so
@@ -82,14 +83,16 @@ const StockList = ({ initialHotelId = null }) => {
     } catch (err) {
       if (seq !== seqRef.current) return;
       const info = errorInfo(err, "Could not load stock.");
-      if (info.httpStatus === 404 && pinned) {
-        // A hotel from an old link that isn't ours any more: show the default.
+      if (isNotFound(info) && pinned) {
+        // A hotel from an old link that isn't ours (or is gone): show the
+        // default, and say so (C3: the two answer the same).
         shownRef.current = null;
+        setHotelGone(true);
         if (askedHotel) setAskedHotel(null);
         else setFallback((n) => n + 1);
         return;
       }
-      setLoadError(info.message);
+      setLoadError(messageOf(info));
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
@@ -159,6 +162,18 @@ const StockList = ({ initialHotelId = null }) => {
             </div>
           ) : (
             <>
+              {hotelGone && (
+                <div className={s.banner} role="status" aria-label="Hotel not available">
+                  <span className={s.bannerIc}><AlertTriangle size={16} aria-hidden="true" /></span>
+                  <div className={s.bannerBody}>
+                    <p className={s.bannerText} style={{ margin: 0 }}>
+                      {HOTEL_NOT_AVAILABLE}
+                      {data?.hotelId ? ` Showing ${hotels.find((h) => Number(h.id) === Number(data.hotelId))?.name || "your default hotel"} instead.` : ""}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {data && data.hotelId && !data.stockStartedAt && (
                 <div className={s.banner} role="status" aria-label="Stock not started yet">
                   <span className={s.bannerIc}><AlertTriangle size={16} aria-hidden="true" /></span>
@@ -202,6 +217,7 @@ const StockList = ({ initialHotelId = null }) => {
                     value={askedHotel ?? hotelId ?? ""}
                     onChange={(id) => {
                       if (!id) return;
+                      setHotelGone(false);
                       setAskedHotel(id);
                       setPage(1);
                     }}

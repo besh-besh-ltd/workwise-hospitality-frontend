@@ -3,7 +3,9 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Save, Search } from "lucide-react";
 import { listHotelItems, saveHotelItem } from "@/services/inventory";
-import { BIN_MAX, LEVEL_FIELDS, checkLevels, errorInfo, levelsForm, stockRoutes } from "@/components/inventory/stock/stockUtils";
+import {
+  BIN_MAX, LEVEL_FIELDS, checkLevels, errorInfo, levelsForm, messageOf, stockRoutes,
+} from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
 
@@ -61,7 +63,8 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
       setErrors({});
     } catch (err) {
       if (seq !== seqRef.current) return;
-      setLoadError(errorInfo(err, "Could not load the levels.").message);
+      // C3: a hotel you can't see (or one that's gone) answers 404.
+      setLoadError(messageOf(errorInfo(err, "Could not load the levels.")));
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
@@ -94,7 +97,10 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
     } catch (err) {
       const info = errorInfo(err, "Could not save the levels.");
       const field = info.details?.field;
-      setErrors((e) => ({ ...e, [id]: field && FIELDS.some((f) => f.key === field) ? { [field]: info.message } : { _row: info.message } }));
+      setErrors((e) => ({
+        ...e,
+        [id]: field && FIELDS.some((f) => f.key === field) ? { [field]: info.message } : { _row: messageOf(info, "item or hotel") },
+      }));
     } finally {
       setSavingId(null);
     }

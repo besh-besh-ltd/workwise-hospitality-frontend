@@ -219,12 +219,26 @@ describe("ItemCard", () => {
     expect(await screen.findByLabelText("Bin")).toHaveAttribute("maxLength", "64");
   });
 
-  test("an unknown item says not found", async () => {
+  test.each([["an unknown item", "Item not found"], ["a hotel the caller can't see (C3)", "Hotel not found"]])(
+    "%s reads as not available to you, or gone",
+    async (_, message) => {
+      const err = new Error("nf");
+      err.isAxiosError = true;
+      err.response = { status: 404, data: { status: 2, message, code: "NOT_FOUND", details: {} } };
+      getStockItem.mockRejectedValue(err);
+      render(<ItemCard hotelId="46" invItemId="999" />);
+      expect(await screen.findByRole("heading", { name: "This item or hotel isn't available to you, or no longer exists." })).toBeInTheDocument();
+    }
+  );
+
+  test("saving levels at a hotel that answers 404 says it isn't available", async () => {
     const err = new Error("nf");
     err.isAxiosError = true;
-    err.response = { status: 404, data: { status: 2, message: "Item not found", code: "NOT_FOUND", details: {} } };
-    getStockItem.mockRejectedValue(err);
-    render(<ItemCard hotelId="46" invItemId="999" />);
-    expect(await screen.findByText("Item not found")).toBeInTheDocument();
+    err.response = { status: 404, data: { status: 2, message: "Hotel not found", code: "NOT_FOUND", details: {} } };
+    saveHotelItem.mockRejectedValue(err);
+    render(<ItemCard hotelId="46" invItemId="9" />);
+    const form = await screen.findByRole("form", { name: "Levels at this hotel" });
+    fireEvent.click(within(form).getByRole("button", { name: /Save/ }));
+    expect(await screen.findByText("This item or hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import HotelSelect from "@/components/inventory/stock/HotelSelect";
 import ItemPicker from "@/components/inventory/stock/ItemPicker";
 import useInventoryHotels from "@/components/inventory/stock/useInventoryHotels";
 import usePermittedHotels from "@/components/inventory/stock/usePermittedHotels";
-import { errorInfo, stockRoutes, toId } from "@/components/inventory/stock/stockUtils";
+import { errorInfo, isNotFound, notAvailable, stockRoutes, toId } from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
 
@@ -150,7 +150,14 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
       }
     } catch (err) {
       const info = errorInfo(err, "Could not make the labels.");
-      setError(info.httpStatus === 404 ? "One of these items isn't available any more. Remove it and try again." : info.message);
+      // C3: with a hotel named, a hotel you can't see (or one that's gone) answers 404 like a missing item.
+      setError(
+        isNotFound(info)
+          ? hotelId
+            ? `${notAvailable("hotel, or one of these items,")} Remove any item that's gone and try again.`
+            : "One of these items isn't available any more. Remove it and try again."
+          : info.message
+      );
     } finally {
       setBusy(false);
     }

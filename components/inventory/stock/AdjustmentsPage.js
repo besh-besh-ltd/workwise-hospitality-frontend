@@ -12,7 +12,7 @@ import { onTabKeyDown, tabIndexFor } from "./tabKeys";
 import NewAdjustmentModal from "./NewAdjustmentModal";
 import AdjustmentDetailModal from "./AdjustmentDetailModal";
 import RejectAdjustmentModal from "./RejectAdjustmentModal";
-import { ADJUSTMENT_STATUS, adjustmentRefusal, errorInfo, reasonLabel, stockRoutes, toId } from "./stockUtils";
+import { ADJUSTMENT_STATUS, adjustmentRefusal, errorInfo, messageOf, reasonLabel, stockRoutes, toId } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -77,7 +77,8 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
       setData({ rows: Array.isArray(res?.rows) ? res.rows : [], total: Number(res?.total) || 0 });
     } catch (err) {
       if (seq !== seqRef.current) return;
-      setLoadError(errorInfo(err, "Could not load adjustments.").message);
+      // C3: a hotel you can't see (or one that's gone) answers 404.
+      setLoadError(messageOf(errorInfo(err, "Could not load adjustments.")));
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }

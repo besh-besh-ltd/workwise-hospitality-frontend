@@ -8,7 +8,7 @@ import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getStockItem, getStockLedger, saveHotelItem } from "@/services/inventory";
 import { fmtDay, fmtInstant, fmtQty, inr, istToday } from "@/components/inventory/receive/receiveUtils";
 import {
-  BIN_MAX, LEVEL_FIELDS, batchExpiry, checkLevels, errorInfo, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes,
+  BIN_MAX, LEVEL_FIELDS, batchExpiry, checkLevels, errorInfo, messageOf, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes,
   toId,
 } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
@@ -69,7 +69,8 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
       setFormErrors({});
     } catch (err) {
       const info = errorInfo(err, "Could not load this item.");
-      setLoadError(info.httpStatus === 404 ? info.message || "Item not found" : info.message);
+      // C3: an item or hotel you can't see answers 404 like one that's gone.
+      setLoadError(messageOf(info, "item or hotel"));
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
       setLedger({ rows: Array.isArray(res?.rows) ? res.rows : [], total: Number(res?.total) || 0 });
     } catch (err) {
       if (seq !== ledgerSeq.current) return;
-      setLedgerError(errorInfo(err, "Could not load the bin card.").message);
+      setLedgerError(messageOf(errorInfo(err, "Could not load the bin card."), "item or hotel"));
     } finally {
       if (seq === ledgerSeq.current) setLedgerLoading(false);
     }
@@ -128,7 +129,7 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
       if (info.code === "VALIDATION" && field && Object.prototype.hasOwnProperty.call(form, field)) {
         setFormErrors({ [field]: info.message });
       } else {
-        setSaveError(info.message);
+        setSaveError(messageOf(info, "item or hotel"));
       }
     } finally {
       setSaving(false);

@@ -133,10 +133,6 @@ export const cleanQtyInput = (raw) => {
 };
 
 /**
- * A qty that looks like a slip (or a stray scan): over 100 and over 10x what
- * is on hand. Unknown on-hand never trips it.
- */
-/**
  * How close a batch is to its expiry, on IST calendar days: "Expired",
  * "Expires today", or "Expires in N days" within 30 days; null otherwise (or
  * with no expiry date). `tone` names the pill (Bad / Warn).
@@ -152,6 +148,10 @@ export const batchExpiry = (expiryDate, today = istToday()) => {
   return null;
 };
 
+/**
+ * A qty that looks like a slip (or a stray scan): over 100 and over 10x what
+ * is on hand. Unknown on-hand never trips it.
+ */
 export const isImplausibleQty = (qty, onHand) => {
   const q = Number(qty);
   if (!Number.isFinite(q) || q <= 100) return false;
@@ -175,6 +175,18 @@ export const sameLines = (sent, got) => {
       .join("|");
   return key(sent) === key(got);
 };
+
+// ── Rule C3: what can't be seen answers 404 ────────────────────────────────
+// A hotel or record the caller can't see answers 404 exactly like one that
+// doesn't exist (inside their own company too), so a 404 says both.
+
+/** errorInfo says 404. */
+export const isNotFound = (info) => Number(info?.httpStatus) === 404;
+/** "This hotel isn't available to you, or no longer exists." */
+export const notAvailable = (what = "hotel") => `This ${what} isn't available to you, or no longer exists.`;
+export const HOTEL_NOT_AVAILABLE = notAvailable("hotel");
+/** errorInfo's message, or for a 404 that `what` isn't available. */
+export const messageOf = (info, what = "hotel") => (isNotFound(info) ? notAvailable(what) : info?.message);
 
 /**
  * A failure that may still have been recorded: no HTTP answer at all, or a
@@ -289,6 +301,7 @@ export const adjustmentRefusal = (info, { action = "approve" } = {}) => {
       ? "Only an approver at this hotel, or whoever raised it, can reject this adjustment"
       : "You can't approve adjustments at this hotel";
   }
+  if (isNotFound(info) || info?.code === "NOT_FOUND") return notAvailable("adjustment");
   if (info?.code === "CONFLICT") return "This adjustment is no longer waiting for approval";
   if (info?.code === "LOCKED") return freezeMessage(d);
   if (info?.code === "NEGATIVE_STOCK") {

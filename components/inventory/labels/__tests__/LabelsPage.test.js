@@ -76,6 +76,23 @@ describe("LabelsPage", () => {
     expect(screen.getByRole("link", { name: /Open the labels PDF/ })).toHaveAttribute("href", "https://s3.example/labels.pdf");
   });
 
+  test("a 404 with a hotel named (C3) says the hotel or an item isn't available", async () => {
+    const gone = new Error("nf");
+    gone.isAxiosError = true;
+    gone.response = { status: 404, data: { status: 2, code: "NOT_FOUND", message: "Item not found", details: {} } };
+    printItemLabels.mockRejectedValue(gone);
+    render(<LabelsPage />);
+    fireEvent.change(await screen.findByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Print 1 label" }));
+    expect(
+      await screen.findByText(
+        "This hotel, or one of these items, isn't available to you, or no longer exists. Remove any item that's gone and try again."
+      )
+    ).toBeInTheDocument();
+    expect(printItemLabels.mock.calls[0][0].hotelId).toBe(46);
+  });
+
   test("too many labels are refused before printing", async () => {
     render(<LabelsPage />);
     fireEvent.change(await screen.findByLabelText("Find an item"), { target: { value: "rice" } });

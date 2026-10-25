@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { Loader2, RefreshCw, Save } from "lucide-react";
 import { getCompanySettings, getHotelSettings, saveCompanySettings, saveHotelSettings } from "@/services/inventory";
 import { fmtInstant } from "@/components/inventory/receive/receiveUtils";
-import { errorInfo } from "@/components/inventory/stock/stockUtils";
+import { errorInfo, messageOf } from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
 
@@ -94,7 +94,8 @@ const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdmi
       setHErrors({});
       setHError(null);
     } catch (err) {
-      setHLoadError(errorInfo(err, "Could not load this hotel's settings.").message);
+      // C3: a hotel you can't see (or one that's gone) answers 404.
+      setHLoadError(messageOf(errorInfo(err, "Could not load this hotel's settings.")));
     }
   }, [hotelId]);
 
@@ -186,7 +187,7 @@ const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdmi
       const info = errorInfo(err, "Could not save this hotel's settings.");
       const field = info.details?.field;
       if (field && field in hForm) setHErrors({ [field]: info.message });
-      else setHError(info.message);
+      else setHError(messageOf(info));
     } finally {
       setHSaving(false);
     }

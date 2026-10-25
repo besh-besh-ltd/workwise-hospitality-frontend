@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Loader2, Plus, Search } from "lucide-react";
 import { getStock, listItems } from "@/services/inventory";
 import { fmtQty } from "@/components/inventory/receive/receiveUtils";
-import { errorInfo } from "./stockUtils";
+import { errorInfo, messageOf } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -67,7 +67,7 @@ const ItemPicker = ({ source = "stock", hotelId, onPick, exclude, disabled = fal
       } catch (err) {
         if (seq !== seqRef.current) return;
         setResults([]);
-        setError(errorInfo(err, "Could not search items.").message);
+        setError(messageOf(errorInfo(err, "Could not search items.")));
       } finally {
         if (seq === seqRef.current) setLoading(false);
       }

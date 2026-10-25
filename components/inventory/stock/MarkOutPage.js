@@ -19,11 +19,11 @@ import ItemPicker from "./ItemPicker";
 import useInventoryHotels from "./useInventoryHotels";
 import useUserId from "./useUserId";
 import useQueuedOuts, { OUT_KIND } from "./useQueuedOuts";
-import { dismissFailed, submitOrQueue } from "./outboxBridge";
+import { dismissFailed, getOutboxStatus, outboxReady, submitOrQueue } from "./outboxBridge";
 import { clearOutSession, clearOutSessionIf, listQueuedOuts, loadOutSession, saveOutSession } from "./outSession";
 import {
   QTY_MAX_LENGTH, cleanQtyInput, errorInfo, freezeMessage, isImplausibleQty, isPositiveQty, isUncertainFailure,
-  lineProblems, sameLines, stockRoutes, toId,
+  lineProblems, messageOf, sameLines, stockRoutes, toId,
 } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
@@ -163,9 +163,25 @@ const qtyCheck = (l, mode) => {
 };
 
 const uncertainText = (info) =>
-  `${info?.httpStatus ? "The server had a problem before it answered" : "The connection dropped before the server answered"}, ` +
+  `${
+    info?.gaveUp
+      ? `The sync queue gave up on this session${info.message ? ` (${info.message.replace(/\.$/, "")})` : ""}`
+      : info?.httpStatus
+        ? "The server had a problem before it answered"
+        : "The connection dropped before the server answered"
+  }, ` +
   "so this session may or may not be recorded. Post again to find out: the same session is never recorded twice. " +
   "Discard it only if you know it went through, or you no longer want it.";
+
+/** What the page would send for a stored session (the same body post() builds). */
+const payloadOf = (session) => ({
+  hotelId: Number(session.hotelId),
+  docType: session.docType === "RETURN" ? "RETURN" : "OUT",
+  departmentId: Number(session.departmentId),
+  ...(String(session.requestedByName || "").trim() ? { requestedByName: String(session.requestedByName).trim() } : {}),
+  clientEventId: session.sessionKey || session.clientEventId,
+  lines: (session.lines || []).map((l) => ({ invItemId: l.invItemId, qty: parseQty(l.qty) })),
+});
 
 const unconfirmedText =
   "This device can't confirm whether this session was recorded: the sync queue no longer has it. Post again to find " +
@@ -214,6 +230,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const toastIdsRef = useRef(new Set());
   const onHandAskedRef = useRef(new Set());
   const openingRef = useRef(false);
+  const queueRef = useRef(null); // the queued-sessions hook, for the restore effect
   const lockRef = useRef(null);
   if (!lockRef.current) lockRef.current = createLock();
   const lock = lockRef.current;
@@ -339,6 +356,27 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
         await clearOutSessionIf(userId, hotelId, savedKey);
         saved = null;
       }
+      if (savedKey && saved && Array.isArray(saved.lines) && saved.lines.length) {
+        // The page went while this session was being sent: if the outbox has
+        // it (waiting, sent or refused), it is a queued session now, not a
+        // draft to edit and send again.
+        await outboxReady();
+        const held = getOutboxStatus(OUT_KIND, savedKey);
+        if ((held === "pending" || held === "sent" || held === "failed") && queueRef.current) {
+          const known = queueRef.current.itemFor(savedKey);
+          await queueRef.current.track({
+            ...saved,
+            status: "queued",
+            clientEventId: savedKey,
+            sessionKey: savedKey,
+            departmentName: saved.departmentName || null,
+            queuedAt: Number(saved.savedAt) || Date.now(),
+            sentPayload: known?.payload || saved.sentPayload || payloadOf({ ...saved, sessionKey: savedKey }),
+          });
+          await clearOutSessionIf(userId, hotelId, savedKey);
+          saved = null;
+        }
+      }
       if (cancelled) return;
       const savedLines = Array.isArray(saved?.lines) ? saved.lines.filter((l) => l && l.invItemId != null) : [];
       if (savedLines.length > 0) {
@@ -364,6 +402,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     sessionKey: sessionKeyRef.current,
     docType: mode,
     departmentId,
+    departmentName: departments.find((d) => String(d.id) === String(departmentId))?.title || null,
     requestedByName: requestedBy,
     lines: linesRef.current.map(storedLine),
     status: "open",
@@ -658,7 +697,8 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
             : "Fix the highlighted line, then post again."
         );
       } else {
-        say(info.message);
+        // C3: a hotel you can't see (or one that's gone) answers 404.
+        say(messageOf(info));
       }
     }
   };
@@ -682,12 +722,15 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   };
 
   const queue = useQueuedOuts({ userId, onSynced });
+  queueRef.current = queue;
   const hotelEntries = queue.entries.filter((e) => e.hotelId === Number(hotelId) && e.state !== "sent");
 
   /**
    * Take a queued copy back into the open slot: refused ones reopen editable
-   * with the refusal, ones the outbox can't account for reopen locked. The slot
-   * is written before the copy goes, so a reload in between loses nothing.
+   * with the refusal; ones the outbox can't account for, or gave up on (no
+   * answer for days, or out of server retries), reopen locked: they may be
+   * recorded. The slot is written before the copy goes, so a reload in between
+   * loses nothing.
    */
   const openQueued = async (entry) => {
     if (openingRef.current || postingRef.current || !entry) return;
@@ -696,20 +739,24 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
       const copy = entry.copy;
       const forHotel = Number(copy.hotelId);
       const failed = entry.state === "failed";
+      const lastError = entry.gaveUp
+        ? { httpStatus: entry.error?.httpStatus ?? null, gaveUp: true, message: entry.error?.message || null }
+        : "unconfirmed";
       const slot = {
         savedAt: Date.now(),
         hotelId: forHotel,
         sessionKey: copy.clientEventId,
         docType: copy.docType,
         departmentId: copy.departmentId,
+        departmentName: copy.departmentName || null,
         requestedByName: copy.requestedByName,
         lines: copy.lines,
         status: failed ? "open" : "uncertain",
-        ...(failed ? {} : { sentPayload: copy.sentPayload, lastError: "unconfirmed" }),
+        ...(failed ? {} : { sentPayload: copy.sentPayload || payloadOf(copy), lastError }),
       };
       await saveOutSession(userId, forHotel, slot);
       await queue.forget(entry.clientEventId);
-      if (failed && entry.failed?.id != null) dismissFailed(entry.failed.id);
+      if (entry.failed?.id != null) dismissFailed(entry.failed.id);
       if (!mountedRef.current || hotelIdRef.current !== forHotel) return;
       dismissToasts();
       setDone(null);
@@ -719,7 +766,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
         setFormError(null);
         applyRefusal(entry.error || {}, copy.sentPayload, { prefix: "This session was refused when it synced. " });
       } else {
-        setFormError({ text: unconfirmedText });
+        setFormError({ text: lastError === "unconfirmed" ? unconfirmedText : uncertainText(lastError) });
       }
     } finally {
       openingRef.current = false;
@@ -739,7 +786,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     setFormError(null);
     setConfirmDiscard(false);
     try {
-      const { queued, result } = await submitOrQueue({
+      const { queued, result, persisted } = await submitOrQueue({
         kind: OUT_KIND,
         clientEventId: payload.clientEventId,
         payload,
@@ -756,13 +803,21 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
           departmentName,
           queuedAt: Date.now(),
           sentPayload: payload,
+          persisted: persisted !== false,
         });
         await clearOutSessionIf(userId, postedHotel, payload.clientEventId);
         if (!mountedRef.current) return;
         dismissToasts();
         if (hotelIdRef.current === postedHotel) resetSession(true);
         setRestoredNote(false);
-        toast.info("Saved on this device. It will sync when the connection is back: see Waiting to sync.");
+        if (persisted === false) {
+          // The outbox couldn't store it on the device: it lives in this page only.
+          toast.warn("Kept only while this page stays open: don't close or reload until it syncs. See Waiting to sync.", {
+            autoClose: false,
+          });
+        } else {
+          toast.info("Saved on this device. It will sync when the connection is back: see Waiting to sync.");
+        }
         return;
       }
       await clearOutSessionIf(userId, postedHotel, payload.clientEventId);
@@ -874,7 +929,9 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
 
   const replaceAndOpen = async (entry) => {
     setAskOpen(null);
-    if (postingRef.current) return;
+    // A session on screen that may already be recorded is settled first (Post
+    // again or Discard), never thrown away to make room.
+    if (postingRef.current || statusRef.current === "uncertain") return;
     openingRef.current = true; // keep the empty slot from reopening another one first
     try {
       await clearOutSession(userId, hotelId);
@@ -1046,9 +1103,15 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
       case "failed":
         return `Refused: ${e.error?.message || "the server refused it"}`;
       case "uncertain":
-        return "Not confirmed: open it to post again or discard";
-      default:
-        return e.item?.lastError?.message ? `Waiting to sync (last try: ${e.item.lastError.message})` : "Waiting to sync";
+        return e.gaveUp && e.error?.message
+          ? `Not confirmed: ${e.error.message.replace(/\.$/, "")}. Open it to post again or discard`
+          : "Not confirmed: open it to post again or discard";
+      default: {
+        const kept = e.item?.persisted === false || e.copy?.persisted === false ? " (only while this page stays open)" : "";
+        return e.item?.lastError?.message
+          ? `Waiting to sync${kept} (last try: ${e.item.lastError.message})`
+          : `Waiting to sync${kept}`;
+      }
     }
   };
 
@@ -1126,7 +1189,20 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                     </div>
                   </div>
                 )}
-                {askOpen === e.clientEventId && (
+                {askOpen === e.clientEventId && status === "uncertain" && (
+                  <div className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`} role="alertdialog" aria-label="Open this session?">
+                    <span style={{ flex: 1 }}>
+                      The session on screen may or may not be recorded. Post it again to find out (it is never
+                      recorded twice), or discard it if you know it went through, then open this one.
+                    </span>
+                    <div className={s.footActions}>
+                      <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setAskOpen(null)}>
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {askOpen === e.clientEventId && status !== "uncertain" && (
                   <div className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`} role="alertdialog" aria-label="Open this session?">
                     <span style={{ flex: 1 }}>
                       Opening it replaces the session you&apos;re working on, which is then discarded. Keep working on

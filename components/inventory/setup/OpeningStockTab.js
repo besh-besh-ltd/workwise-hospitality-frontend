@@ -3,7 +3,9 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, Lock, Upload } from "lucide-react";
 import { getHotelSettings, previewOpeningStock, postOpeningStock } from "@/services/inventory";
 import { fmtQty, inr, newClientEventId } from "@/components/inventory/receive/receiveUtils";
-import { errorInfo, fmtIstDay, freezeMessage, isUncertainFailure, stockRoutes } from "@/components/inventory/stock/stockUtils";
+import {
+  errorInfo, fmtIstDay, freezeMessage, isNotFound, isUncertainFailure, messageOf, stockRoutes,
+} from "@/components/inventory/stock/stockUtils";
 import { loadXlsx } from "@/utils/xlsx";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
@@ -99,8 +101,11 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
       try {
         const res = await getHotelSettings(hotelId);
         if (!cancelled) setSettingsStartedAt(res?.stockStartedAt || null);
-      } catch {
-        // The preview reports it too.
+      } catch (err) {
+        // C3: a hotel you can't see (or one that's gone) answers 404: say so
+        // before a sheet is picked. Anything else the preview reports too.
+        const info = errorInfo(err, "");
+        if (!cancelled && isNotFound(info)) setError(messageOf(info));
       }
     })();
     return () => {
@@ -161,7 +166,7 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
       });
       keyRef.current = newClientEventId();
     } catch (err) {
-      setError(errorInfo(err, "Could not read this file.").message);
+      setError(messageOf(errorInfo(err, "Could not read this file.")));
     } finally {
       setPreviewing(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -220,7 +225,7 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
       } else {
         if (info.code === "CONFLICT" && d.field === "clientEventId") keyRef.current = newClientEventId();
         setConfirming(false);
-        setError(info.message);
+        setError(messageOf(info));
       }
     } finally {
       setPosting(false);

@@ -368,6 +368,66 @@ describe("AdjustmentsPage", () => {
     expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull();
   });
 
+  test("the lock is kept before the request goes out, so a tab closed mid-request reopens it under its key", async () => {
+    createAdjustment.mockReturnValueOnce(new Promise(() => {})); // no answer before the page goes
+    const first = render(<AdjustmentsPage />);
+    const dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "2" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    await waitFor(() => expect(createAdjustment).toHaveBeenCalledTimes(1));
+    const sent = createAdjustment.mock.calls[0][0];
+    expect(JSON.parse(window.sessionStorage.getItem("adj-uncertain:21:46"))).toMatchObject({ payload: sent });
+    first.unmount();
+
+    createAdjustment.mockResolvedValueOnce(row({ id: 7, adjustmentNumber: "ADJ/46/2026-27/00009", status: "posted" }));
+    render(<AdjustmentsPage />);
+    const again = await newAdjustment();
+    expect(within(again).getByText(/no answer came before the page closed/)).toBeInTheDocument();
+    fireEvent.click(within(again).getByRole("button", { name: "Submit again" }));
+    await waitFor(() => expect(createAdjustment).toHaveBeenCalledTimes(2));
+    expect(createAdjustment.mock.calls[1][0]).toEqual(sent);
+    await waitFor(() => expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull());
+  });
+
+  test("404s (C3: can't see it, or it's gone) say what isn't available", async () => {
+    const gone = (message) => apiError(404, "NOT_FOUND", {}, message);
+    // the list at a hotel
+    listAdjustments.mockRejectedValueOnce(gone("Hotel not found"));
+    const { unmount } = render(<AdjustmentsPage initialHotelId="46" />);
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+    unmount();
+
+    // one adjustment
+    getAdjustment.mockRejectedValueOnce(gone("Adjustment not found"));
+    const second = render(<AdjustmentsPage initialId="1" />);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("This adjustment isn't available to you, or no longer exists.")).toBeInTheDocument();
+    second.unmount();
+
+    // approving one that went away
+    approveAdjustment.mockRejectedValueOnce(gone("Adjustment not found"));
+    const third = render(<AdjustmentsPage initialId="1" />);
+    const sheet = await screen.findByRole("dialog");
+    fireEvent.click(await within(sheet).findByRole("button", { name: "Approve" }));
+    expect(await within(sheet).findByText("This adjustment isn't available to you, or no longer exists.")).toBeInTheDocument();
+    third.unmount();
+
+    // raising one at a hotel that answers 404
+    createAdjustment.mockRejectedValueOnce(gone("Hotel not found"));
+    render(<AdjustmentsPage />);
+    const form = await newAdjustment();
+    fireEvent.change(within(form).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(form).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(form).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(form).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Submit adjustment" }));
+    expect(await within(form).findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull();
+  });
+
   test("a replayed adjustment whose lines differ opens what was recorded", async () => {
     createAdjustment.mockResolvedValue({
       ...row({ id: 4, adjustmentNumber: "ADJ/46/2026-27/00002", status: "posted" }),

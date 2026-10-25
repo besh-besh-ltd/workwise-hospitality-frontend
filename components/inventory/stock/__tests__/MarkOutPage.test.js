@@ -642,6 +642,168 @@ describe("MarkOutPage scan session", () => {
     expect(await screen.findByText(/already recorded/i)).toBeInTheDocument();
   });
 
+  /** Post Basmati rice x6 to Kitchen with no connection; the outbox holds it. */
+  const queueRice = async () => {
+    queueInOutbox();
+    const view = render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/Saved on this device/)));
+    const { clientEventId: key, payload: sent } = submitOrQueue.mock.calls[0][0];
+    return { view, key, sent };
+  };
+
+  test.each([
+    ["out of server retries, tagged", { httpStatus: 503, code: "GAVE_UP", uncertain: true, details: {}, message: "The server could not record this after 10 tries (503): Service Unavailable" }, /could not record this after 10 tries/],
+    ["no answer for 3 days, tagged", { httpStatus: null, code: "NO_ANSWER", uncertain: true, details: {}, message: "Not sent: no answer from the server for 3 days" }, /no answer from the server for 3 days/],
+  ])("an outbox give-up (%s) reopens locked as not confirmed, never as a refusal", async (_, error, said) => {
+    const { view, key, sent } = await queueRice();
+    view.unmount();
+    outbox.__setItem(`out_post:${key}`, { status: "failed", error });
+
+    render(<MarkOutPage />);
+    const alert = await screen.findByText(/The sync queue gave up on this session/, {}, REOPEN);
+    expect(alert).toHaveTextContent(said);
+    expect(alert).toHaveTextContent(/may or may not be recorded/);
+    expect(screen.queryByText(/refused/i)).toBeNull();
+    expect(await qtyOf("Basmati rice")).toBeDisabled();
+    expect(outbox.dismissFailed).toHaveBeenCalledWith(`out_post:${key}`);
+    await waitFor(async () => expect(await loadOutSession(46)).toEqual(expect.objectContaining({
+      status: "uncertain", sentPayload: sent, lastError: expect.objectContaining({ gaveUp: true, httpStatus: error.httpStatus }),
+    })));
+
+    // Post again: the same session under the same key
+    sendNow();
+    postOut.mockResolvedValue({ ...outDoc(), replayed: true });
+    fireEvent.click(screen.getByRole("button", { name: "Post again" }));
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0]).toEqual(sent);
+  });
+
+  test("give-ups the outbox doesn't tag yet (a 5xx last answer, or NO_ANSWER alone) read as not confirmed too", async () => {
+    const first = await queueRice();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await waitFor(() => expect(submitOrQueue).toHaveBeenCalledTimes(2));
+    const second = submitOrQueue.mock.calls[1][0].clientEventId;
+    await waitFor(() => expect(screen.queryByLabelText("Qty of Dish soap")).toBeNull());
+    sendNow();
+    await scan("PANEER-2.5");
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Add 2.5 kg" }));
+    await qtyOf("Paneer");
+
+    act(() => {
+      outbox.__setItem(`out_post:${first.key}`, {
+        status: "failed",
+        error: { httpStatus: 503, code: null, details: {}, message: "The server could not record this after 10 tries (503): Service Unavailable" },
+      });
+      outbox.__setItem(`out_post:${second}`, {
+        status: "failed",
+        error: { httpStatus: null, code: "NO_ANSWER", details: {}, message: "Not sent: no answer from the server for 3 days" },
+      });
+    });
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    const rows = within(card).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent(/Not confirmed: The server could not record this after 10 tries/);
+    expect(rows[1]).toHaveTextContent(/Not confirmed: Not sent: no answer from the server for 3 days/);
+    expect(within(card).queryByText(/Refused/)).toBeNull();
+    expect(within(card).getAllByRole("button", { name: "Open" })).toHaveLength(2);
+    // the session in progress is untouched
+    expect(screen.getByLabelText("Qty of Paneer")).toBeEnabled();
+  });
+
+  test("a reload while the first send was out keeps the session queued, not as a draft to send again", async () => {
+    // the slot as it stood when Post was pressed; the outbox took the event
+    const lines = [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", qty: "6", exact: 6, available: 10 }];
+    const payload = { hotelId: 46, docType: "OUT", departmentId: 7, clientEventId: "k-mid", lines: [{ invItemId: 9, qty: 6 }] };
+    await saveOutSession(46, {
+      savedAt: 5, hotelId: 46, sessionKey: "k-mid", docType: "OUT", departmentId: "7", departmentName: "Kitchen", requestedByName: "", lines, status: "open",
+    });
+    outbox.__store.items = [{ id: "out_post:k-mid", kind: "out_post", clientEventId: "k-mid", status: "pending", payload, summary: "Mark out · Kitchen · 1 item", attempts: 1, lastError: null }];
+
+    render(<MarkOutPage />);
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    expect(within(card).getByRole("listitem", { name: "Mark out · Kitchen" })).toHaveTextContent("Waiting to sync");
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    await waitFor(async () => expect(await loadOutSession(46)).toBeNull());
+    expect(await sessions.loadQueuedOut(USER, "k-mid")).toEqual(expect.objectContaining({ sentPayload: payload, hotelId: 46 }));
+    // a new session starts under a new key
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    await waitFor(async () => expect((await loadOutSession(46))?.sessionKey).not.toBe("k-mid"));
+  });
+
+  test("a reload after the first send went through counts it synced", async () => {
+    const lines = [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", qty: "6", exact: 6, available: 10 }];
+    await saveOutSession(46, {
+      savedAt: 5, hotelId: 46, sessionKey: "k-done", docType: "OUT", departmentId: "7", departmentName: "Kitchen", requestedByName: "", lines, status: "open",
+    });
+    outbox.__store.items = [{ id: "out_post:k-done", kind: "out_post", clientEventId: "k-done", status: "sent" }];
+    render(<MarkOutPage />);
+    expect(
+      await screen.findByText(/Mark out · Kitchen · 1 item synced at Orchid Mumbai/, {}, { timeout: RESULT_GRACE_MS + 2000 })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    await waitFor(async () => expect(await loadOutSession(46)).toBeNull());
+    await waitFor(async () => expect(await sessions.listQueuedOuts(USER)).toEqual([]));
+  });
+
+  test("with a session on screen that may be recorded, Open asks to settle it first instead of discarding it", async () => {
+    const { key } = await queueRice();
+    // the next session gets no answer: it is locked, uncertain
+    sendNow();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    await chooseDepartment("7");
+    const dropped = new Error("Network Error");
+    dropped.isAxiosError = true;
+    postOut.mockRejectedValue(dropped);
+    fireEvent.click(postButton());
+    expect(await screen.findByRole("button", { name: "Post again" })).toBeInTheDocument();
+
+    act(() => outbox.__setItem(`out_post:${key}`, {
+      status: "failed", error: { httpStatus: 409, code: "NEGATIVE_STOCK", message: "Not enough stock", details: {} },
+    }));
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    fireEvent.click(await within(card).findByRole("button", { name: "Open" }));
+    const ask = within(card).getByRole("alertdialog", { name: "Open this session?" });
+    expect(ask).toHaveTextContent(/may or may not be recorded\. Post it again to find out/);
+    expect(within(ask).queryByRole("button", { name: "Discard current and open" })).toBeNull();
+    fireEvent.click(within(ask).getByRole("button", { name: "OK" }));
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeDisabled();
+    expect((await loadOutSession(46))?.status).toBe("uncertain");
+  });
+
+  test("a queued session the outbox can only keep in memory says so", async () => {
+    submitOrQueue.mockImplementation(async ({ kind, clientEventId, payload, summary }) => {
+      outbox.__store.items = [
+        { id: `${kind}:${clientEventId}`, kind, clientEventId, status: "pending", payload, summary, attempts: 0, lastError: null, persisted: false },
+      ];
+      outbox.__emit();
+      return { queued: true, persisted: false };
+    });
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    await waitFor(() =>
+      expect(toast.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/^Kept only while this page stays open: don't close or reload until it syncs/),
+        { autoClose: false }
+      )
+    );
+    expect(toast.info).not.toHaveBeenCalledWith(expect.stringMatching(/Saved on this device/));
+    expect(within(card).getByText("Waiting to sync (only while this page stays open)")).toBeInTheDocument();
+  });
+
   test("an event the outbox has never heard of is uncertain too, and waits for the stored queue first", async () => {
     await sessions.saveQueuedOut(USER, {
       hotelId: 46, clientEventId: "k-lost", docType: "OUT", departmentId: "7", departmentName: "Kitchen",
@@ -843,6 +1005,17 @@ describe("MarkOutPage scan session", () => {
     await waitFor(() => expect(postOut).toHaveBeenCalledTimes(2));
     expect(postOut.mock.calls[1][0].clientEventId).toMatch(UUID);
     expect(postOut.mock.calls[1][0].clientEventId).not.toBe(postOut.mock.calls[0][0].clientEventId);
+  });
+
+  test("a post answered 404 (C3: a hotel you can't see, or one that's gone) says the hotel isn't available", async () => {
+    postOut.mockRejectedValue(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Qty of Basmati rice")).toBeEnabled();
   });
 
   test("a department refused by the server shows on the field", async () => {

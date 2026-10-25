@@ -52,6 +52,16 @@ describe("ItemPicker", () => {
     });
   });
 
+  test("a search at a hotel that answers 404 (C3) says the hotel isn't available", async () => {
+    const gone = new Error("nf");
+    gone.isAxiosError = true;
+    gone.response = { status: 404, data: { status: 2, code: "NOT_FOUND", message: "Hotel not found", details: {} } };
+    getStock.mockRejectedValue(gone);
+    render(<ItemPicker source="stock" hotelId={46} onPick={jest.fn()} exclude={new Set()} />);
+    fireEvent.change(screen.getByLabelText("Find an item"), { target: { value: "milk" } });
+    expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+  });
+
   test("an item already picked is shown but can't be added twice", async () => {
     listItems.mockResolvedValue({ rows: [{ id: 9, displayName: "Basmati rice", stockUom: "bag" }], total: 1 });
     render(<ItemPicker source="items" onPick={jest.fn()} exclude={new Set([9])} />);
