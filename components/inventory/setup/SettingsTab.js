@@ -30,7 +30,7 @@ const COMPANY_TOGGLES = [
   {
     key: "countFreeze",
     title: "Freeze stock during counts",
-    help: "While a count is open at a hotel, mark out, returns, adjustments and opening stock there are refused until the count is submitted or cancelled.",
+    help: "While a count is open at a hotel, nothing moves stock there until the count is submitted or cancelled: receiving deliveries (GRNs and site-rep receipts), GRN reversals, returns to vendor, mark out, returns, adjustments and opening stock.",
   },
 ];
 const DOC_CODE = /^[A-Za-z0-9_-]{1,20}$/;

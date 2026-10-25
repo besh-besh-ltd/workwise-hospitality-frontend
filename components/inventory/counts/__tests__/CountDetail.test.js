@@ -92,6 +92,22 @@ describe("CountDetail", () => {
     expect(await screen.findByText(/Stock at Orchid Mumbai is frozen while this count is open/)).toBeInTheDocument();
   });
 
+  it("the freeze banner says deliveries can't be received either (I-2: the backend refuses GRN posts too)", async () => {
+    getCount.mockResolvedValue(count({ countFreeze: true }));
+    render(<CountDetail id="41" />);
+    const banner = await screen.findByText(/Stock at Orchid Mumbai is frozen while this count is open/);
+    // What the server refuses with LOCKED while a freezing count is open
+    // (assertNotFrozen: grnService post, grnReverse, rtvService dispatch,
+    // outService, adjustmentService create/approve).
+    expect(banner).toHaveTextContent(/receiving deliveries/);
+    expect(banner).toHaveTextContent(/site-rep receipts/);
+    expect(banner).toHaveTextContent(/GRN reversals/);
+    expect(banner).toHaveTextContent(/returns to vendor/);
+    expect(banner).toHaveTextContent(/mark-out/);
+    expect(banner).toHaveTextContent(/adjustments/);
+    expect(banner).toHaveTextContent(/wait until it is submitted or cancelled/);
+  });
+
   it("the freeze banner follows the count's own countFreeze: off there, no banner", async () => {
     getCount.mockResolvedValue(count({ countFreeze: false }));
     render(<CountDetail id="41" />);

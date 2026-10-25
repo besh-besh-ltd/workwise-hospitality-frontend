@@ -354,6 +354,20 @@ describe("SettingsTab", () => {
     expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
   });
 
+  test("the count freeze setting says it also stops deliveries being received (I-2)", async () => {
+    render(<SettingsTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    await screen.findByLabelText("Freeze stock during counts");
+    const help = screen.getByText(/While a count is open at a hotel/);
+    // Everything the server refuses with LOCKED while a freezing count is open.
+    for (const blocked of [
+      /receiving deliveries \(GRNs and site-rep receipts\)/, /GRN reversals/, /returns to vendor/, /mark out/,
+      /returns/, /adjustments/, /opening stock/,
+    ]) {
+      expect(help).toHaveTextContent(blocked);
+    }
+    expect(help).toHaveTextContent(/until the count is submitted or cancelled/);
+  });
+
   test("without inventory.admin the settings are read-only", async () => {
     render(<SettingsTab hotelId={46} hotelName="Orchid Mumbai" canAdmin={false} />);
     expect(await screen.findByLabelText("Allow negative stock")).toBeDisabled();
