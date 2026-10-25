@@ -1,4 +1,4 @@
-// Level 2 — one RFQ's negotiation, end to end.
+// Level 2 — one RFQ's (or one rate contract's) negotiation, end to end.
 //
 // The listing collapsed 886 rounds into 124 RFQ cards. This is where the
 // rounds went: the gist of the RFQ's whole negotiation at the top, then every
@@ -12,6 +12,12 @@
 //   2. groupBy 'round'  + parentKey filter, paged  → the rounds table.
 // No new endpoint, so there is no second server-side definition of "what state
 // is this round in" to drift out of sync.
+//
+// A RATE CONTRACT uses the same page, keyed ARC:<id> (the only key that can
+// select an ARC parent — its rfq_id is NULL). ARC rounds used to have no level
+// 2: the listing card went to the rate-contract page, whose rounds list showed
+// no targets (Phileein, 22 Oct 2026). An ARC round waiting on this user goes to
+// that round's own approval page, which exists per round.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -44,13 +50,16 @@ const roundHref = (roundId) => `/dashboard/buyer/negotiation/round/${roundId}`;
 // RFQ negotiation has no per-round approve URL — the approve page is
 // RFQ-scoped and self-filters to the rounds this user can act on. Sending an
 // approver to the read-only round page first costs them a second navigation to
-// do the one thing they came for.
-const approveHref = (rfqId) => `/dashboard/buyer/negotiation/${rfqId}/approve`;
+// do the one thing they came for. An ARC round's approve page IS per round.
+const approveHref = (parent, roundId) =>
+  parent.arcId != null
+    ? `/dashboard/buyer/rate-contracts/${parent.arcId}/negotiation/${roundId}/approve`
+    : `/dashboard/buyer/negotiation/${parent.rfqId}/approve`;
 // `action_required` is the authoritative per-user signal, and it is now aligned
 // server-side to the round's approval deadline — so this can never route
 // someone to an approval page with nothing on it.
-const destinationFor = (round, rfqId) =>
-  round?.action_required ? approveHref(rfqId) : roundHref(round?.round_id);
+const destinationFor = (round, parent) =>
+  round?.action_required ? approveHref(parent, round?.round_id) : roundHref(round?.round_id);
 
 /* ── gist tiles ───────────────────────────────────────────────────────────── */
 
@@ -128,7 +137,7 @@ function windowText(round) {
   return `${end.getTime() > Date.now() ? "Ends" : "Ended"} ${fmtDate(round.end_date)}`;
 }
 
-function RoundsTable({ rounds, rfqId }) {
+function RoundsTable({ rounds, parent, itemsLabel }) {
   const router = useRouter();
   return (
     <div className="table-scroll">
@@ -136,7 +145,7 @@ function RoundsTable({ rounds, rfqId }) {
         <thead>
           <tr>
             <th>Round</th>
-            <th>Products</th>
+            <th>{itemsLabel}</th>
             <th className="center">Vendors</th>
             <th>Window</th>
             {/* No "Saved" column. The round grain carries no money of its own
@@ -165,13 +174,13 @@ function RoundsTable({ rounds, rfqId }) {
                 // and already handles Enter, so the row needs no second tab
                 // stop pointing at the same place.
                 style={{ cursor: "pointer" }}
-                onClick={() => router.push(destinationFor(r, rfqId))}
+                onClick={() => router.push(destinationFor(r, parent))}
               >
                 <td className="strong">
                   {/* Kept alongside the row handler for middle-click and
                       open-in-new-tab; same destination either way. */}
                   <Link
-                    href={destinationFor(r, rfqId)}
+                    href={destinationFor(r, parent)}
                     style={{ color: "inherit", textDecoration: "none" }}
                     // The row handler would otherwise fire too, pushing the
                     // same URL twice and adding a duplicate history entry.
@@ -216,9 +225,14 @@ function RoundsTable({ rounds, rfqId }) {
 
 /* ── page ─────────────────────────────────────────────────────────────────── */
 
-export default function RfqNegotiationPage({ rfqId }) {
+export default function RfqNegotiationPage({ rfqId, arcId }) {
   const router = useRouter();
-  const parentKey = rfqId != null ? `RFQ:${rfqId}` : null;
+  const isArc = arcId != null;
+  const parentKey = isArc ? `ARC:${arcId}` : rfqId != null ? `RFQ:${rfqId}` : null;
+  const parentIds = useMemo(() => ({ rfqId, arcId: isArc ? arcId : null }), [rfqId, arcId, isArc]);
+  // What the page calls its parent and the parent's lines.
+  const noun = isArc ? "rate contract" : "RFQ";
+  const lineNoun = isArc ? "item" : "product";
 
   const [parent, setParent] = useState(null);
   const [parentLoading, setParentLoading] = useState(true);
@@ -316,7 +330,7 @@ export default function RfqNegotiationPage({ rfqId }) {
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
-          <h2>No negotiation on this RFQ</h2>
+          <h2>No negotiation on this {noun}</h2>
           <p>Either no round has been opened on it, or it is outside what you can see.</p>
           <div style={{ marginTop: 18 }}>
             <Link href={LIST_HREF} className="btn btn-secondary btn-sm">Back to negotiations</Link>
@@ -351,11 +365,16 @@ export default function RfqNegotiationPage({ rfqId }) {
   return (
     <main className="main-body" data-testid="rfq-negotiation-page">
       <LifecycleHero
-        eyebrow={`${parent.is_tender ? "Tender" : "RFQ"} · Negotiation`}
+        eyebrow={`${isArc ? "Rate contract" : parent.is_tender ? "Tender" : "RFQ"} · Negotiation`}
         title={parentTitle(parent)}
         status={{ label: headerLabel, tone: st.heroChip }}
         idText={`#${parentNumber(parent)}`}
         back={{ label: "Back to negotiations", href: LIST_HREF }}
+        actions={isArc ? (
+          <Link href={`/dashboard/buyer/rate-contracts/${arcId}?stage=commercial`} className="btn btn-sm">
+            Open rate contract
+          </Link>
+        ) : null}
         sub={
           <>
             <span data-testid="hero-rounds">
@@ -402,7 +421,7 @@ export default function RfqNegotiationPage({ rfqId }) {
                 className="fs-11 text-fg-3"
                 style={{ cursor: "help", borderBottom: "1px dotted var(--border-strong)", alignSelf: "flex-start" }}
                 title={
-                  `${productCount} ${productCount === 1 ? "product" : "products"} negotiated — not every product on the RFQ, only the ones a round touched. `
+                  `${productCount} ${productCount === 1 ? lineNoun : `${lineNoun}s`} negotiated — not every ${lineNoun} on the ${noun}, only the ones a round touched. `
                   + `${vendorCount} ${vendorCount === 1 ? "vendor" : "vendors"} invited · `
                   + `${quotesReceived} vendor ${quotesReceived === 1 ? "response" : "responses"}.`
                 }
@@ -419,7 +438,7 @@ export default function RfqNegotiationPage({ rfqId }) {
             tone="amber"
             icon={<UserCheck />}
             value={
-              <Link href={destinationFor(mineOnPage, rfqId)} style={{ color: "inherit" }} data-testid="needs-you-link">
+              <Link href={destinationFor(mineOnPage, parentIds)} style={{ color: "inherit" }} data-testid="needs-you-link">
                 Round {mineOnPage.round_number || mineOnPage.stored_round_number || 1}
               </Link>
             }
@@ -442,7 +461,7 @@ export default function RfqNegotiationPage({ rfqId }) {
               </button>
             }
             label="Needs you"
-            sub={parent.action_label || "An approval on this RFQ is assigned to you"}
+            sub={parent.action_label || `An approval on this ${noun} is assigned to you`}
           />
         ) : (
           <Tile
@@ -489,12 +508,12 @@ export default function RfqNegotiationPage({ rfqId }) {
               <h2>{onlyMine ? "No round here is waiting on you" : "No rounds to show"}</h2>
               <p>
                 {onlyMine
-                  ? "Clear the filter to see every round on this RFQ."
-                  : "Rounds appear here as soon as one is opened on this RFQ."}
+                  ? `Clear the filter to see every round on this ${noun}.`
+                  : `Rounds appear here as soon as one is opened on this ${noun}.`}
               </p>
             </div>
           ) : (
-            <RoundsTable rounds={rounds} rfqId={rfqId} />
+            <RoundsTable rounds={rounds} parent={parentIds} itemsLabel={isArc ? "Items" : "Products"} />
           )}
         </div>
       </div>
@@ -525,7 +544,7 @@ export default function RfqNegotiationPage({ rfqId }) {
           <MobileActionButton
             variant="approve"
             data-testid="mobile-review-approve"
-            onClick={() => router.push(destinationFor(mineOnPage, rfqId))}
+            onClick={() => router.push(destinationFor(mineOnPage, parentIds))}
           >
             Review &amp; approve
           </MobileActionButton>

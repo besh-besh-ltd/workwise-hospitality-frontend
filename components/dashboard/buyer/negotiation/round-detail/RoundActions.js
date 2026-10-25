@@ -34,6 +34,7 @@ export function resolveActionHref(action, round) {
     if (intent === "approve") {
       return `/dashboard/buyer/rate-contracts/${round.arcId}/negotiation/${round.roundId}/approve`;
     }
+    if (intent === "next_round") return `/dashboard/buyer/rate-contracts/${round.arcId}/negotiation/create`;
     return `/dashboard/buyer/rate-contracts/${round.arcId}?stage=commercial`;
   }
 

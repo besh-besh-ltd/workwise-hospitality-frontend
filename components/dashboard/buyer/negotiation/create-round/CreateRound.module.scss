@@ -1580,6 +1580,29 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+// Rounds decided as a whole (ARC): the same row, nothing to toggle.
+.approveRoundLineStatic { cursor: default; }
+
+// Time left before the vendors' deadline. Amber once inside the minimum round
+// window (2h) — approval time comes out of the vendors' window.
+.deadlineChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f4f4f1;
+  border: 1px solid $divider-strong;
+  color: $ink-soft;
+}
+.deadlineChipUrgent {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
 
 // ---------- Phone (<=768px) ----------
 // Approvers decide rounds from their phones (20% of 1,881 decisions in 90
