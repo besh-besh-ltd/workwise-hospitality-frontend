@@ -1,17 +1,36 @@
 // The device copy of an in-progress receipt, in IndexedDB, keyed
-// `grn-draft:<poId>:<hotelId>` (spec §10.2: a dropped signal loses nothing).
-// The server draft is the shared copy; this one covers the seconds between
-// autosaves, and a draft create or post whose reply never came.
+// `grn-draft:<userId>:<poId>:<hotelId>` (spec §10.2: a dropped signal loses
+// nothing). The server draft is the shared copy; this one covers the seconds
+// between autosaves, and a draft create or post whose reply never came.
+//
+// Per user: on a shared device the next person to sign in never resumes (or
+// reuses the session key of) someone else's receipt. A copy also records its
+// owner, and one whose owner is not the reader is ignored. Copies under the
+// older `grn-draft:<poId>:<hotelId>` keys are never read again.
 //
 // Every call is best effort: no IndexedDB (jsdom, private mode, build-time
 // evaluation) makes them no-ops, and nothing here touches `indexedDB` at
 // module scope.
 
+import { store } from "@/redux/store";
+
 const DB_NAME = "workwise-inventory";
 const STORE = "receive-drafts";
 const VERSION = 1;
 
-export const grnDraftKey = (poId, hotelId) => `grn-draft:${poId}:${hotelId}`;
+/** The signed-in user (redux) whose device copies these are; null when nobody is. */
+export const draftOwnerId = () => {
+  try {
+    const id = store.getState()?.userProfile?.id;
+    return id === undefined || id === null || id === "" ? null : String(id);
+  } catch {
+    return null;
+  }
+};
+
+/** The device-copy key; null without a user (then nothing is kept on the device). */
+export const grnDraftKey = (userId, poId, hotelId) =>
+  userId === undefined || userId === null || userId === "" ? null : `grn-draft:${userId}:${poId}:${hotelId}`;
 
 const available = () => typeof indexedDB !== "undefined" && indexedDB !== null;
 
@@ -55,8 +74,12 @@ const run = async (mode, fn) => {
   });
 };
 
-/** @returns {Promise<object|null>} the saved copy, or null. */
-export const loadLocalDraft = (key) => run("readonly", (s) => s.get(key));
-/** Saves `{savedAt, draftId, sessionKey, header, entries}` under the key. */
-export const saveLocalDraft = (key, value) => run("readwrite", (s) => s.put(value, key));
-export const clearLocalDraft = (key) => run("readwrite", (s) => s.delete(key));
+/** @returns {Promise<object|null>} the saved copy when `ownerId` owns it, or null. */
+export const loadLocalDraft = async (key, ownerId) => {
+  if (!key || ownerId === undefined || ownerId === null) return null;
+  const value = await run("readonly", (s) => s.get(key));
+  return value && String(value.ownerId) === String(ownerId) ? value : null;
+};
+/** Saves `{ownerId, savedAt, draftId, sessionKey, header, entries}` under the key. */
+export const saveLocalDraft = (key, value) => (key ? run("readwrite", (s) => s.put(value, key)) : Promise.resolve(null));
+export const clearLocalDraft = (key) => (key ? run("readwrite", (s) => s.delete(key)) : Promise.resolve(null));

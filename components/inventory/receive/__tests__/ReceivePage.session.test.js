@@ -74,8 +74,13 @@ jest.mock("../draftStore", () => {
   return {
     __esModule: true,
     __store: store,
-    grnDraftKey: (poId, hotelId) => `grn-draft:${poId}:${hotelId}`,
-    loadLocalDraft: jest.fn(async (key) => copy(store.get(key))),
+    // Same rules as the real module: per-user keys, another owner's copy ignored.
+    draftOwnerId: () => "407",
+    grnDraftKey: (userId, poId, hotelId) => (userId == null ? null : `grn-draft:${userId}:${poId}:${hotelId}`),
+    loadLocalDraft: jest.fn(async (key, ownerId) => {
+      const value = copy(store.get(key));
+      return value && String(value.ownerId) === String(ownerId) ? value : null;
+    }),
     saveLocalDraft: jest.fn(async (key, value) => {
       store.set(key, copy(value));
       return null;
@@ -96,7 +101,7 @@ import * as draftStore from "../draftStore";
 import ReceivePage from "../ReceivePage";
 
 const store = draftStore.__store;
-const KEY = "grn-draft:52:46";
+const KEY = "grn-draft:407:52:46";
 const K1 = "11111111-1111-4111-8111-111111111111";
 
 const RICE = {
@@ -242,7 +247,7 @@ describe("posting once per session key", () => {
 
   it("a key restored from the device that was posted earlier: no false success, entries kept, a new key posts", async () => {
     // Yesterday's one-request post landed unheard before any draft existed.
-    store.set(KEY, { savedAt: Date.now(), draftId: null, sessionKey: K1, header: {}, entries: { 11: { received: "6" } } });
+    store.set(KEY, { ownerId: "407", savedAt: Date.now(), draftId: null, sessionKey: K1, header: {}, entries: { 11: { received: "6" } } });
     replyToPosts(
       replayedGrn({ id: 900, postedAt: "2026-10-24T09:00:00.000Z" }),
       postedGrn({ id: 901, grnNumber: "GRN/46/2026-27/00013" })
@@ -329,7 +334,7 @@ describe("posting once per session key", () => {
 describe("the device copy and background saves", () => {
   it("restores unsaved entries, posts them with the restored key, then clears the copy", async () => {
     store.set(KEY, {
-      savedAt: Date.now(), draftId: null, sessionKey: K1, header: { vendorChallanNo: "CH-9" }, entries: { 11: { received: "7" } },
+      ownerId: "407", savedAt: Date.now(), draftId: null, sessionKey: K1, header: { vendorChallanNo: "CH-9" }, entries: { 11: { received: "7" } },
     });
     await mount();
     expect(await screen.findByText("Restored the entries you had not saved yet on this device.")).toBeInTheDocument();
@@ -344,8 +349,24 @@ describe("the device copy and background saves", () => {
     expect(store.has(KEY)).toBe(false);
   });
 
+  it("never resumes another user's copy on a shared device, nor reuses its key", async () => {
+    const theirs = { savedAt: Date.now(), draftId: null, sessionKey: K1, header: {}, entries: { 11: { received: "9" } } };
+    store.set("grn-draft:999:52:46", { ...theirs, ownerId: "999" });
+    store.set(KEY, { ...theirs, ownerId: "999" }); // a copy filed under this user's key but owned by someone else
+    replyToPosts(postedGrn({ id: 901 }));
+    await mount();
+    await waitFor(() => expect(draftStore.loadLocalDraft).toHaveBeenCalledWith(KEY, "407"));
+    expect(screen.queryByText(/Restored the entries/)).toBeNull();
+    expect(field("Received qty for Basmati rice 25kg")).not.toHaveValue("9");
+
+    type("Received qty for Basmati rice 25kg", "2");
+    await postAndConfirm();
+    expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(postCalls()[0].clientEventId).not.toBe(K1);
+  });
+
   it("a clean copy of the server draft doesn't count as unsaved entries", async () => {
-    store.set(KEY, { savedAt: Date.now(), clean: true, draftId: 900, sessionKey: K1, header: {}, entries: { 11: { received: "1" } } });
+    store.set(KEY, { ownerId: "407", savedAt: Date.now(), clean: true, draftId: 900, sessionKey: K1, header: {}, entries: { 11: { received: "1" } } });
     await mount(ctx({ draft: draftGrn({ lines: [{ poLineId: 11, receivedQty: 4, acceptedQty: 4, rejectedQty: 0 }] }) }));
     await waitFor(() => expect(draftStore.loadLocalDraft).toHaveBeenCalled());
     expect(field("Received qty for Basmati rice 25kg")).toHaveValue("4");

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
+import dynamic from "next/dynamic";
 import { toast } from "react-toastify";
 import posthog from "@/lib/analytics";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
@@ -16,6 +17,10 @@ import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import { TwoPanelContext, useTwoPanelHost } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
+
+// Inventory's offline-sync dock ("Pending sync (N)"), on the inventory routes
+// only; loaded on demand so other pages never pull in the outbox.
+const PendingSyncBadge = dynamic(() => import("@/components/inventory/offline/PendingSyncBadge"), { ssr: false });
 
 const DashboardShell = ({ children }) => {
   const router = useRouter();
@@ -127,6 +132,12 @@ const DashboardShell = ({ children }) => {
             navGrants={navGrants}
           />
           <div className={styles.main}>
+            {/* Offline sync (inventory outbox): on every page of a signed-in
+                non-vendor session (buyer, admin, management, engineering,
+                finance, other all reach /dashboard/buyer/inventory), so queued
+                scans keep sending after the user leaves the scan screen. Before
+                the content: on phones it sits in the flow under the top bar. */}
+            {loggedinUser && currentUserType !== "vendor" && <PendingSyncBadge />}
             <div className={styles.content}>{children}</div>
           </div>
         </div>

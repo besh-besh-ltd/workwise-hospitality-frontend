@@ -59,7 +59,7 @@ const ReceivePage = ({
 }) => {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const pendingCount = usePendingCount();
+  const pendingCount = usePendingCount(GRN_POST_KIND);
 
   const [view, setView] = useState({ phase: "loading" });
   const [ctx, setCtx] = useState(null);
@@ -403,9 +403,9 @@ const ReceivePage = ({
   // ({draftId, sessionKey, entries}) and the key stay, so reopening this
   // receipt settles it either way: landed → "already posted", refused → the
   // entries come back under the same key, still waiting → a re-post replays.
-  const onQueued = () => {
+  const onQueued = (persisted = true) => {
     commitDirty(false);
-    if (mountedRef.current) setView({ phase: "queued" });
+    if (mountedRef.current) setView({ phase: "queued", persisted });
   };
 
   async function runPost(entriesOverride = null) {
@@ -435,7 +435,7 @@ const ReceivePage = ({
       sent = true;
       const outcome = await submitOrQueue({ kind: GRN_POST_KIND, clientEventId: key, payload, send: (p) => api.post(p) });
       if (outcome?.queued) {
-        onQueued();
+        onQueued(outcome.persisted !== false);
         return;
       }
       const grn = postedGrnOf(outcome?.result);
@@ -577,7 +577,7 @@ const ReceivePage = ({
       sub: po?.vendorName ? <div className={styles.pageSub}>{po.vendorName}</div> : null,
     });
   }
-  if (view.phase === "queued") return frame(<QueuedState pendingCount={pendingCount} />);
+  if (view.phase === "queued") return frame(<QueuedState pendingCount={pendingCount} persisted={view.persisted !== false} />);
   if (view.phase === "posted") {
     const canReceiveMore = lines.some((l) => subQty(l.openAtHotel, lineQty(entries[l.poLineId]).accepted || 0) > 0);
     return frame(
