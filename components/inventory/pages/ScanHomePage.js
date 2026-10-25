@@ -135,35 +135,35 @@ const ScanHomePage = () => {
       <main className={r.pageBody}>
         <div className={r.stack}>
           {(canReceive || markOutHotel != null || canCount) && (
-          <nav aria-label="Scan actions" className={s.homeActions}>
-            {canReceive && (
-              <Link href={stockRoutes.receive()} className={s.homeAction}>
-                <span className={s.homeActionIc}><PackagePlus size={24} aria-hidden="true" /></span>
-                <span>
-                  <span className={s.homeActionLabel}>Receive</span>
-                  <span className={s.homeActionSub}>Scan the PO or delivery note</span>
-                </span>
-              </Link>
-            )}
-            {markOutHotel != null && (
-              <Link href={stockRoutes.markOut({ hotelId: markOutHotel })} className={s.homeAction}>
-                <span className={s.homeActionIc}><PackageMinus size={24} aria-hidden="true" /></span>
-                <span>
-                  <span className={s.homeActionLabel}>Mark out</span>
-                  <span className={s.homeActionSub}>Issue stock to a department</span>
-                </span>
-              </Link>
-            )}
-            {canCount && (
-              <Link href={stockRoutes.counts()} className={s.homeAction}>
-                <span className={s.homeActionIc}><ClipboardCheck size={24} aria-hidden="true" /></span>
-                <span>
-                  <span className={s.homeActionLabel}>Count</span>
-                  <span className={s.homeActionSub}>Count the shelves</span>
-                </span>
-              </Link>
-            )}
-          </nav>
+            <nav aria-label="Scan actions" className={s.homeActions}>
+              {canReceive && (
+                <Link href={stockRoutes.receive()} className={s.homeAction}>
+                  <span className={s.homeActionIc}><PackagePlus size={24} aria-hidden="true" /></span>
+                  <span>
+                    <span className={s.homeActionLabel}>Receive</span>
+                    <span className={s.homeActionSub}>Scan the PO or delivery note</span>
+                  </span>
+                </Link>
+              )}
+              {markOutHotel != null && (
+                <Link href={stockRoutes.markOut({ hotelId: markOutHotel })} className={s.homeAction}>
+                  <span className={s.homeActionIc}><PackageMinus size={24} aria-hidden="true" /></span>
+                  <span>
+                    <span className={s.homeActionLabel}>Mark out</span>
+                    <span className={s.homeActionSub}>Issue stock to a department</span>
+                  </span>
+                </Link>
+              )}
+              {canCount && (
+                <Link href={stockRoutes.counts()} className={s.homeAction}>
+                  <span className={s.homeActionIc}><ClipboardCheck size={24} aria-hidden="true" /></span>
+                  <span>
+                    <span className={s.homeActionLabel}>Count</span>
+                    <span className={s.homeActionSub}>Count the shelves</span>
+                  </span>
+                </Link>
+              )}
+            </nav>
           )}
 
           <section className={r.card} aria-labelledby="scan-lookup-title">
