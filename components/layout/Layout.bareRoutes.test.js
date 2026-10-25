@@ -68,21 +68,23 @@ test("other public pages keep the site header", () => {
   expect(screen.getByTestId("site-header")).toBeInTheDocument();
 });
 
-test("the canonical link is the path alone: a link's query or #fragment (and its token) never goes in it", () => {
+test("the canonical link never carries a link's token or #fragment, and keeps a public page's own query", () => {
   const canonical = () => document.querySelector('link[rel="canonical"]').getAttribute("href");
-  mockPathname = "/receive/token";
-  mockAsPath = "/receive/token#t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka";
-  const a = render(<Layout><div /></Layout>);
-  expect(canonical()).toBe("https://letsworkwise.com/receive/token");
-  a.unmount();
-
-  mockAsPath = "/receive/token?t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka&token=x#y";
-  const b = render(<Layout><div /></Layout>);
-  expect(canonical()).toBe("https://letsworkwise.com/receive/token");
-  b.unmount();
-
-  mockPathname = "/for-vendors";
-  mockAsPath = "/for-vendors?utm_source=mail";
-  render(<Layout><div /></Layout>);
-  expect(canonical()).toBe("https://letsworkwise.com/for-vendors");
+  const at = (pathname, asPath) => {
+    mockPathname = pathname;
+    mockAsPath = asPath;
+    const view = render(<Layout><div /></Layout>);
+    const href = canonical();
+    view.unmount();
+    return href;
+  };
+  expect(at("/receive/token", "/receive/token#t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka"))
+    .toBe("https://letsworkwise.com/receive/token");
+  expect(at("/receive/token", "/receive/token?t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka&token=x#y"))
+    .toBe("https://letsworkwise.com/receive/token");
+  // A public vendor profile is the query: each one keeps its own canonical.
+  expect(at("/vendor/vendor-profile", "/vendor/vendor-profile?id=8123"))
+    .toBe("https://letsworkwise.com/vendor/vendor-profile?id=8123");
+  expect(at("/for-vendors", "/for-vendors?utm_source=mail"))
+    .toBe("https://letsworkwise.com/for-vendors?utm_source=mail");
 });

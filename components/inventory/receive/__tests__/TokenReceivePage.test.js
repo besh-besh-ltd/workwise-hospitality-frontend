@@ -977,6 +977,146 @@ describe("TokenReceivePage", () => {
     expect(postTokenGrn.mock.calls[1][1].clientEventId).toBe(key);
   });
 
+  test("a 401 on a background upload kills the link: the posted card stays, saying so, with no way to start another", async () => {
+    await mount();
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt()] }));
+    type("Received qty for Basmati rice 25kg", "6");
+    const challan = new File(["x"], "challan.jpg", { type: "image/jpeg" });
+    const invoice = new File(["y"], "invoice.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [challan] } });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [invoice] } });
+    uploadTokenGrnAttachment.mockRejectedValueOnce(apiError(401, { status: 0, message: "Invalid or expired link" }));
+
+    await postAndConfirm();
+    expect(screen.getByText("Receipt posted")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Paperwork" });
+    await waitFor(() => expect(within(list).getByText("challan.jpg").closest("li")).toHaveTextContent("Not uploaded: This link has expired."));
+    expect(within(list).getByText("invoice.pdf").closest("li")).toHaveTextContent("Not uploaded: This link has expired.");
+    // The second file is not even tried, and nothing offers another receipt on a dead link.
+    expect(uploadTokenGrnAttachment).toHaveBeenCalledTimes(1);
+    const card = screen.getByRole("heading", { name: "Receipt posted" }).parentElement;
+    expect(within(card).getByText("GRN/46/2026-27/00012")).toBeInTheDocument();
+    expect(within(card).getByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Receive another delivery" })).toBeNull();
+    expect(screen.queryByLabelText(/^Upload paperwork for/)).toBeNull();
+    expect(screen.queryByText(/This link works until/)).toBeNull();
+    expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
+    expectTokenContained();
+  });
+
+  test("a 401 on a background upload while the next receipt is open ends it on the expired page", async () => {
+    await mount();
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt()] }));
+    type("Received qty for Basmati rice 25kg", "6");
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [new File(["x"], "challan.jpg", { type: "image/jpeg" })] } });
+    const slow = deferred();
+    uploadTokenGrnAttachment.mockImplementationOnce(() => slow.promise);
+    await postAndConfirm();
+    fireEvent.click(screen.getByRole("button", { name: "Receive another delivery" }));
+    type("Received qty for Basmati rice 25kg", "3");
+    await waitFor(() => expect(window.sessionStorage.getItem(DRAFT)).not.toBeNull());
+
+    await act(async () => {
+      slow.reject(apiError(401, { status: 0, message: "Invalid or expired link" }));
+    });
+    expect(await screen.findByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
+    expect(document.activeElement).toHaveTextContent("Link expired");
+    expect(screen.queryByLabelText("Scan or type a code")).toBeNull();
+    expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+    expect(postTokenGrn).toHaveBeenCalledTimes(1);
+  });
+
+  test("a 401 on paperwork while a receipt's outcome is unknown says it may already be recorded", async () => {
+    await mount(ctx({ receipts: [receipt()] }));
+    type("Received qty for Basmati rice 25kg", "6");
+    postTokenGrn.mockRejectedValueOnce(networkError());
+    await postAndConfirm();
+    await screen.findByText(/The connection dropped before the server answered/);
+    uploadTokenGrnAttachment.mockRejectedValueOnce(apiError(401, { status: 0, message: "Invalid or expired link" }));
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Upload paperwork for GRN/46/2026-27/00012"), {
+        target: { files: [new File(["x"], "challan.jpg", { type: "image/jpeg" })] },
+      });
+    });
+    expect(await screen.findByText(
+      "Your link expired. The last receipt may already have been recorded; ask the buyer to check."
+    )).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+  });
+
+  test("a refresh that answers after the link died never brings the form back", async () => {
+    await dropFirstPost();
+    const late = deferred();
+    getTokenReceiveContext.mockImplementationOnce(() => late.promise);
+    fireEvent.click(screen.getByRole("button", { name: "Discard and start over" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard entries" }));
+    type("Received qty for Basmati rice 25kg", "4");
+    postTokenGrn.mockRejectedValueOnce(apiError(401, { status: 0, message: "Invalid or expired link" }));
+    await postAndConfirm();
+    expect(await screen.findByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
+
+    await act(async () => {
+      late.resolve(ctx());
+    });
+    expect(screen.getByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Scan or type a code")).toBeNull();
+    expect(screen.queryByLabelText("Received qty for Basmati rice 25kg")).toBeNull();
+  });
+
+  test("a file that went up stays on its receipt when a refresh lands between two uploads", async () => {
+    const att1 = { id: 31, fileName: "challan.jpg", kind: "CHALLAN", url: "https://bucket.s3.ap-south-1.amazonaws.com/grn/challan.jpg" };
+    const att2 = { id: 32, fileName: "invoice.pdf", kind: "INVOICE", url: "https://bucket.s3.ap-south-1.amazonaws.com/grn/invoice.pdf" };
+    await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [new File(["x"], "challan.jpg", { type: "image/jpeg" })] } });
+    fireEvent.change(screen.getByLabelText("Attach as"), { target: { value: "INVOICE" } });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [new File(["y"], "invoice.pdf", { type: "application/pdf" })] } });
+    // The refresh right after the post: the server read the receipt before the first file was saved.
+    const refresh = deferred();
+    getTokenReceiveContext.mockImplementationOnce(() => refresh.promise);
+    const second = deferred();
+    uploadTokenGrnAttachment.mockResolvedValueOnce(att1).mockImplementationOnce(() => second.promise);
+
+    await postAndConfirm();
+    const receipts = () => screen.getByRole("region", { name: /Receipts from this link/ });
+    await waitFor(() => expect(within(receipts()).getByRole("link", { name: "challan.jpg" })).toBeInTheDocument());
+    await act(async () => {
+      refresh.resolve(ctx({ receipts: [receipt()] }));
+    });
+    expect(within(receipts()).getByRole("link", { name: "challan.jpg" })).toBeInTheDocument();
+
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt({ attachments: [att1, att2] })] }));
+    await act(async () => {
+      second.resolve(att2);
+    });
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(3));
+    expect(within(receipts()).getAllByRole("link", { name: "challan.jpg" })).toHaveLength(1);
+    expect(within(receipts()).getAllByRole("link", { name: "invoice.pdf" })).toHaveLength(1);
+  });
+
+  test("a file that didn't go up stops saying so once paperwork is attached to that receipt by hand", async () => {
+    await mount();
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt()] }));
+    type("Received qty for Basmati rice 25kg", "6");
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [new File(["x"], "challan.jpg", { type: "image/jpeg" })] } });
+    uploadTokenGrnAttachment.mockRejectedValueOnce(apiError(413, { status: 0, message: "That file is too large" }));
+    await postAndConfirm();
+    await screen.findByText(/Not uploaded: That file is too large/);
+    fireEvent.click(screen.getByRole("button", { name: "Receive another delivery" }));
+    const row = screen.getByText("GRN/46/2026-27/00012").closest("li");
+    expect(within(row).getByText("challan.jpg").closest("li")).toHaveTextContent("Not uploaded: That file is too large");
+
+    // A smaller photo of the same challan, attached on the receipt.
+    const photo = new File(["z"], "IMG_0412.jpg", { type: "image/jpeg" });
+    uploadTokenGrnAttachment.mockResolvedValueOnce({ id: 33, fileName: "IMG_0412.jpg", kind: "CHALLAN", url: "https://bucket.s3.ap-south-1.amazonaws.com/grn/IMG_0412.jpg" });
+    await act(async () => {
+      fireEvent.change(within(row).getByLabelText("Upload paperwork for GRN/46/2026-27/00012"), { target: { files: [photo] } });
+    });
+    await waitFor(() => expect(within(row).getByRole("link", { name: "IMG_0412.jpg" })).toBeInTheDocument());
+    expect(within(row).queryByText(/Not uploaded/)).toBeNull();
+  });
+
   test("phone: Discard brings its confirm into view and focuses \"Keep them\"", async () => {
     mockMobile = true;
     const scrolled = [];
@@ -993,7 +1133,13 @@ describe("TokenReceivePage", () => {
       await waitFor(() => expect(within(bar).getByRole("button", { name: "Discard" })).toBeInTheDocument());
       fireEvent.click(within(bar).getByRole("button", { name: "Discard" }));
       const ask = screen.getByRole("alertdialog", { name: "Discard these entries?" });
-      expect(scrolled).toContain(ask);
+      expect(scrolled).toEqual([ask]);
+      expect(document.activeElement).toBe(within(ask).getByRole("button", { name: "Keep them" }));
+
+      // Scrolled away and tapped again: it comes back into view again.
+      within(bar).getByRole("button", { name: "Retry" }).focus();
+      fireEvent.click(within(bar).getByRole("button", { name: "Discard" }));
+      expect(scrolled).toEqual([ask, ask]);
       expect(document.activeElement).toBe(within(ask).getByRole("button", { name: "Keep them" }));
     } finally {
       Element.prototype.scrollIntoView = original;

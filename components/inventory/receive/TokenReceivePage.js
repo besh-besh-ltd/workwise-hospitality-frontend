@@ -477,7 +477,7 @@ const ReceiptItem = ({ receipt, canAttach, busy, error, uploads = null, onAttach
   const name = receipt.grnNumber || `Receipt #${receipt.id}`;
   const files = Array.isArray(receipt.attachments) ? receipt.attachments : [];
   // Files from the post still going up (or that didn't); the ones that made it are in `files`.
-  const unsettled = (uploads || []).filter((u) => u.status !== "done");
+  const unsettled = (uploads || []).filter((u) => u.status === "uploading" || u.status === "failed");
   const pick = (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -575,14 +575,60 @@ const withReceipt = (data, grn) => {
   return { ...data, receipts: [row, ...receipts] };
 };
 
+/** `added` on receipt `grnId`, each attachment once (by id). */
 const withAttachments = (data, grnId, added) => {
   if (!data || !added.length) return data;
   return {
     ...data,
-    receipts: (data.receipts || []).map((r) =>
-      r.id === grnId ? { ...r, attachments: [...(r.attachments || []), ...added] } : r
-    ),
+    receipts: (data.receipts || []).map((r) => {
+      if (r.id !== grnId) return r;
+      const have = new Set((r.attachments || []).map((a) => a.id));
+      const extra = added.filter((a) => !have.has(a.id));
+      return extra.length ? { ...r, attachments: [...(r.attachments || []), ...extra] } : r;
+    }),
   };
+};
+
+/**
+ * A refreshed context plus the files this tab uploaded: a refresh the server
+ * answered before a file was saved must not take that file off its receipt.
+ */
+const withLocalAttachments = (data, local) => {
+  let out = data;
+  for (const [grnId, atts] of local) out = withAttachments(out, grnId, atts);
+  return out;
+};
+
+/**
+ * Upload rows the refreshed receipts already list (by file name) stop showing
+ * "Not uploaded": the file got there after all.
+ */
+const settleListed = (uploads, receipts) => {
+  let out = uploads;
+  for (const r of receipts || []) {
+    const list = out[r.id];
+    if (!list) continue;
+    const names = new Set((r.attachments || []).map((a) => a.fileName).filter(Boolean));
+    if (!list.some((u) => u.status === "failed" && names.has(u.name))) continue;
+    out = { ...out, [r.id]: list.map((u) => (u.status === "failed" && names.has(u.name) ? { ...u, status: "settled" } : u)) };
+  }
+  return out;
+};
+
+/**
+ * Paperwork attached by hand to receipt `grnId` stands in for one file that
+ * didn't go up after its post: the same file name, else the same kind, else
+ * the first one. Rows keep their place (background uploads update by index).
+ */
+const settleOneFailed = (uploads, grnId, fileName, kind) => {
+  const list = uploads[grnId];
+  if (!list) return uploads;
+  const failed = (u) => u.status === "failed";
+  let at = list.findIndex((u) => failed(u) && u.name === fileName);
+  if (at < 0) at = list.findIndex((u) => failed(u) && u.kind === kind);
+  if (at < 0) at = list.findIndex(failed);
+  if (at < 0) return uploads;
+  return { ...uploads, [grnId]: list.map((u, i) => (i === at ? { ...u, status: "settled" } : u)) };
 };
 
 /** GrnInput for a link: the server takes the PO and hotel from the token. */
@@ -626,6 +672,9 @@ const TokenReceivePage = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [posted, setPosted] = useState(null);
+  // A 401 anywhere: the link is dead. A posted card on screen stays, saying so.
+  const [linkDead, setLinkDead] = useState(false);
+  const [discardAsk, setDiscardAsk] = useState(0);
   // grnId → [{name, kind, status, message}]: files picked before a post, uploading after it.
   const [uploads, setUploads] = useState({});
   const [uploadingId, setUploadingId] = useState(null);
@@ -650,6 +699,9 @@ const TokenReceivePage = () => {
   const formErrorRef = useRef(null);
   const discardBoxRef = useRef(null);
   const keepEntriesRef = useRef(null);
+  const postedRef = useRef(null);
+  // grnId → attachments this tab uploaded, kept across refreshes.
+  const localAttachmentsRef = useRef(new Map());
 
   useEffect(() => {
     pendingFilesRef.current = pendingFiles;
@@ -667,6 +719,16 @@ const TokenReceivePage = () => {
     headerRef.current = next;
     setHeader(next);
   }, []);
+  const commitPosted = useCallback((v) => {
+    postedRef.current = v;
+    setPosted(v);
+  }, []);
+  /** An attachment this tab uploaded: on its receipt now and after any refresh. */
+  const addAttachment = useCallback((grnId, att) => {
+    const local = localAttachmentsRef.current;
+    local.set(grnId, [...(local.get(grnId) || []), att]);
+    commitCtx(withAttachments(ctxRef.current, grnId, [att]));
+  }, [commitCtx]);
   const commitUnsent = useCallback((v, note = null) => {
     unsentRef.current = v;
     setUnsent(v);
@@ -705,7 +767,22 @@ const TokenReceivePage = () => {
     dropAllDrafts();
     session.remove(TOKEN_STORAGE_KEY);
     tokenRef.current = null;
+    // A refresh still in flight answers for a link that no longer exists.
+    loadSeqRef.current += 1;
   }, []);
+
+  /**
+   * Any 401 (context, post, upload): the link is dead. With a posted receipt
+   * on screen, that card stays and says so; anything else (a form open, or
+   * nothing posted from this screen) goes to the expired page.
+   */
+  const linkExpired = useCallback(({ uncertain = false } = {}) => {
+    forgetLink();
+    setLinkDead(true);
+    if (postedRef.current) return;
+    setFailure({ phase: "expired", uncertain });
+    setPhase("expired");
+  }, [forgetLink]);
 
   // ── Form ──────────────────────────────────────────────────────────────────
   /** A fresh receipt for `data`, or the one this tab had before a reload. */
@@ -758,25 +835,31 @@ const TokenReceivePage = () => {
     if (!token) return null;
     const seq = ++loadSeqRef.current;
     if (!silent) setPhase("loading");
+    // Only the latest request answers, and only while the link is alive.
+    const stale = () => seq !== loadSeqRef.current || !mountedRef.current || !tokenRef.current;
     try {
       const data = await getTokenReceiveContext(token);
-      if (seq !== loadSeqRef.current || !mountedRef.current) return null;
-      commitCtx(data);
+      if (stale()) return null;
+      commitCtx(withLocalAttachments(data, localAttachmentsRef.current));
+      setUploads((prev) => settleListed(prev, data?.receipts));
       if (!silent) startForm(data);
       setPhase("ready");
       return data;
     } catch (err) {
-      if (seq !== loadSeqRef.current || !mountedRef.current) return null;
+      if (stale()) return null;
       const f = loadFailure(err);
       // A background refresh that fails for any other reason keeps what is on screen.
       if (silent && f.phase === "error") return null;
-      if (f.phase === "expired") f.uncertain = unsentRef.current || anyUnsentDraft();
-      if (f.phase === "expired" || f.phase === "no_hotel") forgetLink();
+      if (f.phase === "expired") {
+        linkExpired({ uncertain: unsentRef.current || anyUnsentDraft() });
+        return null;
+      }
+      if (f.phase === "no_hotel") forgetLink();
       setFailure(f);
       setPhase(f.phase);
       return null;
     }
-  }, [commitCtx, startForm, forgetLink]);
+  }, [commitCtx, startForm, forgetLink, linkExpired]);
 
   // Take the token out of the URL first; only then ask the server anything.
   useEffect(() => {
@@ -833,12 +916,17 @@ const TokenReceivePage = () => {
 
   // "Discard?" opens at the top of the page; on a phone it was asked from the
   // bar at the bottom, so bring it into view and put focus on the safe answer.
+  // Every tap (not just the first) brings it back, after a scroll away.
   useEffect(() => {
-    if (!discardOpen) return;
+    if (!discardAsk) return;
     const box = discardBoxRef.current;
     if (box && typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "center", behavior: "smooth" });
     keepEntriesRef.current?.focus({ preventScroll: true });
-  }, [discardOpen]);
+  }, [discardAsk]);
+  const askDiscard = () => {
+    setDiscardOpen(true);
+    setDiscardAsk((n) => n + 1);
+  };
 
   // ── Edits (none while a post is in flight or its outcome is unknown) ─────
   const patchLine = useCallback((id, patch) => {
@@ -968,12 +1056,16 @@ const TokenReceivePage = () => {
       const p = files[i];
       let next;
       try {
+        // A 401 on an earlier file (or anywhere else) ended the link: don't try the rest.
         const att = tokenRef.current ? await uploadTokenGrnAttachment(tokenRef.current, grnId, p.file, p.kind) : null;
-        if (att && mountedRef.current) commitCtx(withAttachments(ctxRef.current, grnId, [att]));
+        if (att && mountedRef.current) addAttachment(grnId, att);
         if (att) uploaded += 1;
-        next = att ? { status: "done" } : { status: "failed", message: "This link can't upload any more." };
+        next = att
+          ? { status: "done" }
+          : { status: "failed", message: tokenRef.current ? "This link can't upload any more." : "This link has expired." };
       } catch (e) {
         const info = errorInfo(e, "Upload failed");
+        if (info.httpStatus === 401 && mountedRef.current) linkExpired({ uncertain: unsentRef.current });
         next = {
           status: "failed",
           message: info.httpStatus === 429
@@ -1014,7 +1106,7 @@ const TokenReceivePage = () => {
       }));
     }
     // "Receipt posted" first; the files picked before posting upload after it.
-    setPosted({ grn, replayMismatch: mismatch, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [] });
+    commitPosted({ grn, replayMismatch: mismatch, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [] });
     // Fresh open quantities and the receipt list (with this one) from the
     // server now, for a next receipt that starts while the files go up.
     load({ silent: true });
@@ -1035,9 +1127,7 @@ const TokenReceivePage = () => {
     const line = lineId != null ? lineById.get(lineId) : null;
 
     if (status === 401) {
-      forgetLink();
-      setFailure({ phase: "expired", uncertain: priorUnknown });
-      setPhase("expired");
+      linkExpired({ uncertain: priorUnknown });
       return;
     }
     if (status == null || status === 429 || status >= 500 || !REFUSALS.has(status)) {
@@ -1159,7 +1249,8 @@ const TokenReceivePage = () => {
   };
 
   const receiveAnother = () => {
-    setPosted(null);
+    if (!tokenRef.current) return;
+    commitPosted(null);
     startForm(ctxRef.current);
   };
 
@@ -1171,14 +1262,16 @@ const TokenReceivePage = () => {
     setAttachErrors((prev) => ({ ...prev, [grnId]: null }));
     try {
       const att = await uploadTokenGrnAttachment(token, grnId, file, kind);
-      if (att && mountedRef.current) commitCtx(withAttachments(ctxRef.current, grnId, [att]));
+      if (att && mountedRef.current) {
+        addAttachment(grnId, att);
+        setUploads((prev) => settleOneFailed(prev, grnId, file?.name, kind));
+      }
     } catch (e) {
       if (!mountedRef.current) return;
       const info = errorInfo(e, "Could not upload that file. Try again.");
       if (info.httpStatus === 401) {
-        forgetLink();
-        setFailure({ phase: "expired", uncertain: false });
-        setPhase("expired");
+        // A receipt whose outcome is unknown may be open: say so.
+        linkExpired({ uncertain: unsentRef.current });
         return;
       }
       const message = info.httpStatus === 429
@@ -1199,7 +1292,7 @@ const TokenReceivePage = () => {
   const reason = NOT_RECEIVABLE[ctx?.notReceivableReason] ? ctx.notReceivableReason : "not_ready";
   const receipts = Array.isArray(ctx?.receipts) ? ctx.receipts : [];
   const expiresAt = ctx?.linkExpiresAt ? Date.parse(ctx.linkExpiresAt) : NaN;
-  const linkOpen = Number.isNaN(expiresAt) || expiresAt > Date.now();
+  const linkOpen = !linkDead && (Number.isNaN(expiresAt) || expiresAt > Date.now());
   const showForm = phase === "ready" && !posted && !notReceivable;
   const padLine = scan.pad && !frozen ? lineById.get(Number(scan.pad.poLineId)) : null;
   const scanPaused = frozen || confirmOpen || !!padLine;
@@ -1393,7 +1486,7 @@ const TokenReceivePage = () => {
           <span className={own.bannerText}>{unsentNote || NETWORK_DROPPED}</span>
           {!isMobile && (
             <div className={own.bannerActions}>
-              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDiscardOpen(true)}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={askDiscard}>
                 Discard and start over
               </button>
               <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => runPost()}>
@@ -1506,7 +1599,7 @@ const TokenReceivePage = () => {
   );
 
   const postedId = posted?.grn?.id ?? null;
-  const postedUploads = (postedId != null && uploads[postedId]) || [];
+  const postedUploads = ((postedId != null && uploads[postedId]) || []).filter((u) => u.status !== "settled");
   const postedCard = posted && (
     <div className={styles.stateCard} role="status">
       <div className={`${styles.stateIc} ${posted.replayMismatch ? "" : styles.stateIcOk}`}>
@@ -1536,7 +1629,8 @@ const TokenReceivePage = () => {
       )}
       {postedUploads.length > 0 && <UploadList uploads={postedUploads} />}
       {notReceivable && <p className={styles.stateSub}>{NOT_RECEIVABLE[reason]}.</p>}
-      {canReceiveMore && (
+      {linkDead && <p className={styles.stateSub} role="alert">{EXPIRED_MESSAGE}</p>}
+      {canReceiveMore && !linkDead && (
         <div className={styles.stateActions}>
           <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={receiveAnother}>
             Receive another delivery
@@ -1593,7 +1687,7 @@ const TokenReceivePage = () => {
     >
       {unsent && !posting ? (
         <>
-          <MobileActionButton onClick={() => setDiscardOpen(true)}>Discard</MobileActionButton>
+          <MobileActionButton onClick={askDiscard}>Discard</MobileActionButton>
           <MobileActionButton variant="primary" onClick={() => runPost()}>{retryLabel}</MobileActionButton>
         </>
       ) : (

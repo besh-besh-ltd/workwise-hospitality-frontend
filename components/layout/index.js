@@ -16,6 +16,7 @@ import { store } from "@/redux/store";
 import { entitySwitchNeedsReload, profileNeedsNetworkRefresh } from "@/utils/sessionSync";
 import { isGuestSession } from "@/utils/guestSession";
 import { hardReload } from "@/utils/hardNavigate";
+import { redactUrl } from "@/lib/redactUrl";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
@@ -225,9 +226,10 @@ const Layout = (props) => {
   const isDashboardPath =
     router.pathname?.startsWith('/dashboard') || router.pathname?.startsWith('/vendor');
   const isDashboardRoute = isDashboardPath && isLoggedIn;
-  // The path alone: a query or #fragment can carry a credential (the site-rep
-  // receive link's #t=… is in asPath until the page strips it).
-  const canonicalPath = (router.asPath || "/").split(/[?#]/)[0] || "/";
+  // Never a credential: the site-rep receive link's #t= / ?t= is in asPath
+  // until the page strips it. redactUrl drops the #fragment and t / token
+  // params only, so a public page's own query (a vendor profile's ?id=) stays.
+  const canonicalPath = redactUrl(router.asPath || "/") || "/";
 
   return (
     <>
