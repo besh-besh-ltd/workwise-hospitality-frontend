@@ -141,7 +141,9 @@ const NewItemModal = ({ show, onHide, onCreated }) => {
                 <label className={s.toggleTitle} htmlFor="ni-exp">Tracks expiry</label>
                 <div className={s.toggleHelp}>Leave off to use the category default.</div>
               </div>
-              <input id="ni-exp" type="checkbox" role="switch" className={s.switch} checked={trackExpiry} onChange={(e) => setTrackExpiry(e.target.checked)} disabled={busy} />
+              <label className={s.switchHit}>
+                <input id="ni-exp" type="checkbox" role="switch" className={s.switch} checked={trackExpiry} onChange={(e) => setTrackExpiry(e.target.checked)} disabled={busy} />
+              </label>
             </div>
             {error && <div className={r.formError} role="alert">{error}</div>}
             <div className={r.sheetFoot} style={{ padding: "12px 0 0" }}>

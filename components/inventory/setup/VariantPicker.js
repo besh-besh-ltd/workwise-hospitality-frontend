@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, RotateCcw, Search } from "lucide-react";
 import { listRootCategories, searchVariants } from "@/services/arc_v2";
 import { errorInfo } from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
@@ -12,6 +12,7 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Props: { onPick({id, name}), actionLabel ("Map", "Use"), exclude: Set<variantId>, disabled }
 
 const SEARCH_DELAY_MS = 250;
+const LIMIT = 20;
 
 const VariantPicker = ({ onPick, actionLabel = "Pick", exclude, disabled = false }) => {
   const catId = useId();
@@ -22,26 +23,34 @@ const VariantPicker = ({ onPick, actionLabel = "Pick", exclude, disabled = false
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [more, setMore] = useState(false);
+  const [catError, setCatError] = useState(null);
+  const [catAttempt, setCatAttempt] = useState(0);
   const seqRef = useRef(0);
 
   useEffect(() => {
     let live = true;
+    setCategories(null);
+    setCatError(null);
     listRootCategories()
       .then((res) => {
         if (live) setCategories((res?.data?.categories || res?.categories || []).map((c) => ({ id: Number(c.id), title: c.title })));
       })
-      .catch(() => {
-        if (live) setCategories([]);
+      .catch((err) => {
+        if (!live) return;
+        setCategories([]);
+        setCatError(errorInfo(err, "Could not load the catalogue categories.").message);
       });
     return () => {
       live = false;
     };
-  }, []);
+  }, [catAttempt]);
 
   useEffect(() => {
     if (!categoryId) {
       seqRef.current += 1;
       setResults([]);
+      setMore(false);
       setLoading(false);
       return undefined;
     }
@@ -50,13 +59,16 @@ const VariantPicker = ({ onPick, actionLabel = "Pick", exclude, disabled = false
       setLoading(true);
       setError(null);
       try {
-        const res = await searchVariants({ category_id: Number(categoryId), q: q.trim() || undefined, page: 1, limit: 20 });
+        const res = await searchVariants({ category_id: Number(categoryId), q: q.trim() || undefined, page: 1, limit: LIMIT });
         if (seq !== seqRef.current) return;
         const list = res?.data?.variants || res?.variants || [];
+        const total = Number(res?.data?.total ?? res?.data?.pagination?.total ?? res?.total);
         setResults(list.map((v) => ({ id: Number(v.id), name: v.name })));
+        setMore(Number.isFinite(total) ? total > list.length : list.length >= LIMIT);
       } catch (err) {
         if (seq !== seqRef.current) return;
         setResults([]);
+        setMore(false);
         setError(errorInfo(err, "Could not search the catalogue.").message);
       } finally {
         if (seq === seqRef.current) setLoading(false);
@@ -97,6 +109,14 @@ const VariantPicker = ({ onPick, actionLabel = "Pick", exclude, disabled = false
           </div>
         </div>
       </div>
+      {catError && (
+        <div className={r.formError} role="alert" style={{ marginTop: 8 }}>
+          {catError}{" "}
+          <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setCatAttempt((n) => n + 1)}>
+            <RotateCcw size={13} aria-hidden="true" /> Try again
+          </button>
+        </div>
+      )}
       {categoryId && (
         <ul className={s.pickerResults} aria-label="Matching variants" aria-busy={loading || undefined}>
           {loading && results.length === 0 && (
@@ -121,6 +141,9 @@ const VariantPicker = ({ onPick, actionLabel = "Pick", exclude, disabled = false
               </li>
             );
           })}
+          {!loading && !error && more && (
+            <li className={s.pickerEmpty} role="note">Showing the first {LIMIT}. Refine your search to find others.</li>
+          )}
         </ul>
       )}
     </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Save, Search } from "lucide-react";
 import { listHotelItems, saveHotelItem } from "@/services/inventory";
-import { LEVEL_FIELDS, checkLevels, errorInfo, levelsForm, stockRoutes } from "@/components/inventory/stock/stockUtils";
+import { BIN_MAX, LEVEL_FIELDS, checkLevels, errorInfo, levelsForm, stockRoutes } from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
 
@@ -145,7 +145,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
         </div>
       ) : (
         <div className={r.tableWrap} aria-busy={loading || undefined}>
-          <table className={r.listTable} aria-label="Levels at this hotel">
+          <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Levels at this hotel">
             <thead>
               <tr>
                 <th>Item</th>
@@ -162,7 +162,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
                 const messages = [...FIELDS.map((f) => err[f.key]).filter(Boolean), err._row].filter(Boolean);
                 return (
                   <tr key={id} className={messages.length ? s.rowError : undefined}>
-                    <td>
+                    <td data-label="Item">
                       <Link href={stockRoutes.item(hotelId, id)} className={r.docLink}>{row.displayName}</Link>
                       <div className={s.subtle}>in {row.stockUom}</div>
                       {messages.map((m) => <div key={m} className={s.fieldError} role="alert">{m}</div>)}
@@ -173,6 +173,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
                           <input
                             className={`${r.input} ${s.inlineInput} ${err[f.key] ? r.inputInvalid : ""}`}
                             inputMode={f.key === "binLabel" ? undefined : "decimal"}
+                            maxLength={f.key === "binLabel" ? BIN_MAX : undefined}
                             aria-label={`${f.label} of ${row.displayName}`}
                             aria-invalid={err[f.key] ? "true" : undefined}
                             value={form[f.key]}

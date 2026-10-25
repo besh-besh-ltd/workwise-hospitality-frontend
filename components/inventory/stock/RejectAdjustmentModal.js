@@ -37,7 +37,7 @@ const RejectAdjustmentModal = ({ adjustment, onHide, onRejected }) => {
       onRejected?.(res || adjustment);
     } catch (err) {
       const info = errorInfo(err, "Could not reject this adjustment.");
-      setError(info.code === "VALIDATION" ? info.message : adjustmentRefusal(info));
+      setError(info.code === "VALIDATION" ? info.message : adjustmentRefusal(info, { action: "reject" }));
     } finally {
       setBusy(false);
     }

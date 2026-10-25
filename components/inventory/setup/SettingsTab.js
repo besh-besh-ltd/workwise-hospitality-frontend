@@ -10,8 +10,11 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Company-wide inventory settings and the selected hotel's own settings.
 // Saves send only the fields that changed (both PUTs are partial).
 //
-// Props: { hotelId, hotelName, canAdmin (inventory.admin at the hotel),
-//          canAdminCompany (inventory.admin in the company; defaults to canAdmin) }
+// The company card names the company the server acts on (the hospitality
+// context's, else the caller's only one).
+//
+// Props: { hotelId, hotelName, companyName, canAdmin (inventory.admin at the hotel),
+//          canAdminCompany (inventory.admin in that company; defaults to canAdmin) }
 
 const COMPANY_TOGGLES = [
   {
@@ -27,7 +30,7 @@ const COMPANY_TOGGLES = [
   {
     key: "countFreeze",
     title: "Freeze stock during counts",
-    help: "While a count is open at a hotel, mark out, returns and adjustments wait until it is submitted.",
+    help: "While a count is open at a hotel, mark out, returns, adjustments and opening stock there are refused until the count is submitted or cancelled.",
   },
 ];
 const DOC_CODE = /^[A-Za-z0-9_-]{1,20}$/;
@@ -50,11 +53,11 @@ const Toggle = ({ id, title, help, checked, disabled, onChange }) => (
       <label className={s.toggleTitle} htmlFor={id}>{title}</label>
       {help && <div className={s.toggleHelp}>{help}</div>}
     </div>
-    <input id={id} type="checkbox" role="switch" className={s.switch} checked={checked} disabled={disabled} onChange={onChange} />
+    <label className={s.switchHit}><input id={id} type="checkbox" role="switch" className={s.switch} checked={checked} disabled={disabled} onChange={onChange} /></label>
   </div>
 );
 
-const SettingsTab = ({ hotelId, hotelName, canAdmin, canAdminCompany = canAdmin }) => {
+const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdminCompany = canAdmin }) => {
   const [company, setCompany] = useState(null);
   const [cForm, setCForm] = useState(companyForm(null));
   const [cErrors, setCErrors] = useState({});
@@ -201,7 +204,7 @@ const SettingsTab = ({ hotelId, hotelName, canAdmin, canAdminCompany = canAdmin 
 
       <section className={r.card}>
         <div className={r.cardHead}>
-          <h2 className={r.cardTitle}>Company settings</h2>
+          <h2 className={r.cardTitle}>Company settings{companyName ? ` · ${companyName}` : ""}</h2>
         </div>
         {cLoadError ? (
           <div className={r.emptyState} role="alert">
@@ -302,12 +305,13 @@ const SettingsTab = ({ hotelId, hotelName, canAdmin, canAdminCompany = canAdmin 
                     placeholder={hotel.effectiveDocCode || String(hotelId)}
                     disabled={readOnly || hSaving}
                     aria-invalid={hErrors.docCode ? "true" : undefined}
+                    aria-describedby={hErrors.docCode ? "hs-code-err" : undefined}
                     onChange={(e) => setHForm((f) => ({ ...f, docCode: e.target.value }))}
                   />
                   <div className={r.fieldHint}>
                     Used in document numbers, e.g. GRN/{hForm.docCode.trim() || hotel.effectiveDocCode || hotelId}/2026-27/00012. Blank uses the hotel id.
                   </div>
-                  {hErrors.docCode && <div className={s.fieldError}>{hErrors.docCode}</div>}
+                  {hErrors.docCode && <div id="hs-code-err" className={s.fieldError}>{hErrors.docCode}</div>}
                 </div>
                 <div className={s.fieldRow}>
                   <label className={r.label} htmlFor="hs-gst">GST in stock cost</label>

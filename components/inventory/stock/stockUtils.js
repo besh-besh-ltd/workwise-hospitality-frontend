@@ -5,7 +5,7 @@
 // Quantity maths and formatting come from the receive helpers (1/10000
 // integer maths, so repeated scans never drift).
 
-import { addQty, errorInfo, fmtQty, toQ } from "@/components/inventory/receive/receiveUtils";
+import { addQty, errorInfo, fmtDay, fmtQty, toQ } from "@/components/inventory/receive/receiveUtils";
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 const BASE = "/dashboard/buyer/inventory";
@@ -32,6 +32,13 @@ export const stockRoutes = {
   labels: ({ hotelId, items } = {}) =>
     `${BASE}/labels${query({ hotelId, items: Array.isArray(items) ? items.join(",") : items })}`,
   scan: () => `${BASE}/scan`,
+};
+
+/** The IST calendar day of an ISO instant ("25 Oct 2026"), as the server words it. */
+export const fmtIstDay = (iso) => {
+  const ms = Date.parse(iso || "");
+  if (Number.isNaN(ms)) return "—";
+  return fmtDay(new Date(ms + 330 * 60000).toISOString().slice(0, 10));
 };
 
 /** A positive integer id from a route param, or null. */
@@ -102,12 +109,72 @@ export const isPositiveQty = (text) => {
   return !Number.isNaN(q) && q > 0;
 };
 
+/**
+ * A plain decimal as typed ("12", "0.5", ".25"), or null. Hex ("0x10"),
+ * exponents ("1e3"), signs and blanks are refused, where Number() would take them.
+ */
+export const parseDecimal = (text) => {
+  const t = String(text ?? "").trim();
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+
+// A typed quantity: digits and one point, at most 8 whole digits and 4
+// decimals, so the field shows exactly what is sent (and a barcode read by a
+// keyboard-wedge scanner into a focused qty field can't become 13 digits).
+export const QTY_MAX_LENGTH = 13;
+export const cleanQtyInput = (raw) => {
+  const v = String(raw ?? "").replace(/[^0-9.]/g, "");
+  const dot = v.indexOf(".");
+  const whole = (dot < 0 ? v : v.slice(0, dot)).slice(0, 8);
+  if (dot < 0) return whole;
+  return `${whole}.${v.slice(dot + 1).replace(/\./g, "").slice(0, 4)}`;
+};
+
+/**
+ * A qty that looks like a slip (or a stray scan): over 100 and over 10x what
+ * is on hand. Unknown on-hand never trips it.
+ */
+export const isImplausibleQty = (qty, onHand) => {
+  const q = Number(qty);
+  if (!Number.isFinite(q) || q <= 100) return false;
+  if (onHand === null || onHand === undefined || onHand === "") return false;
+  const have = Number(onHand);
+  if (!Number.isFinite(have)) return false;
+  return q > 10 * Math.max(0, have);
+};
+
+/**
+ * Lines as sent vs as the server holds them ({invItemId, qty}), compared at
+ * 4 dp. A replayed session whose lines differ means the session key had
+ * already been used for something else.
+ */
+export const sameLines = (sent, got) => {
+  if (!Array.isArray(sent) || !Array.isArray(got)) return true;
+  const key = (list) =>
+    list
+      .map((l) => `${Number(l.invItemId)}:${toQ(l.qty)}`)
+      .sort()
+      .join("|");
+  return key(sent) === key(got);
+};
+
+/**
+ * A failure that may still have been recorded: no HTTP answer at all, or a
+ * 5xx (502/503/504 are often a gateway giving up while the server carries on).
+ */
+export const isUncertainFailure = (info) => !info?.httpStatus || Number(info.httpStatus) >= 500;
+
 // ── Hotel levels (min ≤ reorder ≤ max) ──────────────────────────────────────
 export const LEVEL_FIELDS = [
   { key: "minQty", label: "Min qty" },
   { key: "reorderLevel", label: "Reorder level" },
   { key: "maxQty", label: "Max qty" },
 ];
+
+/** tbl_inv_hotel_item.bin_label is VARCHAR(64). */
+export const BIN_MAX = 64;
 
 export const levelsForm = (levels) => ({
   minQty: levels?.minQty != null ? String(levels.minQty) : "",
@@ -143,7 +210,7 @@ export const checkLevels = (form) => {
     errors.minQty = errors.minQty || "Min qty can't be more than the max qty";
   }
   const bin = String(form.binLabel ?? "").trim();
-  if (bin.length > 40) errors.binLabel = "Keep the bin to 40 characters";
+  if (bin.length > BIN_MAX) errors.binLabel = `Keep the bin to ${BIN_MAX} characters`;
   out.binLabel = bin || null;
   return Object.keys(errors).length ? { errors } : { payload: out };
 };
@@ -194,14 +261,18 @@ export const lineProblems = (info, sentIds, { uomOf = () => "", verb = "marks ou
 /**
  * What to say when approving or rejecting an adjustment is refused (C3:
  * FORBIDDEN SELF_APPROVAL, CONFLICT {status}, LOCKED, NEGATIVE_STOCK,
- * VALIDATION lines for a gain with no cost).
+ * VALIDATION lines for a gain with no cost). `action` is "approve" or "reject".
  */
-export const adjustmentRefusal = (info) => {
+export const adjustmentRefusal = (info, { action = "approve" } = {}) => {
   const d = info?.details || {};
   if (info?.code === "FORBIDDEN" && d.reason === "SELF_APPROVAL") {
     return "Another approver must approve your own adjustment";
   }
-  if (info?.code === "FORBIDDEN") return "You can't approve adjustments at this hotel";
+  if (info?.code === "FORBIDDEN") {
+    return action === "reject"
+      ? "Only an approver at this hotel, or whoever raised it, can reject this adjustment"
+      : "You can't approve adjustments at this hotel";
+  }
   if (info?.code === "CONFLICT") return "This adjustment is no longer waiting for approval";
   if (info?.code === "LOCKED") return freezeMessage(d);
   if (info?.code === "NEGATIVE_STOCK") {

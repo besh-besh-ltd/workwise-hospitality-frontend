@@ -3,11 +3,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Check, ChevronLeft, ChevronRight, FilePen, Loader2, Plus, RefreshCw, Warehouse } from "lucide-react";
-import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { approveAdjustment, listAdjustments } from "@/services/inventory";
 import { fmtInstant, inr } from "@/components/inventory/receive/receiveUtils";
 import HotelSelect from "./HotelSelect";
 import useInventoryHotels from "./useInventoryHotels";
+import usePermittedHotels from "./usePermittedHotels";
+import { onTabKeyDown, tabIndexFor } from "./tabKeys";
 import NewAdjustmentModal from "./NewAdjustmentModal";
 import AdjustmentDetailModal from "./AdjustmentDetailModal";
 import RejectAdjustmentModal from "./RejectAdjustmentModal";
@@ -16,9 +17,11 @@ import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
 // Adjustments (GET /adjustments): wastage, breakage, expiry, theft, found and
-// corrections. Raising one always submits it; Approve / Reject show only where
-// the server says this caller may (`can` on each row). A notification opens
-// `?id=` straight into the adjustment.
+// corrections. Raising one always submits it, at a hotel where the caller has
+// inventory.create. Approve / Reject show only where the server says this
+// caller may (`can` on each row); a row's Approve opens the adjustment (lines
+// and value) and approves from there, never blind from the list. A
+// notification opens `?id=` straight into the adjustment.
 //
 // Props: initialHotelId (?hotelId=), initialId (?id=).
 
@@ -29,6 +32,8 @@ const STATUS_TABS = [
   { value: "posted", label: "Posted" },
   { value: "rejected", label: "Rejected" },
 ];
+
+const STATUS_VALUES = STATUS_TABS.map((t) => t.value);
 
 const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
   const router = useRouter();
@@ -44,6 +49,7 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
   const [detailId, setDetailId] = useState(() => toId(initialId));
   const [detailKey, setDetailKey] = useState(0);
   const [rejecting, setRejecting] = useState(null);
+  const [approveError, setApproveError] = useState(null);
   const seqRef = useRef(0);
 
   // A hotel from the URL counts only if the server lists it for this caller.
@@ -52,11 +58,10 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
     if (!hotels.some((h) => h.id === hotelId)) setHotelId(null);
   }, [hotelsLoading, hotels, hotelId]);
 
-  const permHotelIds = useMemo(
-    () => (hotelId ? [hotelId] : hotels.map((h) => h.id)),
-    [hotelId, hotels]
-  );
-  const { canCreate } = useModulePermissions({ moduleKey: "inventory", hotelIds: permHotelIds, enabled: permHotelIds.length > 0 });
+  // Raising an adjustment needs inventory.create at the hotel it is for.
+  const createPerm = usePermittedHotels({ moduleKey: "inventory", action: "create", hotels, enabled: !hotelsLoading });
+  const createHotels = useMemo(() => hotels.filter((h) => createPerm.ids.has(h.id)), [hotels, createPerm.ids]);
+  const canCreate = createHotels.length > 0;
 
   const load = useCallback(async () => {
     const seq = ++seqRef.current;
@@ -82,25 +87,32 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
     load();
   }, [load]);
 
+  const openDetail = (id) => {
+    setApproveError(null);
+    setDetailId(id);
+  };
+
   const closeDetail = () => {
     setDetailId(null);
+    setApproveError(null);
     if (router.query?.id) {
       router.replace(stockRoutes.adjustments({ hotelId: hotelId || undefined }), undefined, { shallow: true });
     }
   };
 
-  const approve = async (row) => {
+  // Called from the detail dialog only: the approver has the lines and value in front of them.
+  const approve = async (adj) => {
     if (busyId) return;
-    setBusyId(row.id);
+    setBusyId(adj.id);
+    setApproveError(null);
     try {
-      const res = await approveAdjustment(row.id);
-      const number = res?.adjustmentNumber || row.adjustmentNumber;
-      toast.success(res?.status === "pending_approval" ? `${number} approved; it needs one more approval` : `${number} approved and posted`);
+      const res = await approveAdjustment(adj.id);
+      toast.success(`${res?.adjustmentNumber || adj.adjustmentNumber} approved and posted`);
       setDetailKey((k) => k + 1);
       load();
     } catch (err) {
       const info = errorInfo(err, "Could not approve this adjustment.");
-      toast.error(adjustmentRefusal(info));
+      setApproveError(adjustmentRefusal(info, { action: "approve" }));
       if (info.code === "CONFLICT") {
         setDetailKey((k) => k + 1);
         load();
@@ -117,13 +129,22 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
     load();
   };
 
-  const onCreated = (res) => {
+  const onCreated = (res, { linesDiffer = false } = {}) => {
     setCreating(false);
     const number = res?.adjustmentNumber || "Adjustment";
-    if (res?.replayed) toast.info(`${number} was already recorded`);
+    if (linesDiffer) {
+      // The request key had already been used for different lines: show what is recorded.
+      toast.warn(`${number} was already recorded with different lines. Check it before raising another.`);
+      if (res?.id) openDetail(res.id);
+    } else if (res?.replayed) toast.info(`${number} was already recorded`);
     else if (res?.status === "posted") toast.success(`${number} posted to stock`);
     else toast.success(`${number} sent for approval`);
     load();
+  };
+
+  const selectStatus = (value) => {
+    setStatus(value);
+    setPage(1);
   };
 
   const rows = data.rows;
@@ -180,11 +201,10 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                       type="button"
                       role="tab"
                       aria-selected={status === t.value}
+                      tabIndex={tabIndexFor(status === t.value)}
                       className={`${s.tab} ${status === t.value ? s.tabActive : ""}`}
-                      onClick={() => {
-                        setStatus(t.value);
-                        setPage(1);
-                      }}
+                      onClick={() => selectStatus(t.value)}
+                      onKeyDown={(e) => onTabKeyDown(e, STATUS_VALUES, status, selectStatus)}
                     >
                       {t.label}
                     </button>
@@ -214,7 +234,7 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                 </div>
               ) : (
                 <div className={r.tableWrap} aria-busy={loading || undefined}>
-                  <table className={r.listTable} aria-label="Adjustments">
+                  <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Adjustments">
                     <thead>
                       <tr>
                         <th>Adjustment</th>
@@ -233,7 +253,7 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                         return (
                           <tr key={row.id}>
                             <td>
-                              <button type="button" className={`${r.btnLink} ${r.docNo} ${s.tapLink}`} onClick={() => setDetailId(row.id)}>
+                              <button type="button" className={`${r.btnLink} ${r.docNo} ${s.tapLink}`} onClick={() => openDetail(row.id)}>
                                 {row.adjustmentNumber}
                               </button>
                               {hotels.length > 1 && <div className={s.subtle}>{row.hotelName}</div>}
@@ -259,6 +279,7 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                                       className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`}
                                       onClick={() => setRejecting(row)}
                                       disabled={busy}
+                                      aria-label={`Reject ${row.adjustmentNumber}`}
                                     >
                                       Reject
                                     </button>
@@ -267,8 +288,9 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                                     <button
                                       type="button"
                                       className={`${r.btn} ${r.btnSuccess} ${r.btnSm}`}
-                                      onClick={() => approve(row)}
+                                      onClick={() => openDetail(row.id)}
                                       disabled={busy}
+                                      aria-label={`Approve ${row.adjustmentNumber}`}
                                     >
                                       {busy ? <Loader2 size={13} className={r.spin} aria-hidden="true" /> : <Check size={13} aria-hidden="true" />}
                                       Approve
@@ -319,8 +341,8 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
 
       <NewAdjustmentModal
         show={creating}
-        hotels={hotels}
-        defaultHotelId={hotelId || hotels[0]?.id || null}
+        hotels={createHotels}
+        defaultHotelId={createHotels.some((h) => h.id === hotelId) ? hotelId : createHotels[0]?.id ?? null}
         onHide={() => setCreating(false)}
         onCreated={onCreated}
       />
@@ -328,9 +350,13 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
         id={rejecting ? null : detailId}
         refreshKey={detailKey}
         busyId={busyId}
+        actionError={approveError}
         onHide={closeDetail}
         onApprove={approve}
-        onReject={(adj) => setRejecting(adj)}
+        onReject={(adj) => {
+          setApproveError(null);
+          setRejecting(adj);
+        }}
       />
       <RejectAdjustmentModal adjustment={rejecting} onHide={() => setRejecting(null)} onRejected={onRejected} />
     </div>

@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
   AlertTriangle, ChevronLeft, ChevronRight, ClipboardCheck, FilePen, PackageMinus, RefreshCw, ScanBarcode, Search, Upload, Warehouse,
 } from "lucide-react";
 import { fmtQty, inr } from "@/components/inventory/receive/receiveUtils";
+import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getStock } from "@/services/inventory";
 import HotelSelect from "./HotelSelect";
 import { errorInfo, stockRoutes, toId } from "./stockUtils";
@@ -14,7 +15,13 @@ import s from "./stock.module.scss";
 // Stock on hand at one hotel (GET /inventory/stock): the hotel picker lists the
 // hotels the server says the caller can read, search and "below reorder" are
 // server filters, totals cover the whole hotel. Until the hotel's first full
-// count or opening import, a banner says stock has not started.
+// count or opening import, a banner says stock has not started (and no item
+// is flagged below reorder, since balances aren't real yet).
+//
+// The hotel asked for and the hotel shown are kept apart: with none asked
+// for, the server answers for its default hotel, and the page shows that one
+// without asking again. Mark out and Adjustments show only with the rights to
+// use them at the hotel shown.
 //
 // Props: initialHotelId (from ?hotelId=; used only if the server lists it).
 
@@ -30,7 +37,7 @@ const fmtWhen = (iso) => {
 
 const StockList = ({ initialHotelId = null }) => {
   const router = useRouter();
-  const [hotelId, setHotelId] = useState(() => toId(initialHotelId));
+  const [askedHotel, setAskedHotel] = useState(() => toId(initialHotelId));
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [belowReorder, setBelowReorder] = useState(false);
@@ -38,8 +45,12 @@ const StockList = ({ initialHotelId = null }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [fallback, setFallback] = useState(0);
   const seqRef = useRef(0);
   const firstSearchRef = useRef(true);
+  // The hotel last answered for. Later searches, filters and pages pin it, so
+  // they stay at the hotel on screen without an extra request to ask for it.
+  const shownRef = useRef(null);
 
   useEffect(() => {
     if (firstSearchRef.current) {
@@ -58,34 +69,44 @@ const StockList = ({ initialHotelId = null }) => {
     setLoading(true);
     setLoadError(null);
     const params = {};
-    if (hotelId) params.hotelId = hotelId;
+    const pinned = askedHotel || shownRef.current;
+    if (pinned) params.hotelId = pinned;
     if (search) params.search = search;
     if (belowReorder) params.belowReorder = true;
     params.page = page;
     try {
       const res = await getStock(params);
       if (seq !== seqRef.current) return;
+      shownRef.current = res?.hotelId ? Number(res.hotelId) : null;
       setData(res || null);
-      // The server answers for its default hotel when none (or a stale one)
-      // was asked for; follow it so the picker and links agree.
-      if (res?.hotelId && res.hotelId !== hotelId) setHotelId(Number(res.hotelId));
     } catch (err) {
       if (seq !== seqRef.current) return;
       const info = errorInfo(err, "Could not load stock.");
-      if (info.httpStatus === 404 && hotelId) {
+      if (info.httpStatus === 404 && pinned) {
         // A hotel from an old link that isn't ours any more: show the default.
-        setHotelId(null);
+        shownRef.current = null;
+        if (askedHotel) setAskedHotel(null);
+        else setFallback((n) => n + 1);
         return;
       }
       setLoadError(info.message);
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
-  }, [hotelId, search, belowReorder, page]);
+  }, [askedHotel, search, belowReorder, page, fallback]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // The hotel on screen is the one the server answered for.
+  const hotelId = data?.hotelId ? Number(data.hotelId) : null;
+  const hotelIds = useMemo(() => (hotelId ? [hotelId] : []), [hotelId]);
+  const perms = useModulePermissions({ moduleKey: "inventory", hotelIds, enabled: !!hotelId });
+  const permsReady = !!hotelId && !perms.loading;
+  const canMarkOut = permsReady && perms.canCreate;
+  const canAdjust = permsReady && (perms.canCreate || perms.canApprove);
+  const started = !!data?.stockStartedAt;
 
   const hotels = Array.isArray(data?.hotels) ? data.hotels : [];
   const rows = Array.isArray(data?.rows) ? data.rows : [];
@@ -113,12 +134,16 @@ const StockList = ({ initialHotelId = null }) => {
               <Link href={stockRoutes.scan()} className={`${r.btn} ${r.btnSecondary}`}>
                 <ScanBarcode size={14} aria-hidden="true" /> Scan
               </Link>
-              <Link href={stockRoutes.adjustments({ hotelId })} className={`${r.btn} ${r.btnSecondary}`}>
-                <FilePen size={14} aria-hidden="true" /> Adjustments
-              </Link>
-              <Link href={stockRoutes.markOut({ hotelId })} className={`${r.btn} ${r.btnPrimary}`}>
-                <PackageMinus size={14} aria-hidden="true" /> Mark out
-              </Link>
+              {canAdjust && (
+                <Link href={stockRoutes.adjustments({ hotelId })} className={`${r.btn} ${r.btnSecondary}`}>
+                  <FilePen size={14} aria-hidden="true" /> Adjustments
+                </Link>
+              )}
+              {canMarkOut && (
+                <Link href={stockRoutes.markOut({ hotelId })} className={`${r.btn} ${r.btnPrimary}`}>
+                  <PackageMinus size={14} aria-hidden="true" /> Mark out
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -174,10 +199,10 @@ const StockList = ({ initialHotelId = null }) => {
                 <div className={r.filterBar}>
                   <HotelSelect
                     hotels={hotels}
-                    value={hotelId ?? ""}
+                    value={askedHotel ?? hotelId ?? ""}
                     onChange={(id) => {
                       if (!id) return;
-                      setHotelId(id);
+                      setAskedHotel(id);
                       setPage(1);
                     }}
                   />
@@ -195,7 +220,7 @@ const StockList = ({ initialHotelId = null }) => {
                       />
                     </div>
                   </div>
-                  <label className={r.checkRow} style={{ alignSelf: "flex-end", minHeight: 34 }}>
+                  <label className={`${r.checkRow} ${s.filterCheck}`}>
                     <input
                       type="checkbox"
                       checked={belowReorder}
@@ -235,7 +260,7 @@ const StockList = ({ initialHotelId = null }) => {
                   </div>
                 ) : (
                   <div className={r.tableWrap} aria-busy={loading || undefined}>
-                    <table className={r.listTable} aria-label="Stock on hand">
+                    <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Stock on hand">
                       <thead>
                         <tr>
                           <th>Item</th>
@@ -261,7 +286,7 @@ const StockList = ({ initialHotelId = null }) => {
                               <div style={{ fontWeight: 600 }}>{row.displayName}</div>
                               <div className={r.flags} style={{ marginTop: 3 }}>
                                 {row.itemCode && <span className={`${s.subtle} ${s.mono}`}>{row.itemCode}</span>}
-                                {row.belowReorder && (
+                                {started && row.belowReorder && (
                                   <span className={`${r.pill} ${r.pillWarn}`}>
                                     <span className={r.dot} />Below reorder
                                   </span>

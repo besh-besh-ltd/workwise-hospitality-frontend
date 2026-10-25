@@ -121,7 +121,7 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
               <div className={r.emptyState}><div className={r.emptyTitle}>No category defaults yet</div></div>
             ) : (
               <div className={r.tableWrap}>
-                <table className={r.listTable} aria-label="Category defaults">
+                <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Category defaults">
                   <thead>
                     <tr>
                       <th>Category</th>
@@ -133,9 +133,9 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
                   <tbody>
                     {rows.map((x) => (
                       <tr key={x.categoryId}>
-                        <td style={{ fontWeight: 600 }}>{x.categoryName}</td>
+                        <td data-label="Category" style={{ fontWeight: 600 }}>{x.categoryName}</td>
                         <td data-label="Tracks expiry">
-                          <input
+                          <label className={s.switchHit}><input
                             type="checkbox"
                             className={s.switch}
                             role="switch"
@@ -143,10 +143,10 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
                             checked={x.trackExpiry}
                             disabled={!canAdmin || saving}
                             onChange={(e) => patch(x.categoryId, { trackExpiry: e.target.checked })}
-                          />
+                          /></label>
                         </td>
                         <td data-label="Mark out on arrival">
-                          <input
+                          <label className={s.switchHit}><input
                             type="checkbox"
                             className={s.switch}
                             role="switch"
@@ -154,7 +154,7 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
                             checked={x.defaultMarkOutOnArrival}
                             disabled={!canAdmin || saving}
                             onChange={(e) => patch(x.categoryId, { defaultMarkOutOnArrival: e.target.checked })}
-                          />
+                          /></label>
                         </td>
                         {canAdmin && (
                           <td>

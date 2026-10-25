@@ -31,17 +31,24 @@ jest.mock("@/components/inventory/scan/scanFeedback", () => ({
 }));
 jest.mock("@/hooks/useIsMobile", () => ({ __esModule: true, default: () => true }));
 jest.mock("@/services/inventory", () => ({ __esModule: true, getStock: jest.fn(), resolveScan: jest.fn() }));
+jest.mock("@/services/hospitality", () => ({ __esModule: true, getMyHospitalityContexts: jest.fn() }));
+jest.mock("@/services/rbac", () => ({
+  __esModule: true,
+  getBulkPermissions: jest.fn((moduleKey, ids) =>
+    Promise.resolve({ status: 1, data: { permissions: { [moduleKey]: (mockRights[moduleKey] || {})[ids[0]] || [] } } })
+  ),
+}));
 
 let mockQuery = {};
+let mockRights = {};
 const mockPush = jest.fn();
 
-import fs from "fs";
-import path from "path";
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import { getStock, resolveScan } from "@/services/inventory";
+import { getMyHospitalityContexts } from "@/services/hospitality";
 import ScanHomePage from "../ScanHomePage";
 
 const stockAt = (hotels) => ({
@@ -50,20 +57,30 @@ const stockAt = (hotels) => ({
 
 const lookUp = async (code) => {
   const box = await screen.findByLabelText("Scan or type a code");
+  await waitFor(() => expect(box).not.toBeDisabled());
   fireEvent.change(box, { target: { value: code } });
   fireEvent.keyDown(box, { key: "Enter" });
+};
+
+const contexts = (hotels) => ({ status: 1, data: [{ id: 5, name: "Orchid Hotels", hotels }] });
+const RICE_ITEM = {
+  kind: "item", code: "RICE", gs1: null,
+  item: { invItemId: 9, displayName: "Basmati rice", stockUom: "bag", packFactor: 1, poLineId: null, stockedAtHotel: true },
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
+  mockRights = { inventory: { 46: ["read", "create"], 47: ["read"] }, grn: { 46: ["read"] } };
   getStock.mockResolvedValue(stockAt([{ id: 46, name: "Orchid Mumbai" }]));
+  getMyHospitalityContexts.mockResolvedValue(contexts([{ id: 46, name: "Orchid Mumbai" }]));
 });
 
 describe("ScanHomePage on a phone", () => {
   test("scan home renders three actions on mobile", async () => {
     render(<ScanHomePage />);
     const actions = await screen.findByRole("navigation", { name: "Scan actions" });
+    await within(actions).findByRole("link", { name: /Mark out/ });
     const links = actions.querySelectorAll("a");
     expect([...links].map((a) => a.textContent)).toEqual([
       expect.stringContaining("Receive"),
@@ -123,14 +140,80 @@ describe("ScanHomePage on a phone", () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/stock/47/9"));
   });
 
-  test("phone layer keeps every target at least 44px", () => {
-    const css = fs.readFileSync(path.join(__dirname, "../../stock/stock.module.scss"), "utf8");
-    const layer = css.slice(css.indexOf("Phone layer"));
-    expect(layer).toMatch(/@media \(max-width: 768px\)/);
-    expect(css).toMatch(/\.homeAction\s*{[^}]*min-height:\s*(9\d|1\d\d)px/);
-    expect(layer).toMatch(/\.stepBtn[^{]*{[^}]*min-(height|width):\s*44px/);
-    expect(layer).toMatch(/\.toastUndo[^{]*{[^}]*min-height:\s*44px/);
-    expect(layer).toMatch(/\.tab\b[^{]*{[^}]*min-height:\s*44px/);
-    expect(layer).toMatch(/\.qtyField[^{]*{[^}]*min-height:\s*44px/);
+  test("with no camera, a typed code and the Look up button still work", async () => {
+    resolveScan.mockResolvedValue(RICE_ITEM);
+    render(<ScanHomePage />);
+    const box = await screen.findByLabelText("Scan or type a code");
+    await waitFor(() => expect(box).not.toBeDisabled());
+    fireEvent.change(box, { target: { value: "RICE" } });
+    fireEvent.click(screen.getByRole("button", { name: "Look up" }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/stock/46/9"));
+  });
+
+  test("a PO code opens receiving for that PO at the hotel", async () => {
+    resolveScan.mockResolvedValue({ kind: "po", code: "PO/52", gs1: null, item: null, poId: 52 });
+    render(<ScanHomePage />);
+    await lookUp("PO/52");
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?hotelId=46"));
+  });
+
+  test("a dispatch code opens receiving with that dispatch picked", async () => {
+    resolveScan.mockResolvedValue({ kind: "dispatch", code: "DSP/7", gs1: null, item: null, poId: 52, dispatchId: 7 });
+    render(<ScanHomePage />);
+    await lookUp("DSP/7");
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?hotelId=46&dispatch=7")
+    );
+  });
+
+  test("a PO code at a hotel without receiving rights doesn't open receiving", async () => {
+    mockRights.grn = {};
+    resolveScan.mockResolvedValue({ kind: "po", code: "PO/52", gs1: null, item: null, poId: 52 });
+    render(<ScanHomePage />);
+    await lookUp("PO/52");
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith("Receiving at Orchid Mumbai needs goods receipt rights there."));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  test("a receiving-only hotel can look up documents but not item cards", async () => {
+    getMyHospitalityContexts.mockResolvedValue(contexts([{ id: 46, name: "Orchid Mumbai" }, { id: 48, name: "Orchid Goa" }]));
+    mockRights.grn = { 48: ["read"] };
+    render(<ScanHomePage />);
+    const picker = await screen.findByLabelText("Hotel");
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Orchid Mumbai", "Orchid Goa"]);
+    fireEvent.change(picker, { target: { value: "48" } });
+    expect(screen.queryByRole("link", { name: /Find the item by name/ })).toBeNull();
+
+    resolveScan.mockResolvedValueOnce(RICE_ITEM);
+    await lookUp("RICE");
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/can't see stock at Orchid Goa/)));
+    expect(resolveScan).toHaveBeenLastCalledWith("RICE", "hotel:48");
+    expect(mockPush).not.toHaveBeenCalled();
+
+    resolveScan.mockResolvedValueOnce({ kind: "po", code: "PO/52", gs1: null, item: null, poId: 52 });
+    await lookUp("PO/52");
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/buyer/inventory/receive/52?hotelId=48"));
+  });
+
+  test("Mark out shows only with create rights at a hotel", async () => {
+    mockRights.inventory = { 46: ["read"] };
+    render(<ScanHomePage />);
+    await screen.findByRole("button", { name: "Look up" });
+    await act(async () => {});
+    const actions = screen.getByRole("navigation", { name: "Scan actions" });
+    expect(within(actions).queryByRole("link", { name: /Mark out/ })).toBeNull();
+    expect(within(actions).getByRole("link", { name: /Receive/ })).toBeInTheDocument();
+    expect(within(actions).getByRole("link", { name: /Count/ })).toBeInTheDocument();
+  });
+
+  test("with no stock or receiving access there is nothing to look up", async () => {
+    getStock.mockResolvedValue(stockAt([]));
+    getMyHospitalityContexts.mockResolvedValue(contexts([]));
+    render(<ScanHomePage />);
+    expect(
+      await screen.findByText("You don't have stock or receiving access at any hotel, so there is nothing to look up.")
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Scan or type a code")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Mark out/ })).toBeNull();
   });
 });

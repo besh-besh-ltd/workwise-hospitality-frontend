@@ -22,7 +22,15 @@ jest.mock("@/services/inventory", () => ({
   printItemLabels: jest.fn(),
 }));
 
+jest.mock("@/services/rbac", () => ({
+  __esModule: true,
+  getBulkPermissions: jest.fn((moduleKey, ids) =>
+    Promise.resolve({ status: 1, data: { permissions: { [moduleKey]: mockRights[ids[0]] || ["read"] } } })
+  ),
+}));
+
 let mockQuery = {};
+let mockRights = {};
 
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
@@ -36,6 +44,7 @@ const SOAP = { id: 11, displayName: "Dish soap", itemCode: null, stockUom: "piec
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
+  mockRights = { 46: ["read", "update"], 47: ["read", "update"] };
   getStock.mockResolvedValue({
     hotelId: 46, stockStartedAt: null, hotels: [{ id: 46, name: "Orchid Mumbai" }], totals: { qtyItems: 0, value: 0 }, rows: [], total: 0,
   });
@@ -74,6 +83,58 @@ describe("LabelsPage", () => {
     fireEvent.change(screen.getByLabelText("Copies of Basmati rice"), { target: { value: "1001" } });
     expect(screen.getByText(/at most 1,000 labels/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Print/ })).toBeDisabled();
+  });
+
+  test("an item that tracks expiry takes a batch and expiry, and they print", async () => {
+    printItemLabels.mockResolvedValue({ url: "https://s3.example/milk.pdf" });
+    listItems.mockResolvedValue({
+      rows: [{ id: 21, displayName: "Milk 1L", itemCode: "MILK-1", stockUom: "packet", trackExpiry: true, variants: [], barcodes: [] }],
+      total: 1,
+    });
+    render(<LabelsPage />);
+    fireEvent.change(await screen.findByLabelText("Find an item"), { target: { value: "milk" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Add Milk 1L/ }));
+    fireEvent.change(screen.getByLabelText("Batch of Milk 1L"), { target: { value: " B-77 " } });
+    fireEvent.change(screen.getByLabelText("Expiry of Milk 1L"), { target: { value: "2026-11-30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Print 1 label" }));
+    await waitFor(() =>
+      expect(printItemLabels).toHaveBeenCalledWith({
+        layout: "A4_65",
+        hotelId: 46,
+        items: [{ invItemId: 21, copies: 1, batchNo: "B-77", expiryDate: "2026-11-30" }],
+      })
+    );
+  });
+
+  test("an item without expiry tracking has no batch or expiry fields", async () => {
+    render(<LabelsPage />);
+    fireEvent.change(await screen.findByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Add Basmati rice/ }));
+    expect(screen.queryByLabelText("Expiry of Basmati rice")).toBeNull();
+  });
+
+  test("a hotel without update rights is corrected before any item is looked up", async () => {
+    getStock.mockResolvedValue({
+      hotelId: 46, stockStartedAt: null, totals: { qtyItems: 0, value: 0 }, rows: [], total: 0,
+      hotels: [{ id: 46, name: "Orchid Mumbai" }, { id: 47, name: "Orchid Pune" }],
+    });
+    mockRights = { 46: ["read"], 47: ["read", "update"] };
+    getStockItem.mockResolvedValue({ item: { ...RICE }, hotel: { id: 47, name: "Orchid Pune" } });
+    render(<LabelsPage initialHotelId="46" initialItems="9" />);
+    const picked = await screen.findByRole("list", { name: "Items to label" });
+    expect(await within(picked).findByText("Basmati rice")).toBeInTheDocument();
+    expect(getStockItem).toHaveBeenCalledTimes(1);
+    expect(getStockItem).toHaveBeenCalledWith(47, 9);
+    const picker = screen.getByLabelText("Bins from");
+    expect(picker).toHaveValue("47");
+    expect(within(picker).queryByRole("option", { name: "Orchid Mumbai" })).toBeNull();
+  });
+
+  test("without update rights anywhere, printing is off and says why", async () => {
+    mockRights = { 46: ["read"] };
+    render(<LabelsPage />);
+    expect(await screen.findByText(/Printing labels needs inventory update rights/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Print labels" })).toBeDisabled();
   });
 
   test("?items= preselects items from the item card", async () => {

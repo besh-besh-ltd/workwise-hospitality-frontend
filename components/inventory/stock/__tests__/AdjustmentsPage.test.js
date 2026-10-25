@@ -15,11 +15,12 @@ jest.mock("react-toastify", () => {
   return { __esModule: true, toast };
 });
 jest.mock("@/hooks/useIsMobile", () => ({ __esModule: true, default: () => false }));
-jest.mock("@/hooks/useModulePermissions", () => ({
+// Rights per hotel, as the bulk endpoint answers for one hotel at a time.
+jest.mock("@/services/rbac", () => ({
   __esModule: true,
-  useModulePermissions: () => ({
-    canRead: true, canCreate: true, canUpdate: true, canApprove: false, loading: false, hasPermission: () => true,
-  }),
+  getBulkPermissions: jest.fn((moduleKey, ids) =>
+    Promise.resolve({ status: 1, data: { permissions: { [moduleKey]: mockRights[ids[0]] || ["read"] } } })
+  ),
 }));
 jest.mock("@/services/inventory", () => ({
   __esModule: true,
@@ -32,10 +33,11 @@ jest.mock("@/services/inventory", () => ({
 }));
 
 let mockQuery = {};
+let mockRights = {};
 const mockReplace = jest.fn();
 
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
 import {
@@ -64,10 +66,24 @@ const apiError = (status, code, details, message = "Refused") => {
 };
 
 const rowOf = (number) => within(screen.getByRole("table", { name: "Adjustments" })).getByText(number).closest("tr");
+const detail = (over = {}) => ({
+  ...row(),
+  lines: [
+    { id: 1, invItemId: 9, displayName: "Basmati rice", itemCode: "RICE-25", stockUom: "bag", qty: -0.3, unitCost: 1800, value: -540, remarks: null },
+  ],
+  ...over,
+});
+const newAdjustment = async () => {
+  await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
+  fireEvent.click(await screen.findByRole("button", { name: "New adjustment" }));
+  return screen.findByRole("dialog");
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
+  mockRights = { 46: ["read", "create", "approve"], 47: ["read"] };
+  getAdjustment.mockResolvedValue(detail());
   getStock.mockImplementation((params = {}) =>
     Promise.resolve({
       hotelId: 46, stockStartedAt: "2026-10-01T00:00:00.000Z", hotels: HOTELS, totals: { qtyItems: 1, value: 7200 },
@@ -85,41 +101,62 @@ beforeEach(() => {
 });
 
 describe("AdjustmentsPage", () => {
-  test("adjustment approve button only for approvers", async () => {
+  test("adjustment approve button only for approvers, named for its adjustment", async () => {
     render(<AdjustmentsPage />);
     const first = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    expect(within(first).getByRole("button", { name: "Approve" })).toBeInTheDocument();
-    expect(within(first).getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    expect(within(first).getByRole("button", { name: "Approve ADJ/46/2026-27/00004" })).toBeInTheDocument();
+    expect(within(first).getByRole("button", { name: "Reject ADJ/46/2026-27/00004" })).toBeInTheDocument();
     const second = rowOf("ADJ/46/2026-27/00005");
-    expect(within(second).queryByRole("button", { name: "Approve" })).toBeNull();
-    expect(within(second).queryByRole("button", { name: "Reject" })).toBeNull();
+    expect(within(second).queryByRole("button", { name: /Approve/ })).toBeNull();
+    expect(within(second).queryByRole("button", { name: /Reject/ })).toBeNull();
     expect(within(second).getByText("Pending approval")).toBeInTheDocument();
     expect(within(rowOf("ADJ/46/2026-27/00003")).getByText("Posted")).toBeInTheDocument();
   });
 
-  test("approving refreshes the list", async () => {
+  test("Approve in the list opens the adjustment; approving happens there, with the lines in view", async () => {
     approveAdjustment.mockResolvedValue(row({ status: "posted", can: { approve: false, reject: false } }));
     render(<AdjustmentsPage />);
     const first = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(within(first).getByRole("button", { name: "Approve" }));
+    fireEvent.click(within(first).getByRole("button", { name: "Approve ADJ/46/2026-27/00004" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(approveAdjustment).not.toHaveBeenCalled();
+    expect(getAdjustment).toHaveBeenCalledWith(1);
+    const lines = await within(dialog).findByRole("table", { name: "Adjustment lines" });
+    expect(within(lines).getByText("Basmati rice")).toBeInTheDocument();
+    expect(within(lines).getByText("₹540.00")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(approveAdjustment).toHaveBeenCalledWith(1));
     await waitFor(() => expect(listAdjustments).toHaveBeenCalledTimes(2));
-    expect(toast.success).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("ADJ/46/2026-27/00004 approved and posted");
   });
 
-  test("self-approval is explained", async () => {
+  test("self-approval is explained in the dialog", async () => {
     approveAdjustment.mockRejectedValue(apiError(403, "FORBIDDEN", { reason: "SELF_APPROVAL", otherApprovers: 2 }));
+    render(<AdjustmentsPage initialId="1" />);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Approve" }));
+    expect(await within(dialog).findByText("Another approver must approve your own adjustment")).toBeInTheDocument();
+  });
+
+  test("a reject refused for rights says who can reject", async () => {
+    rejectAdjustment.mockRejectedValue(apiError(403, "FORBIDDEN", {}));
     render(<AdjustmentsPage />);
     const first = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(within(first).getByRole("button", { name: "Approve" }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Another approver must approve your own adjustment"));
+    fireEvent.click(within(first).getByRole("button", { name: "Reject ADJ/46/2026-27/00004" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "Wrong item" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Reject adjustment" }));
+    expect(
+      await within(dialog).findByText("Only an approver at this hotel, or whoever raised it, can reject this adjustment")
+    ).toBeInTheDocument();
   });
 
   test("reject needs a reason", async () => {
     rejectAdjustment.mockResolvedValue(row({ status: "rejected", can: { approve: false, reject: false } }));
     render(<AdjustmentsPage />);
     const first = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(within(first).getByRole("button", { name: "Reject" }));
+    fireEvent.click(within(first).getByRole("button", { name: "Reject ADJ/46/2026-27/00004" }));
     const dialog = await screen.findByRole("dialog");
     const confirm = within(dialog).getByRole("button", { name: "Reject adjustment" });
     expect(confirm).toBeDisabled();
@@ -131,9 +168,7 @@ describe("AdjustmentsPage", () => {
   test("a new wastage adjustment is sent signed, with submit:true", async () => {
     createAdjustment.mockResolvedValue(row({ id: 7, adjustmentNumber: "ADJ/46/2026-27/00009", status: "pending_approval" }));
     render(<AdjustmentsPage />);
-    await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(screen.getByRole("button", { name: "New adjustment" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await newAdjustment();
     fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
     fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
     fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
@@ -152,9 +187,7 @@ describe("AdjustmentsPage", () => {
       apiError(400, "VALIDATION", { field: "lines", index: 0, invItemId: 9 }, "Basmati rice has no cost at this hotel yet")
     );
     render(<AdjustmentsPage />);
-    await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(screen.getByRole("button", { name: "New adjustment" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await newAdjustment();
     fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "FOUND" } });
     fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
     fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
@@ -167,9 +200,7 @@ describe("AdjustmentsPage", () => {
   test("a correction can take stock out", async () => {
     createAdjustment.mockResolvedValue(row({ id: 8, adjustmentNumber: "ADJ/46/2026-27/00010", status: "posted" }));
     render(<AdjustmentsPage />);
-    await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
-    fireEvent.click(screen.getByRole("button", { name: "New adjustment" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await newAdjustment();
     fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "CORRECTION" } });
     fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
     fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
@@ -181,11 +212,114 @@ describe("AdjustmentsPage", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/posted/)));
   });
 
-  test("?id= opens that adjustment", async () => {
-    getAdjustment.mockResolvedValue({
-      ...row(),
-      lines: [{ id: 1, invItemId: 9, displayName: "Basmati rice", itemCode: "RICE-25", stockUom: "bag", qty: -0.3, unitCost: 1800, value: -540, remarks: null }],
+  test("New adjustment offers only the hotels where the caller can create", async () => {
+    getStock.mockImplementation((params = {}) =>
+      Promise.resolve({
+        hotelId: 46, stockStartedAt: null, totals: { qtyItems: 1, value: 7200 }, total: params.search ? 1 : 0,
+        hotels: [{ id: 46, name: "Orchid Mumbai" }, { id: 47, name: "Orchid Pune" }, { id: 48, name: "Orchid Goa" }],
+        rows: params.search ? [RICE] : [],
+      })
+    );
+    mockRights = { 46: ["read", "approve"], 47: ["read", "create"], 48: ["read", "create"] };
+    createAdjustment.mockResolvedValue(row({ id: 9, adjustmentNumber: "ADJ/47/2026-27/00001", status: "posted" }));
+    render(<AdjustmentsPage initialHotelId="46" />);
+    const dialog = await newAdjustment();
+    const picker = within(dialog).getByLabelText("Hotel");
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Orchid Pune", "Orchid Goa"]);
+    expect(picker).toHaveValue("47");
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    await waitFor(() => expect(createAdjustment).toHaveBeenCalledTimes(1));
+    expect(createAdjustment.mock.calls[0][0].hotelId).toBe(47);
+  });
+
+  test("with no create rights anywhere there is no New adjustment", async () => {
+    mockRights = { 46: ["read", "approve"] };
+    render(<AdjustmentsPage />);
+    await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "New adjustment" })).toBeNull();
+  });
+
+  test("an unanswered submit locks the form: Submit again replays it, Discard drops it", async () => {
+    const dropped = new Error("Network Error");
+    dropped.isAxiosError = true;
+    createAdjustment
+      .mockRejectedValueOnce(dropped)
+      .mockResolvedValueOnce(row({ id: 7, adjustmentNumber: "ADJ/46/2026-27/00009", status: "posted" }));
+    render(<AdjustmentsPage />);
+    const dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "2.123456" } });
+    expect(within(dialog).getByLabelText("Qty of Basmati rice")).toHaveValue("2.1234");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+
+    expect(await within(dialog).findByText(/may or may not be recorded/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Qty of Basmati rice")).toBeDisabled();
+    expect(within(dialog).getByLabelText("Reason")).toBeDisabled();
+    expect(within(dialog).queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Discard" })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit again" }));
+    await waitFor(() => expect(createAdjustment).toHaveBeenCalledTimes(2));
+    expect(createAdjustment.mock.calls[1][0]).toEqual(createAdjustment.mock.calls[0][0]);
+    expect(createAdjustment.mock.calls[0][0].lines).toEqual([{ invItemId: 9, qty: -2.1234 }]);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/ADJ\/46\/2026-27\/00009 posted/)));
+  });
+
+  test("Discard after an unanswered submit closes without sending again", async () => {
+    createAdjustment.mockRejectedValueOnce(apiError(502, null, {}, "Bad Gateway"));
+    render(<AdjustmentsPage />);
+    const dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(createAdjustment).toHaveBeenCalledTimes(1);
+  });
+
+  test("a replayed adjustment whose lines differ opens what was recorded", async () => {
+    createAdjustment.mockResolvedValue({
+      ...row({ id: 4, adjustmentNumber: "ADJ/46/2026-27/00002", status: "posted" }),
+      replayed: true,
+      lines: [{ invItemId: 11, qty: -5 }],
     });
+    render(<AdjustmentsPage />);
+    const dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    await waitFor(() => expect(toast.warn).toHaveBeenCalledWith(expect.stringMatching(/already recorded with different lines/)));
+    await waitFor(() => expect(getAdjustment).toHaveBeenCalledWith(4));
+  });
+
+  test("status tabs move with the arrow keys, one tab stop", async () => {
+    render(<AdjustmentsPage />);
+    await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
+    const all = screen.getByRole("tab", { name: "All" });
+    expect(all).toHaveAttribute("tabIndex", "0");
+    expect(screen.getByRole("tab", { name: "Posted" })).toHaveAttribute("tabIndex", "-1");
+    all.focus();
+    fireEvent.keyDown(all, { key: "ArrowRight" });
+    const pending = screen.getByRole("tab", { name: "Pending approval" });
+    expect(pending).toHaveAttribute("aria-selected", "true");
+    expect(pending).toHaveFocus();
+    await waitFor(() => expect(listAdjustments).toHaveBeenLastCalledWith({ status: "pending_approval", page: 1 }));
+    fireEvent.keyDown(pending, { key: "End" });
+    expect(screen.getByRole("tab", { name: "Rejected" })).toHaveFocus();
+  });
+
+  test("?id= opens that adjustment", async () => {
     render(<AdjustmentsPage initialId="1" />);
     const dialog = await screen.findByRole("dialog");
     expect(getAdjustment).toHaveBeenCalledWith(1);

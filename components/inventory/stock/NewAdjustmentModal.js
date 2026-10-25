@@ -5,7 +5,10 @@ import { createAdjustment } from "@/services/inventory";
 import { fmtQty, newClientEventId, parseQty } from "@/components/inventory/receive/receiveUtils";
 import HotelSelect from "./HotelSelect";
 import ItemPicker from "./ItemPicker";
-import { ADJUSTMENT_REASONS, errorInfo, freezeMessage, lineProblems, reasonDirection } from "./stockUtils";
+import {
+  ADJUSTMENT_REASONS, QTY_MAX_LENGTH, cleanQtyInput, errorInfo, freezeMessage, isUncertainFailure, lineProblems,
+  reasonDirection, sameLines,
+} from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -16,7 +19,13 @@ import s from "./stock.module.scss";
 // value is within the company's auto-approve limit, else it waits for an
 // approver.
 //
-// Props: { show, hotels [{id,name}], defaultHotelId, onHide, onCreated(adjustment) }
+// When no answer comes (the connection drops, or a 5xx), the adjustment may
+// or may not be recorded: the form locks under the same request key and
+// offers only "Submit again" (a replay is never recorded twice) or "Discard".
+//
+// Props: { show, hotels [{id,name}] (only hotels where the caller has
+//          inventory.create), defaultHotelId, onHide,
+//          onCreated(adjustment, {linesDiffer}) }
 
 const lineKey = (l) => l.invItemId;
 
@@ -32,7 +41,9 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [problems, setProblems] = useState({});
+  const [uncertain, setUncertain] = useState(null); // the payload whose answer never came
   const keyRef = useRef(null);
+  const busyRef = useRef(false);
 
   // A fresh form, and a fresh request key, each time the dialog opens.
   useEffect(() => {
@@ -44,8 +55,18 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
     setFormError(null);
     setFieldErrors({});
     setProblems({});
+    setUncertain(null);
     keyRef.current = newClientEventId();
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The hotel picked must be one the caller can raise adjustments at.
+  useEffect(() => {
+    if (!show || uncertain) return;
+    if (hotelId != null && !hotels.some((h) => Number(h.id) === Number(hotelId))) {
+      setHotelId(hotels[0]?.id ?? null);
+      setLines([]);
+    }
+  }, [show, hotels, hotelId, uncertain]);
 
   const direction = reasonDirection(reasonCode);
   const picked = useMemo(() => new Set(lines.map(lineKey)), [lines]);
@@ -75,9 +96,64 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
   };
 
   const lineDir = (l) => (direction === "either" ? l.dir : direction);
+  const locked = busy || !!uncertain;
+
+  const send = async (payload) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setFormError(null);
+    const sentIds = payload.lines.map((l) => l.invItemId);
+    try {
+      const res = await createAdjustment(payload);
+      keyRef.current = newClientEventId();
+      setUncertain(null);
+      const linesDiffer = !!res?.replayed && Array.isArray(res?.lines) && !sameLines(payload.lines, res.lines);
+      onCreated?.(res, { linesDiffer });
+    } catch (err) {
+      const info = errorInfo(err, "Could not raise the adjustment.");
+      const d = info.details || {};
+      const uomOf = (id) => lines.find((l) => l.invItemId === id)?.stockUom || "";
+      if (isUncertainFailure(info)) {
+        setUncertain(payload);
+        setFormError(
+          `${info.httpStatus ? "The server had a problem before it answered" : "The connection dropped before the server answered"}, ` +
+            "so this adjustment may or may not be recorded. Submit again to find out: the same adjustment is never recorded twice."
+        );
+        return;
+      }
+      setUncertain(null);
+      if (info.code === "LOCKED") {
+        setFormError(`${freezeMessage(d)}: adjustments there are refused until it's submitted or cancelled.`);
+      } else if (info.code === "CONFLICT" && d.field === "clientEventId") {
+        keyRef.current = newClientEventId();
+        setFormError(`${info.message} Submit again to record it as a new adjustment.`);
+      } else if (info.code === "VALIDATION" && (d.field === "reasonCode" || d.field === "hotelId" || d.field === "remarks")) {
+        setFieldErrors({ [d.field]: info.message });
+      } else {
+        const found = lineProblems(info, sentIds, { uomOf, verb: "takes out" });
+        if (Object.keys(found).length) setProblems(found);
+        else setFormError(info.message);
+      }
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const discard = () => {
+    if (busyRef.current) return;
+    setUncertain(null);
+    keyRef.current = newClientEventId();
+    onHide?.();
+  };
 
   const submit = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
+    if (uncertain) {
+      send(uncertain);
+      return;
+    }
     setFormError(null);
     const errs = {};
     const lineErrs = {};
@@ -93,7 +169,6 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
     setProblems(lineErrs);
     if (Object.keys(errs).length || Object.keys(lineErrs).length) return;
 
-    const sentIds = lines.map((l) => l.invItemId);
     const payload = {
       hotelId: Number(hotelId),
       reasonCode,
@@ -105,41 +180,15 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
       }),
     };
     if (remarks.trim()) payload.remarks = remarks.trim();
-
-    setBusy(true);
-    try {
-      const res = await createAdjustment(payload);
-      keyRef.current = newClientEventId();
-      onCreated?.(res);
-    } catch (err) {
-      const info = errorInfo(err, "Could not raise the adjustment.");
-      const d = info.details || {};
-      const uomOf = (id) => lines.find((l) => l.invItemId === id)?.stockUom || "";
-      if (info.httpStatus == null) {
-        setFormError("The connection dropped before the server answered. Submit again: the same adjustment is never recorded twice.");
-      } else if (info.code === "LOCKED") {
-        setFormError(freezeMessage(d));
-      } else if (info.code === "CONFLICT" && d.field === "clientEventId") {
-        keyRef.current = newClientEventId();
-        setFormError(info.message);
-      } else if (info.code === "VALIDATION" && (d.field === "reasonCode" || d.field === "hotelId" || d.field === "remarks")) {
-        setFieldErrors({ [d.field]: info.message });
-      } else {
-        const found = lineProblems(info, sentIds, { uomOf, verb: "takes out" });
-        if (Object.keys(found).length) setProblems(found);
-        else setFormError(info.message);
-      }
-    } finally {
-      setBusy(false);
-    }
+    send(payload);
   };
 
   return (
     <Modal
       show={show}
-      onHide={busy ? undefined : onHide}
-      backdrop={busy ? "static" : true}
-      keyboard={!busy}
+      onHide={locked ? undefined : onHide}
+      backdrop={locked ? "static" : true}
+      keyboard={!locked}
       centered
       size="lg"
       aria-labelledby={titleId}
@@ -151,7 +200,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
           <h2 id={titleId} className={r.sheetTitle}>New adjustment</h2>
           <div className={r.sheetSub}>{hotel ? hotel.name : "Correct stock outside a receipt, mark out or count"}</div>
         </div>
-        <button type="button" className={r.sheetClose} onClick={onHide} disabled={busy} aria-label="Close">
+        <button type="button" className={r.sheetClose} onClick={onHide} disabled={locked} aria-label="Close">
           <X size={18} aria-hidden="true" />
         </button>
       </div>
@@ -162,6 +211,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
               <HotelSelect
                 hotels={hotels}
                 value={hotelId ?? ""}
+                disabled={locked}
                 onChange={(id) => {
                   setHotelId(id || null);
                   setLines([]);
@@ -177,6 +227,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
               id={reasonId}
               className={`${r.select} ${fieldErrors.reasonCode ? r.inputInvalid : ""}`}
               value={reasonCode}
+              disabled={locked}
               aria-invalid={fieldErrors.reasonCode ? "true" : undefined}
               onChange={(e) => {
                 setReasonCode(e.target.value);
@@ -196,7 +247,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <ItemPicker source="stock" hotelId={hotelId} onPick={addItem} exclude={picked} disabled={!hotelId || busy} />
+          <ItemPicker source="stock" hotelId={hotelId} onPick={addItem} exclude={picked} disabled={!hotelId || locked} />
           {fieldErrors.lines && <div className={s.fieldError}>{fieldErrors.lines}</div>}
         </div>
 
@@ -212,7 +263,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
                     <div className={s.lineMeta}>
                       {l.onHand != null ? <>{fmtQty(l.onHand)} {l.stockUom} on hand</> : l.stockUom}
                     </div>
-                    {problem && <div className={s.lineProblem} role="alert">{problem.message}</div>}
+                    {problem && <div id={`adj-line-${l.invItemId}-problem`} className={s.lineProblem} role="alert">{problem.message}</div>}
                   </div>
                   <div className={s.lineQty}>
                     {direction === "either" && (
@@ -220,6 +271,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
                         className={r.select}
                         aria-label={`Direction of ${l.displayName}`}
                         value={l.dir}
+                        disabled={locked}
                         onChange={(e) => patchLine(l.invItemId, { dir: e.target.value })}
                         style={{ width: "auto" }}
                       >
@@ -234,11 +286,20 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
                     <input
                       className={`${r.input} ${s.qtyField}`}
                       inputMode="decimal"
+                      maxLength={QTY_MAX_LENGTH}
                       aria-label={`Qty of ${l.displayName}`}
                       aria-invalid={problem ? "true" : undefined}
+                      aria-describedby={problem ? `adj-line-${l.invItemId}-problem` : undefined}
                       placeholder="0"
                       value={l.qty}
-                      onChange={(e) => patchLine(l.invItemId, { qty: e.target.value })}
+                      disabled={locked}
+                      onChange={(e) => patchLine(l.invItemId, { qty: cleanQtyInput(e.target.value) })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                     <span className={s.unit}>{l.stockUom}</span>
                     <button
@@ -246,7 +307,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
                       className={s.removeBtn}
                       aria-label={`Remove ${l.displayName}`}
                       onClick={() => removeLine(l.invItemId)}
-                      disabled={busy}
+                      disabled={locked}
                     >
                       <Trash2 size={15} aria-hidden="true" />
                     </button>
@@ -264,6 +325,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
             className={r.textarea}
             value={remarks}
             maxLength={1000}
+            disabled={locked}
             placeholder="What happened?"
             onChange={(e) => setRemarks(e.target.value)}
           />
@@ -276,12 +338,18 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
         {formError && <div className={r.sheetError} role="alert">{formError}</div>}
       </div>
       <div className={r.sheetFoot}>
-        <button type="button" className={`${r.btn} ${r.btnSecondary}`} onClick={onHide} disabled={busy}>
-          Cancel
-        </button>
+        {uncertain ? (
+          <button type="button" className={`${r.btn} ${r.btnSecondary}`} onClick={discard} disabled={busy}>
+            Discard
+          </button>
+        ) : (
+          <button type="button" className={`${r.btn} ${r.btnSecondary}`} onClick={onHide} disabled={busy}>
+            Cancel
+          </button>
+        )}
         <button type="button" className={`${r.btn} ${r.btnPrimary}`} onClick={submit} disabled={busy}>
           {busy ? <Loader2 size={14} className={r.spin} aria-hidden="true" /> : <Send size={14} aria-hidden="true" />}
-          Submit adjustment
+          {uncertain ? "Submit again" : "Submit adjustment"}
         </button>
       </div>
     </Modal>

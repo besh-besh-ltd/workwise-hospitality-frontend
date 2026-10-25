@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { Link2, Loader2, Plus, Save, Trash2, X } from "lucide-react";
@@ -6,18 +6,20 @@ import {
   addItemBarcode, deleteItemBarcode, getItemUoms, mapVariantToItem, saveItemUoms, updateItem,
 } from "@/services/inventory";
 import { fmtQty } from "@/components/inventory/receive/receiveUtils";
-import { errorInfo } from "@/components/inventory/stock/stockUtils";
+import { errorInfo, parseDecimal } from "@/components/inventory/stock/stockUtils";
 import VariantPicker from "./VariantPicker";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
 
 // One inventory item: details (inventory.admin, partial PUT), mapped catalogue
 // variants (admin), units with their factor to the stock unit and barcodes
-// (inventory.update).
+// (inventory.update). Changing the stock unit drops the item's other units on
+// the server (they were relative to the old unit), so the units reload.
 //
 // Props: { item | null, canAdmin, canUpdate, onHide, onChanged(item) }
 
-const FACTOR_DP = 1e6; // unit factors keep 6 decimal places
+const FACTOR_DP = 1e6; // unit factors keep 6 decimal places (numeric(18,6))
+const PACK_DP = 1e4; // barcode pack sizes keep 4
 
 const detailsForm = (it) => ({
   displayName: it?.displayName || "",
@@ -80,6 +82,7 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
   const [uoms, setUoms] = useState(null); // [{uomLabel, factor}]
   const [savedUoms, setSavedUoms] = useState(null);
   const [uomError, setUomError] = useState(null);
+  const [uomRowErrors, setUomRowErrors] = useState({}); // row index → message
   const [uomLoadError, setUomLoadError] = useState(null);
   const [savingUoms, setSavingUoms] = useState(false);
 
@@ -104,27 +107,32 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
     setSource("MANUFACTURER");
   }, [itemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!itemId) return undefined;
-    let live = true;
+  const uomSeq = useRef(0);
+  const loadUoms = useCallback(async () => {
+    if (!itemId) return;
+    const seq = ++uomSeq.current;
     setUoms(null);
     setSavedUoms(null);
     setUomError(null);
+    setUomRowErrors({});
     setUomLoadError(null);
-    getItemUoms(itemId)
-      .then((res) => {
-        if (!live) return;
-        const rows = uomRowsOf(Array.isArray(res) ? res : res?.uoms);
-        setUoms(rows);
-        setSavedUoms(rows);
-      })
-      .catch((err) => {
-        if (live) setUomLoadError(errorInfo(err, "Could not load the units.").message);
-      });
-    return () => {
-      live = false;
-    };
+    try {
+      const res = await getItemUoms(itemId);
+      if (seq !== uomSeq.current) return;
+      const rows = uomRowsOf(Array.isArray(res) ? res : res?.uoms);
+      setUoms(rows);
+      setSavedUoms(rows);
+    } catch (err) {
+      if (seq === uomSeq.current) setUomLoadError(errorInfo(err, "Could not load the units.").message);
+    }
   }, [itemId]);
+
+  useEffect(() => {
+    loadUoms();
+    return () => {
+      uomSeq.current += 1;
+    };
+  }, [loadUoms]);
 
   const changed = (next) => {
     setItem(next);
@@ -155,6 +163,8 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
       changed(next);
       setForm(detailsForm(next));
       toast.success(`${next.displayName} saved`);
+      // A new stock unit drops the old conversions server-side: show what is left.
+      if (res.changes.stockUom !== undefined) loadUoms();
     } catch (err) {
       const info = errorInfo(err, "Could not save the item.");
       const field = info.details?.field;
@@ -189,15 +199,23 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
     setUomError(null);
     const seen = new Set();
     const payload = [];
+    const errs = {};
     for (const [i, u] of uoms.entries()) {
       const label = u.uomLabel.trim();
-      const n = Number(u.factor);
-      if (!label) return setUomError(`Unit ${i + 1} needs a name`);
       const key = label.toLowerCase();
-      if (seen.has(key)) return setUomError(`"${label}" is listed twice`);
+      const n = parseDecimal(u.factor);
+      const factor = n == null ? null : Math.round(n * FACTOR_DP) / FACTOR_DP;
+      if (!label) errs[i] = "Name this unit";
+      else if (seen.has(key)) errs[i] = `"${label}" is listed twice`;
+      else if (n == null) errs[i] = "Enter the factor as a plain number, e.g. 12 or 0.5";
+      else if (!(factor >= 0.000001)) errs[i] = `At least 0.000001 ${unit}`;
       seen.add(key);
-      if (!Number.isFinite(n) || n <= 0) return setUomError(`Unit ${i + 1} needs a factor above 0`);
-      payload.push({ uomLabel: label, factorToStock: Math.round(n * FACTOR_DP) / FACTOR_DP });
+      if (!errs[i]) payload.push({ uomLabel: label, factorToStock: factor });
+    }
+    setUomRowErrors(errs);
+    if (Object.keys(errs).length) {
+      setUomError("Fix the highlighted units, then save.");
+      return;
     }
     setSavingUoms(true);
     try {
@@ -218,9 +236,11 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
     if (barcodeBusy || !item) return;
     setBarcodeError(null);
     const c = code.trim();
-    const p = Number(pack);
+    const n = parseDecimal(pack);
+    const p = n == null ? null : Math.round(n * PACK_DP) / PACK_DP;
     if (!c) return setBarcodeError("Scan or type the barcode");
-    if (!Number.isFinite(p) || p <= 0) return setBarcodeError("Pack size must be above 0");
+    if (n == null) return setBarcodeError("Enter the pack size as a plain number, e.g. 12 or 0.5");
+    if (!(p >= 0.0001)) return setBarcodeError(`Pack size must be at least 0.0001 ${unit}`);
     setBarcodeBusy(true);
     try {
       const added = await addItemBarcode(item.id, { code: c, packFactor: p, source });
@@ -258,11 +278,12 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
         value={form[key]}
         disabled={!canAdmin || savingDetails}
         aria-invalid={formErrors[key] ? "true" : undefined}
+        aria-describedby={formErrors[key] ? `ie-${key}-err` : undefined}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
         {...props}
       />
       {hint && <div className={r.fieldHint}>{hint}</div>}
-      {formErrors[key] && <div className={s.fieldError}>{formErrors[key]}</div>}
+      {formErrors[key] && <div id={`ie-${key}-err`} className={s.fieldError}>{formErrors[key]}</div>}
     </div>
   );
 
@@ -302,7 +323,7 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
               <label className={s.toggleTitle} htmlFor="ie-trackExpiry">Tracks expiry</label>
               <div className={s.toggleHelp}>Ask for batch and expiry on receipt.</div>
             </div>
-            <input
+            <label className={s.switchHit}><input
               id="ie-trackExpiry"
               type="checkbox"
               role="switch"
@@ -310,7 +331,7 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
               checked={form.trackExpiry}
               disabled={!canAdmin || savingDetails}
               onChange={(e) => setForm((f) => ({ ...f, trackExpiry: e.target.checked }))}
-            />
+            /></label>
           </div>
           {form.trackExpiry && (
             <div className={r.formGrid}>
@@ -322,7 +343,7 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
               <label className={s.toggleTitle} htmlFor="ie-isActive">Active</label>
               <div className={s.toggleHelp}>Inactive items stay in history but can&apos;t be picked for new documents.</div>
             </div>
-            <input
+            <label className={s.switchHit}><input
               id="ie-isActive"
               type="checkbox"
               role="switch"
@@ -330,7 +351,7 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
               checked={form.isActive}
               disabled={!canAdmin || savingDetails}
               onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-            />
+            /></label>
           </div>
           {detailsError && <div className={r.formError} role="alert">{detailsError}</div>}
           {canAdmin && (
@@ -385,22 +406,33 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
                 <div key={i} className={s.uomRow}>
                   <span className={r.meta}>1</span>
                   <input
-                    className={`${r.input} ${s.inlineInput}`}
+                    className={`${r.input} ${s.inlineInput} ${uomRowErrors[i] ? r.inputInvalid : ""}`}
                     aria-label={`Unit ${i + 1}`}
                     value={u.uomLabel}
                     placeholder="e.g. case"
+                    maxLength={99}
                     disabled={!canUpdate || savingUoms}
-                    onChange={(e) => setUoms((list) => list.map((x, j) => (j === i ? { ...x, uomLabel: e.target.value } : x)))}
+                    aria-invalid={uomRowErrors[i] ? "true" : undefined}
+                    aria-describedby={uomRowErrors[i] ? `ie-uom-${i}-err` : undefined}
+                    onChange={(e) => {
+                      setUomRowErrors((m) => ({ ...m, [i]: undefined }));
+                      setUoms((list) => list.map((x, j) => (j === i ? { ...x, uomLabel: e.target.value } : x)));
+                    }}
                   />
                   <span className={r.meta}>=</span>
                   <input
-                    className={`${r.input} ${s.inlineInput}`}
+                    className={`${r.input} ${s.inlineInput} ${uomRowErrors[i] ? r.inputInvalid : ""}`}
                     aria-label={`${unit} in one unit ${i + 1}`}
                     inputMode="decimal"
                     value={u.factor}
                     placeholder="0"
                     disabled={!canUpdate || savingUoms}
-                    onChange={(e) => setUoms((list) => list.map((x, j) => (j === i ? { ...x, factor: e.target.value } : x)))}
+                    aria-invalid={uomRowErrors[i] ? "true" : undefined}
+                    aria-describedby={uomRowErrors[i] ? `ie-uom-${i}-err` : undefined}
+                    onChange={(e) => {
+                      setUomRowErrors((m) => ({ ...m, [i]: undefined }));
+                      setUoms((list) => list.map((x, j) => (j === i ? { ...x, factor: e.target.value } : x)));
+                    }}
                   />
                   <span className={r.meta}>{unit}</span>
                   {canUpdate && (
@@ -408,11 +440,17 @@ const ItemEditorModal = ({ item: itemProp, canAdmin, canUpdate, onHide, onChange
                       type="button"
                       className={s.removeBtn}
                       aria-label={`Remove unit ${i + 1}`}
-                      onClick={() => setUoms((list) => list.filter((_, j) => j !== i))}
+                      onClick={() => {
+                        setUomRowErrors({});
+                        setUoms((list) => list.filter((_, j) => j !== i));
+                      }}
                       disabled={savingUoms}
                     >
                       <Trash2 size={15} aria-hidden="true" />
                     </button>
+                  )}
+                  {uomRowErrors[i] && (
+                    <div id={`ie-uom-${i}-err`} className={`${s.fieldError} ${s.uomRowError}`}>{uomRowErrors[i]}</div>
                   )}
                 </div>
               ))}

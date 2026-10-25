@@ -8,7 +8,8 @@ import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getStockItem, getStockLedger, saveHotelItem } from "@/services/inventory";
 import { fmtDay, fmtInstant, fmtQty, inr } from "@/components/inventory/receive/receiveUtils";
 import {
-  LEVEL_FIELDS, checkLevels, errorInfo, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes, toId,
+  BIN_MAX, LEVEL_FIELDS, checkLevels, errorInfo, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes,
+  toId,
 } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
@@ -19,6 +20,10 @@ import s from "./stock.module.scss";
 // never held still opens (qty 0, no movements) so levels can be set up ahead
 // of the first receipt.
 //
+// Header actions follow the caller's rights at this hotel: Print labels needs
+// inventory.update, Adjustment and Mark out need inventory.create. Nothing
+// shows until the rights are known.
+//
 // Props: hotelId, invItemId (route params).
 
 const LEDGER_PAGE = 50;
@@ -26,7 +31,12 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
   const hotelId = toId(hotelParam);
   const invItemId = toId(itemParam);
   const hotelIds = useMemo(() => (hotelId ? [hotelId] : []), [hotelId]);
-  const { canUpdate } = useModulePermissions({ moduleKey: "inventory", hotelIds, enabled: !!hotelId });
+  const { canUpdate, canCreate, loading: permLoading } = useModulePermissions({
+    moduleKey: "inventory",
+    hotelIds,
+    enabled: !!hotelId,
+  });
+  const permsKnown = !!hotelId && !permLoading;
 
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -181,17 +191,25 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
               {item.isActive === false && <> · <span className={`${r.pill} ${r.pillNeutral}`}>Inactive</span></>}
             </div>
           </div>
-          <div className={`${r.headerActions} ${r.headerActionsKeep}`}>
-            <Link href={stockRoutes.labels({ hotelId, items: [invItemId] })} className={`${r.btn} ${r.btnSecondary}`}>
-              <Printer size={14} aria-hidden="true" /> Print labels
-            </Link>
-            <Link href={stockRoutes.adjustments({ hotelId })} className={`${r.btn} ${r.btnSecondary}`}>
-              <FilePen size={14} aria-hidden="true" /> Adjustment
-            </Link>
-            <Link href={stockRoutes.markOut({ hotelId })} className={`${r.btn} ${r.btnPrimary}`}>
-              <PackageMinus size={14} aria-hidden="true" /> Mark out
-            </Link>
-          </div>
+          {permsKnown && (canUpdate || canCreate) && (
+            <div className={`${r.headerActions} ${r.headerActionsKeep}`}>
+              {canUpdate && (
+                <Link href={stockRoutes.labels({ hotelId, items: [invItemId] })} className={`${r.btn} ${r.btnSecondary}`}>
+                  <Printer size={14} aria-hidden="true" /> Print labels
+                </Link>
+              )}
+              {canCreate && (
+                <Link href={stockRoutes.adjustments({ hotelId })} className={`${r.btn} ${r.btnSecondary}`}>
+                  <FilePen size={14} aria-hidden="true" /> Adjustment
+                </Link>
+              )}
+              {canCreate && (
+                <Link href={stockRoutes.markOut({ hotelId })} className={`${r.btn} ${r.btnPrimary}`}>
+                  <PackageMinus size={14} aria-hidden="true" /> Mark out
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -235,7 +253,12 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
               <div className={r.cardHead}>
                 <h2 className={r.cardTitle}>Levels at this hotel</h2>
               </div>
-              {canUpdate ? (
+              {!permsKnown ? (
+                <div className={r.cardBody} aria-busy="true">
+                  <span className={r.sk} style={{ width: "70%", marginBottom: 12 }} />
+                  <span className={r.sk} style={{ width: "50%" }} />
+                </div>
+              ) : canUpdate ? (
                 <form className={r.cardBody} aria-label="Levels at this hotel" onSubmit={save} noValidate>
                   <div className={s.levelsGrid}>
                     {LEVEL_FIELDS.map((f) => (
@@ -261,11 +284,13 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
                         className={`${r.input} ${formErrors.binLabel ? r.inputInvalid : ""}`}
                         type="text"
                         value={form.binLabel}
+                        maxLength={BIN_MAX}
                         placeholder="e.g. C-02"
                         aria-invalid={formErrors.binLabel ? "true" : undefined}
+                        aria-describedby={formErrors.binLabel ? "lvl-binLabel-err" : undefined}
                         onChange={(e) => setForm((p) => ({ ...p, binLabel: e.target.value }))}
                       />
-                      {formErrors.binLabel && <div className={s.fieldError}>{formErrors.binLabel}</div>}
+                      {formErrors.binLabel && <div id="lvl-binLabel-err" className={s.fieldError}>{formErrors.binLabel}</div>}
                     </div>
                   </div>
                   <p className={r.meta} style={{ marginTop: 10 }}>In {unit || "stock units"}. Leave a level blank to clear it.</p>
@@ -325,7 +350,7 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
                 <span className={r.count}>{batches.length}</span>
               </div>
               <div className={r.tableWrap}>
-                <table className={r.listTable} aria-label="Batches">
+                <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Batches">
                   <thead>
                     <tr>
                       <th>Batch</th>
@@ -416,7 +441,7 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
                 </div>
               ) : (
                 <div className={r.tableWrap} aria-busy={ledgerLoading || undefined}>
-                  <table className={r.listTable} aria-label="Bin card">
+                  <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Bin card">
                     <thead>
                       <tr>
                         <th>When</th>

@@ -13,7 +13,8 @@ import s from "./stock.module.scss";
 //                   the qty on hand. Needs hotelId.
 //   source "items": the company's item master (GET /items?search&hotelId).
 //
-// onPick({invItemId, displayName, itemCode, stockUom, qty|null})
+// onPick({invItemId, displayName, itemCode, stockUom, qty|null, trackExpiry})
+// (trackExpiry as the row reports it; false when the row doesn't say)
 // `exclude` is a Set of invItemIds already picked (shown, not addable).
 
 const SEARCH_DELAY_MS = 250;
@@ -24,6 +25,7 @@ const fromStock = (row) => ({
   itemCode: row.itemCode ?? null,
   stockUom: row.stockUom,
   qty: row.qty != null ? Number(row.qty) : null,
+  trackExpiry: row.trackExpiry === true,
 });
 const fromItem = (row) => ({
   invItemId: Number(row.id),
@@ -31,6 +33,7 @@ const fromItem = (row) => ({
   itemCode: row.itemCode ?? null,
   stockUom: row.stockUom,
   qty: null,
+  trackExpiry: row.trackExpiry === true,
 });
 
 const ItemPicker = ({ source = "stock", hotelId, onPick, exclude, disabled = false, label = "Find an item", placeholder = "Item name or code" }) => {

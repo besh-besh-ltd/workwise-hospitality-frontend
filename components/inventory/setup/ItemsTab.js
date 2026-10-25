@@ -123,7 +123,7 @@ const ItemsTab = ({ canAdmin, canUpdate }) => {
         </div>
       ) : (
         <div className={r.tableWrap} aria-busy={loading || undefined}>
-          <table className={r.listTable} aria-label="Items">
+          <table className={`${r.listTable} ${s.labelledTable}`} aria-label="Items">
             <thead>
               <tr>
                 <th>Item</th>

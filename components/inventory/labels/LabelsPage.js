@@ -5,6 +5,7 @@ import { getStockItem, printItemLabels } from "@/services/inventory";
 import HotelSelect from "@/components/inventory/stock/HotelSelect";
 import ItemPicker from "@/components/inventory/stock/ItemPicker";
 import useInventoryHotels from "@/components/inventory/stock/useInventoryHotels";
+import usePermittedHotels from "@/components/inventory/stock/usePermittedHotels";
 import { errorInfo, stockRoutes, toId } from "@/components/inventory/stock/stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "@/components/inventory/stock/stock.module.scss";
@@ -12,6 +13,11 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Item labels (POST /labels/items, B4): pick items, copies each and a layout;
 // the server renders a PDF with a QR per item and answers {url}. With a hotel
 // chosen the labels carry that hotel's bin.
+//
+// Printing needs inventory.update: at the "Bins from" hotel, or (with no
+// hotel) somewhere in each item's company. The picker offers only hotels with
+// update rights, and a ?hotelId= that isn't one of them is corrected before
+// any item is looked up.
 //
 // Props: initialHotelId (?hotelId=), initialItems (?items=9,11 from the item card).
 
@@ -33,6 +39,9 @@ const parseCopies = (text) => {
 
 const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
   const { hotels, loading: hotelsLoading } = useInventoryHotels();
+  const updatePerm = usePermittedHotels({ moduleKey: "inventory", action: "update", hotels, enabled: !hotelsLoading });
+  const printHotels = useMemo(() => hotels.filter((h) => updatePerm.ids.has(h.id)), [hotels, updatePerm.ids]);
+  const ready = !hotelsLoading && !updatePerm.loading;
   const [hotelId, setHotelId] = useState(() => toId(initialHotelId));
   const [hotelChosen, setHotelChosen] = useState(false);
   const [items, setItems] = useState([]); // {invItemId, displayName, itemCode, stockUom, trackExpiry, copies, batchNo, expiryDate}
@@ -42,19 +51,21 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
   const [url, setUrl] = useState(null);
   const preloadRef = useRef(false);
 
-  // The hotel must be one the server listed; default to the first.
+  // The hotel must be one the server listed where labels can be printed;
+  // default to the first.
   useEffect(() => {
-    if (hotelsLoading || hotelChosen) return;
-    if (!hotels.length) {
+    if (!ready || hotelChosen) return;
+    if (!printHotels.length) {
       setHotelId(null);
       return;
     }
-    if (hotelId == null || !hotels.some((h) => h.id === hotelId)) setHotelId(hotels[0].id);
-  }, [hotelsLoading, hotels, hotelId, hotelChosen]);
+    if (hotelId == null || !printHotels.some((h) => h.id === hotelId)) setHotelId(printHotels[0].id);
+  }, [ready, printHotels, hotelId, hotelChosen]);
+  const hotelValid = hotelId != null && printHotels.some((h) => h.id === hotelId);
 
-  // ?items= from the item card: look each one up at the hotel.
+  // ?items= from the item card: look each one up at the (corrected) hotel.
   useEffect(() => {
-    if (preloadRef.current || hotelsLoading || !hotelId) return;
+    if (preloadRef.current || !ready || !hotelValid) return;
     const ids = String(initialItems || "")
       .split(",")
       .map(toId)
@@ -89,7 +100,7 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
         return [...list, ...add];
       });
     })();
-  }, [hotelsLoading, hotelId, initialItems]);
+  }, [ready, hotelValid, hotelId, initialItems]);
 
   const picked = useMemo(() => new Set(items.map((x) => x.invItemId)), [items]);
 
@@ -110,7 +121,9 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
   const badExpiry = items.some((x) => x.expiryDate && !DAY.test(x.expiryDate));
   const tooMany = total > MAX_LABELS;
   const tooManyItems = items.length > MAX_ITEMS;
-  const canPrint = !busy && items.length > 0 && !badCopies && !badExpiry && !tooMany && !tooManyItems;
+  const noRights = ready && !updatePerm.error && printHotels.length === 0;
+  const canPrint =
+    ready && printHotels.length > 0 && !busy && items.length > 0 && !badCopies && !badExpiry && !tooMany && !tooManyItems;
 
   const print = async () => {
     if (!canPrint) return;
@@ -159,6 +172,19 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
 
       <main className={r.pageBody}>
         <div className={r.stack}>
+          {updatePerm.error && (
+            <div className={`${r.lineMsg} ${r.lineWarn}`} role="alert">
+              <span>{updatePerm.error}</span>
+              <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={updatePerm.retry}>
+                Try again
+              </button>
+            </div>
+          )}
+          {noRights && (
+            <div className={`${r.lineMsg} ${r.lineWarn}`} role="status">
+              Printing labels needs inventory update rights at a hotel. Ask your admin if you need them.
+            </div>
+          )}
           <section className={r.card}>
             <div className={r.cardHead}>
               <h2 className={r.cardTitle}>Items</h2>
@@ -167,8 +193,9 @@ const LabelsPage = ({ initialHotelId = null, initialItems = null }) => {
             <div className={r.cardBody}>
               <div className={r.formGrid}>
                 <HotelSelect
-                  hotels={hotels}
+                  hotels={printHotels}
                   value={hotelId ?? ""}
+                  disabled={busy}
                   allLabel="No hotel (labels without a bin)"
                   label="Bins from"
                   onChange={(id) => {

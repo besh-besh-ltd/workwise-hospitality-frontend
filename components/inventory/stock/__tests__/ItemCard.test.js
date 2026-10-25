@@ -17,7 +17,7 @@ jest.mock("@/hooks/useIsMobile", () => ({ __esModule: true, default: () => false
 jest.mock("@/hooks/useModulePermissions", () => ({
   __esModule: true,
   useModulePermissions: () => ({
-    canRead: true, canCreate: true, canUpdate: mockCanUpdate, canApprove: false, loading: false, hasPermission: () => mockCanUpdate,
+    canRead: true, canCreate: mockCanCreate, canUpdate: mockCanUpdate, canApprove: false, loading: false, hasPermission: () => mockCanUpdate,
   }),
 }));
 jest.mock("@/services/inventory", () => ({
@@ -28,6 +28,7 @@ jest.mock("@/services/inventory", () => ({
 }));
 
 let mockCanUpdate = true;
+let mockCanCreate = true;
 
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
@@ -60,6 +61,7 @@ const card = (over = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockCanUpdate = true;
+  mockCanCreate = true;
   getStockItem.mockResolvedValue(card());
   getStockLedger.mockResolvedValue({
     rows: [
@@ -136,6 +138,52 @@ describe("ItemCard", () => {
     expect(await screen.findByText("Not stocked at Orchid Mumbai yet")).toBeInTheDocument();
     // levels can still be set up ahead of the first receipt
     expect(screen.getByRole("form", { name: "Levels at this hotel" })).toBeInTheDocument();
+  });
+
+  test("the bin card filters by date and Clear dates goes back to everything", async () => {
+    render(<ItemCard hotelId="46" invItemId="9" />);
+    await screen.findByRole("table", { name: "Bin card" });
+    expect(getStockLedger).toHaveBeenLastCalledWith(46, 9, { page: 1 });
+    expect(screen.queryByRole("button", { name: "Clear dates" })).toBeNull();
+
+    getStockLedger.mockResolvedValue({ rows: [], total: 0 });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-01" } });
+    await waitFor(() => expect(getStockLedger).toHaveBeenLastCalledWith(46, 9, { from: "2026-10-01", page: 1 }));
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-15" } });
+    await waitFor(() =>
+      expect(getStockLedger).toHaveBeenLastCalledWith(46, 9, { from: "2026-10-01", to: "2026-10-15", page: 1 })
+    );
+    expect(screen.getByLabelText("To")).toHaveAttribute("min", "2026-10-01");
+    expect(screen.getByLabelText("From")).toHaveAttribute("max", "2026-10-15");
+    expect(await screen.findByText("No movement in these dates")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear dates" }));
+    await waitFor(() => expect(getStockLedger).toHaveBeenLastCalledWith(46, 9, { page: 1 }));
+    expect(screen.getByLabelText("From")).toHaveValue("");
+  });
+
+  test("Print labels needs update rights; Adjustment and Mark out need create rights", async () => {
+    mockCanUpdate = false;
+    const { unmount } = render(<ItemCard hotelId="46" invItemId="9" />);
+    await screen.findByRole("heading", { name: /Paneer/ });
+    expect(screen.queryByRole("link", { name: /Print labels/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Adjustment/ })).toHaveAttribute("href", "/dashboard/buyer/inventory/adjustments?hotelId=46");
+    expect(screen.getByRole("link", { name: /Mark out/ })).toHaveAttribute("href", "/dashboard/buyer/inventory/out?hotelId=46");
+    unmount();
+
+    mockCanUpdate = true;
+    mockCanCreate = false;
+    render(<ItemCard hotelId="46" invItemId="9" />);
+    expect(await screen.findByRole("link", { name: /Print labels/ })).toHaveAttribute(
+      "href", "/dashboard/buyer/inventory/labels?hotelId=46&items=9"
+    );
+    expect(screen.queryByRole("link", { name: /Adjustment/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Mark out/ })).toBeNull();
+  });
+
+  test("a bin label stops at 64 characters", async () => {
+    render(<ItemCard hotelId="46" invItemId="9" />);
+    expect(await screen.findByLabelText("Bin")).toHaveAttribute("maxLength", "64");
   });
 
   test("an unknown item says not found", async () => {

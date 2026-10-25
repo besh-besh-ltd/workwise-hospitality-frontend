@@ -11,9 +11,10 @@ import s from "./stock.module.scss";
 // who raised and who decided it. Approve / Reject follow the server's `can`.
 //
 // Props: { id | null, onHide, onApprove(adjustment), onReject(adjustment),
-//          busyId, refreshKey (bump to reload after a decision) }
+//          busyId, refreshKey (bump to reload after a decision),
+//          actionError (why the last approve was refused) }
 
-const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null, refreshKey = 0 }) => {
+const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null, refreshKey = 0, actionError = null }) => {
   const titleId = useId();
   const [adj, setAdj] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -144,6 +145,9 @@ const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null,
             </div>
           </>
         ) : null}
+        {actionError && (
+          <div className={r.sheetError} role="alert" style={{ marginTop: 12 }}>{actionError}</div>
+        )}
       </div>
       <div className={r.sheetFoot}>
         <button type="button" className={`${r.btn} ${r.btnSecondary}`} onClick={onHide}>
