@@ -12,6 +12,10 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Min / reorder / max and bin for every item at one hotel
 // (GET /hotel-items, PUT /hotel-items/:hotelId/:invItemId per row).
 //
+// Rows are saved one at a time. Edits not yet saved are kept by item across
+// searches and pages (the list reloads, the edits don't), and the bar says how
+// many are waiting. While one row saves, the other Save buttons wait.
+//
 // Props: { hotelId, canUpdate (inventory.update at this hotel) }
 
 const PAGE_SIZE = 50;
@@ -25,7 +29,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
-  const [forms, setForms] = useState({}); // invItemId → form
+  const [edits, setEdits] = useState({}); // invItemId → {form, base}: changed here, not saved yet
   const [errors, setErrors] = useState({}); // invItemId → {field: message, _row: message}
   const [savingId, setSavingId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +63,6 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
       const list = Array.isArray(res?.rows) ? res.rows : [];
       setRows(list);
       setTotal(Number(res?.total) || 0);
-      setForms(Object.fromEntries(list.map((row) => [row.invItemId, levelsForm(row)])));
-      setErrors({});
     } catch (err) {
       if (seq !== seqRef.current) return;
       // C3: a hotel you can't see (or one that's gone) answers 404.
@@ -74,15 +76,24 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
     load();
   }, [load]);
 
-  const edit = (id, key, value) => {
-    setForms((f) => ({ ...f, [id]: { ...f[id], [key]: value } }));
+  const edit = (row, key, value) => {
+    const id = row.invItemId;
+    setEdits((all) => {
+      const cur = all[id] || { form: levelsForm(row), base: levelsForm(row) };
+      const next = { ...cur, form: { ...cur.form, [key]: value } };
+      if (sameForm(next.form, next.base)) {
+        const { [id]: _undone, ...rest } = all;
+        return rest;
+      }
+      return { ...all, [id]: next };
+    });
     setErrors((e) => (e[id] ? { ...e, [id]: undefined } : e));
   };
 
   const save = async (row) => {
     const id = row.invItemId;
-    if (savingId) return;
-    const checked = checkLevels(forms[id] || {});
+    if (savingId != null) return;
+    const checked = checkLevels(edits[id]?.form || levelsForm(row));
     if (checked.errors) {
       setErrors((e) => ({ ...e, [id]: checked.errors }));
       return;
@@ -92,7 +103,11 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
       const res = await saveHotelItem(Number(hotelId), id, checked.payload);
       const next = { ...row, ...checked.payload, ...(res && typeof res === "object" ? res : {}) };
       setRows((list) => list.map((x) => (x.invItemId === id ? next : x)));
-      setForms((f) => ({ ...f, [id]: levelsForm(next) }));
+      setEdits((all) => {
+        const { [id]: _saved, ...rest } = all;
+        return rest;
+      });
+      setErrors((e) => (e[id] ? { ...e, [id]: undefined } : e));
       toast.success(`Levels saved for ${row.displayName}`);
     } catch (err) {
       const info = errorInfo(err, "Could not save the levels.");
@@ -111,6 +126,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
   }
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const unsaved = Object.keys(edits).length;
 
   return (
     <section className={r.card}>
@@ -132,6 +148,12 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
       </div>
       {!canUpdate && (
         <p className={r.meta} style={{ margin: "0 16px 12px" }}>You can see the levels here; changing them needs inventory update rights.</p>
+      )}
+      {canUpdate && unsaved > 0 && (
+        <p className={r.meta} role="status" style={{ margin: "0 16px 12px" }}>
+          <strong>{unsaved === 1 ? "1 unsaved change" : `${unsaved} unsaved changes`}</strong>. They stay while you search or
+          change page; save each row to keep it.
+        </p>
       )}
       {loadError ? (
         <div className={r.emptyState} role="alert">
@@ -162,9 +184,9 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
             <tbody>
               {rows.map((row) => {
                 const id = row.invItemId;
-                const form = forms[id] || levelsForm(row);
+                const form = edits[id]?.form || levelsForm(row);
                 const err = errors[id] || {};
-                const dirty = !sameForm(form, levelsForm(row));
+                const dirty = !!edits[id] && !sameForm(form, levelsForm(row));
                 const messages = [...FIELDS.map((f) => err[f.key]).filter(Boolean), err._row].filter(Boolean);
                 return (
                   <tr key={id} className={messages.length ? s.rowError : undefined}>
@@ -183,7 +205,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
                             aria-label={`${f.label} of ${row.displayName}`}
                             aria-invalid={err[f.key] ? "true" : undefined}
                             value={form[f.key]}
-                            onChange={(e) => edit(id, f.key, e.target.value)}
+                            onChange={(e) => edit(row, f.key, e.target.value)}
                           />
                         ) : (
                           <span className={f.key === "binLabel" ? s.mono : undefined}>{form[f.key] || "—"}</span>
@@ -197,7 +219,7 @@ const HotelLevelsTab = ({ hotelId, canUpdate }) => {
                           className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`}
                           aria-label={`Save ${row.displayName}`}
                           onClick={() => save(row)}
-                          disabled={!dirty || savingId === id}
+                          disabled={!dirty || savingId != null}
                         >
                           {savingId === id ? <Loader2 size={13} className={r.spin} aria-hidden="true" /> : <Save size={13} aria-hidden="true" />}
                           Save

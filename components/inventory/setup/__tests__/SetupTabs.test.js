@@ -295,6 +295,65 @@ describe("HotelLevelsTab", () => {
     expect(saveHotelItem).not.toHaveBeenCalled();
   });
 
+  // M-3: a search or a page change reloads the rows; edits not yet saved stay.
+  const OIL = { invItemId: 12, displayName: "Olive oil", stockUom: "bottle", minQty: 1, reorderLevel: 2, maxQty: 6, binLabel: null };
+  const RICE_LEVELS = { invItemId: 9, displayName: "Basmati rice", stockUom: "bag", minQty: 2, reorderLevel: 4, maxQty: 10, binLabel: "A-01" };
+
+  test("unsaved edits survive a search and a page change, and say how many are waiting (M-3)", async () => {
+    listHotelItems.mockImplementation(({ search, page }) =>
+      Promise.resolve(
+        search === "oil"
+          ? { rows: [OIL], total: 1 }
+          : page === 2
+            ? { rows: [OIL], total: 51 }
+            : { rows: [RICE_LEVELS], total: 51 }
+      )
+    );
+    saveHotelItem.mockResolvedValue({ ...RICE_LEVELS, reorderLevel: 6 });
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    fireEvent.change(await screen.findByLabelText("Reorder level of Basmati rice"), { target: { value: "6" } });
+    expect(screen.getByRole("status")).toHaveTextContent("1 unsaved change");
+
+    // Search away and back.
+    fireEvent.change(screen.getByLabelText("Search items"), { target: { value: "oil" } });
+    expect(await screen.findByLabelText("Reorder level of Olive oil")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 unsaved change");
+    fireEvent.change(screen.getByLabelText("Search items"), { target: { value: "" } });
+    expect(await screen.findByLabelText("Reorder level of Basmati rice")).toHaveValue("6");
+
+    // Page away and back.
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByLabelText("Reorder level of Olive oil")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(await screen.findByLabelText("Reorder level of Basmati rice")).toHaveValue("6");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Basmati rice" }));
+    await waitFor(() =>
+      expect(saveHotelItem).toHaveBeenCalledWith(46, 9, { minQty: 2, reorderLevel: 6, maxQty: 10, binLabel: "A-01" })
+    );
+    await waitFor(() => expect(screen.queryByText(/unsaved change/)).toBeNull());
+  });
+
+  test("while one row saves, the other Save buttons wait instead of silently doing nothing (M-3)", async () => {
+    listHotelItems.mockResolvedValue({ rows: [RICE_LEVELS, OIL], total: 2 });
+    let finishRice;
+    saveHotelItem.mockImplementation((hotelId, id, payload) =>
+      id === 9 ? new Promise((resolve) => { finishRice = () => resolve({ ...RICE_LEVELS, ...payload }); }) : Promise.resolve({ ...OIL, ...payload })
+    );
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    fireEvent.change(await screen.findByLabelText("Reorder level of Basmati rice"), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText("Reorder level of Olive oil"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Basmati rice" }));
+    await waitFor(() => expect(saveHotelItem).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Save Olive oil" })).toBeDisabled();
+
+    await act(async () => finishRice());
+    const saveOil = screen.getByRole("button", { name: "Save Olive oil" });
+    await waitFor(() => expect(saveOil).toBeEnabled());
+    fireEvent.click(saveOil);
+    await waitFor(() => expect(saveHotelItem).toHaveBeenLastCalledWith(46, 12, { minQty: 1, reorderLevel: 3, maxQty: 6, binLabel: null }));
+  });
+
   test("a hotel that answers 404 (C3: can't see it, or it's gone) says it isn't available", async () => {
     listHotelItems.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
     render(<HotelLevelsTab hotelId={46} canUpdate />);
