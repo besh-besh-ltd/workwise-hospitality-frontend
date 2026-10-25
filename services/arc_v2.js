@@ -292,6 +292,11 @@ export const finalizeManualArc     = (id, body = { confirm: true }) =>
 export const getArcNegotiationRounds = (arcId) =>
   axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/rounds`);
 
+// Buyer — everything the approval page reads: the ARC, its rounds with their
+// approval instances, and the items/quotes/qualifications those rounds negotiate.
+export const getArcNegotiationApprovalBundle = (arcId) =>
+  axiosInstance.get(`${BASE}/evaluation/${arcId}/comm-eval/negotiation/approval-bundle`);
+
 // Buyer — create a new round (multi-shape or legacy single-item)
 // body: { end_date, target_price?, remarks?, products: [...] }  OR
 //       { arc_item_id, vendor_ids, end_date }                   OR

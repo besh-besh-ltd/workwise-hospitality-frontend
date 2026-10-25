@@ -51,7 +51,13 @@ export function splitApprovalsByRemoval(approvals) {
   return { activeApprovals, removedApprovals, approvedCount };
 }
 import { getChargeNames } from '@/services/rfq';
-import { localDateTimeInputMin, parseLocalDateTimeInput } from '@/utils/negotiationTime';
+import {
+  isRoundDeadlineTooSoon,
+  localDateTimeInputMin,
+  MIN_ROUND_WINDOW_MS,
+  parseLocalDateTimeInput,
+  ROUND_DEADLINE_TOO_SOON_MESSAGE,
+} from '@/utils/negotiationTime';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
@@ -711,6 +717,13 @@ const NegotiationModal = ({
     if (selectedProducts.length === 0 || !formData.end_date) {
       if (!formData.end_date) setEndDateError(true);
       toast.error('Please select a product and set an end date');
+      return;
+    }
+    // The create endpoint refuses a deadline under the minimum round window
+    // (approval time comes out of the vendors' window); say so before the POST.
+    if (isRoundDeadlineTooSoon(formData.end_date)) {
+      setEndDateError(true);
+      toast.error(ROUND_DEADLINE_TOO_SOON_MESSAGE);
       return;
     }
     setEndDateError(false);
@@ -2569,7 +2582,7 @@ const NegotiationModal = ({
                 setFormData(prev => ({ ...prev, end_date: next }));
                 if (next) setEndDateError(false);
               }}
-              min={localDateTimeInputMin()}
+              min={localDateTimeInputMin(MIN_ROUND_WINDOW_MS)}
               required
               disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={`${styles.fieldInput} ${endDateError ? styles.fieldInputError : ''}`}

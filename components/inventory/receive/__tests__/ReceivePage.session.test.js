@@ -1,8 +1,9 @@
 // Receive page: one receipt, one post. The session key, dropped replies,
 // retries in the same session and after a reload, the device copy, blur
-// saves, double taps, scans in a converted unit, and the draft / dispatch
-// notices. services/inventory, the scanner and the IndexedDB device copy
-// (draftStore) are mocked; the store survives an unmount like the real one.
+// saves racing a post, queued posts, gateway errors, double taps, scans in a
+// converted unit, and the draft / dispatch notices. services/inventory, the
+// outbox, the scanner and the IndexedDB device copy (draftStore) are mocked;
+// the store survives an unmount like the real one.
 
 jest.mock("next/router", () => ({
   __esModule: true,
@@ -37,6 +38,16 @@ jest.mock("@/components/inventory/scan/ScanInput", () => ({
     mockScanner = props;
     return <div data-testid="stub-scanner" />;
   },
+}));
+// The outbox: sends straight through unless a test queues the next event.
+let mockQueueNext = false;
+jest.mock("@/components/inventory/offline/outbox", () => ({
+  __esModule: true,
+  submitOrQueue: jest.fn(async (event) => {
+    if (mockQueueNext) return { queued: true };
+    return { queued: false, result: await event.send(event.payload) };
+  }),
+  usePendingCount: () => 0,
 }));
 let mockPerms = { loading: false, canUpdate: true };
 jest.mock("@/hooks/useModulePermissions", () => ({
@@ -80,6 +91,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { getReceiveContext, createGrn, updateGrn, postGrn, discardGrn, getGrn } from "@/services/inventory";
+import { submitOrQueue } from "@/components/inventory/offline/outbox";
 import * as draftStore from "../draftStore";
 import ReceivePage from "../ReceivePage";
 
@@ -127,6 +139,17 @@ const replayedGrn = (over = {}) => {
   return g;
 };
 
+/** A replay as B1 marks it (FX1): the original GRN with replayed:true, whatever else it carries. */
+const flaggedReplay = (over = {}) => ({ ...postedGrn(over), replayed: true, no_op: true });
+
+/** A refusal in the inventory envelope. */
+const apiError = (status, code, details, message = "Refused") => {
+  const err = new Error(message);
+  err.isAxiosError = true;
+  err.response = { status, data: { status: 0, message, code, details } };
+  return err;
+};
+
 const networkError = () => {
   const err = new Error("Network Error");
   err.isAxiosError = true;
@@ -171,6 +194,7 @@ beforeEach(() => {
   store.clear();
   postReplies = [];
   mockScanner = null;
+  mockQueueNext = false;
   mockPerms = { loading: false, canUpdate: true };
   answerPosts();
   updateGrn.mockImplementation((id, input) => Promise.resolve(draftGrn({ id, clientEventId: input.clientEventId })));
@@ -391,6 +415,109 @@ describe("scanning in a converted unit", () => {
     type("Received qty for Dish soap", "2");
     for (let i = 0; i < 12; i++) act(() => mockScanner.onResolved(pieceScan));
     expect(field("Received qty for Dish soap")).toHaveValue("3");
+  });
+});
+
+describe("fix round 2: the key holds through background saves, queues and gateway errors", () => {
+  it("a background save that finds the key spent while Confirm waits: reported, and nothing posts under a new key", async () => {
+    await mount(ctx({ draft: draftGrn({ lines: [{ poLineId: 11, receivedQty: 4, acceptedQty: 4, rejectedQty: 0 }] }) }));
+    // Draft 900 (key K1) was posted elsewhere; the PUT that finds out is slow.
+    let refuse;
+    updateGrn.mockImplementation(() => new Promise((_, reject) => { refuse = reject; }));
+    getGrn.mockResolvedValue(replayedGrn({ id: 900, postedAt: "2026-10-24T09:00:00.000Z" }));
+
+    type("Received qty for Basmati rice 25kg", "6");
+    fireEvent.focusOut(field("Received qty for Basmati rice 25kg"));
+    await waitFor(() => expect(updateGrn).toHaveBeenCalled(), { timeout: 2000 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Post receipt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Post this receipt?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm and post" }));
+    await act(async () => refuse(apiError(409, "CONFLICT", { grnId: 900, status: "posted" }, "Only a draft GRN can be edited")));
+
+    expect(await screen.findByText(/This receipt was already posted as GRN\/46\/2026-27\/00012/)).toBeInTheDocument();
+    expect(screen.queryByText("Receipt posted")).toBeNull();
+    expect(field("Received qty for Basmati rice 25kg")).toHaveValue("6");
+    expect(postCalls()).toHaveLength(0); // no second receipt under a fresh key
+    expect(screen.getAllByText(/This receipt was already posted/)).toHaveLength(1);
+  });
+
+  it("a queued post keeps the device copy and its key; reopening before the sync re-posts under that key", async () => {
+    mockQueueNext = true;
+    const first = await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    await postAndConfirm();
+    expect(await screen.findByText("Waiting to sync")).toBeInTheDocument();
+    expect(screen.queryByText(/no connection/i)).toBeNull();
+    const queued = submitOrQueue.mock.calls[0][0];
+    expect(queued).toMatchObject({ kind: "grn_post", payload: { grnId: null, clientEventId: queued.clientEventId } });
+    expect(store.get(KEY)).toMatchObject({
+      draftId: null, clean: false, sessionKey: queued.clientEventId, entries: { 11: expect.objectContaining({ received: "6" }) },
+    });
+    first.unmount();
+
+    mockQueueNext = false;
+    await mount();
+    expect(await screen.findByText("Restored the entries you had not saved yet on this device.")).toBeInTheDocument();
+    expect(field("Received qty for Basmati rice 25kg")).toHaveValue("6");
+    await postAndConfirm();
+    expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(postCalls()).toHaveLength(1);
+    expect(postCalls()[0].clientEventId).toBe(queued.clientEventId);
+  });
+
+  it("a queued post that synced before the reopen: posting again is reported, never doubled", async () => {
+    mockQueueNext = true;
+    const first = await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    await postAndConfirm();
+    await screen.findByText("Waiting to sync");
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    first.unmount();
+
+    mockQueueNext = false;
+    replyToPosts(flaggedReplay({ postedAt: new Date(Date.now() + 1000).toISOString() }));
+    await mount();
+    await screen.findByText("Restored the entries you had not saved yet on this device.");
+    await postAndConfirm();
+    expect(await screen.findByText(/This receipt was already posted as GRN\/46\/2026-27\/00012/)).toBeInTheDocument();
+    expect(screen.queryByText("Receipt posted")).toBeNull();
+    expect(postCalls().map((c) => c.clientEventId)).toEqual([key]);
+  });
+
+  it("a replay flagged replayed:true is never taken as a fresh post, warnings or not", async () => {
+    await mount();
+    type("Received qty for Basmati rice 25kg", "5");
+    replyToPosts(flaggedReplay({ warnings: [] }));
+    await postAndConfirm();
+    expect(await screen.findByText(/This receipt was already posted as GRN\/46\/2026-27\/00012/)).toBeInTheDocument();
+    expect(screen.queryByText("Receipt posted")).toBeNull();
+  });
+
+  it("a gateway 502 is an unknown outcome: retry with the same key, and its replay is ours", async () => {
+    await mount();
+    type("Received qty for Basmati rice 25kg", "5");
+    replyToPosts(apiError(502, undefined, {}, "Bad Gateway"), () => flaggedReplay({ grnNumber: "GRN/46/2026-27/00014" }));
+    await postAndConfirm();
+    expect(await screen.findByRole("alert")).toHaveTextContent("isn't known whether this receipt was posted");
+    fireEvent.click(screen.getByRole("button", { name: /Retry posting/ }));
+    expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(screen.getByText("GRN/46/2026-27/00014")).toBeInTheDocument();
+    const [a, b] = postCalls();
+    expect(b.clientEventId).toBe(a.clientEventId);
+  });
+
+  it("a server draft's key is never dated: a device clock ahead of the server can't turn our own lost post into 'earlier'", async () => {
+    await mount(
+      ctx({ draft: draftGrn({ lines: [{ poLineId: 11, receivedQty: 5, acceptedQty: 5, rejectedQty: 0 }] }) })
+    );
+    // The server's postedAt reads before this page loaded (the device clock runs ahead).
+    replyToPosts(networkError(), () => replayedGrn({ postedAt: "2026-10-24T09:00:00.000Z" }));
+    await postAndConfirm();
+    await screen.findByRole("button", { name: /Retry posting/ });
+    fireEvent.click(screen.getByRole("button", { name: /Retry posting/ }));
+    expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(postCalls().map((c) => c.clientEventId)).toEqual([K1, K1]);
   });
 });
 

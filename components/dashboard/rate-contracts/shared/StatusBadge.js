@@ -39,6 +39,9 @@ const LABELS = {
   declined:                    { label: "Declined",               tone: "danger" },
 };
 
+/** The pill's text for a status, without the pill. */
+export const arcStatusLabel = (status) => LABELS[status]?.label || status || null;
+
 export default function StatusBadge({ status, size = "md" }) {
   const entry = LABELS[status] || { label: status, tone: "muted" };
   const cls = `${styles.badge} ${styles[entry.tone]} ${size === "sm" ? styles.sm : ""}`;

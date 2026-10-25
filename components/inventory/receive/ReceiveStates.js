@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Modal } from "react-bootstrap";
 import {
-  AlertTriangle, ArrowLeft, Building2, CheckCircle2, CloudOff, FileText, Info, Loader2, PackageCheck, PackageOpen,
+  AlertTriangle, ArrowLeft, Building2, CheckCircle2, CloudUpload, FileText, Info, Loader2, PackageCheck, PackageOpen,
   RefreshCw, Trash2, X,
 } from "lucide-react";
 import { routes } from "./receiveUtils";
@@ -123,13 +123,15 @@ export const PickHotelState = ({ choices = [], onPick }) => (
   </div>
 );
 
+// Neutral on purpose: the outbox is first-in first-out, so a post can queue
+// behind an older one while the connection is fine.
 export const QueuedState = ({ pendingCount = 0 }) => (
   <div className={styles.stateCard} role="status">
-    <div className={styles.stateIc}><CloudOff size={20} aria-hidden="true" /></div>
-    <h2 className={styles.stateTitle}>Saved on this device</h2>
+    <div className={styles.stateIc}><CloudUpload size={20} aria-hidden="true" /></div>
+    <h2 className={styles.stateTitle}>Waiting to sync</h2>
     <p className={styles.stateSub}>
-      There is no connection right now. The receipt posts by itself when the signal is back
-      {pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}.
+      This receipt is saved on this device and posts by itself as soon as it can
+      {pendingCount > 0 ? ` (${pendingCount} waiting)` : ""}. You can leave this page.
     </p>
     <div className={styles.stateActions}>
       <BackToAwaiting />

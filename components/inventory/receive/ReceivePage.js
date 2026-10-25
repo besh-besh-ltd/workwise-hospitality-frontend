@@ -45,8 +45,10 @@ import styles from "./receive.module.scss";
 //
 // Posting is ONE request keyed by the session's clientEventId (useReceiveDraft):
 // the server posts the draft holding the key, or replays it on a retry. It
-// goes through the offline outbox (kind grn_post); while the outbox has no
-// queue, a dropped reply keeps the screen and offers Retry with the same key.
+// goes through the offline outbox (kind grn_post). A queued post keeps the key
+// and the device copy until the receipt is reopened; an unknown outcome (no
+// answer, or a gateway 502/503/504) keeps the screen and offers Retry with the
+// same key.
 
 const ReceivePage = ({
   poId,
@@ -131,7 +133,7 @@ const ReceivePage = ({
     active: view.phase === "ready",
     watch: { header, entries, dirty, hotelId },
     postingRef,
-    onSpent: (grn) => settleSpentRef.current?.(grn),
+    onSpent: (spent) => settleSpentRef.current?.(spent),
   });
   const { startSession, restoreLocal } = session;
 
@@ -311,9 +313,15 @@ const ReceivePage = ({
     setNotice({ tone: "warn", text: earlierPostMessage(grn), grnId: grn?.id ?? null });
   }, [session, commitDirty]);
 
-  const settleSpent = useCallback((grn) =>
-    (session.verdictFor(grn) === "ours" ? finishPosted(grn) : Promise.resolve(showEarlier(grn))),
-  [session, finishPosted, showEarlier]);
+  /**
+   * The session key turned out to be posted already (an AlreadyPosted). Settled
+   * once: if the key has moved on since, someone already did.
+   */
+  const settleSpent = useCallback((spent) => {
+    if (spent.key != null && spent.key !== session.sessionKeyRef.current) return Promise.resolve();
+    const grn = spent.postedGrn;
+    return session.verdictFor(grn) === "ours" ? finishPosted(grn) : Promise.resolve(showEarlier(grn));
+  }, [session, finishPosted, showEarlier]);
   useEffect(() => {
     settleSpentRef.current = settleSpent;
   });
@@ -325,7 +333,7 @@ const ReceivePage = ({
       if (grn) toast.success("Draft saved");
     } catch (err) {
       if (err instanceof AlreadyPosted) {
-        await settleSpent(err.postedGrn);
+        await settleSpent(err);
         return;
       }
       setFormError(errorInfo(err, "Could not save the draft. Your entries are kept on this device.").message);
@@ -340,7 +348,7 @@ const ReceivePage = ({
       initForm(ctxRef.current, { ignoreDraft: true });
       setNotice({ tone: "note", text: "Draft discarded." });
     } catch (err) {
-      if (err instanceof AlreadyPosted) await settleSpent(err.postedGrn);
+      if (err instanceof AlreadyPosted) await settleSpent(err);
       else if (mountedRef.current) setFormError(errorInfo(err, "Could not discard the draft. Try again.").message);
     } finally {
       if (mountedRef.current) {
@@ -391,10 +399,12 @@ const ReceivePage = ({
     if (act.uomPrompt) setUomPrompt(act.uomPrompt);
   };
 
-  const onQueued = async () => {
+  // Queued: the outbox owns the post now. The device copy notePosting wrote
+  // ({draftId, sessionKey, entries}) and the key stay, so reopening this
+  // receipt settles it either way: landed → "already posted", refused → the
+  // entries come back under the same key, still waiting → a re-post replays.
+  const onQueued = () => {
     commitDirty(false);
-    await session.clearLocal();
-    session.rotateKey();
     if (mountedRef.current) setView({ phase: "queued" });
   };
 
@@ -413,15 +423,19 @@ const ReceivePage = ({
       ctxLines: data.lines || [],
       entries: entriesOverride || entriesRef.current,
     });
-    let key = null;
+    // The key is fixed before waiting on saves: a background save that finds
+    // it spent is settled here, and a key that moved on means it was settled.
+    const key = session.sessionKeyRef.current;
+    let sent = false;
     try {
       await session.beforePost();
-      key = session.sessionKeyRef.current;
+      if (session.sessionKeyRef.current !== key) return;
       await session.notePosting();
       const payload = { grnId: session.grnIdRef.current, clientEventId: key, input };
+      sent = true;
       const outcome = await submitOrQueue({ kind: GRN_POST_KIND, clientEventId: key, payload, send: (p) => api.post(p) });
       if (outcome?.queued) {
-        await onQueued();
+        onQueued();
         return;
       }
       const grn = postedGrnOf(outcome?.result);
@@ -429,9 +443,9 @@ const ReceivePage = ({
       else showEarlier(grn);
     } catch (err) {
       if (err instanceof AlreadyPosted) {
-        await settleSpent(err.postedGrn);
+        await settleSpent(err);
       } else {
-        if (key && isNetworkError(err)) session.markLost(key);
+        if (sent && isNetworkError(err)) session.markLost(key);
         if (mountedRef.current) handlePostError(err);
       }
     } finally {
@@ -476,7 +490,7 @@ const ReceivePage = ({
       if (mountedRef.current && att) setAttachments((list) => [...list, att]);
     } catch (err) {
       if (err instanceof AlreadyPosted) {
-        await settleSpent(err.postedGrn);
+        await settleSpent(err);
         return;
       }
       if (mountedRef.current) setAttachError(errorInfo(err, "Could not upload that file. Try again.").message);

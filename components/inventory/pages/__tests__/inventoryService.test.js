@@ -87,6 +87,7 @@ const JSON_CASES = [
   ["saveCountLines", [4, [{ invItemId: 1 }]], "put", `${B}/counts/4/lines`, { lines: [{ invItemId: 1 }] }],
   ["submitCount", [4], "post", `${B}/counts/4/submit`, undefined],
   ["approveCount", [4, { 1: "r" }], "post", `${B}/counts/4/approve`, { reasons: { 1: "r" } }],
+  ["approveCount", [4, { 1: "r" }, { 1: 52.5 }], "post", `${B}/counts/4/approve`, { reasons: { 1: "r" }, unitCosts: { 1: 52.5 } }],
   ["cancelCount", [4], "post", `${B}/counts/4/cancel`, undefined],
   ["listCounts", [{ hotelId: 2 }], "get", `${B}/counts`, undefined, { hotelId: 2 }],
   ["getInventoryOverview", [{ hotelId: 2 }], "get", `${B}/overview`, undefined, { hotelId: 2 }],
@@ -97,6 +98,7 @@ const JSON_CASES = [
   ["printItemLabels", [{ layout: "A4_65" }], "post", `${B}/labels/items`, { layout: "A4_65" }],
   ["printGrnLabels", [9, { layout: "A4_24" }], "post", `${B}/labels/grn/9`, { layout: "A4_24" }],
   ["revokeSiteRep", [7], "post", `${B}/po/7/site-rep/revoke`, undefined],
+  ["revokeSiteRep", [7, 31], "post", `${B}/po/7/site-rep/revoke`, { tokenId: 31 }],
 ];
 
 describe("buyer calls use the shared instance with the contract method and path", () => {

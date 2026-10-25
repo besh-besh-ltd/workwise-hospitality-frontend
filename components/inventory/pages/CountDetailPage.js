@@ -1,6 +1,7 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import CountDetail from "@/components/inventory/counts/CountDetail";
 
-const CountDetailPage = (props) => <PagePlaceholder title="Inventory · Count" />;
+// `key` resets every bit of state (typed figures, reasons) between counts.
+const CountDetailPage = ({ id }) => (id ? <CountDetail key={id} id={id} /> : null);
 
 export default CountDetailPage;

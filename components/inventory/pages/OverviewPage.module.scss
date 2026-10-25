@@ -1,0 +1,85 @@
+/* Inventory · Overview. The dashboard surface system (KpiTile, DashPanel,
+ * RankList from components/dashboard/shared) does the heavy lifting; this
+ * file only holds the page frame and the header controls. */
+
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.hotelPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #71717a;
+}
+
+.hotelSelect {
+  min-width: 200px;
+  min-height: 34px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid #ebebe6;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #18181b;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover { border-color: #d4d4cf; }
+  &:focus-visible {
+    outline: 2px solid #18181b;
+    outline-offset: 1px;
+  }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #ebebe6;
+  background: #ffffff;
+  color: #18181b;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover { background: #fafaf9; color: #18181b; }
+  &:focus-visible {
+    outline: 2px solid #18181b;
+    outline-offset: 1px;
+  }
+}
+
+.mono {
+  font-family: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+/* Phone layer */
+@media (max-width: 768px) {
+  .hotelPicker { width: 100%; }
+  .hotelSelect { flex: 1; min-width: 0; min-height: 44px; font-size: 16px; }
+  .linkBtn { min-height: 44px; }
+}

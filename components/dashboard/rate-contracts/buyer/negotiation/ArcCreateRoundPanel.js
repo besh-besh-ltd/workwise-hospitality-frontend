@@ -7,8 +7,12 @@
 // module's product shape by arcNegotiationAdapter; the module's per-round payloads
 // are folded into ARC's single `{end_date, products[]}` create call.
 //
-// Scope (step 1) and Review (step 3) are ARC-native (arc_v2 tokens); the rich
-// fields step (step 2) is the shared RFQ component.
+// Scope (step 1) is ARC-native (arc_v2 tokens); the rich fields step (step 2)
+// and the review (step 3) are the shared RFQ components. The review used to be
+// ARC-native too, with a bare deadline input and no floor: production
+// ARC-2026-27-0006 opened eight rounds 4–64 minutes from their deadline and
+// seven lapsed before approval. StepReview carries the 2 h floor, the remarks
+// for approvers and a card per round with each vendor's targets.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
@@ -17,7 +21,12 @@ import * as ArcApi from "@/services/arc_v2";
 import { getChargeNames } from "@/services/rfq";
 import useCreateRoundState from "@/components/dashboard/buyer/negotiation/create-round/useCreateRoundState";
 import StepVendorsAndTargets from "@/components/dashboard/buyer/negotiation/create-round/StepVendorsAndTargets";
-import { normalizeArcProducts, buildArcCreatePayload } from "@/components/dashboard/buyer/negotiation/create-round/adapters/arcNegotiationAdapter";
+import StepReview from "@/components/dashboard/buyer/negotiation/create-round/StepReview";
+import {
+  ARC_WHOLE_SCOPE,
+  normalizeArcProducts,
+  buildArcCreatePayload,
+} from "@/components/dashboard/buyer/negotiation/create-round/adapters/arcNegotiationAdapter";
 import { getApiErrorMessage } from "@/utils/apiError";
 
 const STEPS = [
@@ -47,11 +56,6 @@ function computeBusy(rounds = []) {
     }
   });
   return { busyItemIds, arcLevelBusy };
-}
-
-function fmtDateInput(d) {
-  // datetime-local wants "YYYY-MM-DDTHH:mm"
-  return d || "";
 }
 
 export default function ArcCreateRoundPanel({ arcId }) {
@@ -137,9 +141,23 @@ export default function ArcCreateRoundPanel({ arcId }) {
     if (wizard.addCurrentToQueue()) toast.success("Entry added to the round");
   };
 
+  const handleEditQueuedRound = (idx) => {
+    if (wizard.hasCurrentRound) {
+      if (!wizard.canAddToQueue) {
+        toast.error("Finish or cancel your current selection before editing a queued entry.");
+        return;
+      }
+      if (!wizard.addCurrentToQueue()) {
+        toast.error("Could not park the current entry — check its targets.");
+        return;
+      }
+    }
+    if (!wizard.editQueuedRound(idx)) toast.error("This entry can’t be edited — remove and re-add it instead.");
+  };
+
   const handleSubmit = async () => {
     if (!wizard.canSubmit) {
-      if (!wizard.formData.end_date) toast.error("Set an end date for the round.");
+      toast.error((wizard.step3Errors && wizard.step3Errors[0]) || "Please complete the round before submitting.");
       return;
     }
     const rounds = [...wizard.queuedRounds];
@@ -345,67 +363,37 @@ export default function ArcCreateRoundPanel({ arcId }) {
           />
         )}
 
-        {/* STEP 3 — Review (ARC-native) */}
+        {/* STEP 3 — Review (SHARED RFQ component) */}
         {wizard.step === 3 && (
-          <div className="section-card" style={{ padding: 18 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>Review &amp; set deadline</div>
-
-            <label className="label" style={{ display: "block", marginBottom: 6 }}>Round deadline <span className="req">*</span></label>
-            <input
-              type="datetime-local"
-              className="input"
-              value={fmtDateInput(wizard.formData.end_date)}
-              onChange={(e) => wizard.updateFormData({ end_date: e.target.value })}
-              style={{ maxWidth: 280, marginBottom: 16 }}
+          <>
+            <StepReview
+              product={wizard.selectedProduct}
+              productPriceData={wizard.productPriceData}
+              selectedVendorIds={wizard.selectedVendorIds}
+              vendorTargets={wizard.vendorTargets}
+              formData={wizard.formData}
+              updateFormData={wizard.updateFormData}
+              effectiveFields={wizard.effectiveFields}
+              products={products}
+              queuedRounds={wizard.queuedRounds}
+              endDateError={wizard.endDateError}
+              step3Errors={wizard.step3Errors}
+              onEditProduct={() => wizard.goToStep(1)}
+              onEditVendors={() => wizard.goToStep(2)}
+              onRemoveQueuedRound={wizard.removeFromQueue}
+              onEditQueuedRound={handleEditQueuedRound}
+              chargeNamesList={chargeNamesList}
+              mode={wizard.mode}
+              remarks={wizard.roundRemarks}
+              onRemarksChange={wizard.setRoundRemarks}
+              wholeScope={ARC_WHOLE_SCOPE}
             />
-
-            <label htmlFor="arc-round-remarks" className="label" style={{ display: "block", marginBottom: 4 }}>Remarks for approvers</label>
-            <div style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6 }}>
-              Why is this round being raised? Approvers and your team will see this. Vendors never do.
-            </div>
-            <textarea
-              id="arc-round-remarks"
-              className="input"
-              value={wizard.roundRemarks}
-              onChange={(e) => wizard.setRoundRemarks(e.target.value)}
-              maxLength={1000}
-              rows={3}
-              placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
-              style={{ width: "100%", maxWidth: 640, resize: "vertical" }}
-            />
-            <div style={{ fontSize: 12, color: "var(--fg-3)", margin: "4px 0 16px", maxWidth: 640, textAlign: "right" }}>
-              {wizard.roundRemarks.length}/1000
-            </div>
-
-            {/* Queued + current entries */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {wizard.queuedRounds.map((entry, idx) => (
-                <div key={idx} className="section-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 12.5 }}>{entry.productName || (entry.mode === "rfq" ? "ARC-level" : "Item")}</div>
-                    <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{entry.summary?.vendorCount || 0} vendor{entry.summary?.vendorCount === 1 ? "" : "s"}</div>
-                  </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => wizard.editQueuedRound(idx)} disabled={submitting}>Edit</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => wizard.removeFromQueue(idx)} disabled={submitting}>Remove</button>
-                </div>
-              ))}
-
-              {wizard.hasCurrentRound && wizard.canGoToStep3 && (
-                <div className="section-card" style={{ padding: "10px 12px", borderColor: "var(--primary)", background: "var(--primary-soft)" }}>
-                  <div style={{ fontWeight: 600, fontSize: 12.5 }}>
-                    {wizard.mode === "rfq" ? "Whole ARC" : (wizard.selectedProduct?.product_details?.[0]?.name || "Current item")} <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>· current</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{wizard.selectedVendorIds.length} vendor{wizard.selectedVendorIds.length === 1 ? "" : "s"}</div>
-                </div>
-              )}
-            </div>
-
             {canAddAnother && (
               <button className="btn btn-secondary btn-sm" onClick={handleAddAnother} disabled={submitting} style={{ marginTop: 12 }}>
                 + Add another entry
               </button>
             )}
-          </div>
+          </>
         )}
       </div>
 

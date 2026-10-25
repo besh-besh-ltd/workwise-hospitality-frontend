@@ -101,7 +101,9 @@ export const startCount = (payload) => post("/counts", payload);
 export const getCount = (id) => get(`/counts/${id}`);
 export const saveCountLines = (id, lines) => put(`/counts/${id}/lines`, { lines });
 export const submitCount = (id) => post(`/counts/${id}/submit`);
-export const approveCount = (id, reasons) => post(`/counts/${id}/approve`, { reasons });
+// `unitCosts` ({[lineId]: number > 0}) only when the server asked for them.
+export const approveCount = (id, reasons, unitCosts) =>
+  post(`/counts/${id}/approve`, unitCosts ? { reasons, unitCosts } : { reasons });
 export const cancelCount = (id) => post(`/counts/${id}/cancel`);
 export const listCounts = (params) => get("/counts", params);
 export const getInventoryOverview = (params) => get("/overview", params);
@@ -143,5 +145,7 @@ export const uploadTokenGrnAttachment = async (token, id, file, kind) =>
     )
   );
 
-// Buyer-side: revoke the site-rep link for a PO (normal authenticated call).
-export const revokeSiteRep = (poId) => post(`/po/${poId}/site-rep/revoke`);
+// Buyer-side: revoke a site-rep link for a PO (normal authenticated call).
+// With `tokenId` only that person's link is revoked; without it, every live link.
+export const revokeSiteRep = (poId, tokenId) =>
+  post(`/po/${poId}/site-rep/revoke`, tokenId ? { tokenId } : undefined);

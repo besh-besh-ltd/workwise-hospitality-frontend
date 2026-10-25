@@ -92,8 +92,17 @@ export const handleUpdateGST = async (id, value) => {
   return res;
 }
 
-export const handleRaiseInvoice = async (po_id, invoice_url) => {
-  const res = await axiosInstance.post(`/po/raiseInvoice`, { po_id, invoice_url });
+// `details` (inventory C4): {invoiceNumber, invoiceDate, invoiceAmount,
+// dispatchId?}. Without it the body is the legacy file-only invoice.
+export const handleRaiseInvoice = async (po_id, invoice_url, details = null) => {
+  const body = { po_id, invoice_url };
+  if (details) {
+    body.invoice_number = details.invoiceNumber;
+    body.invoice_date = details.invoiceDate;
+    body.invoice_amount = details.invoiceAmount;
+    if (details.dispatchId != null) body.dispatch_id = details.dispatchId;
+  }
+  const res = await axiosInstance.post(`/po/raiseInvoice`, body);
   return res;
 }
 
