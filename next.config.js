@@ -60,6 +60,12 @@ const nextConfig = {
         source: '/vendor/network/accept-invite',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },
+      {
+        // Site-rep receive link: served with ?t=<token> until the page strips it,
+        // so nothing it loads (scripts, fonts, the API) may carry it as a Referer.
+        source: '/receive/token',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
     ];
   },
   async redirects() {
@@ -68,6 +74,16 @@ const nextConfig = {
         source: '/dashboard/vendor/reviews-ratings',
         destination: '/dashboard/vendor/subscription',
         permanent: true,
+      },
+      {
+        // Legacy site-rep GRN links (/dashboard/buyer/purchase-order/grn?rfq=&po=&token=)
+        // move to the token receive page. Server-side on purpose: on a /dashboard
+        // path the Layout would first try ?token= as a vendor login and bounce the
+        // rep to /. Next forwards the old query too; the page drops all of it.
+        source: '/dashboard/buyer/purchase-order/grn',
+        has: [{ type: 'query', key: 'token', value: '(?<tok>.+)' }],
+        destination: '/receive/token?t=:tok',
+        permanent: false,
       },
     ];
   },
