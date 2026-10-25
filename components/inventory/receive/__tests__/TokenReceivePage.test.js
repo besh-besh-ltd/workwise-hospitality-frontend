@@ -32,9 +32,15 @@ jest.mock("next/router", () => {
   };
 });
 jest.mock("next/head", () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
+// The camera's props, to feed it what it "sees" (CameraScanner reports to
+// onSeenWhilePaused, never onDetected, while paused).
+let mockCamera = null;
 jest.mock("next/dynamic", () => ({
   __esModule: true,
-  default: () => function MockCamera() { return <div data-testid="camera" />; },
+  default: () => function MockCamera(props) {
+    mockCamera = props;
+    return <div data-testid="camera" />;
+  },
 }));
 jest.mock("react-toastify", () => {
   const toast = jest.fn();
@@ -573,6 +579,47 @@ describe("TokenReceivePage", () => {
     const pad = await screen.findByRole("dialog", { name: "Paneer" });
     expect(pad).toBeInTheDocument();
     expect(resolveScan).not.toHaveBeenCalled();
+  });
+
+  test("a weighed pack kept in front of the camera while its keypad is up is not read again when it closes", async () => {
+    let now = 30_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      await mount();
+      fireEvent.click(screen.getByRole("button", { name: "Scan with camera" }));
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      const pad = await screen.findByRole("dialog", { name: "Paneer" });
+      expect(mockCamera.paused).toBe(true);
+
+      // Three seconds at the keypad, the pack still in frame.
+      for (let t = 0; t < 6; t += 1) {
+        now += 500;
+        act(() => {
+          mockCamera.onSeenWhilePaused?.("PANEER-1");
+        });
+      }
+      fireEvent.click(within(pad).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull());
+      expect(mockCamera.paused).toBe(false);
+
+      // Scanning resumes with the same pack in front of the lens: no new read.
+      now += 150;
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull();
+
+      // Out of frame for 1.6 s and shown again: that is a new scan.
+      now += 1600;
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      expect(await screen.findByRole("dialog", { name: "Paneer" })).toBeInTheDocument();
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test("twelve single-piece scans of a 12-piece box make exactly 1 box", async () => {

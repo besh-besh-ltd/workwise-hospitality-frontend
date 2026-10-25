@@ -12,7 +12,28 @@ import { useEffect, useRef } from "react";
 // default is prevented, so it neither submits a form nor moves focus; that is
 // how ScanInput tells a wedge scan from a hand-typed Enter.
 //
+// GS1-128 and GS1 DataMatrix reads carry GS (FNC1) separators, a control
+// character no keyboard key types. Scanners send it as Ctrl+] (or Alt+029 on
+// the numeric keypad, or a bare "\x1D" key). Inside a burst those are the GS,
+// not a shortcut: without it a GS1 read loses everything before the first
+// separator. A lone modifier press (Shift, Ctrl, Alt) neither ends nor
+// extends a burst; any other Ctrl / Alt / Meta chord still ends it.
+//
 // Mount one scanner per screen: two would each claim the same burst.
+
+/** The default gap between a scanner's keystrokes (a person types far slower). */
+export const WEDGE_MAX_INTER_KEY_MS = 35;
+const GS = "\x1d";
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"]);
+
+const isGsChord = (e) =>
+  e.ctrlKey && !e.altKey && !e.metaKey && (e.key === "]" || e.code === "BracketRight" || e.key === GS);
+
+/** The digit of a numeric-keypad key (Alt codes are typed there), else null. */
+const keypadDigit = (e) => {
+  const m = /^Numpad([0-9])$/.exec(e.code || "");
+  return m ? m[1] : null;
+};
 
 const isEditable = (el) => {
   if (!el || el.nodeType !== 1) return false;
@@ -23,7 +44,7 @@ const isEditable = (el) => {
 
 const claimsScans = (el) => el?.closest?.("[data-scan-input]") != null;
 
-export function useWedgeScanner({ onCode, minLength = 4, maxInterKeyMs = 35, enabled = true } = {}) {
+export function useWedgeScanner({ onCode, minLength = 4, maxInterKeyMs = WEDGE_MAX_INTER_KEY_MS, enabled = true } = {}) {
   const onCodeRef = useRef(onCode);
   useEffect(() => {
     onCodeRef.current = onCode;
@@ -35,24 +56,47 @@ export function useWedgeScanner({ onCode, minLength = 4, maxInterKeyMs = 35, ena
     const terminatorGraceMs = Math.max(100, maxInterKeyMs * 3);
     let buffer = "";
     let lastAt = 0;
+    // Keypad digits typed while Alt is held (an Alt code), or null.
+    let altDigits = null;
 
     const reset = () => {
       buffer = "";
       lastAt = 0;
     };
+    const live = (now) => lastAt > 0 && now - lastAt <= maxInterKeyMs;
+    const push = (ch, now) => {
+      if (!live(now)) buffer = "";
+      buffer += ch;
+      lastAt = now;
+    };
+    const ignored = (target) => isEditable(target) && !claimsScans(target);
 
     const onKeyDown = (e) => {
       const target = e.target;
-      if (isEditable(target) && !claimsScans(target)) {
+      if (ignored(target)) {
         reset();
+        altDigits = null;
+        return;
+      }
+      const now = Date.now();
+      const { key } = e;
+      if (MODIFIER_KEYS.has(key)) {
+        if (key === "Alt") altDigits = "";
+        return;
+      }
+      if (isGsChord(e)) {
+        push(GS, now);
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && altDigits !== null && keypadDigit(e) !== null) {
+        altDigits += keypadDigit(e);
+        if (live(now)) lastAt = now; // the Alt code is part of a running burst
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) {
         reset();
         return;
       }
-      const now = Date.now();
-      const { key } = e;
       if (key === "Enter" || key === "Tab") {
         const fresh = lastAt > 0 && now - lastAt <= terminatorGraceMs;
         const code = buffer;
@@ -63,15 +107,27 @@ export function useWedgeScanner({ onCode, minLength = 4, maxInterKeyMs = 35, ena
         }
         return;
       }
-      // Shift, CapsLock and other named keys do not break a burst.
+      // CapsLock and other named keys do not break a burst.
       if (typeof key !== "string" || key.length !== 1) return;
-      if (now - lastAt > maxInterKeyMs) buffer = "";
-      buffer += key;
-      lastAt = now;
+      push(key, now);
+    };
+
+    // An Alt code is typed when Alt comes up: 29 (or 029, 0029) is GS.
+    const onKeyUp = (e) => {
+      if (e.key !== "Alt" || altDigits === null) return;
+      const digits = altDigits;
+      altDigits = null;
+      if (!digits || ignored(e.target)) return;
+      if (Number(digits) === 29) push(GS, Date.now());
+      else reset();
     };
 
     window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
   }, [enabled, minLength, maxInterKeyMs]);
 }
 

@@ -15,7 +15,13 @@ import styles from "./Scan.module.scss";
 // Props:
 //   onDetected(rawValue, format)  every code in every decoded frame (the
 //                                 caller's useScanner drops repeats)
-//   paused                        stop decoding but keep the camera open
+//   paused                        stop reading but keep the camera open
+//   onSeenWhilePaused(rawValue, format)
+//                                 optional: while paused, keep decoding and
+//                                 report what is in frame here instead (never
+//                                 to onDetected), so the caller's repeat guard
+//                                 knows a code that stayed in front of the
+//                                 lens through a dialog is not a new scan
 //
 // Keep this mounted across a screen's steps and use `paused` while a step is
 // busy: iOS home-screen apps ask for camera permission again on every new
@@ -56,10 +62,11 @@ const stopStream = (stream) => {
   });
 };
 
-const CameraScanner = ({ onDetected, paused = false }) => {
+const CameraScanner = ({ onDetected, onSeenWhilePaused, paused = false }) => {
   const videoRef = useRef(null);
   const trackRef = useRef(null);
   const onDetectedRef = useRef(onDetected);
+  const onSeenWhilePausedRef = useRef(onSeenWhilePaused);
   const pausedRef = useRef(paused);
   const [status, setStatus] = useState("starting");
   const [attempt, setAttempt] = useState(0);
@@ -68,6 +75,7 @@ const CameraScanner = ({ onDetected, paused = false }) => {
 
   useEffect(() => {
     onDetectedRef.current = onDetected;
+    onSeenWhilePausedRef.current = onSeenWhilePaused;
     pausedRef.current = paused;
   });
 
@@ -154,14 +162,15 @@ const CameraScanner = ({ onDetected, paused = false }) => {
       const frame = async () => {
         timer = null;
         if (cancelled) return;
-        if (!pausedRef.current && video.readyState >= 2 && !document.hidden) {
+        // Paused: decode only for a caller that wants to know what stays in frame.
+        const watching = !pausedRef.current || typeof onSeenWhilePausedRef.current === "function";
+        if (watching && video.readyState >= 2 && !document.hidden) {
           try {
             const codes = await detector.detect(video);
             if (cancelled) return;
             failedInARow = 0;
-            if (!pausedRef.current) {
-              for (const c of codes) if (c?.rawValue) onDetectedRef.current?.(c.rawValue, c.format);
-            }
+            const deliver = pausedRef.current ? onSeenWhilePausedRef.current : onDetectedRef.current;
+            for (const c of codes) if (c?.rawValue) deliver?.(c.rawValue, c.format);
           } catch {
             if (cancelled) return;
             failedInARow += 1;

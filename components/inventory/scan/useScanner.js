@@ -14,8 +14,10 @@ import scanFeedback from "./scanFeedback";
 // in frame, so a camera read of a code already seen in the last 1.5 s is
 // dropped, and every sighting restarts that 1.5 s (a code held in front of
 // the lens is one scan). To count the same item again, take it out of frame
-// for 1.5 s. Wedge and typed reads always count: each is a deliberate
-// trigger pull or Enter.
+// for 1.5 s. Sightings while reads are paused (a dialog the scan opened is
+// up) count too, through onCameraSighting: the item still in frame when the
+// dialog closes is not read again. Wedge and typed reads always count: each
+// is a deliberate trigger pull or Enter.
 //
 // Resolves run one at a time in scan order, so results never arrive out of
 // order when the network is slow.
@@ -49,6 +51,7 @@ export function useScanner({ onScan, context, enabled = true, wedge = true } = {
   const queue = useRef(Promise.resolve());
   const inFlight = useRef(0);
 
+  /** Note a camera sighting of `code`; true when it was already in frame (seen in the last 1.5 s). */
   const isCameraRepeat = (code) => {
     const now = Date.now();
     const seen = seenByCamera.current;
@@ -100,6 +103,11 @@ export function useScanner({ onScan, context, enabled = true, wedge = true } = {
   }, []);
 
   const onCameraCode = useCallback((raw) => submit(raw, "camera"), [submit]);
+  /** The paused camera still sees `raw`: not a read, but it is still in frame. */
+  const onCameraSighting = useCallback((raw) => {
+    const parsed = parseScan(raw);
+    if (parsed) isCameraRepeat(parsed.code);
+  }, []);
   const onWedgeCode = useCallback((raw) => submit(raw, "wedge"), [submit]);
 
   useWedgeScanner({ onCode: onWedgeCode, enabled: enabled && wedge });
@@ -113,7 +121,7 @@ export function useScanner({ onScan, context, enabled = true, wedge = true } = {
   // While disabled, reads are simply dropped (submit returns false).
   const stop = useCallback(() => setActive(false), []);
 
-  return { start, stop, active, lastResult, error, pending, submit, onCameraCode };
+  return { start, stop, active, lastResult, error, pending, submit, onCameraCode, onCameraSighting };
 }
 
 export default useScanner;

@@ -2,6 +2,7 @@ import React from "react";
 import { render, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { useWedgeScanner } from "../useWedgeScanner";
+import { parseScan } from "../parseScan";
 
 // Keyboard-mode scanners "type" a whole code in a few milliseconds and end it
 // with Enter or Tab; people type an order of magnitude slower.
@@ -106,5 +107,83 @@ describe("useWedgeScanner", () => {
     }
     fireEvent.keyDown(document.body, { key: "Enter" });
     expect(onCode).toHaveBeenCalledWith("AB12");
+  });
+
+  // A GS1-128 carton label: GTIN, expiry, a variable-length batch that must
+  // be ended by a GS (FNC1), then a serial. A keyboard can't type GS, so a
+  // scanner sends it as Ctrl+] (or Alt+029 on the numeric keypad).
+  const GS1_HEAD = "0109501101530003172612311" + "0BATCH7";
+  const GS1_TAIL = "21SER1";
+  const GS1_READ = `${GS1_HEAD}\x1d${GS1_TAIL}`;
+
+  it("GS1: Ctrl+] inside a burst is the GS separator, so the whole read comes through", () => {
+    const onCode = jest.fn();
+    render(<Harness onCode={onCode} />);
+
+    type(document.body, GS1_HEAD, 4);
+    fireEvent.keyDown(document.body, { key: "Control", code: "ControlLeft", ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: "]", code: "BracketRight", ctrlKey: true });
+    act(() => {
+      jest.advanceTimersByTime(4);
+    });
+    type(document.body, GS1_TAIL, 4);
+    expect(fireEvent.keyDown(document.body, { key: "Enter" })).toBe(false);
+
+    expect(onCode.mock.calls).toEqual([[GS1_READ]]);
+    // Every element survives (the expiry's century follows the fake 1970 clock).
+    expect(parseScan(onCode.mock.calls[0][0])).toEqual({
+      type: "gs1",
+      code: GS1_READ,
+      gs1: { gtin: "09501101530003", batch: "BATCH7", expiry: expect.stringMatching(/26-12-31$/), serial: "SER1" },
+    });
+  });
+
+  it("GS1: Alt+029 on the numeric keypad inside a burst is the GS separator too", () => {
+    const onCode = jest.fn();
+    const { getByTestId } = render(<Harness onCode={onCode} />);
+    const scan = getByTestId("scan");
+
+    type(scan, GS1_HEAD, 4);
+    fireEvent.keyDown(scan, { key: "Alt", code: "AltLeft", altKey: true });
+    for (const d of ["0", "2", "9"]) {
+      fireEvent.keyDown(scan, { key: d, code: `Numpad${d}`, altKey: true });
+      act(() => {
+        jest.advanceTimersByTime(4);
+      });
+    }
+    fireEvent.keyUp(scan, { key: "Alt", code: "AltLeft" });
+    type(scan, GS1_TAIL, 4);
+    expect(fireEvent.keyDown(scan, { key: "Enter" })).toBe(false);
+
+    expect(onCode.mock.calls).toEqual([[GS1_READ]]);
+  });
+
+  it("a shortcut chord in a burst still ends it, and a lone Ctrl+] is not a scan", () => {
+    const onCode = jest.fn();
+    render(<Harness onCode={onCode} />);
+
+    // Ctrl+V (paste) is not a GS: the burst before it is dropped.
+    type(document.body, "ABCDEF", 4);
+    fireEvent.keyDown(document.body, { key: "v", code: "KeyV", ctrlKey: true });
+    type(document.body, "12", 4);
+    fireEvent.keyDown(document.body, { key: "Enter" });
+
+    // Alt with other keypad digits is some other character: not a GS.
+    type(document.body, "ABCDEF", 4);
+    fireEvent.keyDown(document.body, { key: "Alt", code: "AltLeft", altKey: true });
+    fireEvent.keyDown(document.body, { key: "6", code: "Numpad6", altKey: true });
+    fireEvent.keyDown(document.body, { key: "5", code: "Numpad5", altKey: true });
+    fireEvent.keyUp(document.body, { key: "Alt", code: "AltLeft" });
+    type(document.body, "12", 4);
+    fireEvent.keyDown(document.body, { key: "Enter" });
+
+    // Ctrl+] typed by a person, then Enter much later.
+    fireEvent.keyDown(document.body, { key: "]", code: "BracketRight", ctrlKey: true });
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    fireEvent.keyDown(document.body, { key: "Enter" });
+
+    expect(onCode).not.toHaveBeenCalled();
   });
 });

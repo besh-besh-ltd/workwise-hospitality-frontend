@@ -157,7 +157,13 @@ const ScanInput = ({
         </button>
       </div>
 
-      {scanner.active && <LazyCameraScanner onDetected={scanner.onCameraCode} paused={disabled} />}
+      {scanner.active && (
+        <LazyCameraScanner
+          onDetected={scanner.onCameraCode}
+          onSeenWhilePaused={scanner.onCameraSighting}
+          paused={disabled}
+        />
+      )}
 
       <div role="status" aria-live="polite" className={`${styles.status} ${status ? styles[`status_${status.tone}`] : ""}`}>
         {status && (

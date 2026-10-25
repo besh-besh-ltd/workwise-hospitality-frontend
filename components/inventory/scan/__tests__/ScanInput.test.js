@@ -1,13 +1,16 @@
 // The camera itself (getUserMedia, the zxing wasm) is not available in jsdom:
 // next/dynamic is replaced by a stand-in camera whose buttons "see" codes.
+// Like CameraScanner, a paused camera reads nothing (onDetected) but still
+// reports what is in frame (onSeenWhilePaused).
 jest.mock("next/dynamic", () => ({
   __esModule: true,
   default: () =>
-    function MockCamera({ onDetected, paused }) {
+    function MockCamera({ onDetected, onSeenWhilePaused, paused }) {
+      const see = (code) => (paused ? onSeenWhilePaused?.(code) : onDetected(code));
       return (
         <div data-testid="camera" data-paused={String(Boolean(paused))}>
-          <button type="button" onClick={() => onDetected("CAM-1")}>see CAM-1</button>
-          <button type="button" onClick={() => onDetected("CAM-2")}>see CAM-2</button>
+          <button type="button" onClick={() => see("CAM-1")}>see CAM-1</button>
+          <button type="button" onClick={() => see("CAM-2")}>see CAM-2</button>
         </div>
       );
     },
@@ -160,6 +163,41 @@ describe("ScanInput", () => {
     expect(onResolved.mock.calls[0][1]).toEqual(expect.objectContaining({ source: "wedge" }));
   });
 
+  it("a GS1-128 read from a keyboard-mode scanner reaches the server whole (Ctrl+] is its GS)", async () => {
+    jest.useFakeTimers({ now: 15_000_000 });
+    const onResolved = jest.fn();
+    resolveScan.mockResolvedValue(item({ code: "0109501101530003" }));
+    const head = "010950110153000310L1";
+    const tail = "21SER9";
+    try {
+      render(<ScanInput context="po:12" onResolved={onResolved} onUnknown={jest.fn()} />);
+      const press = (init) => {
+        fireEvent.keyDown(field(), init);
+        act(() => {
+          jest.advanceTimersByTime(4);
+        });
+      };
+      for (const key of head) press({ key });
+      press({ key: "Control", code: "ControlLeft", ctrlKey: true });
+      press({ key: "]", code: "BracketRight", ctrlKey: true });
+      for (const key of tail) press({ key });
+      fireEvent.change(field(), { target: { value: head + tail } });
+      fireEvent.keyDown(field(), { key: "Enter" });
+      expect(field()).toHaveValue("");
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+    await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(1));
+    expect(resolveScan.mock.calls).toEqual([[`${head}\x1d${tail}`, "po:12"]]);
+    // The batch before the separator is not lost.
+    expect(onResolved.mock.calls[0][1].parsed.gs1).toEqual(
+      expect.objectContaining({ gtin: "09501101530003", batch: "L1", serial: "SER9" })
+    );
+  });
+
   it("a scan ended by Tab is taken once and cleared from the box; a typed Tab just moves on", async () => {
     jest.useFakeTimers({ now: 12_000_000 });
     const onResolved = jest.fn();
@@ -216,9 +254,57 @@ describe("ScanInput", () => {
 
     rerender(<ScanInput {...props} />);
     expect(screen.getByTestId("camera")).toHaveAttribute("data-paused", "false");
-    fireEvent.click(screen.getByText("see CAM-1"));
+    fireEvent.click(screen.getByText("see CAM-2"));
     await waitFor(() => expect(props.onResolved).toHaveBeenCalledTimes(1));
-    expect(resolveScan).toHaveBeenCalledTimes(1);
+    expect(resolveScan.mock.calls).toEqual([["CAM-2", "hotel:46"]]);
+  });
+
+  it("a code still in frame while scanning is paused is not read again when it resumes", async () => {
+    jest.useFakeTimers({ now: 20_000_000 });
+    resolveScan.mockResolvedValue(item({ code: "CAM-1" }));
+    const props = { context: "po:12", onResolved: jest.fn(), onUnknown: jest.fn() };
+    try {
+      const { rerender } = render(<ScanInput {...props} />);
+      fireEvent.click(screen.getByRole("button", { name: "Scan with camera" }));
+      fireEvent.click(screen.getByText("see CAM-1")); // read: the screen opens its qty pad
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // The pad is open (scanning paused) for 3 s while the item stays in frame.
+      rerender(<ScanInput {...props} disabled />);
+      for (let t = 0; t < 6; t += 1) {
+        act(() => {
+          jest.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByText("see CAM-1"));
+      }
+
+      // Done: scanning resumes with the same item still in front of the lens.
+      rerender(<ScanInput {...props} />);
+      fireEvent.click(screen.getByText("see CAM-1"));
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+      fireEvent.click(screen.getByText("see CAM-1"));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(resolveScan).toHaveBeenCalledTimes(1);
+
+      // Taken out of frame for 1.6 s and shown again: a new scan.
+      act(() => {
+        jest.advanceTimersByTime(1600);
+      });
+      fireEvent.click(screen.getByText("see CAM-1"));
+      await act(async () => {
+        await Promise.resolve();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+    await waitFor(() => expect(props.onResolved).toHaveBeenCalledTimes(2));
+    expect(resolveScan).toHaveBeenCalledTimes(2);
   });
 
   it("a 404 lookup says the hotel or PO isn't available and plays the error tone", async () => {
