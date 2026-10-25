@@ -30,6 +30,11 @@ jest.mock("@/hooks/useModulePermissions", () => ({
   },
 }));
 jest.mock("@/services/hospitality", () => ({ __esModule: true, getMyHospitalityContexts: jest.fn() }));
+// One state object, built once: the page keys its company pick by userProfile.id.
+jest.mock("react-redux", () => {
+  const state = { userProfile: { id: 407 } };
+  return { __esModule: true, useSelector: (fn) => fn(state) };
+});
 let mockCtx = null;
 const mockCtxListeners = new Set();
 jest.mock("@/utils/hospitalityContext", () => ({
@@ -114,6 +119,7 @@ beforeEach(() => {
   mockPermCalls.length = 0;
   mockCtx = null;
   mockCtxListeners.clear();
+  window.sessionStorage.clear();
   getMyHospitalityContexts.mockResolvedValue({ status: 1, data: [{ id: 5, name: "Orchid Hotels", hotels: [{ id: 46, name: "Orchid Mumbai" }] }] });
   getStock.mockResolvedValue({ hotelId: 46, stockStartedAt: null, hotels: [{ id: 46, name: "Orchid Mumbai" }], rows: [], total: 0 });
   listItems.mockResolvedValue({ rows: [RICE], total: 1 });
@@ -255,7 +261,7 @@ describe("CategoryDefaultsTab", () => {
       expect(saveCategoryDefaults).toHaveBeenCalledWith([
         { categoryId: 3, trackExpiry: true, defaultMarkOutOnArrival: true },
         { categoryId: 5, trackExpiry: false, defaultMarkOutOnArrival: false },
-      ])
+      ], null)
     );
   });
 });
@@ -318,7 +324,7 @@ describe("SettingsTab", () => {
     fireEvent.change(screen.getByLabelText("Adjustment auto-approve limit (₹)"), { target: { value: "5000" } });
     fireEvent.click(screen.getByRole("button", { name: "Save company settings" }));
     await waitFor(() =>
-      expect(saveCompanySettings).toHaveBeenCalledWith({ allowNegativeStock: true, adjustmentAutoApproveLimit: 5000 })
+      expect(saveCompanySettings).toHaveBeenCalledWith({ allowNegativeStock: true, adjustmentAutoApproveLimit: 5000 }, null)
     );
   });
 
@@ -418,7 +424,7 @@ describe("NewItemModal", () => {
     expect(createItem).not.toHaveBeenCalled();
     fireEvent.change(within(form).getByLabelText("Stock unit"), { target: { value: " kg " } });
     fireEvent.click(within(form).getByRole("button", { name: /Create item/ }));
-    await waitFor(() => expect(createItem).toHaveBeenCalledWith({ productVariantId: 701, stockUom: "kg" }));
+    await waitFor(() => expect(createItem).toHaveBeenCalledWith({ productVariantId: 701, stockUom: "kg" }, null));
     expect(onCreated).toHaveBeenCalledWith({ id: 30, displayName: "Paneer 1kg", stockUom: "kg" }, { mapped: false });
   });
 
@@ -475,8 +481,10 @@ describe("SetupPage", () => {
     act(() => {
       fireEvent.click(use);
     });
-    expect(setStoredHospitalityContext).toHaveBeenCalledWith({ companyId: 5, companyName: "Orchid Hotels", hotelId: null, hotelName: null });
+    // The pick is the page's own: the portal-wide context is left alone (I-1).
+    expect(setStoredHospitalityContext).not.toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "Basmati rice" })).toBeInTheDocument();
+    expect(listItems).toHaveBeenLastCalledWith({ page: 1, hospitality_company_id: 5 });
     expect(screen.getByText(/^For/)).toHaveTextContent("For Orchid Hotels");
     expect(screen.queryByRole("region", { name: "Choose a company" })).toBeNull();
   });

@@ -63,23 +63,35 @@ export const createDispatch = (poId, payload) => post(`/vendor/po/${poId}/dispat
 export const cancelDispatch = (poId, id) => post(`/vendor/po/${poId}/dispatches/${id}/cancel`);
 
 // ── Setup ────────────────────────────────────────────────────────────────────
+// Company-level setup calls take the company the Setup page acts on as their
+// own hint (?hospitality_company_id=, which the server reads before the
+// X-Hospitality-Company header and only uses to narrow among the companies the
+// caller already holds the right in). The choice never goes through the
+// portal-wide hospitality context, so no other module's requests change.
+const companyHint = (companyId) =>
+  Number(companyId) > 0 ? { hospitality_company_id: Number(companyId) } : undefined;
+const companyConfig = (companyId) => {
+  const params = companyHint(companyId);
+  return params ? { params } : undefined;
+};
 export const listItems = (params) => get("/items", params);
-export const createItem = (payload) => post("/items", payload);
+export const createItem = (payload, companyId) => post("/items", payload, companyConfig(companyId));
 export const updateItem = (id, payload) => put(`/items/${id}`, payload);
 export const mapVariantToItem = (id, productVariantId) => post(`/items/${id}/variants`, { productVariantId });
-export const suggestItems = (productVariantId) => get("/items/suggest", { productVariantId });
+export const suggestItems = (productVariantId, companyId) =>
+  get("/items/suggest", { productVariantId, ...companyHint(companyId) });
 export const getItemUoms = (id) => get(`/items/${id}/uoms`);
 export const saveItemUoms = (id, uoms) => put(`/items/${id}/uoms`, { uoms });
 export const addItemBarcode = (id, payload) => post(`/items/${id}/barcodes`, payload);
 export const deleteItemBarcode = (id, barcodeId) => del(`/items/${id}/barcodes/${barcodeId}`);
 export const listHotelItems = (params) => get("/hotel-items", params);
 export const saveHotelItem = (hotelId, invItemId, payload) => put(`/hotel-items/${hotelId}/${invItemId}`, payload);
-export const getCompanySettings = () => get("/settings/company");
-export const saveCompanySettings = (payload) => put("/settings/company", payload);
+export const getCompanySettings = (companyId) => get("/settings/company", companyHint(companyId));
+export const saveCompanySettings = (payload, companyId) => put("/settings/company", payload, companyConfig(companyId));
 export const getHotelSettings = (hotelId) => get(`/settings/hotel/${hotelId}`);
 export const saveHotelSettings = (hotelId, payload) => put(`/settings/hotel/${hotelId}`, payload);
-export const getCategoryDefaults = () => get("/category-defaults");
-export const saveCategoryDefaults = (rows) => put("/category-defaults", { rows });
+export const getCategoryDefaults = (companyId) => get("/category-defaults", companyHint(companyId));
+export const saveCategoryDefaults = (rows, companyId) => put("/category-defaults", { rows }, companyConfig(companyId));
 export const previewOpeningStock = (hotelId, file) =>
   post(`/opening/${hotelId}/preview`, fileForm(file), UPLOAD_CONFIG);
 export const postOpeningStock = (hotelId, payload) => post(`/opening/${hotelId}/post`, payload);

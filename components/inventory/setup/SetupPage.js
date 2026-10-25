@@ -4,11 +4,10 @@ import { useRouter } from "next/router";
 import { Building2, RotateCcw, Warehouse } from "lucide-react";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getMyHospitalityContexts } from "@/services/hospitality";
-import {
-  getStoredHospitalityContext, setStoredHospitalityContext, subscribeHospitalityContext,
-} from "@/utils/hospitalityContext";
+import { getStoredHospitalityContext, subscribeHospitalityContext } from "@/utils/hospitalityContext";
 import HotelSelect from "@/components/inventory/stock/HotelSelect";
 import useInventoryHotels from "@/components/inventory/stock/useInventoryHotels";
+import useUserId from "@/components/inventory/stock/useUserId";
 import { stockRoutes, toId } from "@/components/inventory/stock/stockUtils";
 import { onTabKeyDown, tabIndexFor } from "@/components/inventory/stock/tabKeys";
 import ItemsTab from "./ItemsTab";
@@ -26,10 +25,15 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Rights, as the server checks them (setupService):
 // - Company-level actions (new item, item details, map a variant, category
 //   defaults, company settings: inventory.admin; units and barcodes:
-//   inventory.update) act on ONE company: the one in the hospitality context
-//   (the X-Hospitality-Company header), else the caller's only company. So the
-//   UI asks about rights over that company's hotels only, and names it. With no
-//   context and several companies, the page asks which company first.
+//   inventory.update) act on ONE company: the one picked on this page, else
+//   the one in the portal's hospitality context, else the caller's only
+//   company. The UI asks about rights over that company's hotels only, names
+//   it, and sends it as each company-level call's own hint. With none of those
+//   and several companies, the page asks which company first.
+// - The pick is this page's alone (sessionStorage, per user). It never writes
+//   the portal-wide hospitality context: that would add X-Hospitality-Company
+//   to every request and narrow other modules (approval counts, company
+//   resolution) without the user knowing.
 // - Hotel-level actions (levels: update; hotel settings, opening stock: admin)
 //   are checked per hotel. Admin is never read as update.
 // - Nothing renders read-only or locked while rights are still loading.
@@ -77,7 +81,7 @@ const useMyCompanies = () => {
   return { ...state, retry: () => setAttempt((n) => n + 1) };
 };
 
-/** The company id in the stored hospitality context (what the header sends). */
+/** The company id in the stored hospitality context (what the header sends). Read only. */
 const useContextCompany = () => {
   const [ctx, setCtx] = useState({ loaded: false, companyId: null, companyName: null });
   useEffect(() => {
@@ -88,7 +92,38 @@ const useContextCompany = () => {
   return ctx;
 };
 
-const CompanyChooser = ({ title, companies, onCancel }) => {
+const setupCompanyKey = (userId) => `inv-setup-company:${userId}`;
+const readSetupCompany = (userId) => {
+  if (!userId || typeof window === "undefined") return null;
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(setupCompanyKey(userId)) || "null");
+    const companyId = toId(saved?.companyId);
+    return companyId ? { companyId, companyName: saved.companyName || null } : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The company picked on this page, kept for the tab session and the user. */
+const useSetupCompany = (userId) => {
+  const [picked, setPicked] = useState(() => readSetupCompany(userId));
+  useEffect(() => {
+    setPicked(readSetupCompany(userId));
+  }, [userId]);
+  const pick = (c) => {
+    const next = { companyId: c.id, companyName: c.name };
+    setPicked(next);
+    if (!userId) return;
+    try {
+      window.sessionStorage.setItem(setupCompanyKey(userId), JSON.stringify(next));
+    } catch {
+      // Storage full or blocked: the pick still holds for this visit.
+    }
+  };
+  return { companyId: picked?.companyId ?? null, pick };
+};
+
+const CompanyChooser = ({ title, companies, onChoose, onCancel }) => {
   const [value, setValue] = useState("");
   return (
     <section className={r.card} aria-label="Choose a company">
@@ -114,7 +149,7 @@ const CompanyChooser = ({ title, companies, onCancel }) => {
             disabled={!value}
             onClick={() => {
               const c = companies.find((x) => String(x.id) === value);
-              if (c) setStoredHospitalityContext({ companyId: c.id, companyName: c.name, hotelId: null, hotelName: null });
+              if (c) onChoose(c);
             }}
           >
             Use this company
@@ -135,6 +170,7 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
   const { hotels, loading: hotelsLoading, error: hotelsError, reload: reloadHotels } = useInventoryHotels();
   const my = useMyCompanies();
   const ctx = useContextCompany();
+  const local = useSetupCompany(useUserId());
   const [tab, setTab] = useState(() => (TAB_VALUES.includes(initialTab) ? initialTab : "items"));
   const [hotelId, setHotelId] = useState(() => toId(initialHotelId));
   const [choosing, setChoosing] = useState(false);
@@ -143,7 +179,7 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
   // A company picked (here or in the header switcher) closes the chooser.
   useEffect(() => {
     setChoosing(false);
-  }, [ctx.companyId]);
+  }, [ctx.companyId, local.companyId]);
 
   // ── The company the server will act on ───────────────────────────────────
   const stockIds = useMemo(() => new Set(hotels.map((h) => h.id)), [hotels]);
@@ -161,8 +197,11 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
   const scopeError = !scopeLoading && !!my.error;
   let company = null; // {id, name, stockHotelIds} | {legacy:true}
   let companyProblem = null; // "choose" | "no-access"
+  const picked = local.companyId ? readable.find((c) => c.id === local.companyId) || null : null;
   if (!scopeLoading && !scopeError) {
-    if (ctx.companyId) {
+    if (picked) {
+      company = picked;
+    } else if (ctx.companyId) {
       company = readable.find((c) => c.id === ctx.companyId) || null;
       if (!company) {
         if (readable.length) companyProblem = "no-access";
@@ -275,6 +314,10 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
               : "Choose a company to set up"
         }
         companies={readable}
+        onChoose={(c) => {
+          local.pick(c);
+          setChoosing(false);
+        }}
         onCancel={choosing && !companyProblem ? () => setChoosing(false) : null}
       />
     );
@@ -299,9 +342,9 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
   } else if (permsLoading) {
     panel = skeleton;
   } else if (tab === "items") {
-    panel = <ItemsTab key={company?.id ?? "any"} canAdmin={companyAdmin} canUpdate={companyUpdate} />;
+    panel = <ItemsTab key={company?.id ?? "any"} companyId={company?.id ?? null} canAdmin={companyAdmin} canUpdate={companyUpdate} />;
   } else if (tab === "categories") {
-    panel = <CategoryDefaultsTab key={company?.id ?? "any"} canAdmin={companyAdmin} />;
+    panel = <CategoryDefaultsTab key={company?.id ?? "any"} companyId={company?.id ?? null} canAdmin={companyAdmin} />;
   } else if (tab === "levels") {
     panel = <HotelLevelsTab key={hotelId} hotelId={hotelId} canUpdate={hotelUpdate} />;
   } else if (tab === "settings") {
@@ -310,6 +353,7 @@ const SetupPage = ({ initialTab = null, initialHotelId = null }) => {
         key={`${company?.id ?? "any"}:${hotelId}`}
         hotelId={hotelId}
         hotelName={hotel?.name}
+        companyId={company?.id ?? null}
         companyName={company?.name || null}
         canAdmin={hotelAdmin}
         canAdminCompany={companyAdmin}

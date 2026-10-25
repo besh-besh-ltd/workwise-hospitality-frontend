@@ -120,6 +120,39 @@ describe("buyer calls use the shared instance with the contract method and path"
   });
 });
 
+describe("company-level setup calls carry the Setup page's company as their own hint (I-1)", () => {
+  // The hint rides on the request itself, never on the portal-wide context.
+  const hint = { hospitality_company_id: 6 };
+  test.each([
+    ["getCompanySettings", [6], `${B}/settings/company`, hint],
+    ["getCategoryDefaults", [6], `${B}/category-defaults`, hint],
+    ["suggestItems", [11, 6], `${B}/items/suggest`, { productVariantId: 11, ...hint }],
+    ["getCompanySettings", [null], `${B}/settings/company`, {}],
+  ])("%s GET", async (name, args, url, params) => {
+    await inv[name](...args);
+    const [sentUrl, cfg] = mockShared.get.mock.calls[0];
+    expect(sentUrl).toBe(url);
+    expect(cfg.params).toEqual(params);
+  });
+
+  test.each([
+    ["saveCompanySettings", [{ a: 1 }, 6], "put", `${B}/settings/company`, { a: 1 }],
+    ["saveCategoryDefaults", [[{ categoryId: 1 }], 6], "put", `${B}/category-defaults`, { rows: [{ categoryId: 1 }] }],
+    ["createItem", [{ stockUom: "kg" }, 6], "post", `${B}/items`, { stockUom: "kg" }],
+  ])("%s sends the hint as a query param, not in the body", async (name, args, method, url, body) => {
+    await inv[name](...args);
+    const [sentUrl, sentBody, cfg] = mockShared[method].mock.calls[0];
+    expect(sentUrl).toBe(url);
+    expect(sentBody).toEqual(body);
+    expect(cfg).toEqual({ params: hint });
+  });
+
+  test("no company: no hint at all", async () => {
+    await inv.saveCompanySettings({ a: 1 }, null);
+    expect(mockShared.put.mock.calls[0][2]).toBeUndefined();
+  });
+});
+
 describe("multipart uploads", () => {
   const formOf = (data) => {
     expect(data).toBeInstanceOf(FormData);

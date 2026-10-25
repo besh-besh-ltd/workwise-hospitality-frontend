@@ -11,7 +11,7 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // PUT replaces the whole set). A product takes the defaults of its nearest
 // listed category, so top-level categories are usually enough.
 //
-// Props: { canAdmin (inventory.admin) }
+// Props: { companyId (the Setup page's company, or null), canAdmin (inventory.admin) }
 
 const toRow = (x) => ({
   categoryId: Number(x.categoryId),
@@ -22,7 +22,7 @@ const toRow = (x) => ({
 const payloadOf = (rows) =>
   rows.map((x) => ({ categoryId: x.categoryId, trackExpiry: x.trackExpiry, defaultMarkOutOnArrival: x.defaultMarkOutOnArrival }));
 
-const CategoryDefaultsTab = ({ canAdmin }) => {
+const CategoryDefaultsTab = ({ companyId = null, canAdmin }) => {
   const [saved, setSaved] = useState(null);
   const [rows, setRows] = useState([]);
   const [categories, setCategories] = useState(null);
@@ -34,14 +34,14 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const res = await getCategoryDefaults();
+      const res = await getCategoryDefaults(companyId);
       const list = (Array.isArray(res?.rows) ? res.rows : Array.isArray(res) ? res : []).map(toRow);
       setSaved(list);
       setRows(list);
     } catch (err) {
       setLoadError(errorInfo(err, "Could not load the category defaults.").message);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     load();
@@ -82,7 +82,7 @@ const CategoryDefaultsTab = ({ canAdmin }) => {
     setSaving(true);
     setError(null);
     try {
-      const res = await saveCategoryDefaults(payloadOf(rows));
+      const res = await saveCategoryDefaults(payloadOf(rows), companyId);
       const list = Array.isArray(res?.rows) ? res.rows.map((x) => toRow({ ...rows.find((y) => y.categoryId === Number(x.categoryId)), ...x })) : rows;
       setSaved(list);
       setRows(list);

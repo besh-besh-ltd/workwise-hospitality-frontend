@@ -10,10 +10,10 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Company-wide inventory settings and the selected hotel's own settings.
 // Saves send only the fields that changed (both PUTs are partial).
 //
-// The company card names the company the server acts on (the hospitality
-// context's, else the caller's only one).
+// The company card names the company the Setup page acts on, and its calls
+// carry that company as their own hint.
 //
-// Props: { hotelId, hotelName, companyName, canAdmin (inventory.admin at the hotel),
+// Props: { hotelId, hotelName, companyId, companyName, canAdmin (inventory.admin at the hotel),
 //          canAdminCompany (inventory.admin in that company; defaults to canAdmin) }
 
 const COMPANY_TOGGLES = [
@@ -57,7 +57,7 @@ const Toggle = ({ id, title, help, checked, disabled, onChange }) => (
   </div>
 );
 
-const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdminCompany = canAdmin }) => {
+const SettingsTab = ({ hotelId, hotelName, companyId = null, companyName = null, canAdmin, canAdminCompany = canAdmin }) => {
   const [company, setCompany] = useState(null);
   const [cForm, setCForm] = useState(companyForm(null));
   const [cErrors, setCErrors] = useState({});
@@ -75,13 +75,13 @@ const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdmi
   const loadCompany = useCallback(async () => {
     setCLoadError(null);
     try {
-      const res = await getCompanySettings();
+      const res = await getCompanySettings(companyId);
       setCompany(res);
       setCForm(companyForm(res));
     } catch (err) {
       setCLoadError(errorInfo(err, "Could not load the company settings.").message);
     }
-  }, []);
+  }, [companyId]);
 
   const loadHotel = useCallback(async () => {
     if (!hotelId) return;
@@ -137,7 +137,7 @@ const SettingsTab = ({ hotelId, hotelName, companyName = null, canAdmin, canAdmi
     if (Object.keys(errs).length || !Object.keys(out).length) return;
     setCSaving(true);
     try {
-      const res = await saveCompanySettings(out);
+      const res = await saveCompanySettings(out, companyId);
       const next = res && typeof res === "object" ? { ...company, ...res } : { ...company, ...out };
       setCompany(next);
       setCForm(companyForm(next));
