@@ -1385,3 +1385,41 @@ describe("MarkOutPage scan session", () => {
     expect(within(bar).getByText(/1 item/)).toBeInTheDocument();
   });
 });
+
+// M-2: on a phone the scan bar is sticky (receive.module.scss phone layer), but
+// a sticky element only sticks inside its own parent box, and not at all when
+// an ancestor is a scroll box (.card has overflow: hidden). The bar therefore
+// lives in the items card, the box the list grows in, and that card clips
+// without becoming a scroll box on a phone.
+describe("MarkOutPage scan bar on a phone (M-2)", () => {
+  test("the scan bar sits in the items card, above the list it stays with", async () => {
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    const items = screen.getByRole("region", { name: "Session items" });
+    expect(items).toContainElement(screen.getByLabelText("Scan or type a code"));
+    expect(items).toContainElement(lineOf("Basmati rice"));
+    expect(items).toHaveClass("dockCard");
+  });
+
+  test("on a phone the items card clips instead of hiding overflow, so the bar can stick", () => {
+    const fs = jest.requireActual("fs");
+    const path = jest.requireActual("path");
+    const css = fs.readFileSync(path.join(__dirname, "..", "stock.module.scss"), "utf8");
+    const layer = css.slice(css.indexOf("Phone layer"));
+    const at = layer.indexOf("@media (max-width: 768px)");
+    expect(at).toBeGreaterThanOrEqual(0);
+    let depth = 0;
+    let i = layer.indexOf("{", at);
+    const start = i;
+    for (; i < layer.length; i++) {
+      if (layer[i] === "{") depth++;
+      else if (layer[i] === "}" && --depth === 0) break;
+    }
+    const phone = layer.slice(start, i + 1);
+    // section.dockCard outranks receive.module.scss's single-class .card.
+    expect(phone).toMatch(/section\.dockCard\s*{[^}]*overflow:\s*clip;/);
+    // Desktop keeps the card as it was: no rule outside the phone layer.
+    expect(css.slice(0, css.indexOf("Phone layer"))).not.toMatch(/\.dockCard/);
+  });
+});

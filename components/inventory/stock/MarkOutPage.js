@@ -1346,7 +1346,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
             </div>
           )}
 
-          <section className={r.card} aria-label="Scan items">
+          <section className={r.card} aria-label="Session details">
             <div className={r.cardBody} style={{ paddingBottom: 0 }}>
               <div className={s.segment} role="radiogroup" aria-label="Session type">
                 {MODES.map((m) => (
@@ -1368,14 +1368,6 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                   </button>
                 ))}
               </div>
-            </div>
-            <div className={r.scanDock}>
-              <ScanInput
-                context={hotelId ? `hotel:${hotelId}` : undefined}
-                onResolved={onResolved}
-                onUnknown={onUnknown}
-                disabled={scanDisabled}
-              />
             </div>
             <div className={r.cardBody}>
               <div className={s.fieldRow}>
@@ -1428,7 +1420,11 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
             </div>
           </section>
 
-          <section className={r.card} aria-label="Session items">
+          {/* The scan bar lives in the items card: on a phone it sticks under the
+              top bar while the list scrolls, and a sticky element only sticks
+              within its parent box (s.dockCard keeps that box from being a
+              scroll box). */}
+          <section className={`${r.card} ${s.dockCard}`} aria-label="Session items">
             <div className={r.cardHead}>
               <h2 className={r.cardTitle}>
                 Items <span className={r.count}>{lineCount}</span>
@@ -1441,6 +1437,14 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
               >
                 <Undo2 size={14} aria-hidden="true" /> Undo last scan
               </button>
+            </div>
+            <div className={r.scanDock}>
+              <ScanInput
+                context={hotelId ? `hotel:${hotelId}` : undefined}
+                onResolved={onResolved}
+                onUnknown={onUnknown}
+                disabled={scanDisabled}
+              />
             </div>
             {lineCount === 0 ? (
               <div className={r.emptyState}>
