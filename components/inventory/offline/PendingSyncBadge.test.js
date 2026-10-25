@@ -19,10 +19,25 @@ jest.mock("@/services/inventory", () => ({
 }));
 
 import React from "react";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+// The real outbox does several IndexedDB round trips per step: wait for each
+// state, with room for a loaded CI machine (each wait still ends as soon as
+// the state shows).
+configure({ asyncUtilTimeout: 4000 });
+jest.setTimeout(20000);
 import "@testing-library/jest-dom";
 import { postOut, saveCountLines } from "@/services/inventory";
-import { NO_ANSWER_GIVE_UP_MS, _resetOutboxForTests, flush, getOutboxStatus, outboxReady, submitOrQueue } from "./outbox";
+import {
+  NO_ANSWER_GAP_CAP_MS,
+  NO_ANSWER_GIVE_UP_MS,
+  OUTBOX_DB_NAME,
+  _resetOutboxForTests,
+  flush,
+  getOutboxStatus,
+  outboxReady,
+  submitOrQueue,
+} from "./outbox";
 import PendingSyncBadge from "./PendingSyncBadge";
 
 let online = true;
@@ -55,6 +70,24 @@ const queueOffline = async (event) => {
   online = true;
 };
 const openPanel = () => fireEvent.click(screen.getByRole("button", { name: /Pending sync|not recorded|not be recorded/ }));
+
+/** Write a row into the outbox's device database, as an earlier page left it. */
+const putRaw = (row) =>
+  new Promise((resolve, reject) => {
+    const req = indexedDB.open(OUTBOX_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("events", { keyPath: "id" });
+    req.onsuccess = () => {
+      const db = req.result;
+      const t = db.transaction("events", "readwrite");
+      t.objectStore("events").put(row);
+      t.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      t.onerror = () => reject(t.error);
+    };
+    req.onerror = () => reject(req.error);
+  });
 
 /** Move the clock forward (Date.now only; timers stay real). */
 let skew = 0;
@@ -211,11 +244,18 @@ it("says when an entry is kept on this page only", async () => {
 });
 
 it("an entry given up on after days without an answer reads as maybe recorded: open it to check, or send it again", async () => {
-  await queueOffline(outEvent("a"));
+  // A mark-out retried for almost 3 days with no answer.
+  const now = Date.now();
+  await putRaw({
+    id: "out_post:a", kind: "out_post", clientEventId: "a", userId: "407", payload: outEvent("a").payload,
+    summary: "Mark out · 1 line", seq: 1, createdAt: new Date(now).toISOString(), createdAtMs: now,
+    status: "pending", inFlight: false, attempts: 700, serverAttempts: 0, nextAttemptAt: 0,
+    lastError: { httpStatus: null, code: null, details: {}, message: "No answer from the server" },
+    noAnswerTries: 700, lastNoAnswerTryAtMs: now, noAnswerRetryingMs: NO_ANSWER_GIVE_UP_MS - 60000, mayBeRecorded: true,
+  });
   postOut.mockRejectedValue(networkError());
   render(<PendingSyncBadge autoSync={false} />);
   await screen.findByRole("button", { name: /Pending sync \(1\)/ });
-  await act(() => flush());
 
   // A try got no answer: the server may have it, so Discard says so.
   openPanel();
@@ -225,9 +265,8 @@ it("an entry given up on after days without an answer reads as maybe recorded: o
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Keep" }));
 
-  skew += NO_ANSWER_GIVE_UP_MS + 60000;
-  await act(() => flush({ force: true }));
-  await act(() => flush({ force: true }));
+  skew += NO_ANSWER_GAP_CAP_MS;
+  await act(() => flush());
 
   expect(await screen.findByText("1 entry may not have been recorded")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /1 may not be recorded/ })).toHaveAttribute("aria-expanded", "true");
@@ -237,7 +276,7 @@ it("an entry given up on after days without an answer reads as maybe recorded: o
   );
   const unsure = screen.getByRole("region", { name: "May not have been recorded" });
   expect(within(unsure).getByText("May not have been recorded: open it to check, or send it again.")).toBeInTheDocument();
-  expect(within(unsure).getByText("No answer from the server for 3 days")).toBeInTheDocument();
+  expect(within(unsure).getByText("No answer from the server over 3 days of retrying")).toBeInTheDocument();
   expect(within(unsure).getByRole("link", { name: "Open Mark out · 1 line" })).toHaveAttribute(
     "href",
     "/dashboard/buyer/inventory/out?hotelId=46"

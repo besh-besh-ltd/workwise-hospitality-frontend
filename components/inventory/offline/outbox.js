@@ -26,10 +26,14 @@
 //     Each flush, Discard and Dismiss re-reads the device database under that
 //     lock first, so a long-lived tab acts on what other tabs queued or sent.
 //   - Write-ahead: the first send is recorded on the device BEFORE it goes
-//     out and removed on its answer, so a send that never settles (a 401
-//     parks the request) or a closed tab never loses it. A row marked in
-//     flight is another tab's live send until this tab holds the kind's lock;
-//     only then is it taken back as left behind by a page that is gone.
+//     out (in flight, stamped inFlightSince) and removed on its answer, so a
+//     send that never settles (a 401 parks the request) or a closed tab never
+//     loses it. A row marked in flight is another tab's live send until this
+//     tab holds the kind's lock; only then is it taken back as left behind by
+//     a page that is gone. Without Web Locks (Safari < 15.4, Firefox < 96)
+//     holding the in-tab lock says nothing about other tabs, so a row is
+//     taken back only once it has been in flight longer than any live send
+//     can last (the send timeout plus ORPHAN_GRACE_MS).
 //   - A "sent" row on the device is never overwritten (checked inside the
 //     same IndexedDB transaction as the write): a stale tab cannot turn a sent
 //     event into "dismissed", "failed" or "pending".
@@ -49,12 +53,17 @@
 //                                              after the first one.
 //       no answer (timeout, dropped), and      retried with backoff. Given up
 //       a gateway's 502 / 503 / 504            (code NO_ANSWER, uncertain) once
-//                                              NO_ANSWER_GIVE_UP_MS have passed
-//                                              since the first such try made
-//                                              while ONLINE, and at least
-//                                              MIN_NO_ANSWER_TRIES online tries
-//                                              went unanswered. Time offline
-//                                              does not count.
+//                                              NO_ANSWER_GIVE_UP_MS have been
+//                                              spent retrying, and at least
+//                                              MIN_NO_ANSWER_TRIES tries went
+//                                              unanswered. Time spent retrying
+//                                              is the sum of the gaps between
+//                                              consecutive unanswered tries made
+//                                              ONLINE, each capped at
+//                                              NO_ANSWER_GAP_CAP_MS: time offline
+//                                              or with no page open (a closed
+//                                              tab, a page taken back) does not
+//                                              count.
 //     The first send and a replay classify an answer the same way. A give-up
 //     is uncertain: the server may have recorded it.
 //   - History: sent and discarded events are remembered for a few days
@@ -79,10 +88,18 @@ const RETRY_MAX_MS = 5 * 60 * 1000;
 export const MAX_SERVER_ATTEMPTS = 10;
 /** …and never sooner than this after its first server failure. */
 export const SERVER_GIVE_UP_MIN_MS = 30 * 60 * 1000;
-/** With no answer (or a gateway 502/503/504) this long after the first such try made online… */
+/** After this much time spent retrying with no answer (or a gateway 502/503/504)… */
 export const NO_ANSWER_GIVE_UP_MS = 72 * 60 * 60 * 1000;
-/** …and at least this many unanswered online tries, a queued event is given up on. */
+/** …and at least this many unanswered tries, a queued event is given up on. */
 export const MIN_NO_ANSWER_TRIES = 3;
+/**
+ * The most one gap between two unanswered online tries adds to the time spent
+ * retrying: a due retry comes at most one backoff (RETRY_MAX_MS) plus one
+ * auto-sync tick after the previous try. A longer gap was offline or closed.
+ */
+export const NO_ANSWER_GAP_CAP_MS = 6 * 60 * 1000;
+/** A row in flight this long past the send timeout is a closed page's, even without Web Locks. */
+const ORPHAN_GRACE_MS = 30 * 1000;
 /** How long sent / discarded events are remembered for getOutboxStatus. */
 const HISTORY_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 /** Sends wait this long after another tab changed the token or the profile. */
@@ -133,7 +150,10 @@ export const registerSender = (kind, send) => {
 //        createdAtMs, status: "pending"|"failed"|"sent"|"dismissed",
 //        inFlight, attempts (every try: drives the backoff), nextAttemptAt,
 //        serverAttempts (due tries the server failed), firstServerFailureAtMs,
-//        noAnswerTries (online tries with no answer), firstNoAnswerAtMs,
+//        inFlightSince (when the first send went out),
+//        noAnswerTries (tries with no answer), lastNoAnswerTryAtMs (the last
+//        one made online), noAnswerRetryingMs (time spent retrying: see the
+//        rules above),
 //        mayBeRecorded (a try got no answer: the server may have it),
 //        lastError, error, failedAt, settledAt, settledAtMs,
 //        persisted (memory only), result (memory only: a sent event's answer)}
@@ -583,7 +603,7 @@ const backoffMs = (attempts) => Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math
  *   - a refusal (4xx): `uncertain` absent, `code` the server's code. Not recorded.
  *   - a give-up: `uncertain: true`, `code` "GAVE_UP" (the server kept failing:
  *     5xx, 408, 429) or "NO_ANSWER" (no answer, or a gateway 502/503/504, for
- *     3 days of online tries). The server MAY have recorded it: check the
+ *     3 days spent retrying). The server MAY have recorded it: check the
  *     document (or send it again with the same clientEventId, which the server
  *     answers with the original) before treating it as lost.
  *
@@ -640,21 +660,31 @@ const exclusiveIfFree = (kind, work) => {
   return exclusive(kind, work).catch(() => {});
 };
 
+const hasWebLocks = () =>
+  typeof navigator !== "undefined" && !!navigator.locks && typeof navigator.locks.request === "function";
+
 /**
- * Under the kind's lock no tab is sending it, so a row still marked in flight
- * was left by a page that closed mid-send: waiting again. Its try may have
- * reached the server (mayBeRecorded); it counts as one unanswered try.
+ * Under the kind's Web Lock no tab is sending it, so a row still marked in
+ * flight was left by a page that closed mid-send: waiting again. Without Web
+ * Locks the lock is this tab's only, so a row is taken back only once it has
+ * been in flight longer than a live send can last. Its try may have reached
+ * the server (mayBeRecorded) and counts as one unanswered try; the time the
+ * page was gone does not count as time spent retrying.
  * Call inside exclusive(kind), after loadFromDb().
  */
 const reclaimOrphans = async (kind) => {
-  const left = items.filter((i) => i.kind === kind && i.status === "pending" && i.inFlight && !sending.has(i.id));
+  const now = Date.now();
+  const abandoned = (i) => hasWebLocks() || now - (Number(i.inFlightSince) || 0) >= sendTimeoutMs + ORPHAN_GRACE_MS;
+  const left = items.filter(
+    (i) => i.kind === kind && i.status === "pending" && i.inFlight && !sending.has(i.id) && abandoned(i)
+  );
   for (const i of left) {
     await putItem({
       ...i,
       inFlight: false,
+      inFlightSince: 0,
       mayBeRecorded: true,
       noAnswerTries: (Number(i.noAnswerTries) || 0) + 1,
-      firstNoAnswerAtMs: Number(i.firstNoAnswerAtMs) || Number(i.createdAtMs) || Date.now(),
     });
   }
 };
@@ -697,17 +727,21 @@ const afterTrouble = async (item, err, how, { due = true } = {}) => {
   if (how === "no-answer" || how === "gateway") {
     next.mayBeRecorded = true;
     if (!isOffline()) {
+      // Time spent retrying: the gap since the last unanswered online try,
+      // capped (a longer gap was spent offline or with no page open).
+      const last = Number(item.lastNoAnswerTryAtMs) || 0;
+      const gap = last ? Math.min(Math.max(0, now - last), NO_ANSWER_GAP_CAP_MS) : 0;
+      next.noAnswerRetryingMs = (Number(item.noAnswerRetryingMs) || 0) + gap;
+      next.lastNoAnswerTryAtMs = now;
       next.noAnswerTries = (Number(item.noAnswerTries) || 0) + 1;
-      next.firstNoAnswerAtMs = Number(item.firstNoAnswerAtMs) || now;
     }
     const tries = Number(next.noAnswerTries) || 0;
-    const since = Number(next.firstNoAnswerAtMs) || 0;
-    if (since && tries >= MIN_NO_ANSWER_TRIES && now - since >= NO_ANSWER_GIVE_UP_MS) {
+    if (tries >= MIN_NO_ANSWER_TRIES && (Number(next.noAnswerRetryingMs) || 0) >= NO_ANSWER_GIVE_UP_MS) {
       await fail(next, {
         ...lastError,
         code: "NO_ANSWER",
         uncertain: true,
-        message: "No answer from the server for 3 days",
+        message: "No answer from the server over 3 days of retrying",
       });
       return "failed";
     }
@@ -854,7 +888,8 @@ const enqueue = (base, patch = {}) => {
     serverAttempts: Number(earlier?.serverAttempts) || 0,
     firstServerFailureAtMs: Number(earlier?.firstServerFailureAtMs) || 0,
     noAnswerTries: Number(earlier?.noAnswerTries) || 0,
-    firstNoAnswerAtMs: Number(earlier?.firstNoAnswerAtMs) || 0,
+    lastNoAnswerTryAtMs: Number(earlier?.lastNoAnswerTryAtMs) || 0,
+    noAnswerRetryingMs: Number(earlier?.noAnswerRetryingMs) || 0,
     mayBeRecorded: earlier?.mayBeRecorded === true,
     nextAttemptAt: Number(earlier?.nextAttemptAt) || 0,
     lastError: earlier?.lastError || null,
@@ -871,15 +906,20 @@ const enqueue = (base, patch = {}) => {
  *   makes the first attempt. `summary` labels the event in the sync panel
  *   ("Receipt for PO #12 · 3 lines" by default).
  *   The same clientEventId again: a waiting copy is replaced (keeping its
- *   place and its tries); one already sent is not queued or sent twice: its
- *   answer, when this page still holds it, is returned as is; otherwise it is
- *   sent once more inline for the answer (the server answers a repeated
- *   clientEventId with the original) and nothing is queued.
+ *   place and its tries). One already sent (getOutboxStatus "sent") is never
+ *   queued again: its answer, when this page still holds it, is returned as
+ *   is; otherwise `send` runs once more inline for the answer (the server
+ *   answers a repeated clientEventId with the original). That inline send is
+ *   not queued even when it gets no answer or the device is offline: it
+ *   rethrows the raw error, like a first send's unknown outcome, while
+ *   getOutboxStatus still reads "sent" (the server has it).
  * @returns {Promise<{queued: true, persisted: boolean} | {queued: false, result: any}>}
  *   persisted:false: this browser could not store it; it lives only as long
  *   as this page.
  * @throws the RAW error from `send` when the server refused it (4xx other
- *   than 408/429); a kind with no registered sender throws before sending.
+ *   than 408/429), or from the inline re-send of an event already sent (any
+ *   error, offline included: see above); a kind with no registered sender
+ *   throws before sending.
  */
 export const submitOrQueue = async ({ kind, clientEventId, payload, send, summary } = {}) => {
   if (typeof send !== "function") throw new TypeError("submitOrQueue needs a send function");
@@ -918,7 +958,7 @@ export const submitOrQueue = async ({ kind, clientEventId, payload, send, summar
     sending.add(id);
     let result;
     try {
-      await enqueue(base, { inFlight: true });
+      await enqueue(base, { inFlight: true, inFlightSince: Date.now() });
       try {
         result = await withTimeout(() => send(payload), sendTimeoutMs);
       } catch (err) {
