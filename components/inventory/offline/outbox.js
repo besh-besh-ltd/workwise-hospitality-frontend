@@ -28,12 +28,18 @@
 //   - Write-ahead: the first send is recorded on the device BEFORE it goes
 //     out (in flight, stamped inFlightSince) and removed on its answer, so a
 //     send that never settles (a 401 parks the request) or a closed tab never
-//     loses it. A row marked in flight is another tab's live send until this
-//     tab holds the kind's lock; only then is it taken back as left behind by
-//     a page that is gone. Without Web Locks (Safari < 15.4, Firefox < 96)
-//     holding the in-tab lock says nothing about other tabs, so a row is
-//     taken back only once it has been in flight longer than any live send
-//     can last (the send timeout plus ORPHAN_GRACE_MS).
+//     loses it. Each retry of a queued event is marked in flight the same way
+//     before it goes out, and only while the device still holds the row this
+//     tab read, waiting and not in flight (else it is held); a Discard takes
+//     only a row that is not in flight. Both are checked inside the write's
+//     own IndexedDB transaction, so even without Web Locks a stale tab can
+//     neither discard an event another tab is sending nor send it twice.
+//     A row marked in flight is another tab's live send until this tab holds
+//     the kind's lock; only then is it taken back as left behind by a page
+//     that is gone. Without Web Locks (Safari < 15.4, Firefox < 96) holding
+//     the in-tab lock says nothing about other tabs, so a row is taken back
+//     only once it has been in flight longer than any live send can last
+//     (the send timeout plus ORPHAN_GRACE_MS).
 //   - A "sent" row on the device is never overwritten (checked inside the
 //     same IndexedDB transaction as the write): a stale tab cannot turn a sent
 //     event into "dismissed", "failed" or "pending".
@@ -150,13 +156,14 @@ export const registerSender = (kind, send) => {
 //        createdAtMs, status: "pending"|"failed"|"sent"|"dismissed",
 //        inFlight, attempts (every try: drives the backoff), nextAttemptAt,
 //        serverAttempts (due tries the server failed), firstServerFailureAtMs,
-//        inFlightSince (when the first send went out),
+//        inFlightSince (when the send in flight went out),
 //        noAnswerTries (tries with no answer), lastNoAnswerTryAtMs (the last
 //        one made online), noAnswerRetryingMs (time spent retrying: see the
 //        rules above),
 //        mayBeRecorded (a try got no answer: the server may have it),
 //        lastError, error, failedAt, settledAt, settledAtMs,
-//        persisted (memory only), result (memory only: a sent event's answer)}
+//        persisted (memory only), result (memory only: a sent event's answer),
+//        sendingHere (memory only: this tab is retrying it, so it stays listed)}
 const EMPTY = Object.freeze([]);
 let items = EMPTY;
 let ready = false;
@@ -433,6 +440,7 @@ const storable = (item) => {
   const s = { ...item };
   delete s.persisted;
   delete s.result;
+  delete s.sendingHere;
   return s;
 };
 
@@ -455,6 +463,7 @@ const putItem = async (item, guard = null) => {
   const stored = { ...storable(item), writeId: `${TAB_ID}:${mine}` };
   const inMemory = { ...stored, persisted: item.persisted };
   if (item.result !== undefined) inMemory.result = item.result;
+  if (item.sendingHere && item.inFlight) inMemory.sendingHere = true;
   commit([...items.filter((i) => i.id !== item.id), inMemory].sort(bySeq));
   const res = await persist("put", stored, guard);
   // Unless something newer replaced it meanwhile: say whether the device holds it.
@@ -479,12 +488,15 @@ const dropItem = async (id) => {
 
 /**
  * Remember what became of an event, without its payload. `expect`: only when
- * the device still holds it in that status (or never held it: memory only).
- * `result` (a sent event's answer) stays in memory only.
+ * the device still holds it in that status (or never held it: memory only);
+ * `idle`: and not in flight (another tab's send). `result` (a sent event's
+ * answer) stays in memory only.
  */
-const settle = (item, status, { expect = null, result } = {}) => {
+const settle = (item, status, { expect = null, idle = false, result } = {}) => {
   const now = Date.now();
-  const guard = expect ? (cur) => (cur ? cur.status === expect : item.persisted === false) : null;
+  const guard = expect
+    ? (cur) => (cur ? cur.status === expect && !(idle && cur.inFlight) : item.persisted === false)
+    : null;
   return putItem(
     {
       id: item.id,
@@ -765,12 +777,22 @@ const afterTrouble = async (item, err, how, { due = true } = {}) => {
   return "held";
 };
 
-/** Send one queued event: "sent" | "failed" | "held" (still queued). */
+/**
+ * Send one queued event: "sent" | "failed" | "held" (still queued). Marked in
+ * flight on the device first, as a first send is, so a Discard in another tab
+ * cannot claim it while it is out; held, unsent, when the device no longer
+ * holds the row this tab read, waiting and not in flight.
+ */
 const sendQueued = async (item, extraSenders, { due = true } = {}) => {
   const send = (extraSenders && extraSenders[item.kind]) || senders.get(item.kind);
   if (typeof send !== "function") return "held";
   sending.add(item.id);
   try {
+    const marked = { ...item, inFlight: true, inFlightSince: Date.now(), sendingHere: true };
+    const mark = await putItem(marked, (cur) =>
+      cur ? cur.status === "pending" && !cur.inFlight && cur.writeId === item.writeId : item.persisted === false
+    );
+    if (mark.refused) return "held";
     const result = await withTimeout(() => send(item.payload), sendTimeoutMs);
     const write = settle(item, "sent", { result });
     emit({ id: item.id, clientEventId: item.clientEventId, kind: item.kind, outcome: "sent", result });
@@ -1011,6 +1033,12 @@ const mineOf = (snap, status, kind) =>
     (i) => i.status === status && i.userId === snap.owner && snap.owner && (!kind || i.kind === kind)
   );
 
+/**
+ * A waiting event is listed while it waits and while this tab retries it; a
+ * send in flight from a page's own submit, or from another tab, is not.
+ */
+const listed = (i) => !i.inFlight || i.sendingHere === true;
+
 /** True once the events stored on this device have loaded (counts before that read 0). */
 export const useOutboxReady = () => useSnapshot().ready;
 
@@ -1022,7 +1050,7 @@ export const usePendingCount = (kind) => {
   const snap = useSnapshot();
   let n = 0;
   for (const i of snap.items) {
-    if (i.status === "pending" && !i.inFlight && snap.owner && i.userId === snap.owner && (!kind || i.kind === kind)) n += 1;
+    if (i.status === "pending" && listed(i) && snap.owner && i.userId === snap.owner && (!kind || i.kind === kind)) n += 1;
   }
   return n;
 };
@@ -1035,7 +1063,7 @@ export const usePendingCount = (kind) => {
  */
 export const usePendingItems = (kind) => {
   const snap = useSnapshot();
-  return useMemo(() => mineOf(snap, "pending", kind).filter((i) => !i.inFlight), [snap, kind]);
+  return useMemo(() => mineOf(snap, "pending", kind).filter(listed), [snap, kind]);
 };
 
 /**
@@ -1107,7 +1135,7 @@ export const discardPending = async (id) => {
     const owner = reduxOwner();
     const item = items.find((i) => i.id === id && i.status === "pending" && !i.inFlight);
     if (!item || item.userId !== owner) return false;
-    const res = await settle(item, "dismissed", { expect: "pending" });
+    const res = await settle(item, "dismissed", { expect: "pending", idle: true });
     if (res.refused) return false;
     emit({ id: item.id, clientEventId: item.clientEventId, kind: item.kind, outcome: "discarded" });
     return true;
