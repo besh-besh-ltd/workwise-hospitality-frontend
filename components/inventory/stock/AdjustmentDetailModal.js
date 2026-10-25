@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Check, Loader2, X, XCircle } from "lucide-react";
 import { getAdjustment } from "@/services/inventory";
@@ -16,29 +16,52 @@ import s from "./stock.module.scss";
 
 const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null, refreshKey = 0, actionError = null }) => {
   const titleId = useId();
-  const [adj, setAdj] = useState(null);
+  // What was loaded, and for which id: another adjustment never shows this
+  // one's figures or buttons, not even for a frame while it loads.
+  const [loaded, setLoaded] = useState({ id: null, adj: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Only the latest request may land: a slow answer for an adjustment closed
+  // or switched away from is dropped.
+  const seqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      setAdj(await getAdjustment(id));
+      const got = await getAdjustment(id);
+      if (seq !== seqRef.current) return;
+      setLoaded({ id, adj: got || null });
     } catch (err) {
-      setAdj(null);
+      if (seq !== seqRef.current) return;
+      setLoaded({ id, adj: null });
       setError(errorInfo(err, "Could not load this adjustment.").message);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
     if (id) load();
-    else setAdj(null);
+    else {
+      seqRef.current += 1;
+      setLoaded({ id: null, adj: null });
+      setLoading(false);
+      setError(null);
+    }
   }, [id, load, refreshKey]);
 
+  useEffect(
+    () => () => {
+      seqRef.current += 1;
+    },
+    []
+  );
+
+  const adj = id && loaded.id === id ? loaded.adj : null;
+  const shownError = id && loaded.id === id ? error : null;
   const status = adj ? ADJUSTMENT_STATUS[adj.status] || { label: adj.status, tone: "Neutral" } : null;
   const busy = adj && busyId === adj.id;
   const lines = Array.isArray(adj?.lines) ? adj.lines : [];
@@ -69,14 +92,14 @@ const AdjustmentDetailModal = ({ id, onHide, onApprove, onReject, busyId = null,
         </button>
       </div>
       <div className={r.sheetBody}>
-        {loading && !adj ? (
+        {(loading || (id && loaded.id !== id)) && !adj ? (
           <div aria-busy="true">
             {[0, 1, 2].map((i) => (
               <span key={i} className={r.sk} style={{ width: `${88 - i * 14}%`, marginBottom: 12 }} />
             ))}
           </div>
-        ) : error ? (
-          <div className={r.sheetError} role="alert">{error}</div>
+        ) : shownError ? (
+          <div className={r.sheetError} role="alert">{shownError}</div>
         ) : adj ? (
           <>
             <div className={r.flags} style={{ marginBottom: 12 }}>

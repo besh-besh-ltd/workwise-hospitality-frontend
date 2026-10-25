@@ -61,6 +61,11 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
   const fileId = useId();
   const inputRef = useRef(null);
   const keyRef = useRef(null);
+  const confirmId = useId();
+  // The confirm takes focus when it opens; Cancel hands it back to the button.
+  const cancelRef = useRef(null);
+  const postBtnRef = useRef(null);
+  const refocusPostRef = useRef(false);
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState(null); // {rows, okCount, errorCount, stockStartedAt, countFreeze}
   const [rowErrors, setRowErrors] = useState({}); // preview index → message (from the post)
@@ -107,6 +112,13 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
     onBusyChange?.(posting);
   }, [posting, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+    else if (refocusPostRef.current) {
+      refocusPostRef.current = false;
+      postBtnRef.current?.focus();
+    }
+  }, [confirming]);
 
   if (!canAdmin) {
     return (
@@ -169,6 +181,12 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
     0
   );
   const activityRows = rows.some((row) => /stock activity since stock started/i.test(row.error || ""));
+
+  const cancelConfirm = () => {
+    if (posting) return;
+    refocusPostRef.current = true;
+    setConfirming(false);
+  };
 
   const post = async () => {
     if (!canPost) return;
@@ -376,6 +394,7 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
             </div>
             {!confirming && (
               <button
+                ref={postBtnRef}
                 type="button"
                 className={`${r.btn} ${r.btnPrimary}`}
                 onClick={() => setConfirming(true)}
@@ -389,17 +408,29 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
           </div>
           {confirming && ready && (
             <div className={r.cardBody} style={{ paddingTop: 0 }}>
-              <div className={`${r.lineMsg} ${r.lineWarn}`} role="alertdialog" aria-label="Confirm opening stock">
-                <span>
+              <div
+                className={`${r.lineMsg} ${r.lineWarn}`}
+                role="alertdialog"
+                aria-label="Confirm opening stock"
+                aria-describedby={confirmId}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    cancelConfirm();
+                  }
+                }}
+              >
+                <span id={confirmId}>
                   Posting sets the on-hand of each of the {plural(rows.length, "item", "items")} at{" "}
                   {hotelName || "this hotel"} to its sheet qty. The difference from current stock is posted as one
                   opening adjustment.
                 </span>
                 <div className={r.flags}>
                   <button
+                    ref={cancelRef}
                     type="button"
                     className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`}
-                    onClick={() => setConfirming(false)}
+                    onClick={cancelConfirm}
                     disabled={posting}
                   >
                     Cancel

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExtern
 import Link from "next/link";
 import { toast } from "react-toastify";
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, CloudOff, Loader2, Minus, PackageMinus, Plus, RotateCcw, Trash2, Undo2,
+  AlertTriangle, ArrowLeft, CheckCircle2, CloudOff, Loader2, Minus, PackageMinus, Plus, RotateCcw, Trash2, Undo2, X,
 } from "lucide-react";
 import ScanInput from "@/components/inventory/scan/ScanInput";
 import QtyPad from "@/components/inventory/receive/QtyPad";
@@ -12,13 +12,15 @@ import useIsMobile from "@/hooks/useIsMobile";
 import { getStockItem, postOut } from "@/services/inventory";
 import { getDepartments } from "@/services/rbac";
 import {
-  fmtQty, isDecimalUnit, newClientEventId, parseQty, qtyText,
+  fmtInstant, fmtQty, isDecimalUnit, newClientEventId, parseQty, qtyText,
 } from "@/components/inventory/receive/receiveUtils";
 import HotelSelect from "./HotelSelect";
 import ItemPicker from "./ItemPicker";
 import useInventoryHotels from "./useInventoryHotels";
-import { submitOrQueue, useQueuedOutcome } from "./outboxBridge";
-import { clearOutSession, loadOutSession, saveOutSession } from "./outSession";
+import useUserId from "./useUserId";
+import useQueuedOuts, { OUT_KIND } from "./useQueuedOuts";
+import { dismissFailed, submitOrQueue } from "./outboxBridge";
+import { clearOutSession, clearOutSessionIf, listQueuedOuts, loadOutSession, saveOutSession } from "./outSession";
 import {
   QTY_MAX_LENGTH, cleanQtyInput, errorInfo, freezeMessage, isImplausibleQty, isPositiveQty, isUncertainFailure,
   lineProblems, sameLines, stockRoutes, toId,
@@ -33,16 +35,23 @@ import s from "./stock.module.scss";
 // - Scanning an item adds its pack factor (stock units per scan); a weighed or
 //   measured stock unit opens the qty pad instead. The toast and "Undo last
 //   scan" take a scan back off.
-// - The session lives on the device under `out-session:<hotelId>` (IndexedDB)
-//   from its first line until it is recorded, together with its clientEventId:
-//   a retry after a dropped reply replays the same document instead of posting
-//   twice. An empty session is never kept.
+// - The open session lives on the device under `out-session:<userId>:<hotelId>`
+//   (IndexedDB) from its first line until it is recorded, together with its
+//   clientEventId: a retry after a dropped reply replays the same document
+//   instead of posting twice. An empty session is never kept, and nobody else
+//   signed in on this device ever sees it.
 // - The department is required before Post. Refusals land on their lines
 //   (NEGATIVE_STOCK, the RETURN cap) or on the form (count freeze).
-// - A session the outbox queued stays on the device, read-only, until it syncs
-//   ("queued"); if the server then refuses it, it reopens here, editable, with
-//   the refusal. A post whose answer never came (no reply, or a 5xx) locks the
-//   lines under the same key ("uncertain"): Post again, or Discard.
+// - A session the outbox queued moves to its own copy (`out-queued:<userId>:
+//   <clientEventId>`) and frees the hotel at once: it is listed under "Waiting
+//   to sync" until the outbox says it was sent. If the server refuses it, it
+//   reopens here, editable, with the refusal; if the outbox can't say what
+//   became of it, it reopens locked ("uncertain"). Nothing is read as synced
+//   from the absence of news.
+// - A post whose answer never came (no reply, or a 5xx) locks the lines under
+//   the same key ("uncertain"): Post again, or Discard after a confirm.
+// - A qty over 100 on a mark out waits for the on-hand check; one far above
+//   what is in stock, or with no stock figure to check against, needs a confirm.
 //
 // Props: initialHotelId, initialMode ("RETURN" opens in Return to stock; the page shell maps ?mode=return).
 
@@ -53,6 +62,8 @@ const MODES = [
 ];
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const kindLabel = (docType) => (docType === "RETURN" ? "Return to stock" : "Mark out");
+const HIGH_QTY = 100;
 
 /** A tiny store the toasts read, so their Undo buttons lock while a post is in flight. */
 const createLock = () => {
@@ -105,31 +116,64 @@ const nonItemMessage = (result) => {
 };
 
 /** A session line as stored: quantities are text, as typed (stock units). */
-const toLine = (item, qty) => ({
-  invItemId: Number(item.invItemId),
-  displayName: item.displayName || `Item ${item.invItemId}`,
-  itemCode: item.itemCode ?? null,
-  stockUom: item.stockUom || "",
-  qty: qtyText(qty),
-  exact: Number(qty),
-  available: item.qty != null ? Number(item.qty) : item.available != null ? Number(item.available) : null,
-  confirmedQty: null,
-});
+const toLine = (item, qty) => {
+  const available = item.qty != null ? Number(item.qty) : item.available != null ? Number(item.available) : null;
+  return {
+    invItemId: Number(item.invItemId),
+    displayName: item.displayName || `Item ${item.invItemId}`,
+    itemCode: item.itemCode ?? null,
+    stockUom: item.stockUom || "",
+    qty: qtyText(qty),
+    exact: Number(qty),
+    available,
+    // "pending" until the on-hand check settles (it may settle unknown)
+    onHand: available != null ? "done" : "pending",
+    confirmedQty: null,
+  };
+};
 
 const storedLine = ({ invItemId, displayName, itemCode, stockUom, qty, exact, available, confirmedQty }) => ({
   invItemId, displayName, itemCode, stockUom, qty, exact, available, confirmedQty: confirmedQty ?? null,
 });
 
-/** True when a line's qty is implausible and nobody has confirmed it. */
-const needsCheck = (l) => isImplausibleQty(parseQty(l.qty), l.available) && l.confirmedQty !== l.qty;
+/** Lines from a device copy; an unknown on-hand is checked again. */
+const linesFromStored = (list) =>
+  (Array.isArray(list) ? list : [])
+    .filter((l) => l && l.invItemId != null)
+    .map((l) => ({
+      ...l,
+      invItemId: Number(l.invItemId),
+      exact: l.exact ?? parseQty(l.qty) ?? 0,
+      available: l.available != null ? Number(l.available) : null,
+      onHand: l.available != null ? "done" : "pending",
+      confirmedQty: l.confirmedQty ?? null,
+    }));
+
+/**
+ * What a line needs before a mark out can post: null, "checking" (the on-hand
+ * check for a qty over 100 hasn't settled) or "confirm" (far above what is in
+ * stock, or no stock figure to check against). Returns are never held.
+ */
+const qtyCheck = (l, mode) => {
+  if (mode !== "OUT") return null;
+  const q = parseQty(l.qty);
+  if (!(q > HIGH_QTY) || l.confirmedQty === l.qty) return null;
+  if (l.available == null) return l.onHand === "pending" ? "checking" : "confirm";
+  return isImplausibleQty(q, l.available) ? "confirm" : null;
+};
 
 const uncertainText = (info) =>
   `${info?.httpStatus ? "The server had a problem before it answered" : "The connection dropped before the server answered"}, ` +
   "so this session may or may not be recorded. Post again to find out: the same session is never recorded twice. " +
   "Discard it only if you know it went through, or you no longer want it.";
 
+const unconfirmedText =
+  "This device can't confirm whether this session was recorded: the sync queue no longer has it. Post again to find " +
+  "out: the same session is never recorded twice. Discard it only if you know it went through, or you no longer want it.";
+
 const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const isMobile = useIsMobile();
+  const userId = useUserId();
   const { hotels, loading: hotelsLoading, error: hotelsError, reload: reloadHotels } = useInventoryHotels();
 
   const [hotelId, setHotelId] = useState(null);
@@ -149,9 +193,14 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const [flashId, setFlashId] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [deptLoadError, setDeptLoadError] = useState(null);
-  // "open" (editable), "queued" (the outbox holds it), "uncertain" (no answer came)
+  // "open" (editable) or "uncertain" (no answer came, or the outbox lost track of it)
   const [status, setStatus] = useState("open");
   const [sentPayload, setSentPayload] = useState(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [notices, setNotices] = useState([]); // [{id, hotelId, tone: "ok"|"warn", text}]
+  const [viewing, setViewing] = useState(null); // clientEventId of a waiting session shown in full
+  const [askDiscard, setAskDiscard] = useState(null); // clientEventId: "Discard from this device?"
+  const [askOpen, setAskOpen] = useState(null); // clientEventId: "Open it and drop the current session?"
 
   const linesRef = useRef([]);
   const opsRef = useRef([]);
@@ -164,6 +213,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const hotelIdRef = useRef(null);
   const toastIdsRef = useRef(new Set());
   const onHandAskedRef = useRef(new Set());
+  const openingRef = useRef(false);
   const lockRef = useRef(null);
   if (!lockRef.current) lockRef.current = createLock();
   const lock = lockRef.current;
@@ -240,10 +290,34 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
       setRequestedBy("");
       setStatus("open");
       setSentPayload(null);
+      setConfirmDiscard(false);
       if (!keepMode) setMode(initialMode === "RETURN" ? "RETURN" : "OUT");
       sessionKeyRef.current = newClientEventId();
     },
     [commitLines, initialMode]
+  );
+
+  // The open slot belongs to one user at one hotel.
+  const slotKey = hotelId ? `${userId || "-"}:${hotelId}` : null;
+
+  /** Put a stored session (open, uncertain or reopened) on screen. */
+  const showStored = useCallback(
+    (saved, savedStatus) => {
+      commitLines(linesFromStored(saved.lines));
+      opsRef.current = [];
+      onHandAskedRef.current = new Set();
+      setUndoCount(0);
+      setProblems({});
+      setDeptError(null);
+      setConfirmDiscard(false);
+      setMode(saved.docType === "RETURN" ? "RETURN" : "OUT");
+      setDepartmentId(saved.departmentId ? String(saved.departmentId) : "");
+      setRequestedBy(saved.requestedByName || "");
+      sessionKeyRef.current = saved.sessionKey || saved.clientEventId || newClientEventId();
+      setStatus(savedStatus);
+      setSentPayload(savedStatus === "uncertain" ? saved.sentPayload : null);
+    },
+    [commitLines]
   );
 
   useEffect(() => {
@@ -252,48 +326,37 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     setRestoredFor(null);
     setRestoredNote(false);
     setDone(null);
+    setViewing(null);
+    setAskDiscard(null);
+    setAskOpen(null);
     dismissToasts();
     (async () => {
-      const saved = await loadOutSession(hotelId);
+      let saved = await loadOutSession(userId, hotelId);
+      const savedKey = saved ? saved.sessionKey || saved.clientEventId : null;
+      if (savedKey && (await listQueuedOuts(userId)).some((e) => e.clientEventId === savedKey)) {
+        // The outbox already holds this session (the slot was being freed when
+        // the page went): the queued copy wins, and is listed or reopened.
+        await clearOutSessionIf(userId, hotelId, savedKey);
+        saved = null;
+      }
       if (cancelled) return;
       const savedLines = Array.isArray(saved?.lines) ? saved.lines.filter((l) => l && l.invItemId != null) : [];
       if (savedLines.length > 0) {
-        commitLines(
-          savedLines.map((l) => ({
-            ...l,
-            invItemId: Number(l.invItemId),
-            exact: l.exact ?? parseQty(l.qty) ?? 0,
-            confirmedQty: l.confirmedQty ?? null,
-          }))
+        const savedStatus = saved.status === "uncertain" && saved.sentPayload ? "uncertain" : "open";
+        showStored(saved, savedStatus);
+        setFormError(
+          savedStatus === "uncertain" ? { text: saved.lastError === "unconfirmed" ? unconfirmedText : uncertainText(saved.lastError) } : null
         );
-        opsRef.current = [];
-        onHandAskedRef.current = new Set();
-        setUndoCount(0);
-        setProblems({});
-        setDeptError(null);
-        setMode(saved.docType === "RETURN" ? "RETURN" : "OUT");
-        setDepartmentId(saved.departmentId ? String(saved.departmentId) : "");
-        setRequestedBy(saved.requestedByName || "");
-        sessionKeyRef.current = saved.sessionKey || newClientEventId();
-        const savedStatus =
-          saved.status === "queued" && saved.queuedAs && saved.sentPayload
-            ? "queued"
-            : saved.status === "uncertain" && saved.sentPayload
-              ? "uncertain"
-              : "open";
-        setStatus(savedStatus);
-        setSentPayload(savedStatus === "open" ? null : saved.sentPayload);
-        setFormError(savedStatus === "uncertain" ? { text: uncertainText(saved.lastError) } : null);
         setRestoredNote(savedStatus === "open");
       } else {
         resetSession(true);
       }
-      setRestoredFor(hotelId);
+      setRestoredFor(`${userId || "-"}:${hotelId}`);
     })();
     return () => {
       cancelled = true;
     };
-  }, [hotelId, commitLines, resetSession, dismissToasts]);
+  }, [hotelId, userId, showStored, resetSession, dismissToasts]);
 
   const snapshot = (extra = {}) => ({
     savedAt: Date.now(),
@@ -307,17 +370,18 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     ...extra,
   });
 
-  // An open session is saved on every change once it has a line; a queued or
-  // uncertain one was written when it changed state and is frozen since.
+  // An open session is saved on every change once it has a line, but not while
+  // a post is in flight (the post writes what becomes of it); an uncertain one
+  // was written when it changed state and is frozen since.
   useEffect(() => {
-    if (!hotelId || restoredFor !== hotelId || done || status !== "open") return;
+    if (!slotKey || restoredFor !== slotKey || done || posting || status !== "open") return;
     if (!lines.length) {
-      clearOutSession(hotelId);
+      clearOutSession(userId, hotelId);
       return;
     }
-    saveOutSession(hotelId, snapshot());
+    saveOutSession(userId, hotelId, snapshot());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, restoredFor, done, status, mode, departmentId, requestedBy, lines]);
+  }, [slotKey, restoredFor, done, posting, status, mode, departmentId, requestedBy, lines]);
 
   // ── Line edits ─────────────────────────────────────────────────────────────
   const flash = (invItemId) => {
@@ -337,24 +401,39 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const locked = () => postingRef.current || statusRef.current !== "open";
 
   // Scans don't carry the on-hand qty; fetch it once per line, so the line can
-  // show it and a slip (or a stray scan into a qty field) can be caught.
+  // show it and a slip (or a stray scan into a qty field) can be caught. The
+  // line's `onHand` says when the check has settled (known or not).
   const askOnHand = (id) => {
     const forHotel = hotelIdRef.current;
     if (!forHotel || onHandAskedRef.current.has(id)) return;
     onHandAskedRef.current.add(id);
     (async () => {
+      let qty = null;
       try {
         const res = await getStockItem(forHotel, id);
-        const qty = res?.balance?.qty;
-        if (!mountedRef.current || hotelIdRef.current !== forHotel || qty == null || !Number.isFinite(Number(qty))) return;
-        const cur = linesRef.current;
-        if (!cur.some((l) => l.invItemId === id && l.available == null)) return;
-        commitLines(cur.map((l) => (l.invItemId === id && l.available == null ? { ...l, available: Number(qty) } : l)));
+        const n = res?.balance?.qty;
+        if (n != null && Number.isFinite(Number(n))) qty = Number(n);
       } catch {
-        // on-hand stays unknown; the server still checks every line
+        // on-hand stays unknown; a big qty then needs a confirm, and the server still checks every line
       }
+      if (!mountedRef.current || hotelIdRef.current !== forHotel) return;
+      const cur = linesRef.current;
+      if (!cur.some((l) => l.invItemId === id && l.onHand === "pending")) return;
+      commitLines(
+        cur.map((l) =>
+          l.invItemId === id && l.onHand === "pending"
+            ? { ...l, onHand: "done", available: l.available ?? qty }
+            : l
+        )
+      );
     })();
   };
+
+  // A line restored from the device, or put back by Undo, checks again.
+  useEffect(() => {
+    for (const l of lines) if (l.onHand === "pending") askOnHand(l.invItemId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines]);
 
   /** Add `delta` stock units of `item`; returns the line's new total. */
   const addToSession = (item, delta) => {
@@ -384,7 +463,6 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     clearProblem(id);
     setFormError(null);
     flash(id);
-    if (created && next[0].available == null) askOnHand(id);
     return { total, op };
   };
 
@@ -491,6 +569,8 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     opsRef.current = opsRef.current.filter((o) => o.invItemId !== line.invItemId);
     setUndoCount(opsRef.current.length);
     clearProblem(line.invItemId);
+    // Added again later, it is a fresh line: its on-hand is checked again.
+    onHandAskedRef.current.delete(line.invItemId);
     const toastId = `out-remove-${line.invItemId}-${Date.now()}`;
     showToast(
       toastId,
@@ -503,7 +583,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
             const now = linesRef.current;
             if (!now.some((l) => l.invItemId === removed.invItemId)) {
               const back = now.slice();
-              back.splice(Math.min(index, back.length), 0, removed);
+              back.splice(Math.min(index, back.length), 0, removed.available == null ? { ...removed, onHand: "pending" } : removed);
               commitLines(back);
             }
             toast.dismiss(toastId);
@@ -583,34 +663,109 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     }
   };
 
+  // ── Sessions the outbox holds ─────────────────────────────────────────────
+  const onSynced = (copy, result) => {
+    const where = hotels.find((h) => h.id === Number(copy.hotelId))?.name || null;
+    const label = `${kindLabel(copy.docType)}${copy.departmentName ? ` · ${copy.departmentName}` : ""}`;
+    const number = result && typeof result === "object" ? result.outNumber : null;
+    const mismatch =
+      !!result?.replayed && Array.isArray(result?.lines) && !sameLines(copy.sentPayload?.lines || [], result.lines);
+    const text = mismatch
+      ? `${label} was already recorded${number ? ` as ${number}` : ""}, with different lines from the ones saved on this ` +
+        "device. Check it, and mark out anything missing as a new session."
+      : `${label} · ${plural(copy.lines?.length || 0, "item")} synced${number ? ` as ${number}` : ""}${where ? ` at ${where}` : ""}.`;
+    setNotices((list) => [...list.filter((n) => n.id !== copy.clientEventId), {
+      id: copy.clientEventId, hotelId: Number(copy.hotelId), tone: mismatch ? "warn" : "ok", text,
+    }]);
+    if (mismatch) toast.warn(text, { autoClose: false });
+    else toast.success(text);
+  };
+
+  const queue = useQueuedOuts({ userId, onSynced });
+  const hotelEntries = queue.entries.filter((e) => e.hotelId === Number(hotelId) && e.state !== "sent");
+
+  /**
+   * Take a queued copy back into the open slot: refused ones reopen editable
+   * with the refusal, ones the outbox can't account for reopen locked. The slot
+   * is written before the copy goes, so a reload in between loses nothing.
+   */
+  const openQueued = async (entry) => {
+    if (openingRef.current || postingRef.current || !entry) return;
+    openingRef.current = true;
+    try {
+      const copy = entry.copy;
+      const forHotel = Number(copy.hotelId);
+      const failed = entry.state === "failed";
+      const slot = {
+        savedAt: Date.now(),
+        hotelId: forHotel,
+        sessionKey: copy.clientEventId,
+        docType: copy.docType,
+        departmentId: copy.departmentId,
+        requestedByName: copy.requestedByName,
+        lines: copy.lines,
+        status: failed ? "open" : "uncertain",
+        ...(failed ? {} : { sentPayload: copy.sentPayload, lastError: "unconfirmed" }),
+      };
+      await saveOutSession(userId, forHotel, slot);
+      await queue.forget(entry.clientEventId);
+      if (failed && entry.failed?.id != null) dismissFailed(entry.failed.id);
+      if (!mountedRef.current || hotelIdRef.current !== forHotel) return;
+      dismissToasts();
+      setDone(null);
+      setRestoredNote(false);
+      showStored(slot, failed ? "open" : "uncertain");
+      if (failed) {
+        setFormError(null);
+        applyRefusal(entry.error || {}, copy.sentPayload, { prefix: "This session was refused when it synced. " });
+      } else {
+        setFormError({ text: unconfirmedText });
+      }
+    } finally {
+      openingRef.current = false;
+    }
+  };
+
   const send = async (payload) => {
     if (postingRef.current) return;
     const postedHotel = Number(payload.hotelId);
-    const base = snapshot({ sessionKey: payload.clientEventId });
+    const base = snapshot({ sessionKey: payload.clientEventId, hotelId: postedHotel });
+    const departmentName = departments.find((d) => d.id === Number(payload.departmentId))?.title || null;
     postingRef.current = true;
     lock.set(true);
     setPosting(true);
     setProblems({});
     setDeptError(null);
     setFormError(null);
+    setConfirmDiscard(false);
     try {
       const { queued, result } = await submitOrQueue({
-        kind: "out_post",
+        kind: OUT_KIND,
         clientEventId: payload.clientEventId,
         payload,
         send: (p) => postOut(p),
+        summary: `${kindLabel(payload.docType)}${departmentName ? ` · ${departmentName}` : ""} · ${plural(payload.lines.length, "item")}`,
       });
       if (queued) {
-        // The outbox holds the event; this copy stays (read-only) until it
-        // syncs, so a refusal can reopen it.
-        await saveOutSession(postedHotel, { ...base, status: "queued", queuedAs: payload.clientEventId, sentPayload: payload });
+        // The outbox holds the event. Its copy moves out of the open slot (copy
+        // first, then the slot), so the hotel is free for the next session.
+        await queue.track({
+          ...base,
+          status: "queued",
+          clientEventId: payload.clientEventId,
+          departmentName,
+          queuedAt: Date.now(),
+          sentPayload: payload,
+        });
+        await clearOutSessionIf(userId, postedHotel, payload.clientEventId);
         if (!mountedRef.current) return;
         dismissToasts();
-        setStatus("queued");
-        setSentPayload(payload);
+        if (hotelIdRef.current === postedHotel) resetSession(true);
+        setRestoredNote(false);
+        toast.info("Saved on this device. It will sync when the connection is back: see Waiting to sync.");
         return;
       }
-      await clearOutSession(postedHotel);
+      await clearOutSessionIf(userId, postedHotel, payload.clientEventId);
       sessionKeyRef.current = newClientEventId();
       if (!mountedRef.current) return;
       dismissToasts();
@@ -625,7 +780,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     } catch (err) {
       const info = errorInfo(err, "Could not post this session.");
       if (isUncertainFailure(info)) {
-        await saveOutSession(postedHotel, {
+        await saveOutSession(userId, postedHotel, {
           ...base,
           status: "uncertain",
           sentPayload: payload,
@@ -668,7 +823,12 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
       });
       return;
     }
-    if (cur.some(needsCheck)) {
+    const checks = cur.map((l) => qtyCheck(l, mode));
+    if (checks.includes("checking")) {
+      setFormError({ text: "Still checking what's in stock for the highlighted qty. Post again in a moment." });
+      return;
+    }
+    if (checks.includes("confirm")) {
       setFormError({ text: "Check the highlighted qty, then post." });
       return;
     }
@@ -689,35 +849,50 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
 
   const discard = () => {
     if (postingRef.current) return;
-    if (hotelId) clearOutSession(hotelId);
+    setConfirmDiscard(false);
+    if (hotelId) clearOutSession(userId, hotelId);
     dismissToasts();
     resetSession(true);
   };
 
-  // The outbox settles a queued session: synced clears it, refused reopens it.
-  useQueuedOutcome({
-    kind: "out_post",
-    clientEventId: status === "queued" ? sentPayload?.clientEventId ?? null : null,
-    onSent: (result) => {
-      const h = hotelIdRef.current;
-      const sent = sentPayload;
-      if (h) clearOutSession(h);
-      sessionKeyRef.current = newClientEventId();
-      setStatus("open");
-      setSentPayload(null);
-      setDone(
-        result && typeof result === "object" && result.outNumber
-          ? { doc: result, replayed: !!result.replayed }
-          : { synced: true, docType: sent?.docType || mode, lines: linesRef.current }
-      );
-    },
-    onFailed: (info) => {
-      const sent = sentPayload;
-      setStatus("open");
-      setSentPayload(null);
-      applyRefusal(info, sent, { prefix: "This session was refused when it synced. " });
-    },
-  });
+  // A refused (or unaccounted-for) session reopens into the slot when it is empty.
+  const slotEmpty =
+    !!slotKey && restoredFor === slotKey && queue.loaded && status === "open" && lines.length === 0 && !posting && !done;
+  const nextToReopen = slotEmpty
+    ? hotelEntries.find((e) => e.state === "failed" || e.state === "uncertain") || null
+    : null;
+  useEffect(() => {
+    if (nextToReopen && !openingRef.current) openQueued(nextToReopen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextToReopen?.clientEventId, nextToReopen?.state]);
+
+  const requestOpen = (entry) => {
+    if (postingRef.current) return;
+    if (status === "open" && linesRef.current.length === 0) openQueued(entry);
+    else setAskOpen(entry.clientEventId);
+  };
+
+  const replaceAndOpen = async (entry) => {
+    setAskOpen(null);
+    if (postingRef.current) return;
+    openingRef.current = true; // keep the empty slot from reopening another one first
+    try {
+      await clearOutSession(userId, hotelId);
+      dismissToasts();
+      resetSession(true);
+    } finally {
+      openingRef.current = false;
+    }
+    await openQueued(entry);
+  };
+
+  const discardQueued = async (entry) => {
+    setAskDiscard(null);
+    const ok = await queue.discard(entry);
+    if (!mountedRef.current) return;
+    if (ok) toast.info(`${kindLabel(entry.copy.docType)} · ${plural(entry.copy.lines?.length || 0, "item")} discarded from this device.`);
+    else toast.info("It was sent (or settled) before it could be discarded. Its status below is up to date.");
+  };
 
   const startAnother = () => {
     resetSession(true);
@@ -729,7 +904,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const postLabel = mode === "RETURN" ? "Post return" : "Post mark out";
   const department = departments.find((d) => String(d.id) === String(departmentId)) || null;
   const exclude = useMemo(() => new Set(lines.map((l) => l.invItemId)), [lines]);
-  const sessionReady = !!hotelId && restoredFor === hotelId;
+  const sessionReady = !!slotKey && restoredFor === slotKey;
 
   const header = (
     <section className={r.pageHeader}>
@@ -817,7 +992,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
 
   if (done) {
     const doc = done.doc;
-    const returned = (doc?.docType || done.docType) === "RETURN";
+    const returned = doc?.docType === "RETURN";
     return (
       <div className={r.page}>
         {header}
@@ -825,15 +1000,11 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
           <div className={r.stateCard} role="status">
             <div className={`${r.stateIc} ${r.stateIcOk}`}><CheckCircle2 size={20} aria-hidden="true" /></div>
             <h2 className={r.stateTitle}>{returned ? "Returned to stock" : "Marked out"}</h2>
-            {done.synced ? (
-              <p className={r.stateSub}>The session saved on this device has synced.</p>
-            ) : (
-              <p className={r.stateSub}>
-                <span className={s.mono}>{doc?.outNumber}</span>
-                {doc?.departmentName ? ` · ${doc.departmentName}` : ""}
-                {doc?.hotelName ? ` · ${doc.hotelName}` : ""}
-              </p>
-            )}
+            <p className={r.stateSub}>
+              <span className={s.mono}>{doc?.outNumber}</span>
+              {doc?.departmentName ? ` · ${doc.departmentName}` : ""}
+              {doc?.hotelName ? ` · ${doc.hotelName}` : ""}
+            </p>
             {done.replayed && !done.mismatch && (
               <p className={r.stateSub}>This session was already recorded, so nothing was posted twice.</p>
             )}
@@ -846,9 +1017,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                 </span>
               </div>
             )}
-            {done.synced
-              ? Array.isArray(done.lines) && done.lines.length > 0 && lineSummary(done.lines, "Synced items")
-              : Array.isArray(doc?.lines) && doc.lines.length > 0 && lineSummary(doc.lines, "Recorded items")}
+            {Array.isArray(doc?.lines) && doc.lines.length > 0 && lineSummary(doc.lines, "Recorded items")}
             <div className={r.stateActions}>
               <button type="button" className={`${r.btn} ${r.btnPrimary}`} onClick={startAnother}>
                 Start another session
@@ -863,33 +1032,123 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     );
   }
 
-  if (status === "queued" && sessionReady) {
-    return (
-      <div className={r.page}>
-        {header}
-        <main className={r.pageBody}>
-          <div className={r.stateCard} role="status">
-            <div className={r.stateIc}><CloudOff size={20} aria-hidden="true" /></div>
-            <h2 className={r.stateTitle}>Saved on this device</h2>
-            <p className={r.stateSub}>Waiting to sync. If it&apos;s refused you&apos;ll see it here and can fix it.</p>
-            <p className={r.stateSub}>
-              {mode === "RETURN" ? "Return to stock" : "Mark out"}
-              {department ? ` · ${department.title}` : ""} · {plural(lines.length, "item")}
-            </p>
-            {lineSummary(lines, "Waiting items")}
-            <p className={r.stateSub}>The next session at {hotel?.name || "this hotel"} can start once this one syncs.</p>
-            <div className={r.stateActions}>
-              <Link href={stockRoutes.stock({ hotelId })} className={`${r.btn} ${r.btnSecondary}`}>
-                View stock
-              </Link>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   const uncertain = status === "uncertain";
+  const hotelNotices = notices.filter((n) => n.hotelId === Number(hotelId));
+
+  const stateText = (e) => {
+    switch (e.state) {
+      case "checking":
+        return "Checking…";
+      case "sending":
+        return "Sending now";
+      case "discarding":
+        return "Discarding…";
+      case "failed":
+        return `Refused: ${e.error?.message || "the server refused it"}`;
+      case "uncertain":
+        return "Not confirmed: open it to post again or discard";
+      default:
+        return e.item?.lastError?.message ? `Waiting to sync (last try: ${e.item.lastError.message})` : "Waiting to sync";
+    }
+  };
+
+  const waitingCard = hotelEntries.length > 0 && (
+    <section className={r.card} aria-label="Waiting to sync">
+      <div className={r.cardHead}>
+        <h2 className={r.cardTitle}>
+          <CloudOff size={15} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Waiting to sync{" "}
+          <span className={r.count}>{hotelEntries.length}</span>
+        </h2>
+      </div>
+      <div className={r.cardBody}>
+        <p className={s.subtle} style={{ marginTop: 0 }}>
+          Waiting to sync. If it&apos;s refused you&apos;ll see it here and can fix it.
+        </p>
+        <ul className={s.lineList} aria-label="Sessions waiting to sync">
+          {hotelEntries.map((e) => {
+            const copy = e.copy;
+            const label = `${kindLabel(copy.docType)}${copy.departmentName ? ` · ${copy.departmentName}` : ""}`;
+            const count = copy.lines?.length || 0;
+            const open = viewing === e.clientEventId;
+            const attention = e.state === "failed" || e.state === "uncertain";
+            return (
+              <li key={e.clientEventId} aria-label={label} className={`${s.line} ${attention ? s.lineBad : ""}`}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className={s.lineName}>{label}</div>
+                  <div className={s.lineMeta}>
+                    <span>{plural(count, "item")}</span>
+                    {copy.queuedAt && <span>{fmtInstant(new Date(copy.queuedAt).toISOString())}</span>}
+                    <span>{stateText(e)}</span>
+                  </div>
+                </div>
+                <div className={s.footActions}>
+                  <button
+                    type="button"
+                    className={`${r.btn} ${r.btnGhost} ${r.btnSm}`}
+                    aria-expanded={open}
+                    onClick={() => setViewing(open ? null : e.clientEventId)}
+                  >
+                    {open ? "Hide" : "View"}
+                  </button>
+                  {e.state === "pending" && (
+                    <button
+                      type="button"
+                      className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`}
+                      onClick={() => setAskDiscard(e.clientEventId)}
+                    >
+                      Discard from this device
+                    </button>
+                  )}
+                  {attention && (
+                    <button
+                      type="button"
+                      className={`${r.btn} ${r.btnPrimary} ${r.btnSm}`}
+                      onClick={() => requestOpen(e)}
+                      disabled={posting}
+                    >
+                      Open
+                    </button>
+                  )}
+                </div>
+                {open && lineSummary(copy.lines || [], `Items in ${label}`)}
+                {askDiscard === e.clientEventId && (
+                  <div className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`} role="alertdialog" aria-label="Discard from this device?">
+                    <span style={{ flex: 1 }}>
+                      Discard this {kindLabel(copy.docType).toLowerCase()} from this device? It won&apos;t be sent.
+                    </span>
+                    <div className={s.footActions}>
+                      <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setAskDiscard(null)}>
+                        Keep it
+                      </button>
+                      <button type="button" className={`${r.btn} ${r.btnDanger} ${r.btnSm}`} onClick={() => discardQueued(e)}>
+                        Discard it
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {askOpen === e.clientEventId && (
+                  <div className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`} role="alertdialog" aria-label="Open this session?">
+                    <span style={{ flex: 1 }}>
+                      Opening it replaces the session you&apos;re working on, which is then discarded. Keep working on
+                      the current one, or discard it and open this one?
+                    </span>
+                    <div className={s.footActions}>
+                      <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setAskOpen(null)}>
+                        Keep current
+                      </button>
+                      <button type="button" className={`${r.btn} ${r.btnDanger} ${r.btnSm}`} onClick={() => replaceAndOpen(e)}>
+                        Discard current and open
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
   const scanDisabled = !sessionReady || posting || !!pad || !editable;
   const lineCount = lines.length;
   const postDisabled = posting || !permReady || cannotPost || !sessionReady;
@@ -900,7 +1159,12 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
 
   const footActions = uncertain ? (
     <>
-      <button type="button" className={`${r.btn} ${r.btnSecondary}`} onClick={discard} disabled={posting}>
+      <button
+        type="button"
+        className={`${r.btn} ${r.btnSecondary}`}
+        onClick={() => setConfirmDiscard(true)}
+        disabled={posting || confirmDiscard}
+      >
         Discard
       </button>
       <button type="button" className={`${r.btn} ${r.btnSuccess}`} onClick={postAgain} disabled={postDisabled}>
@@ -920,6 +1184,25 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
       {header}
       <main className={r.pageBody}>
         <div className={`${r.stack} ${s.narrow}`}>
+          {hotelNotices.map((n) => (
+            <div
+              key={n.id}
+              className={`${r.lineMsg} ${n.tone === "warn" ? r.lineWarn : r.lineNote}`}
+              role={n.tone === "warn" ? "alert" : "status"}
+            >
+              {n.tone === "warn" ? <AlertTriangle size={14} aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
+              <span style={{ flex: 1 }}>{n.text}</span>
+              <button
+                type="button"
+                className={`${r.btn} ${r.btnGhost} ${r.btnSm}`}
+                aria-label="Dismiss"
+                onClick={() => setNotices((list) => list.filter((x) => x.id !== n.id))}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+          {waitingCard}
           {restoredNote && editable && (
             <div className={`${r.lineMsg} ${r.lineNote}`} role="status">
               Picked up the session saved on this device.
@@ -1046,11 +1329,12 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
               <ul className={s.lineList} aria-label="Items in this session">
                 {lines.map((l) => {
                   const problem = problems[l.invItemId];
-                  const check = editable && needsCheck(l);
+                  const checkState = editable ? qtyCheck(l, mode) : null;
+                  const check = checkState === "confirm";
                   const decimal = isDecimalUnit(l.stockUom);
                   const problemId = `out-line-${l.invItemId}-problem`;
                   const checkId = `out-line-${l.invItemId}-check`;
-                  const describedBy = [problem && problemId, check && checkId].filter(Boolean).join(" ") || undefined;
+                  const describedBy = [problem && problemId, checkState && checkId].filter(Boolean).join(" ") || undefined;
                   const frozen = posting || !editable;
                   return (
                     <li
@@ -1123,11 +1407,19 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                           <Trash2 size={15} aria-hidden="true" />
                         </button>
                       </div>
+                      {checkState === "checking" && (
+                        <div id={checkId} className={`${r.lineMsg} ${r.lineNote} ${s.lineProblem}`} role="status">
+                          <Loader2 size={14} className={r.spin} aria-hidden="true" />
+                          <span>Checking what&apos;s in stock before {fmtQty(parseQty(l.qty))} can be marked out…</span>
+                        </div>
+                      )}
                       {check && (
                         <div id={checkId} className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`}>
                           <AlertTriangle size={14} aria-hidden="true" />
                           <span>
-                            {fmtQty(parseQty(l.qty))} {l.stockUom} is far more than the {fmtQty(l.available)} in stock.
+                            {l.available != null
+                              ? `${fmtQty(parseQty(l.qty))} ${l.stockUom} is far more than the ${fmtQty(l.available)} in stock.`
+                              : `Couldn't check what's in stock. Is ${fmtQty(parseQty(l.qty))} ${l.stockUom} right?`}
                           </span>
                           <button
                             type="button"
@@ -1170,6 +1462,27 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                 )}
               </div>
             )}
+            {uncertain && confirmDiscard && (
+              <div
+                className={`${r.lineMsg} ${r.lineWarn}`}
+                role="alertdialog"
+                aria-label="Discard this session?"
+                style={{ marginTop: 12 }}
+              >
+                <AlertTriangle size={14} aria-hidden="true" />
+                <span style={{ flex: 1 }}>
+                  Discard this session? If it did go through it stays recorded; if it didn&apos;t, nothing is recorded.
+                </span>
+                <div className={s.footActions}>
+                  <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setConfirmDiscard(false)}>
+                    Keep it
+                  </button>
+                  <button type="button" className={`${r.btn} ${r.btnDanger} ${r.btnSm}`} onClick={discard} disabled={posting}>
+                    Discard session
+                  </button>
+                </div>
+              </div>
+            )}
             {!isMobile && (
               <div className={r.cardFoot}>
                 <span className={s.subtle}>
@@ -1194,7 +1507,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
         >
           {uncertain ? (
             <>
-              <MobileActionButton variant="secondary" onClick={discard} disabled={posting}>
+              <MobileActionButton variant="secondary" onClick={() => setConfirmDiscard(true)} disabled={posting || confirmDiscard}>
                 Discard
               </MobileActionButton>
               <MobileActionButton variant="primary" onClick={postAgain} disabled={postDisabled}>

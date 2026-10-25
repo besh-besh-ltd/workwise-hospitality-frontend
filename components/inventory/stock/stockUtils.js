@@ -5,7 +5,7 @@
 // Quantity maths and formatting come from the receive helpers (1/10000
 // integer maths, so repeated scans never drift).
 
-import { addQty, errorInfo, fmtDay, fmtQty, toQ } from "@/components/inventory/receive/receiveUtils";
+import { addQty, daysBetween, errorInfo, fmtDay, fmtQty, istToday, toQ } from "@/components/inventory/receive/receiveUtils";
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 const BASE = "/dashboard/buyer/inventory";
@@ -136,6 +136,22 @@ export const cleanQtyInput = (raw) => {
  * A qty that looks like a slip (or a stray scan): over 100 and over 10x what
  * is on hand. Unknown on-hand never trips it.
  */
+/**
+ * How close a batch is to its expiry, on IST calendar days: "Expired",
+ * "Expires today", or "Expires in N days" within 30 days; null otherwise (or
+ * with no expiry date). `tone` names the pill (Bad / Warn).
+ */
+export const EXPIRY_SOON_DAYS = 30;
+export const batchExpiry = (expiryDate, today = istToday()) => {
+  if (!expiryDate) return null;
+  const days = daysBetween(today, String(expiryDate).slice(0, 10));
+  if (days === null) return null;
+  if (days < 0) return { label: "Expired", tone: "Bad" };
+  if (days === 0) return { label: "Expires today", tone: "Bad" };
+  if (days <= EXPIRY_SOON_DAYS) return { label: `Expires in ${days} ${days === 1 ? "day" : "days"}`, tone: "Warn" };
+  return null;
+};
+
 export const isImplausibleQty = (qty, onHand) => {
   const q = Number(qty);
   if (!Number.isFinite(q) || q <= 100) return false;

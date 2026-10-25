@@ -5,6 +5,7 @@ import { createAdjustment } from "@/services/inventory";
 import { fmtQty, newClientEventId, parseQty } from "@/components/inventory/receive/receiveUtils";
 import HotelSelect from "./HotelSelect";
 import ItemPicker from "./ItemPicker";
+import useUserId from "./useUserId";
 import {
   ADJUSTMENT_REASONS, QTY_MAX_LENGTH, cleanQtyInput, errorInfo, freezeMessage, isUncertainFailure, lineProblems,
   reasonDirection, sameLines,
@@ -22,6 +23,9 @@ import s from "./stock.module.scss";
 // When no answer comes (the connection drops, or a 5xx), the adjustment may
 // or may not be recorded: the form locks under the same request key and
 // offers only "Submit again" (a replay is never recorded twice) or "Discard".
+// The lock (what was sent, under which key, and the form as it stood) is kept
+// in sessionStorage per signed-in user and hotel, so a reload or a closed tab
+// in the same session reopens it locked instead of losing the key.
 //
 // Props: { show, hotels [{id,name}] (only hotels where the caller has
 //          inventory.create), defaultHotelId, onHide,
@@ -29,8 +33,57 @@ import s from "./stock.module.scss";
 
 const lineKey = (l) => l.invItemId;
 
+// ── The uncertain lock, per user and hotel ──────────────────────────────────
+const lockKey = (userId, hotelId) => `adj-uncertain:${userId}:${hotelId}`;
+const storage = () => {
+  try {
+    return typeof window !== "undefined" ? window.sessionStorage : null;
+  } catch {
+    return null;
+  }
+};
+/** @returns {{userId, hotelId, payload, form:{reasonCode, lines, remarks}, savedAt}|null} */
+export const readAdjustmentLock = (userId, hotelId) => {
+  const store = storage();
+  if (!store || !userId || hotelId == null) return null;
+  try {
+    const value = JSON.parse(store.getItem(lockKey(userId, hotelId)) || "null");
+    if (!value || String(value.userId) !== String(userId) || Number(value.hotelId) !== Number(hotelId)) return null;
+    if (!value.payload?.clientEventId || Number(value.payload.hotelId) !== Number(hotelId)) return null;
+    return value;
+  } catch {
+    return null;
+  }
+};
+const writeLock = (userId, payload, form) => {
+  const store = storage();
+  if (!store || !userId) return;
+  try {
+    store.setItem(
+      lockKey(userId, payload.hotelId),
+      JSON.stringify({ userId: String(userId), hotelId: Number(payload.hotelId), payload, form, savedAt: Date.now() })
+    );
+  } catch {
+    // storage full or blocked: the lock still holds while this page is open
+  }
+};
+const clearLock = (userId, hotelId) => {
+  const store = storage();
+  if (!store || !userId || hotelId == null) return;
+  try {
+    store.removeItem(lockKey(userId, hotelId));
+  } catch {
+    // nothing to clear
+  }
+};
+
+const restoredText =
+  "This adjustment was sent, but no answer came before the page closed, so it may or may not be recorded. " +
+  "Submit again to find out: the same adjustment is never recorded twice.";
+
 const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, onCreated }) => {
   const titleId = useId();
+  const userId = useUserId();
   const reasonId = useId();
   const remarksId = useId();
   const [hotelId, setHotelId] = useState(defaultHotelId);
@@ -45,16 +98,32 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
   const keyRef = useRef(null);
   const busyRef = useRef(false);
 
-  // A fresh form, and a fresh request key, each time the dialog opens.
+  // A fresh form, and a fresh request key, each time the dialog opens; unless
+  // this user left an unanswered adjustment at one of these hotels, which
+  // reopens locked under its own key (the default hotel's first).
   useEffect(() => {
     if (!show) return;
+    setFieldErrors({});
+    setProblems({});
+    const ids = [defaultHotelId, ...hotels.map((h) => h.id)].filter(
+      (id, i, all) => id != null && all.indexOf(id) === i && hotels.some((h) => Number(h.id) === Number(id))
+    );
+    const lock = ids.map((id) => readAdjustmentLock(userId, id)).find(Boolean);
+    if (lock) {
+      setHotelId(hotels.find((h) => Number(h.id) === Number(lock.hotelId))?.id ?? Number(lock.hotelId));
+      setReasonCode(lock.form?.reasonCode || lock.payload.reasonCode || "");
+      setLines(Array.isArray(lock.form?.lines) ? lock.form.lines : []);
+      setRemarks(lock.form?.remarks || "");
+      setUncertain(lock.payload);
+      setFormError(restoredText);
+      keyRef.current = lock.payload.clientEventId;
+      return;
+    }
     setHotelId(defaultHotelId ?? (hotels[0]?.id ?? null));
     setReasonCode("");
     setLines([]);
     setRemarks("");
     setFormError(null);
-    setFieldErrors({});
-    setProblems({});
     setUncertain(null);
     keyRef.current = newClientEventId();
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -106,6 +175,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
     const sentIds = payload.lines.map((l) => l.invItemId);
     try {
       const res = await createAdjustment(payload);
+      clearLock(userId, payload.hotelId);
       keyRef.current = newClientEventId();
       setUncertain(null);
       const linesDiffer = !!res?.replayed && Array.isArray(res?.lines) && !sameLines(payload.lines, res.lines);
@@ -116,12 +186,15 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
       const uomOf = (id) => lines.find((l) => l.invItemId === id)?.stockUom || "";
       if (isUncertainFailure(info)) {
         setUncertain(payload);
+        writeLock(userId, payload, { reasonCode, lines, remarks });
         setFormError(
           `${info.httpStatus ? "The server had a problem before it answered" : "The connection dropped before the server answered"}, ` +
             "so this adjustment may or may not be recorded. Submit again to find out: the same adjustment is never recorded twice."
         );
         return;
       }
+      // a definite answer: the lock is over (the form opens for a fix)
+      clearLock(userId, payload.hotelId);
       setUncertain(null);
       if (info.code === "LOCKED") {
         setFormError(`${freezeMessage(d)}: adjustments there are refused until it's submitted or cancelled.`);
@@ -143,6 +216,7 @@ const NewAdjustmentModal = ({ show, hotels = [], defaultHotelId = null, onHide, 
 
   const discard = () => {
     if (busyRef.current) return;
+    if (uncertain) clearLock(userId, uncertain.hotelId);
     setUncertain(null);
     keyRef.current = newClientEventId();
     onHide?.();

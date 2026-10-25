@@ -15,6 +15,10 @@ jest.mock("react-toastify", () => {
   return { __esModule: true, toast };
 });
 jest.mock("@/hooks/useIsMobile", () => ({ __esModule: true, default: () => false }));
+jest.mock("react-redux", () => ({
+  __esModule: true,
+  useSelector: (fn) => fn({ userProfile: mockUserId == null ? null : { id: mockUserId } }),
+}));
 // Rights per hotel, as the bulk endpoint answers for one hotel at a time.
 jest.mock("@/services/rbac", () => ({
   __esModule: true,
@@ -34,6 +38,7 @@ jest.mock("@/services/inventory", () => ({
 
 let mockQuery = {};
 let mockRights = {};
+let mockUserId = "21";
 const mockReplace = jest.fn();
 
 import React from "react";
@@ -83,6 +88,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
   mockRights = { 46: ["read", "create", "approve"], 47: ["read"] };
+  mockUserId = "21";
+  window.sessionStorage.clear();
   getAdjustment.mockResolvedValue(detail());
   getStock.mockImplementation((params = {}) =>
     Promise.resolve({
@@ -284,6 +291,81 @@ describe("AdjustmentsPage", () => {
     fireEvent.click(await within(dialog).findByRole("button", { name: "Discard" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(createAdjustment).toHaveBeenCalledTimes(1);
+  });
+
+  test("an unanswered adjustment survives a reload locked under its key, for its own user only", async () => {
+    const dropped = new Error("Network Error");
+    dropped.isAxiosError = true;
+    createAdjustment.mockRejectedValueOnce(dropped);
+    const first = render(<AdjustmentsPage />);
+    let dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "2" } });
+    fireEvent.change(within(dialog).getByLabelText("Remarks (optional)"), { target: { value: "Spoilt in the walk-in" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    expect(await within(dialog).findByText(/may or may not be recorded/)).toBeInTheDocument();
+    const sent = createAdjustment.mock.calls[0][0];
+    expect(JSON.parse(window.sessionStorage.getItem("adj-uncertain:21:46"))).toMatchObject({ userId: "21", hotelId: 46, payload: sent });
+    first.unmount();
+
+    // another user in the same tab: a fresh form, and the lock is left alone
+    mockUserId = "22";
+    const other = render(<AdjustmentsPage />);
+    dialog = await newAdjustment();
+    expect(within(dialog).getByRole("button", { name: "Submit adjustment" })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/may or may not be recorded/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    other.unmount();
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).not.toBeNull();
+
+    // back as the user who sent it: reopens locked, with the form as it was
+    mockUserId = "21";
+    createAdjustment.mockResolvedValueOnce(row({ id: 7, adjustmentNumber: "ADJ/46/2026-27/00009", status: "posted" }));
+    render(<AdjustmentsPage />);
+    dialog = await newAdjustment();
+    expect(within(dialog).getByText(/no answer came before the page closed/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Qty of Basmati rice")).toHaveValue("2");
+    expect(within(dialog).getByLabelText("Qty of Basmati rice")).toBeDisabled();
+    expect(within(dialog).getByLabelText("Reason")).toHaveValue("WASTAGE");
+    expect(within(dialog).getByLabelText("Remarks (optional)")).toHaveValue("Spoilt in the walk-in");
+    expect(within(dialog).queryByRole("button", { name: "Cancel" })).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit again" }));
+    await waitFor(() => expect(createAdjustment).toHaveBeenCalledTimes(2));
+    expect(createAdjustment.mock.calls[1][0]).toEqual(sent);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/ADJ\/46\/2026-27\/00009 posted/)));
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull();
+  });
+
+  test("Discard clears the kept lock, and a definite answer ends it too", async () => {
+    createAdjustment.mockRejectedValueOnce(apiError(502, null, {}, "Bad Gateway"));
+    render(<AdjustmentsPage />);
+    let dialog = await newAdjustment();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull();
+
+    createAdjustment
+      .mockRejectedValueOnce(apiError(502, null, {}, "Bad Gateway"))
+      .mockRejectedValueOnce(apiError(409, "NEGATIVE_STOCK", { lines: [{ index: 0, invItemId: 9, available: 0.5, requested: 1 }] }, "Not enough stock"));
+    fireEvent.click(screen.getByRole("button", { name: "New adjustment" }));
+    dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "WASTAGE" } });
+    fireEvent.change(within(dialog).getByLabelText("Find an item"), { target: { value: "rice" } });
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Add Basmati rice/ }));
+    fireEvent.change(within(dialog).getByLabelText("Qty of Basmati rice"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit adjustment" }));
+    await within(dialog).findByRole("button", { name: "Submit again" });
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).not.toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Submit again" }));
+    await waitFor(() => expect(within(dialog).getByLabelText("Qty of Basmati rice")).toBeEnabled());
+    expect(window.sessionStorage.getItem("adj-uncertain:21:46")).toBeNull();
   });
 
   test("a replayed adjustment whose lines differ opens what was recorded", async () => {

@@ -55,24 +55,46 @@ jest.mock("@/services/inventory", () => ({
   resolveScan: jest.fn(),
 }));
 jest.mock("@/services/rbac", () => ({ __esModule: true, getDepartments: jest.fn() }));
-// The outbox as D3 will expose it (pending count, failed items, outcomes),
-// driven from the tests through a small store.
+jest.mock("react-redux", () => ({
+  __esModule: true,
+  useSelector: (fn) => fn({ userProfile: mockUserId == null ? null : { id: mockUserId } }),
+}));
+// The outbox with D3's API (ready flag, per-event status, pending and failed
+// items, discard, outcomes), driven from the tests through a small store.
+// Items: {id, kind, clientEventId, status, payload, summary, createdAt, error, lastError}.
 jest.mock("@/components/inventory/offline/outbox", () => {
-  const { useSyncExternalStore } = require("react");
-  const store = { pending: 0, failed: [], listeners: new Set(), outcomes: new Set() };
+  const { useMemo, useSyncExternalStore } = require("react");
+  const store = { ready: true, items: [], listeners: new Set(), outcomes: new Set() };
   const emit = () => store.listeners.forEach((l) => l());
   const subscribe = (l) => {
     store.listeners.add(l);
     return () => store.listeners.delete(l);
   };
+  const setItem = (id, patch) => {
+    store.items = store.items.map((i) => (i.id === id ? { ...i, ...patch } : i));
+    emit();
+  };
+  const useItems = () => useSyncExternalStore(subscribe, () => store.items);
   return {
     __esModule: true,
     submitOrQueue: jest.fn(),
-    usePendingCount: () => useSyncExternalStore(subscribe, () => store.pending),
-    useFailedItems: () => useSyncExternalStore(subscribe, () => store.failed),
-    dismissFailed: jest.fn((id) => {
-      store.failed = store.failed.filter((f) => f.id !== id);
-      emit();
+    useOutboxReady: () => useSyncExternalStore(subscribe, () => store.ready),
+    outboxReady: jest.fn(() => Promise.resolve()),
+    getOutboxStatus: jest.fn((kind, cid) => store.items.find((i) => i.kind === kind && i.clientEventId === cid)?.status || "unknown"),
+    usePendingItems: (kind) => {
+      const items = useItems();
+      return useMemo(() => items.filter((i) => i.status === "pending" && (!kind || i.kind === kind)), [items, kind]);
+    },
+    useFailedItems: (kind) => {
+      const items = useItems();
+      return useMemo(() => items.filter((i) => i.status === "failed" && (!kind || i.kind === kind)), [items, kind]);
+    },
+    dismissFailed: jest.fn(async (id) => setItem(id, { status: "dismissed" })),
+    discardPending: jest.fn(async (id) => {
+      const item = store.items.find((i) => i.id === id);
+      if (!item || item.status !== "pending") return false;
+      setItem(id, { status: "dismissed" });
+      return true;
     }),
     onOutboxOutcome: (listener) => {
       store.outcomes.add(listener);
@@ -80,10 +102,12 @@ jest.mock("@/components/inventory/offline/outbox", () => {
     },
     __store: store,
     __emit: emit,
+    __setItem: setItem,
   };
 });
 
 let mockQuery = {};
+let mockUserId = "21";
 let mockMobile = false;
 let mockCanCreate = true;
 let mockPermError = null;
@@ -98,7 +122,13 @@ import { getStock, getStockItem, postOut, resolveScan } from "@/services/invento
 import { getDepartments } from "@/services/rbac";
 import * as outbox from "@/components/inventory/offline/outbox";
 import MarkOutPage from "../MarkOutPage";
-import { loadOutSession, clearOutSession, saveOutSession } from "../outSession";
+import * as sessions from "../outSession";
+import { RESULT_GRACE_MS } from "../useQueuedOuts";
+
+const USER = "21";
+const loadOutSession = (hotelId, userId = USER) => sessions.loadOutSession(userId, hotelId);
+const saveOutSession = (hotelId, value, userId = USER) => sessions.saveOutSession(userId, hotelId, value);
+const clearOutSession = (hotelId, userId = USER) => sessions.clearOutSession(userId, hotelId);
 
 const { submitOrQueue } = outbox;
 const setOutbox = (patch) =>
@@ -110,6 +140,22 @@ const emitOutcome = (event) =>
   act(() => {
     outbox.__store.outcomes.forEach((l) => l(event));
   });
+/** submitOrQueue as D3 answers when there is no connection: the event waits in the outbox. */
+const queueInOutbox = () =>
+  submitOrQueue.mockImplementation(async ({ kind, clientEventId, payload, summary }) => {
+    outbox.__store.items = [
+      ...outbox.__store.items.filter((i) => i.clientEventId !== clientEventId),
+      { id: `${kind}:${clientEventId}`, kind, clientEventId, status: "pending", payload, summary, createdAt: "2026-10-25T05:00:00.000Z", attempts: 0, lastError: null },
+    ];
+    outbox.__emit();
+    return { queued: true, persisted: true };
+  });
+// Reopening a queued session is several device reads and writes in a row
+// (slot, index, copy): give it longer than one render under a busy test run.
+const REOPEN = { timeout: 4000 };
+/** submitOrQueue with a connection: sent at once. */
+const sendNow = () =>
+  submitOrQueue.mockImplementation(async ({ send, payload }) => ({ queued: false, result: await send(payload) }));
 
 const HOTELS = [{ id: 46, name: "Orchid Mumbai" }];
 const itemScan = (invItemId, displayName, stockUom, packFactor = 1, extra = {}) => ({
@@ -186,8 +232,9 @@ beforeEach(async () => {
   mockMobile = false;
   mockCanCreate = true;
   mockPermError = null;
-  outbox.__store.pending = 0;
-  outbox.__store.failed = [];
+  mockUserId = USER;
+  outbox.__store.ready = true;
+  outbox.__store.items = [];
   outbox.__store.outcomes.clear();
   getStockItem.mockResolvedValue(undefined);
   getStock.mockResolvedValue({
@@ -198,9 +245,12 @@ beforeEach(async () => {
   resolveScan.mockImplementation((code) =>
     Promise.resolve(SCANS[code] || { kind: "unknown", code, gs1: null, item: null })
   );
-  submitOrQueue.mockImplementation(async ({ send, payload }) => ({ queued: false, result: await send(payload) }));
-  await clearOutSession(46);
-  await clearOutSession(47);
+  sendNow();
+  for (const u of [USER, "22"]) {
+    await clearOutSession(46, u);
+    await clearOutSession(47, u);
+    for (const e of await sessions.listQueuedOuts(u)) await sessions.clearQueuedOut(u, e.clientEventId);
+  }
 });
 
 describe("MarkOutPage scan session", () => {
@@ -389,81 +439,365 @@ describe("MarkOutPage scan session", () => {
     render(<MarkOutPage />);
     expect(await screen.findByRole("button", { name: "Post again" })).toBeInTheDocument();
     expect(await qtyOf("Basmati rice")).toBeDisabled();
+    // Discard asks first: it may have gone through
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    let ask = screen.getByRole("alertdialog", { name: "Discard this session?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Keep it" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByLabelText("Qty of Basmati rice")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    ask = screen.getByRole("alertdialog", { name: "Discard this session?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Discard session" }));
     await waitFor(() => expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull());
     expect(postButton()).toBeInTheDocument();
     await waitFor(async () => expect(await loadOutSession(46)).toBeNull());
     expect(postOut).toHaveBeenCalledTimes(1);
   });
 
-  test("a queued post keeps the session on the device, read-only, until it syncs", async () => {
-    submitOrQueue.mockResolvedValue({ queued: true });
+  test("a queued post frees the hotel at once and is listed under Waiting to sync until the outbox says sent", async () => {
+    queueInOutbox();
     render(<MarkOutPage />);
     await scan("RICE-6PK");
     await qtyOf("Basmati rice");
     await chooseDepartment("7");
     fireEvent.click(postButton());
-    expect(await screen.findByText(/Saved on this device/)).toBeInTheDocument();
-    expect(screen.getByText("Waiting to sync. If it's refused you'll see it here and can fix it.")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
-    expect(within(screen.getByRole("list", { name: "Waiting items" })).getByText("Basmati rice")).toBeInTheDocument();
-
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/Saved on this device/)));
+    expect(within(card).getByText("Waiting to sync. If it's refused you'll see it here and can fix it.")).toBeInTheDocument();
     const key = submitOrQueue.mock.calls[0][0].clientEventId;
-    const saved = await waitFor(async () => {
-      const copy = await loadOutSession(46);
-      expect(copy).toEqual(expect.objectContaining({ status: "queued", queuedAs: key }));
-      return copy;
-    });
-    expect(saved.lines).toEqual([expect.objectContaining({ invItemId: 9, qty: "6" })]);
+    expect(submitOrQueue.mock.calls[0][0]).toMatchObject({ kind: "out_post", summary: "Mark out · Kitchen · 1 item" });
 
-    // the outbox reports it sent: the device copy goes, the result shows
-    emitOutcome({ clientEventId: key, kind: "out_post", outcome: "sent", result: outDoc() });
-    expect(await screen.findByText("OUT/46/2026-27/00007")).toBeInTheDocument();
+    // the open slot is free: a new session starts at once, under a new key
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
     await waitFor(async () => expect(await loadOutSession(46)).toBeNull());
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+
+    // the waiting session: summary, count, when, View
+    const row = within(card).getByRole("listitem", { name: "Mark out · Kitchen" });
+    expect(within(row).getByText("1 item")).toBeInTheDocument();
+    expect(within(row).getByText("Waiting to sync")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: "View" }));
+    expect(within(within(row).getByRole("list", { name: "Items in Mark out · Kitchen" })).getByText("Basmati rice")).toBeInTheDocument();
+
+    // its own device copy, owned by this user
+    const copy = await sessions.loadQueuedOut(USER, key);
+    expect(copy).toEqual(expect.objectContaining({ userId: USER, hotelId: 46, clientEventId: key, departmentName: "Kitchen" }));
+    expect(copy.lines).toEqual([expect.objectContaining({ invItemId: 9, qty: "6" })]);
+    expect(copy.sentPayload).toEqual(submitOrQueue.mock.calls[0][0].payload);
+    expect(await sessions.listQueuedOuts(USER)).toEqual([expect.objectContaining({ clientEventId: key, hotelId: 46 })]);
+
+    // the outbox says sent: the copy goes, the new session stays
+    act(() => outbox.__setItem(`out_post:${key}`, { status: "sent" }));
+    emitOutcome({ id: `out_post:${key}`, clientEventId: key, kind: "out_post", outcome: "sent", result: outDoc() });
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull());
+    expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/Mark out · Kitchen · 1 item synced as OUT\/46\/2026-27\/00007/));
+    expect(screen.getByText(/synced as OUT\/46\/2026-27\/00007 at Orchid Mumbai/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeInTheDocument();
+    await waitFor(async () => expect(await sessions.loadQueuedOut(USER, key)).toBeNull());
+    expect(await sessions.listQueuedOuts(USER)).toEqual([]);
   });
 
-  test("a queued session refused on sync reopens editable with the refusal", async () => {
-    submitOrQueue.mockResolvedValue({ queued: true });
+  test("a queued session that syncs as a replay with other lines is flagged", async () => {
+    queueInOutbox();
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    act(() => outbox.__setItem(`out_post:${key}`, { status: "sent" }));
+    emitOutcome({
+      id: `out_post:${key}`, clientEventId: key, kind: "out_post", outcome: "sent",
+      result: { ...outDoc({ lines: [{ id: 1, invItemId: 11, displayName: "Dish soap", qty: 2, stockUom: "piece" }] }), replayed: true },
+    });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/already recorded as OUT\/46\/2026-27\/00007, with different lines/);
+    expect(toast.warn).toHaveBeenCalledWith(expect.stringMatching(/different lines/), { autoClose: false });
+  });
+
+  test("a refusal while the page was closed reopens editable in the empty slot", async () => {
+    queueInOutbox();
     const first = render(<MarkOutPage />);
     await scan("RICE-6PK");
     await qtyOf("Basmati rice");
     await chooseDepartment("7");
     fireEvent.click(postButton());
-    await screen.findByText(/Waiting to sync/);
-    const call = submitOrQueue.mock.calls[0][0];
-    await waitFor(async () => expect((await loadOutSession(46))?.status).toBe("queued"));
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
     first.unmount();
 
-    // reopened later: the outbox now holds a refusal for it
-    outbox.__store.pending = 0;
-    outbox.__store.failed = [{
-      id: "f1", kind: "out_post", clientEventId: call.clientEventId, payload: call.payload,
+    outbox.__setItem(`out_post:${key}`, {
+      status: "failed",
       error: { httpStatus: 409, code: "NEGATIVE_STOCK", message: "Not enough stock",
         details: { lines: [{ index: 0, invItemId: 9, available: 4, requested: 6 }] } },
-    }];
+    });
     render(<MarkOutPage />);
-    expect(await screen.findByText(/This session was refused when it synced/)).toBeInTheDocument();
+    expect(await screen.findByText(/This session was refused when it synced/, {}, REOPEN)).toBeInTheDocument();
     const rice = lineOf("Basmati rice");
     expect(within(rice).getByText("Only 4 bag in stock; this session marks out 6.")).toBeInTheDocument();
     expect(within(rice).getByLabelText("Qty of Basmati rice")).toBeEnabled();
-    expect(outbox.dismissFailed).toHaveBeenCalledWith("f1");
+    expect(screen.getByLabelText("Department")).toHaveValue("7");
+    expect(outbox.dismissFailed).toHaveBeenCalledWith(`out_post:${key}`);
+    expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull();
     await waitFor(async () => expect((await loadOutSession(46))?.status).toBe("open"));
+    expect(await sessions.loadQueuedOut(USER, key)).toBeNull();
+
+    // fixed and posted again under the same key, with the connection back
+    sendNow();
+    fireEvent.change(within(rice).getByLabelText("Qty of Basmati rice"), { target: { value: "4" } });
+    postOut.mockResolvedValue(outDoc());
+    fireEvent.click(postButton());
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0]).toMatchObject({ clientEventId: key, lines: [{ invItemId: 9, qty: 4 }] });
   });
 
-  test("with no outcome event, a drained queue counts as synced", async () => {
-    submitOrQueue.mockImplementation(async () => {
-      outbox.__store.pending = 1;
-      return { queued: true };
+  test("a slot left behind by a session the outbox already holds gives way to the queued copy", async () => {
+    // the page went while the slot was being freed: both copies are on the device
+    const lines = [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", qty: "6", exact: 6, available: 10 }];
+    const sentPayload = { hotelId: 46, docType: "OUT", departmentId: 7, clientEventId: "k-1", lines: [{ invItemId: 9, qty: 6 }] };
+    await saveOutSession(46, { savedAt: 1, hotelId: 46, sessionKey: "k-1", docType: "OUT", departmentId: "7", requestedByName: "", lines, status: "open" });
+    await sessions.saveQueuedOut(USER, {
+      hotelId: 46, clientEventId: "k-1", sessionKey: "k-1", docType: "OUT", departmentId: "7", departmentName: "Kitchen",
+      requestedByName: "", queuedAt: 1, lines, sentPayload, status: "queued",
     });
+    outbox.__store.items = [{
+      id: "out_post:k-1", kind: "out_post", clientEventId: "k-1", status: "failed", payload: sentPayload,
+      error: { httpStatus: 409, code: "NEGATIVE_STOCK", message: "Not enough stock", details: { lines: [{ index: 0, invItemId: 9, available: 4, requested: 6 }] } },
+    }];
+    render(<MarkOutPage />);
+    expect(await screen.findByText(/This session was refused when it synced/, {}, REOPEN)).toBeInTheDocument();
+    expect(within(lineOf("Basmati rice")).getByText("Only 4 bag in stock; this session marks out 6.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull();
+    await waitFor(async () => expect(await sessions.listQueuedOuts(USER)).toEqual([]));
+    expect(await loadOutSession(46)).toEqual(expect.objectContaining({ sessionKey: "k-1", status: "open" }));
+  });
+
+  test("a refusal with a session in progress is listed with Open, which asks before replacing it", async () => {
+    queueInOutbox();
     render(<MarkOutPage />);
     await scan("RICE-6PK");
     await qtyOf("Basmati rice");
     await chooseDepartment("7");
     fireEvent.click(postButton());
-    await screen.findByText(/Waiting to sync/);
-    setOutbox({ pending: 0 });
-    expect(await screen.findByText(/has synced/, {}, { timeout: 4000 })).toBeInTheDocument();
-    await waitFor(async () => expect(await loadOutSession(46)).toBeNull());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    sendNow();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+
+    act(() => outbox.__setItem(`out_post:${key}`, {
+      status: "failed",
+      error: { httpStatus: 409, code: "NEGATIVE_STOCK", message: "Not enough stock",
+        details: { lines: [{ index: 0, invItemId: 9, available: 4, requested: 6 }] } },
+    }));
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    const row = await within(card).findByText("Refused: Not enough stock");
+    expect(row).toBeInTheDocument();
+    // the session in progress is untouched
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeEnabled();
+
+    fireEvent.click(within(card).getByRole("button", { name: "Open" }));
+    let ask = within(card).getByRole("alertdialog", { name: "Open this session?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Keep current" }));
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole("button", { name: "Open" }));
+    ask = within(card).getByRole("alertdialog", { name: "Open this session?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Discard current and open" }));
+    expect(await screen.findByText(/This session was refused when it synced/, {}, REOPEN)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Qty of Dish soap")).toBeNull();
+    expect(within(lineOf("Basmati rice")).getByText("Only 4 bag in stock; this session marks out 6.")).toBeInTheDocument();
+    await waitFor(async () => expect((await loadOutSession(46))?.lines).toEqual([expect.objectContaining({ invItemId: 9 })]));
+  });
+
+  test("never synced by absence: an event the outbox no longer has reopens locked, not as recorded", async () => {
+    queueInOutbox();
+    const first = render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    const sent = submitOrQueue.mock.calls[0][0].payload;
+    first.unmount();
+
+    // the refusal was dismissed from the sync badge: the outbox only says "dismissed"
+    outbox.__setItem(`out_post:${key}`, { status: "dismissed" });
+    render(<MarkOutPage />);
+    expect(await screen.findByText(/can't confirm whether this session was recorded/, {}, REOPEN)).toBeInTheDocument();
+    expect(await qtyOf("Basmati rice")).toBeDisabled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(screen.queryByText(/synced/)).toBeNull();
+    await waitFor(async () => expect((await loadOutSession(46))?.status).toBe("uncertain"));
+
+    // Post again sends the same session under the same key
+    sendNow();
+    postOut.mockResolvedValue({ ...outDoc(), replayed: true });
+    fireEvent.click(screen.getByRole("button", { name: "Post again" }));
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0]).toEqual(sent);
+    expect(await screen.findByText(/already recorded/i)).toBeInTheDocument();
+  });
+
+  test("an event the outbox has never heard of is uncertain too, and waits for the stored queue first", async () => {
+    await sessions.saveQueuedOut(USER, {
+      hotelId: 46, clientEventId: "k-lost", docType: "OUT", departmentId: "7", departmentName: "Kitchen",
+      requestedByName: "", queuedAt: 1, lines: [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", qty: "6", exact: 6, available: 10 }],
+      sentPayload: { hotelId: 46, docType: "OUT", departmentId: 7, clientEventId: "k-lost", lines: [{ invItemId: 9, qty: 6 }] },
+    });
+    outbox.__store.ready = false;
+    render(<MarkOutPage />);
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    expect(within(card).getByText("Checking…")).toBeInTheDocument();
+    expect(outbox.getOutboxStatus).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    await setOutbox({ ready: true });
+    expect(await screen.findByText(/can't confirm whether this session was recorded/, {}, REOPEN)).toBeInTheDocument();
+    expect(await qtyOf("Basmati rice")).toBeDisabled();
+  });
+
+  test("Discard from this device asks first, then drops the waiting session", async () => {
+    queueInOutbox();
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/Saved on this device/)));
+
+    fireEvent.click(within(card).getByRole("button", { name: "Discard from this device" }));
+    let ask = within(card).getByRole("alertdialog", { name: "Discard from this device?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Keep it" }));
+    expect(outbox.discardPending).not.toHaveBeenCalled();
+
+    // the outbox marks it dismissed a moment before it answers
+    outbox.discardPending.mockImplementationOnce(async (id) => {
+      outbox.__setItem(id, { status: "dismissed" });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return true;
+    });
+    fireEvent.click(within(card).getByRole("button", { name: "Discard from this device" }));
+    ask = within(card).getByRole("alertdialog", { name: "Discard from this device?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Discard it" }));
+    expect(await within(card).findByText("Discarding…")).toBeInTheDocument();
+    await waitFor(() => expect(outbox.discardPending).toHaveBeenCalledWith(`out_post:${key}`));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull());
+    await waitFor(() => expect(toast.info).toHaveBeenLastCalledWith(expect.stringMatching(/discarded from this device/)));
+    // never reopened as unaccounted-for while the outbox answered
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    expect(screen.queryByText(/can't confirm whether this session was recorded/)).toBeNull();
+    await waitFor(async () => expect(await sessions.loadQueuedOut(USER, key)).toBeNull());
+    expect(await loadOutSession(46)).toBeNull();
+  });
+
+  test("a discard that loses the race to a send shows it as synced", async () => {
+    queueInOutbox();
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    const card = await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/Saved on this device/)));
+    outbox.discardPending.mockImplementationOnce(async (id) => {
+      outbox.__setItem(id, { status: "sent" });
+      return false;
+    });
+    fireEvent.click(within(card).getByRole("button", { name: "Discard from this device" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Discard it" }));
+    await waitFor(() => expect(toast.info).toHaveBeenLastCalledWith(expect.stringMatching(/was sent \(or settled\)/)));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull());
+    // no outcome event carried the server's answer: synced (the outbox said so), after the grace wait
+    expect(
+      await screen.findByText(/Mark out · Kitchen · 1 item synced at Orchid Mumbai/, {}, { timeout: RESULT_GRACE_MS + 2000 })
+    ).toBeInTheDocument();
+    await waitFor(async () => expect(await sessions.loadQueuedOut(USER, key)).toBeNull());
+  });
+
+  test("another user on this device never sees, posts or clears someone else's sessions", async () => {
+    queueInOutbox();
+    const first = render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    await waitFor(async () => expect((await loadOutSession(46))?.lines).toHaveLength(1));
+    first.unmount();
+
+    mockUserId = "22";
+    render(<MarkOutPage />);
+    await scan("PANEER-2.5");
+    const pad = await screen.findByRole("dialog");
+    fireEvent.click(within(pad).getByRole("button", { name: "Add 2.5 kg" }));
+    expect(await qtyOf("Paneer")).toHaveValue("2.5");
+    expect(screen.queryByLabelText("Qty of Dish soap")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull();
+    await waitFor(async () => expect((await loadOutSession(46, "22"))?.lines).toEqual([expect.objectContaining({ invItemId: 10 })]));
+    // user 21's open session and queued copy are untouched
+    expect((await loadOutSession(46))?.lines).toEqual([expect.objectContaining({ invItemId: 11 })]);
+    expect(await sessions.listQueuedOuts(USER)).toHaveLength(1);
+    expect(await sessions.listQueuedOuts("22")).toEqual([]);
+  });
+
+  test("an outcome for a session from another hotel only updates its stored copy", async () => {
+    twoHotels();
+    queueInOutbox();
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    sendNow();
+
+    await waitFor(() => expect(screen.getByLabelText("Hotel")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "47" } });
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull());
+    // refused at 46 while Pune is shown (and empty): Pune's slot stays empty
+    act(() => outbox.__setItem(`out_post:${key}`, { status: "failed", error: { httpStatus: 409, code: "NEGATIVE_STOCK", message: "Not enough stock", details: {} } }));
+    await act(async () => {});
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    expect(await loadOutSession(47)).toBeNull();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+
+    // back at Mumbai it reopens there
+    fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "46" } });
+    expect(await screen.findByText(/This session was refused when it synced/, {}, REOPEN)).toBeInTheDocument();
+    expect(await qtyOf("Basmati rice")).toBeEnabled();
+  });
+
+  test("a session from another hotel that syncs is cleared without touching the one on screen", async () => {
+    twoHotels();
+    queueInOutbox();
+    render(<MarkOutPage />);
+    await scan("RICE-6PK");
+    await qtyOf("Basmati rice");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    await screen.findByRole("region", { name: "Waiting to sync" });
+    const key = submitOrQueue.mock.calls[0][0].clientEventId;
+    await waitFor(() => expect(screen.getByLabelText("Hotel")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "47" } });
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    act(() => outbox.__setItem(`out_post:${key}`, { status: "sent" }));
+    emitOutcome({ id: `out_post:${key}`, clientEventId: key, kind: "out_post", outcome: "sent", result: outDoc() });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/synced as OUT\/46\/2026-27\/00007 at Orchid Mumbai/)));
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeEnabled();
+    expect(screen.queryByText("Marked out")).toBeNull();
+    await waitFor(async () => expect(await sessions.loadQueuedOut(USER, key)).toBeNull());
+    expect((await loadOutSession(47))?.lines).toEqual([expect.objectContaining({ invItemId: 11 })]);
   });
 
   test("a second tap on Post while the first is in flight sends nothing", async () => {
@@ -584,6 +918,81 @@ describe("MarkOutPage scan session", () => {
     fireEvent.click(postButton());
     await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
     expect(postOut.mock.calls[0][0].lines).toEqual([{ invItemId: 11, qty: 500 }]);
+  });
+
+  test("a big return is never held for a confirm", async () => {
+    getStockItem.mockResolvedValue({ item: { id: 11 }, balance: { qty: 4 } });
+    render(<MarkOutPage />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Return to stock" }));
+    await scan("SOAP");
+    const soap = await waitFor(() => {
+      const line = lineOf("Dish soap");
+      expect(within(line).getByText("in stock", { exact: false })).toBeInTheDocument();
+      return line;
+    });
+    fireEvent.change(within(soap).getByLabelText("Qty of Dish soap"), { target: { value: "500" } });
+    expect(within(soap).queryByText(/far more than/)).toBeNull();
+    expect(within(soap).queryByRole("button", { name: /is right/ })).toBeNull();
+    await chooseDepartment("7");
+    postOut.mockResolvedValue(outDoc({ docType: "RETURN" }));
+    fireEvent.click(postButton("Post return"));
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0]).toMatchObject({ docType: "RETURN", lines: [{ invItemId: 11, qty: 500 }] });
+  });
+
+  test("a qty over 100 waits for the on-hand check before it can post, then asks", async () => {
+    let answer;
+    getStockItem.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    render(<MarkOutPage />);
+    await scan("SOAP");
+    const soap = await waitFor(() => lineOf("Dish soap"));
+    fireEvent.change(within(soap).getByLabelText("Qty of Dish soap"), { target: { value: "500" } });
+    expect(within(soap).getByRole("status")).toHaveTextContent("Checking what's in stock before 500 can be marked out");
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    expect(await screen.findByText("Still checking what's in stock for the highlighted qty. Post again in a moment.")).toBeInTheDocument();
+    expect(postOut).not.toHaveBeenCalled();
+
+    await act(async () => answer({ item: { id: 11 }, balance: { qty: 4 } }));
+    expect(await within(soap).findByText(/500 piece is far more than the 4 in stock/)).toBeInTheDocument();
+    fireEvent.click(postButton());
+    expect(await screen.findByText("Check the highlighted qty, then post.")).toBeInTheDocument();
+    expect(postOut).not.toHaveBeenCalled();
+  });
+
+  test("with no stock figure, a qty over 100 needs a confirm", async () => {
+    getStockItem.mockRejectedValue(apiError(503, "UNAVAILABLE", {}, "Down"));
+    render(<MarkOutPage />);
+    await scan("SOAP");
+    const soap = await waitFor(() => lineOf("Dish soap"));
+    await waitFor(() => expect(getStockItem).toHaveBeenCalledWith(46, 11));
+    fireEvent.change(within(soap).getByLabelText("Qty of Dish soap"), { target: { value: "500" } });
+    expect(await within(soap).findByText("Couldn't check what's in stock. Is 500 piece right?")).toBeInTheDocument();
+    await chooseDepartment("7");
+    fireEvent.click(postButton());
+    expect(await screen.findByText("Check the highlighted qty, then post.")).toBeInTheDocument();
+    expect(postOut).not.toHaveBeenCalled();
+
+    fireEvent.click(within(soap).getByRole("button", { name: "Yes, 500 is right" }));
+    postOut.mockResolvedValue(outDoc());
+    fireEvent.click(postButton());
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0].lines).toEqual([{ invItemId: 11, qty: 500 }]);
+  });
+
+  test("an item added again after Remove checks what's in stock again", async () => {
+    getStockItem.mockResolvedValue({ item: { id: 11 }, balance: { qty: 4 } });
+    render(<MarkOutPage />);
+    await scan("SOAP");
+    await waitFor(() => expect(within(lineOf("Dish soap")).getByText("in stock", { exact: false })).toBeInTheDocument());
+    expect(getStockItem).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Dish soap" }));
+    expect(screen.queryByLabelText("Qty of Dish soap")).toBeNull();
+
+    getStockItem.mockResolvedValue({ item: { id: 11 }, balance: { qty: 3 } });
+    await scan("SOAP");
+    await waitFor(() => expect(getStockItem).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(within(lineOf("Dish soap")).getByText("3")).toBeInTheDocument());
   });
 
   test("the qty pad for a weighed item opens at the scanned pack and speaks mark-out", async () => {

@@ -93,6 +93,39 @@ describe("ItemCard", () => {
     expect(grnLink).toHaveAttribute("href", "/dashboard/buyer/inventory/grn/900");
   });
 
+  test("batches keep the server's FEFO order, the first marked Next out, with expiry badges on IST days", async () => {
+    // 25 Oct 2026, 23:00 IST (17:30 UTC): late on the 25th, still the 25th in IST
+    const now = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-25T17:30:00.000Z"));
+    try {
+      getStockItem.mockResolvedValue(card({
+        batches: [
+          { batchNo: "B-70", expiryDate: "2026-10-24", qty: 1 },
+          { batchNo: "B-71", expiryDate: "2026-10-25", qty: 1 },
+          { batchNo: "B-72", expiryDate: "2026-10-26", qty: 1 },
+          { batchNo: "B-73", expiryDate: "2026-11-24", qty: 1 },
+          { batchNo: "B-74", expiryDate: "2026-11-25", qty: 1 },
+          { batchNo: null, expiryDate: null, qty: 1 },
+        ],
+      }));
+      render(<ItemCard hotelId="46" invItemId="9" />);
+      const table = await screen.findByRole("table", { name: "Batches" });
+      const rows = within(table).getAllByRole("row").slice(1);
+      expect(rows.map((tr) => within(tr).getAllByRole("cell")[0].textContent)).toEqual([
+        "B-70 Next out", "B-71", "B-72", "B-73", "B-74", "No batch",
+      ]);
+      expect(within(table).getAllByText("Next out")).toHaveLength(1);
+      const expiryOf = (i) => within(rows[i]).getAllByRole("cell")[1].textContent;
+      expect(expiryOf(0)).toBe("24 Oct 2026 Expired");
+      expect(expiryOf(1)).toBe("25 Oct 2026 Expires today");
+      expect(expiryOf(2)).toBe("26 Oct 2026 Expires in 1 day");
+      expect(expiryOf(3)).toBe("24 Nov 2026 Expires in 30 days");
+      expect(expiryOf(4)).toBe("25 Nov 2026");
+      expect(expiryOf(5)).toBe("—");
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   test("saves reorder levels for the hotel", async () => {
     saveHotelItem.mockResolvedValue({ invItemId: 9, minQty: 2, reorderLevel: 8, maxQty: 20, binLabel: "C-03" });
     render(<ItemCard hotelId="46" invItemId="9" />);

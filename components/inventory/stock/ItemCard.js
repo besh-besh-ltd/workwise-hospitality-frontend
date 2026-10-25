@@ -6,9 +6,9 @@ import {
 } from "lucide-react";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import { getStockItem, getStockLedger, saveHotelItem } from "@/services/inventory";
-import { fmtDay, fmtInstant, fmtQty, inr } from "@/components/inventory/receive/receiveUtils";
+import { fmtDay, fmtInstant, fmtQty, inr, istToday } from "@/components/inventory/receive/receiveUtils";
 import {
-  BIN_MAX, LEVEL_FIELDS, checkLevels, errorInfo, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes,
+  BIN_MAX, LEVEL_FIELDS, batchExpiry, checkLevels, errorInfo, fmtSigned, levelsForm, movementDocHref, movementLabel, reasonLabel, stockRoutes,
   toId,
 } from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
@@ -169,6 +169,7 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
   }
 
   const { item = {}, hotel = {}, balance = {}, levels = {}, barcodes = [], batches = [], recentMovements = [] } = card || {};
+  const today = istToday();
   const unit = item.stockUom || "";
   const notStocked =
     balance.lastMovementAt == null && Number(balance.qty || 0) === 0 && (recentMovements || []).length === 0;
@@ -359,13 +360,33 @@ const ItemCard = ({ hotelId: hotelParam, invItemId: itemParam }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {batches.map((b, i) => (
-                      <tr key={`${b.batchNo || ""}|${b.expiryDate || ""}|${i}`}>
-                        <td className={s.mono}>{b.batchNo || <span className={r.faint}>No batch</span>}</td>
-                        <td data-label="Expiry">{b.expiryDate ? fmtDay(b.expiryDate) : "—"}</td>
-                        <td className={r.num} data-label="Qty">{fmtQty(b.qty)}<span className={s.unit}>{unit}</span></td>
-                      </tr>
-                    ))}
+                    {/* In the server's order: first expiry first out (FEFO), so the first goes out next. */}
+                    {batches.map((b, i) => {
+                      const expiry = batchExpiry(b.expiryDate, today);
+                      return (
+                        <tr key={`${b.batchNo || ""}|${b.expiryDate || ""}|${i}`}>
+                          <td>
+                            <span className={s.mono}>{b.batchNo || <span className={r.faint}>No batch</span>}</span>
+                            {i === 0 && (
+                              <>
+                                {" "}
+                                <span className={`${r.pill} ${r.pillInfo}`}>Next out</span>
+                              </>
+                            )}
+                          </td>
+                          <td data-label="Expiry">
+                            {b.expiryDate ? fmtDay(b.expiryDate) : "—"}
+                            {expiry && (
+                              <>
+                                {" "}
+                                <span className={`${r.pill} ${r[`pill${expiry.tone}`]}`}>{expiry.label}</span>
+                              </>
+                            )}
+                          </td>
+                          <td className={r.num} data-label="Qty">{fmtQty(b.qty)}<span className={s.unit}>{unit}</span></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

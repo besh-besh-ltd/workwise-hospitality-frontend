@@ -191,6 +191,28 @@ describe("OpeningStockTab", () => {
     expect(within(rice).getByText("bag", { selector: "td[data-label='Stock qty'] span" })).toBeInTheDocument();
   });
 
+  test("the confirm takes focus when it opens and hands it back on Cancel or Escape", async () => {
+    previewOpeningStock.mockResolvedValue({ rows: [okRow()], okCount: 1, errorCount: 0 });
+    render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    upload();
+    await screen.findByRole("table", { name: "Opening stock preview" });
+    fireEvent.click(screen.getByRole("button", { name: /Post opening stock/ }));
+    let confirm = await screen.findByRole("alertdialog", { name: "Confirm opening stock" });
+    expect(confirm).toHaveAccessibleDescription(/sets the on-hand of each of the 1 item at Orchid Mumbai/);
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
+
+    fireEvent.click(within(confirm).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Post opening stock/ })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: /Post opening stock/ }));
+    confirm = await screen.findByRole("alertdialog", { name: "Confirm opening stock" });
+    fireEvent.keyDown(within(confirm).getByRole("button", { name: "Cancel" }), { key: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Post opening stock/ })).toHaveFocus();
+    expect(postOpeningStock).not.toHaveBeenCalled();
+  });
+
   test("while a count is open the post is off and says why", async () => {
     previewOpeningStock.mockResolvedValue({ rows: [okRow()], okCount: 1, errorCount: 0, stockStartedAt: STARTED, countFreeze: true });
     render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
