@@ -734,13 +734,6 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
   const hotelEntries = queue.entries.filter((e) => e.hotelId === Number(hotelId) && e.state !== "sent");
 
   /**
-   * Take a queued copy back into the open slot: refused ones reopen editable
-   * with the refusal; ones the outbox can't account for, or gave up on (no
-   * answer for days, or out of server retries), reopen locked: they may be
-   * recorded. The slot is written before the copy goes, so a reload in between
-   * loses nothing.
-   */
-  /**
    * A waiting one (a try got no answer: it may be recorded) is taken back from
    * the outbox before it is opened, so it isn't sent behind the reopened
    * session. False (and says so) when it was sent or settled first.
@@ -754,6 +747,13 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     return taken;
   };
 
+  /**
+   * Take a queued copy back into the open slot: refused ones reopen editable
+   * with the refusal; ones the outbox can't account for, or gave up on (no
+   * answer for days, or out of server retries), reopen locked: they may be
+   * recorded. The slot is written before the copy goes, so a reload in between
+   * loses nothing.
+   */
   const openQueued = async (entry, { takenBack = false } = {}) => {
     if (openingRef.current || postingRef.current || !entry) return;
     openingRef.current = true;
