@@ -63,9 +63,11 @@ describe("sidebar Inventory section", () => {
     expect(screen.queryByText("GRNs")).toBeNull();
   });
 
-  test("a grn.read-only user sees the section with only Receive and GRNs", () => {
+  test("a grn.read-only user sees the section with Overview, Receive and GRNs", () => {
     renderSide({ grn: ["read"] });
     expect(screen.getByText("Inventory")).toBeInTheDocument();
+    // The overview page and API serve grn.read too (M-6).
+    expect(screen.getByRole("link", { name: /Overview/ })).toHaveAttribute("href", "/dashboard/buyer/inventory");
     expect(screen.getByText("Receive")).toBeInTheDocument();
     expect(screen.getByText("GRNs")).toBeInTheDocument();
     expect(screen.queryByText("Stock")).toBeNull();

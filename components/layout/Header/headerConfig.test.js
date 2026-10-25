@@ -40,6 +40,22 @@ describe("visibleRoleMenu", () => {
   });
 });
 
+describe("permission-gated rows (moduleKey)", () => {
+  const hrefs = (navGrants) => visibleRoleMenu("buyer", { navGrants }).map((i) => i.href);
+
+  it("a row keyed on several modules shows with read on any one of them (M-6: Inventory Overview)", () => {
+    expect(hrefs({ grn: ["read"] })).toContain("/dashboard/buyer/inventory");
+    expect(hrefs({ inventory: ["read"] })).toContain("/dashboard/buyer/inventory");
+    expect(hrefs({ grn: ["create"], inventory: [] })).not.toContain("/dashboard/buyer/inventory");
+    expect(hrefs(null)).not.toContain("/dashboard/buyer/inventory");
+  });
+
+  it("a single-module row still needs that module's read", () => {
+    expect(hrefs({ grn: ["read"] })).not.toContain("/dashboard/buyer/inventory/stock");
+    expect(hrefs({ inventory: ["read"] })).not.toContain("/dashboard/buyer/inventory/receive");
+  });
+});
+
 describe("admin rail", () => {
   const nav = roleMenus.admin.filter((i) => i.targetMenu === "nav");
 
