@@ -59,7 +59,7 @@ describe("resolveOnOrder", () => {
   });
 
   test("UPC-A alias matches the same product read as EAN-13 or UPC-E", () => {
-    expect(hitLine("0042100005264")).toEqual([12, 24]);
+    expect(hitLine("0042100005264", [RICE, SODA, MINT])).toEqual([12, 24]);
     expect(hitLine("04252614", [SODA])).toEqual([12, 24]);
   });
 
@@ -88,6 +88,48 @@ describe("resolveOnOrder", () => {
     expect(hitLine("/s/i/50", [closed, open])).toEqual([31, 1]);
     // nothing open on either: the first
     expect(hitLine("TWIN", [closed, { ...open, openAtHotel: 0 }])).toEqual([30, 3]);
+  });
+
+  test("a code that matches two different items is not guessed: both are offered", () => {
+    // The same EAN keyed in as UPC-A on one item and as UPC-E on another.
+    const r = read("0042100005264", [RICE, SODA, GUM, MINT]);
+    expect(r.kind).toBe("ambiguous");
+    expect(r.candidates).toEqual([
+      { poLineId: 12, invItemId: 10, packFactor: 24 },
+      { poLineId: 13, invItemId: 11, packFactor: 1 },
+    ]);
+    // Letters in another case on two items.
+    const A = line({ poLineId: 40, invItemId: 60, barcodes: [{ code: "abc-1", packFactor: 2 }] });
+    const B = line({ poLineId: 41, invItemId: 61, barcodes: [{ code: "ABC-1", packFactor: 5 }] });
+    expect(read("Abc-1", [A, B])).toEqual({
+      kind: "ambiguous",
+      code: "Abc-1",
+      candidates: [
+        { poLineId: 40, invItemId: 60, packFactor: 2 },
+        { poLineId: 41, invItemId: 61, packFactor: 5 },
+      ],
+      gs1: null,
+    });
+    // An exact match on one of them is not ambiguous.
+    expect(hitLine("ABC-1", [A, B])).toEqual([41, 5]);
+  });
+
+  test("the same item on several lines is not ambiguous: the open line takes it", () => {
+    const closed = line({ poLineId: 50, invItemId: 70, openAtHotel: 0, barcodes: [{ code: "abc-2", packFactor: 3 }] });
+    const open = line({ poLineId: 51, invItemId: 70, openAtHotel: 2, barcodes: [{ code: "ABC-2", packFactor: 3 }] });
+    expect(hitLine("Abc-2", [closed, open])).toEqual([51, 3]);
+  });
+
+  test("a dispatch QR names the link's dispatch, or none", () => {
+    const dispatches = [{ id: 31, challanNo: "CH-9" }];
+    expect(resolveOnOrder(parseScan("/s/d/31"), [RICE], dispatches)).toEqual({
+      kind: "dispatch", code: "/s/d/31", dispatch: dispatches[0], gs1: null,
+    });
+    expect(resolveOnOrder(parseScan("https://app.letsworkwise.com/s/d/99"), [RICE], dispatches)).toEqual(
+      expect.objectContaining({ kind: "dispatch", dispatch: null })
+    );
+    // without the dispatches, still a dispatch scan (never "not on this order" as an item)
+    expect(resolveOnOrder(parseScan("/s/d/31"), [RICE]).kind).toBe("dispatch");
   });
 
   test("an unknown code is unknown", () => {

@@ -894,8 +894,59 @@ describe("TokenReceivePage", () => {
     expect(within(list).getByText("challan.jpg").closest("li")).toHaveTextContent("Uploaded");
     expect(uploadTokenGrnAttachment).toHaveBeenNthCalledWith(1, TOKEN, 900, challan, "CHALLAN");
     expect(uploadTokenGrnAttachment).toHaveBeenNthCalledWith(2, TOKEN, 900, invoice, "INVOICE");
-    // The context is refreshed once the uploads are done.
+    // The context is refreshed right after posting, and again once a file went up.
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(3));
+  });
+
+  test("a slow upload never holds the next receipt: \"Receive another delivery\" gives a live form", async () => {
+    await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    const challan = new File(["x"], "challan.jpg", { type: "image/jpeg" });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [challan] } });
+    const slow = deferred();
+    uploadTokenGrnAttachment.mockImplementationOnce(() => slow.promise);
+    // The server's view after the post: the receipt, its file not there yet.
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt()] }));
+
+    await postAndConfirm();
+    expect(screen.getByText("Receipt posted")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Paperwork" })).getByText("challan.jpg").closest("li")).toHaveTextContent("Uploading…");
+    // Fresh open quantities for the next receipt, without waiting for the file.
     await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "Receive another delivery" }));
+    // Fully live while the file is still going up.
+    expect(screen.queryByText(/Posting this receipt/)).toBeNull();
+    expect(riceQty()).not.toBeDisabled();
+    expect(riceQty()).toHaveValue("");
+    expect(screen.getByLabelText("Scan or type a code")).not.toBeDisabled();
+    expect(screen.getByLabelText("Challan no.")).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /Post receipt/ })).not.toBeDisabled();
+    type("Received qty for Basmati rice 25kg", "4");
+    scan("RICE-6PK");
+    await waitFor(() => expect(riceQty()).toHaveValue("10"));
+    // The first receipt's file shows its progress on that receipt.
+    const first = screen.getByText("GRN/46/2026-27/00012").closest("li");
+    expect(within(first).getByText("challan.jpg").closest("li")).toHaveTextContent("Uploading…");
+
+    const att = { id: 31, fileName: "challan.jpg", kind: "CHALLAN", url: "https://bucket.s3.ap-south-1.amazonaws.com/grn/challan.jpg" };
+    getTokenReceiveContext.mockResolvedValue(ctx({ receipts: [receipt({ attachments: [att] })] }));
+    await act(async () => {
+      slow.resolve(att);
+    });
+    await waitFor(() => expect(within(first).getByRole("link", { name: "challan.jpg" })).toBeInTheDocument());
+    expect(within(first).queryByText("Uploading…")).toBeNull();
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(3));
+    // The refresh kept what is being entered now.
+    expect(riceQty()).toHaveValue("10");
+
+    postTokenGrn.mockResolvedValueOnce(postedGrn({ id: 901, grnNumber: "GRN/46/2026-27/00013", lines: [{ poLineId: 11 }] }));
+    await postAndConfirm();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn).toHaveBeenCalledTimes(2);
+    expect(postTokenGrn.mock.calls[1][1].clientEventId).not.toBe(postTokenGrn.mock.calls[0][1].clientEventId);
+    expect(postTokenGrn.mock.calls[1][1].lines).toEqual([expect.objectContaining({ poLineId: 11, receivedQty: 10 })]);
+    expect(uploadTokenGrnAttachment).toHaveBeenCalledTimes(1);
   });
 
   test("phone: the post bar sits inside the page (its spacer reads the page's bar height)", async () => {
@@ -924,6 +975,71 @@ describe("TokenReceivePage", () => {
     });
     await screen.findByText("Receipt posted");
     expect(postTokenGrn.mock.calls[1][1].clientEventId).toBe(key);
+  });
+
+  test("phone: Discard brings its confirm into view and focuses \"Keep them\"", async () => {
+    mockMobile = true;
+    const scrolled = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      scrolled.push(this);
+    };
+    try {
+      await mount();
+      fireEvent.click(screen.getByRole("button", { name: "Add one bag of Basmati rice 25kg" }));
+      postTokenGrn.mockRejectedValueOnce(networkError());
+      await postAndConfirm();
+      const bar = await screen.findByRole("region", { name: "Receive actions" });
+      await waitFor(() => expect(within(bar).getByRole("button", { name: "Discard" })).toBeInTheDocument());
+      fireEvent.click(within(bar).getByRole("button", { name: "Discard" }));
+      const ask = screen.getByRole("alertdialog", { name: "Discard these entries?" });
+      expect(scrolled).toContain(ask);
+      expect(document.activeElement).toBe(within(ask).getByRole("button", { name: "Keep them" }));
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  test("a code that matches two different items asks which one, and adds only the one picked", async () => {
+    const DAL = {
+      poLineId: 14, productVariantId: 504, productName: "Toor dal 30kg", unit: "bag",
+      invItemId: 12, stockUom: "bag", uomFactor: 1, needsUomFactor: false, trackExpiry: false, minShelfLifeDays: null,
+      plannedAtHotel: 10, openAtHotel: 10, maxAcceptable: 10, defaultMarkOutOnArrival: false,
+      // The same label keyed on two items, in another case.
+      barcodes: [{ code: "rice-6pk", packFactor: 2 }],
+    };
+    await mount(ctx({ lines: [RICE, PANEER, DAL] }));
+    scan("Rice-6Pk");
+    expect(await screen.findByText("This code matches more than one item: pick one")).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("");
+    const pick = screen.getByRole("group", { name: "Which item is it?" });
+    expect(within(pick).getAllByRole("button").map((b) => b.textContent)).toEqual(["Basmati rice 25kg", "Toor dal 30kg"]);
+
+    fireEvent.click(within(pick).getByRole("button", { name: "Toor dal 30kg" }));
+    await waitFor(() => expect(screen.getByLabelText("Received qty for Toor dal 30kg")).toHaveValue("2"));
+    expect(riceQty()).toHaveValue("");
+    expect(screen.queryByRole("group", { name: "Which item is it?" })).toBeNull();
+    // An exact code is still a single match.
+    scan("RICE-6PK");
+    await waitFor(() => expect(riceQty()).toHaveValue("6"));
+  });
+
+  test("a dispatch QR on this link picks that dispatch note; another one isn't on its way here", async () => {
+    await mount(ctx({
+      dispatches: [{
+        id: 31, dispatchNumber: "DSP/46/2026-27/00004", challanNo: "CH-31", challanDate: "2026-10-23",
+        vehicleNo: "MH01AB1234", lines: [{ poLineId: 11, qty: 5 }],
+      }],
+    }));
+    scan("/s/d/99");
+    expect(await screen.findByText("That dispatch note isn't on its way to Orchid Mumbai on this order")).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("");
+
+    scan("https://app.letsworkwise.com/s/d/31");
+    expect(await screen.findByText("Receiving against DSP/46/2026-27/00004")).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("5");
+    expect(screen.getByLabelText("Challan no.")).toHaveValue("CH-31");
+    expect(screen.getByLabelText("Against dispatch")).toHaveValue("31");
   });
 
   test("the scan dock's card clips without becoming the sticky box", async () => {

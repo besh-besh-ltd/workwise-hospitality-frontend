@@ -225,13 +225,16 @@ const Layout = (props) => {
   const isDashboardPath =
     router.pathname?.startsWith('/dashboard') || router.pathname?.startsWith('/vendor');
   const isDashboardRoute = isDashboardPath && isLoggedIn;
+  // The path alone: a query or #fragment can carry a credential (the site-rep
+  // receive link's #t=… is in asPath until the page strips it).
+  const canonicalPath = (router.asPath || "/").split(/[?#]/)[0] || "/";
 
   return (
     <>
 
     {/*  set canonical tag accros all the pages */}
       <Head>
-        <link rel="canonical" href={`https://letsworkwise.com${router.asPath}`} />
+        <link rel="canonical" href={`https://letsworkwise.com${canonicalPath}`} />
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>

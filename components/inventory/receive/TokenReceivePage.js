@@ -78,6 +78,10 @@ const EXPIRED_UNCERTAIN =
   "Your link expired. The last receipt may already have been recorded; ask the buyer to check.";
 const MISSING_MESSAGE = "Open the receiving link from your email again. If it still doesn't open, ask the buyer for a new one.";
 const UNKNOWN_CODE = "This code isn't on this order";
+const AMBIGUOUS_CODE = "This code matches more than one item: pick one";
+const dispatchNotHere = (hotelName) =>
+  `That dispatch note isn't on its way to ${hotelName || "this hotel"} on this order`;
+const dispatchName = (d) => d.dispatchNumber || (d.challanNo ? `challan ${d.challanNo}` : `dispatch #${d.id}`);
 const NEVER_TWICE = "a receipt is never recorded twice.";
 const NETWORK_DROPPED =
   "The connection dropped before the server answered, so this receipt may or may not be recorded. " +
@@ -238,11 +242,13 @@ const sameAsSent = (sentLines = [], grnLines) => {
 /**
  * The scan box for a link: camera, keyboard-wedge scanner and typed codes,
  * looked up by `onRead(parsed)` (which returns the status line to show,
- * {tone:'ok'|'warn', text, code}). Same look as ScanInput, which can't be used
+ * {tone:'ok'|'warn', text, code, choices?}). A status with `choices`
+ * ([{key, label}]) asks which one; the pick goes to `onChoose(choice)`, which
+ * returns the next status line. Same look as ScanInput, which can't be used
  * here because it resolves through the buyer route. `disabled` pauses reads
- * and leaves an open camera running.
+ * and picks, and leaves an open camera running.
  */
-const TokenScanBox = ({ disabled = false, onRead }) => {
+const TokenScanBox = ({ disabled = false, onRead, onChoose }) => {
   const inputId = useId();
   const [value, setValue] = useState("");
   const [camera, setCamera] = useState(false);
@@ -250,11 +256,13 @@ const TokenScanBox = ({ disabled = false, onRead }) => {
   const [muted, setMutedState] = useState(() => scanFeedback.isMuted());
   const disabledRef = useRef(disabled);
   const onReadRef = useRef(onRead);
+  const onChooseRef = useRef(onChoose);
   const seenRef = useRef(new Map());
 
   useEffect(() => {
     disabledRef.current = disabled;
     onReadRef.current = onRead;
+    onChooseRef.current = onChoose;
   });
   useEffect(() => scanFeedback.installUnlock(), []);
 
@@ -280,6 +288,15 @@ const TokenScanBox = ({ disabled = false, onRead }) => {
   }, []);
 
   useWedgeScanner({ onCode: (raw) => read(raw, "wedge"), enabled: !disabled });
+
+  const choose = (choice) => {
+    if (disabledRef.current) return;
+    const next = onChooseRef.current?.(choice) || null;
+    if (!next) return;
+    if (next.tone === "ok") scanFeedback.success();
+    else scanFeedback.error();
+    setStatus(next);
+  };
 
   const submitTyped = () => {
     if (!disabled && read(value, "manual")) setValue("");
@@ -379,6 +396,21 @@ const TokenScanBox = ({ disabled = false, onRead }) => {
           </>
         )}
       </div>
+      {status?.choices?.length > 0 && (
+        <div className={own.scanChoices} role="group" aria-label="Which item is it?">
+          {status.choices.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              className={`${scanStyles.btn} ${scanStyles.btnSecondary}`}
+              onClick={() => choose(c)}
+              disabled={disabled}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -418,14 +450,34 @@ const BlockedLineCard = ({ line }) => (
   </article>
 );
 
+// ── Files picked before posting, uploading after it ─────────────────────────
+const UPLOAD_STATUS = { uploading: "Uploading…", done: "Uploaded", failed: "Not uploaded" };
+
+/** Per-file status of the paperwork uploading for a posted receipt. */
+const UploadList = ({ uploads, className = "" }) => (
+  <ul className={`${own.uploadList} ${className}`} aria-label="Paperwork">
+    {uploads.map((u, i) => (
+      <li key={`${u.name}-${i}`} className={own.uploadItem} data-status={u.status}>
+        {u.status === "uploading" && <Loader2 size={14} className={styles.spin} aria-hidden="true" />}
+        {u.status === "done" && <CheckCircle2 size={14} aria-hidden="true" />}
+        {u.status === "failed" && <AlertTriangle size={14} aria-hidden="true" />}
+        <span className={own.uploadName}>{u.name}</span>
+        <span className={own.uploadStatus}>{UPLOAD_STATUS[u.status]}{u.message ? `: ${u.message}` : ""}</span>
+      </li>
+    ))}
+  </ul>
+);
+
 // ── Receipts this link posted, with "Attach paperwork" ───────────────────────
 const STATUS_PILL = { partially_reversed: "Partly reversed", reversed: "Reversed" };
 const isWebUrl = (url) => /^https?:\/\//i.test(String(url || ""));
 
-const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
+const ReceiptItem = ({ receipt, canAttach, busy, error, uploads = null, onAttach }) => {
   const [kind, setKind] = useState("CHALLAN");
   const name = receipt.grnNumber || `Receipt #${receipt.id}`;
   const files = Array.isArray(receipt.attachments) ? receipt.attachments : [];
+  // Files from the post still going up (or that didn't); the ones that made it are in `files`.
+  const unsettled = (uploads || []).filter((u) => u.status !== "done");
   const pick = (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -457,6 +509,7 @@ const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
           ))}
         </ul>
       )}
+      {unsettled.length > 0 && <UploadList uploads={unsettled} className={own.receiptUploads} />}
       {canAttach && (
         <div className={own.attachRow}>
           <span className={own.attachLabel}>Attach paperwork</span>
@@ -547,8 +600,6 @@ const linkInput = (input) => {
   return out;
 };
 
-const UPLOAD_STATUS = { uploading: "Uploading…", done: "Uploaded", failed: "Not uploaded" };
-
 /** A heading that takes focus when it appears (posted, expired and error states). */
 const focusOnMount = (el) => {
   if (el && typeof el.focus === "function") el.focus();
@@ -575,6 +626,8 @@ const TokenReceivePage = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [posted, setPosted] = useState(null);
+  // grnId → [{name, kind, status, message}]: files picked before a post, uploading after it.
+  const [uploads, setUploads] = useState({});
   const [uploadingId, setUploadingId] = useState(null);
   const [attachErrors, setAttachErrors] = useState({});
 
@@ -595,6 +648,8 @@ const TokenReceivePage = () => {
   const mountedRef = useRef(true);
   const linesBoxRef = useRef(null);
   const formErrorRef = useRef(null);
+  const discardBoxRef = useRef(null);
+  const keepEntriesRef = useRef(null);
 
   useEffect(() => {
     pendingFilesRef.current = pendingFiles;
@@ -776,6 +831,15 @@ const TokenReceivePage = () => {
     if (target && typeof target.focus === "function") target.focus({ preventScroll: true });
   }, [errorFocus]);
 
+  // "Discard?" opens at the top of the page; on a phone it was asked from the
+  // bar at the bottom, so bring it into view and put focus on the safe answer.
+  useEffect(() => {
+    if (!discardOpen) return;
+    const box = discardBoxRef.current;
+    if (box && typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "center", behavior: "smooth" });
+    keepEntriesRef.current?.focus({ preventScroll: true });
+  }, [discardOpen]);
+
   // ── Edits (none while a post is in flight or its outcome is unknown) ─────
   const patchLine = useCallback((id, patch) => {
     if (postingRef.current || unsentRef.current) return;
@@ -838,15 +902,44 @@ const TokenReceivePage = () => {
     router,
   });
 
-  const onScanRead = (parsed) => {
-    if (isFrozen()) return null;
-    const result = resolveOnOrder(parsed, ctxRef.current?.lines || []);
-    const line = result.kind === "item" ? lineById.get(Number(result.item.poLineId)) : null;
+  /** An item read onto its line; returns the scan box's status line. */
+  const applyItemRead = (result, parsed) => {
+    const line = lineById.get(Number(result.item?.poLineId));
     if (!line) return { tone: "warn", text: UNKNOWN_CODE, code: result.code };
     if (line.needsUomFactor) return { tone: "warn", text: uomBlockedMessage(line), code: result.code };
     scan.onScanResolved(result, { parsed });
     return { tone: "ok", text: line.productName, code: result.code };
   };
+
+  const onScanRead = (parsed) => {
+    if (isFrozen()) return null;
+    const data = ctxRef.current;
+    const result = resolveOnOrder(parsed, data?.lines || [], data?.dispatches || []);
+    if (result.kind === "dispatch") {
+      // As on the buyer's page: the dispatch note fills what isn't entered yet.
+      if (!result.dispatch) return { tone: "warn", text: dispatchNotHere(data?.hotel?.name), code: result.code };
+      pickDispatch(String(result.dispatch.id));
+      return { tone: "ok", text: `Receiving against ${dispatchName(result.dispatch)}`, code: result.code };
+    }
+    if (result.kind === "ambiguous") {
+      // The same code on two different items: never guess which one arrived.
+      return {
+        tone: "warn",
+        text: AMBIGUOUS_CODE,
+        code: result.code,
+        choices: result.candidates.map((item) => ({
+          key: String(item.poLineId),
+          label: lineById.get(Number(item.poLineId))?.productName || `Line ${item.poLineId}`,
+          result: { kind: "item", code: result.code, item, gs1: result.gs1 },
+          parsed,
+        })),
+      };
+    }
+    if (result.kind !== "item") return { tone: "warn", text: UNKNOWN_CODE, code: result.code };
+    return applyItemRead(result, parsed);
+  };
+
+  const onScanChoose = (choice) => (isFrozen() ? null : applyItemRead(choice.result, choice.parsed));
 
   /** The form summary: always name the line(s) to fix. */
   const lineSummary = (errs) => {
@@ -865,13 +958,19 @@ const TokenReceivePage = () => {
   };
 
   // ── Posting ───────────────────────────────────────────────────────────────
+  /**
+   * The files picked before posting, one after another, in the background: the
+   * receipt is already posted and the form free. Returns how many went up.
+   */
   const uploadPicked = async (grnId, files) => {
+    let uploaded = 0;
     for (let i = 0; i < files.length; i += 1) {
       const p = files[i];
       let next;
       try {
         const att = tokenRef.current ? await uploadTokenGrnAttachment(tokenRef.current, grnId, p.file, p.kind) : null;
         if (att && mountedRef.current) commitCtx(withAttachments(ctxRef.current, grnId, [att]));
+        if (att) uploaded += 1;
         next = att ? { status: "done" } : { status: "failed", message: "This link can't upload any more." };
       } catch (e) {
         const info = errorInfo(e, "Upload failed");
@@ -879,22 +978,27 @@ const TokenReceivePage = () => {
           status: "failed",
           message: info.httpStatus === 429
             ? rateLimitMessage(e)
-            : info.httpStatus == null
-              ? "The connection dropped. Attach it again from the receipts below."
-              : info.message,
+            : info.httpStatus === 401
+              ? "This link has expired."
+              : info.httpStatus == null
+                ? "The connection dropped. Attach it again on this receipt."
+                : info.message,
         };
       }
-      if (!mountedRef.current) return;
-      setPosted((prev) => (prev
-        ? { ...prev, uploads: prev.uploads.map((u, j) => (j === i ? { ...u, ...next } : u)) }
+      if (!mountedRef.current) return uploaded;
+      setUploads((prev) => (prev[grnId]
+        ? { ...prev, [grnId]: prev[grnId].map((u, j) => (j === i ? { ...u, ...next } : u)) }
         : prev));
     }
+    return uploaded;
   };
 
-  const finishPosted = async (grn, sent) => {
+  /** The server recorded it: show the receipt, free the form, then send the files. */
+  const finishPosted = (grn, sent) => {
     const replayed = grn?.replayed === true || !isFreshPost(grn);
     const mismatch = replayed && !sameAsSent(sent.lines, grn?.lines);
-    const files = pendingFilesRef.current;
+    const grnId = grn?.id ?? null;
+    const files = grnId != null ? pendingFilesRef.current : [];
     clearDraft();
     sessionKeyRef.current = newClientEventId();
     restoredKeyRef.current = null;
@@ -903,16 +1007,24 @@ const TokenReceivePage = () => {
     setPendingFiles([]);
     setRestored(false);
     commitCtx(withReceipt(ctxRef.current, grn));
+    if (files.length) {
+      setUploads((prev) => ({
+        ...prev,
+        [grnId]: files.map((p) => ({ name: p.file.name, kind: p.kind, status: "uploading" })),
+      }));
+    }
     // "Receipt posted" first; the files picked before posting upload after it.
-    setPosted({
-      grn,
-      replayMismatch: mismatch,
-      warnings: Array.isArray(grn?.warnings) ? grn.warnings : [],
-      uploads: files.map((p) => ({ name: p.file.name, kind: p.kind, status: "uploading" })),
-    });
-    if (grn?.id != null && files.length) await uploadPicked(grn.id, files);
-    // Fresh open quantities and the receipt list (with this one) from the server.
-    if (mountedRef.current) load({ silent: true });
+    setPosted({ grn, replayMismatch: mismatch, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [] });
+    // Fresh open quantities and the receipt list (with this one) from the
+    // server now, for a next receipt that starts while the files go up.
+    load({ silent: true });
+    if (files.length) {
+      // Not awaited: "Receive another delivery" must not wait for a slow upload.
+      uploadPicked(grnId, files).then((uploaded) => {
+        // The receipt list as the server has it, with the files that went up.
+        if (uploaded > 0 && mountedRef.current) load({ silent: true });
+      });
+    }
   };
 
   const handlePostError = (err, { priorUnknown }) => {
@@ -1009,7 +1121,7 @@ const TokenReceivePage = () => {
     writeDraft();
     try {
       const grn = await postTokenGrn(token, body);
-      if (mountedRef.current) await finishPosted(grn, body);
+      if (mountedRef.current) finishPosted(grn, body);
     } catch (err) {
       if (mountedRef.current) handlePostError(err, { priorUnknown });
     } finally {
@@ -1036,6 +1148,8 @@ const TokenReceivePage = () => {
 
   /** Give up on an attempt whose outcome is unknown: new key, empty form. */
   const discardAndRestart = () => {
+    // A Retry already went out: it decides, not this.
+    if (postingRef.current) return;
     setDiscardOpen(false);
     clearDraft();
     restoredKeyRef.current = null;
@@ -1245,12 +1359,17 @@ const TokenReceivePage = () => {
   });
 
   const discardConfirm = discardOpen && (
-    <div className={own.discardBox} role="alertdialog" aria-label="Discard these entries?">
+    <div className={own.discardBox} role="alertdialog" aria-label="Discard these entries?" ref={discardBoxRef}>
       <p className={own.bannerText}>
         <strong>Discard these entries?</strong> {DISCARD_WARNING}
       </p>
       <div className={own.discardActions}>
-        <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDiscardOpen(false)}>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnSecondary}`}
+          onClick={() => setDiscardOpen(false)}
+          ref={keepEntriesRef}
+        >
           Keep them
         </button>
         <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={discardAndRestart}>
@@ -1305,7 +1424,7 @@ const TokenReceivePage = () => {
         <span className={styles.saveState}>{counts.withQty} of {receivableLines.length} entered</span>
       </div>
       <div className={own.scanDock} data-testid="scan-dock">
-        <TokenScanBox disabled={scanPaused} onRead={onScanRead} />
+        <TokenScanBox disabled={scanPaused} onRead={onScanRead} onChoose={onScanChoose} />
       </div>
       {formError && (
         <div className={styles.formError} role="alert" tabIndex={-1} ref={formErrorRef} style={{ marginTop: 14 }}>
@@ -1386,6 +1505,8 @@ const TokenReceivePage = () => {
     </section>
   );
 
+  const postedId = posted?.grn?.id ?? null;
+  const postedUploads = (postedId != null && uploads[postedId]) || [];
   const postedCard = posted && (
     <div className={styles.stateCard} role="status">
       <div className={`${styles.stateIc} ${posted.replayMismatch ? "" : styles.stateIcOk}`}>
@@ -1413,19 +1534,7 @@ const TokenReceivePage = () => {
           ))}
         </ul>
       )}
-      {posted.uploads.length > 0 && (
-        <ul className={own.uploadList} aria-label="Paperwork">
-          {posted.uploads.map((u, i) => (
-            <li key={`${u.name}-${i}`} className={own.uploadItem} data-status={u.status}>
-              {u.status === "uploading" && <Loader2 size={14} className={styles.spin} aria-hidden="true" />}
-              {u.status === "done" && <CheckCircle2 size={14} aria-hidden="true" />}
-              {u.status === "failed" && <AlertTriangle size={14} aria-hidden="true" />}
-              <span className={own.uploadName}>{u.name}</span>
-              <span className={own.uploadStatus}>{UPLOAD_STATUS[u.status]}{u.message ? `: ${u.message}` : ""}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {postedUploads.length > 0 && <UploadList uploads={postedUploads} />}
       {notReceivable && <p className={styles.stateSub}>{NOT_RECEIVABLE[reason]}.</p>}
       {canReceiveMore && (
         <div className={styles.stateActions}>
@@ -1468,6 +1577,8 @@ const TokenReceivePage = () => {
             canAttach={linkOpen && r.status !== "reversed"}
             busy={uploadingId === r.id}
             error={attachErrors[r.id] || null}
+            // The posted card shows its own files; after "Receive another delivery", the row does.
+            uploads={r.id === postedId ? null : uploads[r.id] || null}
             onAttach={(file, kind) => attachPaperwork(r.id, file, kind)}
           />
         ))}

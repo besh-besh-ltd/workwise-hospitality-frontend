@@ -14,7 +14,11 @@ import { toQ } from "./receiveUtils";
 //     EAN/UPC: EAN-8, UPC-A, EAN-13 and GTIN-14 compare as GTIN-14 (zero
 //     padded) and a UPC-E is expanded to its UPC-A, on either side;
 //   - when the item sits on several lines, the first line with something
-//     still open at this hotel wins, else the first line.
+//     still open at this hotel wins, else the first line;
+//   - when the best match is on two or more DIFFERENT items (the same label
+//     keyed in another case, or as UPC-A on one item and UPC-E on another)
+//     nothing is guessed: the read is 'ambiguous' and the person picks;
+//   - our own dispatch QR (/s/d/<id>) names one of the link's dispatch notes.
 // Item codes and variant SKUs are not in the link's context, so they never
 // match here (the server matches them for a signed-in buyer).
 
@@ -89,51 +93,68 @@ const lineForItem = (lines, invItemId) => {
 };
 
 /**
- * Match one parsed read (parseScan) against this order's lines.
- * Returns {kind:'item', code, item:{poLineId, invItemId, packFactor}, gs1}
- * or {kind:'unknown', code, gs1}.
+ * Match one parsed read (parseScan) against this order's lines and the link's
+ * dispatch notes. Returns one of
+ *   {kind:'item', code, item:{poLineId, invItemId, packFactor}, gs1}
+ *   {kind:'ambiguous', code, candidates:[{poLineId, invItemId, packFactor}], gs1}
+ *   {kind:'dispatch', code, dispatch (the context's dispatch, or null), gs1:null}
+ *   {kind:'unknown', code, gs1}
  */
-export const resolveOnOrder = (parsed, lines = []) => {
+export const resolveOnOrder = (parsed, lines = [], dispatches = []) => {
   const code = parsed?.code ? String(parsed.code) : "";
   const gs1 = parsed?.gs1 || null;
   const unknown = { kind: "unknown", code, gs1 };
   if (!code) return unknown;
-  const hit = (line, packFactor) => ({
-    kind: "item",
-    code,
-    item: {
-      poLineId: line.poLineId,
-      invItemId: line.invItemId ?? null,
-      packFactor: Number(packFactor) > 0 ? Number(packFactor) : 1,
-    },
-    gs1,
+  const itemOn = (line, packFactor) => ({
+    poLineId: line.poLineId,
+    invItemId: line.invItemId ?? null,
+    packFactor: Number(packFactor) > 0 ? Number(packFactor) : 1,
   });
+  const hit = (line, packFactor) => ({ kind: "item", code, item: itemOn(line, packFactor), gs1 });
 
-  // Our own item label: the stock item itself, one unit.
   if (parsed.type === "short_url") {
-    if (parsed.t !== "i") return unknown;
-    const line = lineForItem(lines, parsed.id);
-    return line ? hit(line, 1) : unknown;
+    // Our own item label: the stock item itself, one unit.
+    if (parsed.t === "i") {
+      const line = lineForItem(lines, parsed.id);
+      return line ? hit(line, 1) : unknown;
+    }
+    // Our dispatch QR: one of this link's dispatch notes, or not on its way here.
+    if (parsed.t === "d") {
+      const dispatch = (dispatches || []).find((d) => String(d?.id) === String(parsed.id)) || null;
+      return { kind: "dispatch", code, dispatch, gs1: null };
+    }
+    return unknown;
   }
 
   const lookup = gs1?.gtin ? String(gs1.gtin) : code;
   const numeric = gtinForms(lookup);
-  let best = null;
-  lines.forEach((line, lineIdx) => {
-    (line.barcodes || []).forEach((b, codeIdx) => {
+  // Every alias at the best rank, in line then alias order.
+  let bestRank = null;
+  let hits = [];
+  lines.forEach((line) => {
+    (line.barcodes || []).forEach((b) => {
       const rank = aliasRank(b?.code, lookup, numeric);
       if (rank == null) return;
-      if (!best || rank < best.rank) best = { rank, line, lineIdx, codeIdx, packFactor: b.packFactor };
+      if (bestRank == null || rank < bestRank) {
+        bestRank = rank;
+        hits = [];
+      }
+      if (rank === bestRank) hits.push({ line, packFactor: b.packFactor });
     });
   });
-  if (!best) return unknown;
+  if (hits.length === 0) return unknown;
 
-  // The alias names a stock item; several lines may carry it.
-  if (best.line.invItemId == null) return hit(best.line, best.packFactor);
-  const line = lineForItem(lines, best.line.invItemId) || best.line;
-  const sameAlias = (line.barcodes || [])[best.codeIdx];
-  const packFactor = sameAlias && aliasRank(sameAlias.code, lookup, numeric) === best.rank
-    ? sameAlias.packFactor
-    : best.packFactor;
-  return hit(line, packFactor);
+  // One pick per stock item (a line with no stock item is its own item).
+  const itemKey = (line) => (line.invItemId != null ? `i:${Number(line.invItemId)}` : `l:${line.poLineId}`);
+  const byItem = new Map();
+  for (const h of hits) if (!byItem.has(itemKey(h.line))) byItem.set(itemKey(h.line), h);
+  const picks = [...byItem.values()].map((h) => {
+    if (h.line.invItemId == null) return itemOn(h.line, h.packFactor);
+    // The item may sit on several lines: the open one takes it, with its own alias's pack.
+    const line = lineForItem(lines, h.line.invItemId) || h.line;
+    const onLine = hits.find((x) => x.line === line);
+    return itemOn(line, onLine ? onLine.packFactor : h.packFactor);
+  });
+  if (picks.length > 1) return { kind: "ambiguous", code, candidates: picks, gs1 };
+  return { kind: "item", code, item: picks[0], gs1 };
 };

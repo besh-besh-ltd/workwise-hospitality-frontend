@@ -115,6 +115,17 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 .uploadName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 .uploadStatus { flex-shrink: 0; max-width: 60%; text-align: right; }
+/* The same list on a receipt row, once "Receive another delivery" moved on. */
+.receiptUploads { margin: 8px 0 0; max-width: none; }
+
+/* A code on two different items: the scan box asks which one. */
+.scanChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.scanChoices > * { min-height: 44px; }
 
 /* ───────────── Lines the link can't receive ───────────── */
 .blockedNote {
@@ -173,6 +184,12 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
      sticky box and leaves the dock scrolling away. clip cuts the same corners
      without making a scroll container, so the dock sticks to the viewport. */
   .page .itemsCard { overflow: clip; }
+  /* No overflow:clip (iOS Safari before 16): the line above is dropped and the
+     card stays overflow:hidden, a scroll box. Let it overflow instead; its
+     rounded corners lose a little clipping, the dock keeps sticking. */
+  @supports not (overflow: clip) {
+    .page .itemsCard { overflow: visible; }
+  }
   .scanDock {
     position: sticky;
     top: 0;
@@ -185,6 +202,7 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   .discardBox { flex-direction: column; align-items: stretch; }
   .discardActions { width: 100%; }
   .discardActions > * { flex: 1; min-height: 44px; }
+  .scanChoices > * { flex: 1 1 100%; }
   .receipt { padding: 12px 14px; }
   .kindSelect { width: 100%; }
 }

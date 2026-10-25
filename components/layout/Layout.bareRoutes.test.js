@@ -3,6 +3,7 @@
 // unstyled there and overlaps the card. Other public pages keep the header.
 
 let mockPathname = "/vendor/network/accept-invite";
+let mockAsPath = null;
 let mockQuery = {};
 jest.mock("@/redux/store", () => ({ __esModule: true, store: { getState: () => ({ userProfile: null }) } }));
 jest.mock("react-redux", () => ({ __esModule: true, useDispatch: () => jest.fn() }));
@@ -10,9 +11,9 @@ jest.mock("@/utils/guestSession", () => ({ __esModule: true, isGuestSession: () 
 jest.mock("@/utils/hardNavigate", () => ({ __esModule: true, hardReload: jest.fn(), hardNavigate: jest.fn() }));
 jest.mock("next/router", () => ({
   __esModule: true,
-  useRouter: () => ({ pathname: mockPathname, asPath: mockPathname, query: mockQuery, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ pathname: mockPathname, asPath: mockAsPath ?? mockPathname, query: mockQuery, push: jest.fn(), replace: jest.fn() }),
 }));
-jest.mock("next/head", () => ({ __esModule: true, default: () => null }));
+jest.mock("next/head", () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
 jest.mock("./Header", () => ({ __esModule: true, default: () => <div data-testid="site-header" /> }));
 jest.mock("./DashboardShell", () => ({ __esModule: true, default: ({ children }) => children }));
 jest.mock("@/components/shared/GuestAccessModal", () => ({ __esModule: true, default: () => null }));
@@ -34,6 +35,7 @@ import { verifyVendorToken } from "@/services/Auth";
 
 beforeEach(() => {
   mockQuery = {};
+  mockAsPath = null;
 });
 
 test("the network invitation page renders without the site header", () => {
@@ -64,4 +66,23 @@ test("other public pages keep the site header", () => {
   mockPathname = "/for-vendors";
   render(<Layout><div data-testid="page" /></Layout>);
   expect(screen.getByTestId("site-header")).toBeInTheDocument();
+});
+
+test("the canonical link is the path alone: a link's query or #fragment (and its token) never goes in it", () => {
+  const canonical = () => document.querySelector('link[rel="canonical"]').getAttribute("href");
+  mockPathname = "/receive/token";
+  mockAsPath = "/receive/token#t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka";
+  const a = render(<Layout><div /></Layout>);
+  expect(canonical()).toBe("https://letsworkwise.com/receive/token");
+  a.unmount();
+
+  mockAsPath = "/receive/token?t=Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka&token=x#y";
+  const b = render(<Layout><div /></Layout>);
+  expect(canonical()).toBe("https://letsworkwise.com/receive/token");
+  b.unmount();
+
+  mockPathname = "/for-vendors";
+  mockAsPath = "/for-vendors?utm_source=mail";
+  render(<Layout><div /></Layout>);
+  expect(canonical()).toBe("https://letsworkwise.com/for-vendors");
 });
