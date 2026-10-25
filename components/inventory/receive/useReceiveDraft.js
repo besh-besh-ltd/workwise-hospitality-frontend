@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { clearLocalDraft, grnDraftKey, loadLocalDraft, saveLocalDraft } from "./draftStore";
+import { clearLocalDraft, draftOwnerId, grnDraftKey, loadLocalDraft, saveLocalDraft } from "./draftStore";
 import { buyerReceiveAdapter as api } from "./receiveAdapter";
 import { replayVerdict } from "./receivePost";
 import {
@@ -7,7 +7,8 @@ import {
 } from "./receiveUtils";
 
 // The receipt's session: its clientEventId, the server draft and the device
-// copy in IndexedDB (entries and keys only; buyer screens only).
+// copy in IndexedDB (entries and keys only; buyer screens only; per signed-in
+// user: another user's copy is never resumed).
 //
 // Session key rules (each receipt posts exactly once):
 //   - A server draft is created with the session key and keeps it; the post
@@ -94,7 +95,7 @@ export default function useReceiveDraft({
 
   const localKey = useCallback(() => {
     const data = ctxRef.current;
-    return data?.hotel ? grnDraftKey(data.po?.id ?? poId, data.hotel.id) : null;
+    return data?.hotel ? grnDraftKey(draftOwnerId(), data.po?.id ?? poId, data.hotel.id) : null;
   }, [ctxRef, poId]);
 
   /** Start the session for a freshly loaded form (`draft` is the server's, or null). */
@@ -125,6 +126,7 @@ export default function useReceiveDraft({
     const key = localKey();
     if (!key) return Promise.resolve(null);
     return saveLocalDraft(key, {
+      ownerId: draftOwnerId(),
       savedAt: Date.now(),
       clean,
       draftId: grnIdRef.current,
@@ -147,8 +149,9 @@ export default function useReceiveDraft({
   const restoreLocal = useCallback(async (data, draft, seq) => {
     const hid = data.hotel?.id;
     if (!hid) return null;
-    const key = grnDraftKey(data.po?.id ?? poId, hid);
-    const local = await loadLocalDraft(key);
+    const owner = draftOwnerId();
+    const key = grnDraftKey(owner, data.po?.id ?? poId, hid);
+    const local = await loadLocalDraft(key, owner);
     if (!local || seq !== loadSeqRef.current || !mountedRef.current) return null;
 
     const localDraftId = local.draftId != null ? Number(local.draftId) : null;
