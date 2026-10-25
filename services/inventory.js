@@ -101,7 +101,9 @@ export const startCount = (payload) => post("/counts", payload);
 export const getCount = (id) => get(`/counts/${id}`);
 export const saveCountLines = (id, lines) => put(`/counts/${id}/lines`, { lines });
 export const submitCount = (id) => post(`/counts/${id}/submit`);
-export const approveCount = (id, reasons) => post(`/counts/${id}/approve`, { reasons });
+// `unitCosts` ({[lineId]: number > 0}) only when the server asked for them.
+export const approveCount = (id, reasons, unitCosts) =>
+  post(`/counts/${id}/approve`, unitCosts ? { reasons, unitCosts } : { reasons });
 export const cancelCount = (id) => post(`/counts/${id}/cancel`);
 export const listCounts = (params) => get("/counts", params);
 export const getInventoryOverview = (params) => get("/overview", params);

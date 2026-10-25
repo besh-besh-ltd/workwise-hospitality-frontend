@@ -1,6 +1,6 @@
 import React from "react";
-import PagePlaceholder from "./PagePlaceholder";
+import CountsList from "@/components/inventory/counts/CountsList";
 
-const CountsListPage = () => <PagePlaceholder title="Inventory · Counts" />;
+const CountsListPage = () => <CountsList />;
 
 export default CountsListPage;

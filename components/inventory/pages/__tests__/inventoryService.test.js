@@ -87,6 +87,7 @@ const JSON_CASES = [
   ["saveCountLines", [4, [{ invItemId: 1 }]], "put", `${B}/counts/4/lines`, { lines: [{ invItemId: 1 }] }],
   ["submitCount", [4], "post", `${B}/counts/4/submit`, undefined],
   ["approveCount", [4, { 1: "r" }], "post", `${B}/counts/4/approve`, { reasons: { 1: "r" } }],
+  ["approveCount", [4, { 1: "r" }, { 1: 52.5 }], "post", `${B}/counts/4/approve`, { reasons: { 1: "r" }, unitCosts: { 1: 52.5 } }],
   ["cancelCount", [4], "post", `${B}/counts/4/cancel`, undefined],
   ["listCounts", [{ hotelId: 2 }], "get", `${B}/counts`, undefined, { hotelId: 2 }],
   ["getInventoryOverview", [{ hotelId: 2 }], "get", `${B}/overview`, undefined, { hotelId: 2 }],
