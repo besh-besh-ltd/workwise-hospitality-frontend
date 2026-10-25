@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
+import dynamic from "next/dynamic";
 import { toast } from "react-toastify";
 import posthog from "@/lib/analytics";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
@@ -16,6 +17,10 @@ import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import { TwoPanelContext, useTwoPanelHost } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
+
+// Inventory's offline-sync dock ("Pending sync (N)"), on the inventory routes
+// only; loaded on demand so other pages never pull in the outbox.
+const PendingSyncBadge = dynamic(() => import("@/components/inventory/offline/PendingSyncBadge"), { ssr: false });
 
 const DashboardShell = ({ children }) => {
   const router = useRouter();
@@ -128,6 +133,7 @@ const DashboardShell = ({ children }) => {
           />
           <div className={styles.main}>
             <div className={styles.content}>{children}</div>
+            {loggedinUser && currentUserType === "buyer" && router.pathname?.startsWith("/dashboard/buyer/inventory") && <PendingSyncBadge />}
           </div>
         </div>
       </div>
