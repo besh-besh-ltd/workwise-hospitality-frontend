@@ -190,6 +190,37 @@ describe("MarkOutPage with the real outbox", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
+  test("Discard current and open, when the waiting session's send goes through first, keeps the current session", async () => {
+    const { key } = await queueRice();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+
+    // a retry is out when the user asks to open the waiting session in place of the current one
+    let answer;
+    postOut.mockImplementationOnce(() => new Promise((res) => { answer = res; }));
+    let flushing;
+    act(() => {
+      flushing = outbox.flush({ force: true });
+    });
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(2));
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    fireEvent.click(within(card).getByRole("button", { name: "Discard from this device" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Open" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Discard current and open" }));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100));
+      answer({ docId: 501, docNo: "OUT-501", replayed: false, lines: [{ invItemId: 9, qty: 6 }] });
+      await flushing;
+    });
+
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringMatching(/before it could be opened/)), REOPEN);
+    expect(outbox.getOutboxStatus("out_post", key)).toBe("sent");
+    // the session in progress is still on screen, and still on the device
+    expect(screen.getByLabelText("Qty of Dish soap")).toBeEnabled();
+    expect(screen.queryByLabelText("Qty of Basmati rice")).toBeNull();
+    expect((await sessions.loadOutSession("21", 46))?.lines).toEqual([expect.objectContaining({ invItemId: 11 })]);
+  });
+
   test("an outbox give-up reads Not confirmed, never Refused, and reopens locked", async () => {
     const { key, sent } = await queueRice();
     // a session in progress keeps the slot busy, so the give-up is listed
