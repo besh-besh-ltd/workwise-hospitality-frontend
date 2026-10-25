@@ -130,9 +130,19 @@ export const newClientEventId = () => {
 };
 
 // ── Server refusals ──────────────────────────────────────────────────────────
-/** No HTTP answer at all (offline, timeout, dropped connection): the outcome is unknown. */
+// A gateway that gave up waiting (502/503/504) says nothing about whether the
+// app server applied the request.
+export const GATEWAY_STATUSES = new Set([502, 503, 504]);
+const httpStatusOf = (err) => err?.response?.status ?? err?.message?.response?.status ?? null;
+
+/**
+ * The outcome is unknown: no HTTP answer at all (offline, timeout, dropped
+ * connection) or a gateway error. A post that ends like this may have landed.
+ */
 export const isNetworkError = (err) => {
-  if (!err || (err?.response?.status ?? err?.message?.response?.status)) return false;
+  if (!err) return false;
+  const status = httpStatusOf(err);
+  if (status) return GATEWAY_STATUSES.has(Number(status));
   return !!err.isAxiosError || err.request != null || /network|timeout|ECONNABORTED/i.test(`${err.code || ""} ${err.message || ""}`);
 };
 

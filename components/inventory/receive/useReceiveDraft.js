@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { clearLocalDraft, grnDraftKey, loadLocalDraft, saveLocalDraft } from "./draftStore";
 import { buyerReceiveAdapter as api } from "./receiveAdapter";
 import { replayVerdict } from "./receivePost";
-import { blankHeader, blankLine, buildGrnInput, errorInfo, hasContent, newClientEventId } from "./receiveUtils";
+import {
+  blankHeader, blankLine, buildGrnInput, errorInfo, hasContent, isNetworkError, newClientEventId,
+} from "./receiveUtils";
 
 // The receipt's session: its clientEventId, the server draft and the device
 // copy in IndexedDB (entries and keys only; buyer screens only).
@@ -11,11 +13,14 @@ import { blankHeader, blankLine, buildGrnInput, errorInfo, hasContent, newClient
 //   - A server draft is created with the session key and keeps it; the post
 //     sends the same key, so the server posts that draft or, on a retry,
 //     replays it.
-//   - The key changes only after a confirmed outcome: posted, queued, found
-//     "already posted earlier", or the draft discarded.
+//   - The key changes only after a confirmed outcome: posted, found "already
+//     posted earlier", or the draft discarded. A queued post keeps it, and
+//     keeps the device copy, until the receipt is reopened and settled.
 //   - A key from the device copy is reused only when the create's outcome was
 //     unknown (no draftId saved). A device copy that names a draft the server
 //     no longer has is dropped, and the receiver is told what became of it.
+//   - A spent key (AlreadyPosted) is settled once, by whoever is current: a
+//     post waiting on a background save takes it over from that save.
 //
 // `form` holds the page's synchronous mirrors: {ctxRef, headerRef, entriesRef,
 // dirtyRef, editVersionRef, touchedRef, mountedRef, loadSeqRef, commitEntries,
@@ -31,25 +36,26 @@ const withoutPoId = (input) => {
   return out;
 };
 
-/** The session key already belongs to a posted receipt. */
+/** The session key (`key`) already belongs to a posted receipt (`postedGrn`). */
 export class AlreadyPosted extends Error {
-  constructor(grn) {
+  constructor(grn, key = null) {
     super("This receipt is already posted");
     this.postedGrn = grn;
+    this.key = key;
   }
 }
 
 const online = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
 /** The draft is no longer a draft: fetch what it became (it keeps its id when posted). */
-const spentDraft = async (id) => {
+const spentDraft = async (id, key) => {
   let grn = null;
   try {
     grn = await api.getGrn(id);
   } catch {
     grn = null;
   }
-  return new AlreadyPosted(grn || { id, status: "posted" });
+  return new AlreadyPosted(grn || { id, status: "posted" }, key);
 };
 const isPostedConflict = (info) => info.code === "CONFLICT" && !!info.details.status && info.details.status !== "draft";
 
@@ -66,11 +72,13 @@ export default function useReceiveDraft({
 
   const grnIdRef = useRef(null);
   const sessionKeyRef = useRef(newClientEventId());
-  const keyMintedRef = useRef(true);
+  // The key came from the device copy (restoreLocal): its replays are dated.
+  const keyRestoredRef = useRef(false);
   const needsKeyRef = useRef(false);
   const createUncertainRef = useRef(false);
   const lostAtRef = useRef(new Map());
   const saveChainRef = useRef(Promise.resolve());
+  const lastSaveRef = useRef(Promise.resolve());
   const blurTimerRef = useRef(null);
   const pageLoadedAtRef = useRef(Date.now());
   const onSpentRef = useRef(onSpent);
@@ -93,7 +101,7 @@ export default function useReceiveDraft({
   const startSession = useCallback((draft) => {
     setGrnId(draft?.id ?? null);
     sessionKeyRef.current = draft?.clientEventId || newClientEventId();
-    keyMintedRef.current = !draft?.clientEventId;
+    keyRestoredRef.current = false;
     needsKeyRef.current = !!draft && !draft.clientEventId;
     createUncertainRef.current = false;
     setSaveState({ status: draft ? "saved" : "idle", at: null });
@@ -103,7 +111,7 @@ export default function useReceiveDraft({
   const rotateKey = useCallback(() => {
     setGrnId(null);
     sessionKeyRef.current = newClientEventId();
-    keyMintedRef.current = true;
+    keyRestoredRef.current = false;
     needsKeyRef.current = false;
     createUncertainRef.current = false;
   }, [setGrnId]);
@@ -172,7 +180,7 @@ export default function useReceiveDraft({
       // keep its key so the server can tell us. A posted key is caught by the
       // first save or post and reported as "already posted earlier".
       sessionKeyRef.current = local.sessionKey;
-      keyMintedRef.current = false;
+      keyRestoredRef.current = true;
       createUncertainRef.current = true;
     }
     commitEntries(next);
@@ -193,13 +201,13 @@ export default function useReceiveDraft({
       } catch (err) {
         const info = errorInfo(err);
         // Posted under us, often by our own post whose reply was lost.
-        if (isPostedConflict(info)) throw await spentDraft(grnIdRef.current);
+        if (isPostedConflict(info)) throw await spentDraft(grnIdRef.current, key);
         if (info.httpStatus !== 404) throw err;
         setGrnId(null); // discarded elsewhere: start a new draft with the same key
       }
     }
     const grn = await api.createDraft({ ...input, post: false, clientEventId: key });
-    if (grn?.status && grn.status !== "draft") throw new AlreadyPosted(grn);
+    if (grn?.status && grn.status !== "draft") throw new AlreadyPosted(grn, key);
     setGrnId(grn?.id ?? null);
     if (createUncertainRef.current && grnIdRef.current) {
       // An earlier create landed unheard: that draft came back unchanged.
@@ -235,7 +243,7 @@ export default function useReceiveDraft({
         saveLocalNow({ clean: !dirtyRef.current });
         return grn;
       } catch (err) {
-        if (!grnIdRef.current && errorInfo(err).httpStatus == null && !(err instanceof AlreadyPosted)) {
+        if (!grnIdRef.current && isNetworkError(err) && !(err instanceof AlreadyPosted)) {
           createUncertainRef.current = true;
         }
         if (mountedRef.current) setSaveState({ status: err instanceof AlreadyPosted ? "idle" : "error", at: null });
@@ -244,42 +252,63 @@ export default function useReceiveDraft({
     };
     const run = saveChainRef.current.then(job, job);
     saveChainRef.current = run.catch(() => {});
+    lastSaveRef.current = run;
     return run;
   }, [
     ctxRef, headerRef, entriesRef, dirtyRef, editVersionRef, mountedRef, writeDraft, commitDirty, saveLocalNow,
   ]);
 
-  /** Background save: a spent key goes to onSpent, anything else waits for the next try. */
+  /**
+   * Background save: a spent key goes to onSpent(AlreadyPosted), anything
+   * else waits for the next try. While a post is in progress the post settles
+   * it instead (beforePost rethrows it), so it is never settled twice.
+   */
   const saveQuietly = useCallback(() => {
     saveDraft().catch((err) => {
-      if (err instanceof AlreadyPosted) onSpentRef.current?.(err.postedGrn);
+      if (!(err instanceof AlreadyPosted) || postingRef.current || err.key !== sessionKeyRef.current) return;
+      onSpentRef.current?.(err);
     });
-  }, [saveDraft]);
+  }, [saveDraft, postingRef]);
 
   /**
    * Before a post: let an in-flight save finish (a create racing the post
-   * would make two documents), and give a draft saved without a key ours.
+   * would make two documents) and rethrow its AlreadyPosted for this key, so
+   * the post settles it rather than going out under a new key. Then give a
+   * draft saved without a key ours.
    */
   const beforePost = useCallback(async () => {
-    await saveChainRef.current;
+    const key = sessionKeyRef.current;
+    try {
+      await lastSaveRef.current;
+    } catch (err) {
+      if (err instanceof AlreadyPosted && err.key === key) throw err;
+    }
     if (grnIdRef.current && needsKeyRef.current && online()) {
       await saveDraft({ force: true });
     }
   }, [saveDraft]);
 
-  /** Just before a post leaves: the device remembers which draft and key it was. */
-  const notePosting = useCallback(() => saveLocalNow({ clean: !dirtyRef.current }), [saveLocalNow, dirtyRef]);
+  /**
+   * Just before a post leaves: the device remembers which draft and key it
+   * was, and keeps that until the outcome is known (a queued post included).
+   * Only a copy that matches a server draft is "clean".
+   */
+  const notePosting = useCallback(
+    () => saveLocalNow({ clean: !dirtyRef.current && grnIdRef.current != null }),
+    [saveLocalNow, dirtyRef]
+  );
 
   /** Delete the server draft (if any) and the device copy; a new receipt starts. */
   const discard = useCallback(async () => {
     await saveChainRef.current;
     const id = grnIdRef.current;
+    const key = sessionKeyRef.current;
     if (id) {
       try {
         await api.discardDraft(id);
       } catch (err) {
         const info = errorInfo(err);
-        if (isPostedConflict(info)) throw await spentDraft(id);
+        if (isPostedConflict(info)) throw await spentDraft(id, key);
         if (info.httpStatus !== 404) throw err;
       }
     }
@@ -300,7 +329,7 @@ export default function useReceiveDraft({
     grn,
     lostAtVersion: lostAtRef.current.get(sessionKeyRef.current),
     editVersion: editVersionRef.current,
-    keyMintedHere: keyMintedRef.current,
+    keyRestored: keyRestoredRef.current,
     pageLoadedAt: pageLoadedAtRef.current,
   }), [editVersionRef]);
 

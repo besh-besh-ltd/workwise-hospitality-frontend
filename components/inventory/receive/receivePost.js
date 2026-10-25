@@ -5,14 +5,17 @@
 // one that was posted, and showing "Receipt posted" would be a false success
 // (and the entries would be thrown away).
 
-import { fmtQty, fmtQtyUnit } from "./receiveUtils";
+import { GATEWAY_STATUSES, fmtQty, fmtQtyUnit } from "./receiveUtils";
 
 /** A post answer may be the Grn, or {grn} from an outbox that wraps it. */
 export const postedGrnOf = (result) =>
   result && result.id == null && result.grn && typeof result.grn === "object" ? result.grn : result;
 
-/** The server adds warnings[] only when this request posted; a replay has none. */
-export const isFreshPost = (grn) => Array.isArray(grn?.warnings);
+/**
+ * This request posted the receipt. B1 adds warnings[] only to a fresh post,
+ * and (FX1) marks a replayed clientEventId with replayed:true, no_op:true.
+ */
+export const isFreshPost = (grn) => !!grn && grn.replayed !== true && Array.isArray(grn.warnings);
 
 /**
  * A replayed (or otherwise found) posted GRN for the session key:
@@ -25,15 +28,16 @@ export const isFreshPost = (grn) => Array.isArray(grn?.warnings);
  * @param {number|undefined} args.lostAtVersion  edit version when a post with
  *                                       this key last ended with no answer
  * @param {number}  args.editVersion     the form's edit version now
- * @param {boolean} args.keyMintedHere   the key was created on this page load
- * @param {number}  args.pageLoadedAt    ms epoch of this page load
+ * @param {boolean} args.keyRestored     the key came from the device copy (restoreLocal)
+ * @param {number}  args.pageLoadedAt    ms epoch of this page load (device clock)
  */
-export const replayVerdict = ({ grn, lostAtVersion, editVersion, keyMintedHere, pageLoadedAt }) => {
+export const replayVerdict = ({ grn, lostAtVersion, editVersion, keyRestored, pageLoadedAt }) => {
   if (lostAtVersion === undefined || lostAtVersion !== editVersion) return "earlier";
-  // A key restored from the device (or a draft) may have been posted in an
-  // earlier session; this page's own attempts post after it loaded. Only
-  // non-minted keys are dated, so a skewed device clock can't misfile ours.
-  if (!keyMintedHere) {
+  // A key restored from the device copy may have been posted in an earlier
+  // session; this page's own attempts post after it loaded. Only those keys
+  // are dated: comparing the server's postedAt with the device clock is
+  // skew-prone, and a server draft's key was unposted when this page loaded.
+  if (keyRestored) {
     const at = Date.parse(grn?.postedAt || "");
     if (Number.isFinite(at) && at < pageLoadedAt) return "earlier";
   }
@@ -81,6 +85,14 @@ export const postErrorAction = (info, { network, lineById, canSetupItems }) => {
     return { blocked: { reason: rs === "received" || rs === "closed_short" ? rs : "not_ready", message: info.message } };
   }
   if (line) return { lineErrors: { [lineId]: info.message } };
+  if (network && GATEWAY_STATUSES.has(Number(info.httpStatus))) {
+    return {
+      formError:
+        "The server didn't answer in time, so it isn't known whether this receipt was posted. Your entries are kept: " +
+        "retry. A receipt is never recorded twice.",
+      retry: true,
+    };
+  }
   if (network) {
     return {
       formError:

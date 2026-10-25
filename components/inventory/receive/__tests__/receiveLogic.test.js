@@ -9,7 +9,9 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import QtyPad from "../QtyPad";
 import { replayVerdict, isFreshPost } from "../receivePost";
-import { addUnits, buildLinesPayload, factorText, parseFactor, poQtyToUnits, unitsToPoQty } from "../receiveUtils";
+import {
+  addUnits, buildLinesPayload, factorText, isNetworkError, parseFactor, poQtyToUnits, unitsToPoQty,
+} from "../receiveUtils";
 import { lineFactor } from "../useReceiveScan";
 import { createGrn } from "@/services/inventory";
 import * as adapterModule from "../receiveAdapter";
@@ -57,24 +59,43 @@ describe("replay verdict", () => {
   const loaded = Date.parse("2026-10-25T04:00:00.000Z");
   const grn = (postedAt) => ({ id: 900, status: "posted", postedAt });
 
-  it("a fresh post carries warnings[]; a replay does not", () => {
-    expect(isFreshPost({ warnings: [] })).toBe(true);
+  it("a fresh post carries warnings[]; a replay has none (before FX1) or replayed:true (after)", () => {
+    expect(isFreshPost({ id: 1, warnings: [] })).toBe(true);
+    expect(isFreshPost({ id: 1, warnings: [{ code: "EXPIRED" }] })).toBe(true);
     expect(isFreshPost({ id: 1 })).toBe(false);
+    expect(isFreshPost({ id: 1, replayed: true, no_op: true })).toBe(false);
+    expect(isFreshPost({ id: 1, replayed: true, no_op: true, warnings: [] })).toBe(false);
+    expect(isFreshPost({ id: 1, replayed: false, warnings: [] })).toBe(true);
+    expect(isFreshPost(null)).toBe(false);
   });
 
   it("ours only after a lost reply with no edits since", () => {
-    const base = { editVersion: 3, keyMintedHere: true, pageLoadedAt: loaded };
+    const base = { editVersion: 3, keyRestored: false, pageLoadedAt: loaded };
     expect(replayVerdict({ ...base, grn: grn("2026-10-25T05:00:00.000Z"), lostAtVersion: 3 })).toBe("ours");
     expect(replayVerdict({ ...base, grn: grn("2026-10-25T05:00:00.000Z"), lostAtVersion: 2 })).toBe("earlier");
     expect(replayVerdict({ ...base, grn: grn("2026-10-25T05:00:00.000Z"), lostAtVersion: undefined })).toBe("earlier");
   });
 
-  it("a restored key's GRN posted before this page loaded is earlier, even after a lost retry", () => {
+  it("only a key restored from the device copy is dated: posted before this page loaded is earlier", () => {
     const base = { editVersion: 1, lostAtVersion: 1, pageLoadedAt: loaded };
-    expect(replayVerdict({ ...base, grn: grn("2026-10-24T12:00:00.000Z"), keyMintedHere: false })).toBe("earlier");
-    expect(replayVerdict({ ...base, grn: grn("2026-10-25T04:00:01.000Z"), keyMintedHere: false })).toBe("ours");
-    // A key minted on this page is never dated (device clock skew).
-    expect(replayVerdict({ ...base, grn: grn("2026-10-24T12:00:00.000Z"), keyMintedHere: true })).toBe("ours");
+    expect(replayVerdict({ ...base, grn: grn("2026-10-24T12:00:00.000Z"), keyRestored: true })).toBe("earlier");
+    expect(replayVerdict({ ...base, grn: grn("2026-10-25T04:00:01.000Z"), keyRestored: true })).toBe("ours");
+    // Minted here or taken from a server draft: never dated (device clock skew).
+    expect(replayVerdict({ ...base, grn: grn("2026-10-24T12:00:00.000Z"), keyRestored: false })).toBe("ours");
+  });
+});
+
+describe("unknown outcomes", () => {
+  const http = (status) => Object.assign(new Error(`status ${status}`), { isAxiosError: true, response: { status, data: {} } });
+
+  it("no answer, a timeout or a gateway 502/503/504 leave the outcome unknown; a real answer does not", () => {
+    expect(isNetworkError(Object.assign(new Error("Network Error"), { isAxiosError: true, request: {} }))).toBe(true);
+    expect(isNetworkError(Object.assign(new Error("timeout of 30000ms exceeded"), { code: "ECONNABORTED" }))).toBe(true);
+    for (const st of [502, 503, 504]) expect(isNetworkError(http(st))).toBe(true);
+    // The service layer's {message: axiosError} wrapper too.
+    expect(isNetworkError({ message: http(504) })).toBe(true);
+    for (const st of [400, 403, 409, 500]) expect(isNetworkError(http(st))).toBe(false);
+    expect(isNetworkError(null)).toBe(false);
   });
 });
 
