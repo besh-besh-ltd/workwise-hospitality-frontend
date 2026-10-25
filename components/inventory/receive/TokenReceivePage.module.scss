@@ -47,6 +47,7 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 /* ───────────── Scan dock ───────────── */
+.itemsCard { min-width: 0; }
 .scanDock {
   padding: 12px 18px;
   border-bottom: 1px solid $border;
@@ -65,8 +66,55 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 .bannerWarn { background: $warn-soft; color: $warn; border: 1px solid rgba(180, 83, 9, 0.22); }
 .bannerInfo { background: $info-soft; color: $info; border: 1px solid rgba(37, 99, 235, 0.2); }
-.bannerText { flex: 1 1 auto; min-width: 0; }
-.bannerAction { flex-shrink: 0; }
+.bannerText { flex: 1 1 auto; min-width: 0; margin: 0; }
+.bannerActions { display: flex; flex-shrink: 0; gap: 8px; }
+
+/* "Discard and start over?" */
+.discardBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  background: $surface;
+  color: $ink-2;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.discardActions { display: flex; flex-shrink: 0; gap: 8px; }
+
+/* While a post is in flight or its outcome is unknown the lines and the
+   delivery documents sit in a disabled fieldset; no fieldset chrome. */
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* Files picked before posting, uploaded after "Receipt posted". */
+.uploadList {
+  list-style: none;
+  margin: 14px auto 0;
+  padding: 0;
+  max-width: 420px;
+  text-align: left;
+}
+.uploadItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12.5px;
+  color: $ink-2;
+  border-top: 1px solid $border;
+  &:first-child { border-top: none; }
+  &[data-status="done"] svg { color: #15803d; }
+  &[data-status="failed"] { color: $warn; }
+}
+.uploadName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.uploadStatus { flex-shrink: 0; max-width: 60%; text-align: right; }
 
 /* ───────────── Lines the link can't receive ───────────── */
 .blockedNote {
@@ -121,6 +169,10 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     overflow-x: clip;
     --mobile-action-bar-h: 112px;
   }
+  /* The shared .card clips with overflow:hidden, which makes the card the
+     sticky box and leaves the dock scrolling away. clip cuts the same corners
+     without making a scroll container, so the dock sticks to the viewport. */
+  .page .itemsCard { overflow: clip; }
   .scanDock {
     position: sticky;
     top: 0;
@@ -129,7 +181,10 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     box-shadow: 0 8px 16px -14px rgba(15, 15, 14, 0.35);
   }
   .banner { flex-direction: column; align-items: stretch; }
-  .bannerAction { width: 100%; }
+  .bannerActions { width: 100%; }
+  .discardBox { flex-direction: column; align-items: stretch; }
+  .discardActions { width: 100%; }
+  .discardActions > * { flex: 1; min-height: 44px; }
   .receipt { padding: 12px 14px; }
   .kindSelect { width: 100%; }
 }

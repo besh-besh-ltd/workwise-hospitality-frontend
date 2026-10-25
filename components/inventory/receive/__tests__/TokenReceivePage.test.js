@@ -1,4 +1,4 @@
-// Site-rep receive page (/receive/token?t=…): a person with no account opens
+// Site-rep receive page (/receive/token#t=…): a person with no account opens
 // the buyer's emailed link on a phone, scans or types what arrived and posts
 // a goods receipt. services/inventory is mocked for the page tests; the last
 // suite loads the real token client and real axios to pin what goes on the
@@ -12,9 +12,25 @@ const mockRouter = {
   replace: jest.fn(() => Promise.resolve(true)),
   push: jest.fn(),
 };
+// Components using the router re-render when it changes, as with Next's.
+const mockRouterListeners = new Set();
 let mockMobile = false;
 
-jest.mock("next/router", () => ({ __esModule: true, useRouter: () => mockRouter }));
+jest.mock("next/router", () => {
+  const { useEffect, useState } = jest.requireActual("react");
+  return {
+    __esModule: true,
+    useRouter: () => {
+      const [, setTick] = useState(0);
+      useEffect(() => {
+        const rerender = () => setTick((n) => n + 1);
+        mockRouterListeners.add(rerender);
+        return () => mockRouterListeners.delete(rerender);
+      }, []);
+      return mockRouter;
+    },
+  };
+});
 jest.mock("next/head", () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
 jest.mock("next/dynamic", () => ({
   __esModule: true,
@@ -49,8 +65,6 @@ jest.mock("@/services/inventory", () => ({
 }));
 
 import React from "react";
-import fs from "fs";
-import path from "path";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { toast } from "react-toastify";
@@ -60,7 +74,10 @@ import {
 import TokenReceivePage from "../TokenReceivePage";
 
 const TOKEN = "Zk3pQ9wXr7Lm2Nv8Bt4Yc6Hd1Js5Fg0Ka-_Ue9Ti3Ro";
+const OTHER_TOKEN = "Qq1wE2rT3yU4iO5pA6sD7fG8hJ9kL0zX-_cV1bN2m";
 const KEY = "3f6c1d2e-8a4b-4c5d-9e7f-0a1b2c3d4e5f";
+// The screen's draft, per PO and hotel.
+const DRAFT = "inv.receiveDraft:52:46";
 
 const RICE = {
   poLineId: 11, productVariantId: 501, productName: "Basmati rice 25kg", unit: "bag",
@@ -124,9 +141,25 @@ const networkError = () => {
   return err;
 };
 
-const openLink = (search = `?t=${TOKEN}`) => {
+const openLink = (search = `#t=${TOKEN}`) => {
   window.history.replaceState({}, "", `/receive/token${search}`);
   mockRouter.asPath = `/receive/token${search}`;
+};
+
+/** Next's router changes (asPath) and the components using it re-render. */
+const routerChanges = (asPath) => act(() => {
+  mockRouter.asPath = asPath;
+  mockRouterListeners.forEach((rerender) => rerender());
+});
+
+const deferred = () => {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 };
 
 const mount = async (context = ctx()) => {
@@ -147,6 +180,24 @@ const postAndConfirm = async () => {
   });
   return dialog;
 };
+
+const retry = async () => {
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  });
+};
+
+/** A dropped connection on the first post of 6 bags of rice; returns its key. */
+const dropFirstPost = async () => {
+  await mount();
+  type("Received qty for Basmati rice 25kg", "6");
+  postTokenGrn.mockRejectedValueOnce(networkError());
+  await postAndConfirm();
+  await screen.findByText(/The connection dropped before the server answered/);
+  return postTokenGrn.mock.calls[0][1].clientEventId;
+};
+
+const riceQty = () => screen.getByLabelText("Received qty for Basmati rice 25kg");
 
 const scan = (code) => {
   const box = screen.getByLabelText("Scan or type a code");
@@ -170,7 +221,10 @@ let idbOpen;
 beforeEach(() => {
   jest.clearAllMocks();
   mockMobile = false;
-  mockRouter.replace.mockImplementation(() => Promise.resolve(true));
+  mockRouter.replace.mockImplementation(({ pathname }) => {
+    mockRouter.asPath = pathname;
+    return Promise.resolve(true);
+  });
   window.sessionStorage.clear();
   window.localStorage.clear();
   openLink();
@@ -267,14 +321,50 @@ describe("TokenReceivePage", () => {
     // GRN number and the non-blocking warnings; then the context is fetched again.
     expect(screen.getByText("GRN/46/2026-27/00012", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("2 days of shelf life left (minimum 3)")).toBeInTheDocument();
+    // Focus moves to the outcome.
+    expect(document.activeElement).toHaveTextContent("Receipt posted");
     await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
-    expect(window.sessionStorage.getItem("inv.receiveDraft:52")).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
     // Nothing in the token path ever touches the buyer routes.
     expect(resolveScan).not.toHaveBeenCalled();
     expect(getReceiveContext).not.toHaveBeenCalled();
     expect(createGrn).not.toHaveBeenCalled();
     expect(postGrn).not.toHaveBeenCalled();
     expectTokenContained();
+  });
+
+  test("a new link carries its token in the #fragment: read first, stripped before any request", async () => {
+    // #t= wins over ?t= and ?token=.
+    openLink(`?t=${OTHER_TOKEN}&token=${OTHER_TOKEN}#t=${TOKEN}`);
+    let urlAtFirstCall = null;
+    getTokenReceiveContext.mockImplementation(() => {
+      urlAtFirstCall = window.location.href;
+      return Promise.resolve(ctx());
+    });
+    render(<TokenReceivePage />);
+    await screen.findByText("PO/2026/0052");
+    expect(getTokenReceiveContext).toHaveBeenCalledWith(TOKEN);
+    expect(urlAtFirstCall).toBe("http://localhost/receive/token");
+    expect(window.location.hash).toBe("");
+    expect(window.location.search).toBe("");
+    expect(window.sessionStorage.getItem("inv.receiveToken")).toBe(TOKEN);
+  });
+
+  test("when Next writes the link's URL back after the strip, the page strips it again", async () => {
+    await mount();
+    expect(window.location.href).toBe("http://localhost/receive/token");
+    const replaces = mockRouter.replace.mock.calls.length;
+
+    // Next's hydration replace lands after our strip and puts ?t= back.
+    window.history.replaceState({ as: `/receive/token?t=${TOKEN}` }, "", `/receive/token?t=${TOKEN}`);
+    routerChanges(`/receive/token?t=${TOKEN}`);
+
+    await waitFor(() => expect(window.location.href).toBe("http://localhost/receive/token"));
+    expect(window.history.state?.as).toBe("/receive/token");
+    expect(mockRouter.replace.mock.calls.length).toBeGreaterThan(replaces);
+    expect(mockRouter.asPath).toBe("/receive/token");
+    // Still one context load: the strip asks the server nothing.
+    expect(getTokenReceiveContext).toHaveBeenCalledTimes(1);
   });
 
   test("token page renders no price columns", async () => {
@@ -311,9 +401,7 @@ describe("TokenReceivePage", () => {
       expect(shown).not.toMatch(PRICE_WORDS);
       expect(shown).not.toMatch(/4,?321|98,?765/);
       // No mark-out toggle, no unit-conversion prompt, no buyer links.
-      // (C1's phone card titles its fold "Reject or mark out" whatever allowMarkOut
-      // says; reported to C1. What matters is that there is nothing to mark out with.)
-      expect(shown).not.toMatch(/mark out on arrival/i);
+      expect(shown).not.toMatch(/mark out/i);
       expect(screen.queryByRole("checkbox", { name: /mark out/i })).toBeNull();
       expect(screen.queryByLabelText(/^Department for/)).toBeNull();
       expect(screen.queryByRole("button", { name: /set unit conversion/i })).toBeNull();
@@ -326,6 +414,7 @@ describe("TokenReceivePage", () => {
     getTokenReceiveContext.mockRejectedValue(apiError(401, { status: 0, message: "Invalid or expired link" }));
     const view = render(<TokenReceivePage />);
     expect(await screen.findByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
+    expect(document.activeElement).toHaveTextContent("Link expired");
     expect(screen.queryByLabelText("Scan or type a code")).toBeNull();
     expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
     expect(window.location.search).toBe("");
@@ -339,7 +428,7 @@ describe("TokenReceivePage", () => {
     await postAndConfirm();
     expect(await screen.findByText("This receiving link has expired. Ask the buyer for a new one.")).toBeInTheDocument();
     expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
-    expect(window.sessionStorage.getItem("inv.receiveDraft:52")).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
   });
 
   test("a link opened again in the same tab reads the token from sessionStorage", async () => {
@@ -347,6 +436,20 @@ describe("TokenReceivePage", () => {
     openLink("");
     await mount();
     expect(getTokenReceiveContext).toHaveBeenCalledWith(TOKEN);
+  });
+
+  test("a link with a different token drops this tab's drafts", async () => {
+    window.sessionStorage.setItem("inv.receiveToken", OTHER_TOKEN);
+    window.sessionStorage.setItem(DRAFT, JSON.stringify({
+      v: 2, savedAt: Date.now(), clientEventId: KEY, unsent: true, header: {}, entries: { 11: { received: "6" } },
+    }));
+    openLink(`#t=${TOKEN}`);
+    await mount();
+    expect(getTokenReceiveContext).toHaveBeenCalledWith(TOKEN);
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+    expect(riceQty()).toHaveValue("");
+    expect(riceQty()).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
   test("no token at all asks for the link again, with no request", async () => {
@@ -363,18 +466,21 @@ describe("TokenReceivePage", () => {
     getTokenReceiveContext.mockResolvedValueOnce(ctx());
     render(<TokenReceivePage />);
     expect(await screen.findByText("Too many requests, try again in 5 min")).toBeInTheDocument();
+    expect(document.activeElement).toHaveTextContent("Couldn't load this order");
     fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
     expect(await screen.findByText("PO/2026/0052")).toBeInTheDocument();
 
-    // On a post: the message on the form, and the entries stay.
+    // On a post the outcome is unknown: the entries stay, frozen, with Retry.
     type("Received qty for Basmati rice 25kg", "6");
     postTokenGrn.mockRejectedValueOnce(apiError(429, { status: 0, code: "RATE_LIMITED", message: "Too many" }, { "retry-after": "60" }));
     await postAndConfirm();
-    expect(await screen.findByText("Too many requests, try again in 1 min")).toBeInTheDocument();
-    expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("6");
+    expect(await screen.findByText(/Too many requests, try again in 1 min/)).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("6");
+    expect(riceQty()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  test("a hotel-less legacy link (409 TOKEN_NO_HOTEL) asks for a new link", async () => {
+  test("a hotel-less legacy link (409 TOKEN_NO_HOTEL) asks for a new link and forgets the token", async () => {
     getTokenReceiveContext.mockRejectedValue(apiError(409, {
       status: 0, code: "CONFLICT", details: { reason: "TOKEN_NO_HOTEL" },
       message: "This link isn't tied to a hotel. Ask the buyer to send you a new link.",
@@ -382,6 +488,7 @@ describe("TokenReceivePage", () => {
     render(<TokenReceivePage />);
     expect(await screen.findByText("This link isn't tied to a hotel. Ask the buyer to send you a new link.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
+    expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
   });
 
   test.each([
@@ -428,17 +535,38 @@ describe("TokenReceivePage", () => {
     expect(postTokenGrn.mock.calls[0][1].lines.map((l) => l.poLineId)).toEqual([11]);
   });
 
+  test("a restored draft never brings back a line the link can't receive", async () => {
+    window.sessionStorage.setItem("inv.receiveToken", TOKEN);
+    window.sessionStorage.setItem(DRAFT, JSON.stringify({
+      v: 2, savedAt: Date.now(), clientEventId: KEY, unsent: false, header: {},
+      entries: { 11: { received: "2" }, 13: { received: "5", rejected: "", reason: "" } },
+    }));
+    openLink("");
+    await mount();
+    expect(screen.getByText("Restored the entries you had on this page before it reloaded.")).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("2");
+    await postAndConfirm();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls[0][1].lines.map((l) => l.poLineId)).toEqual([11]);
+    expect(postTokenGrn.mock.calls[0][1].clientEventId).toBe(KEY);
+  });
+
   test("scans match the order's own barcodes locally; an unknown code is not on this order", async () => {
     await mount();
     scan("RICE-6PK");
-    await waitFor(() => expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("6"));
+    await waitFor(() => expect(riceQty()).toHaveValue("6"));
     scan("8901234567892");
-    await waitFor(() => expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("7"));
+    await waitFor(() => expect(riceQty()).toHaveValue("7"));
+    // the same code in another case, and our own item QR (by stock item)
+    scan("rice-6pk");
+    await waitFor(() => expect(riceQty()).toHaveValue("13"));
+    scan("/s/i/9");
+    await waitFor(() => expect(riceQty()).toHaveValue("14"));
     expect(toast).toHaveBeenCalled();
 
     scan("NOT-ON-PO-1");
     expect(await screen.findByText("This code isn't on this order")).toBeInTheDocument();
-    expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("7");
+    expect(riceQty()).toHaveValue("14");
 
     // A weighed unit opens the keypad instead of counting one.
     scan("PANEER-1");
@@ -447,46 +575,201 @@ describe("TokenReceivePage", () => {
     expect(resolveScan).not.toHaveBeenCalled();
   });
 
-  test("a dropped connection keeps the entries in sessionStorage and Retry replays the same clientEventId", async () => {
-    await mount();
-    type("Received qty for Basmati rice 25kg", "6");
-    postTokenGrn.mockRejectedValueOnce(networkError());
+  test("twelve single-piece scans of a 12-piece box make exactly 1 box", async () => {
+    const SOAP_BOX = {
+      ...SOAP, uomFactor: 12, needsUomFactor: false,
+      barcodes: [{ code: "SOAP-1", packFactor: 1 }, { code: "SOAP-12", packFactor: 12 }],
+    };
+    await mount(ctx({ lines: [RICE, SOAP_BOX] }));
+    for (let i = 0; i < 12; i += 1) scan("SOAP-1");
+    await waitFor(() => expect(screen.getByLabelText("Received qty for Dish soap")).toHaveValue("1"));
+    scan("SOAP-12");
+    await waitFor(() => expect(screen.getByLabelText("Received qty for Dish soap")).toHaveValue("2"));
     await postAndConfirm();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls[0][1].lines).toEqual([expect.objectContaining({ poLineId: 13, receivedQty: 2 })]);
+  });
 
-    expect(await screen.findByText(/The connection dropped before the server answered/)).toBeInTheDocument();
-    const saved = JSON.parse(window.sessionStorage.getItem("inv.receiveDraft:52"));
-    const firstKey = postTokenGrn.mock.calls[0][1].clientEventId;
+  test("a dropped connection keeps the entries in sessionStorage and Retry replays the same clientEventId", async () => {
+    const firstKey = await dropFirstPost();
+    const saved = JSON.parse(window.sessionStorage.getItem(DRAFT));
     expect(saved).toMatchObject({ clientEventId: firstKey, unsent: true });
     expect(saved.entries["11"].received).toBe("6");
     expect(JSON.stringify(saved)).not.toContain(TOKEN);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    });
+    await retry();
     await screen.findByText("Receipt posted");
     expect(postTokenGrn).toHaveBeenCalledTimes(2);
     expect(postTokenGrn.mock.calls[1][1].clientEventId).toBe(firstKey);
-    expect(window.sessionStorage.getItem("inv.receiveDraft:52")).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
     await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
     expectTokenContained();
   });
 
-  test("after a reload, an unsent receipt comes back with its key and a Retry", async () => {
+  test("while a post's outcome is unknown nothing can be edited or scanned; Discard starts over after a confirm", async () => {
+    const firstKey = await dropFirstPost();
+
+    // Frozen: lines, documents and the scanner; no Post, only Retry or Discard.
+    expect(riceQty()).toBeDisabled();
+    expect(screen.getByLabelText("Challan no.")).toBeDisabled();
+    expect(screen.getByLabelText("Scan or type a code")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Post receipt/ })).toBeNull();
+    type("Received qty for Basmati rice 25kg", "9");
+    scan("RICE-6PK");
+    expect(riceQty()).toHaveValue("6");
+    expect(JSON.parse(window.sessionStorage.getItem(DRAFT)).entries["11"].received).toBe("6");
+
+    // Discard asks first, and "Keep them" changes nothing.
+    fireEvent.click(screen.getByRole("button", { name: "Discard and start over" }));
+    const ask = screen.getByRole("alertdialog", { name: "Discard these entries?" });
+    expect(ask).toHaveTextContent(/that receipt is already recorded/);
+    fireEvent.click(within(ask).getByRole("button", { name: "Keep them" }));
+    expect(riceQty()).toHaveValue("6");
+    expect(riceQty()).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard and start over" }));
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard entries" }));
+    });
+    expect(riceQty()).toHaveValue("");
+    expect(riceQty()).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+    // The receipts list is refreshed: it shows whether the last attempt landed.
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
+
+    type("Received qty for Basmati rice 25kg", "4");
+    await postAndConfirm();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls[1][1].clientEventId).not.toBe(firstKey);
+  });
+
+  test("429 and 504 on Retry keep the form frozen and the key; the next Retry finishes it", async () => {
+    const firstKey = await dropFirstPost();
+
+    postTokenGrn.mockRejectedValueOnce(apiError(429, { status: 0, code: "RATE_LIMITED", message: "Too many" }, { "retry-after": "120" }));
+    await retry();
+    expect(await screen.findByText(/Too many requests, try again in 2 min/)).toBeInTheDocument();
+    expect(riceQty()).toBeDisabled();
+    expect(JSON.parse(window.sessionStorage.getItem(DRAFT))).toMatchObject({ clientEventId: firstKey, unsent: true });
+
+    postTokenGrn.mockRejectedValueOnce(apiError(504, "<html>Gateway Timeout</html>"));
+    await retry();
+    expect(await screen.findByText(/The server didn't confirm this receipt \(error 504\)/)).toBeInTheDocument();
+    expect(riceQty()).toBeDisabled();
+
+    await retry();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls.map((c) => c[1].clientEventId)).toEqual([firstKey, firstKey, firstKey, firstKey]);
+  });
+
+  test("a refusal after an unknown attempt opens the form again (the key was never used)", async () => {
+    const firstKey = await dropFirstPost();
+    postTokenGrn.mockRejectedValueOnce(apiError(400, {
+      status: 2, code: "VALIDATION", message: "Ask the buyer to set the unit conversion for Basmati rice 25kg first",
+      details: { code_detail: "UOM_FACTOR_REQUIRED", poLineId: 11 },
+    }));
+    await retry();
+    expect(await screen.findByText("Ask the buyer to set the unit conversion for Basmati rice 25kg first", { selector: "tbody *" })).toBeInTheDocument();
+    expect(riceQty()).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(JSON.parse(window.sessionStorage.getItem(DRAFT))).toMatchObject({ clientEventId: firstKey, unsent: false });
+  });
+
+  test("a 401 after an unknown attempt says the last receipt may already be recorded", async () => {
+    await dropFirstPost();
+    postTokenGrn.mockRejectedValueOnce(apiError(401, { status: 0, message: "Invalid or expired link" }));
+    await retry();
+    expect(await screen.findByText(
+      "Your link expired. The last receipt may already have been recorded; ask the buyer to check."
+    )).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("inv.receiveToken")).toBeNull();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+  });
+
+  test("a link that expired with an unsent receipt on this tab says it may be recorded", async () => {
     window.sessionStorage.setItem("inv.receiveToken", TOKEN);
-    window.sessionStorage.setItem("inv.receiveDraft:52", JSON.stringify({
-      v: 1, savedAt: Date.now(), clientEventId: KEY, unsent: true,
-      header: { vendorChallanNo: "CH-9" },
-      entries: { 11: { received: "6", rejected: "", reason: "" } },
+    window.sessionStorage.setItem(DRAFT, JSON.stringify({
+      v: 2, savedAt: Date.now(), clientEventId: KEY, unsent: true, header: {}, entries: { 11: { received: "6" } },
     }));
     openLink("");
+    getTokenReceiveContext.mockRejectedValue(apiError(401, { status: 0, message: "Invalid or expired link" }));
+    render(<TokenReceivePage />);
+    expect(await screen.findByText(
+      "Your link expired. The last receipt may already have been recorded; ask the buyer to check."
+    )).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(DRAFT)).toBeNull();
+  });
+
+  test("a reload mid-flight comes back frozen with Retry on the same key", async () => {
+    const view = await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    postTokenGrn.mockImplementationOnce(() => new Promise(() => {}));
+    await postAndConfirm();
+    // Saved as unsent before the request went out.
+    const saved = JSON.parse(window.sessionStorage.getItem(DRAFT));
+    const key = postTokenGrn.mock.calls[0][1].clientEventId;
+    expect(saved).toMatchObject({ clientEventId: key, unsent: true });
+    view.unmount();
+
+    openLink("");
     await mount();
-    expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("6");
-    expect(screen.getByLabelText("Challan no.")).toHaveValue("CH-9");
+    expect(screen.getByText(/This receipt was being sent when the page closed/)).toBeInTheDocument();
+    expect(riceQty()).toHaveValue("6");
+    expect(riceQty()).toBeDisabled();
+    await retry();
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls[1][1]).toMatchObject({ clientEventId: key });
+  });
+
+  test("while posting, edits are ignored and a second tap on Confirm sends nothing more", async () => {
+    await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    const reply = deferred();
+    postTokenGrn.mockImplementationOnce(() => reply.promise);
+    fireEvent.click(screen.getAllByRole("button", { name: /Post receipt/ })[0]);
+    const dialog = await screen.findByRole("dialog", { name: "Post this receipt?" });
+    const confirm = within(dialog).getByRole("button", { name: "Confirm and post" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(postTokenGrn).toHaveBeenCalledTimes(1);
+    expect(confirm).toBeDisabled();
+
+    type("Received qty for Basmati rice 25kg", "9");
+    scan("RICE-6PK");
+    expect(riceQty()).toHaveValue("6");
+    expect(riceQty()).toBeDisabled();
+
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      reply.resolve(postedGrn());
     });
     await screen.findByText("Receipt posted");
-    expect(postTokenGrn.mock.calls[0][1]).toMatchObject({ clientEventId: KEY, vendorChallanNo: "CH-9" });
+    expect(postTokenGrn).toHaveBeenCalledTimes(1);
+    expect(postTokenGrn.mock.calls[0][1].lines).toEqual([expect.objectContaining({ poLineId: 11, receivedQty: 6 })]);
+  });
+
+  test("a replay that differs from what was sent says the changes were not saved", async () => {
+    await dropFirstPost();
+    postTokenGrn.mockResolvedValueOnce(postedGrn({
+      replayed: true, no_op: true, warnings: undefined,
+      lines: [{ poLineId: 11, receivedQty: "4.0000", acceptedQty: "4.0000", rejectedQty: "0.0000" }],
+    }));
+    await retry();
+    expect(await screen.findByText(
+      "Already recorded as GRN/46/2026-27/00012; changes after the first attempt were not saved."
+    )).toBeInTheDocument();
+    expect(screen.queryByText("Receipt posted")).toBeNull();
+  });
+
+  test("a replay of exactly what was sent is simply posted", async () => {
+    await dropFirstPost();
+    postTokenGrn.mockResolvedValueOnce(postedGrn({
+      replayed: true, no_op: true, warnings: undefined,
+      lines: [{ poLineId: 11, receivedQty: "6.0000", acceptedQty: "6.0000", rejectedQty: "0.0000" }],
+    }));
+    await retry();
+    expect(await screen.findByText("Receipt posted")).toBeInTheDocument();
+    expect(screen.queryByText(/changes after the first attempt were not saved/)).toBeNull();
   });
 
   test("409 on the clientEventId shows the message and starts a fresh session", async () => {
@@ -505,29 +788,65 @@ describe("TokenReceivePage", () => {
     expect(second).not.toBe(first);
   });
 
+  test("409 on a restored unsent receipt's key never invites posting it twice", async () => {
+    window.sessionStorage.setItem("inv.receiveToken", TOKEN);
+    window.sessionStorage.setItem(DRAFT, JSON.stringify({
+      v: 2, savedAt: Date.now(), clientEventId: KEY, unsent: true, header: {}, entries: { 11: { received: "6" } },
+    }));
+    openLink("");
+    await mount();
+    postTokenGrn.mockRejectedValueOnce(apiError(409, {
+      status: 0, code: "CONFLICT", details: { field: "clientEventId" }, message: "This scan session belongs to another receipt",
+    }));
+    await retry();
+    const msg = await screen.findByText(/may already have been recorded from another link or device/);
+    expect(msg).toHaveTextContent("Ask the buyer to check this order's receipts before you post it again.");
+    expect(msg).not.toHaveTextContent(/post again to record/);
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
+  });
+
   test.each([
     ["UOM_FACTOR_REQUIRED", "Ask the buyer to set the unit conversion for Basmati rice 25kg first", { field: "uomFactor", index: 0 }],
     ["MARK_OUT_NOT_ALLOWED", "Mark-out isn't available from a receive link", { field: "markOutDepartmentId", index: 0 }],
     ["MAPPING_NOT_ALLOWED", "Only the buyer can link a line to a stock item", { field: "mapToInvItemId", index: 0 }],
-  ])("%s is shown on its line", async (codeDetail, message, extra) => {
+  ])("%s is shown on its line and named in the summary", async (codeDetail, message, extra) => {
     await mount();
     type("Received qty for Basmati rice 25kg", "6");
     postTokenGrn.mockRejectedValueOnce(apiError(400, {
       status: 2, code: "VALIDATION", message, details: { code_detail: codeDetail, poLineId: 11, ...extra },
     }));
     await postAndConfirm();
-    const msg = await screen.findByText(message);
+    const msg = await screen.findByText(message, { selector: "tbody *" });
     expect(msg.closest("tbody")).toHaveTextContent("Basmati rice 25kg");
+    expect(screen.getByText(`Check Basmati rice 25kg: ${message}`)).toBeInTheDocument();
   });
 
-  test("OVER_RECEIPT names the max on the line; a header-level refusal goes on the form", async () => {
+  test("a line the form refuses is named in the summary, scrolled to and focused", async () => {
+    await mount();
+    type("Received qty for Basmati rice 25kg", "6");
+    type("Rejected qty for Basmati rice 25kg", "1");
+    fireEvent.click(screen.getAllByRole("button", { name: /Post receipt/ })[0]);
+    expect(await screen.findByText("Check Basmati rice 25kg: Pick a reason for the rejected qty")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Post this receipt?" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText("Rejection reason for Basmati rice 25kg"));
+    expect(postTokenGrn).not.toHaveBeenCalled();
+  });
+
+  test("OVER_RECEIPT names the max and the server's hint on the line; a header-level refusal goes on the form", async () => {
     await mount();
     type("Received qty for Basmati rice 25kg", "30");
     postTokenGrn.mockRejectedValueOnce(apiError(409, {
-      status: 0, code: "OVER_RECEIPT", message: "Over", details: { poLineId: 11, maxAcceptable: 24, requested: 30 },
+      status: 0, code: "OVER_RECEIPT",
+      message: "Only 24 bag more of Basmati rice 25kg can be accepted here; record the extra as rejected (excess)",
+      details: { poLineId: 11, maxAcceptable: 24, requested: 30 },
     }));
     await postAndConfirm();
-    expect(await screen.findByText("Max acceptable 24 bag at this hotel; this receipt has 30")).toBeInTheDocument();
+    const onLine = await screen.findByText(
+      "Max acceptable 24 bag at this hotel; this receipt has 30. Record the extra as rejected (excess).",
+      { selector: "tbody *" }
+    );
+    expect(onLine).toBeInTheDocument();
+    expect(screen.getByText(/^Check Basmati rice 25kg: Max acceptable 24 bag/)).toBeInTheDocument();
 
     postTokenGrn.mockRejectedValueOnce(apiError(400, {
       status: 2, code: "VALIDATION", message: "Mark-out isn't available from a receive link",
@@ -549,23 +868,72 @@ describe("TokenReceivePage", () => {
     expect(await screen.findByText("Everything on this order has been received")).toBeInTheDocument();
   });
 
-  test("files chosen before posting upload to the new receipt", async () => {
+  test("files chosen before posting upload after \"Receipt posted\", each with its own status", async () => {
     await mount();
     type("Received qty for Basmati rice 25kg", "6");
-    const file = new File(["x"], "challan.jpg", { type: "image/jpeg" });
-    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [file] } });
+    const challan = new File(["x"], "challan.jpg", { type: "image/jpeg" });
+    const invoice = new File(["y"], "invoice.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [challan] } });
+    fireEvent.change(screen.getByLabelText("Attach as"), { target: { value: "INVOICE" } });
+    fireEvent.change(screen.getByLabelText("Upload file"), { target: { files: [invoice] } });
+    const first = deferred();
+    uploadTokenGrnAttachment
+      .mockImplementationOnce(() => first.promise)
+      .mockRejectedValueOnce(apiError(413, { status: 0, message: "That file is too large" }));
+
     await postAndConfirm();
-    await screen.findByText("Receipt posted");
-    expect(uploadTokenGrnAttachment).toHaveBeenCalledWith(TOKEN, 900, file, "CHALLAN");
+    // Posted first, while the files are still going up.
+    expect(screen.getByText("Receipt posted")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Paperwork" });
+    expect(within(list).getByText("challan.jpg").closest("li")).toHaveTextContent("Uploading…");
+
+    await act(async () => {
+      first.resolve({ id: 31, fileName: "challan.jpg", kind: "CHALLAN", url: "https://bucket.s3.ap-south-1.amazonaws.com/grn/challan.jpg" });
+    });
+    await waitFor(() => expect(within(list).getByText("invoice.pdf").closest("li")).toHaveTextContent("Not uploaded: That file is too large"));
+    expect(within(list).getByText("challan.jpg").closest("li")).toHaveTextContent("Uploaded");
+    expect(uploadTokenGrnAttachment).toHaveBeenNthCalledWith(1, TOKEN, 900, challan, "CHALLAN");
+    expect(uploadTokenGrnAttachment).toHaveBeenNthCalledWith(2, TOKEN, 900, invoice, "INVOICE");
+    // The context is refreshed once the uploads are done.
+    await waitFor(() => expect(getTokenReceiveContext).toHaveBeenCalledTimes(2));
   });
 
-  test("phone layer: the scan dock sticks to the top of a page with no shell bar", () => {
-    const css = fs.readFileSync(path.join(__dirname, "..", "TokenReceivePage.module.scss"), "utf8");
-    const layer = css.slice(css.indexOf("Phone layer"));
-    expect(layer).toMatch(/@media \(max-width: 768px\)/);
-    expect(layer).toMatch(/\.scanDock\s*{[^}]*position:\s*sticky;[^}]*top:\s*0;/);
-    expect(layer).toMatch(/\.page\s*{[^}]*overflow-x:\s*clip;/);
-    expect(css).not.toMatch(/margin:\s*-/);
+  test("phone: the post bar sits inside the page (its spacer reads the page's bar height)", async () => {
+    mockMobile = true;
+    const view = await mount();
+    const bar = await screen.findByRole("region", { name: "Receive actions" });
+    expect(bar).toBeInTheDocument();
+    const page = view.container.querySelector(".page");
+    expect(page.querySelector(".spacer")).not.toBeNull();
+  });
+
+  test("phone: after a dropped post the bar offers Retry and Discard, not Post", async () => {
+    mockMobile = true;
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Add one bag of Basmati rice 25kg" }));
+    postTokenGrn.mockRejectedValueOnce(networkError());
+    await postAndConfirm();
+    const bar = await screen.findByRole("region", { name: "Receive actions" });
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Retry" })).toBeInTheDocument());
+    expect(within(bar).getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    expect(within(bar).queryByRole("button", { name: /Post receipt/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add one bag of Basmati rice 25kg" })).toBeDisabled();
+    const key = postTokenGrn.mock.calls[0][1].clientEventId;
+    await act(async () => {
+      fireEvent.click(within(bar).getByRole("button", { name: "Retry" }));
+    });
+    await screen.findByText("Receipt posted");
+    expect(postTokenGrn.mock.calls[1][1].clientEventId).toBe(key);
+  });
+
+  test("the scan dock's card clips without becoming the sticky box", async () => {
+    await mount();
+    const dock = screen.getByTestId("scan-dock");
+    expect(dock).toHaveClass("scanDock");
+    // The nearest card around the dock is the items card, which the phone
+    // layer switches from overflow:hidden to overflow:clip.
+    expect(dock.closest(".card")).toHaveClass("itemsCard");
+    expect(dock.closest(".page")).not.toBeNull();
   });
 });
 

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { toast } from "react-toastify";
 import {
   AlertTriangle, Camera, CameraOff, CheckCircle2, Clock, FileText, Link2Off, Loader2, PackageCheck, PackageOpen,
   RefreshCw, Ruler, ScanBarcode, Search, Send, Upload, Volume2, VolumeX, WifiOff,
@@ -19,25 +18,29 @@ import ReceiveLineCard from "./ReceiveLineCard";
 import QtyPad from "./QtyPad";
 import ReceiveConfirmModal from "./ReceiveConfirmModal";
 import DeliveryDocuments from "./DeliveryDocuments";
+import useReceiveScan, { manualQtyPatch } from "./useReceiveScan";
+import { ATTACHMENT_KINDS, kindLabel } from "./receiveShared";
+import { isFreshPost } from "./receivePost";
 import {
-  HEADER_FIELDS, addQty, blankHeader, blankLine, buildGrnInput, errorInfo, fmtDay, fmtInstant, fmtQty, fmtQtyUnit,
-  isDecimalUnit, lineQty, newClientEventId, parseQty, qtyText, subQty, toQ, validateForPost,
+  HEADER_FIELDS, blankHeader, blankLine, buildGrnInput, errorInfo, fmtDay, fmtInstant, fmtQty, fmtQtyUnit,
+  lineQty, newClientEventId, parseQty, toQ, validateForPost,
 } from "./receiveUtils";
+import { resolveOnOrder } from "./tokenScanMatch";
 import styles from "./receive.module.scss";
 import own from "./TokenReceivePage.module.scss";
 
-// The site rep's receive page (/receive/token?t=<token>). The buyer emails a
+// The site rep's receive page (/receive/token#t=<token>). The buyer emails a
 // person with no account a link; they open it on a phone at the loading bay,
 // scan or type what arrived and post a goods receipt for the link's PO at the
 // link's hotel. Backend contract: task C5 (GET/POST /inventory/token/*).
 //
 // The token is a receiving credential:
-//   - it is read from ?t= (or ?token=, a legacy link forwarded by the
-//     next.config redirect) and the whole query is dropped from the address
-//     bar with history.replaceState before any request is made;
+//   - it is read from #t= (new links), else ?t=, else ?token= (a legacy link
+//     forwarded by the next.config redirect), and the whole fragment and query
+//     leave the address bar (history.replaceState) before any request;
 //   - it lives in memory and in sessionStorage `inv.receiveToken` (this tab
 //     only, so a reload still works). Never localStorage, never IndexedDB,
-//     never a log line;
+//     never a log line. A link with a different token drops this tab's drafts;
 //   - it goes out only as X-Receive-Token, through the dedicated token client
 //     in services/inventory (no buyer JWT, no SessionExpiredModal on a 401).
 //
@@ -46,28 +49,51 @@ import own from "./TokenReceivePage.module.scss";
 // link can do none of those, so a line whose unit has no conversion yet is
 // shown disabled with what to ask the buyer.
 //
-// Posting is one POST /token/grn keyed by a session clientEventId. A link post
-// is never queued in the offline outbox (that is IndexedDB). If the connection
-// drops, the screen (no token in it) is kept in sessionStorage
-// `inv.receiveDraft:<poId>` and Retry re-sends with the same clientEventId, so
-// a receipt that did land replays instead of doubling.
+// Posting is one POST /token/grn keyed by a session clientEventId, never
+// queued in the offline outbox. Before it is sent the screen is saved to
+// sessionStorage `inv.receiveDraft:<poId>:<hotelId>` (no token in it) marked
+// `unsent`. Until the server answers, the outcome is unknown and the form is
+// frozen: after no answer, a 429 or a 5xx the only ways on are Retry (the same
+// key, so a receipt that did land replays instead of doubling) or "Discard and
+// start over". A 400 / 404 / 409 refusal comes after the server's replay
+// lookup, so nothing was recorded under the key and the form opens again. A
+// replay that differs from what was sent says so.
 //
-// Scans are matched on the device against the order's own barcodes
-// (ctx.lines[].barcodes): the server resolve route needs a login.
+// Scans are matched on the device against the order's own barcodes with the
+// server's rules (tokenScanMatch): the server resolve route needs a login.
 //
 // Built from C1's exported receive parts (ReceiveLineRow, ReceiveLineCard,
-// QtyPad, ReceiveConfirmModal, DeliveryDocuments, receiveUtils) and B4's scan
-// parts (parseScan, useWedgeScanner, LazyCameraScanner, scanFeedback).
+// QtyPad, ReceiveConfirmModal, DeliveryDocuments, useReceiveScan,
+// receiveShared, receivePost, receiveUtils) and B4's scan parts (parseScan,
+// useWedgeScanner, LazyCameraScanner, scanFeedback).
+
+export { resolveOnOrder };
 
 export const TOKEN_STORAGE_KEY = "inv.receiveToken";
-export const draftStorageKey = (poId) => `inv.receiveDraft:${poId}`;
+const DRAFT_PREFIX = "inv.receiveDraft:";
+export const draftStorageKey = (poId, hotelId) => `${DRAFT_PREFIX}${poId}:${hotelId}`;
 
 const EXPIRED_MESSAGE = "This receiving link has expired. Ask the buyer for a new one.";
+const EXPIRED_UNCERTAIN =
+  "Your link expired. The last receipt may already have been recorded; ask the buyer to check.";
 const MISSING_MESSAGE = "Open the receiving link from your email again. If it still doesn't open, ask the buyer for a new one.";
 const UNKNOWN_CODE = "This code isn't on this order";
+const NEVER_TWICE = "a receipt is never recorded twice.";
 const NETWORK_DROPPED =
-  "The connection dropped before the server answered. Your entries are kept on this device. " +
-  "Retry when you have signal: a receipt is never recorded twice.";
+  "The connection dropped before the server answered, so this receipt may or may not be recorded. " +
+  `Your entries are kept on this device. Retry when you have signal: ${NEVER_TWICE}`;
+const RESTORED_UNSENT =
+  "This receipt was being sent when the page closed, so it may already be recorded. " +
+  `Retry to finish it: ${NEVER_TWICE}`;
+const serverDidntConfirm = (status) =>
+  `The server didn't confirm this receipt (error ${status}), so it may or may not be recorded. Retry: ${NEVER_TWICE}`;
+const KEY_CLASH_RESTORED =
+  "This delivery may already have been recorded from another link or device. " +
+  "Ask the buyer to check this order's receipts before you post it again.";
+const DISCARD_WARNING =
+  "If the last attempt reached the server, that receipt is already recorded. " +
+  "Check the receipts from this link before you enter the delivery again.";
+const OVER_RECEIPT_HINT = "Record the extra as rejected (excess).";
 const NOT_RECEIVABLE = {
   received: "Everything on this order has been received",
   closed_short: "This order was closed",
@@ -75,10 +101,13 @@ const NOT_RECEIVABLE = {
 };
 export const uomBlockedMessage = (line) =>
   `Ask the buyer to set the unit conversion for ${line?.productName || "this item"} first`;
+const replayMismatchMessage = (grn) =>
+  `Already recorded as ${grn?.grnNumber || "an earlier receipt"}; changes after the first attempt were not saved.`;
 
-const FLASH_MS = 1200;
 const DRAFT_SAVE_MS = 300;
 const CAMERA_REPEAT_MS = 1500;
+// 400 / 404 / 409 answer after the server's replay lookup: the key was not used.
+const REFUSALS = new Set([400, 404, 409]);
 
 // ── sessionStorage (this tab only) ───────────────────────────────────────────
 const session = {
@@ -103,12 +132,20 @@ const session = {
       // Nothing was stored.
     }
   },
+  keys() {
+    try {
+      const out = [];
+      for (let i = 0; i < window.sessionStorage.length; i += 1) out.push(window.sessionStorage.key(i));
+      return out;
+    } catch {
+      return [];
+    }
+  },
 };
 
 const ENTRY_FIELDS = ["received", "rejected", "reason", "batchNo", "mfgDate", "expiryDate", "remarks"];
 
-const readDraft = (poId) => {
-  const raw = session.get(draftStorageKey(poId));
+const parseDraft = (raw) => {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
@@ -117,18 +154,22 @@ const readDraft = (poId) => {
     return null;
   }
 };
+const draftKeys = () => session.keys().filter((k) => typeof k === "string" && k.startsWith(DRAFT_PREFIX));
+const dropAllDrafts = () => draftKeys().forEach((k) => session.remove(k));
+const anyUnsentDraft = () => draftKeys().some((k) => parseDraft(session.get(k))?.unsent === true);
 
 /**
- * Read the link's token, then take the whole query (t, and the token / po /
- * rfq a legacy link brings through the redirect) and any fragment out of the
- * address bar. Next's history entry is rewritten too, so Back / Forward never
- * puts the token back.
+ * Read the link's token (#t=, else ?t=, else ?token=), then take the whole
+ * fragment and query (t, and the token / po / rfq a legacy link brings
+ * through the redirect) out of the address bar. Next's history entry is
+ * rewritten too, so Back / Forward never puts the token back.
  */
 const takeTokenFromUrl = () => {
   if (typeof window === "undefined") return null;
   const { pathname, search, hash } = window.location;
-  const params = new URLSearchParams(search);
-  const token = (params.get("t") || params.get("token") || "").trim();
+  const fromHash = new URLSearchParams((hash || "").replace(/^#/, ""));
+  const fromQuery = new URLSearchParams(search);
+  const token = (fromHash.get("t") || fromQuery.get("t") || fromQuery.get("token") || "").trim();
   if (search || hash) {
     const state = window.history.state && typeof window.history.state === "object" ? window.history.state : {};
     window.history.replaceState({ ...state, url: pathname, as: pathname }, "", pathname);
@@ -165,39 +206,35 @@ const loadFailure = (err) => {
   return { phase: "error", message: info.message, retry: info.httpStatus >= 500 };
 };
 
-// ── Scans, matched on the device ─────────────────────────────────────────────
-const sameUnit = (a, b) =>
-  !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-
-/**
- * Match one read against this order's barcodes, by exact code. A GS1 read
- * also matches by its GTIN (and the 13-digit form of a GTIN-14 with a leading
- * 0). Returns the resolve shape the receive screens use:
- * {kind:'item', code, item:{poLineId, packFactor}, gs1} or {kind:'unknown', code}.
- */
-export const resolveOnOrder = (parsed, lines = []) => {
-  if (!parsed?.code) return { kind: "unknown", code: "" };
-  const candidates = new Set([parsed.code]);
-  const gtin = parsed.gs1?.gtin;
-  if (gtin) {
-    candidates.add(gtin);
-    if (gtin.startsWith("0")) candidates.add(gtin.slice(1));
-  }
-  for (const line of lines) {
-    for (const b of line.barcodes || []) {
-      if (b?.code != null && candidates.has(String(b.code))) {
-        return {
-          kind: "item",
-          code: String(b.code),
-          item: { poLineId: line.poLineId, packFactor: Number(b.packFactor) > 0 ? Number(b.packFactor) : 1 },
-          gs1: parsed.gs1 || null,
-        };
+/** Did the replayed GRN record what this attempt sent? Compared per PO line. */
+const sameAsSent = (sentLines = [], grnLines) => {
+  if (!Array.isArray(grnLines)) return true;
+  const tally = (rows, withQty) => {
+    const m = new Map();
+    for (const r of rows) {
+      const id = Number(r.poLineId);
+      const cur = m.get(id) || [0, 0, 0];
+      if (withQty) {
+        cur[0] += toQ(r.receivedQty);
+        cur[1] += toQ(r.acceptedQty);
+        cur[2] += toQ(r.rejectedQty);
       }
+      m.set(id, cur);
     }
+    return m;
+  };
+  const withQty = grnLines.every((r) => r.receivedQty !== undefined);
+  const sent = tally(sentLines, withQty);
+  const got = tally(grnLines, withQty);
+  if (sent.size !== got.size) return false;
+  for (const [id, q] of sent) {
+    const g = got.get(id);
+    if (!g || g.some((v, i) => v !== q[i])) return false;
   }
-  return { kind: "unknown", code: parsed.code };
+  return true;
 };
 
+// ── Scan box ─────────────────────────────────────────────────────────────────
 /**
  * The scan box for a link: camera, keyboard-wedge scanner and typed codes,
  * looked up by `onRead(parsed)` (which returns the status line to show,
@@ -235,7 +272,8 @@ const TokenScanBox = ({ disabled = false, onRead }) => {
       if (repeat) return false;
     }
     const next = onReadRef.current?.(parsed) || null;
-    if (next?.tone === "ok") scanFeedback.success();
+    if (!next) return false;
+    if (next.tone === "ok") scanFeedback.success();
     else scanFeedback.error();
     setStatus(next);
     return true;
@@ -345,18 +383,6 @@ const TokenScanBox = ({ disabled = false, onRead }) => {
   );
 };
 
-const ScanToast = ({ name, unit, delta, total, onUndo }) => (
-  <div className={styles.toastRow}>
-    <div style={{ minWidth: 0 }}>
-      <div className={styles.toastQty}>+{fmtQty(delta)} (now {fmtQty(total)})</div>
-      <div className={styles.toastName}>{name}{unit ? ` · ${unit}` : ""}</div>
-    </div>
-    <button type="button" className={styles.toastUndo} onClick={onUndo}>
-      Undo
-    </button>
-  </div>
-);
-
 // ── Lines a link can't receive (no unit conversion yet) ──────────────────────
 const BlockedLineRow = ({ index, line }) => (
   <tbody className={styles.lineGroup}>
@@ -393,14 +419,8 @@ const BlockedLineCard = ({ line }) => (
 );
 
 // ── Receipts this link posted, with "Attach paperwork" ───────────────────────
-const PAPER_KINDS = [
-  { value: "CHALLAN", label: "Challan" },
-  { value: "INVOICE", label: "Invoice" },
-  { value: "PHOTO", label: "Photo" },
-  { value: "OTHER", label: "Other" },
-];
-const kindLabel = (k) => PAPER_KINDS.find((x) => x.value === k)?.label || "File";
 const STATUS_PILL = { partially_reversed: "Partly reversed", reversed: "Reversed" };
+const isWebUrl = (url) => /^https?:\/\//i.test(String(url || ""));
 
 const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
   const [kind, setKind] = useState("CHALLAN");
@@ -427,7 +447,7 @@ const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
         <ul className={own.receiptFiles}>
           {files.map((a) => (
             <li key={a.id}>
-              {/^https?:\/\//i.test(String(a.url || "")) ? (
+              {isWebUrl(a.url) ? (
                 <a href={a.url} target="_blank" rel="noopener noreferrer">{a.fileName || kindLabel(a.kind)}</a>
               ) : (
                 <span>{a.fileName || kindLabel(a.kind)}</span>
@@ -447,7 +467,7 @@ const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
             onChange={(e) => setKind(e.target.value)}
             disabled={busy}
           >
-            {PAPER_KINDS.map((k) => (
+            {ATTACHMENT_KINDS.map((k) => (
               <option key={k.value} value={k.value}>{k.label}</option>
             ))}
           </select>
@@ -486,10 +506,10 @@ const ReceiptItem = ({ receipt, canAttach, busy, error, onAttach }) => {
 };
 
 /** The posted GRN as a `receipts[]` row, until the refreshed context replaces it. */
-const withReceipt = (data, grn, uploaded = []) => {
+const withReceipt = (data, grn) => {
   if (!data || grn?.id == null) return data;
   const receipts = Array.isArray(data.receipts) ? data.receipts : [];
-  if (receipts.some((r) => r.id === grn.id)) return withAttachments(data, grn.id, uploaded);
+  if (receipts.some((r) => r.id === grn.id)) return data;
   const row = {
     id: grn.id,
     grnNumber: grn.grnNumber || null,
@@ -497,7 +517,7 @@ const withReceipt = (data, grn, uploaded = []) => {
     receivedAt: grn.receivedAt || null,
     postedAt: grn.postedAt || null,
     lineCount: Array.isArray(grn.lines) ? grn.lines.length : null,
-    attachments: [...(Array.isArray(grn.attachments) ? grn.attachments : []), ...uploaded],
+    attachments: Array.isArray(grn.attachments) ? grn.attachments : [],
   };
   return { ...data, receipts: [row, ...receipts] };
 };
@@ -527,6 +547,13 @@ const linkInput = (input) => {
   return out;
 };
 
+const UPLOAD_STATUS = { uploading: "Uploading…", done: "Uploaded", failed: "Not uploaded" };
+
+/** A heading that takes focus when it appears (posted, expired and error states). */
+const focusOnMount = (el) => {
+  if (el && typeof el.focus === "function") el.focus();
+};
+
 const TokenReceivePage = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -539,12 +566,13 @@ const TokenReceivePage = () => {
   const [entries, setEntries] = useState({});
   const [lineErrors, setLineErrors] = useState({});
   const [formError, setFormError] = useState(null);
+  const [errorFocus, setErrorFocus] = useState(0);
   const [unsent, setUnsent] = useState(false);
+  const [unsentNote, setUnsentNote] = useState(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [restored, setRestored] = useState(false);
   const [posting, setPosting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pad, setPad] = useState(null);
-  const [flashId, setFlashId] = useState(null);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [posted, setPosted] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
@@ -556,14 +584,17 @@ const TokenReceivePage = () => {
   const headerRef = useRef(header);
   const entriesRef = useRef(entries);
   const sessionKeyRef = useRef(null);
+  // The key of a restored draft whose last send had no answer.
+  const restoredKeyRef = useRef(null);
+  // A post went out and its outcome is unknown (saved in the draft as `unsent`).
   const unsentRef = useRef(false);
   const touchedRef = useRef(false);
   const postingRef = useRef(false);
   const pendingFilesRef = useRef(pendingFiles);
   const loadSeqRef = useRef(0);
-  const toastSeqRef = useRef(0);
-  const flashTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const linesBoxRef = useRef(null);
+  const formErrorRef = useRef(null);
 
   useEffect(() => {
     pendingFilesRef.current = pendingFiles;
@@ -581,22 +612,26 @@ const TokenReceivePage = () => {
     headerRef.current = next;
     setHeader(next);
   }, []);
-  const commitUnsent = useCallback((v) => {
+  const commitUnsent = useCallback((v, note = null) => {
     unsentRef.current = v;
     setUnsent(v);
+    setUnsentNote(v ? note : null);
+    if (!v) setDiscardOpen(false);
   }, []);
 
   const lines = useMemo(() => ctx?.lines || [], [ctx]);
   const receivableLines = useMemo(() => lines.filter((l) => !l.needsUomFactor), [lines]);
   const lineById = useMemo(() => new Map(lines.map((l) => [Number(l.poLineId), l])), [lines]);
+  const frozen = posting || unsent;
+  const isFrozen = () => postingRef.current || unsentRef.current;
 
   // ── Session storage: the screen, never the token ──────────────────────────
   const writeDraft = useCallback(() => {
-    const poId = ctxRef.current?.po?.id;
-    // A dead link (401) has already dropped its draft: a late save must not bring it back.
-    if (poId == null || !sessionKeyRef.current || !tokenRef.current) return;
-    session.set(draftStorageKey(poId), JSON.stringify({
-      v: 1,
+    const data = ctxRef.current;
+    // A dead link (401) has already dropped its drafts: a late save must not bring one back.
+    if (data?.po?.id == null || !sessionKeyRef.current || !tokenRef.current) return;
+    session.set(draftStorageKey(data.po.id, data.hotel?.id), JSON.stringify({
+      v: 2,
       savedAt: Date.now(),
       clientEventId: sessionKeyRef.current,
       unsent: unsentRef.current,
@@ -606,16 +641,16 @@ const TokenReceivePage = () => {
   }, []);
 
   const clearDraft = useCallback(() => {
-    const poId = ctxRef.current?.po?.id;
-    if (poId != null) session.remove(draftStorageKey(poId));
+    const data = ctxRef.current;
+    if (data?.po?.id != null) session.remove(draftStorageKey(data.po.id, data.hotel?.id));
   }, []);
 
-  /** The link is dead (401): drop everything this tab kept for it. */
+  /** The link is dead (401) or unusable: drop everything this tab kept for it. */
   const forgetLink = useCallback(() => {
-    clearDraft();
+    dropAllDrafts();
     session.remove(TOKEN_STORAGE_KEY);
     tokenRef.current = null;
-  }, [clearDraft]);
+  }, []);
 
   // ── Form ──────────────────────────────────────────────────────────────────
   /** A fresh receipt for `data`, or the one this tab had before a reload. */
@@ -628,10 +663,12 @@ const TokenReceivePage = () => {
     let wasUnsent = false;
     let didRestore = false;
     const poId = data?.po?.id;
-    const saved = poId != null ? readDraft(poId) : null;
+    const storeKey = poId != null ? draftStorageKey(poId, data?.hotel?.id) : null;
+    const saved = storeKey ? parseDraft(session.get(storeKey)) : null;
     if (saved && data.receivable !== false) {
       for (const l of ctxLines) {
         const e = saved.entries[l.poLineId];
+        // A line the link can't receive never comes back from a draft.
         if (!e || typeof e !== "object" || l.needsUomFactor) continue;
         const patch = {};
         for (const f of ENTRY_FIELDS) if (typeof e[f] === "string") patch[f] = e[f];
@@ -645,18 +682,18 @@ const TokenReceivePage = () => {
       wasUnsent = saved.unsent === true;
       didRestore = true;
     } else if (saved) {
-      session.remove(draftStorageKey(poId));
+      session.remove(storeKey);
     }
     sessionKeyRef.current = key;
+    restoredKeyRef.current = wasUnsent ? key : null;
     touchedRef.current = false;
-    commitUnsent(wasUnsent);
+    commitUnsent(wasUnsent, wasUnsent ? RESTORED_UNSENT : null);
     commitEntries(nextEntries);
     commitHeader(nextHeader);
     setRestored(didRestore && !wasUnsent);
     setLineErrors({});
     setFormError(null);
     setPendingFiles([]);
-    setPad(null);
     setConfirmOpen(false);
   }, [commitEntries, commitHeader, commitUnsent]);
 
@@ -676,9 +713,10 @@ const TokenReceivePage = () => {
     } catch (err) {
       if (seq !== loadSeqRef.current || !mountedRef.current) return null;
       const f = loadFailure(err);
-      if (f.phase === "expired") forgetLink();
-      // A background refresh that fails keeps what is on screen.
+      // A background refresh that fails for any other reason keeps what is on screen.
       if (silent && f.phase === "error") return null;
+      if (f.phase === "expired") f.uncertain = unsentRef.current || anyUnsentDraft();
+      if (f.phase === "expired" || f.phase === "no_hotel") forgetLink();
       setFailure(f);
       setPhase(f.phase);
       return null;
@@ -688,20 +726,24 @@ const TokenReceivePage = () => {
   // Take the token out of the URL first; only then ask the server anything.
   useEffect(() => {
     mountedRef.current = true;
+    const stored = session.get(TOKEN_STORAGE_KEY);
     const fromUrl = takeTokenFromUrl();
-    if (fromUrl) session.set(TOKEN_STORAGE_KEY, fromUrl);
-    tokenRef.current = fromUrl || session.get(TOKEN_STORAGE_KEY) || null;
+    if (fromUrl) {
+      // Another link in this tab: its drafts are not this link's receipts.
+      if (fromUrl !== stored) dropAllDrafts();
+      session.set(TOKEN_STORAGE_KEY, fromUrl);
+    }
+    tokenRef.current = fromUrl || stored || null;
     if (tokenRef.current) load();
     else setPhase("missing");
     return () => {
       mountedRef.current = false;
-      clearTimeout(flashTimerRef.current);
     };
   }, [load]);
 
   // Keep Next's router (asPath, the canonical link) in step with the clean
   // URL. Its own hydration step can write the original URL back after we
-  // stripped it, so strip again whenever a query shows up.
+  // stripped it, so strip again whenever a query or fragment shows up.
   const { isReady, asPath, pathname } = router;
   useEffect(() => {
     if (!isReady || typeof window === "undefined") return;
@@ -719,8 +761,24 @@ const TokenReceivePage = () => {
     return () => clearTimeout(t);
   }, [header, entries, posted, writeDraft]);
 
-  // ── Edits ─────────────────────────────────────────────────────────────────
+  // After a refusal: scroll to the first line with a message and focus it
+  // (on a phone the post button is far from the line), else the form summary.
+  useEffect(() => {
+    if (!errorFocus) return;
+    const alertEl = linesBoxRef.current?.querySelector('[role="alert"]') || null;
+    const holder = alertEl?.closest("tbody, article") || null;
+    // The field the message is about, else the line's first field.
+    const control = holder?.querySelector('[aria-invalid="true"]') ||
+      holder?.querySelector("input:not([disabled]), select:not([disabled]), textarea:not([disabled])");
+    const target = control || formErrorRef.current;
+    const scrollTo = holder || target;
+    if (scrollTo && typeof scrollTo.scrollIntoView === "function") scrollTo.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (target && typeof target.focus === "function") target.focus({ preventScroll: true });
+  }, [errorFocus]);
+
+  // ── Edits (none while a post is in flight or its outcome is unknown) ─────
   const patchLine = useCallback((id, patch) => {
+    if (postingRef.current || unsentRef.current) return;
     const prev = entriesRef.current;
     if (!prev[id]) return;
     commitEntries({ ...prev, [id]: { ...prev[id], ...patch } });
@@ -735,6 +793,7 @@ const TokenReceivePage = () => {
   }, [commitEntries]);
 
   const patchHeader = useCallback((patch) => {
+    if (postingRef.current || unsentRef.current) return;
     commitHeader({ ...headerRef.current, ...patch });
     setFormError(null);
     touchedRef.current = true;
@@ -742,6 +801,7 @@ const TokenReceivePage = () => {
 
   /** "Against dispatch": fill only the lines and fields not entered yet. */
   const pickDispatch = useCallback((id) => {
+    if (postingRef.current || unsentRef.current) return;
     const dsp = (ctxRef.current?.dispatches || []).find((x) => String(x.id) === String(id));
     if (!dsp) {
       patchHeader({ dispatchId: "" });
@@ -752,7 +812,7 @@ const TokenReceivePage = () => {
       const e = next[dl.poLineId];
       const line = lineById.get(Number(dl.poLineId));
       if (e && line && !line.needsUomFactor && !(toQ(e.received) > 0)) {
-        next = { ...next, [dl.poLineId]: { ...e, received: qtyText(dl.qty) } };
+        next = { ...next, [dl.poLineId]: { ...e, ...manualQtyPatch(dl.qty) } };
       }
     }
     if (next !== entriesRef.current) commitEntries(next);
@@ -766,162 +826,160 @@ const TokenReceivePage = () => {
     });
   }, [commitEntries, patchHeader, lineById]);
 
-  const flash = (id) => {
-    setFlashId(id);
-    clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setFlashId(null), FLASH_MS);
-  };
-
-  /** Add `delta` (PO units) to a line's received qty; returns the new total. */
-  const addToLine = (line, delta, { scanned = false, gs1 = null } = {}) => {
-    const e = entriesRef.current[line.poLineId];
-    if (!e) return 0;
-    const total = Math.max(0, addQty(parseQty(e.received) ?? 0, delta));
-    const patch = { received: qtyText(total) };
-    if (scanned) patch.scannedAt = Date.now();
-    if (gs1 && line.trackExpiry) {
-      if (gs1.batch && !e.batchNo) patch.batchNo = gs1.batch;
-      if (gs1.expiry && !e.expiryDate) patch.expiryDate = gs1.expiry;
-    }
-    patchLine(line.poLineId, patch);
-    return total;
-  };
-
-  const showScanToast = (line, delta, total) => {
-    toastSeqRef.current += 1;
-    const toastId = `token-receive-scan-${line.poLineId}-${toastSeqRef.current}`;
-    toast(
-      <ScanToast
-        name={line.productName}
-        unit={line.unit}
-        delta={delta}
-        total={total}
-        onUndo={() => {
-          const e = entriesRef.current[line.poLineId];
-          if (e) patchLine(line.poLineId, { received: qtyText(Math.max(0, subQty(parseQty(e.received) ?? 0, delta))) });
-          toast.dismiss(toastId);
-        }}
-      />,
-      { toastId, autoClose: 4000, closeOnClick: false, hideProgressBar: true }
-    );
-  };
-
-  /** One scan of `packFactor` stock units onto a PO line. */
-  const applyItemScan = (line, packFactor, gs1 = null) => {
-    const e = entriesRef.current[line.poLineId];
-    if (!e) return;
-    const factor = Number(line.uomFactor) > 0
-      ? Number(line.uomFactor)
-      : !line.stockUom || sameUnit(line.unit, line.stockUom) ? 1 : null;
-    // Weighed or measured units, and units with no known conversion: ask how much.
-    if (isDecimalUnit(line.unit) || factor == null) {
-      setPad({
-        poLineId: line.poLineId, mode: "add", scanned: true, gs1,
-        initial: Math.max(0, subQty(line.openAtHotel, parseQty(e.received) ?? 0)),
-      });
-      return;
-    }
-    const delta = Number(qtyText((Number(packFactor) > 0 ? Number(packFactor) : 1) / factor));
-    const total = addToLine(line, delta, { scanned: true, gs1 });
-    flash(line.poLineId);
-    showScanToast(line, delta, total);
-  };
+  // C1's scan handling: exact pack counting (twelve 1-piece scans of a
+  // 12-piece box make exactly 1 box), the keypad for weighed units and for
+  // units with no known conversion, the undo toast.
+  const scan = useReceiveScan({
+    form: { entriesRef, ctxRef, patchLine },
+    lines,
+    lineById,
+    pickDispatch,
+    canLinkCodes: false,
+    router,
+  });
 
   const onScanRead = (parsed) => {
+    if (isFrozen()) return null;
     const result = resolveOnOrder(parsed, ctxRef.current?.lines || []);
     const line = result.kind === "item" ? lineById.get(Number(result.item.poLineId)) : null;
     if (!line) return { tone: "warn", text: UNKNOWN_CODE, code: result.code };
     if (line.needsUomFactor) return { tone: "warn", text: uomBlockedMessage(line), code: result.code };
-    applyItemScan(line, result.item.packFactor, result.gs1);
+    scan.onScanResolved(result, { parsed });
     return { tone: "ok", text: line.productName, code: result.code };
   };
 
-  const onPadDone = (qty) => {
-    const p = pad;
-    setPad(null);
-    const line = p && lineById.get(Number(p.poLineId));
-    if (!line) return;
-    if (p.mode === "add") {
-      if (!(qty > 0)) return;
-      const total = addToLine(line, qty, { scanned: p.scanned, gs1: p.gs1 });
-      flash(line.poLineId);
-      if (p.scanned) showScanToast(line, qty, total);
-    } else {
-      patchLine(line.poLineId, { received: qtyText(qty) });
-    }
+  /** The form summary: always name the line(s) to fix. */
+  const lineSummary = (errs) => {
+    const ids = lines.map((l) => l.poLineId).filter((id) => errs[id]);
+    if (ids.length === 0) return null;
+    const name = (id) => lineById.get(Number(id))?.productName || "a line";
+    if (ids.length === 1) return `Check ${name(ids[0])}: ${errs[ids[0]]}`;
+    return `Check ${ids.length} lines before posting: ${ids.map(name).join(", ")}.`;
+  };
+
+  const showErrors = (perLine, form = null) => {
+    setLineErrors(perLine);
+    const summary = lineSummary(perLine);
+    setFormError([form, summary].filter(Boolean).join(" ") || null);
+    setErrorFocus((n) => n + 1);
   };
 
   // ── Posting ───────────────────────────────────────────────────────────────
-  const finishPosted = async (grn) => {
-    const token = tokenRef.current;
-    const uploaded = [];
-    const uploadFailures = [];
-    if (grn?.id != null && token) {
-      for (const p of pendingFilesRef.current) {
-        try {
-          const att = await uploadTokenGrnAttachment(token, grn.id, p.file, p.kind);
-          if (att) uploaded.push(att);
-        } catch (e) {
-          uploadFailures.push({ name: p.file.name, message: errorInfo(e, "Upload failed").message });
-        }
+  const uploadPicked = async (grnId, files) => {
+    for (let i = 0; i < files.length; i += 1) {
+      const p = files[i];
+      let next;
+      try {
+        const att = tokenRef.current ? await uploadTokenGrnAttachment(tokenRef.current, grnId, p.file, p.kind) : null;
+        if (att && mountedRef.current) commitCtx(withAttachments(ctxRef.current, grnId, [att]));
+        next = att ? { status: "done" } : { status: "failed", message: "This link can't upload any more." };
+      } catch (e) {
+        const info = errorInfo(e, "Upload failed");
+        next = {
+          status: "failed",
+          message: info.httpStatus === 429
+            ? rateLimitMessage(e)
+            : info.httpStatus == null
+              ? "The connection dropped. Attach it again from the receipts below."
+              : info.message,
+        };
       }
+      if (!mountedRef.current) return;
+      setPosted((prev) => (prev
+        ? { ...prev, uploads: prev.uploads.map((u, j) => (j === i ? { ...u, ...next } : u)) }
+        : prev));
     }
-    clearDraft();
-    sessionKeyRef.current = newClientEventId();
-    touchedRef.current = false;
-    commitUnsent(false);
-    if (!mountedRef.current) return;
-    setPendingFiles([]);
-    setRestored(false);
-    commitCtx(withReceipt(ctxRef.current, grn, uploaded));
-    setPosted({ grn, warnings: Array.isArray(grn?.warnings) ? grn.warnings : [], uploadFailures });
-    // Fresh open quantities and the receipt list (with this one) from the server.
-    load({ silent: true });
   };
 
-  const handlePostError = (err) => {
+  const finishPosted = async (grn, sent) => {
+    const replayed = grn?.replayed === true || !isFreshPost(grn);
+    const mismatch = replayed && !sameAsSent(sent.lines, grn?.lines);
+    const files = pendingFilesRef.current;
+    clearDraft();
+    sessionKeyRef.current = newClientEventId();
+    restoredKeyRef.current = null;
+    touchedRef.current = false;
+    commitUnsent(false);
+    setPendingFiles([]);
+    setRestored(false);
+    commitCtx(withReceipt(ctxRef.current, grn));
+    // "Receipt posted" first; the files picked before posting upload after it.
+    setPosted({
+      grn,
+      replayMismatch: mismatch,
+      warnings: Array.isArray(grn?.warnings) ? grn.warnings : [],
+      uploads: files.map((p) => ({ name: p.file.name, kind: p.kind, status: "uploading" })),
+    });
+    if (grn?.id != null && files.length) await uploadPicked(grn.id, files);
+    // Fresh open quantities and the receipt list (with this one) from the server.
+    if (mountedRef.current) load({ silent: true });
+  };
+
+  const handlePostError = (err, { priorUnknown }) => {
     const info = errorInfo(err, "Could not post this receipt. Try again.");
+    const status = info.httpStatus;
     const d = info.details || {};
     const lineId = d.poLineId != null ? Number(d.poLineId) : null;
     const line = lineId != null ? lineById.get(lineId) : null;
 
-    if (info.httpStatus == null) {
-      // No answer: it may or may not have landed. Keep the screen and the key.
-      commitUnsent(true);
+    if (status === 401) {
+      forgetLink();
+      setFailure({ phase: "expired", uncertain: priorUnknown });
+      setPhase("expired");
+      return;
+    }
+    if (status == null || status === 429 || status >= 500 || !REFUSALS.has(status)) {
+      // No answer, rate limited, a gateway or server failure: it may or may
+      // not have been recorded. Keep the key and keep the form frozen.
+      const note = status == null
+        ? NETWORK_DROPPED
+        : status === 429
+          ? `${rateLimitMessage(err)}, then retry: ${NEVER_TWICE}`
+          : status >= 500
+            ? serverDidntConfirm(status)
+            : `${info.message}. Retry: ${NEVER_TWICE}`;
+      commitUnsent(true, note);
       writeDraft();
       return;
     }
-    if (unsentRef.current) {
-      commitUnsent(false);
-      writeDraft();
-    }
-    if (info.httpStatus === 401) {
-      forgetLink();
-      setPhase("expired");
-    } else if (info.httpStatus === 429) {
-      setFormError(rateLimitMessage(err));
-    } else if (info.code === "CONFLICT" && d.field === "clientEventId") {
-      // That key belongs to another receipt: start a fresh session, keep the entries.
+
+    // A refusal: the server looked the key up first, so nothing was recorded under it.
+    commitUnsent(false);
+    if (info.code === "CONFLICT" && d.field === "clientEventId") {
+      const restoredClash = restoredKeyRef.current != null && restoredKeyRef.current === sessionKeyRef.current;
       sessionKeyRef.current = newClientEventId();
+      restoredKeyRef.current = null;
       writeDraft();
-      setFormError(`${info.message}. Your entries are still here: post again to record them as a new receipt.`);
-    } else if (info.code === "CONFLICT" && d.reason === "TOKEN_NO_HOTEL") {
+      setFormError(restoredClash
+        ? KEY_CLASH_RESTORED
+        : `${info.message}. Your entries are still here: post again to record them as a new receipt.`);
+      setErrorFocus((n) => n + 1);
+      if (restoredClash) load({ silent: true });
+      return;
+    }
+    if (info.code === "CONFLICT" && d.reason === "TOKEN_NO_HOTEL") {
+      forgetLink();
       setFailure({ phase: "no_hotel", message: info.message });
       setPhase("no_hotel");
-    } else if (info.code === "CONFLICT" && d.reason === "PO_NOT_RECEIVABLE") {
+      return;
+    }
+    writeDraft();
+    if (info.code === "CONFLICT" && d.reason === "PO_NOT_RECEIVABLE") {
       clearDraft();
       touchedRef.current = false;
       setFormError(info.message);
       load({ silent: true });
     } else if (info.code === "OVER_RECEIPT" && line) {
       const asked = d.requested != null ? `; this receipt has ${fmtQty(d.requested)}` : "";
-      setLineErrors({ [lineId]: `Max acceptable ${fmtQtyUnit(d.maxAcceptable, line.unit)} at this hotel${asked}` });
-      setFormError("One line is more than this order allows. Fix it, then post again.");
+      showErrors({
+        [lineId]: `Max acceptable ${fmtQtyUnit(d.maxAcceptable, line.unit)} at this hotel${asked}. ${OVER_RECEIPT_HINT}`,
+      });
     } else if (line) {
       // UOM_FACTOR_REQUIRED, MARK_OUT_NOT_ALLOWED, MAPPING_NOT_ALLOWED, EXPIRY_REQUIRED, …
-      setLineErrors({ [lineId]: info.message });
+      showErrors({ [lineId]: info.message });
     } else {
       setFormError(info.message);
+      setErrorFocus((n) => n + 1);
     }
   };
 
@@ -930,8 +988,10 @@ const TokenReceivePage = () => {
     const token = tokenRef.current;
     const data = ctxRef.current;
     if (!token || !data?.po) return;
+    const priorUnknown = unsentRef.current;
     postingRef.current = true;
     setPosting(true);
+    setDiscardOpen(false);
     setFormError(null);
     setLineErrors({});
     const input = linkInput(buildGrnInput({
@@ -942,24 +1002,31 @@ const TokenReceivePage = () => {
       entries: entriesRef.current,
       allowMarkOut: false,
     }));
+    const body = { ...input, post: true, clientEventId: sessionKeyRef.current };
+    // From here until the server answers, the outcome is unknown: save that
+    // first, so a reload mid-flight comes back frozen with Retry on this key.
+    unsentRef.current = true;
+    writeDraft();
     try {
-      const grn = await postTokenGrn(token, { ...input, post: true, clientEventId: sessionKeyRef.current });
-      if (mountedRef.current) await finishPosted(grn);
+      const grn = await postTokenGrn(token, body);
+      if (mountedRef.current) await finishPosted(grn, body);
     } catch (err) {
-      if (mountedRef.current) handlePostError(err);
+      if (mountedRef.current) handlePostError(err, { priorUnknown });
     } finally {
       postingRef.current = false;
-      if (mountedRef.current) setPosting(false);
+      if (mountedRef.current) {
+        setPosting(false);
+        setConfirmOpen(false);
+      }
     }
   };
 
   const requestPost = () => {
-    if (postingRef.current) return;
+    if (isFrozen()) return;
     const errs = validateForPost(receivableLines, entriesRef.current, { allowMarkOut: false });
     if (errs) {
       const { form, ...perLine } = errs;
-      setLineErrors(perLine);
-      setFormError(form || "Fix the highlighted lines, then post.");
+      showErrors(perLine, form || null);
       return;
     }
     setLineErrors({});
@@ -967,9 +1034,14 @@ const TokenReceivePage = () => {
     setConfirmOpen(true);
   };
 
-  const confirmPost = () => {
-    setConfirmOpen(false);
-    runPost();
+  /** Give up on an attempt whose outcome is unknown: new key, empty form. */
+  const discardAndRestart = () => {
+    setDiscardOpen(false);
+    clearDraft();
+    restoredKeyRef.current = null;
+    startForm(ctxRef.current);
+    // The receipts list shows whether the last attempt landed after all.
+    load({ silent: true });
   };
 
   const receiveAnother = () => {
@@ -991,6 +1063,7 @@ const TokenReceivePage = () => {
       const info = errorInfo(e, "Could not upload that file. Try again.");
       if (info.httpStatus === 401) {
         forgetLink();
+        setFailure({ phase: "expired", uncertain: false });
         setPhase("expired");
         return;
       }
@@ -1014,7 +1087,8 @@ const TokenReceivePage = () => {
   const expiresAt = ctx?.linkExpiresAt ? Date.parse(ctx.linkExpiresAt) : NaN;
   const linkOpen = Number.isNaN(expiresAt) || expiresAt > Date.now();
   const showForm = phase === "ready" && !posted && !notReceivable;
-  const scanPaused = confirmOpen || !!pad || posting;
+  const padLine = scan.pad && !frozen ? lineById.get(Number(scan.pad.poLineId)) : null;
+  const scanPaused = frozen || confirmOpen || !!padLine;
 
   const counts = useMemo(() => {
     let withQty = 0;
@@ -1043,15 +1117,21 @@ const TokenReceivePage = () => {
   const postLabel = (
     <>
       {posting ? <Loader2 size={15} className={styles.spin} aria-hidden="true" /> : <Send size={15} aria-hidden="true" />}
-      Post receipt
+      {posting ? "Posting…" : "Post receipt"}
+    </>
+  );
+  const retryLabel = (
+    <>
+      <RefreshCw size={14} aria-hidden="true" />
+      Retry
     </>
   );
 
-  const frame = (body) => (
+  const frame = (body, actions = null) => (
     <div className={own.page}>
       <Head>
         <title>Receive goods · Workwise</title>
-        {/* The first paint's URL still holds ?t=: send no Referer with anything. */}
+        {/* The first paint's URL can still hold ?t=: send no Referer with anything. */}
         <meta name="referrer" content="no-referrer" />
       </Head>
       <section className={styles.pageHeader}>
@@ -1080,13 +1160,13 @@ const TokenReceivePage = () => {
               </div>
             )}
           </div>
-          {showForm && !isMobile && (
+          {showForm && !isMobile && !unsent && (
             <div className={styles.headerActions}>
               <button
                 type="button"
                 className={`${styles.btn} ${styles.btnSuccess}`}
                 onClick={requestPost}
-                disabled={posting || receivableLines.length === 0}
+                disabled={frozen || receivableLines.length === 0}
               >
                 {postLabel}
               </button>
@@ -1095,13 +1175,15 @@ const TokenReceivePage = () => {
         </div>
       </section>
       <main className={styles.pageBody}>{body}</main>
+      {/* Inside the page so its spacer sees --mobile-action-bar-h. */}
+      {actions}
     </div>
   );
 
   const stateCard = ({ icon, title, sub, action = null, ok = false, role }) => (
     <div className={styles.stateCard} role={role}>
       <div className={`${styles.stateIc} ${ok ? styles.stateIcOk : ""}`}>{icon}</div>
-      <h2 className={styles.stateTitle}>{title}</h2>
+      <h2 className={styles.stateTitle} tabIndex={-1} ref={focusOnMount}>{title}</h2>
       {sub && <p className={styles.stateSub}>{sub}</p>}
       {action && <div className={styles.stateActions}>{action}</div>}
     </div>
@@ -1123,7 +1205,10 @@ const TokenReceivePage = () => {
   }
   if (phase === "expired") {
     return frame(stateCard({
-      icon: <Link2Off size={20} aria-hidden="true" />, title: "Link expired", sub: EXPIRED_MESSAGE, role: "alert",
+      icon: <Link2Off size={20} aria-hidden="true" />,
+      title: "Link expired",
+      sub: failure?.uncertain ? EXPIRED_UNCERTAIN : EXPIRED_MESSAGE,
+      role: "alert",
     }));
   }
   if (phase === "no_hotel") {
@@ -1150,7 +1235,7 @@ const TokenReceivePage = () => {
     entry: entries[l.poLineId] || blankLine(l),
     onChange: (patch) => patchLine(l.poLineId, patch),
     error: lineErrors[l.poLineId] || null,
-    flash: flashId === l.poLineId,
+    flash: scan.flashId === l.poLineId,
     showPrices: false,
     allowMarkOut: false,
     departments: [],
@@ -1159,23 +1244,47 @@ const TokenReceivePage = () => {
     receivedAt: header.receivedAt,
   });
 
+  const discardConfirm = discardOpen && (
+    <div className={own.discardBox} role="alertdialog" aria-label="Discard these entries?">
+      <p className={own.bannerText}>
+        <strong>Discard these entries?</strong> {DISCARD_WARNING}
+      </p>
+      <div className={own.discardActions}>
+        <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDiscardOpen(false)}>
+          Keep them
+        </button>
+        <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={discardAndRestart}>
+          Discard entries
+        </button>
+      </div>
+    </div>
+  );
+
   const banners = (
     <>
-      {unsent && (
-        <div className={`${own.banner} ${own.bannerWarn}`} role="alert">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <span className={own.bannerText}>{NETWORK_DROPPED}</span>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary} ${own.bannerAction}`}
-            onClick={() => runPost()}
-            disabled={posting}
-          >
-            {posting ? <Loader2 size={14} className={styles.spin} aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
-            Retry
-          </button>
+      {posting && (
+        <div className={`${own.banner} ${own.bannerInfo}`} role="status">
+          <Loader2 size={16} className={styles.spin} aria-hidden="true" />
+          <span className={own.bannerText}>Posting this receipt. Keep this page open.</span>
         </div>
       )}
+      {unsent && !posting && (
+        <div className={`${own.banner} ${own.bannerWarn}`} role="alert">
+          <AlertTriangle size={16} aria-hidden="true" />
+          <span className={own.bannerText}>{unsentNote || NETWORK_DROPPED}</span>
+          {!isMobile && (
+            <div className={own.bannerActions}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDiscardOpen(true)}>
+                Discard and start over
+              </button>
+              <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => runPost()}>
+                {retryLabel}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {unsent && !posting && discardConfirm}
       {restored && !unsent && (
         <div className={`${own.banner} ${own.bannerInfo}`} role="status">
           <WifiOff size={16} aria-hidden="true" />
@@ -1186,7 +1295,7 @@ const TokenReceivePage = () => {
   );
 
   const itemsCard = (
-    <section className={styles.card} aria-labelledby="token-receive-items-title">
+    <section className={`${styles.card} ${own.itemsCard}`} aria-labelledby="token-receive-items-title">
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle} id="token-receive-items-title">
           <span className={styles.cardIc}><ScanBarcode size={14} aria-hidden="true" /></span>
@@ -1199,53 +1308,50 @@ const TokenReceivePage = () => {
         <TokenScanBox disabled={scanPaused} onRead={onScanRead} />
       </div>
       {formError && (
-        <div className={styles.formError} role="alert" style={{ marginTop: 14 }}>
+        <div className={styles.formError} role="alert" tabIndex={-1} ref={formErrorRef} style={{ marginTop: 14 }}>
           {formError}
         </div>
       )}
-      {lines.length === 0 ? (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyTitle}>Nothing is open on this order at {hotel?.name || "this hotel"}</div>
-        </div>
-      ) : isMobile ? (
-        <div className={styles.cardList}>
-          {cardOrder.map((l) => (l.needsUomFactor ? (
-            <BlockedLineCard key={l.poLineId} line={l} />
-          ) : (
-            <ReceiveLineCard
-              key={l.poLineId}
-              {...lineProps(l)}
-              onStep={(delta) => addToLine(l, delta)}
-              onOpenPad={() =>
-                setPad({
-                  poLineId: l.poLineId, mode: "set", scanned: false, gs1: null,
-                  initial: parseQty(entries[l.poLineId]?.received) ?? 0,
-                })
-              }
-            />
-          )))}
-        </div>
-      ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.linesTable} aria-label="Receive lines">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th className={styles.num}>Open</th>
-                <th className={styles.num}>Received</th>
-                <th className={styles.num}>Accepted</th>
-                <th className={styles.num}>Rejected</th>
-              </tr>
-            </thead>
-            {lines.map((l, i) => (l.needsUomFactor ? (
-              <BlockedLineRow key={l.poLineId} index={i} line={l} />
+      <fieldset className={own.fieldset} disabled={frozen}>
+        {lines.length === 0 ? (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyTitle}>Nothing is open on this order at {hotel?.name || "this hotel"}</div>
+          </div>
+        ) : isMobile ? (
+          <div className={styles.cardList} ref={linesBoxRef}>
+            {cardOrder.map((l) => (l.needsUomFactor ? (
+              <BlockedLineCard key={l.poLineId} line={l} />
             ) : (
-              <ReceiveLineRow key={l.poLineId} index={i} {...lineProps(l)} />
+              <ReceiveLineCard
+                key={l.poLineId}
+                {...lineProps(l)}
+                onStep={(delta) => scan.stepLine(l, delta)}
+                onOpenPad={() => scan.openSetPad(l)}
+              />
             )))}
-          </table>
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className={styles.tableWrap} ref={linesBoxRef}>
+            <table className={styles.linesTable} aria-label="Receive lines">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item</th>
+                  <th className={styles.num}>Open</th>
+                  <th className={styles.num}>Received</th>
+                  <th className={styles.num}>Accepted</th>
+                  <th className={styles.num}>Rejected</th>
+                </tr>
+              </thead>
+              {lines.map((l, i) => (l.needsUomFactor ? (
+                <BlockedLineRow key={l.poLineId} index={i} line={l} />
+              ) : (
+                <ReceiveLineRow key={l.poLineId} index={i} {...lineProps(l)} />
+              )))}
+            </table>
+          </div>
+        )}
+      </fieldset>
     </section>
   );
 
@@ -1258,31 +1364,45 @@ const TokenReceivePage = () => {
         </h2>
       </div>
       <div className={styles.cardBody}>
-        <DeliveryDocuments
-          header={header}
-          onChange={patchHeader}
-          dispatches={ctx?.dispatches || []}
-          onPickDispatch={pickDispatch}
-          attachments={[]}
-          pendingFiles={pendingFiles}
-          onUpload={(file, kind) => setPendingFiles((list) => [...list, { file, kind }])}
-          onRemovePending={(i) => setPendingFiles((list) => list.filter((_, j) => j !== i))}
-          uploading={posting}
-          canDelete={false}
-        />
+        <fieldset className={own.fieldset} disabled={frozen}>
+          <DeliveryDocuments
+            header={header}
+            onChange={patchHeader}
+            dispatches={ctx?.dispatches || []}
+            onPickDispatch={pickDispatch}
+            attachments={[]}
+            pendingFiles={pendingFiles}
+            onUpload={(file, kind) => {
+              if (!isFrozen()) setPendingFiles((list) => [...list, { file, kind }]);
+            }}
+            onRemovePending={(i) => {
+              if (!isFrozen()) setPendingFiles((list) => list.filter((_, j) => j !== i));
+            }}
+            uploading={frozen}
+            canDelete={false}
+          />
+        </fieldset>
       </div>
     </section>
   );
 
   const postedCard = posted && (
     <div className={styles.stateCard} role="status">
-      <div className={`${styles.stateIc} ${styles.stateIcOk}`}><PackageCheck size={20} aria-hidden="true" /></div>
-      <h2 className={styles.stateTitle}>Receipt posted</h2>
-      <p className={styles.stateSub}>
-        {posted.grn?.grnNumber ? <span className={styles.docNo}>{posted.grn.grnNumber}</span> : null}
-        {posted.grn?.grnNumber ? <br /> : null}
-        Accepted goods are in stock{hotel?.name ? ` at ${hotel.name}` : ""}.
-      </p>
+      <div className={`${styles.stateIc} ${posted.replayMismatch ? "" : styles.stateIcOk}`}>
+        {posted.replayMismatch ? <AlertTriangle size={20} aria-hidden="true" /> : <PackageCheck size={20} aria-hidden="true" />}
+      </div>
+      <h2 className={styles.stateTitle} tabIndex={-1} ref={focusOnMount}>
+        {posted.replayMismatch ? "Already recorded" : "Receipt posted"}
+      </h2>
+      {posted.replayMismatch ? (
+        <p className={styles.stateSub} role="alert">{replayMismatchMessage(posted.grn)}</p>
+      ) : (
+        <p className={styles.stateSub}>
+          {posted.grn?.grnNumber ? <span className={styles.docNo}>{posted.grn.grnNumber}</span> : null}
+          {posted.grn?.grnNumber ? <br /> : null}
+          Accepted goods are in stock{hotel?.name ? ` at ${hotel.name}` : ""}.
+        </p>
+      )}
       {posted.warnings.length > 0 && (
         <ul className={styles.successList} aria-label="Warnings">
           {posted.warnings.map((w, i) => (
@@ -1293,12 +1413,15 @@ const TokenReceivePage = () => {
           ))}
         </ul>
       )}
-      {posted.uploadFailures.length > 0 && (
-        <ul className={styles.successList} aria-label="Files not uploaded">
-          {posted.uploadFailures.map((f, i) => (
-            <li key={`${f.name}-${i}`} className={styles.lineError}>
-              <strong>{f.name}</strong>
-              <span>{f.message}</span>
+      {posted.uploads.length > 0 && (
+        <ul className={own.uploadList} aria-label="Paperwork">
+          {posted.uploads.map((u, i) => (
+            <li key={`${u.name}-${i}`} className={own.uploadItem} data-status={u.status}>
+              {u.status === "uploading" && <Loader2 size={14} className={styles.spin} aria-hidden="true" />}
+              {u.status === "done" && <CheckCircle2 size={14} aria-hidden="true" />}
+              {u.status === "failed" && <AlertTriangle size={14} aria-hidden="true" />}
+              <span className={own.uploadName}>{u.name}</span>
+              <span className={own.uploadStatus}>{UPLOAD_STATUS[u.status]}{u.message ? `: ${u.message}` : ""}</span>
             </li>
           ))}
         </ul>
@@ -1352,6 +1475,24 @@ const TokenReceivePage = () => {
     </section>
   );
 
+  const actionBar = showForm && isMobile && (
+    <MobileActionBar
+      label="Receive actions"
+      summary={<span>{counts.withQty} of {receivableLines.length} lines entered</span>}
+    >
+      {unsent && !posting ? (
+        <>
+          <MobileActionButton onClick={() => setDiscardOpen(true)}>Discard</MobileActionButton>
+          <MobileActionButton variant="primary" onClick={() => runPost()}>{retryLabel}</MobileActionButton>
+        </>
+      ) : (
+        <MobileActionButton variant="primary" onClick={requestPost} disabled={frozen || receivableLines.length === 0}>
+          {postLabel}
+        </MobileActionButton>
+      )}
+    </MobileActionBar>
+  );
+
   return (
     <>
       {frame(
@@ -1371,42 +1512,35 @@ const TokenReceivePage = () => {
             </>
           ))}
           {receiptsCard}
-        </div>
+        </div>,
+        actionBar
       )}
 
-      {showForm && isMobile && (
-        <MobileActionBar
-          label="Receive actions"
-          summary={<span>{counts.withQty} of {receivableLines.length} lines entered</span>}
-        >
-          <MobileActionButton variant="primary" onClick={requestPost} disabled={posting || receivableLines.length === 0}>
-            {postLabel}
-          </MobileActionButton>
-        </MobileActionBar>
-      )}
-
-      {confirmOpen && (
+      {confirmOpen && showForm && (
         <ReceiveConfirmModal
           show
           lines={receivableLines}
           entries={entries}
           hotelName={hotel?.name}
+          receivedAt={header.receivedAt}
           busy={posting}
-          onConfirm={confirmPost}
-          onHide={() => setConfirmOpen(false)}
+          onConfirm={() => runPost()}
+          onHide={() => {
+            if (!postingRef.current) setConfirmOpen(false);
+          }}
         />
       )}
-      {pad && lineById.get(Number(pad.poLineId)) && (
+      {padLine && (
         <QtyPad
           show
-          title={lineById.get(Number(pad.poLineId)).productName}
-          unit={lineById.get(Number(pad.poLineId)).unit}
-          initial={pad.initial}
-          mode={pad.mode}
-          receivedSoFar={parseQty(entries[pad.poLineId]?.received) ?? 0}
-          openQty={lineById.get(Number(pad.poLineId)).openAtHotel}
-          onDone={onPadDone}
-          onHide={() => setPad(null)}
+          title={padLine.productName}
+          unit={padLine.unit}
+          initial={scan.pad.initial}
+          mode={scan.pad.mode}
+          receivedSoFar={parseQty(entries[padLine.poLineId]?.received) ?? 0}
+          openQty={padLine.openAtHotel}
+          onDone={scan.onPadDone}
+          onHide={scan.closePad}
         />
       )}
     </>

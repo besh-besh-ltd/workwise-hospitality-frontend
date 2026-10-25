@@ -1,5 +1,6 @@
 import React from 'react';
 import { sendLog, SeverityNumber } from '@/lib/otel';
+import { redactUrl } from '@/lib/redactUrl';
 import { BiError } from 'react-icons/bi';
 import { FiRefreshCw } from 'react-icons/fi';
 import { GoHome } from 'react-icons/go';
@@ -25,7 +26,7 @@ class ErrorBoundary extends React.Component {
         'error.message': error?.message || '',
         'error.stack': error?.stack || '',
         'error.component_stack': errorInfo?.componentStack || '',
-        'browser.url': typeof window !== 'undefined' ? window.location.href : '',
+        'browser.url': typeof window !== 'undefined' ? redactUrl(window.location.href) : '',
         'log.source': 'react.error_boundary',
       },
     });
