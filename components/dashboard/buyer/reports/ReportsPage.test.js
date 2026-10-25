@@ -46,6 +46,7 @@ import fs from "fs";
 import path from "path";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { toast } from "react-toastify";
 import ReportsPage from "./ReportsPage";
 import {
   getReportCatalogue, previewReport, downloadReport, getExportHistory,
@@ -162,8 +163,60 @@ describe("ReportRunner — filters, preview and download", () => {
     expect(await screen.findByText("Vendor Name")).toBeInTheDocument();
     expect(screen.getByText("Spend (₹)")).toBeInTheDocument();
     expect(screen.getByText("Acme Supplies")).toBeInTheDocument();
-    // Money is formatted for display with Indian grouping.
-    expect(screen.getByText("12,34,567")).toBeInTheDocument();
+    // Money is formatted for display with Indian grouping, to the paisa.
+    expect(screen.getByText("12,34,567.00")).toBeInTheDocument();
+  });
+
+  it("keeps a money cell's decimals: 2 at least, up to the 4 a unit cost or rate carries", async () => {
+    previewReport.mockResolvedValue({
+      data: {
+        ...PREVIEW,
+        columns: [
+          { header: "Item", key: "item", type: "text", align: "left" },
+          { header: "Avg cost (₹)", key: "avg_cost", type: "money", align: "right" },
+          { header: "Value (₹)", key: "value", type: "money", align: "right" },
+        ],
+        rows: [
+          { item: "Ketchup sachet", avg_cost: 0.45, value: 1200 },
+          { item: "Saffron", avg_cost: 12.3456, value: 98765.4321 },
+        ],
+        total_rows: 2,
+      },
+    });
+    await openRunner();
+    expect(await screen.findByText("Ketchup sachet")).toBeInTheDocument();
+    expect(screen.getByText("0.45")).toBeInTheDocument();
+    expect(screen.getByText("1,200.00")).toBeInTheDocument();
+    expect(screen.getByText("12.3456")).toBeInTheDocument();
+    expect(screen.getByText("98,765.4321")).toBeInTheDocument();
+  });
+
+  it("a preview the server refuses shows its reason, not an empty report", async () => {
+    const refusal = Object.assign(new Error("Request failed with status code 403"), {
+      isAxiosError: true,
+      response: { status: 403, data: { status: 0, message: "You can't run this report for Orchid Goa" } },
+    });
+    previewReport.mockRejectedValue(refusal);
+    await openRunner();
+    expect(await screen.findByText("You can't run this report for Orchid Goa")).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing to report/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download Excel/i })).toBeDisabled();
+  });
+
+  it("a failed download shows the server's reason", async () => {
+    downloadReport.mockRejectedValueOnce(
+      Object.assign(new Error("Request failed with status code 500"), {
+        isAxiosError: true,
+        response: { status: 500, data: { status: 3, message: "The report is too large to build. Narrow the period." } },
+      })
+    );
+    await openRunner();
+    await waitFor(() => expect(previewReport).toHaveBeenCalled());
+    await screen.findByText("Acme Supplies");
+    fireEvent.click(screen.getByRole("button", { name: /Download Excel/i }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("The report is too large to build. Narrow the period.")
+    );
   });
 
   it("downloads with the filters currently on screen, and sends no ids", async () => {

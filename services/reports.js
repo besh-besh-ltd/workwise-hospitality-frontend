@@ -24,11 +24,46 @@ export const getReportCatalogue = () => axiosInstance.get(`/reports/catalogue`);
 export const previewReport = (key, filters = {}) =>
   axiosInstance.post(`/reports/${key}/preview`, filters);
 
+// A workbook near the 50,000-row cap can take longer to build than the shared
+// instance's 30 s, so the download (and only the download) waits longer.
+const DOWNLOAD_TIMEOUT_MS = 120000;
+
+const blobText = (blob) =>
+  typeof blob.text === "function"
+    ? blob.text()
+    : new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(blob);
+    });
+
+// With responseType "blob" a refusal's body is a Blob too, so the server's
+// `message` is out of reach of getApiErrorMessage. Read it back as JSON; a body
+// that isn't JSON (a proxy's error page) is left alone and the caller's
+// fallback text shows instead.
+const withReadableBody = async (err) => {
+  const body = err?.response?.data;
+  if (typeof Blob === "undefined" || !(body instanceof Blob)) return err;
+  try {
+    err.response.data = JSON.parse(await blobText(body));
+  } catch {
+    // keep the Blob
+  }
+  return err;
+};
+
 /** POST /reports/:key/download — streams the workbook and saves it. */
 export const downloadReport = async (key, filters = {}) => {
-  const blob = await axiosInstance.post(`/reports/${key}/download`, filters, {
-    responseType: "blob",
-  });
+  let blob;
+  try {
+    blob = await axiosInstance.post(`/reports/${key}/download`, filters, {
+      responseType: "blob",
+      timeout: DOWNLOAD_TIMEOUT_MS,
+    });
+  } catch (err) {
+    throw await withReadableBody(err);
+  }
   saveBlob(blob, `${key.replace(/_/g, "-")}_${stamp()}.xlsx`);
 };
 
