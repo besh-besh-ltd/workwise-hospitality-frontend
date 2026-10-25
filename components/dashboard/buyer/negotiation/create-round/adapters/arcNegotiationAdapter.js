@@ -88,3 +88,68 @@ export function buildArcCreatePayload(moduleRounds = [], endDateOverride = null,
   });
   return { end_date: endDate, products, creator_remarks: creatorRemarks?.trim() || null };
 }
+
+// ── stored ARC round → the queued-round entries StepReview renders ────────────
+// The ARC twin of ApproveRoundPage's roundToReviewEntries, against the products
+// normalizeArcProducts built (product id = arc item id). Targets live per vendor
+// in products[].vendor_targets[].fields; older shapes are read too:
+//   - a vendor target carrying only `target_rate` (the first ARC payload shape)
+//   - a legacy single-item round: arc_item_id + vendor_ids, with the ask in the
+//     round's own target_price (or vendor_approvals[].negotiation_fields)
+// An ARC-level entry is the RFQ module's RFQ-level card ("Whole rate contract").
+export const WHOLE_ARC_LABEL = 'Whole rate contract';
+
+// StepReview's naming for a round on the whole parent (its RFQ_WHOLE_SCOPE).
+export const ARC_WHOLE_SCOPE = {
+  name: WHOLE_ARC_LABEL,
+  chip: 'WHOLE ARC',
+  scope: 'Every item on the rate contract',
+};
+
+export function arcRoundToReviewEntries(round, products = []) {
+  const vendorNames = new Map();
+  (products || []).forEach((p) => (p.quotations || []).forEach((q) => {
+    if (q?.vendor_details?.name) vendorNames.set(Number(q.vendor_id), q.vendor_details.name);
+  }));
+  const itemName = (itemId) => {
+    const p = (products || []).find((x) => Number(x.id) === Number(itemId));
+    return p?.product_details?.[0]?.name || round.arc_item_name || `Item ${itemId}`;
+  };
+  const withNames = (vts) => (vts || []).map((vt) => ({
+    ...vt,
+    vendor_name: vendorNames.get(Number(vt.vendor_id)) || null,
+    fields: Array.isArray(vt.fields) && vt.fields.length > 0
+      ? vt.fields
+      : vt.target_rate != null && vt.target_rate !== ''
+        ? [{ name: 'base_price', target: String(vt.target_rate) }]
+        : [],
+  }));
+
+  if (Array.isArray(round.products) && round.products.length > 0) {
+    return round.products.map((p) => (p?.is_arc_level === true || p?.arc_item_id == null
+      ? { mode: 'rfq', rfq_product_id: null, vendor_targets: withNames(p?.vendor_targets), productName: WHOLE_ARC_LABEL }
+      : {
+          mode: 'product',
+          rfq_product_id: Number(p.arc_item_id),
+          vendor_targets: withNames(p.vendor_targets),
+          productName: itemName(p.arc_item_id),
+        }));
+  }
+
+  // Legacy rounds: one ask for every vendor on the round.
+  const vendorIds = [...new Set([
+    ...(round.vendor_ids || []),
+    ...(round.vendor_approvals || []).map((va) => va?.vendor_id),
+  ].filter((v) => v != null).map(Number))];
+  const legacyFields = (vendorId) => {
+    if (round.target_price != null && round.target_price !== '') {
+      return [{ name: 'base_price', target: String(Number(round.target_price)) }];
+    }
+    const va = (round.vendor_approvals || []).find((v) => Number(v?.vendor_id) === vendorId);
+    return va?.negotiation_fields || [];
+  };
+  const vendor_targets = withNames(vendorIds.map((vid) => ({ vendor_id: vid, fields: legacyFields(vid) })));
+  return [round.arc_item_id != null
+    ? { mode: 'product', rfq_product_id: Number(round.arc_item_id), vendor_targets, productName: itemName(round.arc_item_id) }
+    : { mode: 'rfq', rfq_product_id: null, vendor_targets, productName: WHOLE_ARC_LABEL }];
+}

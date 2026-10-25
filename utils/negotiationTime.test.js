@@ -48,6 +48,11 @@ import {
   formatNegotiationDateTime,
   formatNegotiationDeadline,
   negotiationRelative,
+  roundTimeLeft,
+  MIN_ROUND_WINDOW_MINUTES,
+  MIN_ROUND_WINDOW_MS,
+  ROUND_DEADLINE_TOO_SOON_MESSAGE,
+  isRoundDeadlineTooSoon,
   localDateTimeInputMin,
   parseLocalDateTimeInput,
   formatUtcDateTime,
@@ -213,6 +218,40 @@ describe(`THE ZONE TEST — the render must not move when the reader does (proce
   });
 });
 
+describe("isRoundDeadlineTooSoon — the 2 h floor on a new round's deadline", () => {
+  // The create endpoints refuse a deadline less than 2 hours out
+  // (helper/negotiation/roundWindow.js); the wizards say so before the POST.
+  // The value is the picker's LOCAL wall clock, so it is built from local
+  // getters here, in whatever zone the run uses.
+  const pad = (n) => String(n).padStart(2, "0");
+  const local = (ms) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const NOW = new Date(2026, 9, 24, 10, 0).getTime();
+  const HOUR = 3600 * 1000;
+
+  it("matches the server's floor and says what to do", () => {
+    expect(MIN_ROUND_WINDOW_MS).toBe(MIN_ROUND_WINDOW_MINUTES * 60 * 1000);
+    expect(ROUND_DEADLINE_TOO_SOON_MESSAGE).toBe("Pick a deadline at least 2 hours from now.");
+  });
+
+  it("refuses a deadline an hour out, and one already gone", () => {
+    expect(isRoundDeadlineTooSoon(local(NOW + HOUR), NOW)).toBe(true);
+    expect(isRoundDeadlineTooSoon(local(NOW - HOUR), NOW)).toBe(true);
+  });
+
+  it("accepts exactly two hours out, as the server does, and anything later", () => {
+    expect(isRoundDeadlineTooSoon(local(NOW + 2 * HOUR), NOW)).toBe(false);
+    expect(isRoundDeadlineTooSoon(local(NOW + 26 * HOUR), NOW)).toBe(false);
+  });
+
+  it("leaves an empty or unreadable value to the required-field check", () => {
+    expect(isRoundDeadlineTooSoon("", NOW)).toBe(false);
+    expect(isRoundDeadlineTooSoon("garbage", NOW)).toBe(false);
+  });
+});
+
 describe("localDateTimeInputMin — the ONE thing here that is deliberately local", () => {
   // Inventory rows 16-18. `new Date().toISOString().slice(0,16)` is UTC; the
   // control it constrains reads and writes LOCAL wall clock. On an Indian
@@ -345,5 +384,35 @@ describe("negotiationRelative", () => {
     // empty pill.
     expect(negotiationRelative(null)).toBeNull();
     expect(negotiationRelative("garbage")).toBeNull();
+  });
+});
+
+describe("roundTimeLeft", () => {
+  const NOW = Date.parse(AS_ISO_Z);
+  const MIN = 60000;
+
+  it("reads the naive UTC deadline as an instant", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 90 * MIN).text).toBe("1h 30m");
+  });
+
+  it("is urgent inside the minimum round window — vendors get less than the floor", () => {
+    expect(MIN_ROUND_WINDOW_MINUTES).toBe(120);
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 90 * MIN)).toEqual({ text: "1h 30m", urgent: true, passed: false });
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 5 * 60 * MIN)).toEqual({ text: "5h", urgent: false, passed: false });
+  });
+
+  it("uses days past a day and minutes under an hour", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW - (2 * 24 + 3) * 60 * MIN).text).toBe("2d 3h");
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 24 * 60 * MIN).text).toBe("1d");
+    expect(roundTimeLeft(NAIVE_UTC, NOW - 45 * MIN).text).toBe("45m");
+  });
+
+  it("says when the deadline has passed", () => {
+    expect(roundTimeLeft(NAIVE_UTC, NOW + MIN)).toEqual({ text: null, urgent: true, passed: true });
+  });
+
+  it("returns null for an unusable deadline", () => {
+    expect(roundTimeLeft(null)).toBeNull();
+    expect(roundTimeLeft("garbage")).toBeNull();
   });
 });
