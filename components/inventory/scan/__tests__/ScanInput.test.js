@@ -221,7 +221,7 @@ describe("ScanInput", () => {
     expect(resolveScan).toHaveBeenCalledTimes(1);
   });
 
-  it("a failed lookup shows the server's message and plays the error tone", async () => {
+  it("a 404 lookup says the hotel or PO isn't available and plays the error tone", async () => {
     const onResolved = jest.fn();
     const onUnknown = jest.fn();
     resolveScan.mockRejectedValueOnce({
@@ -231,10 +231,23 @@ describe("ScanInput", () => {
     render(<ScanInput context="hotel:999" onResolved={onResolved} onUnknown={onUnknown} />);
     fireEvent.change(field(), { target: { value: "X-1" } });
     fireEvent.keyDown(field(), { key: "Enter" });
-    expect(await screen.findByText("Hotel not found")).toBeInTheDocument();
+    expect(
+      await screen.findByText("This hotel or PO isn't available to you, or no longer exists.")
+    ).toBeInTheDocument();
     expect(scanFeedback.error).toHaveBeenCalledTimes(1);
     expect(onResolved).not.toHaveBeenCalled();
     expect(onUnknown).not.toHaveBeenCalled();
+  });
+
+  it("any other failed lookup shows the server's message", async () => {
+    resolveScan.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 400, data: { status: 0, message: "That code is too long" } },
+    });
+    render(<ScanInput context="hotel:46" onResolved={jest.fn()} onUnknown={jest.fn()} />);
+    fireEvent.change(field(), { target: { value: "X-1" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(await screen.findByText("That code is too long")).toBeInTheDocument();
   });
 
   it("mute is a toggle the user controls; disabled stops every source", () => {

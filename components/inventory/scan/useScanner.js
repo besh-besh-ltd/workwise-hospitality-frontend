@@ -74,7 +74,14 @@ export function useScanner({ onScan, context, enabled = true, wedge = true } = {
         scanFeedback.error();
         if (mounted.current) {
           setLastResult(null);
-          setError(getApiErrorMessage(err, "Could not look up that code. Try again."));
+          // A hotel or PO the user can't see answers 404 exactly like one that
+          // doesn't exist, so say both.
+          const status = err?.response?.status ?? err?.message?.response?.status;
+          setError(
+            status === 404
+              ? "This hotel or PO isn't available to you, or no longer exists."
+              : getApiErrorMessage(err, "Could not look up that code. Try again.")
+          );
         }
         return;
       } finally {
