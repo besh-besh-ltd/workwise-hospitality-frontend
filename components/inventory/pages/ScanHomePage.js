@@ -21,8 +21,9 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // Look-up hotels are the ones the caller can read stock at (GET /stock) plus
 // the ones they can read goods receipts at (grn.read), since a receiving clerk
 // scans PO and dispatch codes too. A code only opens a page the caller has
-// rights for at that hotel. Mark out shows only with inventory.create at a
-// hotel. The server checks every call again.
+// rights for at that hotel. Each action shows only to users who can use it
+// somewhere: Receive with grn.create at a hotel, Mark out and Count with
+// inventory.create at a hotel. The server checks every call again.
 
 const useContextHotels = () => {
   const [state, setState] = useState({ hotels: [], loading: true });
@@ -57,6 +58,7 @@ const ScanHomePage = () => {
   const { hotels: stockHotels, loading: stockLoading, error: stockError, reload } = useInventoryHotels();
   const ctx = useContextHotels();
   const grnPerm = usePermittedHotels({ moduleKey: "grn", action: "read", hotels: ctx.hotels, enabled: !ctx.loading });
+  const receivePerm = usePermittedHotels({ moduleKey: "grn", action: "create", hotels: ctx.hotels, enabled: !ctx.loading });
   const createPerm = usePermittedHotels({
     moduleKey: "inventory", action: "create", hotels: stockHotels, enabled: !stockLoading,
   });
@@ -78,6 +80,8 @@ const ScanHomePage = () => {
 
   const hotel = hotels.find((h) => h.id === hotelId) || null;
   const markOutHotel = createPerm.ids.has(hotelId) ? hotelId : stockHotels.find((h) => createPerm.ids.has(h.id))?.id ?? null;
+  const canReceive = receivePerm.ids.size > 0;
+  const canCount = createPerm.ids.size > 0;
 
   const onResolved = (result) => {
     if (!hotelId || !result) return;
@@ -130,14 +134,17 @@ const ScanHomePage = () => {
 
       <main className={r.pageBody}>
         <div className={r.stack}>
+          {(canReceive || markOutHotel != null || canCount) && (
           <nav aria-label="Scan actions" className={s.homeActions}>
-            <Link href={stockRoutes.receive()} className={s.homeAction}>
-              <span className={s.homeActionIc}><PackagePlus size={24} aria-hidden="true" /></span>
-              <span>
-                <span className={s.homeActionLabel}>Receive</span>
-                <span className={s.homeActionSub}>Scan the PO or delivery note</span>
-              </span>
-            </Link>
+            {canReceive && (
+              <Link href={stockRoutes.receive()} className={s.homeAction}>
+                <span className={s.homeActionIc}><PackagePlus size={24} aria-hidden="true" /></span>
+                <span>
+                  <span className={s.homeActionLabel}>Receive</span>
+                  <span className={s.homeActionSub}>Scan the PO or delivery note</span>
+                </span>
+              </Link>
+            )}
             {markOutHotel != null && (
               <Link href={stockRoutes.markOut({ hotelId: markOutHotel })} className={s.homeAction}>
                 <span className={s.homeActionIc}><PackageMinus size={24} aria-hidden="true" /></span>
@@ -147,14 +154,17 @@ const ScanHomePage = () => {
                 </span>
               </Link>
             )}
-            <Link href={stockRoutes.counts()} className={s.homeAction}>
-              <span className={s.homeActionIc}><ClipboardCheck size={24} aria-hidden="true" /></span>
-              <span>
-                <span className={s.homeActionLabel}>Count</span>
-                <span className={s.homeActionSub}>Count the shelves</span>
-              </span>
-            </Link>
+            {canCount && (
+              <Link href={stockRoutes.counts()} className={s.homeAction}>
+                <span className={s.homeActionIc}><ClipboardCheck size={24} aria-hidden="true" /></span>
+                <span>
+                  <span className={s.homeActionLabel}>Count</span>
+                  <span className={s.homeActionSub}>Count the shelves</span>
+                </span>
+              </Link>
+            )}
           </nav>
+          )}
 
           <section className={r.card} aria-labelledby="scan-lookup-title">
             <div className={r.cardHead}>
