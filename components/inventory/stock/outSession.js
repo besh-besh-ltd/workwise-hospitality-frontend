@@ -13,10 +13,11 @@
 //   out-queued-index:<userId>             [{clientEventId, hotelId, queuedAt}],
 //                                         so the queued copies can be listed.
 //
-// Every value carries its owner's userId and is only ever returned to that
-// user: a session belonging to someone else on this device is never shown,
-// posted or cleared. Without a userId, or without IndexedDB, every call is a
-// no-op.
+// Every value carries its owner (`userId`, and `ownerId`: the shared draft
+// store returns a value only to the owner it is read for) and is only ever
+// returned to that user: a session belonging to someone else on this device is
+// never shown, posted or cleared. Without a userId, or without IndexedDB, every
+// call is a no-op.
 //
 // Open session: {userId, savedAt, hotelId, sessionKey, docType, departmentId,
 //   requestedByName, lines:[{invItemId, displayName, itemCode, stockUom, qty,
@@ -39,10 +40,12 @@ const owned = (value, userId) => (value && typeof value === "object" && uid(valu
 /** @returns {Promise<object|null>} this user's open session at the hotel. */
 export const loadOutSession = async (userId, hotelId) => {
   if (!uid(userId) || !hotelId) return null;
-  return owned(await loadLocalDraft(outSessionKey(userId, hotelId)), userId);
+  return owned(await loadLocalDraft(outSessionKey(userId, hotelId), uid(userId)), userId);
 };
 export const saveOutSession = (userId, hotelId, session) =>
-  uid(userId) && hotelId ? saveLocalDraft(outSessionKey(userId, hotelId), { ...session, userId: uid(userId) }) : Promise.resolve(null);
+  uid(userId) && hotelId
+    ? saveLocalDraft(outSessionKey(userId, hotelId), { ...session, userId: uid(userId), ownerId: uid(userId) })
+    : Promise.resolve(null);
 export const clearOutSession = (userId, hotelId) =>
   uid(userId) && hotelId ? clearLocalDraft(outSessionKey(userId, hotelId)) : Promise.resolve(null);
 /** Clear the open session only while it is still the one under `sessionKey` (a newer one stays). */
@@ -62,12 +65,12 @@ const serial = (work) => {
 };
 
 const readIndex = async (userId) => {
-  const value = owned(await loadLocalDraft(indexKey(userId)), userId);
+  const value = owned(await loadLocalDraft(indexKey(userId), uid(userId)), userId);
   return Array.isArray(value?.entries) ? value.entries.filter((e) => e && e.clientEventId) : [];
 };
 const writeIndex = (userId, entries) =>
   entries.length
-    ? saveLocalDraft(indexKey(userId), { userId: uid(userId), entries })
+    ? saveLocalDraft(indexKey(userId), { userId: uid(userId), ownerId: uid(userId), entries })
     : clearLocalDraft(indexKey(userId));
 
 /** @returns {Promise<Array<{clientEventId, hotelId, queuedAt}>>} this user's queued copies, oldest first. */
@@ -76,13 +79,13 @@ export const listQueuedOuts = (userId) => (uid(userId) ? serial(() => readIndex(
 /** @returns {Promise<object|null>} one of this user's queued copies. */
 export const loadQueuedOut = async (userId, clientEventId) => {
   if (!uid(userId) || !clientEventId) return null;
-  return owned(await loadLocalDraft(outQueuedKey(userId, clientEventId)), userId);
+  return owned(await loadLocalDraft(outQueuedKey(userId, clientEventId), uid(userId)), userId);
 };
 
 /** Keep a queued copy (the copy first, then its index entry). */
 export const saveQueuedOut = (userId, copy) => {
   if (!uid(userId) || !copy?.clientEventId) return Promise.resolve(null);
-  const value = { ...copy, userId: uid(userId) };
+  const value = { ...copy, userId: uid(userId), ownerId: uid(userId) };
   return serial(async () => {
     await saveLocalDraft(outQueuedKey(userId, copy.clientEventId), value);
     const entries = (await readIndex(userId)).filter((e) => e.clientEventId !== copy.clientEventId);

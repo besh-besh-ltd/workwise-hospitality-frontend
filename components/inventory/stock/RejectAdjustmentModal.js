@@ -8,11 +8,12 @@ import r from "@/components/inventory/receive/receive.module.scss";
 // Reject a pending adjustment (POST /adjustments/:id/reject). A reason is
 // required (at most 1000 characters); the creator sees it on the adjustment.
 //
-// Props: { adjustment {id, adjustmentNumber} | null, onHide, onRejected(adjustment) }
+// Props: { adjustment {id, adjustmentNumber} | null, onHide, onRejected(adjustment),
+//          onStale() (decided elsewhere, or gone: the list should reload) }
 
 const MAX_REASON = 1000;
 
-const RejectAdjustmentModal = ({ adjustment, onHide, onRejected }) => {
+const RejectAdjustmentModal = ({ adjustment, onHide, onRejected, onStale }) => {
   const titleId = useId();
   const reasonId = useId();
   const [reason, setReason] = useState("");
@@ -38,6 +39,7 @@ const RejectAdjustmentModal = ({ adjustment, onHide, onRejected }) => {
     } catch (err) {
       const info = errorInfo(err, "Could not reject this adjustment.");
       setError(info.code === "VALIDATION" ? info.message : adjustmentRefusal(info, { action: "reject" }));
+      if (info.code === "CONFLICT" || info.code === "NOT_FOUND" || info.httpStatus === 404) onStale?.();
     } finally {
       setBusy(false);
     }

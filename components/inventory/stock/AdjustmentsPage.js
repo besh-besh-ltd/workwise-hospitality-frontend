@@ -114,7 +114,8 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
     } catch (err) {
       const info = errorInfo(err, "Could not approve this adjustment.");
       setApproveError(adjustmentRefusal(info, { action: "approve" }));
-      if (info.code === "CONFLICT") {
+      // Decided elsewhere, or gone (C3: 404 also when it can't be seen any more): the list catches up.
+      if (info.code === "CONFLICT" || info.code === "NOT_FOUND" || info.httpStatus === 404) {
         setDetailKey((k) => k + 1);
         load();
       }
@@ -359,7 +360,15 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
           setRejecting(adj);
         }}
       />
-      <RejectAdjustmentModal adjustment={rejecting} onHide={() => setRejecting(null)} onRejected={onRejected} />
+      <RejectAdjustmentModal
+        adjustment={rejecting}
+        onHide={() => setRejecting(null)}
+        onRejected={onRejected}
+        onStale={() => {
+          setDetailKey((k) => k + 1);
+          load();
+        }}
+      />
     </div>
   );
 };

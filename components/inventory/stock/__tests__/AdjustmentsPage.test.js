@@ -407,13 +407,29 @@ describe("AdjustmentsPage", () => {
     expect(await within(dialog).findByText("This adjustment isn't available to you, or no longer exists.")).toBeInTheDocument();
     second.unmount();
 
-    // approving one that went away
+    // approving one that went away: said, and the list catches up
     approveAdjustment.mockRejectedValueOnce(gone("Adjustment not found"));
     const third = render(<AdjustmentsPage initialId="1" />);
     const sheet = await screen.findByRole("dialog");
+    await waitFor(() => expect(listAdjustments).toHaveBeenCalled());
+    const listedBefore = listAdjustments.mock.calls.length;
     fireEvent.click(await within(sheet).findByRole("button", { name: "Approve" }));
     expect(await within(sheet).findByText("This adjustment isn't available to you, or no longer exists.")).toBeInTheDocument();
+    await waitFor(() => expect(listAdjustments.mock.calls.length).toBeGreaterThan(listedBefore));
     third.unmount();
+
+    // rejecting one that went away: said, and the list catches up
+    rejectAdjustment.mockRejectedValueOnce(gone("Adjustment not found"));
+    const fourth = render(<AdjustmentsPage />);
+    const first = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
+    const before = listAdjustments.mock.calls.length;
+    fireEvent.click(within(first).getByRole("button", { name: "Reject ADJ/46/2026-27/00004" }));
+    const rejectSheet = await screen.findByRole("dialog");
+    fireEvent.change(within(rejectSheet).getByLabelText("Reason"), { target: { value: "Wrong item" } });
+    fireEvent.click(within(rejectSheet).getByRole("button", { name: "Reject adjustment" }));
+    expect(await within(rejectSheet).findByText("This adjustment isn't available to you, or no longer exists.")).toBeInTheDocument();
+    await waitFor(() => expect(listAdjustments.mock.calls.length).toBeGreaterThan(before));
+    fourth.unmount();
 
     // raising one at a hotel that answers 404
     createAdjustment.mockRejectedValueOnce(gone("Hotel not found"));

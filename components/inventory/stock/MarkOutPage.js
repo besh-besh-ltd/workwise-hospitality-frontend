@@ -409,13 +409,21 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     ...extra,
   });
 
+  // The key of the session this render shows. The ref moves on as soon as
+  // another session is put on screen, which can be before this render's
+  // effects run, so the effects below use this copy.
+  const shownSessionKey = sessionKeyRef.current;
+
   // An open session is saved on every change once it has a line, but not while
   // a post is in flight (the post writes what becomes of it); an uncertain one
-  // was written when it changed state and is frozen since.
+  // was written when it changed state and is frozen since. A session with no
+  // lines is cleared only while the slot still holds that session: an emptied
+  // screen (Discard current and open) must never erase what is opened into the
+  // slot next, however late its effect runs or its clear lands.
   useEffect(() => {
     if (!slotKey || restoredFor !== slotKey || done || posting || status !== "open") return;
     if (!lines.length) {
-      clearOutSession(userId, hotelId);
+      clearOutSessionIf(userId, hotelId, shownSessionKey);
       return;
     }
     saveOutSession(userId, hotelId, snapshot());
@@ -736,12 +744,23 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
     if (openingRef.current || postingRef.current || !entry) return;
     openingRef.current = true;
     try {
+      // A waiting one (a try got no answer: it may be recorded) is taken back
+      // from the outbox first, so it isn't sent behind the reopened session.
+      if (entry.state === "pending") {
+        const taken = await queue.discard(entry, { keepCopy: true });
+        if (!taken) {
+          if (mountedRef.current) toast.info("It was sent (or settled) before it could be opened. Its status below is up to date.");
+          return;
+        }
+      }
       const copy = entry.copy;
       const forHotel = Number(copy.hotelId);
       const failed = entry.state === "failed";
       const lastError = entry.gaveUp
         ? { httpStatus: entry.error?.httpStatus ?? null, gaveUp: true, message: entry.error?.message || null }
-        : "unconfirmed";
+        : entry.state === "pending"
+          ? { httpStatus: null } // a try got no answer
+          : "unconfirmed";
       const slot = {
         savedAt: Date.now(),
         hotelId: forHotel,
@@ -1107,6 +1126,7 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
           ? `Not confirmed: ${e.error.message.replace(/\.$/, "")}. Open it to post again or discard`
           : "Not confirmed: open it to post again or discard";
       default: {
+        if (e.mayBeRecorded) return "Waiting to sync (a try got no answer: it may already be recorded)";
         const kept = e.item?.persisted === false || e.copy?.persisted === false ? " (only while this page stays open)" : "";
         return e.item?.lastError?.message
           ? `Waiting to sync${kept} (last try: ${e.item.lastError.message})`
@@ -1177,12 +1197,29 @@ const MarkOutPage = ({ initialHotelId = null, initialMode = null }) => {
                 {askDiscard === e.clientEventId && (
                   <div className={`${r.lineMsg} ${r.lineWarn} ${s.lineProblem}`} role="alertdialog" aria-label="Discard from this device?">
                     <span style={{ flex: 1 }}>
-                      Discard this {kindLabel(copy.docType).toLowerCase()} from this device? It won&apos;t be sent.
+                      {e.mayBeRecorded
+                        ? "It may already have been recorded: a try to send it got no answer. Discarding stops it being " +
+                          "sent, but if it went through it stays recorded. To find out, open it and post again: the same " +
+                          "session is never recorded twice."
+                        : `Discard this ${kindLabel(copy.docType).toLowerCase()} from this device? It won't be sent.`}
                     </span>
                     <div className={s.footActions}>
                       <button type="button" className={`${r.btn} ${r.btnSecondary} ${r.btnSm}`} onClick={() => setAskDiscard(null)}>
                         Keep it
                       </button>
+                      {e.mayBeRecorded && (
+                        <button
+                          type="button"
+                          className={`${r.btn} ${r.btnPrimary} ${r.btnSm}`}
+                          onClick={() => {
+                            setAskDiscard(null);
+                            requestOpen(e);
+                          }}
+                          disabled={posting}
+                        >
+                          Open
+                        </button>
+                      )}
                       <button type="button" className={`${r.btn} ${r.btnDanger} ${r.btnSm}`} onClick={() => discardQueued(e)}>
                         Discard it
                       </button>

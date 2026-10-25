@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  discardPending, getOutboxStatus, onOutboxOutcome, outboxReady, outcomeError, useFailedItems, useOutboxReady,
-  usePendingItems,
+  discardPending, getOutboxStatus, mayBeRecorded, onOutboxOutcome, outboxReady, outcomeError, useFailedItems,
+  useOutboxReady, usePendingItems,
 } from "./outboxBridge";
 import { clearQueuedOut, listQueuedOuts, loadQueuedOut, saveQueuedOut } from "./outSession";
 import { isUncertainFailure } from "./stockUtils";
@@ -11,7 +11,8 @@ import { isUncertainFailure } from "./stockUtils";
 // counts:
 //
 //   "checking"   the stored queue hasn't loaded yet: nothing is decided
-//   "pending"    waiting to sync (`item` is the outbox entry)
+//   "pending"    waiting to sync (`item` is the outbox entry; `mayBeRecorded`
+//                when a try got no answer, so the server may already have it)
 //   "sending"    being sent right now
 //   "discarding" "Discard from this device" is under way: nothing is decided
 //                until discardPending answers (its status flips first)
@@ -30,6 +31,7 @@ import { isUncertainFailure } from "./stockUtils";
 //            itemFor(clientEventId): object|null}}
 
 export const OUT_KIND = "out_post";
+const EMPTY_COPIES = Object.freeze([]);
 /**
  * The outbox marks an event sent a moment before it reports the server's
  * answer. With the status already "sent" (that alone decides it synced), wait
@@ -149,7 +151,9 @@ const useQueuedOuts = ({ userId, onSynced }) => {
   );
 
   const outboxLoaded = ready && hydrated;
-  const entries = copies.map((copy) => {
+  // Only this user's copies, once read: never a commit of the last user's.
+  const mine = userId && loadedFor === userId ? copies : EMPTY_COPIES;
+  const entries = mine.map((copy) => {
     const cid = copy.clientEventId;
     const item = pendingItems.find((i) => i.clientEventId === cid) || null;
     const failed = failedItems.find((i) => i.clientEventId === cid) || null;
@@ -178,6 +182,7 @@ const useQueuedOuts = ({ userId, onSynced }) => {
       copy,
       state,
       gaveUp,
+      mayBeRecorded: state === "pending" && mayBeRecorded(item),
       item,
       failed,
       error,
@@ -211,9 +216,12 @@ const useQueuedOuts = ({ userId, onSynced }) => {
     }
   });
 
-  /** "Discard from this device": false when it was sent (or settled) meanwhile. */
+  /**
+   * "Discard from this device": false when it was sent (or settled) meanwhile.
+   * `keepCopy` takes it back from the outbox but keeps the copy (to reopen it).
+   */
   const discard = useCallback(
-    async (entry) => {
+    async (entry, { keepCopy = false } = {}) => {
       if (!entry?.item?.id) return false;
       const cid = entry.clientEventId;
       // While the outbox answers, the entry's status may already read
@@ -228,7 +236,7 @@ const useQueuedOuts = ({ userId, onSynced }) => {
       let ok = false;
       try {
         ok = await discardPending(entry.item.id);
-        if (ok) await forget(cid);
+        if (ok && !keepCopy) await forget(cid);
       } finally {
         done();
         if (!ok) setTick((n) => n + 1); // read its status again

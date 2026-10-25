@@ -96,6 +96,7 @@ jest.mock("@/components/inventory/offline/outbox", () => {
       setItem(id, { status: "dismissed" });
       return true;
     }),
+    mayBeRecorded: (item) => item?.mayBeRecorded === true || item?.error?.uncertain === true,
     onOutboxOutcome: (listener) => {
       store.outcomes.add(listener);
       return () => store.outcomes.delete(listener);
@@ -103,6 +104,20 @@ jest.mock("@/components/inventory/offline/outbox", () => {
     __store: store,
     __emit: emit,
     __setItem: setItem,
+  };
+});
+
+// A slow device: when set, a clear of the open slot lands this many ms after it is asked for.
+let mockSlowClearMs = 0;
+jest.mock("../outSession", () => {
+  const real = jest.requireActual("../outSession");
+  return {
+    __esModule: true,
+    ...real,
+    clearOutSession: (...args) =>
+      mockSlowClearMs
+        ? new Promise((r) => setTimeout(r, mockSlowClearMs)).then(() => real.clearOutSession(...args))
+        : real.clearOutSession(...args),
   };
 });
 
@@ -229,6 +244,7 @@ const lastToast = () => {
 beforeEach(async () => {
   jest.clearAllMocks();
   mockQuery = {};
+  mockSlowClearMs = 0;
   mockMobile = false;
   mockCanCreate = true;
   mockPermError = null;
@@ -718,6 +734,31 @@ describe("MarkOutPage scan session", () => {
     expect(screen.getByLabelText("Qty of Paneer")).toBeEnabled();
   });
 
+  test("Discard current and open keeps the reopened locked session on the device, even when the cleared screen's write lands late", async () => {
+    const { key, sent } = await queueRice();
+    await scan("SOAP");
+    await qtyOf("Dish soap");
+    act(() => outbox.__setItem(`out_post:${key}`, {
+      status: "failed",
+      error: { httpStatus: 503, code: "GAVE_UP", uncertain: true, details: {}, message: "gave up" },
+    }));
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    await within(card).findByText(/^Not confirmed/);
+
+    // a slow device: every clear of the open slot lands 50 ms after it is asked for
+    mockSlowClearMs = 50;
+    fireEvent.click(within(card).getByRole("button", { name: "Open" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Discard current and open" }));
+    expect(await screen.findByText(/may or may not be recorded/, {}, REOPEN)).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+    });
+    mockSlowClearMs = 0;
+    // its queued copy is gone, so the slot is the only copy left on the device
+    expect(await sessions.listQueuedOuts(USER)).toEqual([]);
+    expect(await loadOutSession(46)).toEqual(expect.objectContaining({ status: "uncertain", sentPayload: sent }));
+  });
+
   test("a reload while the first send was out keeps the session queued, not as a draft to send again", async () => {
     // the slot as it stood when Post was pressed; the outbox took the event
     const lines = [{ invItemId: 9, displayName: "Basmati rice", stockUom: "bag", qty: "6", exact: 6, available: 10 }];
@@ -855,6 +896,33 @@ describe("MarkOutPage scan session", () => {
     expect(screen.queryByText(/can't confirm whether this session was recorded/)).toBeNull();
     await waitFor(async () => expect(await sessions.loadQueuedOut(USER, key)).toBeNull());
     expect(await loadOutSession(46)).toBeNull();
+  });
+
+  test("a waiting session a try got no answer for warns before Discard and offers Open, which reopens it locked", async () => {
+    const { key, sent } = await queueRice();
+    // a send went out and no answer came: the server may already have it
+    act(() => outbox.__setItem(`out_post:${key}`, { mayBeRecorded: true, attempts: 1 }));
+    const card = screen.getByRole("region", { name: "Waiting to sync" });
+    const row = within(card).getByRole("listitem", { name: "Mark out · Kitchen" });
+    expect(row).toHaveTextContent("a try got no answer: it may already be recorded");
+
+    fireEvent.click(within(row).getByRole("button", { name: "Discard from this device" }));
+    const ask = within(row).getByRole("alertdialog", { name: "Discard from this device?" });
+    expect(ask).toHaveTextContent(/It may already have been recorded/);
+    expect(ask).not.toHaveTextContent(/It won't be sent/);
+    fireEvent.click(within(ask).getByRole("button", { name: "Open" }));
+
+    // taken back from the outbox, then reopened locked under its key
+    await waitFor(() => expect(outbox.discardPending).toHaveBeenCalledWith(`out_post:${key}`));
+    expect(await screen.findByText(/may or may not be recorded/, {}, REOPEN)).toBeInTheDocument();
+    expect(await qtyOf("Basmati rice")).toBeDisabled();
+    expect(screen.queryByRole("region", { name: "Waiting to sync" })).toBeNull();
+    await waitFor(async () => expect(await loadOutSession(46)).toEqual(expect.objectContaining({ status: "uncertain", sentPayload: sent })));
+    sendNow();
+    postOut.mockResolvedValue({ ...outDoc(), replayed: true });
+    fireEvent.click(screen.getByRole("button", { name: "Post again" }));
+    await waitFor(() => expect(postOut).toHaveBeenCalledTimes(1));
+    expect(postOut.mock.calls[0][0]).toEqual(sent);
   });
 
   test("a discard that loses the race to a send shows it as synced", async () => {

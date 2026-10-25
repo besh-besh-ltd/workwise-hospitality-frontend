@@ -19,6 +19,8 @@ import * as outbox from "@/components/inventory/offline/outbox";
 //                                                    (fallback: [])
 //   dismissFailed(id)                                (fallback: no-op)
 //   discardPending(id) -> Promise<boolean>           (fallback: false)
+//   mayBeRecorded(item) -> boolean                   (fallback: false)
+//     a waiting item a try got no answer for: the server may already have it
 //   onOutboxOutcome(listener) -> unsubscribe         (fallback: never fires)
 //     listener({id, clientEventId, kind, outcome: "sent"|"failed"|"discarded", result?, error?})
 //
@@ -83,6 +85,17 @@ export const discardPending = (id) => {
   const impl = fn("discardPending");
   if (!impl) return Promise.resolve(false);
   return Promise.resolve(impl(id)).then((ok) => ok === true, () => false);
+};
+
+/** A waiting item whose send got no answer: it may already be recorded. */
+export const mayBeRecorded = (item) => {
+  const impl = fn("mayBeRecorded");
+  if (!impl || !item) return false;
+  try {
+    return impl(item) === true;
+  } catch {
+    return false;
+  }
 };
 
 export const onOutboxOutcome = (listener) => {
