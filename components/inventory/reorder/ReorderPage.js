@@ -16,8 +16,9 @@ import styles from "./Reorder.module.scss";
 // for the chosen department) or to an RFQ draft (any item with a product).
 // The hotel list, departments and contract lines all come from GET /reorder,
 // which scopes them to the caller; the page only chooses among them. The MR
-// controls show only when the server says the caller may raise one here
-// (`can.createMrDraft`); a missing flag hides them. An MR draft carries a
+// controls and the contract column show only when the server says the caller
+// may raise one here (`can.createMrDraft`); a missing flag hides them, and one
+// quiet note says how to get MR access. An MR draft carries a
 // clientEventId: kept for a retry of the same request after an unknown outcome
 // (no answer, or a gateway error), so that retry returns the draft the lost
 // request made; new after any answer. Each contract line shows what the
@@ -340,6 +341,12 @@ const ReorderPage = () => {
     <div className={styles.page}>
       {header}
       <main className={styles.pageBody}>
+        {!canCreateMr && (
+          <div className={styles.notice} role="note">
+            <Info size={13} aria-hidden="true" />
+            <span>You can see what needs reordering here. To raise an MR, ask for MR Raiser access at this hotel.</span>
+          </div>
+        )}
         {!data?.stockStartedAt && (
           <div className={`${styles.notice} ${styles.noticeWarn}`} role="note">
             <Info size={13} aria-hidden="true" />
@@ -503,7 +510,7 @@ const ReorderPage = () => {
                     <th className={styles.num}>On order</th>
                     <th className={styles.num}>Suggested</th>
                     <th className={styles.num}>Order qty</th>
-                    <th>Contract</th>
+                    {canCreateMr && <th>Contract</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -580,32 +587,34 @@ const ReorderPage = () => {
                             onChange={(e) => setQtys((cur) => ({ ...cur, [r.invItemId]: e.target.value }))}
                           />
                         </td>
-                        <td data-label="Contract">
-                          {line ? (
-                            <>
-                              <span className={styles.contract}>
-                                <span className={`${styles.dot} ${styles.dotOk}`} aria-hidden="true" />
-                                <span>
-                                  {line.arcNumber || "ARC"}
-                                  {line.vendorName ? ` · ${line.vendorName}` : ""}
-                                  {fmtRate(line.unitRate) ? (
-                                    <span className={styles.mono}> · {fmtRate(line.unitRate)}{line.uom ? `/${line.uom}` : ""}</span>
-                                  ) : null}
+                        {canCreateMr && (
+                          <td data-label="Contract">
+                            {line ? (
+                              <>
+                                <span className={styles.contract}>
+                                  <span className={`${styles.dot} ${styles.dotOk}`} aria-hidden="true" />
+                                  <span>
+                                    {line.arcNumber || "ARC"}
+                                    {line.vendorName ? ` · ${line.vendorName}` : ""}
+                                    {fmtRate(line.unitRate) ? (
+                                      <span className={styles.mono}> · {fmtRate(line.unitRate)}{line.uom ? `/${line.uom}` : ""}</span>
+                                    ) : null}
+                                  </span>
                                 </span>
+                                {remainingText(line) && <span className={styles.contractNote}>{remainingText(line)}</span>}
+                              </>
+                            ) : r.contracted ? (
+                              <span className={styles.muted}>Contract in another department</span>
+                            ) : (
+                              <span className={styles.muted}>No contract: RFQ</span>
+                            )}
+                            {refusedItems[r.invItemId] && refusalText(refusedItems[r.invItemId]) && (
+                              <span className={`${styles.contractNote} ${styles.contractNoteBad}`}>
+                                {refusalText(refusedItems[r.invItemId])}
                               </span>
-                              {remainingText(line) && <span className={styles.contractNote}>{remainingText(line)}</span>}
-                            </>
-                          ) : r.contracted ? (
-                            <span className={styles.muted}>Contract in another department</span>
-                          ) : (
-                            <span className={styles.muted}>No contract: RFQ</span>
-                          )}
-                          {refusedItems[r.invItemId] && refusalText(refusedItems[r.invItemId]) && (
-                            <span className={`${styles.contractNote} ${styles.contractNoteBad}`}>
-                              {refusalText(refusedItems[r.invItemId])}
-                            </span>
-                          )}
-                        </td>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
