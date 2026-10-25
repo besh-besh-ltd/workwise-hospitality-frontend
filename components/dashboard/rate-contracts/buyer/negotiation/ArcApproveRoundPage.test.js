@@ -183,6 +183,23 @@ describe("deciding", () => {
     );
   });
 
+  it("a refused decision shows the server's reason, not the HTTP status line", async () => {
+    const { toast } = jest.requireMock("react-toastify");
+    const { container } = await renderPage();
+    // Services reject as `{ message: AxiosError }`.
+    ArcApi.approveArcNegotiationRound.mockRejectedValue({
+      message: {
+        isAxiosError: true,
+        message: "Request failed with status code 409",
+        response: { status: 409, data: { status: 0, message: "No vote is waiting on you for this round" } },
+      },
+    });
+    fireEvent.click(within(container).getByRole("button", { name: /^approve$/i }));
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "Fine by me" } });
+    fireEvent.click(screen.getByRole("button", { name: /confirm approval/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No vote is waiting on you for this round"));
+  });
+
   it("rejects through the ARC endpoint with the reason", async () => {
     const { container } = await renderPage();
     ArcApi.rejectArcNegotiationRound.mockResolvedValue({ status: 1 });

@@ -14,6 +14,7 @@ import StepReview, { RFQ_WHOLE_SCOPE } from './StepReview';
 import MobileActionBar, { MobileActionButton } from '@/components/shared/mobile/MobileActionBar';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
 import RoundRemarks from '../RoundRemarks';
+import { getApiErrorMessage } from '@/utils/apiError';
 import styles from './CreateRound.module.scss';
 
 // The negotiation approval page, minus where its data comes from. RFQ rounds
@@ -192,7 +193,7 @@ const NegotiationApprovalView = ({
       const fresh = await Promise.resolve(refetchBundle?.()).catch(() => null);
       if (pendingRoundsOf(fresh || {}).length === 0) onDone?.();
     } catch (err) {
-      toast.error(err?.message || 'Action failed — please try again.');
+      toast.error(getApiErrorMessage(err, 'Action failed — please try again.'));
     } finally {
       setActionLoading(false);
     }
