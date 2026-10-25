@@ -915,6 +915,82 @@ describe("two tabs", () => {
     await tab2._resetOutboxForTests();
   });
 
+  it("without Web Locks, a retry is marked in flight: a stale tab can neither discard it nor send it too", async () => {
+    expect(navigator.locks).toBeUndefined();
+    await queueOffline(outEvent());
+    const outcomes = [];
+    onOutboxOutcome((e) => outcomes.push(e.outcome));
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { out_post: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+    expect(await rawRows()).toEqual([
+      expect.objectContaining({ status: "pending", inFlight: true, inFlightSince: expect.any(Number) }),
+    ]);
+
+    // This tab listed it as waiting; Discard and a flush here, while tab 2's retry is out.
+    postOut.mockResolvedValue({ id: 1 });
+    await expect(discardPending("out_post:out-1")).resolves.toBe(false);
+    await flush({ force: true });
+    expect(postOut).not.toHaveBeenCalled();
+
+    gate.answer({ id: 9 });
+    await expect(tab2Flush).resolves.toEqual(expect.objectContaining({ sent: 1 }));
+    await flush({ force: true });
+    expect(postOut).not.toHaveBeenCalled();
+    expect(outcomes).not.toContain("discarded");
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("without Web Locks, a Discard that read the device before another tab's retry went out does not claim it", async () => {
+    expect(navigator.locks).toBeUndefined();
+    await queueOffline(outEvent());
+    const outcomes = [];
+    onOutboxOutcome((e) => outcomes.push(e.outcome));
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { out_post: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+
+    // This tab's re-read fails, so it decides on what it read before the retry went out.
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reads = jest.spyOn(IDBObjectStore.prototype, "getAll").mockImplementation(() => {
+      throw new Error("read failed");
+    });
+    expect(getOutboxStatus("out_post", "out-1")).toBe("pending");
+    await expect(discardPending("out_post:out-1")).resolves.toBe(false);
+    expect(reads).toHaveBeenCalled();
+    reads.mockRestore();
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", inFlight: true })]);
+
+    gate.answer({ id: 9 });
+    await expect(tab2Flush).resolves.toEqual(expect.objectContaining({ sent: 1 }));
+    expect(outcomes).not.toContain("discarded");
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("without Web Locks, a retry is held unsent when another tab changed the row since this tab read it", async () => {
+    expect(navigator.locks).toBeUndefined();
+    await queueOffline(outEvent());
+    const tab2 = openOtherTab();
+    // Tab 2 discards it; this tab's re-read fails, so it still holds the waiting copy.
+    await expect(tab2.discardPending("out_post:out-1")).resolves.toBe(true);
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reads = jest.spyOn(IDBObjectStore.prototype, "getAll").mockImplementation(() => {
+      throw new Error("read failed");
+    });
+    postOut.mockResolvedValue({ id: 1 });
+    await expect(flush({ force: true })).resolves.toEqual(expect.objectContaining({ sent: 0, failed: 0 }));
+    expect(reads).toHaveBeenCalled();
+    reads.mockRestore();
+    expect(postOut).not.toHaveBeenCalled();
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "dismissed" })]);
+    await tab2._resetOutboxForTests();
+  });
+
   it("without Web Locks, a row in flight longer than any live send is taken back", async () => {
     await putRaw(rawOut("old", { inFlight: true, inFlightSince: Date.now() - 91 * 1000 }));
     await putRaw(rawOut("new", { inFlight: true, inFlightSince: Date.now(), seq: 2 }));
