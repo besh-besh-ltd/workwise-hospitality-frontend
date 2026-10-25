@@ -11,11 +11,13 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // The company's inventory items (GET /items, 50 a page). Opening one edits
 // its details, mapped variants, units and barcodes.
 //
-// Props: { canAdmin (inventory.admin), canUpdate (inventory.update) }
+// Props: { companyId (the company the Setup page acts on; sent as the list's
+//          own hint, null to let the server decide), canAdmin (inventory.admin),
+//          canUpdate (inventory.update) }
 
 const PAGE_SIZE = 50;
 
-const ItemsTab = ({ canAdmin, canUpdate }) => {
+const ItemsTab = ({ companyId = null, canAdmin, canUpdate }) => {
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -47,6 +49,7 @@ const ItemsTab = ({ canAdmin, canUpdate }) => {
     const params = {};
     if (search) params.search = search;
     params.page = page;
+    if (companyId) params.hospitality_company_id = companyId;
     try {
       const res = await listItems(params);
       if (seq !== seqRef.current) return;
@@ -58,7 +61,7 @@ const ItemsTab = ({ canAdmin, canUpdate }) => {
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
-  }, [search, page]);
+  }, [search, page, companyId]);
 
   useEffect(() => {
     load();
@@ -174,7 +177,7 @@ const ItemsTab = ({ canAdmin, canUpdate }) => {
       )}
 
       <ItemEditorModal item={editing} canAdmin={canAdmin} canUpdate={canUpdate} onHide={() => setEditing(null)} onChanged={onChanged} />
-      <NewItemModal show={creating} onHide={() => setCreating(false)} onCreated={onCreated} />
+      <NewItemModal show={creating} companyId={companyId} onHide={() => setCreating(false)} onCreated={onCreated} />
     </section>
   );
 };

@@ -11,9 +11,9 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // variant looks like an item that already exists (GET /items/suggest), offer
 // to map it to that item instead, so one thing isn't stocked twice.
 //
-// Props: { show, onHide, onCreated(item) }
+// Props: { show, companyId (the Setup page's company, or null), onHide, onCreated(item) }
 
-const NewItemModal = ({ show, onHide, onCreated }) => {
+const NewItemModal = ({ show, companyId = null, onHide, onCreated }) => {
   const titleId = useId();
   const [variant, setVariant] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -39,7 +39,7 @@ const NewItemModal = ({ show, onHide, onCreated }) => {
     setError(null);
     setSuggestions([]);
     try {
-      const res = await suggestItems(v.id);
+      const res = await suggestItems(v.id, companyId);
       setSuggestions((Array.isArray(res) ? res : res?.rows || []).slice(0, 5));
     } catch {
       setSuggestions([]);
@@ -74,7 +74,7 @@ const NewItemModal = ({ show, onHide, onCreated }) => {
     if (trackExpiry) payload.trackExpiry = true;
     if (name.trim() && name.trim() !== variant.name) payload.displayName = name.trim();
     try {
-      const item = await createItem(payload);
+      const item = await createItem(payload, companyId);
       onCreated?.(item, { mapped: false });
     } catch (err) {
       setError(errorInfo(err, "Could not create the item.").message);

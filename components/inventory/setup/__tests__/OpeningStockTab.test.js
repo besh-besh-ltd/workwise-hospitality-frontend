@@ -86,6 +86,33 @@ describe("OpeningStockTab", () => {
     expect(postOpeningStock).not.toHaveBeenCalled();
   });
 
+  test("a long sheet with a few bad rows opens on just the problem rows, with a toggle back to all (M-4)", async () => {
+    const good = Array.from({ length: 30 }, (_, i) => okRow({ rowNo: i + 2, invItemId: 100 + i, displayName: `Item ${i + 1}` }));
+    previewOpeningStock.mockResolvedValue({ rows: [...good, badRow], okCount: 30, errorCount: 1 });
+    render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    upload();
+    const table = await screen.findByRole("table", { name: "Opening stock preview" });
+    const only = screen.getByRole("checkbox", { name: "Show only rows with problems" });
+    expect(only).toBeChecked();
+    expect(within(table).getAllByRole("row")).toHaveLength(2); // header + Saffron
+    expect(within(table).getByText("Saffron")).toBeInTheDocument();
+    expect(within(table).queryByText("Item 1")).toBeNull();
+    expect(screen.getByText("Showing 1 of 31 rows")).toBeInTheDocument();
+
+    fireEvent.click(only);
+    expect(within(table).getAllByRole("row")).toHaveLength(32);
+    expect(within(table).getByText("Item 30")).toBeInTheDocument();
+  });
+
+  test("a clean preview has no problem filter and shows every row", async () => {
+    previewOpeningStock.mockResolvedValue({ rows: [okRow(), createRow], okCount: 2, errorCount: 0 });
+    render(<OpeningStockTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    upload();
+    const table = await screen.findByRole("table", { name: "Opening stock preview" });
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+    expect(screen.queryByRole("checkbox", { name: "Show only rows with problems" })).toBeNull();
+  });
+
   test("a clean preview posts every row, creating new items from their variant", async () => {
     previewOpeningStock.mockResolvedValue({ rows: [okRow(), createRow], okCount: 2, errorCount: 0 });
     postOpeningStock.mockResolvedValue({ adjustmentId: 41, adjustmentNumber: "ADJ/46/2026-27/00001" });
@@ -122,6 +149,9 @@ describe("OpeningStockTab", () => {
     const table = screen.getByRole("table", { name: "Opening stock preview" });
     const paneer = within(table).getByText("Paneer 1kg").closest("tr");
     expect(await within(paneer).findByText("Already has an item: preview again")).toBeInTheDocument();
+    // Refused rows count as problems too: the view narrows to them.
+    expect(screen.getByRole("checkbox", { name: "Show only rows with problems" })).toBeChecked();
+    expect(within(table).queryByText("Basmati rice")).toBeNull();
     expect(screen.getByRole("button", { name: /Post opening stock/ })).toBeDisabled();
   });
 

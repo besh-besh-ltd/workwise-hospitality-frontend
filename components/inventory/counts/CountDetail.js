@@ -133,7 +133,7 @@ const CountDetail = ({ id }) => {
           <div className={`${styles.notice} ${styles.noticeWarn}`}>
             <Lock size={16} aria-hidden="true" />
             <span>
-              {`Stock at ${count.hotelName || "this hotel"} is frozen while this count is open: mark-out, returns and adjustments wait until it is submitted or cancelled.`}
+              {`Stock at ${count.hotelName || "this hotel"} is frozen while this count is open: receiving deliveries (site-rep receipts too), GRN reversals, returns to vendor, mark-out, returns and adjustments wait until it is submitted or cancelled.`}
             </span>
           </div>
         )}

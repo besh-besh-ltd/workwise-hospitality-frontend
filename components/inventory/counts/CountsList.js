@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { ChevronLeft, ChevronRight, ClipboardCheck, EyeOff, Plus, RotateCcw } from "lucide-react";
 import { getStock, listCounts } from "@/services/inventory";
-import { useModulePermissions } from "@/hooks/useModulePermissions";
+import usePermittedHotels from "@/components/inventory/stock/usePermittedHotels";
 import { getApiErrorMessage } from "@/utils/apiError";
 import StartCountModal from "./StartCountModal";
 import { SCOPE_LABEL, countPath, fmtDate, statusMeta } from "./countUtils";
@@ -11,7 +11,8 @@ import styles from "./counts.module.scss";
 
 // /dashboard/buyer/inventory/counts: every count at the hotels the user can
 // read (the server filters), newest first, with status and hotel filters and
-// "Start count" for users who hold inventory.create.
+// "Start count" for users who hold inventory.create. The start modal lists only
+// the hotels where they hold it.
 
 const PAGE_SIZE = 50;
 const STATUS_TABS = [
@@ -50,8 +51,14 @@ const CountsList = () => {
     };
   }, [hotelsKey]);
 
-  const hotelIds = useMemo(() => (hotels || []).map((h) => Number(h.id)), [hotels]);
-  const { canCreate } = useModulePermissions({ moduleKey: "inventory", hotelIds, enabled: hotelIds.length > 0 });
+  // Hotel by hotel: the bulk check answers with the union over the hotels it is
+  // given, which would offer read-only hotels in the start modal.
+  const createPerm = usePermittedHotels({ moduleKey: "inventory", action: "create", hotels, enabled: !!hotels });
+  const createHotels = useMemo(
+    () => (hotels || []).filter((h) => createPerm.ids.has(Number(h.id))),
+    [hotels, createPerm.ids]
+  );
+  const canCreate = createHotels.length > 0;
 
   useEffect(() => {
     const n = ++seq.current;
@@ -265,8 +272,8 @@ const CountsList = () => {
       <StartCountModal
         show={showStart}
         onHide={() => setShowStart(false)}
-        hotels={hotels || []}
-        defaultHotelId={hotelId || undefined}
+        hotels={createHotels}
+        defaultHotelId={createHotels.some((h) => String(h.id) === String(hotelId)) ? hotelId : undefined}
         onStarted={(count) => {
           setShowStart(false);
           if (count?.id) router.push(countPath(count.id));

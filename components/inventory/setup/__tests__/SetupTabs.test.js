@@ -30,6 +30,11 @@ jest.mock("@/hooks/useModulePermissions", () => ({
   },
 }));
 jest.mock("@/services/hospitality", () => ({ __esModule: true, getMyHospitalityContexts: jest.fn() }));
+// One state object, built once: the page keys its company pick by userProfile.id.
+jest.mock("react-redux", () => {
+  const state = { userProfile: { id: 407 } };
+  return { __esModule: true, useSelector: (fn) => fn(state) };
+});
 let mockCtx = null;
 const mockCtxListeners = new Set();
 jest.mock("@/utils/hospitalityContext", () => ({
@@ -114,6 +119,7 @@ beforeEach(() => {
   mockPermCalls.length = 0;
   mockCtx = null;
   mockCtxListeners.clear();
+  window.sessionStorage.clear();
   getMyHospitalityContexts.mockResolvedValue({ status: 1, data: [{ id: 5, name: "Orchid Hotels", hotels: [{ id: 46, name: "Orchid Mumbai" }] }] });
   getStock.mockResolvedValue({ hotelId: 46, stockStartedAt: null, hotels: [{ id: 46, name: "Orchid Mumbai" }], rows: [], total: 0 });
   listItems.mockResolvedValue({ rows: [RICE], total: 1 });
@@ -255,7 +261,7 @@ describe("CategoryDefaultsTab", () => {
       expect(saveCategoryDefaults).toHaveBeenCalledWith([
         { categoryId: 3, trackExpiry: true, defaultMarkOutOnArrival: true },
         { categoryId: 5, trackExpiry: false, defaultMarkOutOnArrival: false },
-      ])
+      ], null)
     );
   });
 });
@@ -289,6 +295,65 @@ describe("HotelLevelsTab", () => {
     expect(saveHotelItem).not.toHaveBeenCalled();
   });
 
+  // M-3: a search or a page change reloads the rows; edits not yet saved stay.
+  const OIL = { invItemId: 12, displayName: "Olive oil", stockUom: "bottle", minQty: 1, reorderLevel: 2, maxQty: 6, binLabel: null };
+  const RICE_LEVELS = { invItemId: 9, displayName: "Basmati rice", stockUom: "bag", minQty: 2, reorderLevel: 4, maxQty: 10, binLabel: "A-01" };
+
+  test("unsaved edits survive a search and a page change, and say how many are waiting (M-3)", async () => {
+    listHotelItems.mockImplementation(({ search, page }) =>
+      Promise.resolve(
+        search === "oil"
+          ? { rows: [OIL], total: 1 }
+          : page === 2
+            ? { rows: [OIL], total: 51 }
+            : { rows: [RICE_LEVELS], total: 51 }
+      )
+    );
+    saveHotelItem.mockResolvedValue({ ...RICE_LEVELS, reorderLevel: 6 });
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    fireEvent.change(await screen.findByLabelText("Reorder level of Basmati rice"), { target: { value: "6" } });
+    expect(screen.getByRole("status")).toHaveTextContent("1 unsaved change");
+
+    // Search away and back.
+    fireEvent.change(screen.getByLabelText("Search items"), { target: { value: "oil" } });
+    expect(await screen.findByLabelText("Reorder level of Olive oil")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 unsaved change");
+    fireEvent.change(screen.getByLabelText("Search items"), { target: { value: "" } });
+    expect(await screen.findByLabelText("Reorder level of Basmati rice")).toHaveValue("6");
+
+    // Page away and back.
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByLabelText("Reorder level of Olive oil")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(await screen.findByLabelText("Reorder level of Basmati rice")).toHaveValue("6");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Basmati rice" }));
+    await waitFor(() =>
+      expect(saveHotelItem).toHaveBeenCalledWith(46, 9, { minQty: 2, reorderLevel: 6, maxQty: 10, binLabel: "A-01" })
+    );
+    await waitFor(() => expect(screen.queryByText(/unsaved change/)).toBeNull());
+  });
+
+  test("while one row saves, the other Save buttons wait instead of silently doing nothing (M-3)", async () => {
+    listHotelItems.mockResolvedValue({ rows: [RICE_LEVELS, OIL], total: 2 });
+    let finishRice;
+    saveHotelItem.mockImplementation((hotelId, id, payload) =>
+      id === 9 ? new Promise((resolve) => { finishRice = () => resolve({ ...RICE_LEVELS, ...payload }); }) : Promise.resolve({ ...OIL, ...payload })
+    );
+    render(<HotelLevelsTab hotelId={46} canUpdate />);
+    fireEvent.change(await screen.findByLabelText("Reorder level of Basmati rice"), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText("Reorder level of Olive oil"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Basmati rice" }));
+    await waitFor(() => expect(saveHotelItem).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Save Olive oil" })).toBeDisabled();
+
+    await act(async () => finishRice());
+    const saveOil = screen.getByRole("button", { name: "Save Olive oil" });
+    await waitFor(() => expect(saveOil).toBeEnabled());
+    fireEvent.click(saveOil);
+    await waitFor(() => expect(saveHotelItem).toHaveBeenLastCalledWith(46, 12, { minQty: 1, reorderLevel: 3, maxQty: 6, binLabel: null }));
+  });
+
   test("a hotel that answers 404 (C3: can't see it, or it's gone) says it isn't available", async () => {
     listHotelItems.mockRejectedValueOnce(apiError(404, "NOT_FOUND", {}, "Hotel not found"));
     render(<HotelLevelsTab hotelId={46} canUpdate />);
@@ -318,7 +383,7 @@ describe("SettingsTab", () => {
     fireEvent.change(screen.getByLabelText("Adjustment auto-approve limit (₹)"), { target: { value: "5000" } });
     fireEvent.click(screen.getByRole("button", { name: "Save company settings" }));
     await waitFor(() =>
-      expect(saveCompanySettings).toHaveBeenCalledWith({ allowNegativeStock: true, adjustmentAutoApproveLimit: 5000 })
+      expect(saveCompanySettings).toHaveBeenCalledWith({ allowNegativeStock: true, adjustmentAutoApproveLimit: 5000 }, null)
     );
   });
 
@@ -346,6 +411,20 @@ describe("SettingsTab", () => {
     fireEvent.change(screen.getByLabelText("Document code"), { target: { value: "MUM" } });
     fireEvent.click(screen.getByRole("button", { name: "Save hotel settings" }));
     expect(await screen.findByText("This hotel isn't available to you, or no longer exists.")).toBeInTheDocument();
+  });
+
+  test("the count freeze setting says it also stops deliveries being received (I-2)", async () => {
+    render(<SettingsTab hotelId={46} hotelName="Orchid Mumbai" canAdmin />);
+    await screen.findByLabelText("Freeze stock during counts");
+    const help = screen.getByText(/While a count is open at a hotel/);
+    // Everything the server refuses with LOCKED while a freezing count is open.
+    for (const blocked of [
+      /receiving deliveries \(GRNs and site-rep receipts\)/, /GRN reversals/, /returns to vendor/, /mark out/,
+      /returns/, /adjustments/, /opening stock/,
+    ]) {
+      expect(help).toHaveTextContent(blocked);
+    }
+    expect(help).toHaveTextContent(/until the count is submitted or cancelled/);
   });
 
   test("without inventory.admin the settings are read-only", async () => {
@@ -418,7 +497,7 @@ describe("NewItemModal", () => {
     expect(createItem).not.toHaveBeenCalled();
     fireEvent.change(within(form).getByLabelText("Stock unit"), { target: { value: " kg " } });
     fireEvent.click(within(form).getByRole("button", { name: /Create item/ }));
-    await waitFor(() => expect(createItem).toHaveBeenCalledWith({ productVariantId: 701, stockUom: "kg" }));
+    await waitFor(() => expect(createItem).toHaveBeenCalledWith({ productVariantId: 701, stockUom: "kg" }, null));
     expect(onCreated).toHaveBeenCalledWith({ id: 30, displayName: "Paneer 1kg", stockUom: "kg" }, { mapped: false });
   });
 
@@ -475,8 +554,10 @@ describe("SetupPage", () => {
     act(() => {
       fireEvent.click(use);
     });
-    expect(setStoredHospitalityContext).toHaveBeenCalledWith({ companyId: 5, companyName: "Orchid Hotels", hotelId: null, hotelName: null });
+    // The pick is the page's own: the portal-wide context is left alone (I-1).
+    expect(setStoredHospitalityContext).not.toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "Basmati rice" })).toBeInTheDocument();
+    expect(listItems).toHaveBeenLastCalledWith({ page: 1, hospitality_company_id: 5 });
     expect(screen.getByText(/^For/)).toHaveTextContent("For Orchid Hotels");
     expect(screen.queryByRole("region", { name: "Choose a company" })).toBeNull();
   });

@@ -21,6 +21,9 @@ import s from "@/components/inventory/stock/stock.module.scss";
 // with stock activity since then is refused (use a count or an adjustment),
 // and while a count freezes the hotel the post is refused (countFreeze).
 //
+// The preview can run to thousands of rows, so when any row has a problem it
+// opens on just those rows, with a toggle back to the whole sheet.
+//
 // Props: { hotelId, hotelName, canAdmin (inventory.admin at this hotel),
 //          onBusyChange(posting) (the page locks its hotel picker) }
 
@@ -78,11 +81,13 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
   const [frozen, setFrozen] = useState(null); // LOCKED on post: {countId, countNumber}
   const [posted, setPosted] = useState(null); // {adjustmentId, adjustmentNumber}
   const [settingsStartedAt, setSettingsStartedAt] = useState(null);
+  const [onlyProblems, setOnlyProblems] = useState(true); // applies only while a row has a problem
 
   const reset = () => {
     setFileName("");
     setPreview(null);
     setRowErrors({});
+    setOnlyProblems(true);
     setError(null);
     setFrozen(null);
     setConfirming(false);
@@ -150,6 +155,7 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
     setFileName(file.name);
     setPreview(null);
     setRowErrors({});
+    setOnlyProblems(true);
     setError(null);
     setFrozen(null);
     setConfirming(false);
@@ -186,6 +192,11 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
     0
   );
   const activityRows = rows.some((row) => /stock activity since stock started/i.test(row.error || ""));
+  // Each row keeps its sheet index: post errors come back by index.
+  const filtering = onlyProblems && errorCount > 0;
+  const shownRows = rows
+    .map((row, i) => ({ row, i }))
+    .filter(({ row, i }) => !filtering || row.error || rowErrors[i]);
 
   const cancelConfirm = () => {
     if (posting) return;
@@ -326,6 +337,19 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
               )}
             </span>
           </div>
+          {errorCount > 0 && rows.length > 0 && (
+            <div className={r.cardBody} style={{ paddingTop: 0, paddingBottom: 12 }}>
+              <label className={`${r.checkRow} ${s.filterCheck}`}>
+                <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
+                Show only rows with problems
+              </label>
+              {filtering && (
+                <span className={r.meta} role="status" style={{ marginLeft: 12 }}>
+                  Showing {shownRows.length} of {rows.length} rows
+                </span>
+              )}
+            </div>
+          )}
           {rows.length === 0 ? (
             <div className={r.emptyState}><div className={r.emptyTitle}>The sheet has no rows</div></div>
           ) : (
@@ -344,7 +368,7 @@ const OpeningStockTab = ({ hotelId, hotelName, canAdmin, onBusyChange }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, i) => {
+                  {shownRows.map(({ row, i }) => {
                     const problem = row.error || rowErrors[i];
                     const unit = stockUnitOf(row);
                     return (

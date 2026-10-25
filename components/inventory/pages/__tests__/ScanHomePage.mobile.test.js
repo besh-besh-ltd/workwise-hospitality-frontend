@@ -71,7 +71,7 @@ const RICE_ITEM = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockQuery = {};
-  mockRights = { inventory: { 46: ["read", "create"], 47: ["read"] }, grn: { 46: ["read"] } };
+  mockRights = { inventory: { 46: ["read", "create"], 47: ["read"] }, grn: { 46: ["read", "create"] } };
   getStock.mockResolvedValue(stockAt([{ id: 46, name: "Orchid Mumbai" }]));
   getMyHospitalityContexts.mockResolvedValue(contexts([{ id: 46, name: "Orchid Mumbai" }]));
 });
@@ -203,7 +203,30 @@ describe("ScanHomePage on a phone", () => {
     const actions = screen.getByRole("navigation", { name: "Scan actions" });
     expect(within(actions).queryByRole("link", { name: /Mark out/ })).toBeNull();
     expect(within(actions).getByRole("link", { name: /Receive/ })).toBeInTheDocument();
-    expect(within(actions).getByRole("link", { name: /Count/ })).toBeInTheDocument();
+    // Counting is inventory.create too (M-5).
+    expect(within(actions).queryByRole("link", { name: /Count/ })).toBeNull();
+  });
+
+  test("a read-only store user gets no dead-end actions, only Look up (M-5)", async () => {
+    mockRights = { inventory: { 46: ["read"] }, grn: { 46: ["read"] } };
+    render(<ScanHomePage />);
+    await screen.findByRole("button", { name: "Look up" });
+    await act(async () => {});
+    const actions = screen.queryByRole("navigation", { name: "Scan actions" });
+    if (actions) expect(within(actions).queryAllByRole("link")).toHaveLength(0);
+    expect(screen.queryByRole("link", { name: /Receive/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Count/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Mark out/ })).toBeNull();
+  });
+
+  test("a receiving clerk sees Receive but not Count (M-5)", async () => {
+    getStock.mockResolvedValue(stockAt([]));
+    mockRights = { inventory: {}, grn: { 46: ["read", "create"] } };
+    render(<ScanHomePage />);
+    const actions = await screen.findByRole("navigation", { name: "Scan actions" });
+    expect(await within(actions).findByRole("link", { name: /Receive/ })).toHaveAttribute("href", "/dashboard/buyer/inventory/receive");
+    expect(within(actions).queryByRole("link", { name: /Count/ })).toBeNull();
+    expect(within(actions).queryByRole("link", { name: /Mark out/ })).toBeNull();
   });
 
   test("with no stock or receiving access there is nothing to look up", async () => {

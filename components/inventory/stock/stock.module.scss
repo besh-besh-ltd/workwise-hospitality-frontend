@@ -420,6 +420,11 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
    MobileActionBar. */
 
 @media (max-width: 768px) {
+  /* The card holding a sticky scan dock: clip, not hidden. Hidden makes the
+     card a scroll box, and a sticky dock inside a box that never scrolls never
+     sticks. Clip keeps the rounded corners. The element selector outranks
+     receive.module.scss's single-class .card whatever order they load in. */
+  section.dockCard { overflow: clip; }
   .segment { width: 100%; min-width: 0; }
   .segmentBtn { min-height: 44px; font-size: 14px; }
   .tab { min-height: 44px; padding: 8px 14px; font-size: 13.5px; }

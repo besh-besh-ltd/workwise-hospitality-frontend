@@ -92,8 +92,9 @@ export const roleMenus = {
     // ── INVENTORY — hotel stock after the PO: receive, store, mark out, count.
     // Every row is gated on its module's `read` grant (see visibleRoleMenu), so
     // the phase only appears for users who hold inventory.read or grn.read.
+    // Overview serves either (its API accepts grn.read), so it names both.
     // Keep these rows contiguous: SideNav/MobileNav group by consecutive runs.
-    { href: "/dashboard/buyer/inventory",             label: "Overview",    targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory",             label: "Overview",    targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: ["inventory", "grn"] },
     { href: "/dashboard/buyer/inventory/receive",     label: "Receive",     targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "grn" },
     { href: "/dashboard/buyer/inventory/stock",       label: "Stock",       targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
     { href: "/dashboard/buyer/inventory/out",         label: "Mark out",    targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
@@ -179,13 +180,15 @@ export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile
 
 /**
  * Permission gate, applied only to items that name a `moduleKey` (today: the
- * Inventory section). `navGrants` is `{ [moduleKey]: ["read", ...] }` from
- * useNavPermissions, or null/undefined while loading: gated items stay hidden
- * until we know, so nothing flashes in and out.
+ * Inventory section). A list of keys passes with `read` on any one of them.
+ * `navGrants` is `{ [moduleKey]: ["read", ...] }` from useNavPermissions, or
+ * null/undefined while loading: gated items stay hidden until we know, so
+ * nothing flashes in and out.
  */
 const grantAllows = (item, navGrants) => {
   if (!item.moduleKey) return true;
-  return !!navGrants?.[item.moduleKey]?.includes("read");
+  const keys = Array.isArray(item.moduleKey) ? item.moduleKey : [item.moduleKey];
+  return keys.some((key) => !!navGrants?.[key]?.includes("read"));
 };
 
 /**
