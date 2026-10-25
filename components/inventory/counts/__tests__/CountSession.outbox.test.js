@@ -116,11 +116,25 @@ const Harness = ({ initial, onReload }) => {
 
 const qtyBox = (name) => screen.getByLabelText(`Counted qty for ${name}`);
 const rowOf = (name) => qtyBox(name).closest("li");
-const settle = async () => {
+/**
+ * Run the save debounce, then let the outbox's device round trips run (each
+ * act() turn yields to fake-indexeddb's real setImmediate) until `check`
+ * passes: a state to wait for, not a fixed number of turns.
+ */
+const MAX_TURNS = 50;
+const settleUntil = async (check) => {
   await act(async () => {
     jest.advanceTimersByTime(SAVE_DEBOUNCE_MS + 10);
   });
-  for (let i = 0; i < 5; i += 1) await act(() => outboxReady());
+  for (let i = 0; i < MAX_TURNS; i += 1) {
+    try {
+      check();
+      return;
+    } catch {
+      await act(() => outboxReady());
+    }
+  }
+  check(); // fails with the matcher's message
 };
 
 /** Type a figure with no connection: the real outbox keeps it. */
@@ -129,8 +143,7 @@ const countOffline = async (base, onReload) => {
   await act(() => outboxReady());
   online = false;
   fireEvent.change(qtyBox("Basmati rice"), { target: { value: "4" } });
-  await settle();
-  expect(within(rowOf("Basmati rice")).getByText("Waiting for connection")).toBeInTheDocument();
+  await settleUntil(() => expect(within(rowOf("Basmati rice")).getByText("Waiting for connection")).toBeInTheDocument());
   expect(saveCountLines).not.toHaveBeenCalled();
 };
 
@@ -160,14 +173,13 @@ it("a figure typed offline waits on the device and is saved once the device is b
   saveCountLines.mockImplementation(() => Promise.resolve(answerWith(base, { 7: 4 })));
   online = true;
   await act(() => flush({ force: true }));
-  await settle();
+  // The outbox drained: the screen asks the server and shows the figure saved.
+  await settleUntil(() => expect(within(rowOf("Basmati rice")).getByText("Saved")).toBeInTheDocument());
 
   expect(saveCountLines).toHaveBeenCalledWith(41, [{ invItemId: 7, countedQty: 4, clientEventId: expect.stringMatching(UUID) }]);
   expect(outcomes).toEqual([expect.objectContaining({ kind: "count_lines", outcome: "sent" })]);
   expect(getOutboxStatus("count_lines", outcomes[0].clientEventId)).toBe("sent");
-  // The outbox drained: the screen asked the server and shows the figure saved.
   expect(onReload).toHaveBeenCalled();
-  expect(within(rowOf("Basmati rice")).getByText("Saved")).toBeInTheDocument();
 });
 
 it("a save refused on replay (the count was submitted meanwhile) becomes a failed item that keeps the figures", async () => {
@@ -183,7 +195,8 @@ it("a save refused on replay (the count was submitted meanwhile) becomes a faile
   );
   online = true;
   await act(() => flush({ force: true }));
-  await settle();
+  // The screen learns the count closed and says so.
+  await settleUntil(() => expect(toast.error).toHaveBeenCalledWith("This count was already submitted"));
 
   expect(saveCountLines).toHaveBeenCalledTimes(1);
   expect(outcomes).toEqual([expect.objectContaining({ kind: "count_lines", outcome: "failed" })]);
@@ -196,7 +209,5 @@ it("a save refused on replay (the count was submitted meanwhile) becomes a faile
       error: expect.objectContaining({ httpStatus: 409, code: "CONFLICT", details: { status: "submitted" } }),
     }),
   ]);
-  // The screen learns the count closed and says so.
   expect(onReload).toHaveBeenCalled();
-  expect(toast.error).toHaveBeenCalledWith("This count was already submitted");
 });

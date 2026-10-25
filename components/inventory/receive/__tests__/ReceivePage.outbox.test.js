@@ -88,7 +88,13 @@ jest.mock("../draftStore", () => {
 });
 
 import React from "react";
-import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+
+// The real outbox does several IndexedDB round trips per step: wait for each
+// state, with room for a loaded CI machine (each wait still ends as soon as
+// the state shows).
+configure({ asyncUtilTimeout: 4000 });
+jest.setTimeout(20000);
 import "@testing-library/jest-dom";
 import { createGrn, getReceiveContext } from "@/services/inventory";
 import { _resetOutboxForTests, flush, getOutboxStatus, useFailedItems } from "@/components/inventory/offline/outbox";

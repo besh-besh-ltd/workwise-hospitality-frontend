@@ -28,11 +28,12 @@ jest.mock("@/services/inventory", () => ({
   saveCountLines: jest.fn(),
 }));
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, configure, renderHook, waitFor } from "@testing-library/react";
 import { createGrn, postOut, saveCountLines } from "@/services/inventory";
 import {
   MAX_SERVER_ATTEMPTS,
   MIN_NO_ANSWER_TRIES,
+  NO_ANSWER_GAP_CAP_MS,
   NO_ANSWER_GIVE_UP_MS,
   OUTBOX_DB_NAME,
   SERVER_GIVE_UP_MIN_MS,
@@ -57,6 +58,11 @@ import {
 
 let online = true;
 Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => online });
+
+// IndexedDB round trips (and a second tab's): room for a loaded CI machine;
+// each wait still ends as soon as the state shows.
+configure({ asyncUtilTimeout: 4000 });
+jest.setTimeout(20000);
 
 const networkError = () => Object.assign(new Error("Network Error"), { isAxiosError: true, code: "ERR_NETWORK", request: {} });
 const httpError = (status, data) =>
@@ -440,6 +446,17 @@ describe("submitOrQueue", () => {
     expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
   });
 
+  it("re-posting an event sent elsewhere while offline rethrows the raw error, queues nothing and still reads sent", async () => {
+    await putRaw(rawOut("out-1", { status: "sent", payload: null, settledAtMs: Date.now() }));
+    online = false;
+    const offlineErr = networkError();
+    postOut.mockRejectedValue(offlineErr);
+    await expect(submitOrQueue(outEvent())).rejects.toBe(offlineErr);
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
+    expect(peek(() => usePendingCount())).toBe(0);
+  });
+
   it("re-posting an event sent on an earlier page sends it once for the server's answer and queues nothing", async () => {
     await putRaw(rawOut("out-1", { status: "sent", payload: null, settledAtMs: Date.now() }));
     postOut.mockResolvedValue({ id: 5, replayed: true });
@@ -601,30 +618,68 @@ describe("replaying queued events", () => {
       await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
     }
     expect(peek(() => usePendingItems())[0]).toEqual(expect.objectContaining({ mayBeRecorded: true }));
-    travel(NO_ANSWER_GIVE_UP_MS);
-    await expect(flush()).resolves.toEqual({ sent: 0, failed: 1, pending: 0 });
-    expect(peek(() => useFailedItems())[0].error).toEqual(
-      expect.objectContaining({ httpStatus: status, code: "NO_ANSWER", uncertain: true })
-    );
+    expect(await rawRows()).toEqual([expect.objectContaining({ noAnswerTries: MAX_SERVER_ATTEMPTS + 3, serverAttempts: 0 })]);
   });
 
-  it(`no answer for 3 days of online tries (at least ${MIN_NO_ANSWER_TRIES}): given up, as uncertain`, async () => {
+  it("time spent retrying adds up the gaps between unanswered online tries (no answer or a gateway error), each capped", async () => {
     await queueOffline(outEvent());
-    postOut.mockRejectedValue(networkError());
+    let n = 0;
+    postOut.mockImplementation(async () => {
+      n += 1;
+      throw n % 2 ? networkError() : httpError(503, { message: "Service Unavailable" });
+    });
     await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
     const [waiting] = peek(() => usePendingItems());
     expect(waiting.lastError).toEqual(expect.objectContaining({ message: "No answer from the server" }));
     expect(mayBeRecorded(waiting)).toBe(true);
+    expect(await rawRows()).toEqual([expect.objectContaining({ noAnswerTries: 1, noAnswerRetryingMs: 0 })]);
 
-    travel(NO_ANSWER_GIVE_UP_MS + 60000);
-    // Three days on, but only the second unanswered try.
-    await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    for (let i = 0; i < 4; i += 1) {
+      travel(NO_ANSWER_GAP_CAP_MS / 2);
+      await flush({ force: true });
+    }
+    travel(NO_ANSWER_GAP_CAP_MS * 10); // a long gap counts as one capped gap
+    await flush();
+    const [row] = await rawRows();
+    expect(row).toMatchObject({ status: "pending", noAnswerTries: 6 });
+    // 4 half gaps + 1 capped gap (plus the few real milliseconds the test took).
+    expect(row.noAnswerRetryingMs).toBeGreaterThanOrEqual(3 * NO_ANSWER_GAP_CAP_MS);
+    expect(row.noAnswerRetryingMs).toBeLessThan(3 * NO_ANSWER_GAP_CAP_MS + 60 * 1000);
+  });
+
+  it(`given up (uncertain) once 3 days have been spent retrying, with ${MIN_NO_ANSWER_TRIES}+ unanswered tries`, async () => {
+    // Retried for 3 days less one gap: the next unanswered try crosses the line.
+    await putRaw(
+      rawOut("out-1", {
+        noAnswerTries: MIN_NO_ANSWER_TRIES - 1, lastNoAnswerTryAtMs: Date.now(),
+        noAnswerRetryingMs: NO_ANSWER_GIVE_UP_MS - NO_ANSWER_GAP_CAP_MS, mayBeRecorded: true,
+      })
+    );
+    postOut.mockRejectedValue(httpError(504, { message: "Gateway Timeout" }));
+    travel(NO_ANSWER_GAP_CAP_MS - 1000);
+    await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    travel(1000);
     await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 1, pending: 0 });
     const [failed] = peek(() => useFailedItems());
     expect(failed).toEqual(
-      expect.objectContaining({ payload: outEvent().payload, error: expect.objectContaining({ code: "NO_ANSWER", uncertain: true }) })
+      expect.objectContaining({
+        payload: outEvent().payload,
+        error: expect.objectContaining({ httpStatus: 504, code: "NO_ANSWER", uncertain: true }),
+      })
     );
     expect(mayBeRecorded(failed)).toBe(true);
+  });
+
+  it(`three days spent retrying also need ${MIN_NO_ANSWER_TRIES} unanswered tries`, async () => {
+    await putRaw(
+      rawOut("few", {
+        noAnswerTries: 1, lastNoAnswerTryAtMs: Date.now() - NO_ANSWER_GAP_CAP_MS,
+        noAnswerRetryingMs: NO_ANSWER_GIVE_UP_MS, mayBeRecorded: true,
+      })
+    );
+    postOut.mockRejectedValue(networkError());
+    await expect(flush()).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 1, pending: 0 });
   });
 
   it("time spent offline does not count toward the 3 days", async () => {
@@ -638,6 +693,37 @@ describe("replaying queued events", () => {
       await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
     }
     expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", noAnswerTries: MIN_NO_ANSWER_TRIES + 2 })]);
+  });
+
+  it("P5: offline (or closed) days after the first unanswered try do not count toward the 3 days", async () => {
+    await queueOffline(outEvent());
+    postOut.mockRejectedValue(networkError());
+    await flush(); // the first unanswered try, online
+    online = false;
+    travel(NO_ANSWER_GIVE_UP_MS + 24 * 60 * 60 * 1000); // four days without a connection
+    await flush();
+    online = true;
+    await reload(); // and the page was closed meanwhile
+    for (let i = 0; i < MIN_NO_ANSWER_TRIES + 2; i += 1) {
+      travel(NO_ANSWER_GAP_CAP_MS);
+      await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    }
+    const [row] = await rawRows();
+    expect(row).toMatchObject({ status: "pending", noAnswerTries: MIN_NO_ANSWER_TRIES + 3 });
+    // Only the capped gaps between the online tries count.
+    expect(row.noAnswerRetryingMs).toBe((MIN_NO_ANSWER_TRIES + 2) * NO_ANSWER_GAP_CAP_MS);
+  });
+
+  it("P6: a row taken back from a closed page does not start the clock at its creation", async () => {
+    const fourDaysAgo = Date.now() - (NO_ANSWER_GIVE_UP_MS + 24 * 60 * 60 * 1000);
+    await putRaw(rawOut("left", { inFlight: true, inFlightSince: fourDaysAgo, createdAtMs: fourDaysAgo }));
+    await outboxReady();
+    expect(await rawRows()).toEqual([expect.objectContaining({ inFlight: false, noAnswerTries: 1 })]);
+    postOut.mockRejectedValue(networkError());
+    for (let i = 0; i < MIN_NO_ANSWER_TRIES; i += 1) {
+      await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    }
+    expect((await rawRows())[0].noAnswerRetryingMs).toBeLessThan(60 * 1000);
   });
 
   it("a refusal is certain: no uncertain flag, and a waiting event nobody tried is not 'may be recorded'", async () => {
@@ -804,6 +890,44 @@ describe("two tabs", () => {
     expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
     expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]);
     await tab2._resetOutboxForTests();
+  });
+
+  it("without Web Locks, another tab's live first send is not taken back, discarded or sent twice", async () => {
+    // Older Safari / Firefox: no navigator.locks, so the in-tab lock says nothing about other tabs.
+    expect(navigator.locks).toBeUndefined();
+    await outboxReady();
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const sent = tab2.submitOrQueue({ ...outEvent(), send: gate.send });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+
+    postOut.mockResolvedValue({ id: 1 });
+    await flush({ force: true });
+    await expect(discardPending("out_post:out-1")).resolves.toBe(false);
+    expect(postOut).not.toHaveBeenCalled();
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", inFlight: true })]);
+
+    gate.answer({ id: 9 });
+    await expect(sent).resolves.toEqual({ queued: false, result: { id: 9 } });
+    await flush({ force: true });
+    expect(postOut).not.toHaveBeenCalled();
+    expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
+    await tab2._resetOutboxForTests();
+  });
+
+  it("without Web Locks, a row in flight longer than any live send is taken back", async () => {
+    await putRaw(rawOut("old", { inFlight: true, inFlightSince: Date.now() - 91 * 1000 }));
+    await putRaw(rawOut("new", { inFlight: true, inFlightSince: Date.now(), seq: 2 }));
+    await outboxReady();
+    expect(peek(() => usePendingItems()).map((i) => i.clientEventId)).toEqual(["old"]);
+
+    postOut.mockResolvedValue({ id: 3, replayed: true });
+    await expect(flush()).resolves.toEqual({ sent: 1, failed: 0, pending: 0 });
+    expect(postOut.mock.calls.map(([p]) => p.clientEventId)).toEqual(["old"]);
+
+    travel(91 * 1000); // the "new" one's page is gone too, by now
+    await expect(flush()).resolves.toEqual({ sent: 1, failed: 0, pending: 0 });
+    expect(postOut.mock.calls.map(([p]) => p.clientEventId)).toEqual(["old", "new"]);
   });
 
   it("a row a closed page left in flight is taken back on load when no tab holds its kind", async () => {
