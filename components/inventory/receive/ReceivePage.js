@@ -612,7 +612,7 @@ const ReceivePage = ({
   });
 
   const itemsCard = (
-    <section className={styles.card} aria-labelledby="receive-items-title">
+    <section className={`${styles.card} ${styles.itemsCard}`} aria-labelledby="receive-items-title">
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle} id="receive-items-title">
           <span className={styles.cardIc}><ScanBarcode size={14} aria-hidden="true" /></span>

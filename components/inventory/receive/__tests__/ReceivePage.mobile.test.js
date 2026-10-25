@@ -5,6 +5,7 @@
 
 import fs from "fs";
 import path from "path";
+import * as sass from "sass";
 
 jest.mock("next/router", () => ({
   __esModule: true,
@@ -252,5 +253,76 @@ describe("phone CSS contract (receive.module.scss)", () => {
 
   it("makes the post bar taller for its summary row", () => {
     expect(phone).toMatch(/--mobile-action-bar-h:\s*\d+px;/);
+  });
+});
+
+// The compiled stylesheet, through the browser's CSS object model: which
+// overflow each box around the scan bar really gets on a phone.
+describe("the scan bar on a phone stays stuck while the lines scroll", () => {
+  const sheet = (() => {
+    const style = document.createElement("style");
+    style.textContent = sass.compile(path.join(__dirname, "..", "receive.module.scss")).css;
+    document.head.appendChild(style);
+    return style.sheet;
+  })();
+  /** Declarations for `selector`: on a phone (≤768px) or not, inside `@supports <supports>` or not. */
+  const declarationsFor = (selector, { phone = false, supports = null } = {}) => {
+    const out = {};
+    const visit = (rules, inPhone, inSupports) => {
+      for (const rule of Array.from(rules)) {
+        if (rule.media) {
+          visit(rule.cssRules, inPhone || /max-width:\s*768px/.test(rule.media.mediaText), inSupports);
+        } else if (rule.conditionText != null && rule.cssRules) {
+          visit(rule.cssRules, inPhone, rule.conditionText.replace(/\s+/g, " ").trim());
+        } else if (rule.selectorText && inPhone === phone && inSupports === supports) {
+          if (rule.selectorText.split(",").map((x) => x.trim()).includes(selector)) {
+            for (let i = 0; i < rule.style.length; i += 1) out[rule.style[i]] = rule.style.getPropertyValue(rule.style[i]);
+          }
+        }
+      }
+    };
+    visit(sheet.cssRules, false, null);
+    return out;
+  };
+  /**
+   * The overflow a box with these classes (inside .page) gets on a phone, by
+   * cascade order: plain rules, then the phone layer's, then `.page .x` there.
+   */
+  const phoneOverflow = (classes) => {
+    const d = {};
+    for (const cls of classes) Object.assign(d, declarationsFor(`.${cls}`));
+    for (const cls of classes) Object.assign(d, declarationsFor(`.${cls}`, { phone: true }));
+    for (const cls of classes) Object.assign(d, declarationsFor(`.page .${cls}`, { phone: true }));
+    return [d.overflow, d["overflow-x"], d["overflow-y"]].filter(Boolean);
+  };
+
+  it("no box around the scan bar is a scroll box, so sticky holds it under the top bar", async () => {
+    render(<ReceivePage poId="52" />);
+    await screen.findByText("Basmati rice 25kg");
+    const dock = screen.getByTestId("scan-dock");
+    expect(declarationsFor(".scanDock", { phone: true })).toEqual(expect.objectContaining({ position: "sticky", top: "56px" }));
+
+    const around = [];
+    for (let el = dock.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (el.classList.length) around.push(Array.from(el.classList));
+    }
+    expect(around.flat()).toEqual(expect.arrayContaining(["card", "stack", "pageBody", "page"]));
+    for (const classes of around) {
+      // hidden / auto / scroll make the box the sticky's scroll box: the bar
+      // would stick inside the card and scroll away with it.
+      const box = classes.join(" ");
+      expect({ box, overflow: phoneOverflow(classes).filter((v) => /hidden|auto|scroll/.test(v)) }).toEqual({ box, overflow: [] });
+    }
+  });
+
+  it("a phone without overflow:clip (iOS Safari before 16) lets the items card overflow instead", () => {
+    expect(declarationsFor(".page .itemsCard", { phone: true, supports: "not (overflow: clip)" }))
+      .toEqual(expect.objectContaining({ overflow: "visible" }));
+  });
+
+  it("on a desktop the cards still clip their corners", () => {
+    expect(declarationsFor(".card").overflow).toBe("hidden");
+    expect(declarationsFor(".itemsCard")).toEqual({});
+    expect(declarationsFor(".page .itemsCard")).toEqual({});
   });
 });
