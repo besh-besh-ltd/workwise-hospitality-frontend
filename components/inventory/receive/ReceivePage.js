@@ -439,7 +439,11 @@ const ReceivePage = ({
         return;
       }
       const grn = postedGrnOf(outcome?.result);
-      if (isFreshPost(grn) || session.verdictFor(grn) === "ours") await finishPosted(grn);
+      // fromHistory: the answer of a copy of this key the outbox already sent,
+      // not of these entries: fresh-looking (it kept its warnings), but only
+      // ours if our own attempt's reply was lost with nothing edited since.
+      const fresh = !outcome?.fromHistory && isFreshPost(grn);
+      if (fresh || session.verdictFor(grn) === "ours") await finishPosted(grn);
       else showEarlier(grn);
     } catch (err) {
       if (err instanceof AlreadyPosted) {

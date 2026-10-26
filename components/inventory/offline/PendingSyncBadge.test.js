@@ -149,6 +149,16 @@ it("says what the server answered while it keeps retrying", async () => {
   expect(screen.getByText("The server answered 503: retrying")).toBeInTheDocument();
 });
 
+it("a post signed out mid-send waits for sign-in, not as a server problem", async () => {
+  postOut.mockRejectedValueOnce(httpError(401, { message: "Unauthorized" }));
+  await submitOrQueue(outEvent("a"));
+  render(<PendingSyncBadge autoSync={false} />);
+  await screen.findByRole("button", { name: /Pending sync \(1\)/ });
+  openPanel();
+  expect(screen.getByText("Signed out before it was sent: sends when you sign in")).toBeInTheDocument();
+  expect(screen.queryByText(/The server answered 401/)).not.toBeInTheDocument();
+});
+
 it("sends what was queued offline as soon as the device is back online", async () => {
   await queueOffline(outEvent("a"));
   online = false;

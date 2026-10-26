@@ -50,6 +50,7 @@ const RECEIPT_STATUS = {
 
 // Server refusals that mean "what you are looking at is stale".
 const STALE = new Set([403, 404, 409]);
+const NOT_FOUND_COPY = "Deliveries aren't available to you on this PO, or it no longer exists.";
 
 // A due date is sent once it is a whole date. Keyboard entry passes through
 // years like 0002 and 0020; those are never sent.
@@ -87,7 +88,11 @@ export default function DeliveriesTab({ poId }) {
       setData(next);
       setLoadError(null);
     } catch (err) {
-      if (seq === latest.current) setLoadError(getApiErrorMessage(err, "Couldn't load deliveries."));
+      if (seq !== latest.current) return;
+      // A 404 is the same for a PO that's gone and one at a hotel this user
+      // can't see: one message, and no retry that can't succeed.
+      if (err?.response?.status === 404) setLoadError({ message: NOT_FOUND_COPY, retry: false });
+      else setLoadError({ message: getApiErrorMessage(err, "Couldn't load deliveries."), retry: true });
     }
   }, [poId]);
 
@@ -119,13 +124,15 @@ export default function DeliveriesTab({ poId }) {
         <section className={po.sectionCard}>
           <div className={s.sectionPad}>
             <div className={s.errorText} role="alert">
-              {loadError}
+              {loadError.message}
             </div>
-            <div>
-              <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} onClick={load}>
-                Try again
-              </button>
-            </div>
+            {loadError.retry && (
+              <div>
+                <button type="button" className={`${po.btn} ${po.btnSecondary} ${po.btnSm} ${s.act}`} onClick={load}>
+                  Try again
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </div>

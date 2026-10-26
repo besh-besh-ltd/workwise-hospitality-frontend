@@ -26,6 +26,11 @@ const fileForm = (file, kind) => {
   return form;
 };
 
+// The outbox's sends (a receipt post, a mark-out, a count save): a 401 still
+// opens the session-expired dialog, and also rejects (lib/axios) instead of
+// never settling, so the queued event waits for sign-in, known unrecorded.
+const OUTBOX_SEND = Object.freeze({ settleOn401: true });
+
 // ── Plan and short-close ─────────────────────────────────────────────────────
 export const getPoDeliveries = (poId) => get(`/po/${poId}/deliveries`);
 export const savePoDeliveryPlan = (poId, deliveries) => put(`/po/${poId}/deliveries`, { deliveries });
@@ -38,7 +43,8 @@ export const reopenShortClose = (poId, payload) => post(`/po/${poId}/short-close
 export const getAwaitingDeliveries = (params) => get("/receive/awaiting", params);
 export const getReceiveContext = (poId, hotelId) =>
   get(`/receive/po/${poId}`, hotelId ? { hotelId } : undefined);
-export const createGrn = (input) => post("/grn", input);
+// post:true is the receipt post (the outbox's grn_post); a draft save is not.
+export const createGrn = (input) => post("/grn", input, input?.post === true ? OUTBOX_SEND : undefined);
 export const updateGrn = (id, input) => put(`/grn/${id}`, input);
 export const postGrn = (id, clientEventId) => post(`/grn/${id}/post`, { clientEventId });
 export const discardGrn = (id) => del(`/grn/${id}`);
@@ -89,7 +95,7 @@ export const getStock = (params) => get("/stock", params);
 export const getStockItem = (hotelId, invItemId) => get(`/stock/${hotelId}/items/${invItemId}`);
 export const getStockLedger = (hotelId, invItemId, params) =>
   get(`/stock/${hotelId}/items/${invItemId}/ledger`, params);
-export const postOut = (payload) => post("/out", payload);
+export const postOut = (payload) => post("/out", payload, OUTBOX_SEND);
 export const listOut = (params) => get("/out", params);
 export const getOut = (id) => get(`/out/${id}`);
 export const createAdjustment = (payload) => post("/adjustments", payload);
@@ -99,7 +105,7 @@ export const listAdjustments = (params) => get("/adjustments", params);
 export const getAdjustment = (id) => get(`/adjustments/${id}`);
 export const startCount = (payload) => post("/counts", payload);
 export const getCount = (id) => get(`/counts/${id}`);
-export const saveCountLines = (id, lines) => put(`/counts/${id}/lines`, { lines });
+export const saveCountLines = (id, lines) => put(`/counts/${id}/lines`, { lines }, OUTBOX_SEND);
 export const submitCount = (id) => post(`/counts/${id}/submit`);
 // `unitCosts` ({[lineId]: number > 0}) only when the server asked for them.
 export const approveCount = (id, reasons, unitCosts) =>

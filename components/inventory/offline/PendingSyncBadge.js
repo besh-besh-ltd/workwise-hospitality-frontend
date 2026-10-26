@@ -63,6 +63,8 @@ const waitingWhy = (item, online) => {
   if (!online) return "Offline: sends when you are back online";
   const e = item.lastError;
   if (!e) return "Waiting to send";
+  // A 401 mid-send: not recorded, and it goes once its owner signs in again.
+  if (e.code === "SIGNED_OUT") return "Signed out before it was sent: sends when you sign in";
   if (e.httpStatus) return `The server answered ${e.httpStatus}: retrying`;
   return "No answer from the server yet: retrying";
 };

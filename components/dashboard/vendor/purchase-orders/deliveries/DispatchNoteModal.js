@@ -6,6 +6,7 @@ import { createDispatch } from "@/services/inventory";
 import { handleMarkDispatched } from "@/services/po";
 import { getApiErrorData, getApiErrorMessage } from "@/utils/apiError";
 import { fmtDateOnly } from "@/components/dashboard/buyer/purchase-orders/shared";
+import { newClientEventId } from "@/components/inventory/receive/receiveUtils";
 import vd from "./vendorDeliveries.module.scss";
 import {
   toQ,
@@ -86,6 +87,12 @@ export default function DispatchNoteModal({
   const [marking, setMarking] = useState(false);
   const [markError, setMarkError] = useState("");
   const expectedTouched = useRef(false);
+  // One key per opening of the dialog, kept across retries: when a save's
+  // answer is lost, saving again returns that dispatch instead of a second one.
+  const eventKey = useRef(null);
+  useEffect(() => {
+    if (show) eventKey.current = newClientEventId();
+  }, [show]);
 
   const hotels = useMemo(() => data?.hotels || [], [data]);
   const deliveries = useMemo(() => data?.deliveries || [], [data]);
@@ -221,6 +228,7 @@ export default function DispatchNoteModal({
 
     const text = (v) => (v.trim() ? v.trim() : null);
     const payload = {
+      clientEventId: eventKey.current,
       hotelId,
       deliveryId: asId(form.deliveryId),
       challanNo,
@@ -236,11 +244,19 @@ export default function DispatchNoteModal({
     setSaving(true);
     try {
       const dispatch = await createDispatch(poId, payload);
-      toast.success(
-        dispatch?.dispatchNumber
-          ? `Dispatch ${dispatch.dispatchNumber} recorded. The hotel can now expect it.`
-          : "Dispatch recorded. The hotel can now expect it."
-      );
+      if (dispatch?.replayed) {
+        // An earlier save went through though its answer never came back.
+        toast.info(
+          `This dispatch was already recorded${dispatch.dispatchNumber ? ` as ${dispatch.dispatchNumber}` : ""}. ` +
+            "Nothing new was added."
+        );
+      } else {
+        toast.success(
+          dispatch?.dispatchNumber
+            ? `Dispatch ${dispatch.dispatchNumber} recorded. The hotel can now expect it.`
+            : "Dispatch recorded. The hotel can now expect it."
+        );
+      }
       setSaving(false);
       onDone?.(dispatch);
     } catch (err) {
