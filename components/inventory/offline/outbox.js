@@ -21,8 +21,11 @@
 //     registerSender). A kind with no sender throws.
 //   - FIFO per kind: while an event of a kind is waiting, a new event of that
 //     kind queues BEHIND it, so an older count_lines save is never applied
-//     after a newer one. Sends of one kind never overlap, in this tab (a
-//     promise chain) or across tabs (a Web Lock per kind, where supported).
+//     after a newer one. That holds while the oldest is in flight too
+//     (another tab sending it, or a closed page's send not yet taken back): a
+//     flush stops there and a new post queues behind it. Sends of one kind
+//     never overlap, in this tab (a promise chain) or across tabs (a Web Lock
+//     per kind, where supported).
 //     Each flush, Discard and Dismiss re-reads the device database under that
 //     lock first, so a long-lived tab acts on what other tabs queued or sent.
 //   - Write-ahead: the first send is recorded on the device BEFORE it goes
@@ -33,7 +36,11 @@
 //     tab read, waiting and not in flight (else it is held); a Discard takes
 //     only a row that is not in flight. Both are checked inside the write's
 //     own IndexedDB transaction, so even without Web Locks a stale tab can
-//     neither discard an event another tab is sending nor send it twice.
+//     neither discard an event another tab is sending nor retry it from the
+//     queue while that tab's send is out. A stale tab can still re-post the
+//     same event (a screen's first send, or two tabs that both found nothing
+//     waiting): the server dedupes it by clientEventId and answers with the
+//     original.
 //     A row marked in flight is another tab's live send until this tab holds
 //     the kind's lock; only then is it taken back as left behind by a page
 //     that is gone. Without Web Locks (Safari < 15.4, Firefox < 96) holding
@@ -45,7 +52,16 @@
 //     event into "dismissed", "failed" or "pending".
 //   - Outcomes:
 //       2xx (including `replayed:true`)        sent.
-//       4xx (except 408 / 429)                 final. First send: the RAW
+//       401 (signed out mid-send)              held, waiting: the server did not
+//                                              record it. No try is counted and
+//                                              it is not "may have been
+//                                              recorded"; it goes once its owner
+//                                              signs in again. The services the
+//                                              outbox sends with ask lib/axios to
+//                                              settle a 401 (settleOn401) rather
+//                                              than park it behind the
+//                                              session-expired dialog.
+//       4xx (except 401 / 408 / 429)           final. First send: the RAW
 //                                              error is rethrown to the caller.
 //                                              Queued: a failed item that keeps
 //                                              its payload until discarded.
@@ -553,9 +569,11 @@ const noAnswer = (err) => {
 
 /**
  * "no-answer" | "gateway" (502/503/504: the app may not have seen it, or may
- * have: like no answer) | "server" (other 5xx, 408, 429: try again) | "final"
+ * have: like no answer) | "server" (other 5xx, 408, 429: try again) |
+ * "signed-out" (401: not recorded; wait for its owner) | "final"
  */
 const classify = (err) => {
+  if (Number(statusOf(err)) === 401) return "signed-out";
   if (noAnswer(err)) return "no-answer";
   const s = Number(statusOf(err));
   if (GATEWAY_STATUSES.has(s)) return "gateway";
@@ -719,6 +737,20 @@ const pendingOf = (kind, userId) =>
     (i) => i.status === "pending" && !i.inFlight && i.userId === userId && (!kind || i.kind === kind)
   );
 const stillPending = (id) => items.some((i) => i.id === id && i.status === "pending");
+/** This user's oldest waiting event of a kind, in flight or not: FIFO stops at it. */
+const oldestOf = (kind, userId) =>
+  items.find((i) => i.status === "pending" && i.userId === userId && i.kind === kind) || null;
+
+export const SIGNED_OUT_MESSAGE = "You were signed out before it was sent. It sends when you sign in again.";
+
+/** A 401: not recorded. Waiting again, no try counted, nothing uncertain. */
+const holdSignedOut = (item, err) =>
+  putItem({
+    ...item,
+    inFlight: false,
+    inFlightSince: 0,
+    lastError: storedError(err, { code: "SIGNED_OUT", message: SIGNED_OUT_MESSAGE }),
+  });
 
 /** Record a failed item; the outcome is emitted as soon as memory has it. */
 const fail = (item, error) => {
@@ -802,6 +834,10 @@ const sendQueued = async (item, extraSenders, { due = true } = {}) => {
     if (!stillPending(item.id)) return "held";
     const how = classify(err);
     const current = items.find((i) => i.id === item.id) || item;
+    if (how === "signed-out") {
+      await holdSignedOut(current, err);
+      return "held";
+    }
     if (how !== "final") return afterTrouble(current, err, how, { due });
     await fail(current, storedError(err));
     return "failed";
@@ -813,7 +849,9 @@ const sendQueued = async (item, extraSenders, { due = true } = {}) => {
 /**
  * Send this user's waiting events of one kind, oldest first, until one is
  * held. Call inside exclusive(kind): it re-reads the device, takes back rows
- * a closed page left in flight, and only then sends.
+ * a closed page left in flight, and only then sends. An oldest row still in
+ * flight (another tab's live send; without Web Locks, one not yet old enough
+ * to take back) stops it: nothing newer of the kind may overtake it.
  */
 const flushKind = async (kind, owner, { force = false, senders: extra } = {}) => {
   await loadFromDb();
@@ -823,8 +861,8 @@ const flushKind = async (kind, owner, { force = false, senders: extra } = {}) =>
   let failed = 0;
   for (;;) {
     if (isOffline()) break;
-    const next = pendingOf(kind, owner)[0];
-    if (!next) break;
+    const next = oldestOf(kind, owner);
+    if (!next || next.inFlight) break;
     if (!gateOpen(next, gate)) break; // someone else is signed in, or just was: hold
     const due = (Number(next.nextAttemptAt) || 0) <= Date.now();
     if (!force && !due) break;
@@ -928,14 +966,21 @@ const enqueue = (base, patch = {}) => {
  *   makes the first attempt. `summary` labels the event in the sync panel
  *   ("Receipt for PO #12 · 3 lines" by default).
  *   The same clientEventId again: a waiting copy is replaced (keeping its
- *   place and its tries). One already sent (getOutboxStatus "sent") is never
+ *   place and its tries); a copy another tab is sending now is left to that
+ *   send (queued:true). One already sent (getOutboxStatus "sent") is never
  *   queued again: its answer, when this page still holds it, is returned as
  *   is; otherwise `send` runs once more inline for the answer (the server
- *   answers a repeated clientEventId with the original). That inline send is
- *   not queued even when it gets no answer or the device is offline: it
- *   rethrows the raw error, like a first send's unknown outcome, while
- *   getOutboxStatus still reads "sent" (the server has it).
- * @returns {Promise<{queued: true, persisted: boolean} | {queued: false, result: any}>}
+ *   answers a repeated clientEventId with the original). Both come back with
+ *   `fromHistory: true`: the answer is the sent copy's, which may not hold
+ *   what this payload holds. That inline send is not queued even when it
+ *   gets no answer or the device is offline: it rethrows the raw error, like
+ *   a first send's unknown outcome, while getOutboxStatus still reads "sent"
+ *   (the server has it).
+ *   Strict oldest first: while any event of the kind is waiting, in flight
+ *   included, a new one is queued behind it, never sent ahead of it.
+ *   A 401 on the first send (signed out mid-send): queued, waiting for its
+ *   owner to sign in again.
+ * @returns {Promise<{queued: true, persisted: boolean} | {queued: false, result: any, fromHistory?: true}>}
  *   persisted:false: this browser could not store it; it lives only as long
  *   as this page.
  * @throws the RAW error from `send` when the server refused it (4xx other
@@ -967,10 +1012,13 @@ export const submitOrQueue = async ({ kind, clientEventId, payload, send, summar
     // Sending it again replaces a refused or given-up copy: the caller holds it now.
     if (items.some((i) => i.id === id && i.status === "failed")) await dropItem(id);
     const done = sentAlready();
-    if (done && done.result !== undefined) return { queued: false, result: done.result };
-    if (done) return { queued: false, result: await withTimeout(() => send(payload), sendTimeoutMs) };
+    if (done && done.result !== undefined) return { queued: false, result: done.result, fromHistory: true };
+    if (done) return { queued: false, result: await withTimeout(() => send(payload), sendTimeoutMs), fromHistory: true };
 
-    if (isOffline() || pendingOf(kind, owner).length) {
+    if (isOffline() || oldestOf(kind, owner)) {
+      // This very event, out from another tab: that send answers for it.
+      const out = items.find((i) => i.id === id && i.status === "pending" && i.inFlight);
+      if (out) return { queued: true, persisted: out.persisted !== false };
       const res = await enqueue(base);
       askForPersistence();
       return { queued: true, persisted: res.persisted };
@@ -989,6 +1037,11 @@ export const submitOrQueue = async ({ kind, clientEventId, payload, send, summar
         if (how === "final" || !current) {
           await dropItem(id);
           throw err;
+        }
+        if (how === "signed-out") {
+          const res = await holdSignedOut(current, err);
+          askForPersistence();
+          return { queued: true, persisted: res.persisted };
         }
         await afterTrouble(current, err, how, { due: true });
         askForPersistence();

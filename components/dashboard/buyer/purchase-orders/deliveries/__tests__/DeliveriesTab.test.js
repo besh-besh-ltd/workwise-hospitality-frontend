@@ -193,6 +193,27 @@ test("an answer older than the latest request is dropped", async () => {
   expect(screen.getByLabelText("Due date for Hotel A-2 · Phase 1")).toHaveValue("2026-11-30");
 });
 
+const httpError = (status, message) =>
+  Object.assign(new Error(message), { isAxiosError: true, response: { status, data: { status: 0, message } } });
+
+test("a 404 (a PO that's gone, or at a hotel the user can't see) says so once and offers no retry", async () => {
+  getPoDeliveries.mockRejectedValue(httpError(404, "Not found"));
+  render(<DeliveriesTab poId={52} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Deliveries aren't available to you on this PO, or it no longer exists."
+  );
+  expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+});
+
+test("any other load failure keeps Try again, which reloads", async () => {
+  getPoDeliveries.mockRejectedValueOnce(httpError(500, "Server error"));
+  render(<DeliveriesTab poId={52} />);
+  await screen.findByRole("alert");
+  getPoDeliveries.mockResolvedValueOnce(payload());
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByRole("heading", { name: "Delivery plan" })).toBeInTheDocument();
+});
+
 test("a go-live backlog PO (legacy, nothing received) is received and planned like any other", async () => {
   await mount(payload({ receiptLegacy: true, receiptStatus: "not_received", grns: [] }));
   expect(screen.queryByText("Received before stock tracking")).not.toBeInTheDocument();

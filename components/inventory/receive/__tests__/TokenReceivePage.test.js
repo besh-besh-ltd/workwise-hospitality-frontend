@@ -32,9 +32,15 @@ jest.mock("next/router", () => {
   };
 });
 jest.mock("next/head", () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
+// The camera's props, to feed it what it "sees" (CameraScanner reports to
+// onSeenWhilePaused, never onDetected, while paused).
+let mockCamera = null;
 jest.mock("next/dynamic", () => ({
   __esModule: true,
-  default: () => function MockCamera() { return <div data-testid="camera" />; },
+  default: () => function MockCamera(props) {
+    mockCamera = props;
+    return <div data-testid="camera" />;
+  },
 }));
 jest.mock("react-toastify", () => {
   const toast = jest.fn();
@@ -573,6 +579,89 @@ describe("TokenReceivePage", () => {
     const pad = await screen.findByRole("dialog", { name: "Paneer" });
     expect(pad).toBeInTheDocument();
     expect(resolveScan).not.toHaveBeenCalled();
+  });
+
+  test("a weighed pack kept in front of the camera while its keypad is up is not read again when it closes", async () => {
+    let now = 30_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      await mount();
+      fireEvent.click(screen.getByRole("button", { name: "Scan with camera" }));
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      const pad = await screen.findByRole("dialog", { name: "Paneer" });
+      expect(mockCamera.paused).toBe(true);
+
+      // Three seconds at the keypad, the pack still in frame.
+      for (let t = 0; t < 6; t += 1) {
+        now += 500;
+        act(() => {
+          mockCamera.onSeenWhilePaused?.("PANEER-1");
+        });
+      }
+      fireEvent.click(within(pad).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull());
+      expect(mockCamera.paused).toBe(false);
+
+      // Scanning resumes with the same pack in front of the lens: no new read.
+      now += 150;
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull();
+
+      // Out of frame for 1.6 s and shown again: that is a new scan.
+      now += 1600;
+      act(() => {
+        mockCamera.onDetected("PANEER-1");
+      });
+      expect(await screen.findByRole("dialog", { name: "Paneer" })).toBeInTheDocument();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test("a scanner read while a qty box has focus counts the item; it never lands in the qty", async () => {
+    let now = 50_000_000;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      await mount();
+      const rice = riceQty();
+      rice.focus();
+      const key = (k, gap) => {
+        now += gap;
+        fireEvent.keyDown(rice, { key: k });
+        fireEvent.change(rice, { target: { value: `${rice.value}${k}` } });
+      };
+      const wedge = (code) => {
+        for (const k of code) key(k, 5);
+        now += 5;
+        return fireEvent.keyDown(rice, { key: "Enter" });
+      };
+      key("5", 1500);
+      now += 1000;
+
+      // The rice sack's own code, scanned with its box still focused: 5 + 1.
+      expect(wedge("8901234567892")).toBe(false);
+      await waitFor(() => expect(rice).toHaveValue("6"));
+      now += 1000;
+
+      // Another item's code: the rice qty stays, that item's keypad opens.
+      wedge("PANEER-1");
+      expect(await screen.findByRole("dialog", { name: "Paneer" })).toBeInTheDocument();
+      expect(rice).toHaveValue("6");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Paneer" })).toBeNull());
+
+      await postAndConfirm();
+      await screen.findByText("Receipt posted");
+      expect(postTokenGrn.mock.calls[0][1].lines).toEqual([
+        expect.objectContaining({ poLineId: 11, receivedQty: 6, acceptedQty: 6 }),
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test("twelve single-piece scans of a 12-piece box make exactly 1 box", async () => {

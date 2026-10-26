@@ -965,6 +965,16 @@ $mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
     overflow-x: clip;
     --mobile-action-bar-h: 112px;
   }
+  /* The items card holds the scan bar. .card's overflow:hidden would make it
+     the sticky box and the bar would scroll away with the card; clip cuts the
+     same corners without making a scroll box. */
+  .page .itemsCard { overflow: clip; }
+  /* No overflow:clip (iOS Safari before 16): the line above is dropped and the
+     card stays a scroll box. Let it overflow instead; its rounded corners lose
+     a little clipping, the bar keeps sticking. */
+  @supports not (overflow: clip) {
+    .page .itemsCard { overflow: visible; }
+  }
   .pageHeader { padding: 14px 14px 12px; }
   .pageHeaderInner { flex-direction: column; gap: 10px; }
   .pageTitle { font-size: 19px; }

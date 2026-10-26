@@ -441,7 +441,7 @@ describe("submitOrQueue", () => {
     await queueOffline(outEvent());
     postOut.mockResolvedValue({ id: 5 });
     // Back online: the screen posts it again; the waiting copy goes first.
-    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5 } });
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5 }, fromHistory: true });
     expect(postOut).toHaveBeenCalledTimes(1);
     expect(getOutboxStatus("out_post", "out-1")).toBe("sent");
   });
@@ -460,7 +460,7 @@ describe("submitOrQueue", () => {
   it("re-posting an event sent on an earlier page sends it once for the server's answer and queues nothing", async () => {
     await putRaw(rawOut("out-1", { status: "sent", payload: null, settledAtMs: Date.now() }));
     postOut.mockResolvedValue({ id: 5, replayed: true });
-    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5, replayed: true } });
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 5, replayed: true }, fromHistory: true });
     expect(postOut).toHaveBeenCalledTimes(1);
     expect(await rawRows()).toEqual([expect.objectContaining({ id: "out_post:out-1", status: "sent" })]);
     expect(peek(() => usePendingCount())).toBe(0);
@@ -507,6 +507,107 @@ describe("FIFO per kind", () => {
     await submitOrQueue(countEvent(5));
     postOut.mockResolvedValue({ id: 1 });
     await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: false, result: { id: 1 } });
+  });
+
+  it("without Web Locks, a newer count save waits while another tab is still sending the older one", async () => {
+    expect(navigator.locks).toBeUndefined();
+    await queueOffline(countEvent(1));
+    await queueOffline(countEvent(2));
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { count_lines: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalledTimes(1));
+    expect(gate.send.mock.calls[0][0].lines[0].countedQty).toBe(1);
+
+    saveCountLines.mockResolvedValue({ ok: true });
+    await flush({ force: true });
+    expect(saveCountLines).not.toHaveBeenCalled(); // count 2 does not overtake count 1
+
+    gate.answer({ ok: true });
+    await waitFor(() => expect(gate.send).toHaveBeenCalledTimes(2));
+    gate.answer({ ok: true });
+    await expect(tab2Flush).resolves.toEqual(expect.objectContaining({ sent: 2 }));
+    expect(gate.send.mock.calls.map(([p]) => p.lines[0].countedQty)).toEqual([1, 2]);
+    await tab2._resetOutboxForTests();
+  });
+
+  it("a new save made while the oldest is out from another tab queues behind it", async () => {
+    await queueOffline(countEvent(1));
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { count_lines: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalledTimes(1));
+
+    saveCountLines.mockResolvedValue({ ok: true });
+    await expect(submitOrQueue(countEvent(2))).resolves.toEqual({ queued: true, persisted: true });
+    expect(saveCountLines).not.toHaveBeenCalled();
+
+    gate.answer({ ok: true });
+    await tab2Flush;
+    await tab2._resetOutboxForTests();
+    await expect(flush({ force: true })).resolves.toEqual({ sent: 1, failed: 0, pending: 0 });
+    expect(saveCountLines.mock.calls.map(([, lines]) => lines[0].countedQty)).toEqual([2]);
+  });
+
+  it("without Web Locks, a page reloaded mid-send does not skip past the older event still marked in flight", async () => {
+    expect(navigator.locks).toBeUndefined();
+    await putRaw(rawOut("a", { inFlight: true, inFlightSince: Date.now() - 5000, seq: 1 }));
+    await putRaw(rawOut("b", { seq: 2 }));
+    await outboxReady();
+    postOut.mockResolvedValue({ id: 1 });
+    await flush({ force: true });
+    expect(postOut).not.toHaveBeenCalled();
+  });
+
+  it("re-posting an event another tab is sending right now leaves it to that send", async () => {
+    await queueOffline(outEvent());
+    const tab2 = openOtherTab();
+    const gate = heldSend();
+    const tab2Flush = tab2.flush({ senders: { out_post: gate.send } });
+    await waitFor(() => expect(gate.send).toHaveBeenCalled());
+
+    postOut.mockResolvedValue({ id: 1 });
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: true, persisted: true });
+    expect(postOut).not.toHaveBeenCalled();
+    expect(await rawRows()).toEqual([expect.objectContaining({ status: "pending", inFlight: true })]);
+
+    gate.answer({ id: 9 });
+    await tab2Flush;
+    await tab2._resetOutboxForTests();
+    await waitFor(async () => expect(await rawRows()).toEqual([expect.objectContaining({ status: "sent" })]));
+  });
+});
+
+describe("signed out mid-send (401)", () => {
+  const signedOut = () => httpError(401, { message: "Unauthorized" });
+
+  it("a first send that gets a 401 is queued as waiting, not refused and not 'may have been recorded'", async () => {
+    postOut.mockRejectedValueOnce(signedOut());
+    await expect(submitOrQueue(outEvent())).resolves.toEqual({ queued: true, persisted: true });
+    const [waiting] = peek(() => usePendingItems());
+    expect(mayBeRecorded(waiting)).toBe(false);
+    expect(await rawRows()).toEqual([
+      expect.objectContaining({
+        status: "pending",
+        inFlight: false,
+        serverAttempts: 0,
+        noAnswerTries: 0,
+        lastError: expect.objectContaining({ httpStatus: 401, code: "SIGNED_OUT" }),
+      }),
+    ]);
+  });
+
+  it("a replay that gets a 401 stays waiting with no try counted, then goes once it is answered", async () => {
+    await queueOffline(outEvent());
+    postOut.mockRejectedValueOnce(signedOut());
+    await expect(flush({ force: true })).resolves.toEqual({ sent: 0, failed: 0, pending: 1 });
+    const [row] = await rawRows();
+    expect(row).toMatchObject({ status: "pending", inFlight: false, serverAttempts: 0, noAnswerTries: 0 });
+    expect(row.lastError).toMatchObject({ code: "SIGNED_OUT" });
+    expect(mayBeRecorded(peek(() => usePendingItems())[0])).toBe(false);
+
+    postOut.mockResolvedValueOnce({ id: 4 });
+    await expect(flush({ force: true })).resolves.toEqual({ sent: 1, failed: 0, pending: 0 });
   });
 });
 

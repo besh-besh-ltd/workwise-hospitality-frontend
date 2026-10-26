@@ -34,6 +34,8 @@ import { handleMarkDispatched } from "@/services/po";
 import DispatchNoteModal from "../DispatchNoteModal";
 import { vendorDeliveries } from "../__fixtures__/vendorDeliveries.fixture";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const mount = (props = {}) => {
   const handlers = { onClose: jest.fn(), onDone: jest.fn() };
   render(<DispatchNoteModal show poId={626} data={vendorDeliveries()} initial={null} {...handlers} {...props} />);
@@ -72,6 +74,7 @@ describe("DispatchNoteModal", () => {
 
     await waitFor(() =>
       expect(createDispatch).toHaveBeenCalledWith(626, {
+        clientEventId: expect.stringMatching(UUID),
         hotelId: 46,
         deliveryId: 902,
         challanNo: "CH-200",
@@ -88,6 +91,48 @@ describe("DispatchNoteModal", () => {
       })
     );
     await waitFor(() => expect(onDone).toHaveBeenCalledWith(dispatch));
+  });
+
+  it("a save whose answer was lost is saved again with the same key, and a replayed answer says nothing new was added", async () => {
+    const lost = Object.assign(new Error("Network Error"), { isAxiosError: true, code: "ERR_NETWORK", request: {} });
+    createDispatch.mockRejectedValueOnce(lost);
+    const { dialog, onDone } = mount();
+    set(within(dialog).getByLabelText("Hotel"), "46");
+    set(within(dialog).getByLabelText("Phase"), "902");
+    fillPaperwork(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Record dispatch" }));
+    expect(await within(dialog).findByText(/Please try again|Network Error/)).toBeInTheDocument();
+
+    const replayed = { id: 80, dispatchNumber: "DSP/46/2026-27/00005", status: "in_transit", replayed: true };
+    createDispatch.mockResolvedValueOnce(replayed);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Record dispatch" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith(replayed));
+
+    const [first, second] = createDispatch.mock.calls.map(([, body]) => body.clientEventId);
+    expect(first).toMatch(UUID);
+    expect(second).toBe(first);
+    expect(toast.info).toHaveBeenCalledWith("This dispatch was already recorded as DSP/46/2026-27/00005. Nothing new was added.");
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("each opening of the dialog is a new dispatch with its own key", async () => {
+    createDispatch.mockResolvedValue({ id: 80, dispatchNumber: "DSP/46/2026-27/00005" });
+    const handlers = { onClose: jest.fn(), onDone: jest.fn() };
+    const props = { poId: 626, data: vendorDeliveries(), initial: { hotelId: 46, deliveryId: 902 }, ...handlers };
+    const { rerender } = render(<DispatchNoteModal show {...props} />);
+    const record = async () => {
+      const dialog = screen.getByRole("dialog", { name: "Dispatch note" });
+      fillPaperwork(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Record dispatch" }));
+      await waitFor(() => expect(handlers.onDone).toHaveBeenCalledTimes(createDispatch.mock.calls.length));
+    };
+    await record();
+    rerender(<DispatchNoteModal show={false} {...props} />);
+    rerender(<DispatchNoteModal show {...props} />);
+    await record();
+    const [first, second] = createDispatch.mock.calls.map(([, body]) => body.clientEventId);
+    expect(second).toMatch(UUID);
+    expect(second).not.toBe(first);
   });
 
   it("with only a hotel, starts at what is open there, its unsplit share included", () => {

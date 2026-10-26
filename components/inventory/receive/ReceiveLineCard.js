@@ -3,18 +3,23 @@ import { Minus, Plus, Ruler, SlidersHorizontal } from "lucide-react";
 import RejectReasonSelect from "./RejectReasonSelect";
 import ItemMatchPrompt from "./ItemMatchPrompt";
 import { AcceptedInput, LineMessages, shelfLifeHint } from "./ReceiveLineRow";
+import { useQtyScanGuard } from "@/components/inventory/scan/useQtyScanGuard";
+import { QTY_MAX_LENGTH, cleanQtyInput } from "@/components/inventory/stock/stockUtils";
 import { fmtQty, inr, isDecimalUnit, lineQty } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
 // One PO line on the phone: big − / qty / + controls (the qty opens the
 // keypad), accepted / rejected at a glance, and the rarer fields (rejects,
 // batch and expiry, mark out) folded under "More". Same line props as
-// ReceiveLineRow, plus onStep(delta) and onOpenPad().
+// ReceiveLineRow, plus onStep(delta) and onOpenPad(). The Rejected / Accepted
+// boxes take a scanner's read as a scan, never as a qty (useQtyScanGuard).
 
 const ReceiveLineCard = ({
   line, entry, onChange, error = null, flash = false, showPrices = true, allowMarkOut = true,
   departments = [], allowItemSetup = true, suggestions = [], receivedAt, onOpenUom, onStep, onOpenPad,
+  onRestore = onChange,
 }) => {
+  const qtyKeyDown = useQtyScanGuard(entry, onRestore);
   const name = line.productName;
   const unit = line.unit || "";
   const { received, rejected, accepted } = lineQty(entry);
@@ -100,9 +105,12 @@ const ReceiveLineCard = ({
               className={`${styles.input} ${styles.mono}`}
               inputMode="decimal"
               aria-label={`Rejected qty for ${name}`}
+              data-scan-input="true"
+              maxLength={QTY_MAX_LENGTH}
               value={entry.rejected}
               placeholder="0"
-              onChange={(e) => onChange({ rejected: e.target.value })}
+              onKeyDown={qtyKeyDown()}
+              onChange={(e) => onChange({ rejected: cleanQtyInput(e.target.value) })}
             />
           </div>
           {Number(rejected) > 0 && (
@@ -122,6 +130,7 @@ const ReceiveLineCard = ({
               label={`Accepted qty for ${name}`}
               entry={entry}
               onChange={onChange}
+              onRestore={onRestore}
             />
           </div>
           {line.trackExpiry && (

@@ -74,6 +74,31 @@ describe("CameraScanner", () => {
     expect(getUserMedia).toHaveBeenCalledTimes(1);
   });
 
+  it("paused with onSeenWhilePaused: what stays in frame is reported there, never read", async () => {
+    const { stream } = makeStream();
+    getUserMedia.mockResolvedValue(stream);
+    detect = jest.fn(() => Promise.resolve([{ rawValue: "8901234567897", format: "ean_13" }]));
+    const onDetected = jest.fn();
+    const onSeenWhilePaused = jest.fn();
+    const { rerender } = render(<CameraScanner onDetected={onDetected} onSeenWhilePaused={onSeenWhilePaused} />);
+    await waitFor(() => expect(onDetected).toHaveBeenCalled());
+    expect(onSeenWhilePaused).not.toHaveBeenCalled();
+
+    rerender(<CameraScanner onDetected={onDetected} onSeenWhilePaused={onSeenWhilePaused} paused />);
+    await screen.findByText(/Scanning paused/);
+    // A frame already in flight may still land; after it, nothing is read.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+    });
+    const reads = onDetected.mock.calls.length;
+    await waitFor(() => expect(onSeenWhilePaused).toHaveBeenCalledWith("8901234567897", "ean_13"));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    });
+    expect(onDetected.mock.calls.length).toBe(reads);
+    expect(onSeenWhilePaused.mock.calls.length).toBeGreaterThan(1);
+  });
+
   it("a refused permission says how to allow it, and can be retried", async () => {
     getUserMedia.mockRejectedValueOnce(Object.assign(new Error("denied"), { name: "NotAllowedError" }));
     render(<CameraScanner onDetected={jest.fn()} />);

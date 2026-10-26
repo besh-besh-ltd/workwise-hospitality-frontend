@@ -266,26 +266,36 @@ const TokenScanBox = ({ disabled = false, onRead, onChoose }) => {
   });
   useEffect(() => scanFeedback.installUnlock(), []);
 
+  // The camera sees a code many times a second: one read per stay in frame.
+  // Every sighting restarts the 1.5 s, including those while reads are paused
+  // (the keypad a scan opened is up), so the item still in frame when it
+  // closes is not read again.
+  const cameraRepeat = useCallback((code) => {
+    const now = Date.now();
+    const seen = seenRef.current;
+    for (const [c, at] of seen) if (now - at >= CAMERA_REPEAT_MS) seen.delete(c);
+    const repeat = seen.has(code);
+    seen.set(code, now);
+    return repeat;
+  }, []);
+
+  const seenWhilePaused = useCallback((raw) => {
+    const parsed = parseScan(raw);
+    if (parsed) cameraRepeat(parsed.code);
+  }, [cameraRepeat]);
+
   const read = useCallback((raw, source) => {
     if (disabledRef.current) return false;
     const parsed = parseScan(raw);
     if (!parsed) return false;
-    if (source === "camera") {
-      // The camera sees a code many times a second: one sighting per 1.5 s.
-      const now = Date.now();
-      const seen = seenRef.current;
-      for (const [code, at] of seen) if (now - at >= CAMERA_REPEAT_MS) seen.delete(code);
-      const repeat = seen.has(parsed.code);
-      seen.set(parsed.code, now);
-      if (repeat) return false;
-    }
+    if (source === "camera" && cameraRepeat(parsed.code)) return false;
     const next = onReadRef.current?.(parsed) || null;
     if (!next) return false;
     if (next.tone === "ok") scanFeedback.success();
     else scanFeedback.error();
     setStatus(next);
     return true;
-  }, []);
+  }, [cameraRepeat]);
 
   useWedgeScanner({ onCode: (raw) => read(raw, "wedge"), enabled: !disabled });
 
@@ -381,7 +391,13 @@ const TokenScanBox = ({ disabled = false, onRead, onChoose }) => {
         </button>
       </div>
 
-      {camera && <LazyCameraScanner onDetected={(raw) => read(raw, "camera")} paused={disabled} />}
+      {camera && (
+        <LazyCameraScanner
+          onDetected={(raw) => read(raw, "camera")}
+          onSeenWhilePaused={seenWhilePaused}
+          paused={disabled}
+        />
+      )}
 
       <div
         role="status"

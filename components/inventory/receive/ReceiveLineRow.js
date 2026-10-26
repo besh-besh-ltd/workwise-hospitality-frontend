@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { AlertTriangle, CircleAlert, Ruler } from "lucide-react";
 import RejectReasonSelect from "./RejectReasonSelect";
 import ItemMatchPrompt from "./ItemMatchPrompt";
+import { useQtyScanGuard } from "@/components/inventory/scan/useQtyScanGuard";
+import { QTY_MAX_LENGTH, cleanQtyInput } from "@/components/inventory/stock/stockUtils";
 import { daysBetween, fmtFactor, fmtQty, inr, lineQty, qtyText } from "./receiveUtils";
 import styles from "./receive.module.scss";
 
@@ -11,7 +13,10 @@ import styles from "./receive.module.scss";
 // to rejected. Shared line props (also ReceiveLineCard):
 //   line (ReceiveContext line), entry (form state), onChange(patch), error,
 //   flash, showPrices, allowMarkOut, departments, allowItemSetup,
-//   suggestions[], receivedAt, onOpenUom()
+//   suggestions[], receivedAt, onOpenUom(), onRestore(entry)
+// The qty boxes take a keyboard-mode scanner's read as a scan, never as a qty
+// (useQtyScanGuard): onRestore writes the line back as it was before the
+// burst (defaults to onChange). A person's Enter leaves the box.
 // Shelf-life hints (the server's SHORT_SHELF_LIFE / EXPIRED rules) show under
 // the line while typing and again on the confirmation.
 
@@ -39,8 +44,9 @@ export const acceptedPatch = (entry, text) => {
  * Accepted = received − rejected. While the receiver types here the text is
  * theirs (not recomputed under the cursor); the difference goes to rejected.
  */
-export const AcceptedInput = ({ entry, onChange, label, className }) => {
+export const AcceptedInput = ({ entry, onChange, onRestore = onChange, label, className }) => {
   const [typing, setTyping] = useState(null);
+  const qtyKeyDown = useQtyScanGuard(entry, onRestore);
   const { accepted } = lineQty(entry);
   const derived = entry.received === "" || accepted == null ? "" : qtyText(accepted);
   return (
@@ -48,13 +54,17 @@ export const AcceptedInput = ({ entry, onChange, label, className }) => {
       className={className}
       inputMode="decimal"
       aria-label={label}
+      data-scan-input="true"
+      maxLength={QTY_MAX_LENGTH}
       value={typing ?? derived}
       placeholder="0"
       onFocus={() => setTyping(derived)}
       onBlur={() => setTyping(null)}
+      onKeyDown={qtyKeyDown(setTyping)}
       onChange={(e) => {
-        setTyping(e.target.value);
-        onChange(acceptedPatch(entry, e.target.value));
+        const text = cleanQtyInput(e.target.value);
+        setTyping(text);
+        onChange(acceptedPatch(entry, text));
       }}
     />
   );
@@ -81,7 +91,9 @@ export { LineMessages };
 const ReceiveLineRow = ({
   index, line, entry, onChange, error = null, flash = false, showPrices = true,
   allowMarkOut = true, departments = [], allowItemSetup = true, suggestions = [], receivedAt, onOpenUom,
+  onRestore = onChange,
 }) => {
+  const qtyKeyDown = useQtyScanGuard(entry, onRestore);
   const name = line.productName;
   const unit = line.unit || "";
   const rejectedQty = Number(entry.rejected || 0);
@@ -129,9 +141,12 @@ const ReceiveLineRow = ({
               className={`${styles.input} ${styles.qtyInput}`}
               inputMode="decimal"
               aria-label={`Received qty for ${name}`}
+              data-scan-input="true"
+              maxLength={QTY_MAX_LENGTH}
               value={entry.received}
               placeholder="0"
-              onChange={(e) => onChange({ received: e.target.value })}
+              onKeyDown={qtyKeyDown()}
+              onChange={(e) => onChange({ received: cleanQtyInput(e.target.value) })}
             />
           </span>
         </td>
@@ -141,6 +156,7 @@ const ReceiveLineRow = ({
             label={`Accepted qty for ${name}`}
             entry={entry}
             onChange={onChange}
+            onRestore={onRestore}
           />
         </td>
         <td className={styles.num}>
@@ -148,9 +164,12 @@ const ReceiveLineRow = ({
             className={`${styles.input} ${styles.qtyInput}`}
             inputMode="decimal"
             aria-label={`Rejected qty for ${name}`}
+            data-scan-input="true"
+            maxLength={QTY_MAX_LENGTH}
             value={entry.rejected}
             placeholder="0"
-            onChange={(e) => onChange({ rejected: e.target.value })}
+            onKeyDown={qtyKeyDown()}
+            onChange={(e) => onChange({ rejected: cleanQtyInput(e.target.value) })}
           />
           {rejectedQty > 0 && (
             <RejectReasonSelect

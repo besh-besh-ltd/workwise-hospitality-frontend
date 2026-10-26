@@ -447,3 +447,102 @@ describe("ReceivePage", () => {
     expect(screen.getByText("Delivery documents")).toBeInTheDocument();
   });
 });
+
+// A scanner trigger pulled while a qty box still has focus: the keyboard-mode
+// scanner "types" the code into that box a few ms a key and ends it with
+// Enter. That is a scan of the next item, never a quantity.
+describe("a scanner read while a qty box has focus", () => {
+  const DAL = { ...RICE, poLineId: 14, productVariantId: 504, productName: "Toor dal", invItemId: 12, barcodes: [] };
+  let now;
+  let clock;
+  beforeEach(() => {
+    now = 40_000_000;
+    clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+  });
+  afterEach(() => clock.mockRestore());
+
+  /** Keys land in the focused box (keydown, then its value changes). */
+  const press = (input, key, gapMs) => {
+    now += gapMs;
+    fireEvent.keyDown(input, { key });
+    fireEvent.change(input, { target: { value: `${input.value}${key}` } });
+  };
+  const personTypes = (input, text) => {
+    input.focus();
+    for (const key of text) press(input, key, 400);
+    now += 1000;
+  };
+  const wedgeInto = (input, code) => {
+    for (const key of code) press(input, key, 5);
+    now += 5;
+    return fireEvent.keyDown(input, { key: "Enter" });
+  };
+  const dalScan = () => resolveScan.mockResolvedValue({
+    kind: "item", code: "8901234567897", gs1: null,
+    item: { invItemId: 12, displayName: "Toor dal", stockUom: "bag", packFactor: 1, poLineId: 14 },
+  });
+
+  it("a burst into Received is a scan of the next item: the typed qty stays and the scan counts", async () => {
+    await mount(ctx({ lines: [RICE, DAL, PANEER] }));
+    dalScan();
+    const rice = field("Received qty for Basmati rice 25kg");
+    personTypes(rice, "5");
+    expect(rice).toHaveValue("5");
+
+    expect(wedgeInto(rice, "8901234567897")).toBe(false); // the scanner's Enter was taken
+    expect(rice).toHaveValue("5");
+    await waitFor(() => expect(field("Received qty for Toor dal")).toHaveValue("1"));
+    expect(resolveScan).toHaveBeenCalledWith("8901234567897", "po:52");
+    expect(rice).toHaveValue("5");
+
+    await postAndConfirm();
+    await screen.findByText("Receipt posted");
+    expect(postCalls()[0].lines).toEqual([
+      expect.objectContaining({ poLineId: 11, receivedQty: 5, acceptedQty: 5 }),
+      expect.objectContaining({ poLineId: 14, receivedQty: 1, acceptedQty: 1 }),
+    ]);
+  });
+
+  it("a burst into a kg line's qty can't turn 2.5 into 2.589…", async () => {
+    await mount(ctx({ lines: [RICE, DAL, PANEER] }));
+    dalScan();
+    const paneer = field("Received qty for Paneer");
+    personTypes(paneer, "2.5");
+    wedgeInto(paneer, "8901234567897");
+    expect(paneer).toHaveValue("2.5");
+    await waitFor(() => expect(field("Received qty for Toor dal")).toHaveValue("1"));
+    expect(paneer).toHaveValue("2.5");
+  });
+
+  it("Accepted and Rejected boxes put back what they held, too", async () => {
+    await mount(ctx({ lines: [RICE, DAL, PANEER] }));
+    dalScan();
+    personTypes(field("Received qty for Basmati rice 25kg"), "6");
+
+    const accepted = field("Accepted qty for Basmati rice 25kg");
+    personTypes(accepted, "");
+    wedgeInto(accepted, "8901234567897");
+    expect(accepted).toHaveValue("6");
+    expect(field("Rejected qty for Basmati rice 25kg")).toHaveValue("");
+
+    const rejected = field("Rejected qty for Basmati rice 25kg");
+    personTypes(rejected, "1");
+    wedgeInto(rejected, "8901234567897");
+    expect(rejected).toHaveValue("1");
+    expect(accepted).toHaveValue("5");
+    await waitFor(() => expect(field("Received qty for Toor dal")).toHaveValue("2"));
+    expect(resolveScan).toHaveBeenCalledTimes(2);
+  });
+
+  it("a person's Enter finishes the edit; the box takes digits and one point, at most 13 characters", async () => {
+    await mount(ctx({ lines: [RICE, DAL, PANEER] }));
+    const rice = field("Received qty for Basmati rice 25kg");
+    expect(rice).toHaveAttribute("maxLength", "13");
+    personTypes(rice, "1,2a");
+    expect(rice).toHaveValue("12");
+    expect(rice).toHaveFocus();
+    expect(fireEvent.keyDown(rice, { key: "Enter" })).toBe(false);
+    expect(rice).not.toHaveFocus();
+    expect(resolveScan).not.toHaveBeenCalled();
+  });
+});

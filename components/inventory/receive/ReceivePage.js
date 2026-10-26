@@ -439,7 +439,11 @@ const ReceivePage = ({
         return;
       }
       const grn = postedGrnOf(outcome?.result);
-      if (isFreshPost(grn) || session.verdictFor(grn) === "ours") await finishPosted(grn);
+      // fromHistory: the answer of a copy of this key the outbox already sent,
+      // not of these entries: fresh-looking (it kept its warnings), but only
+      // ours if our own attempt's reply was lost with nothing edited since.
+      const fresh = !outcome?.fromHistory && isFreshPost(grn);
+      if (fresh || session.verdictFor(grn) === "ours") await finishPosted(grn);
       else showEarlier(grn);
     } catch (err) {
       if (err instanceof AlreadyPosted) {
@@ -598,6 +602,8 @@ const ReceivePage = ({
     line: l,
     entry: entries[l.poLineId],
     onChange: (patch) => editLine(l.poLineId, patch),
+    // A scanner read typed into a qty box: the line as it was, scan count included.
+    onRestore: (prev) => patchLine(l.poLineId, prev),
     error: lineErrors[l.poLineId] || null,
     flash: scan.flashId === l.poLineId,
     departments: ctx?.departments || [],
@@ -610,7 +616,7 @@ const ReceivePage = ({
   });
 
   const itemsCard = (
-    <section className={styles.card} aria-labelledby="receive-items-title">
+    <section className={`${styles.card} ${styles.itemsCard}`} aria-labelledby="receive-items-title">
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle} id="receive-items-title">
           <span className={styles.cardIc}><ScanBarcode size={14} aria-hidden="true" /></span>

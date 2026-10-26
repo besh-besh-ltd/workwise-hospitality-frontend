@@ -18,8 +18,9 @@ import MobileNav from "./MobileNav";
 import { TwoPanelContext, useTwoPanelHost } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
 
-// Inventory's offline-sync dock ("Pending sync (N)"), on the inventory routes
-// only; loaded on demand so other pages never pull in the outbox.
+// Inventory's offline-sync dock ("Pending sync (N)"). Loaded on demand (its
+// own chunk, never server-rendered) but mounted on every signed-in non-vendor
+// page, see below: it is what keeps a queued receipt or mark-out sending.
 const PendingSyncBadge = dynamic(() => import("@/components/inventory/offline/PendingSyncBadge"), { ssr: false });
 
 const DashboardShell = ({ children }) => {

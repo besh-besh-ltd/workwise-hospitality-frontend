@@ -88,7 +88,7 @@ jest.mock("../draftStore", () => {
 });
 
 import React from "react";
-import { act, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 
 // The real outbox does several IndexedDB round trips per step: wait for each
 // state, with room for a loaded CI machine (each wait still ends as soon as
@@ -199,4 +199,28 @@ it("a receipt the server refuses on replay becomes a failed item that keeps the 
       error: expect.objectContaining({ httpStatus: 409, code: "PO_CLOSED", message: "This order is closed: nothing more can be received" }),
     }),
   ]);
+});
+
+it("reopening a receipt the outbox already sent and posting it again with edits says it was posted before, not 'Receipt posted'", async () => {
+  const key = await postOffline();
+  online = true;
+  await act(() => flush({ force: true }));
+  expect(getOutboxStatus("grn_post", key)).toBe("sent");
+  cleanup();
+
+  // The device copy still holds the entries and the spent key: the page brings them back.
+  render(<ReceivePage poId="52" />);
+  await screen.findByText("Basmati rice 25kg");
+  await waitFor(() => expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("6"));
+  fireEvent.change(screen.getByLabelText("Received qty for Basmati rice 25kg"), { target: { value: "8" } });
+  fireEvent.click(screen.getByRole("button", { name: "Post receipt" }));
+  const dialog = await screen.findByRole("dialog", { name: "Post this receipt?" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirm and post" }));
+
+  expect(await screen.findByText(/This receipt was already posted as GRN\/46\/2026-27\/00012/)).toBeInTheDocument();
+  expect(screen.queryByText("Receipt posted")).toBeNull();
+  // The 8 stays on screen under a new key for the receiver to check and post.
+  expect(screen.getByLabelText("Received qty for Basmati rice 25kg")).toHaveValue("8");
+  expect(postCalls()).toHaveLength(1);
+  expect(draftStore.__store.get("grn-draft:407:52:46").sessionKey).not.toBe(key);
 });
