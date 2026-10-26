@@ -490,6 +490,10 @@ const SendQuoteWizard = () => {
   const [techResponses, setTechResponses] = useState({}); // { [productId]: { [clauseId]: {...} } }
   const [techLoading, setTechLoading] = useState(false);
   const [techSubmitted, setTechSubmitted] = useState({}); // { [productId]: true } — already submitted to backend
+  // What the server held at load: { [productId]: { [clauseId]: { response, files } } }.
+  // Lets validation and submit tell a stored answer the vendor has not touched
+  // from one they changed or gave just now. See isStoredTechAnswer.
+  const loadedTechRef = useRef({});
   // Per-clause chat: { [`${productId}.${clauseId}`]: messageCount }
   const [chatCounts, setChatCounts] = useState({});
   const [chatTarget, setChatTarget] = useState(null); // { product, clause, clauseIndex }
@@ -854,6 +858,31 @@ const SendQuoteWizard = () => {
     : Math.round((evalAnswered / evalTotalClauses) * 100);
 
   /* ───────── Gating ───────── */
+  /**
+   * Is this clause answer exactly what the server already holds — same
+   * response, no explanation typed, no extra reference file?
+   *
+   * The explanation for a "disagree" is not stored on the response row (it
+   * lives in the clause chat thread), so every load rehydrates it empty. A
+   * vendor who disagreed on a past quote therefore came back with a
+   * "disagree + empty explanation" that no one had just written. Demanding an
+   * explanation for it deadlocked every re-quote (RFQ 536491, Sep 2026;
+   * RFQ 536911 vendor 422, Oct 2026) — the vendor could not fix what they had
+   * not touched, and Review showed a dead button with no reason.
+   *
+   * Validation scope = edit scope: an explanation is required for an answer
+   * the vendor gives or changes in this session, never for one merely loaded.
+   */
+  const isStoredTechAnswer = (productId, clauseId, r) => {
+    const stored = loadedTechRef.current[productId]?.[clauseId];
+    return (
+      !!stored &&
+      !!r?.response &&
+      stored.response === r.response &&
+      !(r.comment || "").trim() &&
+      (r.files || []).length === stored.files
+    );
+  };
   const evalGateOk = useMemo(() => {
     if (evalProducts.length === 0) return true;
     // Clauses arrive asynchronously (fetchVendorAgreement, one call per product).
@@ -872,7 +901,13 @@ const SendQuoteWizard = () => {
       const list = techClauses[pid] || [];
       for (const c of list) {
         const r = techResponses[pid]?.[c.id];
-        if (r?.response === "disagree" && !(r.comment || "").trim()) return false;
+        if (
+          r?.response === "disagree" &&
+          !(r.comment || "").trim() &&
+          !isStoredTechAnswer(pid, c.id, r)
+        ) {
+          return false;
+        }
       }
     }
     return true;
@@ -989,6 +1024,46 @@ const SendQuoteWizard = () => {
     }
     return null;
   }, [canContinueStep4, paymentTermsEditable, paymentTotal, paymentTerms, isBidExpired, vendorGSTIN]);
+
+  /**
+   * Why "Confirm & Submit" is disabled, said where the vendor is looking.
+   *
+   * Review used to say "Review every number, then confirm" next to a dead
+   * button whatever the cause. This names the step to go back to. Order
+   * follows the stepper, so the first blocker is the first thing to fix.
+   */
+  // Clauses answered "I don't agree" in this session with no explanation yet.
+  const evalNeedsNote = useMemo(
+    () =>
+      Object.entries(techClauses).reduce(
+        (n, [pid, list]) =>
+          n +
+          (list || []).filter((c) => {
+            const r = techResponses[pid]?.[c.id];
+            return (
+              r?.response === "disagree" &&
+              !(r.comment || "").trim() &&
+              !isStoredTechAnswer(pid, c.id, r)
+            );
+          }).length,
+        0
+      ),
+    [techClauses, techResponses]
+  );
+  const submitBlockReason = useMemo(() => {
+    if (canSubmit) return null;
+    if (clarBlocksQuote) return "An open clarification must be resolved before you can submit.";
+    if (!evalGateOk) {
+      if (techLoading) return "Loading your technical evaluation answers…";
+      if (evalNeedsNote > 0) {
+        return `Technical evaluation: add an explanation for the ${evalNeedsNote} clause${evalNeedsNote === 1 ? "" : "s"} you disagreed with. Go back to the Technical evaluation step.`;
+      }
+      return "Technical evaluation: some clauses are still unanswered. Go back to the Technical evaluation step.";
+    }
+    if (!canContinueStep3) return "Enter a price (and delivery period) for at least one item. Go back to the Pricing step.";
+    if (!canContinueStep4) return `${termsBlockReason || "Commercial terms need attention."} Go back to the Commercial terms step.`;
+    return null;
+  }, [canSubmit, clarBlocksQuote, evalGateOk, techLoading, evalNeedsNote, canContinueStep3, canContinueStep4, termsBlockReason]);
 
   // Review-step double-check callouts.
   const reviewWarnings = useMemo(() => {
@@ -1423,10 +1498,15 @@ const SendQuoteWizard = () => {
                 // Note: deviation text is NOT stored on vendor_response —
                 // it lives in the per-clause chat thread (loaded separately).
                 const responses = {};
+                const loaded = {};
                 let anyAnswered = false;
                 let answeredCount = 0;
                 rows.forEach((r) => {
                   const mapped = API_TO_RESPONSE(r.vendor_response);
+                  loaded[r.clause_id] = {
+                    response: mapped,
+                    files: toFileUrls(r.vendor_response_files).length,
+                  };
                   if (mapped) {
                     anyAnswered = true;
                     answeredCount++;
@@ -1443,6 +1523,7 @@ const SendQuoteWizard = () => {
                 // returns one row per clause whether or not it was answered.
                 fullyAnsweredAtLoad[p.id] = rows.length > 0 && answeredCount === rows.length;
                 if (!cancelled) {
+                  loadedTechRef.current = { ...loadedTechRef.current, [p.id]: loaded };
                   setTechResponses((prev) => ({ ...prev, [p.id]: responses }));
                   if (anyAnswered) {
                     setTechSubmitted((prev) => ({ ...prev, [p.id]: true }));
@@ -1917,6 +1998,9 @@ const SendQuoteWizard = () => {
       // Only submit clauses the vendor actually answered — sending an unmapped
       // / null response makes the backend reject the whole batch.
       .filter(([, r]) => r.response === "agree" || r.response === "disagree")
+      // A stored answer the vendor has not touched is already on the server;
+      // re-posting it would only rewrite it (without its explanation).
+      .filter(([clauseId, r]) => !isStoredTechAnswer(productId, clauseId, r))
       .map(([clauseId, r]) => {
       const row = {
         rfq_id: parseInt(id),
@@ -2581,6 +2665,8 @@ const SendQuoteWizard = () => {
           canContinueStep3={canContinueStep3}
           canContinueStep4={canContinueStep4}
           termsBlockReason={termsBlockReason}
+          submitBlockReason={submitBlockReason}
+          evalNeedsNote={evalNeedsNote}
           canSubmit={canSubmit && !isReadOnly}
           missedInquiry={missedInquiry}
           clarBlocksQuote={clarBlocksQuote}
@@ -5162,6 +5248,8 @@ const ActionBar = ({
   canContinueStep3,
   canContinueStep4,
   termsBlockReason,
+  submitBlockReason,
+  evalNeedsNote,
   canSubmit,
   evalAnswered,
   evalTotal,
@@ -5192,15 +5280,19 @@ const ActionBar = ({
       return "Resolve all clarifications and wait for the window to close before continuing to the next step.";
     }
     if (currentStepId === "eval") {
-      return evalTotal === 0
-        ? "No clauses — continue when ready."
-        : `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`;
+      if (evalTotal === 0) return "No clauses — continue when ready.";
+      if (evalAnswered >= evalTotal && evalNeedsNote > 0) {
+        return `Add an explanation for the ${evalNeedsNote} clause${evalNeedsNote === 1 ? "" : "s"} you don't agree with to continue.`;
+      }
+      return `Answer ${Math.max(0, evalTotal - evalAnswered)} remaining clause(s) to continue.`;
     }
     if (currentStepId === "pricing") return "Enter prices for the items you can quote, then continue.";
     if (currentStepId === "terms") {
       return termsBlockReason || "Fill in commercial terms — GSTIN, payment schedule and any global charges.";
     }
-    if (currentStepId === "review") return "Review every number, then confirm to submit.";
+    if (currentStepId === "review") {
+      return submitBlockReason || "Review every number, then confirm to submit.";
+    }
     return null;
   })();
 
