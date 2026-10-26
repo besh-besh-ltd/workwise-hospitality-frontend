@@ -120,6 +120,13 @@ describe("AdjustmentsPage", () => {
     expect(within(rowOf("ADJ/46/2026-27/00003")).getByText("Posted")).toBeInTheDocument();
   });
 
+  test("a loss shows its minus sign in the list, as on the detail; stock found does not", async () => {
+    render(<AdjustmentsPage />);
+    const wastage = await waitFor(() => rowOf("ADJ/46/2026-27/00004"));
+    expect(wastage.querySelector("[data-label='Value']")).toHaveTextContent("−₹540.00");
+    expect(rowOf("ADJ/46/2026-27/00005").querySelector("[data-label='Value']")).toHaveTextContent(/^₹540\.00$/);
+  });
+
   test("Approve in the list opens the adjustment; approving happens there, with the lines in view", async () => {
     approveAdjustment.mockResolvedValue(row({ status: "posted", can: { approve: false, reject: false } }));
     render(<AdjustmentsPage />);

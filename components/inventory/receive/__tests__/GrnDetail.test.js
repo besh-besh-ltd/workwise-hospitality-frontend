@@ -239,6 +239,27 @@ describe("GrnDetail", () => {
     ).toBeInTheDocument();
   });
 
+  it("lists the receipt's own returns from the GRN, and Can return leaves out what they hold", async () => {
+    await mount(grn({
+      rtvs: [{
+        id: 71, rtvNumber: "RTV/46/2026-27/00001", grnId: 900, disposition: "REPLACE", status: "dispatched",
+        challanNo: "RC-9", creditNoteRef: null,
+        lines: [{ grnLineId: 7001, productName: "Basmati rice 25kg", qty: 4, reason: "damaged" }],
+      }],
+    }));
+    const returns = screen.getByRole("heading", { name: /Returns to vendor/ }).closest("section") || document.body;
+    expect(within(returns).getByText("RTV/46/2026-27/00001")).toBeInTheDocument();
+    expect(within(returns).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.getByText("4 on returns")).toBeInTheDocument();
+    // The PO's Deliveries tab is not this page's source: a Controller may not see the PO.
+    expect(getPoDeliveries).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Return to vendor" }));
+    const dialog = await screen.findByRole("dialog", { name: "Return to vendor" });
+    const rice = within(dialog).getByText("Basmati rice 25kg").closest("tr");
+    expect(rice).toHaveTextContent("6 bag");
+  });
+
   it("a draft GRN links back to Receive instead of offering actions", async () => {
     getGrn.mockResolvedValue(grn({ status: "draft", grnNumber: null }));
     render(<GrnDetail id="900" />);

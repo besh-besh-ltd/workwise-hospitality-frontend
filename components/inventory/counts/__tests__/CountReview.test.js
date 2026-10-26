@@ -16,7 +16,7 @@ jest.mock("react-toastify", () => ({
 }));
 
 import React, { useState } from "react";
-import { render, screen, fireEvent, act, within } from "@testing-library/react";
+import { render, screen, fireEvent, act, within, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { approveCount, cancelCount } from "@/services/inventory";
 import CountReview from "../CountReview";
@@ -106,6 +106,18 @@ describe("CountReview", () => {
     expect(within(rowOf("Sugar")).getByText("+₹45.00")).toBeInTheDocument();
     // What nobody counted is set apart: it is left out of the posting.
     expect(screen.getByText(/1 item not counted/i)).toBeInTheDocument();
+  });
+
+  it("a count with no differences says approving changes nothing in stock, and approves", async () => {
+    const same = [line({ id: 13, invItemId: 9, displayName: "Salt", countedQty: 4, systemQtyAtCount: 4, varianceQty: 0, varianceValue: 0 })];
+    approveCount.mockResolvedValue(count({ lines: same, status: "approved", summary: { lineCount: 1, countedCount: 1, varianceLines: 0, varianceValue: 0 } }));
+    render(<Harness initial={count({ lines: same, summary: { lineCount: 1, countedCount: 1, varianceLines: 0, varianceValue: 0 } })} />);
+    fireEvent.click(approveBtn());
+    expect(await screen.findByText("Every counted qty matches stock, so nothing changes in stock. Approving closes the count.")).toBeInTheDocument();
+    expect(screen.queryByText(/0 lines with a difference/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Post differences" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Approve count" }));
+    await waitFor(() => expect(approveCount).toHaveBeenCalled());
   });
 
   it("approve disabled until every variance has a reason", async () => {

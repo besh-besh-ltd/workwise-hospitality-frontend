@@ -143,10 +143,12 @@ const CountReview = ({ count, onCountChange, onReload }) => {
   };
 
   const net = count?.summary?.varianceValue;
-  const approveText =
-    `${escapeHtml(plural(differences.length, "line"))} with a difference will be posted to stock` +
-    (isSet(net) ? ` (net ${escapeHtml(fmtSignedMoney(net))}).` : ".") +
-    " This cannot be undone; a later correction needs an adjustment.";
+  // Nothing differs: approving only closes the count, stock is not touched.
+  const approveText = differences.length
+    ? `${escapeHtml(plural(differences.length, "line"))} with a difference will be posted to stock` +
+      (isSet(net) ? ` (net ${escapeHtml(fmtSignedMoney(net))}).` : ".") +
+      " This cannot be undone; a later correction needs an adjustment."
+    : "Every counted qty matches stock, so nothing changes in stock. Approving closes the count.";
 
   const blockers = [
     missingReasons.length ? `${plural(missingReasons.length, "reason")} needed` : null,
@@ -367,7 +369,7 @@ const CountReview = ({ count, onCountChange, onReload }) => {
         title="Approve this count?"
         description={approveText}
         confirmButtonColor="success"
-        confirmButtonText="Post differences"
+        confirmButtonText={differences.length ? "Post differences" : "Approve count"}
         cancelButtonText="Not yet"
       />
       <ConfirmationModal

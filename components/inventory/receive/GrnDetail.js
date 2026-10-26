@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import {
-  deleteGrnAttachment, getGrn, getGrnPdf, getPoDeliveries, printGrnLabels, uploadGrnAttachment,
+  deleteGrnAttachment, getGrn, getGrnPdf, printGrnLabels, uploadGrnAttachment,
 } from "@/services/inventory";
 import ReverseGrnModal from "./ReverseGrnModal";
 import RtvModal from "./RtvModal";
@@ -131,17 +131,6 @@ const GrnDetail = ({ id }) => {
   const hotelIds = useMemo(() => (grn?.hotelId ? [Number(grn.hotelId)] : []), [grn?.hotelId]);
   const perms = useModulePermissions({ moduleKey: "grn", hotelIds, enabled: hotelIds.length > 0 });
 
-  const loadRtvs = useCallback(async (poId, grnId) => {
-    // Fail-soft: the delivery view is optional context on this page.
-    try {
-      const res = await getPoDeliveries(poId);
-      const list = Array.isArray(res?.rtvs) ? res.rtvs : [];
-      setRtvs(list.filter((r) => Number(r.grnId) === Number(grnId)));
-    } catch {
-      setRtvs([]);
-    }
-  }, []);
-
   const load = useCallback(async ({ silent = false } = {}) => {
     const seq = ++seqRef.current;
     if (!silent) setLoadState({ status: "loading", message: null });
@@ -150,8 +139,9 @@ const GrnDetail = ({ id }) => {
       if (seq !== seqRef.current) return;
       setGrn(g);
       setLoadState({ status: "ready", message: null });
-      if (g?.poId && g.docType === "RECEIPT" && g.status !== "draft") loadRtvs(g.poId, g.id);
-      else setRtvs([]);
+      // The receipt's own returns come with it (whoever reads the GRN sees
+      // them, PO visibility or not).
+      setRtvs(g?.docType === "RECEIPT" && g.status !== "draft" && Array.isArray(g.rtvs) ? g.rtvs : []);
     } catch (err) {
       if (seq !== seqRef.current) return;
       const info = errorInfo(err, "Could not load this goods receipt.");
@@ -161,7 +151,7 @@ const GrnDetail = ({ id }) => {
       }
       setLoadState({ status: info.httpStatus === 404 ? "notFound" : "error", message: info.message });
     }
-  }, [id, loadRtvs]);
+  }, [id]);
 
   useEffect(() => {
     if (id != null) load();

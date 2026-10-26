@@ -9,18 +9,6 @@ jest.mock("next/link", () => ({
   __esModule: true,
   default: ({ href, children, ...rest }) => <a href={href} {...rest}>{children}</a>,
 }));
-jest.mock("react-redux", () => ({
-  __esModule: true,
-  useSelector: (fn) =>
-    fn({
-      userProfile: {
-        hospitality_mappings: [
-          { hospitality_hotel_id: 46, hotel_name: "Orchid Mumbai" },
-          { hospitality_hotel_id: 47, hotel_name: "Orchid Pune" },
-        ],
-      },
-    }),
-}));
 jest.mock("react-toastify", () => {
   const toast = jest.fn();
   Object.assign(toast, { success: jest.fn(), error: jest.fn(), info: jest.fn(), warn: jest.fn(), dismiss: jest.fn() });
@@ -67,6 +55,7 @@ beforeEach(() => {
   getAwaitingDeliveries.mockResolvedValue({
     rows: [row(), row({ poId: 53, poNumber: "PO/2026/0053", overdue: false, nextDueDate: null, hasInTransitDispatch: false, isCallOff: true })],
     total: 2,
+    hotels: [{ id: 46, name: "Orchid Mumbai" }, { id: 47, name: "Orchid Pune" }],
   });
 });
 
@@ -114,6 +103,23 @@ describe("AwaitingList", () => {
     await waitFor(() => expect(getAwaitingDeliveries).toHaveBeenLastCalledWith(expect.objectContaining({ hotelId: 47 })));
     fireEvent.change(screen.getByLabelText("Search PO or vendor"), { target: { value: "fresh" } });
     await waitFor(() => expect(getAwaitingDeliveries).toHaveBeenLastCalledWith(expect.objectContaining({ search: "fresh" })));
+  });
+
+  it("the hotel filter offers the hotels the server lists for this user, nothing else", async () => {
+    getAwaitingDeliveries.mockResolvedValue({ rows: [row()], total: 1, hotels: [{ id: 46, name: "Orchid Mumbai" }] });
+    render(<AwaitingList />);
+    await screen.findByText("PO/2026/0052");
+    // One hotel in scope: no filter at all (a company mapping never adds one).
+    expect(screen.queryByLabelText("Hotel")).toBeNull();
+  });
+
+  it("keeps the hotel choices while a filtered list is empty", async () => {
+    render(<AwaitingList />);
+    await screen.findByText("PO/2026/0052");
+    getAwaitingDeliveries.mockResolvedValue({ rows: [], total: 0, hotels: [{ id: 46, name: "Orchid Mumbai" }, { id: 47, name: "Orchid Pune" }] });
+    fireEvent.change(screen.getByLabelText("Hotel"), { target: { value: "47" } });
+    await screen.findByText("Nothing awaiting delivery here");
+    expect([...screen.getByLabelText("Hotel").options].map((o) => o.textContent)).toEqual(["All my hotels", "Orchid Mumbai", "Orchid Pune"]);
   });
 
   it("an empty bucket says so", async () => {

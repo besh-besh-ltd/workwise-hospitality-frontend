@@ -1,5 +1,4 @@
-import React, { useMemo } from "react";
-import { useSelector } from "react-redux";
+import React from "react";
 import { FileText, Paperclip, Trash2 } from "lucide-react";
 import styles from "./receive.module.scss";
 
@@ -100,18 +99,13 @@ export const AttachmentList = ({ attachments = [], pendingFiles = [], onDelete, 
 };
 
 // ── Hotels ───────────────────────────────────────────────────────────────────
-/** The signed-in user's hotels (deduped, by name) from their hospitality mappings. */
-export const useHotelOptions = () => {
-  const userProfile = useSelector((state) => state.userProfile);
-  return useMemo(() => {
-    const seen = new Map();
-    for (const m of userProfile?.hospitality_mappings || []) {
-      if (m?.hospitality_hotel_id == null || seen.has(Number(m.hospitality_hotel_id))) continue;
-      seen.set(Number(m.hospitality_hotel_id), m.hotel_name || `Hotel ${m.hospitality_hotel_id}`);
-    }
-    return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [userProfile]);
-};
+/**
+ * The hotel filter's choices from a list's answer (`hotels` on GET
+ * /receive/awaiting and GET /grn): exactly the hotels the server lets this
+ * user read receipts at, not their company mappings. null when absent.
+ */
+export const hotelsOf = (res) =>
+  Array.isArray(res?.hotels) ? res.hotels.map((h) => ({ id: Number(h.id), name: h.name || `Hotel ${h.id}` })) : null;
 
 /** "All my hotels" filter; renders nothing for a single-hotel user. */
 export const HotelFilter = ({ id, hotels, value, onChange }) => {

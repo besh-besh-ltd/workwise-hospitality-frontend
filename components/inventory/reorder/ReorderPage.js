@@ -121,7 +121,10 @@ const ReorderPage = () => {
       if (req !== reqRef.current) return;
       const rows = res?.rows || [];
       setData(res || null);
-      setSelected(Object.fromEntries(rows.map((r) => [r.invItemId, Number(r.suggestedQty) > 0])));
+      // Pre-selected: something to order and no MR draft or pending MR for it
+      // already (open MRs are shown, never subtracted, so the suggestion
+      // would ask for the same need twice).
+      setSelected(Object.fromEntries(rows.map((r) => [r.invItemId, Number(r.suggestedQty) > 0 && !(Number(r.openMrQty) > 0)])));
       setQtys(Object.fromEntries(rows.map((r) => [r.invItemId, Number(r.suggestedQty) > 0 ? qtyText(r.suggestedQty) : ""])));
       setDepartmentId(bestDepartment(res?.departments || [], rows));
       setActionError(null);

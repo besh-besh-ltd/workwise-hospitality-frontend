@@ -277,6 +277,13 @@ it("spells out the on-order flag, a missing suggestion and what open MRs already
   expect(within(milk.getByText("MR draft/pending: 6").closest("td")).getByText("0")).toBeInTheDocument();
 });
 
+it("an item already on an MR draft or pending MR is not pre-selected again, its qty still filled in", async () => {
+  await mount(reorder({ rows: [row({ openMrQty: 16 }), row({ invItemId: 2, displayName: "Bleach", suggestedQty: 4 })] }));
+  expect(screen.getByLabelText("Select Milk")).not.toBeChecked();
+  expect(screen.getByLabelText("Order qty for Milk")).toHaveValue("16");
+  expect(screen.getByLabelText("Select Bleach")).toBeChecked();
+});
+
 it("each contract line says what the contract has left, and this hotel's share of a group contract", async () => {
   await mount(
     reorder({

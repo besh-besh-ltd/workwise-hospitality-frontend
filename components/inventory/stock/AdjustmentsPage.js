@@ -12,7 +12,9 @@ import { onTabKeyDown, tabIndexFor } from "./tabKeys";
 import NewAdjustmentModal from "./NewAdjustmentModal";
 import AdjustmentDetailModal from "./AdjustmentDetailModal";
 import RejectAdjustmentModal from "./RejectAdjustmentModal";
-import { ADJUSTMENT_STATUS, adjustmentRefusal, errorInfo, messageOf, reasonLabel, stockRoutes, toId } from "./stockUtils";
+import {
+  ADJUSTMENT_STATUS, adjustmentRefusal, errorInfo, messageOf, reasonDirection, reasonLabel, stockRoutes, toId,
+} from "./stockUtils";
 import r from "@/components/inventory/receive/receive.module.scss";
 import s from "./stock.module.scss";
 
@@ -26,6 +28,10 @@ import s from "./stock.module.scss";
 // Props: initialHotelId (?hotelId=), initialId (?id=).
 
 const PAGE_SIZE = 50;
+// The list's value is the adjustment's gross value. A loss (wastage, breakage,
+// expiry, theft) shows with its minus sign, as on the detail and the reports;
+// a correction can go both ways, so it stays gross.
+const listValue = (row) => (reasonDirection(row.reasonCode) === "out" && Number(row.value) > 0 ? `−${inr(row.value)}` : inr(row.value));
 const STATUS_TABS = [
   { value: "", label: "All" },
   { value: "pending_approval", label: "Pending approval" },
@@ -262,7 +268,7 @@ const AdjustmentsPage = ({ initialHotelId = null, initialId = null }) => {
                             </td>
                             <td data-label="Reason">{reasonLabel(row.reasonCode)}</td>
                             <td className={r.num} data-label="Items">{row.lineCount ?? "—"}</td>
-                            <td className={r.num} data-label="Value">{inr(row.value)}</td>
+                            <td className={r.num} data-label="Value">{listValue(row)}</td>
                             <td data-label="Status">
                               <span className={`${r.pill} ${r[`pill${st.tone}`] || ""}`}>
                                 <span className={r.dot} />{st.label}

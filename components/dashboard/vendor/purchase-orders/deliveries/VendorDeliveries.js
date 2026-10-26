@@ -215,7 +215,7 @@ function PlanBlock({ data, canDispatch, onDispatch }) {
                   {status && <Pill spec={status} />}
                   {d.overdue && <span className={`${po.pill} ${po.pillWarn}`}>Overdue</span>}
                   {canDispatch && isOpenDelivery(d) && !needsGoods && (
-                    <span className={`${po.pill} ${po.pillInfo}`}>On the road</span>
+                    <span className={`${po.pill} ${po.pillInfo}`}>In transit</span>
                   )}
                   {canDispatch && needsGoods && (
                     <button
@@ -306,7 +306,7 @@ function DispatchBlock({ data, canInvoice, onInvoice, onWithdraw }) {
         <h3 id="vd-dispatches" className={vd.blockTitle}>Dispatch notes</h3>
       </div>
       {dispatches.length === 0 ? (
-        <p className={vd.empty}>No dispatch notes yet. Use Mark dispatched when goods leave, so the hotel knows what is coming.</p>
+        <p className={vd.empty}>No dispatch notes yet. Use Dispatch on a phase when goods leave, so the hotel knows what is coming.</p>
       ) : (
         <ul className={vd.list}>
           {dispatches.map((ds) => {

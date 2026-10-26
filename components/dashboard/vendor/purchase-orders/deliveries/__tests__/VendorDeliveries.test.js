@@ -153,7 +153,7 @@ describe("VendorDeliveries", () => {
     // DSP/…/00004 carries all 10 POUFFE Puri's phase 1 still needs.
     const { unmount } = render(<VendorDeliveries poId={626} data={withTransit(10)} loading={false} error="" canDispatch canInvoice />);
     expect(screen.queryByRole("button", { name: puri })).not.toBeInTheDocument();
-    expect(phaseHead()).toHaveTextContent("On the road");
+    expect(phaseHead()).toHaveTextContent("In transit");
     unmount();
 
     // Only 4 of them: the other 6 still need a note.
@@ -164,7 +164,7 @@ describe("VendorDeliveries", () => {
     // Withdrawn: nothing is on the road any more.
     render(<VendorDeliveries poId={626} data={withTransit(10, "cancelled")} loading={false} error="" canDispatch canInvoice />);
     expect(screen.getByRole("button", { name: puri })).toBeInTheDocument();
-    expect(phaseHead()).not.toHaveTextContent("On the road");
+    expect(phaseHead()).not.toHaveTextContent("In transit");
   });
 
   it("offers no dispatch or invoice actions when the PO does not allow them", () => {

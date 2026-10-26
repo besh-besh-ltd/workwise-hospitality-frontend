@@ -9,10 +9,6 @@ jest.mock("next/link", () => ({
   __esModule: true,
   default: ({ href, children, ...rest }) => <a href={href} {...rest}>{children}</a>,
 }));
-jest.mock("react-redux", () => ({
-  __esModule: true,
-  useSelector: (fn) => fn({ userProfile: { hospitality_mappings: [{ hospitality_hotel_id: 46, hotel_name: "Orchid Mumbai" }] } }),
-}));
 jest.mock("@/hooks/useIsMobile", () => ({ __esModule: true, default: () => false }));
 jest.mock("@/services/inventory", () => ({ __esModule: true, listGrns: jest.fn() }));
 
@@ -37,10 +33,18 @@ beforeEach(() => {
   listGrns.mockResolvedValue({
     rows: [summary(), summary({ id: 901, grnNumber: "GRN/46/2026-27/00013", docType: "REVERSAL", acceptedValue: -1800 })],
     total: 2,
+    hotels: [{ id: 46, name: "Orchid Mumbai" }],
   });
 });
 
 describe("GrnRegister", () => {
+  it("the hotel filter lists the hotels the server returns for this user", async () => {
+    listGrns.mockResolvedValue({ rows: [summary()], total: 1, hotels: [{ id: 46, name: "Orchid Mumbai" }, { id: 47, name: "Orchid Pune" }] });
+    render(<GrnRegister />);
+    await waitFor(() => expect(screen.getByLabelText("Hotel")).toBeInTheDocument());
+    expect([...screen.getByLabelText("Hotel").options].map((o) => o.textContent)).toEqual(["All my hotels", "Orchid Mumbai", "Orchid Pune"]);
+  });
+
   it("lists GRNs with type, value and status, newest first from the server", async () => {
     render(<GrnRegister />);
     const first = (await screen.findByText("GRN/46/2026-27/00012")).closest("tr");

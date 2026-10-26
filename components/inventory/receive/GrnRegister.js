@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { ChevronLeft, ChevronRight, ClipboardList, Filter, RefreshCw, ScanBarcode, X } from "lucide-react";
 import { listGrns } from "@/services/inventory";
 import { errorInfo, fmtDay, fmtInstant, fmtQty, inr, routes } from "./receiveUtils";
-import { HotelFilter, StatusPill, useHotelOptions } from "./receiveShared";
+import { HotelFilter, StatusPill, hotelsOf } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // GRN register: every goods receipt and reversal at the hotels the user can
@@ -24,7 +24,6 @@ const TABS = [
 
 const GrnRegister = () => {
   const router = useRouter();
-  const hotels = useHotelOptions();
 
   const ready = router.isReady !== false;
   const queryPoId = ready && router.query?.poId && /^\d+$/.test(String(router.query.poId)) ? Number(router.query.poId) : null;
@@ -35,6 +34,7 @@ const GrnRegister = () => {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ rows: [], total: 0 });
+  const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const seqRef = useRef(0);
@@ -54,6 +54,8 @@ const GrnRegister = () => {
       const res = await listGrns(params);
       if (seq !== seqRef.current) return;
       setData({ rows: Array.isArray(res?.rows) ? res.rows : [], total: Number(res?.total) || 0 });
+      const choices = hotelsOf(res);
+      if (choices) setHotels(choices);
     } catch (err) {
       if (seq !== seqRef.current) return;
       setLoadError(errorInfo(err, "Could not load the GRN register.").message);

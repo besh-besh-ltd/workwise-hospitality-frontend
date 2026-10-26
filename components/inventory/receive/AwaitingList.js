@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, ClipboardList, PackageCheck, RefreshCw, Scan
 import ScanInput from "@/components/inventory/scan/ScanInput";
 import { getAwaitingDeliveries } from "@/services/inventory";
 import { errorInfo, fmtDay, fmtQty, inr, routes } from "./receiveUtils";
-import { HotelFilter, useHotelOptions } from "./receiveShared";
+import { HotelFilter, hotelsOf } from "./receiveShared";
 import styles from "./receive.module.scss";
 
 // Awaiting deliveries: every PO with goods still to come in at the hotels the
@@ -37,7 +37,6 @@ const EMPTY_SUB = {
 
 const AwaitingList = () => {
   const router = useRouter();
-  const hotels = useHotelOptions();
 
   const [filter, setFilter] = useState("all");
   const [hotelId, setHotelId] = useState("");
@@ -45,6 +44,7 @@ const AwaitingList = () => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ rows: [], total: 0 });
+  const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const seqRef = useRef(0);
@@ -68,6 +68,8 @@ const AwaitingList = () => {
       const res = await getAwaitingDeliveries(params);
       if (seq !== seqRef.current) return;
       setData({ rows: Array.isArray(res?.rows) ? res.rows : [], total: Number(res?.total) || 0 });
+      const choices = hotelsOf(res);
+      if (choices) setHotels(choices);
     } catch (err) {
       if (seq !== seqRef.current) return;
       setLoadError(errorInfo(err, "Could not load awaiting deliveries.").message);
