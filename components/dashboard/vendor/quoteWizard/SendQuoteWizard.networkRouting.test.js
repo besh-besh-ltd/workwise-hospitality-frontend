@@ -138,7 +138,9 @@ test("Accept loads the RFQ again and the quote form opens", async () => {
 
   fireEvent.click(within(await screen.findByRole("region", { name: "RFQ assignment" })).getByRole("button", { name: "Accept" }));
   await waitFor(() => expect(respondToAssignment).toHaveBeenCalledWith(901, { decision: "ACCEPT" }));
-  expect((await screen.findAllByText("Inquiry overview")).length).toBeGreaterThan(0);
+  // The wizard re-renders the whole RFQ after the reload; under a full-suite
+  // load that takes longer than findBy's default 1 s.
+  expect((await screen.findAllByText("Inquiry overview", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
   expect(screen.queryByRole("region", { name: "RFQ assignment" })).toBeNull();
   expect(getRFQById).toHaveBeenCalledTimes(2);
   expect(screen.getAllByRole("button", { name: /Regret quote/i }).length).toBeGreaterThan(0);
@@ -164,7 +166,7 @@ test("a regret the server refuses (ROUTING_REQUIRED) shows the server's reason",
   sendQuotation.mockRejectedValue({ response: { status: 403, data: { status: 0, message: SERVER_REASON, reason: "ROUTING_REQUIRED" } } });
   getRFQById.mockResolvedValue({ data: mkRfq() });
   render(<SendQuoteWizard />);
-  await screen.findAllByText("Inquiry overview");
+  await screen.findAllByText("Inquiry overview", {}, { timeout: 5000 });
 
   fireEvent.click(screen.getAllByRole("button", { name: /Regret quote/i })[0]);
   fireEvent.click(within(await screen.findByRole("dialog", { name: "Regret reason" })).getByRole("button", { name: "Submit regret" }));

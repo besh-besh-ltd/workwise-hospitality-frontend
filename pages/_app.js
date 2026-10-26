@@ -46,6 +46,7 @@ config.autoAddCss = false;
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  const hideAssistant = router.pathname === '/receive/token';
   // phase: 'idle' | 'loading' | 'complete'
   const [barPhase, setBarPhase] = useState('idle');
   const [progress, setProgress] = useState(0);
@@ -176,7 +177,8 @@ export default function App({ Component, pageProps }) {
             </Layout>
           </GoogleOAuthProvider>
         </Providers>
-        <WizardChat />
+        {/* The site-rep receive link is for someone with no account: no assistant. */}
+        {!hideAssistant && <WizardChat />}
       </ErrorBoundary>
     </>
   );

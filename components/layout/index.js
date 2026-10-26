@@ -16,6 +16,7 @@ import { store } from "@/redux/store";
 import { entitySwitchNeedsReload, profileNeedsNetworkRefresh } from "@/utils/sessionSync";
 import { isGuestSession } from "@/utils/guestSession";
 import { hardReload } from "@/utils/hardNavigate";
+import { redactUrl } from "@/lib/redactUrl";
 // import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
@@ -209,8 +210,15 @@ const Layout = (props) => {
   const isVendorRegistrationPage = router.pathname === '/vendor-registration';
   // A vendor-network invitation is a focused, standalone task: no marketing header.
   const isNetworkInvitePage = router.pathname === '/vendor/network/accept-invite';
+  // Inventory short links (/s/<t>/<id>, from printed QR labels) are a scan
+  // landing, not a marketing page: no public header or footer.
+  const isInventoryShortLink = router.pathname === '/s/[t]/[id]';
+  // The site-rep receive link (/receive/token) is a standalone task for someone
+  // with no account: no public header, no dashboard shell.
+  const isSiteRepReceive = router.pathname === '/receive/token';
   const shouldHideNavbarFooter =
-    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage;
+    isStaticPage || isVendorCoCPage || isVendorTnCPage || isVendorRegistrationPage || isNetworkInvitePage || isInventoryShortLink ||
+    isSiteRepReceive;
 
   // Use the new global DashboardShell for all logged-in dashboard/vendor routes.
   // Public/marketing pages (and anonymous visits to /vendor/*) continue to use
@@ -218,13 +226,17 @@ const Layout = (props) => {
   const isDashboardPath =
     router.pathname?.startsWith('/dashboard') || router.pathname?.startsWith('/vendor');
   const isDashboardRoute = isDashboardPath && isLoggedIn;
+  // Never a credential: the site-rep receive link's #t= / ?t= is in asPath
+  // until the page strips it. redactUrl drops the #fragment and t / token
+  // params only, so a public page's own query (a vendor profile's ?id=) stays.
+  const canonicalPath = redactUrl(router.asPath || "/") || "/";
 
   return (
     <>
 
     {/*  set canonical tag accros all the pages */}
       <Head>
-        <link rel="canonical" href={`https://letsworkwise.com${router.asPath}`} />
+        <link rel="canonical" href={`https://letsworkwise.com${canonicalPath}`} />
       </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>

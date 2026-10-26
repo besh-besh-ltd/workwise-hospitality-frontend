@@ -28,7 +28,8 @@ describe("visibleRoleMenu", () => {
   it("leaves non-admin rails alone", () => {
     // Vendor-network gates are covered in headerConfig.network.test.js; with
     // no profile loaded, only the network-gated entries drop out here.
-    const notNetworkGated = (i) => !i.requiresNetworkAdmin && !i.requiresNetworkMember && !i.requiresNoNetwork;
+    // Permission-gated entries (moduleKey) also drop out until grants load.
+    const notNetworkGated = (i) => !i.requiresNetworkAdmin && !i.requiresNetworkMember && !i.requiresNoNetwork && !i.moduleKey;
     for (const role of ["buyer", "vendor"]) {
       expect(visibleRoleMenu(role, { isHospitalityCompany: false })).toEqual(roleMenus[role].filter(notNetworkGated));
     }
@@ -36,6 +37,22 @@ describe("visibleRoleMenu", () => {
 
   it("returns an empty rail for an unknown role rather than throwing", () => {
     expect(visibleRoleMenu("nobody", { isHospitalityCompany: true })).toEqual([]);
+  });
+});
+
+describe("permission-gated rows (moduleKey)", () => {
+  const hrefs = (navGrants) => visibleRoleMenu("buyer", { navGrants }).map((i) => i.href);
+
+  it("a row keyed on several modules shows with read on any one of them (M-6: Inventory Overview)", () => {
+    expect(hrefs({ grn: ["read"] })).toContain("/dashboard/buyer/inventory");
+    expect(hrefs({ inventory: ["read"] })).toContain("/dashboard/buyer/inventory");
+    expect(hrefs({ grn: ["create"], inventory: [] })).not.toContain("/dashboard/buyer/inventory");
+    expect(hrefs(null)).not.toContain("/dashboard/buyer/inventory");
+  });
+
+  it("a single-module row still needs that module's read", () => {
+    expect(hrefs({ grn: ["read"] })).not.toContain("/dashboard/buyer/inventory/stock");
+    expect(hrefs({ inventory: ["read"] })).not.toContain("/dashboard/buyer/inventory/receive");
   });
 });
 
