@@ -53,6 +53,7 @@ import RoundHistoryPanel from "./RoundHistoryPanel";
 import RoundActions, { resolveActionHref } from "./RoundActions";
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import RoundDetailSkeleton from "./RoundDetailSkeleton";
+import RoundRemarks from "../RoundRemarks";
 
 function SectionCard({ title, sub, icon, right, children, testId, flush }) {
   return (
@@ -305,6 +306,8 @@ export default function NegotiationRoundDetailPage({ roundId }) {
       </div>
 
       <RoundBanners model={model} scope={activeScope} />
+
+      <RoundRemarks remarks={round.creatorRemarks} creatorName={round.createdByName} />
 
       {/* ── SCOPE BAR ── the denominator, always visible ── */}
       <div className="list-toolbar">

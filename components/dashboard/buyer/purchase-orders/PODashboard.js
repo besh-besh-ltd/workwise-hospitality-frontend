@@ -14,6 +14,9 @@ import {
   UserCheck,
 } from "lucide-react";
 import { getPOKpis, getPODashboardList, getPOAwaiting, downloadPOListExcel } from "@/services/po";
+import Link from "next/link";
+import { poDetail } from "@/components/dashboard/shared/dashboardLinks";
+import { reasonLabel } from "@/components/dashboard/buyer/rfq/holdSummary";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import { VendorFilter, DateFilter, EMPTY_DATE_FILTER, rangeOf } from "./FilterMenus";
@@ -74,6 +77,8 @@ const PODashboard = () => {
 
   const [kpis, setKpis] = useState(null);
   const [awaiting, setAwaiting] = useState([]);
+  // Optional: absent on a backend that predates PO holds.
+  const [infoRequests, setInfoRequests] = useState([]);
   const [list, setList] = useState([]);
   const [statusCounts, setStatusCounts] = useState({});
   const [vendorFacets, setVendorFacets] = useState([]);
@@ -134,6 +139,7 @@ const PODashboard = () => {
         if (!active) return;
         setKpis(k || {});
         setAwaiting(Array.isArray(a?.data) ? a.data : []);
+        setInfoRequests(Array.isArray(a?.information_requests) ? a.information_requests : []);
       } catch (e) {
         if (active) {
           setKpis({});
@@ -407,6 +413,46 @@ const PODashboard = () => {
             </div>
           )}
         </section>
+
+        {/* Information requested from you — only when a PO approver asked this
+            user a question (backend field; absent on older backends). */}
+        {infoRequests.length > 0 && (
+          <section id="information-requests" className={styles.sectionCard} style={{ marginBottom: 22 }}>
+            <div className={styles.sectionHead}>
+              <div className={styles.hLeft}>
+                <div
+                  className={styles.ic}
+                  style={{ background: "var(--warn-soft)", color: "var(--warn)", borderColor: "rgba(180,83,9,0.18)" }}
+                >
+                  <Clock size={13} />
+                </div>
+                <h2>Information requested from you</h2>
+                <span className={`${styles.pill} ${styles.pillWarn}`}>{infoRequests.length}</span>
+              </div>
+            </div>
+            <div className={styles.awaitingGrid}>
+              {infoRequests.map((r) => (
+                <Link
+                  key={r.send_back_id}
+                  href={poDetail(r.po_id)}
+                  className={styles.awaitingCard}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div className={styles.aHead}>
+                    <div>
+                      <div className={styles.aNum}>PO #{r.po_number || r.po_id}</div>
+                      <div className={styles.aRfq}>RFQ #{r.rfq_no}</div>
+                    </div>
+                  </div>
+                  <div className={styles.aItems}>
+                    {reasonLabel(r.reason_category)}
+                    {r.requested_by ? ` · asked by ${r.requested_by}` : ""}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* All purchase orders */}
         <section className={styles.sectionCard}>

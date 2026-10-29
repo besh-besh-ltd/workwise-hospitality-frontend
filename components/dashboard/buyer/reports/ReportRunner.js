@@ -5,6 +5,7 @@ import FyFilter from "@/components/shared/FyFilter";
 import HotelFilter from "@/components/shared/HotelFilter";
 import { defaultFyState } from "@/utils/financialYear";
 import { previewReport, downloadReport } from "@/services/reports";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 /* ─────────────────────────────────────────────────────────────────────────
    Running one report: pick filters, check the preview, download.
@@ -20,10 +21,14 @@ import { previewReport, downloadReport } from "@/services/reports";
 
 const PREVIEW_DEBOUNCE_MS = 250;
 
-/** Display-only. The workbook does its own formatting server-side. */
+/** Display-only. The workbook does its own formatting server-side. Money keeps
+    at least 2 and up to 4 decimals: unit costs and rates carry paise (₹0.45 a
+    sachet) and the preview's columns don't say how many places each one has. */
 function formatCell(value, type) {
   if (value === null || value === undefined || value === "") return "—";
-  if (type === "money") return Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  if (type === "money") {
+    return Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  }
   if (type === "percent") return `${(Number(value) * 100).toFixed(1)}%`;
   if (type === "int") return Number(value).toLocaleString("en-IN");
   if (type === "date") {
@@ -39,6 +44,8 @@ export default function ReportRunner({ report, onBack }) {
   const [fy, setFy] = useState(defaultFyState());
   const [hotelIds, setHotelIds] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [previewError, setPreviewError] = useState(null);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const seq = useRef(0);
@@ -71,24 +78,27 @@ export default function ReportRunner({ report, onBack }) {
         .then((res) => {
           if (id !== seq.current) return;
           setPreview(res?.data || null);
+          setPreviewError(null);
         })
-        .catch(() => {
+        .catch((err) => {
           if (id !== seq.current) return;
           setPreview(null);
+          // A refusal or failure is not "no records": say what the server said.
+          setPreviewError(getApiErrorMessage(err, "Could not load the preview. Try again."));
         })
         .finally(() => {
           if (id === seq.current) setLoading(false);
         });
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [report.key, payload]);
+  }, [report.key, payload, previewAttempt]);
 
   const onDownload = useCallback(async () => {
     setDownloading(true);
     try {
       await downloadReport(report.key, payload);
     } catch (e) {
-      toast.error(e?.message || "Could not download the report");
+      toast.error(getApiErrorMessage(e, "Could not download the report"));
     } finally {
       setDownloading(false);
     }
@@ -177,7 +187,17 @@ export default function ReportRunner({ report, onBack }) {
             </div>
           )}
 
-          {!loading && !hasRows && (
+          {!loading && previewError && (
+            <div className="empty-state" role="alert">
+              <h2>Couldn&apos;t load the preview</h2>
+              <p>{previewError}</p>
+              <button type="button" className="btn btn-sm" onClick={() => setPreviewAttempt((n) => n + 1)}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {!loading && !previewError && !hasRows && (
             <div className="empty-state">
               <h2>Nothing to report</h2>
               <p>

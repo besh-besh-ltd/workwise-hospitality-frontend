@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Select from "react-select";
 import { BsPlus, BsChevronDown, BsChevronRight, BsDiagram3, BsArrowDown } from "react-icons/bs";
-import ApprovalStepCard from "./ApprovalStepCard";
+import ApprovalStepCard, { PR_ROLE_HELP } from "./ApprovalStepCard";
 import { formatApproverOption } from "./formatApproverOption";
 import ApprovalFlowGraph from "../preview/ApprovalFlowGraph";
 import { RFQ_PROCESS_STAGES, DS, getEntityTypeConfig, approverSourceTypes } from "../constants";
@@ -18,7 +18,7 @@ import s from "./StepConfigureStages.module.scss";
  * The one-at-a-time button stays: adding a single level should not cost two
  * clicks more than it used to.
  */
-const AddLevelsBulk = ({ getApproverOptions, entityType, onAdd }) => {
+const AddLevelsBulk = ({ getApproverOptions, entityType, onAdd, isPr = false }) => {
   const [sourceType, setSourceType] = useState("ROLE");
   const [picked, setPicked] = useState([]);
 
@@ -71,11 +71,12 @@ const AddLevelsBulk = ({ getApproverOptions, entityType, onAdd }) => {
           </button>
         )}
       </div>
+      {isPr && sourceType === "ROLE" && <span className={s.bulkHint}>{PR_ROLE_HELP}</span>}
     </div>
   );
 };
 
-const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, stageErrors = {} }) => {
+const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getApproverDisplayInfo, selectedProcess, isArc = false, isArcGroup = false, isPr = false, prRoleProblem = () => null, stageErrors = {} }) => {
   const [expandedStage, setExpandedStage] = useState(0);
 
   // A failed save must be visible: open the first stage that has an error.
@@ -87,7 +88,7 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
   const handleAddStep = (si) => {
     const ns = stages.map((st, i) => {
       if (i !== si) return st;
-      return { ...st, steps: [...(st.steps || []), { step_order: (st.steps?.length || 0) + 1, approval_type: "STANDARD", decision_rule: "ANY", approver_source_type: "ROLE", approver_source_id: null }] };
+      return { ...st, steps: [...(st.steps || []), { step_order: (st.steps?.length || 0) + 1, approval_type: "STANDARD", decision_rule: "ANY", approver_source_type: "ROLE", approver_source_id: null, min_amount: null }] };
     });
     onStagesChange(ns);
   };
@@ -103,6 +104,7 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
         decision_rule: "ANY",
         approver_source_type: sourceType,
         approver_source_id: id,
+        min_amount: null,
       }));
       return { ...st, steps: [...existing, ...added] };
     });
@@ -152,7 +154,12 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
     <div>
       <h4 className={s.heading}>Configure approval stages</h4>
       <p className={s.subtext}>Set approvers for each stage. Click a stage to expand and add approval levels.</p>
-      {isArcGroup ? (
+      {isPr ? (
+        <p className={s.subtext} style={{ marginTop: -6, color: "#0f766e" }}>
+          Purchase requisition approvals are <strong>process-free</strong>. Levels run in order. Give a level a
+          minimum (&quot;Only when PR value ≥ ₹&quot;) to skip it for smaller requisitions; leave it blank to always apply.
+        </p>
+      ) : isArcGroup ? (
         <p className={s.subtext} style={{ marginTop: -6, color: "#9d174d" }}>
           Group ARC approvals apply to <strong>every hotel in the company</strong>. Pick approvers with company-level
           access — an approver scoped to one hotel only counts when that hotel leads the group rate contract.
@@ -207,20 +214,20 @@ const StepConfigureStages = ({ stages, onStagesChange, getApproverOptions, getAp
                           <div className={s.emptyBody}>
                             <p>No approval levels configured</p>
                             <button type="button" className={s.addBtn} onClick={() => handleAddStep(si)}><BsPlus size={14} /> Add First Level</button>
-                            <AddLevelsBulk getApproverOptions={getApproverOptions} entityType={stage.entity_type} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} entityType={stage.entity_type} onAdd={(t, ids) => handleAddSteps(si, t, ids)} isPr={isPr} />
                           </div>
                         ) : (
                           <>
                             {steps.map((step, stepIdx) => (
                               <React.Fragment key={stepIdx}>
-                              <ApprovalStepCard step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} entityType={stage.entity_type} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} />
+                              <ApprovalStepCard step={step} index={stepIdx} totalSteps={steps.length} selectedDepartmentId={null} entityType={stage.entity_type} getApproverOptions={getApproverOptions} getApproverDisplayInfo={getApproverDisplayInfo} onChange={(idx, field, value) => handleStepChange(si, idx, field, value)} onRemove={() => handleRemoveStep(si, stepIdx)} onDragStart={(e) => handleDragStart(e, si, stepIdx)} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, si, stepIdx)} isPr={isPr} prRoleMissing={step.approver_source_type === "ROLE" ? prRoleProblem(step.approver_source_id) : null} />
                               {stageErrors[stage.entity_type]?.levels?.[step.step_order ?? stepIdx + 1] && (
                                 <div role="alert" style={{ color: "#b91c1c", fontSize: 13, margin: "-4px 0 10px" }}>{stageErrors[stage.entity_type].levels[step.step_order ?? stepIdx + 1]}</div>
                               )}
                               </React.Fragment>
                             ))}
                             <button type="button" className={s.addFull} onClick={() => handleAddStep(si)}><BsPlus size={16} /> Add Next Approval Level</button>
-                            <AddLevelsBulk getApproverOptions={getApproverOptions} entityType={stage.entity_type} onAdd={(t, ids) => handleAddSteps(si, t, ids)} />
+                            <AddLevelsBulk getApproverOptions={getApproverOptions} entityType={stage.entity_type} onAdd={(t, ids) => handleAddSteps(si, t, ids)} isPr={isPr} />
                           </>
                         )}
                       </div>

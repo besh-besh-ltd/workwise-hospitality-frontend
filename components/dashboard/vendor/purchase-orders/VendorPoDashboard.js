@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Inbox,
 } from "lucide-react";
+import PoReference from "./PoReference";
 import styles, { inr, toLakh, Sk } from "@/components/dashboard/buyer/purchase-orders/shared";
 
 const PO_ROUTE = "/dashboard/vendor/purchase-orders";
@@ -321,6 +322,9 @@ const VendorPoDashboard = ({ data, loading }) => {
                             <span className={`${styles.pill} ${p.is_call_off ? styles.pillInfo : styles.pillNeutral}`}>
                               {p.is_call_off ? "Released Order" : "RFQ"}
                             </span>
+                          </div>
+                          <div className={styles.vAttnRef}>
+                            <PoReference po={p} />
                           </div>
                           <div className={styles.vAttnSub}>
                             <span className={styles.vAttnBuyer}>{p.buyer_name}</span>

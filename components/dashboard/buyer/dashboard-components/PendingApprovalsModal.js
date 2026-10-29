@@ -19,6 +19,7 @@ export const approvalRowHref = (item) =>
     poId: item.po_id,
     arcId: item.arc_id,
     mrId: item.entity_type === "MR" ? item.entity_id : undefined,
+    prId: item.entity_type === "PR" ? (item.pr_id ?? item.entity_id) : undefined,
     entityId: item.entity_id,
   });
 
@@ -37,6 +38,7 @@ const ENTITY_CONFIG = {
   ARC_COMMITTEE:     { tone: "violet" },
   ARC_AMENDMENT:     { tone: "amber" },
   MR:                { label: "Material requisition",      tone: "green" },
+  PR:                { label: "Purchase requisition",      tone: "cyan" },
 };
 
 // Unit and Group ARC items of the same stage are different queues, so they
@@ -65,6 +67,7 @@ const getTitle = (item) => {
     return item.arc_title || item.arc_number || `Rate contract #${item.arc_id || item.entity_id}`;
   }
   if (item.entity_type === "MR") return m.mr_number || `Requisition #${item.entity_id}`;
+  if (item.entity_type === "PR") return item.entity_title || item.pr_number || `Purchase requisition #${item.entity_id}`;
   if (item.entity_type === "PO" && item.po_number) return `PO ${item.po_number}`;
   if (item.entity_title) return item.entity_title;
   if (m.rfq_title) return m.rfq_title;
@@ -80,6 +83,8 @@ const getNumber = (item) => {
     return item.arc_number || (item.arc_id ? `Rate contract #${item.arc_id}` : null);
   }
   if (item.entity_type === "MR") return null; // MR number already IS the title
+  // Without a title the PR number already IS the title — don't show it twice.
+  if (item.entity_type === "PR") return item.entity_title ? item.pr_number || null : null;
   if (item.entity_rfq_no) return `RFQ #${item.entity_rfq_no}`;
   const m = item.metadata || {};
   if (m.rfq_number) return `RFQ #${m.rfq_number}`;
@@ -97,7 +102,7 @@ const PendingApprovalsModal = ({ onClose, filters }) => {
   const titleId = useId();
 
   // Preserve a stable, sensible group order (sourcing → contracts → orders).
-  const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PO"];
+  const ORDER = ["RFQ", "TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC_PUBLISH", "ARC_TECH", "ARC_COMMITTEE", "ARC_AMENDMENT", "MR", "PR", "PO"];
   const grouped = items.reduce((acc, item) => {
     (acc[groupKeyOf(item)] = acc[groupKeyOf(item)] || []).push(item);
     return acc;

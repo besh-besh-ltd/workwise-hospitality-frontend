@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
+import dynamic from "next/dynamic";
 import { toast } from "react-toastify";
 import posthog from "@/lib/analytics";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
@@ -10,11 +11,17 @@ import storageInstance from "@/utils/storageInstance";
 import { setStoredHospitalityContext } from "@/utils/hospitalityContext";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { ApprovalIndicatorsProvider } from "@/hooks/usePendingApprovalIndicators";
+import useNavPermissions from "@/hooks/useNavPermissions";
 import SideNav from "./SideNav";
 import TopBar from "./TopBar";
 import MobileNav from "./MobileNav";
 import { TwoPanelContext, useTwoPanelHost } from "./TwoPanelContext";
 import styles from "./DashboardShell.module.css";
+
+// Inventory's offline-sync dock ("Pending sync (N)"). Loaded on demand (its
+// own chunk, never server-rendered) but mounted on every signed-in non-vendor
+// page, see below: it is what keeps a queued receipt or mark-out sending.
+const PendingSyncBadge = dynamic(() => import("@/components/inventory/offline/PendingSyncBadge"), { ssr: false });
 
 const DashboardShell = ({ children }) => {
   const router = useRouter();
@@ -25,6 +32,9 @@ const DashboardShell = ({ children }) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Module grants for sidebar gating (Inventory). Fetched once here and shared
+  // by SideNav and MobileNav; null until loaded, so gated entries stay hidden.
+  const navGrants = useNavPermissions({ enabled: !!loggedinUser && currentUserType === "buyer" });
 
   const handleNavToggle = useCallback(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 992) {
@@ -120,8 +130,15 @@ const DashboardShell = ({ children }) => {
             subSidebarRef={subSidebarRef}
             collapsed={sidebarCollapsed}
             onLogoutRequest={handleLogoutRequest}
+            navGrants={navGrants}
           />
           <div className={styles.main}>
+            {/* Offline sync (inventory outbox): on every page of a signed-in
+                non-vendor session (buyer, admin, management, engineering,
+                finance, other all reach /dashboard/buyer/inventory), so queued
+                scans keep sending after the user leaves the scan screen. Before
+                the content: on phones it sits in the flow under the top bar. */}
+            {loggedinUser && currentUserType !== "vendor" && <PendingSyncBadge />}
             <div className={styles.content}>{children}</div>
           </div>
         </div>
@@ -133,6 +150,7 @@ const DashboardShell = ({ children }) => {
         user={loggedinUser}
         currentUserType={currentUserType}
         onLogout={handleLogoutRequest}
+        navGrants={navGrants}
       />
 
       {/* Logout confirmation modal */}

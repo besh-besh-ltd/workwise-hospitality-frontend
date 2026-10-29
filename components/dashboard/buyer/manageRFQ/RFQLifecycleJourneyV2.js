@@ -88,8 +88,12 @@ const deriveCurrent = (phase, summary) => {
     owners = ua.evaluators;
     waitingKind = "evaluator";
   }
-  const waitingRole =
-    waitingKind === "approver"
+  // A held PO: the holders are the people asked for information, who have
+  // nothing to approve. The server labels them (e.g. "Asked for information").
+  const responseLabel = ah?.kind === "response" ? ah.label || "Asked for information" : null;
+  const waitingRole = responseLabel
+    ? responseLabel
+    : waitingKind === "approver"
       ? "Approvers"
       : waitingRoleFor(phase, "evaluator");
 
@@ -103,7 +107,7 @@ const deriveCurrent = (phase, summary) => {
   if (pending) {
     const m = pending.metadata || {};
     const poNo = m.po_number;
-    if (poNo) action = action || `Approve PO #${poNo}`;
+    if (poNo) action = action || (responseLabel || `Approve PO #${poNo}`);
     const productName = m.product_name || m.po_payload?.product_info?.product_name;
     const vendor = m.vendor_name || m.po_payload?.vendor_company;
     context = [productName, vendor].filter(Boolean).join(" · ") || null;

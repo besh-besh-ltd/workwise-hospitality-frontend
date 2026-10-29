@@ -101,6 +101,13 @@
     color: #ffffff;
   }
 
+  /* An action that goes ahead despite a caveat (e.g. Force Initiate on a
+     partial PO). The same amber as the desktop btnWarnStrong. */
+  .warn {
+    background: #b45309;
+    color: #ffffff;
+  }
+
   .secondary {
     background: #ffffff;
     color: #27272a;

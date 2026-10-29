@@ -191,3 +191,33 @@ describe("without the deep-link params", () => {
     expect(screen.getByText(/don't have any quotes/i)).toBeInTheDocument();
   });
 });
+
+// An approver's "Not needed any more" cancels the PO (route CANCEL). The
+// legacy page must say so instead of calling it a rejection to re-award.
+describe("a PO cancelled as not needed", () => {
+  const cancelled = {
+    product_variant_id: 88900,
+    variant: "v1",
+    vendor_id: 5,
+    vendor_name: "Alpha Linen",
+    po_id: 41,
+    po_number: "681510",
+    rejection_type: "approver",
+    route: "CANCEL",
+    reason_category: "NOT_REQUIRED",
+  };
+
+  it("reads as a cancellation on the card and its pill, not a rejection", () => {
+    render(<ProductComparisonTab {...baseProps} vendorRejections={[cancelled]} />);
+    expect(
+      screen.getByText("Action needed: PO #681510 for Alpha Linen was cancelled by an internal approver as not needed any more. Check it is still needed before awarding it again.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Internal approver cancelled the PO for Alpha Linen: not needed any more")).toBeInTheDocument();
+    expect(screen.queryByText(/rejected/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the rejection wording for an approver rejection", () => {
+    render(<ProductComparisonTab {...baseProps} vendorRejections={[{ ...cancelled, route: "COMMERCIAL", reason_category: "RENEGOTIATE" }]} />);
+    expect(screen.getByText("Internal approver rejected the PO drafted for Alpha Linen")).toBeInTheDocument();
+  });
+});

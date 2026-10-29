@@ -10,10 +10,11 @@ const ARC_FLOW = flow(["ARC", "ARC_TECH", "ARC_NEGOTIATION", "ARC_COMMITTEE", "A
 const FLOW_LABELS = {
   RFQ: flow(["RFQ", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO"]),
   ARC: ARC_FLOW,
+  PR: "Submit > Technical review > Approval levels",
   ARC_GROUP: ARC_FLOW,
 };
 
-const StepReviewSave = ({ process, stages, hotel, getApproverDisplayInfo, isArcGroup = false }) => {
+const StepReviewSave = ({ process, stages, hotel, getApproverDisplayInfo, isArcGroup = false, isPr = false, companyWide = false, hasInvalidMin = false }) => {
   const processName = process?.name || "Unknown Process";
   const processType = (process?.process_type || "RFQ").toUpperCase();
   const flowLabel = FLOW_LABELS[processType] || flow(["TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC"]);
@@ -34,7 +35,9 @@ const StepReviewSave = ({ process, stages, hotel, getApproverDisplayInfo, isArcG
           <div className={s.summaryLabel}>Flow</div>
           <div className={s.summaryValue} style={{ fontSize: 12 }}>{flowLabel}</div>
         </div>
-        {isArcGroup
+        {isPr && companyWide
+          ? <div className={s.summaryCard}><div className={s.summaryLabel}>Business Unit</div><div className={s.summaryValue} style={{ fontSize: 13 }}>All hotels (company-wide)</div></div>
+          : isArcGroup
           ? <div className={s.summaryCard}><div className={s.summaryLabel}>Business Unit</div><div className={s.summaryValue} style={{ fontSize: 13 }}>All hotels (company-wide)</div></div>
           : hotel && <div className={s.summaryCard}><div className={s.summaryLabel}>Business Unit</div><div className={s.summaryValue} style={{ fontSize: 13 }}>{hotel.name}</div></div>}
         <div className={s.summaryCard}>
@@ -46,9 +49,17 @@ const StepReviewSave = ({ process, stages, hotel, getApproverDisplayInfo, isArcG
         <div className={s.flowHeader}><BsDiagram3 size={14} style={{ color: DS.primary }} /> Approval Flow</div>
         <div className={s.flowBody}><ApprovalFlowGraph stages={stages} getApproverDisplayInfo={getApproverDisplayInfo} /></div>
       </div>
+      {isPr && (
+        <p className={s.subtext} data-testid="pr-threshold-note">Steps with a minimum apply only when the PR&apos;s estimated value is at or above it.</p>
+      )}
+      {hasInvalidMin && (
+        <p role="alert" className={s.subtext} style={{ color: DS.error }}>One or more minimum amounts are invalid. Go back and fix them before saving.</p>
+      )}
       <div className={s.infoBanner}>
         <BsCheckCircleFill size={18} style={{ color: DS.secondary, flexShrink: 0 }} />
-        {isArcGroup
+        {isPr
+          ? <p>Once saved, this approval chain will apply to <strong>purchase requisitions {companyWide ? "at every hotel in this company" : "raised for this business unit"}</strong>.</p>
+          : isArcGroup
           ? <p>Once saved, this workflow will apply to <strong>every group rate contract in this company</strong>, whichever hotel leads it.</p>
           : <p>Once saved, this workflow will apply to the <strong>{processName}</strong> process for this business unit.</p>}
       </div>

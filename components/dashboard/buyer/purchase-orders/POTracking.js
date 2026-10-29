@@ -15,7 +15,7 @@ import {
   CheckCheck,
   Info,
 } from "lucide-react";
-import { getPOTracking, handleMarkDispatched, downloadPOTrackingExcel } from "@/services/po";
+import { getPOTracking, downloadPOTrackingExcel } from "@/services/po";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import { formatToINRShort, formatDisplayDate } from "@/utils/sharedFunctions";
@@ -103,7 +103,7 @@ const POTracking = () => {
     return mappings.map((m) => m.hospitality_hotel_id).filter(Boolean);
   }, [userProfile]);
 
-  const { canRead, canUpdate, loading: permissionsLoading } = useModulePermissions({
+  const { canRead, loading: permissionsLoading } = useModulePermissions({
     moduleKey: "awarding",
     hotelIds,
     departmentId: null,
@@ -207,18 +207,6 @@ const POTracking = () => {
   const onOpenPO = (id, e) => {
     if (e) e.stopPropagation();
     router.push(`${PO_BASE}/${id}`);
-  };
-
-  // Mark dispatched is the only tracking action with a clean existing endpoint.
-  const onMarkDispatched = async (poId, e) => {
-    if (e) e.stopPropagation();
-    try {
-      await handleMarkDispatched(poId);
-      toast.success("Marked as dispatched");
-      fetchTracking();
-    } catch (err) {
-      toast.error(err?.message || "Could not mark dispatched");
-    }
   };
 
   const avatarClass = (vendor, idx) =>
@@ -597,18 +585,12 @@ const POTracking = () => {
                                 stopPropagation handler — they advertised
                                 capabilities the app does not have from this
                                 page. Removed; "Open PO" is the real path to
-                                everything a user can do to one order. */}
+                                everything a user can do to one order.
+                                No "Mark dispatched" either: dispatch is the
+                                vendor's to confirm (with a dispatch note), and
+                                the endpoint refuses buyers. */}
                             <div className={styles.timelineActions}>
                               <div className={styles.timelineActionsLeft}>
-                                {canUpdate && p.current_stage === "ack" && (
-                                  <button
-                                    className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                                    type="button"
-                                    onClick={(e) => onMarkDispatched(p.id, e)}
-                                  >
-                                    <Truck size={12} /> Mark dispatched
-                                  </button>
-                                )}
                                 <button
                                   className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
                                   type="button"
@@ -678,9 +660,9 @@ const POTracking = () => {
               button beside it was not wired to anything, and site
               representatives are configured per PO on the PO detail page. */}
           <div className={styles.helperText}>
-            <strong>Site-rep GRN flow.</strong> Field personnel can record goods receipt without
-            portal access — auto-generated, rate-limited links are sent on dispatch confirmation.
-            Add a site representative from the purchase order&rsquo;s detail page.
+            <strong>Site-rep receiving links.</strong> Someone without a login can record what
+            arrived at their hotel through a personal link, valid for 14 days. Send one from the
+            purchase order&rsquo;s detail page.
           </div>
         </div>
       </main>

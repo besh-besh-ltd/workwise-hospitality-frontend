@@ -2,7 +2,8 @@
 // Mirrors NegotiationListPage.js card visual (arc_v2 tokens) + NegotiationRoundsModal.js per-round detail.
 // Shown inside ArcNegotiationPanel within CommercialStage.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
 import {
@@ -10,6 +11,12 @@ import {
   formatNegotiationDeadline,
   parseNegotiationTime,
 } from "@/utils/negotiationTime";
+import { arcRoundToReviewEntries } from "@/components/dashboard/buyer/negotiation/create-round/adapters/arcNegotiationAdapter";
+import {
+  isNonNumericTargetField,
+  normalizeFieldKey,
+  targetFieldLabel,
+} from "@/components/dashboard/buyer/negotiation/round-detail/roundDetailModel";
 
 const STATUS_MAP = {
   PENDING_APPROVAL: { cls: "warn", label: "Pending approval" },
@@ -41,6 +48,65 @@ function scopeLabel(round) {
   return "ARC-level";
 }
 
+// The round's targets, one chip per item × vendor × field. They used to come
+// from the legacy target_price column, which the create wizard stopped writing
+// (NULL on every production ARC round), so the card showed no target at all.
+// The targets live in products[].vendor_targets[].fields; the adapter the
+// approval page uses reads both shapes.
+const MAX_TARGET_CHIPS = 6;
+
+function parseProducts(round) {
+  if (!round.products || typeof round.products !== "string") return round;
+  try { return { ...round, products: JSON.parse(round.products) }; } catch { return { ...round, products: null }; }
+}
+
+function fmtTargetValue(field) {
+  const value = field?.target;
+  if (value === null || value === undefined || value === "") return null;
+  const key = normalizeFieldKey(field.name);
+  if (isNonNumericTargetField(key)) return key === "delivery_period" ? `${value} day(s)` : String(value);
+  if (field.mode === "percentage" || field.mode === "percent") return `${value}%`;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function targetChips(round, items, vendors) {
+  const products = (items || []).map((it) => ({
+    id: it.id ?? it.arc_item_id,
+    product_details: [{ name: it.variant_name || it.name || it.title }],
+    quotations: (vendors || []).map((v) => ({ vendor_id: v.vendor_id, vendor_details: { name: v.vendor_name } })),
+  }));
+  const entries = arcRoundToReviewEntries(parseProducts(round), products);
+  const vendorCount = new Set(entries.flatMap((e) => (e.vendor_targets || []).map((vt) => Number(vt.vendor_id)))).size;
+  const chips = [];
+  entries.forEach((entry) => (entry.vendor_targets || []).forEach((vt) => (vt.fields || []).forEach((f) => {
+    const value = fmtTargetValue(f);
+    if (value === null) return;
+    const who = vendorCount > 1 ? ` · ${vt.vendor_name || `Vendor ${vt.vendor_id}`}` : "";
+    const text = `${entry.productName}${who} · ${targetFieldLabel(f.name)} ${value}`;
+    if (!chips.includes(text)) chips.push(text);
+  })));
+  return chips;
+}
+
+// What the expanded card says when there are no revised quotes. It used to
+// print "No revised quotes submitted yet." whatever the state, including on a
+// round no vendor had been shown (the ticket). A round awaiting approval,
+// lapsed (EXPIRED is written only by the approval-deadline cron) or rejected
+// never reached a vendor, so there is nothing to fetch.
+const NEVER_REACHED_VENDORS = {
+  PENDING_APPROVAL: "Vendors see this round once it is approved.",
+  EXPIRED: "This round lapsed before it was approved, so no vendor saw it.",
+  CANCELLED: "This round was rejected, so no vendor saw it.",
+};
+
+function emptyQuotesCopy(round) {
+  if (NEVER_REACHED_VENDORS[round.effective_status]) return NEVER_REACHED_VENDORS[round.effective_status];
+  if (round.effective_status === "ACTIVE") return `Waiting for vendors — closes ${formatNegotiationDeadline(round.end_date)}`;
+  return "No vendor responded before the round closed.";
+}
+
 // Live countdown helper.
 function useCountdown(endDateIso, effectiveStatus) {
   const [text, setText] = useState("");
@@ -67,7 +133,7 @@ function useCountdown(endDateIso, effectiveStatus) {
   return text;
 }
 
-function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
+function RoundCard({ round, arcId, items, vendors, canEvaluate, onAfterChange }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [quotes, setQuotes] = useState(null);
@@ -77,11 +143,13 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
   const countdown = useCountdown(round.end_date, round.effective_status);
 
   const status = STATUS_MAP[round.effective_status] || { cls: "neutral", label: round.effective_status };
+  const chips = useMemo(() => targetChips(round, items, vendors), [round, items, vendors]);
+  const reachedVendors = !NEVER_REACHED_VENDORS[round.effective_status];
 
   const handleExpand = async () => {
     const next = !expanded;
     setExpanded(next);
-    if (next && quotes === null) {
+    if (next && quotes === null && reachedVendors) {
       setQuotesLoading(true);
       try {
         const res = await ArcApi.getArcNegotiationRoundQuotes(arcId, round.id);
@@ -131,9 +199,19 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
         <span>Deadline: {formatNegotiationDeadline(round.end_date)}</span>
         {countdown && <span style={{ color: "#b45309", fontWeight: 600 }}>· {countdown}</span>}
         <span>· {(round.vendor_ids || []).length} vendor{(round.vendor_ids || []).length === 1 ? "" : "s"}</span>
-        {round.target_price != null && <span>· Target {fmtINR(round.target_price)}</span>}
         {round.remarks && <span style={{ fontStyle: "italic", color: "var(--fg-4)" }}>· "{round.remarks}"</span>}
       </div>
+
+      {chips.length > 0 && (
+        <div className="arc-neg-round-targets">
+          {chips.slice(0, MAX_TARGET_CHIPS).map((text) => (
+            <span key={text} className="arc-neg-target-chip">{text}</span>
+          ))}
+          {chips.length > MAX_TARGET_CHIPS && (
+            <span className="arc-neg-target-more">+{chips.length - MAX_TARGET_CHIPS} more</span>
+          )}
+        </div>
+      )}
 
       <div className="arc-neg-round-actions">
         {canApprove && (
@@ -157,6 +235,9 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
         <button className="arc-neg-expand-btn" onClick={handleExpand}>
           {expanded ? "Hide quotes ▴" : "View quotes ▾"}
         </button>
+        <Link href={`/dashboard/buyer/negotiation/round/${round.id}`} className="arc-neg-expand-btn">
+          Open round
+        </Link>
       </div>
 
       {/* Expandable quotes */}
@@ -165,7 +246,7 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
           {quotesLoading ? (
             <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "8px 0" }}>Loading quotes…</div>
           ) : !quotes || quotes.length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "8px 0" }}>No revised quotes submitted yet.</div>
+            <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "8px 0" }}>{emptyQuotesCopy(round)}</div>
           ) : (
             <table className="arc-neg-round-quotes">
               <thead>
@@ -208,7 +289,7 @@ function RoundCard({ round, arcId, canEvaluate, onAfterChange }) {
   );
 }
 
-export default function ArcRoundsList({ rounds = [], arcId, canEvaluate, onAfterChange }) {
+export default function ArcRoundsList({ rounds = [], arcId, items = [], vendors = [], canEvaluate, onAfterChange }) {
   if (rounds.length === 0) return null;
 
   // Sort newest-first by round_number
@@ -221,6 +302,8 @@ export default function ArcRoundsList({ rounds = [], arcId, canEvaluate, onAfter
           key={round.id}
           round={round}
           arcId={arcId}
+          items={items}
+          vendors={vendors}
           canEvaluate={canEvaluate}
           onAfterChange={onAfterChange}
         />

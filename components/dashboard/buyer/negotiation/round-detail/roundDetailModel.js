@@ -1137,6 +1137,7 @@ export function normalizeRoundDetail(payload) {
     approvedAt: pickStr(roundRaw, ["approved_at"]),
     publishedAt: pickStr(roundRaw, ["published_at"]),
     remarks: pickStr(roundRaw, ["remarks"]),
+    creatorRemarks: pickStr(roundRaw, ["creator_remarks"]),
     wholeParentMode,
     approval,
   };

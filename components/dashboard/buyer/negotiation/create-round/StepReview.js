@@ -5,6 +5,7 @@ import {
   formatNegotiationDeadline,
   formatUtcDateTime,
   localDateTimeInputMin,
+  MIN_ROUND_WINDOW_MS,
   parseLocalDateTimeInput,
 } from '@/utils/negotiationTime';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
@@ -378,6 +379,14 @@ const useReviewProjections = ({ rounds, formData, vendorTargets, chargeNamesList
   return projection;
 };
 
+// How a round on the whole parent (RFQ-level mode) is named. The ARC screens
+// pass their own, so a rate contract never reads "RFQ-WIDE".
+export const RFQ_WHOLE_SCOPE = {
+  name: 'RFQ-level round',
+  chip: 'RFQ-WIDE',
+  scope: 'RFQ-wide (no product)',
+};
+
 // Render a single round card — used for both queued and current, in either
 // product or RFQ-level mode.
 const ReviewProductCard = ({
@@ -389,6 +398,7 @@ const ReviewProductCard = ({
   onEdit,
   onRemove,
   readOnly = false,
+  wholeScope = RFQ_WHOLE_SCOPE,
 }) => {
   const productHeader = round.productMeta || {};
   const isRfq = round.mode === 'rfq';
@@ -424,7 +434,7 @@ const ReviewProductCard = ({
         <div className={styles.reviewProductHeadMain}>
           <p className={styles.reviewProductTag}>
             {readOnly ? 'Round' : (round.isCurrent ? 'Current round' : 'Queued round')}
-            {isRfq && <span className={styles.reviewRfqChip}>RFQ-WIDE</span>}
+            {isRfq && <span className={styles.reviewRfqChip}>{wholeScope.chip}</span>}
           </p>
           <h3 className={styles.reviewProductName}>{round.productName}</h3>
         </div>
@@ -453,7 +463,7 @@ const ReviewProductCard = ({
           <>
             <div>
               <span className={styles.reviewKey}>Scope</span>
-              <p className={styles.reviewVal}>RFQ-wide (no product)</p>
+              <p className={styles.reviewVal}>{wholeScope.scope}</p>
             </div>
             <div>
               <span className={styles.reviewKey}>Vendors</span>
@@ -639,9 +649,14 @@ const StepReview = ({
   onRemoveQueuedRound,
   onEditQueuedRound,
   mode = 'product',
+  // Optional internal note for approvers (editable only in the wizard).
+  remarks = '',
+  onRemarksChange,
   // Read-only review (approval page): end date renders as static text,
   // validation errors are suppressed. Default keeps wizard behavior intact.
   readOnly = false,
+  // Naming for a round on the whole parent; see RFQ_WHOLE_SCOPE.
+  wholeScope = RFQ_WHOLE_SCOPE,
 }) => {
   // `formData.end_date` arrives in TWO different shapes, and that seam is
   // ticket 1. From the wizard it is a LOCAL wall-clock string out of
@@ -689,7 +704,7 @@ const StepReview = ({
         isCurrent: false,
         queueIndex: idx,
         mode: isQueuedRfq ? 'rfq' : 'product',
-        productName: r.productName || details.name || (isQueuedRfq ? 'RFQ-level round' : `Product ${r.rfq_product_id}`),
+        productName: r.productName || details.name || (isQueuedRfq ? wholeScope.name : `Product ${r.rfq_product_id}`),
         productMeta: {
           spec: details.spec,
           quantity: details.quantity,
@@ -726,7 +741,7 @@ const StepReview = ({
         isCurrent: true,
         mode: isCurrentRfq ? 'rfq' : 'product',
         productName: isCurrentRfq
-          ? 'RFQ-level round'
+          ? wholeScope.name
           : (details.name || `Product ${product.id}`),
         productMeta: {
           spec: details.spec,
@@ -756,7 +771,7 @@ const StepReview = ({
     });
 
     return list;
-  }, [queuedRounds, products, product, productPriceData, selectedVendorIds, vendorTargets, formData, effectiveFields, chargeNamesList, mode]);
+  }, [queuedRounds, products, product, productPriceData, selectedVendorIds, vendorTargets, formData, effectiveFields, chargeNamesList, mode, wholeScope]);
 
   const projection = useReviewProjections({ rounds, formData, vendorTargets, chargeNamesList });
 
@@ -857,16 +872,37 @@ const StepReview = ({
               type="datetime-local"
               value={formData.end_date || ''}
               onChange={(e) => updateFormData && updateFormData({ end_date: e.target.value })}
-              min={localDateTimeInputMin()}
+              min={localDateTimeInputMin(MIN_ROUND_WINDOW_MS)}
               className={`${styles.endDateInput} ${endDateError ? styles.endDateInputError : ''}`}
               required
             />
+            <p className={styles.endDateHint} style={{ marginTop: 8 }}>
+              At least 2 hours from now. Vendors only see the round once it is approved.
+            </p>
             {formData.end_date && (
               <p className={styles.endDateHint} style={{ marginTop: 8 }}>
                 Will be sent as <strong>{endDateUtc}</strong>.
               </p>
             )}
           </>
+        )}
+        {!readOnly && (
+          <div style={{ marginTop: 16 }}>
+            <label htmlFor="round-remarks" className={styles.endDateTitle} style={{ display: 'block' }}>Remarks for approvers</label>
+            <p className={styles.endDateHint}>
+              Why is this round being raised? Approvers and your team will see this. Vendors never do.
+            </p>
+            <textarea
+              id="round-remarks"
+              value={remarks || ''}
+              onChange={(e) => onRemarksChange && onRemarksChange(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
+              className={styles.remarksTextarea}
+            />
+            <p className={styles.remarksCounter}>{(remarks || '').length}/1000</p>
+          </div>
         )}
         <div className={styles.reviewKeyValue} style={{ marginTop: 16 }}>
           <span className={styles.reviewKey}>Negotiation fields</span>
@@ -920,6 +956,7 @@ const StepReview = ({
             productSavingByVendor={productSavingByVendor}
             rfqSavingByVendor={rfqSavingByVendor}
             readOnly={readOnly}
+            wholeScope={wholeScope}
             onEdit={r.isCurrent
               ? onEditProduct
               : (onEditQueuedRound ? () => onEditQueuedRound(r.queueIndex) : undefined)}

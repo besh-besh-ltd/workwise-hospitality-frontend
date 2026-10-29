@@ -51,13 +51,20 @@ export function splitApprovalsByRemoval(approvals) {
   return { activeApprovals, removedApprovals, approvedCount };
 }
 import { getChargeNames } from '@/services/rfq';
-import { localDateTimeInputMin, parseLocalDateTimeInput } from '@/utils/negotiationTime';
+import {
+  isRoundDeadlineTooSoon,
+  localDateTimeInputMin,
+  MIN_ROUND_WINDOW_MS,
+  parseLocalDateTimeInput,
+  ROUND_DEADLINE_TOO_SOON_MESSAGE,
+} from '@/utils/negotiationTime';
 import VendorAccordionPanel from './VendorAccordionPanel';
 import NegotiationFieldsSelect, { getChargeTargetKey } from './NegotiationFieldsSelect';
 import NegotiationWorkflowModal from './NegotiationWorkflowModal';
 import ApprovalActionModal from '../approval/ApprovalActionModal';
 import ApprovalTimeline from '../approval/ApprovalTimeline';
 import { removalReasonLabel } from '@/components/dashboard/buyer/rfq/stages/StageShared';
+import RoundRemarks from './RoundRemarks';
 import styles from './NegotiationUI.module.scss';
 
 ChartJS.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Filler, ChartTooltip);
@@ -710,6 +717,13 @@ const NegotiationModal = ({
     if (selectedProducts.length === 0 || !formData.end_date) {
       if (!formData.end_date) setEndDateError(true);
       toast.error('Please select a product and set an end date');
+      return;
+    }
+    // The create endpoint refuses a deadline under the minimum round window
+    // (approval time comes out of the vendors' window); say so before the POST.
+    if (isRoundDeadlineTooSoon(formData.end_date)) {
+      setEndDateError(true);
+      toast.error(ROUND_DEADLINE_TOO_SOON_MESSAGE);
       return;
     }
     setEndDateError(false);
@@ -1935,6 +1949,7 @@ const NegotiationModal = ({
                               </div>
                             )}
                           </div>
+                          <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
 
                           {/* Vendors in this round */}
                           {round.vendors && round.vendors.length > 0 && (
@@ -2193,6 +2208,7 @@ const NegotiationModal = ({
                         </div>
                       </div>
 
+                      <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>
@@ -2394,6 +2410,7 @@ const NegotiationModal = ({
                           )}
                         </div>
                       </div>
+                      <RoundRemarks remarks={round.creator_remarks} creatorName={round.created_by_name} />
                       <div className={styles.vaMetaRow}>
                         <div className={styles.vaMetaBlock}>
                           <span className={styles.vaMetaLabel}>End Date</span>
@@ -2565,7 +2582,7 @@ const NegotiationModal = ({
                 setFormData(prev => ({ ...prev, end_date: next }));
                 if (next) setEndDateError(false);
               }}
-              min={localDateTimeInputMin()}
+              min={localDateTimeInputMin(MIN_ROUND_WINDOW_MS)}
               required
               disabled={!(selectedVendors[selectedProducts[0]] || []).length}
               className={`${styles.fieldInput} ${endDateError ? styles.fieldInputError : ''}`}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs, getRFQById } from "@/services/rfq";
-import { getPoData, getPoDetails, handleMarkGRN, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
+import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization, updatePODetails } from "@/services/po";
 import { useRouter } from "next/router";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
@@ -10,7 +10,6 @@ import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
 import RejectRemarksModal from "./RejectRemarksModal";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
-import UpdateGRNModal from "./UpdateGRNModal";
 import { Badge, Alert } from "react-bootstrap";
 import { BsFileEarmarkText } from "react-icons/bs";
 import RFQListSidebar from "@/components/shared/RFQListSidebar";
@@ -43,7 +42,6 @@ const PurchaseOrders = () => {
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showGRNModal, setShowGRNModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedPODetail, setSelectedPODetail] = useState({
     po_id: null,
@@ -219,15 +217,6 @@ const PurchaseOrders = () => {
     setShowApproveModal(true);
   }
 
-  const openGRNUpdateModal = (po_id, data, selectedPO) => {
-    setSelectedPODetail({
-      po_id,
-      data,
-      selectedPO,
-    })
-    setShowGRNModal(true);
-  }
-
   const rejectWithRemarks = async (remarks) => {
     const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
     if(res) {
@@ -248,14 +237,6 @@ const PurchaseOrders = () => {
       throw new Error("Something went wrong while making a decision, please try again!")
     }
     setShowApproveModal(false);
-    await getPOData();
-    if (po) await getPODetails();
-  }
-
-  const handleConfirmGRNUpdate = async (file) => {
-    await handleMarkGRN(selectedPODetail.po_id, file);
-    toast.success(`GRN Marked for PO #${selectedPODetail.data.po_number}`);
-    setShowGRNModal(false);
     await getPOData();
     if (po) await getPODetails();
   }
@@ -282,7 +263,10 @@ const PurchaseOrders = () => {
           return { success: true, deferred: true };
         }
       } else {
-        openGRNUpdateModal(po_id, data, selectedPO);
+        // Receiving is line-level now (inventory module): quantities, rejections
+        // and the GRN document are recorded on the Receive screen, not by a
+        // one-click status flip.
+        router.push(`/dashboard/buyer/inventory/receive/${encodeURIComponent(po_id)}`);
         return { success: true, deferred: true };
       }
     } catch (error) {
@@ -630,12 +614,6 @@ const PurchaseOrders = () => {
                 </>
               )}
       </TwoPanelPage>
-
-      <UpdateGRNModal
-        show={showGRNModal} 
-        onClose={() => setShowGRNModal(false)} 
-        onAction={handleConfirmGRNUpdate}
-      />
 
       <RejectRemarksModal show={showRejectModal} poData={selectedPODetail.selectedPO} onClose={() => setShowRejectModal(false)} onAction={(remarks) => rejectWithRemarks(remarks)}/>
       <RejectRemarksModal type="approve" show={showApproveModal} onClose={() => setShowApproveModal(false)} onAction={(remarks) => approveWithRemarks(remarks)}/>

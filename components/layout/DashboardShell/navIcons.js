@@ -34,6 +34,13 @@ import {
   MapPin,
   Route,
   ClipboardCheck,
+  Warehouse,
+  PackageCheck,
+  PackageMinus,
+  ListChecks,
+  Repeat,
+  Settings2,
+  Tags,
 } from "lucide-react";
 
 /**
@@ -112,8 +119,27 @@ export const NAV_ICONS = {
   "/dashboard/buyer/material-requisitions/all":    ClipboardList,
   "/dashboard/buyer/material-requisitions/create": ClipboardPlus,
 
+  // Purchase Requisitions (buyer) — my list, new, reviewer inbox, buyer queue.
+  "/dashboard/buyer/purchase-requisitions":        ClipboardList,
+  "/dashboard/buyer/purchase-requisitions/create": ClipboardPlus,
+  "/dashboard/buyer/purchase-requisitions/review": ClipboardCheck,
+  "/dashboard/buyer/purchase-requisitions/queue":  ListChecks,
+
   // Insights — the downloadable report catalogue.
   "/dashboard/buyer/reports": FileBarChart,
+
+  // Inventory — stock after the PO. Warehouse = overview, package-check =
+  // receive, package-minus = mark out, tags = labels.
+  "/dashboard/buyer/inventory": Warehouse,
+  "/dashboard/buyer/inventory/receive": PackageCheck,
+  "/dashboard/buyer/inventory/stock": Package,
+  "/dashboard/buyer/inventory/out": PackageMinus,
+  "/dashboard/buyer/inventory/counts": ListChecks,
+  "/dashboard/buyer/inventory/adjustments": FilePen,
+  "/dashboard/buyer/inventory/reorder": Repeat,
+  "/dashboard/buyer/inventory/grn": ClipboardCheck,
+  "/dashboard/buyer/inventory/setup": Settings2,
+  "/dashboard/buyer/inventory/labels": Tags,
 
   // Rate Contracts (vendor) — dashboard, incoming, in-progress, active deals.
   "/dashboard/vendor/rate-contracts":                            LayoutDashboard,

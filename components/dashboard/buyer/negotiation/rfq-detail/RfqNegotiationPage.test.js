@@ -591,3 +591,89 @@ describe("phone — the round waiting on me, one thumb away", () => {
     expect(screen.queryByRole("region", { name: "Round awaiting your approval" })).not.toBeInTheDocument();
   });
 });
+
+// ── a rate contract's negotiation ─────────────────────────────────────────
+//
+// ARC rounds had no level 2: the listing card went to the rate-contract page,
+// whose rounds list printed no targets and "No revised quotes submitted yet."
+// for rounds no vendor had seen (Phileein, 22 Oct 2026). The same page now
+// serves an ARC, keyed ARC:<id>, and an ARC round waiting on this user goes to
+// that round's own approval page.
+
+const arcParent = (over = {}) => parentRow({
+  parent_key: "ARC:9",
+  source_type: "ARC",
+  rfq_id: null,
+  arc_id: 9,
+  arc_number: "ARC-2026-27-0006",
+  rfq_no: "ARC-2026-27-0006",
+  title: "DAIRY PRODUCTS",
+  saved_value: 0,
+  saved_pct: null,
+  saved_value_awarded: 0,
+  saved_pct_awarded: null,
+  ...over,
+});
+
+const arcRound = (n, over = {}) => roundRow(n, {
+  rfq_id: null,
+  rfq_no: "ARC-2026-27-0006",
+  title: "DAIRY PRODUCTS",
+  source_type: "ARC",
+  arc_id: 9,
+  ...over,
+});
+
+const renderArcPage = async (opts) => {
+  stub(opts);
+  const utils = render(<RfqNegotiationPage arcId="9" />);
+  await screen.findByTestId("rfq-negotiation-page");
+  return utils;
+};
+
+describe("a rate contract", () => {
+  it("asks for the ARC parent at both grains", async () => {
+    await renderArcPage({ parent: arcParent(), rounds: [arcRound(8)] });
+    expect(bodyFor("parent")).toEqual(expect.objectContaining({ filters: { parentKey: ["ARC:9"] } }));
+    expect(bodyFor("round")).toEqual(expect.objectContaining({ filters: { parentKey: ["ARC:9"] } }));
+  });
+
+  it("names itself a rate contract", async () => {
+    await renderArcPage({ parent: arcParent(), rounds: [arcRound(8)] });
+    expect(screen.getByText("Rate contract · Negotiation")).toBeInTheDocument();
+    expect(screen.getByText("#ARC-2026-27-0006")).toBeInTheDocument();
+    expect(screen.getByTestId("gist-saved")).toHaveTextContent("Tracked on the rate contract");
+  });
+
+  it("sends a round waiting on this user to that round's approval page, and others to the round", async () => {
+    await renderArcPage({
+      parent: arcParent({ action_required: true, action_label: "Approval needed" }),
+      rounds: [
+        arcRound(8, { round_id: 108, action_required: true, action_label: "Approval needed" }),
+        arcRound(7, { round_id: 107 }),
+      ],
+    });
+    const mine = within(screen.getByTestId("round-row-108")).getByRole("link", { name: /Round 8/ });
+    expect(mine).toHaveAttribute("href", "/dashboard/buyer/rate-contracts/9/negotiation/108/approve");
+    const other = within(screen.getByTestId("round-row-107")).getByRole("link", { name: /Round 7/ });
+    expect(other).toHaveAttribute("href", "/dashboard/buyer/negotiation/round/107");
+    expect(screen.getByTestId("needs-you-link")).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/rate-contracts/9/negotiation/108/approve"
+    );
+  });
+
+  it("links to the rate contract itself", async () => {
+    await renderArcPage({ parent: arcParent(), rounds: [arcRound(8)] });
+    expect(screen.getByRole("link", { name: /Open rate contract/ })).toHaveAttribute(
+      "href",
+      "/dashboard/buyer/rate-contracts/9?stage=commercial"
+    );
+  });
+
+  it("explains a rate contract with no visible negotiation in its own terms", async () => {
+    stub({ parent: null, rounds: [] });
+    render(<RfqNegotiationPage arcId="9" />);
+    expect(await screen.findByText("No negotiation on this rate contract")).toBeInTheDocument();
+  });
+});

@@ -1,0 +1,421 @@
+/* Scan.module.scss
+   The scan box, camera, link-code sheet and short-link landing. These render
+   inside inventory pages, inside react-bootstrap modals (outside .page) and on
+   the bare /s/ route, so DESIGN.md values are spelled out rather than read
+   from the PO module's page-scoped tokens. Every control is at least 44px tall
+   (gloved hands on a loading dock). */
+
+$ink: #18181b;
+$ink-2: #3f3f46;
+$ink-3: #71717a;
+$ink-4: #a1a1aa;
+$surface: #ffffff;
+$surface-2: #fafaf9;
+$surface-3: #f4f4f1;
+$border: #e8e8e3;
+$border-input: #d4d4d0;
+$slate: #1f2937;
+$slate-hover: #111827;
+$success: #15803d;
+$success-soft: #ecfdf5;
+$warn: #b45309;
+$warn-soft: #fef7ed;
+$danger: #b91c1c;
+$danger-soft: #fef2f2;
+$ring: 0 0 0 3px rgba(31, 41, 55, 0.14);
+$sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+.mono {
+  font-family: $mono;
+  font-feature-settings: 'tnum', 'zero', 'ss01';
+  font-weight: 600;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid $border;
+  background: $surface;
+  color: $ink;
+  font-family: $sans;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+
+  &:hover:not(:disabled) { background: $surface-3; border-color: #d6d6cf; color: $ink; }
+  &:focus-visible { outline: none; box-shadow: $ring; border-color: $slate; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btnPrimary {
+  background: $slate;
+  border-color: $slate;
+  color: #ffffff;
+  &:hover:not(:disabled) { background: $slate-hover; border-color: $slate-hover; color: #ffffff; }
+}
+
+.btnSecondary { background: $surface; }
+
+.iconBtn {
+  width: 44px;
+  padding: 0;
+  color: $ink-2;
+}
+
+.btnOn {
+  background: $slate;
+  border-color: $slate;
+  color: #ffffff;
+  &:hover:not(:disabled) { background: $slate-hover; color: #ffffff; }
+}
+
+/* ── Scan box ────────────────────────────────────────────────────────────── */
+
+.scan {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: $sans;
+  color: $ink;
+}
+
+.bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fieldIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: $ink-3;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px 0 36px;
+  border: 1px solid $border-input;
+  border-radius: 6px;
+  background: $surface;
+  color: $ink;
+  font-family: $mono;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+
+  &::placeholder { font-family: $sans; color: $ink-4; letter-spacing: 0; }
+  &:hover:not(:disabled) { border-color: #b8b8b1; }
+  &:focus { border-color: $slate; box-shadow: $ring; }
+  &:disabled { background: $surface-3; color: $ink-3; cursor: not-allowed; }
+}
+
+/* Status line: dot + label + tint, colour only for state. */
+.status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 24px;
+  font-size: 13px;
+  color: $ink-2;
+
+  &:empty { display: none; }
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: $ink-4;
+  flex: 0 0 auto;
+}
+
+.statusText { font-weight: 600; }
+.statusDetail { color: $ink-3; }
+
+.status_ok, .status_warn, .status_bad, .status_busy {
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.status_ok { background: $success-soft; .dot { background: $success; } .statusText { color: $success; } }
+.status_warn { background: $warn-soft; .dot { background: $warn; } .statusText { color: $warn; } }
+.status_bad { background: $danger-soft; .dot { background: $danger; } .statusText { color: $danger; } }
+.status_busy { background: $surface-3; color: $ink-3; }
+
+.spin { animation: scanSpin 0.9s linear infinite; }
+@keyframes scanSpin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 2.4s; }
+  .btn, .input { transition: none; }
+}
+
+/* ── Camera ──────────────────────────────────────────────────────────────── */
+
+.camera {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.viewport {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b0b0c;
+}
+
+.viewportIdle { aspect-ratio: auto; min-height: 0; height: 0; }
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.reticle {
+  position: absolute;
+  inset: 18% 12%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.torch {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(17, 24, 39, 0.6);
+  color: #ffffff;
+  cursor: pointer;
+
+  &[aria-pressed='true'] { background: #ffffff; color: $slate; }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+}
+
+.cameraNote {
+  margin: 0;
+  font-size: 12.5px;
+  color: $ink-3;
+}
+
+.cameraNoteProblem {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: $warn-soft;
+  color: $warn;
+  font-weight: 600;
+}
+
+.cameraProblem {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .cameraNote { flex: 1 1 240px; }
+}
+
+.reticlePaused {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Link-code sheet (renders in a modal: values spelled out) ────────────── */
+
+.sheet {
+  border: 1px solid $border;
+  border-radius: 14px;
+  font-family: $sans;
+  color: $ink;
+}
+
+.sheetTitle {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sheetLead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+  color: $ink-2;
+
+  .mono { font-size: 15px; color: $ink; word-break: break-all; }
+}
+
+.label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $ink-3;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid $border;
+  border-radius: 6px;
+  background: $surface;
+
+  input { width: 18px; height: 18px; accent-color: $slate; flex: 0 0 auto; }
+  label { flex: 1 1 auto; min-width: 0; padding: 12px 0; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  &:hover { background: $surface-2; }
+  &:focus-within { border-color: $slate; box-shadow: $ring; }
+}
+
+.choiceOn { border-color: $slate; background: $surface-2; }
+.choiceCode { margin-left: 8px; font-size: 12px; color: $ink-3; }
+.choiceMeta { font-size: 12px; color: $ink-3; }
+
+.textInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid $border-input;
+  border-radius: 6px;
+  background: $surface;
+  color: $ink;
+  font-family: $sans;
+  font-size: 14px;
+  outline: none;
+
+  &:focus { border-color: $slate; box-shadow: $ring; }
+  &[aria-invalid='true'] { border-color: $danger; }
+}
+
+.packRow { display: flex; flex-direction: column; }
+.packInput { max-width: 140px; font-family: $mono; text-align: right; }
+
+.hint, .empty {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: $ink-3;
+}
+
+.empty { display: flex; align-items: center; gap: 6px; }
+
+.sheetError {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: $danger-soft;
+  color: $danger;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sheetFooter { gap: 8px; }
+
+/* ── /s/<t>/<id> landing (bare route) ────────────────────────────────────── */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: #f7f7f5;
+  font-family: $sans;
+  color: $ink;
+}
+
+.landingCard {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 24px;
+  border: 1px solid $border;
+  border-radius: 14px;
+  background: $surface;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(15, 15, 14, 0.04), 0 0 0 1px rgba(15, 15, 14, 0.04);
+}
+
+.landingIcon { color: $ink-3; }
+.landingTitle { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.landingText { margin: 0 0 6px; font-size: 13.5px; color: $ink-2; }
+
+/* ── Phone layer ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* The link sheet becomes a bottom sheet: thumbs reach the buttons. */
+  .sheetDialog {
+    margin: 0;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: none;
+    width: 100%;
+    min-height: 0;
+    align-items: flex-end;
+  }
+  .sheet { border-radius: 14px 14px 0 0; }
+  .sheetFooter .btn { flex: 1 1 0; }
+  .viewport { max-width: none; }
+}

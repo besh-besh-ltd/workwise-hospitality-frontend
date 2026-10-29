@@ -6,6 +6,7 @@ import { X, LogOut, KeyRound } from "lucide-react";
 import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
+import usePrCanCreate from "@/hooks/usePrCanCreate";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
 
@@ -13,7 +14,7 @@ import styles from "./DashboardShell.module.css";
  * Mobile / narrow-viewport drawer. Renders the role-based nav
  * plus account items. Slides in from the left.
  */
-const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
+const MobileNav = ({ open, onClose, user, currentUserType, onLogout, navGrants = null }) => {
   const router = useRouter();
   const { pathname } = router;
   const userProfile = useSelector((state) => state.userProfile);
@@ -24,9 +25,12 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
   const isSubLocked = isHospitalityVendor && !hasValidSub;
   const { pendingCountFor } = usePendingApprovalIndicators({ enabled: !!user });
 
+  // "New requisition" only for users who may raise a PR somewhere.
+  const canCreatePr = usePrCanCreate({ enabled: !!user && currentUserType === "buyer" });
+
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession() }),
-    [currentUserType, isHospitalityCompany, userProfile]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession(), navGrants, canCreatePr }),
+    [currentUserType, isHospitalityCompany, userProfile, navGrants, canCreatePr]
   );
 
   if (!open) return null;
@@ -34,7 +38,13 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout }) => {
   const navItems = currentRoleMenu.filter((m) => m.targetMenu === "nav");
   const popupItems = currentRoleMenu.filter((m) => m.targetMenu === "popup");
   const initial = user?.name?.charAt(0)?.toUpperCase() || "U";
-  const isActive = (href) => pathname === href || pathname.startsWith(`${href}/`);
+  // Longest matching prefix wins, as on the desktop rail, so a parent entry
+  // such as Inventory > Overview doesn't stay lit on every nested page.
+  const activeHref = currentRoleMenu
+    .map((m) => m.href)
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href) => href === activeHref;
 
   return (
     <>

@@ -83,6 +83,14 @@ jest.mock("@/services/po", () => ({
   // what every test that isn't about that block should see.
   getPOInitiators: jest.fn(() => new Promise(() => {})),
 }));
+jest.mock("@/services/poSendBack", () => ({
+  __esModule: true,
+  getSendBacks: jest.fn(() => Promise.resolve([])),
+  getSendBackTargets: jest.fn(() => Promise.resolve({ targets: [] })),
+  createSendBack: jest.fn(() => Promise.resolve({})),
+  respondToSendBack: jest.fn(() => Promise.resolve({})),
+  withdrawSendBack: jest.fn(() => Promise.resolve({})),
+}));
 jest.mock("@/services/pricing", () => ({
   __esModule: true,
   previewTotals: jest.fn(),
@@ -535,17 +543,16 @@ describe("initiating a PO that was already initiated", () => {
   });
 });
 
-// ── A rejected PO that came back to you ─────────────────────────────────────
+// ── A rejected PO is not promised back to anyone ────────────────────────────
 //
-// The reject dialog has always promised "will be rejected and returned to the
-// initiator". Nothing acted on it: production carries 46 rejected PO approvals
-// and exactly ONE PO that was ever resubmitted. handleUpdatePO authorises only
-// `initiated_by` to edit, so the note appears for exactly the person who can do
-// something about it. Client feedback item 7.
+// The page used to tell the creator of a rejected PO that it was "sent back to
+// you — amend it and raise it again". The backend does not support that: a
+// rejected PO goes back to commercial evaluation for re-award, or is cancelled.
+// The note is gone; the reason lives in the thread and the audit trail.
 
 const VIEWER = 407; // the id the redux mock above reports
 
-describe("the note on a rejected PO", () => {
+describe("a rejected PO", () => {
   beforeEach(() => {
     state.grants = { [PO_HOTEL]: ["read", "create"] };
     state.mappings = [{ hospitality_hotel_id: PO_HOTEL }];
@@ -555,39 +562,21 @@ describe("the note on a rejected PO", () => {
     status: "rejected",
     status_label: "Rejected",
     initiated_by: VIEWER,
+    raised_by: { id: VIEWER, name: "Me" },
     workflow: [
       { status: "rejected", title: "Commercial approval", by: "A. Approver", reason: "Freight is double the quote" },
     ],
     ...over,
   });
 
-  it("tells the originator it is theirs to amend", async () => {
+  it("no longer tells its creator to amend it and raise it again", async () => {
     await mount(rejected());
-    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/amend it|raise it again/i);
   });
 
-  it("carries the rejecter's reason", async () => {
+  it("still shows the rejecter's reason in the audit trail", async () => {
     await mount(rejected());
-    // The reason also appears in the audit trail below, correctly — scope to
-    // the note so this asserts the note and not the trail.
-    const note = screen.getByText(/sent back to you/i).closest("span").parentElement;
-    expect(note).toHaveTextContent(/Freight is double the quote/);
-  });
-
-  it("says nothing to someone who is not the originator", async () => {
-    // They cannot edit it, so "amend it and raise it again" would be a lie.
-    await mount(rejected({ initiated_by: 999 }));
-    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
-  });
-
-  it("does not appear on a PO that was not rejected", async () => {
-    await mount({ status: "approved", status_label: "Approved", initiated_by: VIEWER, workflow: [] });
-    expect(screen.queryByText(/sent back to you/i)).not.toBeInTheDocument();
-  });
-
-  it("survives a rejection recorded without a reason", async () => {
-    await mount(rejected({ workflow: [{ status: "rejected", title: "Commercial approval" }] }));
-    expect(screen.getByText(/sent back to you/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Reason:/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Freight is double the quote/)).toBeInTheDocument();
   });
 });

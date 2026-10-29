@@ -1,13 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import { createApprovalPolicy, updateApprovalPolicy, deleteApprovalPolicy } from "@/services/approval";
+import { getRolePermissions } from "@/services/rbac";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import WizardStepper from "./WizardStepper";
 import StepSelectProcessOnly from "./StepSelectProcessOnly";
 import StepConfigureStages from "./StepConfigureStages";
 import StepReviewSave from "./StepReviewSave";
-import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, FLOW_TYPE } from "../constants";
+import { DS, getStagesForProcessType, getStageEntityOrder, ARC_PROCESS_STAGES, ARC_ENTITY_ORDER, ARC_GROUP_PROCESS_STAGES, ARC_GROUP_ENTITY_ORDER, PR_PROCESS_STAGES, PR_ENTITY_ORDER, FLOW_TYPE } from "../constants";
+import { isValidMinAmount } from "../minAmount";
 import { stageLabel } from "../stageLabels";
 import { apiErrorMessage, apiErrorPayload } from "@/components/dashboard/admin/shared/apiError";
 import { buildWorkflowStagePayloads } from "../workflowPayloads";
@@ -33,29 +35,49 @@ const buildArcStagesFromPolicies = (policies) =>
 
 // Process-free flows have a fixed stage set and a required base stage.
 const PROCESS_FREE_FLOWS = {
-  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: stageLabel("ARC"), review: { name: "Unit ARC", process_type: "ARC" } },
-  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: stageLabel("ARC_GROUP"), review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
+  [FLOW_TYPE.ARC]: { stages: ARC_PROCESS_STAGES, order: ARC_ENTITY_ORDER, base: "ARC", baseLabel: stageLabel("ARC"), baseWhy: "it gates publishing", review: { name: "Unit ARC", process_type: "ARC" } },
+  [FLOW_TYPE.ARC_GROUP]: { stages: ARC_GROUP_PROCESS_STAGES, order: ARC_GROUP_ENTITY_ORDER, base: "ARC_GROUP", baseLabel: stageLabel("ARC_GROUP"), baseWhy: "it gates publishing", review: { name: "Group ARC (company-wide)", process_type: "ARC_GROUP" } },
+  [FLOW_TYPE.PR]: { stages: PR_PROCESS_STAGES, order: PR_ENTITY_ORDER, base: "PR", baseLabel: "Purchase Requisition", baseWhy: "every submitted PR is approved through it", review: { name: "Purchase Requisitions", process_type: "PR" } },
+};
+/** Why a process-free flow's required base stage can't be left empty. */
+export const baseStageRequiredMessage = (flow) => {
+  const f = PROCESS_FREE_FLOWS[flow];
+  return f ? `The ${f.baseLabel} stage needs at least one approval level — ${f.baseWhy}.` : "";
 };
 const emptyStagesFor = (flow) => PROCESS_FREE_FLOWS[flow].stages.map((st) => ({ entity_type: st.value, steps: [] }));
+
+// A ROLE level on the PR stage can only approve if the role holds pr.read AND
+// pr.approve — otherwise the server refuses the save (APPROVER_ROLE_CANNOT_APPROVE).
+const PR_APPROVE_ACTIONS = ["read", "approve"];
+const missingPrApproveActions = (res) => {
+  const grouped = res?.data?.data || res?.data || {};
+  const held = Array.isArray(grouped?.pr) ? grouped.pr : [];
+  return PR_APPROVE_ACTIONS.filter((a) => !held.includes(a));
+};
 
 const WorkflowWizard = ({
   editingProcess, editingPolicies, processes, hotel,
   companyId, hotelId, getApproverOptions, getApproverDisplayInfo,
-  onCreateProcess, onSave, onCancel, onWrite, groupWorkflowExists = false,
+  onCreateProcess, onSave, onCancel, onWrite, groupWorkflowExists = false, initialFlow = null, prChainExists = { hotel: false, company: false },
 }) => {
   const isEditing = !!editingProcess;
   const isArcGroupEditing = isEditing && !!editingProcess?.is_arc_group;
-  const isArcEditing = isEditing && !!editingProcess?.is_arc && !isArcGroupEditing;
-  const editingFlow = isArcGroupEditing ? FLOW_TYPE.ARC_GROUP : isArcEditing ? FLOW_TYPE.ARC : FLOW_TYPE.PROCESS;
+  const isPrEditing = isEditing && !!editingProcess?.is_pr;
+  const isArcEditing = isEditing && !!editingProcess?.is_arc && !isArcGroupEditing && !isPrEditing;
+  const editingFlow = isPrEditing ? FLOW_TYPE.PR : isArcGroupEditing ? FLOW_TYPE.ARC_GROUP : isArcEditing ? FLOW_TYPE.ARC : FLOW_TYPE.PROCESS;
+
+  const startFlow = !isEditing && PROCESS_FREE_FLOWS[initialFlow] ? initialFlow : null;
 
   const initialStages = useMemo(() => {
     if (isEditing && editingPolicies?.length) {
+      if (isPrEditing) return buildStagesFromOrder(editingPolicies, PR_ENTITY_ORDER);
       if (isArcGroupEditing) return buildStagesFromOrder(editingPolicies, ARC_GROUP_ENTITY_ORDER);
       if (isArcEditing) return buildArcStagesFromPolicies(editingPolicies);
       if (editingProcess?.process_type != null) return buildStagesFromPolicies(editingPolicies, editingProcess.process_type);
     }
+    if (startFlow) return emptyStagesFor(startFlow);
     return getStagesForProcessType("RFQ").map((st) => ({ entity_type: st.value, steps: [] }));
-  }, [isEditing, isArcEditing, isArcGroupEditing, editingPolicies, editingProcess?.process_type]);
+  }, [isEditing, isArcEditing, isArcGroupEditing, isPrEditing, editingPolicies, editingProcess?.process_type]);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -63,15 +85,45 @@ const WorkflowWizard = ({
   // { [entity_type]: { message, levels: { [step_order]: message } } }
   const [stageErrors, setStageErrors] = useState({});
   const [wizardForm, setWizardForm] = useState(() => ({
-    flow_type: editingFlow,
+    flow_type: startFlow || editingFlow,
     process_id: editingFlow === FLOW_TYPE.PROCESS && isEditing ? editingProcess?.id : null,
     stages: initialStages,
+    // PR only: one chain for every hotel (hotel_id null) instead of this hotel.
+    company_wide: isPrEditing && (editingPolicies || []).some((p) => p.hotel_id == null),
   }));
 
   // ARC and Group ARC are process-free; their stage sets are fixed.
   const processFree = PROCESS_FREE_FLOWS[wizardForm.flow_type] || null;
   const isArc = !!processFree;
   const isArcGroup = wizardForm.flow_type === FLOW_TYPE.ARC_GROUP;
+  const isPr = wizardForm.flow_type === FLOW_TYPE.PR;
+  const hasInvalidMin = isPr && (wizardForm.stages || []).some((st) => (st.steps || []).some((x) => !isValidMinAmount(x.min_amount)));
+
+  // PR only: which chosen roles lack pr.read + pr.approve. Looked up per role
+  // actually picked (one call each, cached for the wizard) rather than for all
+  // ~30 roles up front. roleId -> missing actions ([] = can approve PRs).
+  const [prRoleMissing, setPrRoleMissing] = useState({});
+  const prRoleRequested = useRef(new Set());
+  const prRoleIds = isPr
+    ? [...new Set((wizardForm.stages || []).flatMap((st) => (st.steps || [])
+      .filter((x) => x.approver_source_type === "ROLE" && x.approver_source_id)
+      .map((x) => x.approver_source_id)))]
+    : [];
+  const prRoleKey = prRoleIds.join(",");
+  React.useEffect(() => {
+    prRoleIds.forEach((roleId) => {
+      const key = String(roleId);
+      if (prRoleRequested.current.has(key)) return;
+      prRoleRequested.current.add(key);
+      getRolePermissions(roleId)
+        .then((res) => setPrRoleMissing((m) => ({ ...m, [key]: missingPrApproveActions(res) })))
+        // Unknown is not "can't approve": say nothing, and look again next time.
+        .catch(() => { prRoleRequested.current.delete(key); });
+    });
+    // prRoleKey is the serialised id list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prRoleKey]);
+  const prRoleProblem = (roleId) => (isPr && roleId ? prRoleMissing[String(roleId)] || null : null);
   const selectedProcess = processes?.find((p) => p.id === wizardForm.process_id);
   // Otherwise the stage set derives from the process type.
   const stageConfig = processFree ? processFree.stages : getStagesForProcessType(selectedProcess?.process_type);
@@ -81,12 +133,15 @@ const WorkflowWizard = ({
       setWizardForm({
         flow_type: editingFlow,
         process_id: editingFlow === FLOW_TYPE.PROCESS ? editingProcess.id : null,
-        stages: isArcGroupEditing
+        company_wide: isPrEditing && editingPolicies.some((p) => p.hotel_id == null),
+        stages: isPrEditing
+          ? buildStagesFromOrder(editingPolicies, PR_ENTITY_ORDER)
+          : isArcGroupEditing
           ? buildStagesFromOrder(editingPolicies, ARC_GROUP_ENTITY_ORDER)
           : isArcEditing ? buildArcStagesFromPolicies(editingPolicies) : buildStagesFromPolicies(editingPolicies, editingProcess.process_type),
       });
     }
-  }, [isEditing, isArcEditing, isArcGroupEditing, editingProcess?.id, editingPolicies?.length]);
+  }, [isEditing, isArcEditing, isArcGroupEditing, isPrEditing, editingProcess?.id, editingPolicies?.length]);
 
   React.useEffect(() => {
     if (isEditing) return;
@@ -105,8 +160,18 @@ const WorkflowWizard = ({
     }
   }, [wizardForm.process_id, wizardForm.flow_type, isArc, isEditing, processes]);
 
+  // A second PR chain for a scope that already has one would hit the unique
+  // policy index and surface as a raw duplicate-key error.
+  const prScopeTaken = isPr && !isEditing && (wizardForm.company_wide ? prChainExists.company : prChainExists.hotel);
+
   const validateStep = (step) => {
     if (step === 1) {
+      if (prScopeTaken) {
+        toast.error(wizardForm.company_wide
+          ? "A company-wide Purchase Requisition chain already exists. Edit it from its card."
+          : "This hotel already has its own Purchase Requisition chain. Edit it from its card.");
+        return false;
+      }
       if (isArc) return true; // process-free flows have no process to pick
       if (!wizardForm.process_id) { toast.error("Please select a process"); return false; }
       return true;
@@ -118,7 +183,7 @@ const WorkflowWizard = ({
       if (processFree) {
         const arcBase = (wizardForm.stages || []).find((st) => st.entity_type === processFree.base);
         if (!arcBase || (arcBase.steps?.length || 0) === 0) {
-          toast.error(`The ${processFree.baseLabel} stage needs at least one approval level — it gates publishing.`);
+          toast.error(baseStageRequiredMessage(wizardForm.flow_type));
           return false;
         }
       }
@@ -194,6 +259,7 @@ const WorkflowWizard = ({
       companyId,
       hotelId,
       processId: wizardForm.process_id,
+      companyWide: isPr && !!wizardForm.company_wide,
     });
   };
 
@@ -244,6 +310,7 @@ const WorkflowWizard = ({
   };
 
   const handleSave = async () => {
+    if (hasInvalidMin) return;
     if (!validateStep(2)) return;
     setSaving(true);
     setStageErrors({});
@@ -288,7 +355,13 @@ const WorkflowWizard = ({
   // appear). ARC is process-free → processId = null = every eligible user
   // (already the wildcard-permissive path).
   const wizardProcessId = isArc ? null : (wizardForm.process_id || null);
-  const getApproverOptionsForProcess = (type, dept, entityType = null) => getApproverOptions(type, dept, wizardProcessId, entityType);
+  const getApproverOptionsForProcess = (type, dept, entityType = null) => {
+    const options = getApproverOptions(type, dept, wizardProcessId, entityType);
+    if (!isPr || type !== "ROLE") return options;
+    // PR: mark roles already known (looked up above) to lack pr.read/pr.approve.
+    // Roles not checked yet are left as they are — no lookup per option.
+    return options.map((o) => (prRoleProblem(o.value)?.length ? { ...o, label: `${o.label} — can't approve PRs` } : o));
+  };
   const getApproverDisplayInfoForProcess = (step, dept) => getApproverDisplayInfo(step, dept, wizardProcessId);
 
   // For Step 3 review header: real process for process flows, a synthetic
@@ -321,6 +394,9 @@ const WorkflowWizard = ({
           isEditing={isEditing}
           flowType={wizardForm.flow_type}
           groupWorkflowExists={groupWorkflowExists}
+          companyWide={!!wizardForm.company_wide}
+          prScopeTaken={prScopeTaken}
+          onCompanyWideChange={(val) => setWizardForm((prev) => ({ ...prev, company_wide: val }))}
           onFlowChange={(flow) => {
             // One Group ARC workflow per company — edit it from its card.
             if (flow === FLOW_TYPE.ARC_GROUP && groupWorkflowExists) return;
@@ -333,8 +409,8 @@ const WorkflowWizard = ({
           }}
         />
       );
-      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={handleStagesChange} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} stageErrors={stageErrors} />;
-      case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} />;
+      case 2: return <StepConfigureStages stages={wizardForm.stages} onStagesChange={handleStagesChange} getApproverOptions={getApproverOptionsForProcess} getApproverDisplayInfo={getApproverDisplayInfoForProcess} selectedProcess={reviewProcess} isArc={isArc} isArcGroup={isArcGroup} isPr={isPr} prRoleProblem={prRoleProblem} stageErrors={stageErrors} />;
+      case 3: return <StepReviewSave process={reviewProcess} stages={wizardForm.stages} hotel={hotel} getApproverDisplayInfo={getApproverDisplayInfoForProcess} isArcGroup={isArcGroup} isPr={isPr} companyWide={!!wizardForm.company_wide} hasInvalidMin={hasInvalidMin} />;
       default: return null;
     }
   };
@@ -359,7 +435,7 @@ const WorkflowWizard = ({
             {currentStep < TOTAL_STEPS ? (
               <button type="button" className={s.btnPrimary} onClick={handleNext}>Next <BsArrowRight size={14} /></button>
             ) : (
-              <button type="button" className={s.btnSave} onClick={handleSave} disabled={saving}>
+              <button type="button" className={s.btnSave} onClick={handleSave} disabled={saving || hasInvalidMin}>
                 {saving ? (<><span className="spinner-border spinner-border-sm" role="status" /> Saving...</>) : "Save Workflow"}
               </button>
             )}

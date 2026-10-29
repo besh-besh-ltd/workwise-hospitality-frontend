@@ -1,0 +1,482 @@
+/* Vendor Deliveries section + dispatch note / invoice dialogs (task C4).
+   The section renders inside the PO module's .page, so its tokens
+   (--border, --fg-3, …) apply. The dialogs render in a portal outside .page,
+   so their values are spelled out (as PurchaseOrders.module.scss does for
+   .approveComment). Quantities and document numbers are right-aligned Geist
+   Mono. */
+
+$mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+/* ───────────── Section body ───────────── */
+.body {
+  padding: 16px 20px 20px;
+  display: grid;
+  gap: 22px;
+}
+
+.block {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.blockHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.blockTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--fg-3);
+}
+.blockHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-4);
+}
+.empty {
+  margin: 0;
+  padding: 14px;
+  font-size: 12.5px;
+  color: var(--fg-3);
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.muted { color: var(--fg-3); }
+
+/* ───────────── One phase of the plan ───────────── */
+.phase {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.phaseHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.phaseTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  svg { color: var(--fg-3); flex-shrink: 0; }
+}
+.phaseMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.remarks {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--fg-3);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ───────────── Quantity tables (plan, receipts, short-closes) ───────────── */
+.qtyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  thead th {
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-4);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th:global(.num) { text-align: right; }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--fg-2);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:global(.num) {
+    text-align: right;
+    font-family: $mono;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .openCell { font-weight: 600; color: var(--fg); }
+  .zero { color: var(--fg-4); }
+}
+.itName { font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.itUnit { font-size: 11px; color: var(--fg-3); }
+
+/* ───────────── Document cards (dispatch notes, receipts, returns) ───────────── */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+}
+.docNo {
+  font-family: $mono;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.cardWhere { font-size: 12px; color: var(--fg-3); }
+.cardActions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.facts {
+  margin: 0;
+  padding: 0 14px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 12px;
+  div { display: inline-flex; gap: 6px; }
+  dt { font-weight: 500; color: var(--fg-3); }
+  dd { margin: 0; color: var(--fg-2); }
+}
+.factMono { font-family: $mono; }
+.goods {
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+}
+.goodsQty {
+  font-family: $mono;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.goodsReason { font-size: 11.5px; color: var(--fg-3); }
+.invoices {
+  margin: 0;
+  padding: 8px 14px 10px;
+  border-top: 1px dashed var(--border);
+  background: var(--surface-2);
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.invoiceRow {
+  display: flex;
+  align-items: center;
+  gap: 6px 12px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--fg-2);
+  svg { color: var(--fg-3); }
+}
+.invoiceAmt {
+  margin-left: auto;
+  font-family: $mono;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--fg);
+}
+.link {
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  &:hover { color: var(--accent-hover); }
+  &:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 3px; }
+}
+/* A text action inside a sentence (the dispatch dialog's fallback). */
+.linkBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  &:hover:not(:disabled) { color: var(--accent-hover); }
+  &:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 3px; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+/* ───────────── Loading / error ───────────── */
+.skeleton { display: grid; gap: 10px; }
+.errorBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid rgba(185, 28, 28, 0.22);
+  border-radius: var(--radius);
+}
+
+/* ═══════════════ Dialogs (outside .page: values spelled out) ═══════════════ */
+.dialog {
+  :global(.modal-content) {
+    border: 1px solid #e8e8e3;
+    border-radius: 14px;
+    box-shadow: 0 24px 48px -16px rgba(15, 15, 14, 0.16), 0 8px 16px rgba(15, 15, 14, 0.06);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #18181b;
+  }
+  :global(.modal-header) { border-bottom: 1px solid #e8e8e3; padding: 14px 20px; }
+  :global(.modal-title) { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  :global(.modal-body) { padding: 16px 20px; }
+  :global(.modal-footer) { border-top: 1px solid #e8e8e3; padding: 12px 20px; gap: 8px; }
+}
+/* Two classes, so they beat Bootstrap's single-class .modal-dialog max-width
+   whatever the stylesheet order. */
+.dialog.dialogWide :global(.modal-dialog) { max-width: 760px; }
+.dialog.dialogNarrow :global(.modal-dialog) { max-width: 560px; }
+
+.intro { margin: 0 0 14px; font-size: 12.5px; color: #71717a; line-height: 1.5; }
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+.field { display: grid; gap: 5px; min-width: 0; }
+.fieldFull { grid-column: 1 / -1; }
+.label { font-size: 12.5px; font-weight: 600; color: #3f3f46; }
+.req { color: #b91c1c; margin-left: 2px; }
+.hint { font-size: 11.5px; color: #a1a1aa; }
+.input,
+.select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 13.5px;
+  color: #18181b;
+  background: #ffffff;
+  border: 1px solid #d4d4d0;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  &:hover:not(:disabled) { border-color: #d6d6cf; }
+  &:focus { border-color: #1f2937; box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14); }
+  &:disabled { background: #f4f4f1; color: #a1a1aa; cursor: not-allowed; }
+  &[aria-invalid='true'] { border-color: #b91c1c; }
+  &[aria-invalid='true']:focus { box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.18); }
+}
+.input[type='file'] { padding: 6px 8px; }
+.err { font-size: 12px; font-weight: 500; color: #b91c1c; }
+.alert {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid rgba(185, 28, 28, 0.22);
+  border-radius: 8px;
+}
+.note {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: #71717a;
+  background: #fafaf9;
+  border: 1px dashed #e8e8e3;
+  border-radius: 8px;
+}
+.subTitle {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #71717a;
+}
+.fileMeta { font-size: 12px; color: #71717a; overflow-wrap: anywhere; }
+
+.linesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  th {
+    padding: 7px 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #a1a1aa;
+    text-align: left;
+    border-bottom: 1px solid #e8e8e3;
+  }
+  th:global(.num) { text-align: right; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e8e8e3; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:global(.num) {
+    text-align: right;
+    font-family: $mono;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+.qtyField { display: grid; gap: 4px; justify-items: end; }
+.qtyInput {
+  width: 120px;
+  text-align: right;
+  font-family: $mono;
+  font-variant-numeric: tabular-nums;
+}
+.amountInput {
+  text-align: right;
+  font-family: $mono;
+  font-variant-numeric: tabular-nums;
+}
+
+.mBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.14); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+.mBtnPrimary {
+  background: #15803d;
+  color: #ffffff;
+  &:hover:not(:disabled) { background: #166534; }
+  &:focus-visible { box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.18); }
+}
+.mBtnSecondary {
+  background: #ffffff;
+  color: #18181b;
+  border-color: #d6d6cf;
+  &:hover:not(:disabled) { background: #f4f4f1; }
+}
+
+/* ═══════════════════════════ Phone layer ═══════════════════════════
+   ≤768px. Quantity tables restack as cards: the <thead> goes and every
+   number cell prints its column name from data-label, so seven columns of
+   quantities never clip off a 390px screen. Dialog grids collapse to one
+   column; inputs stay 16px (styles/mobile.css) so iOS does not zoom. */
+@media (max-width: 768px) {
+  .body { padding: 14px 14px 16px; gap: 18px; }
+
+  .qtyTable {
+    display: block;
+    thead { display: none; }
+    tbody { display: block; }
+    tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 4px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      &:last-child { border-bottom: none; }
+    }
+    tbody td { display: block; padding: 0; border-bottom: none; min-width: 0; }
+    tbody td[data-label] {
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      text-align: right;
+      &::before {
+        content: attr(data-label);
+        margin-right: auto;
+        padding-right: 12px;
+        font-family: 'Geist', -apple-system, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+    }
+  }
+
+  .phaseHead { align-items: flex-start; }
+  .cardActions { margin-left: 0; width: 100%; }
+  .cardActions button { flex: 1 1 auto; min-height: 44px; }
+  .invoiceAmt { margin-left: 0; }
+
+  .grid2,
+  .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .linesTable {
+    display: block;
+    thead { display: none; }
+    tbody { display: block; }
+    tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #e8e8e3;
+    }
+    td { display: block; padding: 0; border-bottom: none; }
+    td[data-label]::before {
+      content: attr(data-label) " ";
+      font-family: 'Geist', -apple-system, sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: #71717a;
+    }
+  }
+  .qtyInput { width: 110px; min-height: 44px; }
+  .mBtn { min-height: 44px; }
+}
