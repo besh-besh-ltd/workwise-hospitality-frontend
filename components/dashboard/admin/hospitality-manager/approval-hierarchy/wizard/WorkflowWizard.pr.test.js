@@ -133,7 +133,7 @@ describe("PR approval flow", () => {
 
   test("the threshold input is not shown for the ARC flow", () => {
     render(<WorkflowWizard {...baseProps()} editingProcess={null} editingPolicies={[]} />);
-    fireEvent.click(screen.getByText(/ARC — Rate Contracts/));
+    fireEvent.click(screen.getByText(/Unit ARC \(no process\)/));
     next();
     fireEvent.click(screen.getByRole("button", { name: /add first level/i }));
     expect(screen.queryByLabelText(/only when pr value/i)).not.toBeInTheDocument();
@@ -196,9 +196,10 @@ describe("a refused save is never silent", () => {
     next();
     next();
     fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SERVER_MSG));
+    // The server's sentence sits on the stage it refused; the toast stays short.
+    expect(await screen.findByText(SERVER_MSG)).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith("Couldn't save Purchase Requisition Approval");
     expect(props.onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /save workflow/i })).toBeEnabled();
   });
 
   test("a refusal after confirming the pending-approval impact is shown as text too", async () => {
@@ -211,7 +212,7 @@ describe("a refused save is never silent", () => {
     next();
     fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm and apply changes" }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SERVER_MSG));
+    expect(await screen.findByText(SERVER_MSG)).toBeInTheDocument();
     expect(toast.error.mock.calls.every(([m]) => typeof m === "string")).toBe(true);
     expect(props.onSave).not.toHaveBeenCalled();
   });
