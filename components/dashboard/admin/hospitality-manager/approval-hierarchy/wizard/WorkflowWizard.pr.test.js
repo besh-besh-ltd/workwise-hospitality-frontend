@@ -284,5 +284,5 @@ describe("the PR role picker says which roles can approve PRs", () => {
 test("the PR base-stage message does not talk about publishing; ARC keeps its reason", () => {
   expect(baseStageRequiredMessage("PR")).toBe("The Purchase Requisition stage needs at least one approval level — every submitted PR is approved through it.");
   expect(baseStageRequiredMessage("PR")).not.toMatch(/publish/i);
-  expect(baseStageRequiredMessage("ARC")).toMatch(/ARC \(Publish & Base\) stage needs at least one approval level — it gates publishing\./);
+  expect(baseStageRequiredMessage("ARC")).toMatch(/^The Unit ARC .* stage needs at least one approval level — it gates publishing\.$/);
 });

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
+import { isRoundDeadlineTooSoon, ROUND_DEADLINE_TOO_SOON_MESSAGE } from '@/utils/negotiationTime';
 import {
   getVendorPriceData,
   isFieldTargetInvalid,
@@ -31,6 +32,9 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     negotiation_fields: [],
   });
   const [endDateError, setEndDateError] = useState(false);
+  // Internal note for approvers. Deliberately NOT in formData: the mode /
+  // queue / cancel resets rebuild formData and would silently drop it.
+  const [roundRemarks, setRoundRemarks] = useState('');
   const [showTargetWarning, setShowTargetWarning] = useState(false);
   // Local queue of completed-but-not-yet-submitted rounds. Each entry is a
   // ready-to-send `createNegotiationRound` payload + display metadata.
@@ -221,12 +225,17 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   // the submission at the moment Send is clicked.
   const canAddToQueue = step2Errors.length === 0;
 
-  // Step 3 holds the end-date pick so submission is gated on it here.
+  // Step 3 holds the end-date pick so submission is gated on it here. The
+  // deadline must also clear the minimum round window, which the create
+  // endpoints enforce. Read every render rather than memoised on the value:
+  // the same pick goes stale as the clock moves.
+  const deadlineTooSoon = isRoundDeadlineTooSoon(formData.end_date);
   const step3Errors = useMemo(() => {
     const errors = [];
     if (!formData.end_date) errors.push('Set an end date for the round.');
+    else if (deadlineTooSoon) errors.push(ROUND_DEADLINE_TOO_SOON_MESSAGE);
     return errors;
-  }, [formData.end_date]);
+  }, [formData.end_date, deadlineTooSoon]);
 
   // Is there an in-progress current round (a product picked, or RFQ mode)?
   // When false but the queue is non-empty, the wizard is in "queue-only"
@@ -234,7 +243,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   // the rounds they already queued.
   const hasCurrentRound = mode === 'rfq' || !!selectedProductId;
 
-  const canSubmit = !!formData.end_date && (
+  const canSubmit = !!formData.end_date && !deadlineTooSoon && (
     hasCurrentRound
       ? step2Errors.length === 0
       : queuedRounds.length > 0
@@ -458,6 +467,8 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     selectedVendorIds,
     vendorTargets,
     formData,
+    roundRemarks,
+    setRoundRemarks,
     effectiveFields,
     showTargetWarning,
     endDateError,

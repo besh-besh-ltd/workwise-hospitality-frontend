@@ -20,7 +20,8 @@ import {
 } from "@/services/Auth";
 import { getCities, getCountries, getStates } from "@/services/cms";
 import { getMyHospitalityContexts } from "@/services/hospitality";
-import { EditOnlyProfileSchema } from "@/utils/schema";
+import { EditOnlyProfileSchema, contactDetailsSchema } from "@/utils/schema";
+import { parseMobile, formatMobile } from "@/utils/mobile";
 import { Pencil, Trash2, Camera } from "lucide-react";
 import styles from "./EditProfile.module.scss";
 
@@ -122,10 +123,10 @@ const EditProfile = () => {
         cities: citiesRes?.data || [],
       });
 
-      // splica mobile no and code
-      const [countryCode = "+91", mobileNumber = ""] = (
-        data?.mobile || "+91-"
-      ).split("-");
+      // A bare "9876500001" used to split into country code "9876500001" and
+      // a blank number, and saving that wrote "9876500001-" — the corrupt
+      // value that later broke an admin's edit of this account.
+      const { countryCode, mobileNumber } = parseMobile(data?.mobile);
 
       const hospitalityEnabled =
         data?.is_hospitality === 1 || data?.is_hospitality === "1";
@@ -196,9 +197,7 @@ const EditProfile = () => {
     const payload = {
       name: values.name,
       email: values.email,
-      mobile: `${values.countryCode}-${String(values.mobile || "")
-        .trim()
-        .replace(/^0+/, "")}`,
+      mobile: formatMobile(values.countryCode, values.mobile),
     };
 
     updateProfile(payload)
@@ -452,7 +451,7 @@ const handleCreateLocation = async (locationData) => {
         </div>
 
         {/* ── Contact Details ── */}
-        <Formik enableReinitialize initialValues={userDetails} onSubmit={handleUpdate}>
+        <Formik enableReinitialize initialValues={userDetails} validationSchema={contactDetailsSchema} onSubmit={handleUpdate}>
           {({ errors, touched, setFieldValue }) => (
             <Form className={styles.section}>
               <h3 className={styles.sectionTitle}>Contact Details</h3>

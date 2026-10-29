@@ -94,6 +94,22 @@ export const roleMenus = {
     { href: "/dashboard/buyer/purchase-orders/tracking", label: "Tracking",  targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
     { href: "/dashboard/buyer/purchase-orders/analytics",label: "Analytics", targetMenu: "nav", group: "Requisition & Orders", section: "Purchase Orders" },
 
+    // ── INVENTORY — hotel stock after the PO: receive, store, mark out, count.
+    // Every row is gated on its module's `read` grant (see visibleRoleMenu), so
+    // the phase only appears for users who hold inventory.read or grn.read.
+    // Overview serves either (its API accepts grn.read), so it names both.
+    // Keep these rows contiguous: SideNav/MobileNav group by consecutive runs.
+    { href: "/dashboard/buyer/inventory",             label: "Overview",    targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: ["inventory", "grn"] },
+    { href: "/dashboard/buyer/inventory/receive",     label: "Receive",     targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "grn" },
+    { href: "/dashboard/buyer/inventory/stock",       label: "Stock",       targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/out",         label: "Mark out",    targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/counts",      label: "Counts",      targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/adjustments", label: "Adjustments", targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/reorder",     label: "Reorder",     targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/grn",         label: "GRNs",        targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "grn" },
+    { href: "/dashboard/buyer/inventory/setup",       label: "Setup",       targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+    { href: "/dashboard/buyer/inventory/labels",      label: "Labels",      targetMenu: "nav", group: "Inventory", section: null, isNew: true, moduleKey: "inventory" },
+
     // ── INSIGHTS — cross-module reporting. Its own phase rather than a section
     // under Purchase Orders: the pack spans spend, vendors, approvals and
     // compliance, so filing it under any one module would hide most of it.
@@ -157,16 +173,30 @@ export const roleMenus = {
  * hospitality-only entry had to be remembered in three places. Items now
  * declare `hospitalityOnly` and the rule lives here once.
  */
-export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession, canCreatePr = null } = {}) => {
+export const visibleRoleMenu = (currentUserType, { isHospitalityCompany, profile, isGuestSession, navGrants, canCreatePr = null } = {}) => {
   const baseMenu = roleMenus[currentUserType] || [];
   return baseMenu.filter((item) => {
     if (item.hospitalityOnly && !isHospitalityCompany) return false;
     if (!networkAllows(item, profile, isGuestSession)) return false;
+    if (!grantAllows(item, navGrants)) return false;
     // Only a known "no" hides it: while the lookup is loading (or failed) the
     // entry stays, and the create page explains a missing role.
     if (item.requiresPrCreate && canCreatePr === false) return false;
     return true;
   });
+};
+
+/**
+ * Permission gate, applied only to items that name a `moduleKey` (today: the
+ * Inventory section). A list of keys passes with `read` on any one of them.
+ * `navGrants` is `{ [moduleKey]: ["read", ...] }` from useNavPermissions, or
+ * null/undefined while loading: gated items stay hidden until we know, so
+ * nothing flashes in and out.
+ */
+const grantAllows = (item, navGrants) => {
+  if (!item.moduleKey) return true;
+  const keys = Array.isArray(item.moduleKey) ? item.moduleKey : [item.moduleKey];
+  return keys.some((key) => !!navGrants?.[key]?.includes("read"));
 };
 
 /**

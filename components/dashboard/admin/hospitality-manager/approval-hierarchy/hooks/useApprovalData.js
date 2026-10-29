@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { stageLabel } from "../stageLabels";
 import { toast } from "react-toastify";
 import {
   getApprovalPolicies,
@@ -158,7 +159,8 @@ const useApprovalData = (companyId, hotelId) => {
       if (!roleId) return [];
       const cId = parseInt(companyId);
       const hId = parseInt(hotelId);
-      const pId = processId != null ? Number(processId) : null;
+      // Synthetic ARC ids ("__ARC__") are not process ids: no process filter.
+      const pId = processId != null && Number.isFinite(Number(processId)) ? Number(processId) : null;
       return users.filter((user) => {
         const scopes = userRoleScopes[user.user_id] || [];
         return scopes.some((scope) => {
@@ -181,8 +183,9 @@ const useApprovalData = (companyId, hotelId) => {
   );
 
   const getApproverOptions = useCallback(
-    (sourceType, departmentId, processId = null) => {
-      const pId = processId != null ? Number(processId) : null;
+    (sourceType, departmentId, processId = null, entityType = null) => {
+      // Synthetic ARC ids ("__ARC__") are not process ids: no process filter.
+      const pId = processId != null && Number.isFinite(Number(processId)) ? Number(processId) : null;
       if (sourceType === "USER") {
         // Master policy context: no department filtering. When a process is
         // selected on the policy, only surface users who fall in that process —
@@ -206,7 +209,18 @@ const useApprovalData = (companyId, hotelId) => {
           label: `${u.name}${u.email ? ` (${u.email})` : ""}`,
         }));
       } else if (sourceType === "ROLE") {
-        return roles.map((r) => ({ value: r.id, label: r.title }));
+        return roles.map((r) => {
+          const option = { value: r.id, label: r.title };
+          // Offer only roles that can approve this stage. An old backend that
+          // does not send approvable_entity_types disables nothing.
+          if (entityType && Array.isArray(r.approvable_entity_types)) {
+            option.isDisabled = !r.approvable_entity_types.includes(entityType);
+          }
+          if (option.isDisabled) {
+            option.reason = `${r.title} can't approve ${stageLabel(entityType)}`;
+          }
+          return option;
+        });
       }
       return [];
     },

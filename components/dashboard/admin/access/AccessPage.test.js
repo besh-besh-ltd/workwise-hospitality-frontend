@@ -149,3 +149,20 @@ describe("Access catalogue", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Unit & Group ARC hint", () => {
+  it("marks only roles whose approvable or performed types include ARC", async () => {
+    getRoles.mockResolvedValue({
+      data: {
+        data: [
+          { id: 40, title: "ARC Technical Approver", created_by: null, approvable_entity_types: ["ARC_TECH", "ARC_GROUP_TECH"], performs_entity_types: [] },
+          { id: 41, title: "ARC Technical Evaluator", created_by: null, approvable_entity_types: [], performs_entity_types: ["ARC_TECH"] },
+          { id: 42, title: "RFQ Approver", created_by: null, approvable_entity_types: ["RFQ"], performs_entity_types: [] },
+        ],
+      },
+    });
+    render(<AccessPage />);
+    await screen.findByText("RFQ Approver");
+    expect(screen.getAllByText("Unit & Group ARC")).toHaveLength(2);
+  });
+});

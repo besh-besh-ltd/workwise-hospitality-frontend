@@ -14,6 +14,7 @@ export const createNegotiationRound = ({
   vendor_targets,
   is_rfq_level,
   products,
+  creator_remarks,
 }) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -26,6 +27,8 @@ export const createNegotiationRound = ({
           rfq_id,
           end_date,
           products,
+          // Internal note for approvers; backend trims/validates (max 1000).
+          creator_remarks: creator_remarks ?? null,
         });
         resolve(response);
         return;

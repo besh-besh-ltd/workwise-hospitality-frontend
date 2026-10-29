@@ -16,6 +16,9 @@
  */
 const payloadOf = (err) => err?.message?.response?.data || err?.response?.data || null;
 
+/** The raw error body (either envelope), for callers that read `data`/`code` themselves. */
+export const apiErrorPayload = payloadOf;
+
 export const apiErrorMessage = (err, fallback) => {
   const message = payloadOf(err)?.message;
   return typeof message === "string" && message.trim() ? message : fallback;

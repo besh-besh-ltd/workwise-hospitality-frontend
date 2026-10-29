@@ -59,10 +59,10 @@ test("a group rate contract's hero names its hotels", async () => {
   expect(screen.queryByText("Single-BU")).not.toBeInTheDocument();
 });
 
-test("a single-hotel rate contract still reads Single hotel", async () => {
+test("a single-hotel rate contract reads Unit", async () => {
   ArcApi.getLifecycle.mockResolvedValue(lifecycle({ is_group: false, hotels: [] }));
   render(<ContractRecordPage />);
 
-  expect(await screen.findByText("Single hotel")).toBeInTheDocument();
+  expect(await screen.findByText("Unit")).toBeInTheDocument();
   expect(screen.getByText("Goa Resort")).toBeInTheDocument();
 });

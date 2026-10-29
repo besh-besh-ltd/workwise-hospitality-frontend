@@ -35,6 +35,17 @@ const messageFromError = (err) => {
 export const getApiErrorData = (err) =>
   err?.response?.data || err?.message?.response?.data || null;
 
+// A refusal about one field — `{ field: "employee_code", message: "..." }`, as
+// the API sends when an employee code already belongs to another account — as
+// Formik errors, so the form can put the sentence under the field. Null when
+// the refusal names no usable field.
+export const getApiFieldErrors = (err) => {
+  const data = getApiErrorData(err);
+  const field = pickString(data?.field);
+  const message = pickString(data?.message);
+  return field && message ? { [field]: message } : null;
+};
+
 export const getApiErrorMessage = (err, fallback = DEFAULT_MESSAGE) => {
   const safeFallback = pickString(fallback) || DEFAULT_MESSAGE;
 

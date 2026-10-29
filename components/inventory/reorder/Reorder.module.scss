@@ -1,0 +1,368 @@
+/* Reorder.module.scss
+   The reorder worklist. DESIGN.md values ("The Trading Desk") spelled out as
+   SCSS variables, as the other inventory screens do. Geist for UI, Geist Mono
+   right-aligned for every qty, rate and document number, colour only for
+   state. */
+
+$bg: #f7f7f5;
+$surface: #ffffff;
+$surface-2: #fafaf9;
+$surface-3: #f4f4f1;
+$border: #e8e8e3;
+$border-strong: #d6d6cf;
+$border-input: #d4d4d0;
+$ink: #18181b;
+$ink-2: #3f3f46;
+$ink-3: #71717a;
+$slate: #1f2937;
+$slate-hover: #111827;
+$info: #2563eb;
+$info-soft: #eff6ff;
+$success: #15803d;
+$success-soft: #ecfdf5;
+$warn: #b45309;
+$warn-soft: #fef7ed;
+$danger: #b91c1c;
+$danger-soft: #fef2f2;
+$radius-sm: 6px;
+$radius: 10px;
+$ring: 0 0 0 3px rgba(31, 41, 55, 0.14);
+$ring-danger: 0 0 0 3px rgba(185, 28, 28, 0.16);
+$shadow: 0 1px 2px rgba(15, 15, 14, 0.04), 0 0 0 1px rgba(15, 15, 14, 0.04);
+$sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+$mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+@mixin mono {
+  font-family: $mono;
+  font-feature-settings: 'tnum', 'zero', 'ss01';
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── Page frame ───────────── */
+.page {
+  /* Cancel DashboardShell .content's 20px 24px padding: flush to the rail. */
+  margin: -20px -24px;
+  min-height: calc(100vh - 56px);
+  background: $bg;
+  color: $ink;
+  font-family: $sans;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  font-size: 13px;
+
+  * { box-sizing: border-box; }
+}
+
+.mono { @include mono; }
+.num { @include mono; text-align: right; white-space: nowrap; }
+.muted { color: $ink-3; }
+.grow { flex: 1; min-width: 0; }
+
+.pageHeader {
+  background: $surface;
+  border-bottom: 1px solid $border;
+  padding: 20px 28px 18px;
+}
+.headInner {
+  max-width: 1480px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.sub { margin: 4px 0 0; color: $ink-3; }
+.headControls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+
+.pageBody {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 20px 28px 40px;
+  display: grid;
+  gap: 12px;
+}
+
+/* ───────────── Controls ───────────── */
+.field { display: grid; gap: 4px; }
+.fieldInline { display: flex; align-items: center; gap: 8px; }
+.label { font-size: 12px; font-weight: 500; color: $ink-2; }
+
+.select {
+  min-height: 34px;
+  min-width: 180px;
+  padding: 0 28px 0 10px;
+  border: 1px solid $border-input;
+  border-radius: $radius-sm;
+  background-color: $surface;
+  color: $ink;
+  font: inherit;
+
+  &:focus-visible { outline: none; border-color: $slate; box-shadow: $ring; }
+  &:disabled { background: $surface-3; color: $ink-3; }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid $border-strong;
+  border-radius: $radius-sm;
+  background: $surface;
+  color: $ink;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+
+  &:hover:not(:disabled) { background: $surface-2; border-color: $ink-3; color: $ink; }
+  &:focus-visible { outline: none; box-shadow: $ring; }
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+}
+.btnPrimary {
+  background: $slate;
+  border-color: $slate;
+  color: #fff;
+  &:hover:not(:disabled) { background: $slate-hover; border-color: $slate-hover; color: #fff; }
+}
+.btnGhost { background: transparent; }
+.btnSm { min-height: 30px; padding: 0 10px; }
+
+/* ───────────── Notices ───────────── */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid $border;
+  border-radius: $radius;
+  background: $info-soft;
+  color: $ink-2;
+  line-height: 1.45;
+
+  > svg { flex: none; margin-top: 2px; color: $info; }
+}
+.noticeWarn { background: $warn-soft; > svg { color: $warn; } }
+.noticeOk { background: $success-soft; align-items: center; > svg { color: $success; margin-top: 0; } }
+.noticeError { background: $danger-soft; color: $danger; > svg { color: $danger; } }
+.noticeActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.noticeList { margin: 4px 0 0; padding-left: 18px; }
+
+/* ───────────── Card + table ───────────── */
+.card {
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: $radius;
+  box-shadow: $shadow;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-bottom: 1px solid $border;
+}
+.toolbarLeft, .toolbarRight { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.count { color: $ink-2; }
+.toolbarNote { margin: 0; padding: 8px 14px; color: $ink-3; border-bottom: 1px solid $border; }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: $ink-3;
+  text-align: center;
+
+  p { margin: 0; }
+}
+
+.tableWrap { overflow-x: auto; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 9px 12px;
+    background: $surface-2;
+    border-bottom: 1px solid $border;
+    color: $ink-3;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+  }
+  th.num { text-align: right; }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid $border;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: $surface-2; }
+}
+.rowOn { background: #fcfcfb; }
+.colCheck { width: 36px; }
+.colCheck input { width: 16px; height: 16px; accent-color: $slate; }
+
+.itemName { font-weight: 500; }
+.itemMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  color: $ink-3;
+  font-size: 12px;
+}
+
+.qtyInput {
+  @include mono;
+  width: 96px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid $border-input;
+  border-radius: $radius-sm;
+  background: $surface;
+  color: $ink;
+  text-align: right;
+
+  &:focus-visible { outline: none; border-color: $slate; box-shadow: $ring; }
+  &:disabled { background: $surface-3; }
+}
+.qtyBad { border-color: $danger; &:focus-visible { box-shadow: $ring-danger; } }
+
+.flag { color: $warn; cursor: help; }
+
+.contract { display: inline-flex; align-items: center; gap: 6px; color: $ink-2; }
+.contractNote {
+  display: block;
+  margin-top: 2px;
+  padding-left: 13px;
+  color: $ink-3;
+  font-size: 11.5px;
+}
+.contractNoteBad { color: $danger; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.dotOk { background: $success; }
+
+/* ───────────── Phone layer ───────────── */
+@media (max-width: 991px) {
+  .page { margin: -16px; }
+  .pageHeader { padding: 16px; }
+  .pageBody { padding: 12px 12px 32px; }
+}
+
+@media (max-width: 768px) {
+  .headControls, .toolbarRight { width: 100%; }
+  .field, .fieldInline { width: 100%; }
+  .select { width: 100%; min-height: 44px; }
+  .btn { min-height: 44px; }
+  .toolbarRight .btn { flex: 1; justify-content: center; }
+
+  .table {
+    display: block;
+    thead { display: none; }
+    tbody, tr, td { display: block; }
+    tr {
+      position: relative;
+      padding: 10px 12px 10px 44px;
+      border-bottom: 1px solid $border;
+    }
+    td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 3px 0;
+      border-bottom: 0;
+      text-align: right;
+    }
+    td::before {
+      content: attr(data-label);
+      color: $ink-3;
+      font-family: $sans;
+      font-size: 12px;
+      text-align: left;
+    }
+    td.colCheck { position: absolute; left: 12px; top: 10px; width: auto; padding: 0; }
+    td.colCheck::before { content: none; }
+    td.colCheck input { width: 22px; height: 22px; }
+  }
+  .qtyInput { min-height: 44px; width: 120px; }
+}
+
+/* ───────────── Selection hit areas, screen-reader text ───────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The whole cell area toggles the row: 36px here, 44px on phones. */
+.checkHit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin: -8px;
+  cursor: pointer;
+
+  input { width: 16px; height: 16px; margin: 0; accent-color: $slate; cursor: pointer; }
+}
+
+.selectAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px 0 6px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  color: $ink-2;
+  cursor: pointer;
+  user-select: none;
+
+  input { width: 16px; height: 16px; margin: 0; accent-color: $slate; cursor: pointer; }
+  &:hover { background: $surface-2; }
+  &:focus-within { border-color: $slate; box-shadow: $ring; }
+}
+
+.cellNote {
+  display: block;
+  color: $ink-3;
+  font-family: $sans;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .table {
+    td.colCheck { left: 0; top: 0; }
+    td.colCheck .checkHit { min-width: 44px; min-height: 44px; margin: 0; }
+    td.colCheck .checkHit input { width: 22px; height: 22px; }
+  }
+  .selectAll { min-height: 44px; }
+  .cellNote { text-align: right; }
+}

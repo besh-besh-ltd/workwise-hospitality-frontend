@@ -33,7 +33,7 @@ jest.mock("@/services/pricing", () => ({
 }));
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import StepReview from "./StepReview";
@@ -148,20 +148,23 @@ describe("caller 2 — the wizard, where formData.end_date is a LOCAL WALL CLOCK
     expect(screen.getByText(/Will be sent as/)).toHaveTextContent("13 Aug 2026, 07:00 UTC");
   });
 
-  it("the input's `min` is the viewer's LOCAL now, not UTC now", () => {
+  it("the input's `min` is the viewer's LOCAL time two hours on, not UTC", () => {
     // Inventory row 16. `new Date().toISOString().slice(0,16)` is UTC, but the
     // control reads and writes local wall clock — so in India the floor sat
     // 5h30m in the past and the browser accepted a deadline already gone.
+    // The floor is now the minimum round window (2 h) out, which the create
+    // endpoints enforce: approval time comes out of the vendors' window.
     renderWizard();
-    const now = new Date();
+    const floor = new Date(Date.now() + 2 * 3600 * 1000);
     const pad = (n) => String(n).padStart(2, "0");
-    const localNow =
-      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
-      `T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    expect(dateInput()).toHaveAttribute("min", localNow);
+    const localFloor =
+      `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}` +
+      `T${pad(floor.getHours())}:${pad(floor.getMinutes())}`;
+    expect(dateInput()).toHaveAttribute("min", localFloor);
+    expect(screen.getByText(/At least 2 hours from now/)).toBeInTheDocument();
 
-    if (now.getTimezoneOffset() !== 0) {
-      expect(dateInput().getAttribute("min")).not.toBe(new Date().toISOString().slice(0, 16));
+    if (floor.getTimezoneOffset() !== 0) {
+      expect(dateInput().getAttribute("min")).not.toBe(floor.toISOString().slice(0, 16));
     }
   });
 
@@ -201,5 +204,41 @@ describe("THE SEAM — one component, two shapes, and they must not be confused"
     // In every zone: what is stored and what is shown are the same instant.
     const storedUtc = new Date(2026, 7, 13, 12, 30).toISOString();
     expect(hint).toContain(storedUtc.slice(11, 16));
+  });
+});
+
+// ── REQ-0026: optional internal remarks for approvers ──────────────────────
+
+describe("remarks for approvers", () => {
+  it("renders an optional remarks textarea with a 1000 limit and counter", () => {
+    renderWizard(LOCAL_END, { remarks: "abc", onRemarksChange: jest.fn() });
+    expect(screen.getByText("Remarks for approvers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Why is this round being raised? Approvers and your team will see this. Vendors never do.")
+    ).toBeInTheDocument();
+    const ta = screen.getByLabelText("Remarks for approvers");
+    expect(ta.tagName).toBe("TEXTAREA");
+    expect(ta).toHaveAttribute("maxlength", "1000");
+    expect(ta).toHaveValue("abc");
+    expect(screen.getByText("3/1000")).toBeInTheDocument();
+  });
+
+  it("tolerates remarks={null}: empty textarea and 0/1000 counter", () => {
+    renderWizard(LOCAL_END, { remarks: null, onRemarksChange: jest.fn() });
+    expect(screen.getByLabelText("Remarks for approvers")).toHaveValue("");
+    expect(screen.getByText("0/1000")).toBeInTheDocument();
+  });
+
+  it("typing calls onRemarksChange", () => {
+    const onRemarksChange = jest.fn();
+    renderWizard(LOCAL_END, { remarks: "", onRemarksChange });
+    fireEvent.change(screen.getByPlaceholderText(/Negotiated at unit level/), { target: { value: "hello" } });
+    expect(onRemarksChange).toHaveBeenCalledWith("hello");
+  });
+
+  it("readOnly StepReview renders no textarea", () => {
+    renderReadOnly();
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(screen.queryByText("Remarks for approvers")).toBeNull();
   });
 });

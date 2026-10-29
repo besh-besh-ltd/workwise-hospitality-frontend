@@ -172,6 +172,9 @@ const ProductComparisonTab = ({
         const hasRejection = productRejections.length > 0;
         const latestProductRejection = productRejections[0] || null;
         const latestRejectionIsApprover = latestProductRejection?.rejection_type === 'approver';
+        // An approver's "Not needed any more" cancels the PO (route CANCEL):
+        // not a rejection to re-award. Older rows carry no route.
+        const latestRejectionIsCancel = latestProductRejection?.route === 'CANCEL';
         const latestRejectionVendorName = latestProductRejection
           ? (latestProductRejection.vendor_organization || latestProductRejection.vendor_name)
           : '';
@@ -222,7 +225,9 @@ const ProductComparisonTab = ({
               >
                 <span aria-hidden="true">⚠</span>
                 <span>
-                  {latestRejectionIsApprover
+                  {latestRejectionIsCancel
+                    ? `Action needed: PO #${latestProductRejection.po_number || latestProductRejection.po_id} for ${latestRejectionVendorName} was cancelled by an internal approver as not needed any more. Check it is still needed before awarding it again.`
+                    : latestRejectionIsApprover
                     ? `Action needed: latest PO drafted for ${latestRejectionVendorName} was rejected by an internal approver. Review and pick the next vendor.`
                     : `Action needed: ${latestRejectionVendorName} rejected the PO. Review and pick the next vendor.`}
                 </span>
@@ -318,7 +323,9 @@ const ProductComparisonTab = ({
                     const palette = isApprover
                       ? { color: '#7C2D12', bg: '#FFF7ED', border: '#FED7AA' }
                       : { color: '#991B1B', bg: '#FEE2E2', border: '#FECACA' };
-                    const text = isApprover
+                    const text = rej.route === 'CANCEL'
+                      ? `Internal approver cancelled the PO for ${vendorName}: not needed any more`
+                      : isApprover
                       ? `Internal approver rejected the PO drafted for ${vendorName}`
                       : `${vendorName} rejected the PO`;
                     return (

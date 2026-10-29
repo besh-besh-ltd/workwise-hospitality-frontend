@@ -68,7 +68,7 @@ export const PO_ENTITY_TYPE = "PO";
 // toast — the toast used to say "RFQ approved" for every type, so awarding one
 // line item announced that the whole RFQ had been approved.
 const ENTITY_NOUN = {
-  [AWARD_ENTITY_TYPE]: "Vendor award",
+  [AWARD_ENTITY_TYPE]: "Final vendor selection",
   [ROUND_ENTITY_TYPE]: "Negotiation round",
   TECHNICAL: "Technical evaluation",
   PO: "Purchase order",

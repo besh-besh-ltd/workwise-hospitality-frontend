@@ -8,13 +8,15 @@ import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
 import { Modal, Form } from 'react-bootstrap';
 import ConfirmationModal from '@/components/modal/ConfirmationModal';
+import { TechEvalStatusBanner, UnquotedResponderLabel } from './TechEvalReopenParts';
 import { BsCheckCircleFill, BsXCircleFill, BsChatDots, BsPencilSquare, BsShieldCheck, BsFileEarmark, BsPersonCheck } from "react-icons/bs";
 import { ApprovalWorkflowSection } from "@/components/dashboard/buyer/approval";
 import { useTechEvalWorkflow } from '@/hooks/useTechEvalWorkflow';
 import TechEvalWorkflowStatus from './TechEvalWorkflowStatus';
+import { PassingScoreLabel, VendorScoreValue } from './TechEvalScoreParts';
 import { TECH_EVAL_WORKFLOW_STATES } from '@/utils/constants/techEvalWorkflow';
 import { checkBidExpired } from '@/utils/sharedFunctions';
-import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore } from '@/utils/techEvalScoring';
+import { isClauseScored, isVendorFullyScored as isVendorFullyScoredFor, summariseEvaluationProgress, applyLocalScore, nextRoundNumber } from '@/utils/techEvalScoring';
 import styles from './TechnicalEvaluation.module.scss';
 
 
@@ -87,6 +89,11 @@ const ClauseProductItem = ({
       requiredPassedVendors,
       isComplete: workflowComplete,
       blockedInsufficientVendors,
+      isStuck,
+      bidWindowOpen,
+      reopened,
+      recoverable,
+      eligibleUnscoredVendors,
       rounds,
       latestRound,
       passedVerifiedVendors,
@@ -119,8 +126,18 @@ const ClauseProductItem = ({
     // Locked during: PENDING_APPROVAL (submitted), AWAITING_NEXT_ROUND (approved), COMPLETED
     const isEditLocked = workflowState !== TECH_EVAL_WORKFLOW_STATES.EVALUATING;
 
+    // A locked-before-reopen evaluation (recoverable, not reopened) accepts
+    // scores only for vendors on the eligible list; the server answers 409 for
+    // anyone else. A reopened evaluation accepts any unverified vendor.
+    const eligibleVendorIds = new Set((eligibleUnscoredVendors || []).map((v) => String(v.vendor_id)));
+    const isVendorOutsideRecovery = (vendorId) =>
+        recoverable && !reopened && !eligibleVendorIds.has(String(vendorId));
+
     // Derived: Check if quote submission deadline has NOT yet passed (lock tech eval edits until deadline)
     const isBidEndNotPassed = currentRfq?.bid_end_date ? !checkBidExpired(currentRfq.bid_end_date) : false;
+    // A direct verdict is refused (409 TECH_EVAL_USE_ROUND) once the evaluation
+    // is reopened or recoverable: the verdict must come from a submitted round.
+    const verdictViaRound = !!(reopened || recoverable);
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         // When triggered from the ellipsis menu, a vendor object is passed.
@@ -628,13 +645,8 @@ const ClauseProductItem = ({
           <>
             {!vendorResponse && (
               <div className="mt-3">
-                {minimumPassingScore !== null && (
-                  <div className={styles.passingScore}>
-                    <div className={styles.passingScoreIcon}>
-                      <BsShieldCheck size={13} />
-                    </div>
-                    <span><strong>Minimum Passing Score:</strong> {minimumPassingScore} out of 100</span>
-                  </div>
+                {minimumPassingScore != null && (
+                  <PassingScoreLabel minimumPassingScore={minimumPassingScore} />
                 )}
                 {quotedVendorsOnly && vendors && vendors.length > 0 && !vendors.some(v => v.has_quoted) && (
                   <div className="text-center py-4" style={{ background: '#f8f9fa', borderRadius: 8 }}>
@@ -698,7 +710,7 @@ const ClauseProductItem = ({
                                   {/* Score + status */}
                                   {vendorEvaluated && vendor.calculated_score !== undefined && vendor.calculated_score !== null ? (
                                     <div className={styles.vendorScoreLine}>
-                                      <span className={styles.vendorScore}>{(!minimumPassingScore) ? 100 : vendor.calculated_score}%</span>
+                                      <VendorScoreValue score={vendor.calculated_score} />
                                       {vendor.is_passed !== undefined && vendor.is_passed !== null && (
                                         <span className={`badge rounded-pill py-1 px-2 ${vendor.is_passed ? "text-bg-success" : "text-bg-danger"}`} style={{ fontSize: '10px' }}>
                                           {vendor.is_passed ? "Pass" : "Fail"}
@@ -786,7 +798,7 @@ const ClauseProductItem = ({
                                           const isScored = isResponseScored(response);
                                           const disagrees = clauseItem.clause_type !== 'sampling' && response?.vendor_response == "I Dont Agree";
                                           const isVendorLocked = vendor.is_verified === true;
-                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed && !isVendorLocked;
+                                          const canEdit = canWrite && !permissionsLoading && !isEditLocked && !isBidEndNotPassed && !isVendorLocked && !isVendorOutsideRecovery(vendor.vendor_id);
                                           const previewKey = `${clauseItem.clause_id}_${String(vendor.vendor_id)}`;
                                           const previewMsgs = deviationPreviews[previewKey];
                                           const hasMessages = previewMsgs?.length > 0;
@@ -808,6 +820,7 @@ const ClauseProductItem = ({
 
                                               {/* Score (clickable) + response files inline */}
                                               <div className={styles.vendorScoreRow}>
+                                                {vendor.has_quoted === false ? <UnquotedResponderLabel /> : (<>
                                                 <span
                                                   className={`${styles.scoreChip} ${isScored ? (disagrees ? styles.scoreChipAlert : styles.scoreChipScored) : styles.scoreChipUnscored} ${canEdit ? styles.scoreChipClickable : ''}`}
                                                   onClick={canEdit ? () => openRemarkModal(clauseItem, vendor) : undefined}
@@ -828,6 +841,7 @@ const ClauseProductItem = ({
                                                     canEdit ? <><BsPencilSquare size={11} /> Score</> : <>- / {clauseItem.weightage || 0}</>
                                                   )}
                                                 </span>
+                                                </>)}
                                                 {response?.vendor_response_files && Array.isArray(response.vendor_response_files) && response.vendor_response_files.length > 0 && (
                                                   <div className={styles.fileButtons}>
                                                     {response.vendor_response_files.map((file, fi) => (
@@ -935,11 +949,12 @@ const ClauseProductItem = ({
                                     <>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnSuccess}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound) ? styles.btnDisabled : styles.btnSuccess}`}
                                             onClick={() => addToTechnicallyAccepted()}
-                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound}
                                             title={
-                                              isEditLocked ? "Evaluation locked"
+                                              verdictViaRound ? "Score this vendor and submit the round for approval"
+                                                : isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical acceptance is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to accept vendors" : "")
                                             }
@@ -949,11 +964,12 @@ const ClauseProductItem = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed) ? styles.btnDisabled : styles.btnDanger}`}
+                                            className={`${styles.btn} ${styles.btnLg} ${(!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound) ? styles.btnDisabled : styles.btnDanger}`}
                                             onClick={() => setShowRejectConfirmModal(true)}
-                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed}
+                                            disabled={!canWrite || permissionsLoading || isEditLocked || isBidEndNotPassed || verdictViaRound}
                                             title={
-                                              isEditLocked ? "Evaluation locked"
+                                              verdictViaRound ? "Score this vendor and submit the round for approval"
+                                                : isEditLocked ? "Evaluation locked"
                                                 : isBidEndNotPassed ? "Technical rejection is locked until the bid submission deadline"
                                                 : (!canWrite ? "You don't have permission to reject vendors" : "")
                                             }
@@ -1228,38 +1244,17 @@ const ClauseProductItem = ({
           </div>
         )}
 
-        {/* Tech Stuck Banner - all vendors failed, no replacements available */}
-        {blockedInsufficientVendors && totalPassedVerified === 0 && (
-          <div className={styles.approvedBanner} style={{
-            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-            borderColor: '#fca5a5',
-          }}>
-            <div className={styles.approvedBannerIcon} style={{
-              background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
-            }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </div>
-            <div className={styles.approvedBannerContent}>
-              <div className={styles.approvedBannerTitle} style={{ color: '#991b1b' }}>
-                All Eligible Vendors Failed Technical Evaluation
-              </div>
-              <div className={styles.approvedBannerSubtitle} style={{ color: '#b91c1c' }}>
-                0 of {requiredPassedVendors} required vendors passed across {currentRound} {currentRound === 1 ? 'round' : 'rounds'}. Extend the bid submission deadline and refresh vendors to proceed.
-              </div>
-            </div>
-            <div className={styles.approvedBannerBadge} style={{
-              background: 'rgba(220, 38, 38, 0.12)',
-              color: '#991b1b',
-              borderColor: '#fca5a5',
-            }}>
-              STUCK
-            </div>
-          </div>
-        )}
+        {/* Stuck / reopened / new-vendors banner */}
+        <TechEvalStatusBanner
+          isStuck={isStuck}
+          reopened={reopened}
+          recoverable={recoverable}
+          bidWindowOpen={bidWindowOpen}
+          eligibleUnscoredCount={eligibleUnscoredVendors.length}
+          nextRound={nextRoundNumber(rounds, currentRound)}
+          bidEndDate={currentRfq?.bid_end_date}
+          extendHref={`/dashboard/buyer/rfq-management-edit?id=${rfq_id}`}
+        />
 
         {/* Submit for Approval Button - Moved to main index.js for unified approval */}
 

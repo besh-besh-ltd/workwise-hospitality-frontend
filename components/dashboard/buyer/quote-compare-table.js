@@ -32,6 +32,7 @@ import SelectedQuotesDisplay from "./negotiation/SelectedQuotesDisplay";
 import VendorOrgLabel from "./VendorOrgLabel";
 import { getQuoteApprovalStatus, approveNegotiationQuotes, rejectNegotiationQuotes } from "@/services/negotiation";
 import { getAvailableHierarchies } from "@/services/general";
+import { stageLabel } from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy/stageLabels";
 
 const QuoteCompareTable = ({
   quotations,
@@ -313,7 +314,7 @@ const QuoteCompareTable = ({
         <ApprovalWorkflowSection
           entityType="NEGOTIATION_QUOTE"
           entityId={proditem.id}
-          entityLabel={`Quote Approval - ${productName}`}
+          entityLabel={`${stageLabel("NEGOTIATION_QUOTE")} – ${productName}`}
           hospitalityCompanyId={hospitalityCompanyId}
           hotelId={hotelId}
           departmentId={departmentId}

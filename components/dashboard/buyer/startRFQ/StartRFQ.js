@@ -24,6 +24,8 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
+import usePolicyCoverage from "@/hooks/usePolicyCoverage";
+import { isTenderAvailable } from "@/utils/policyCoverage";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import CopyFromExistingModal from "./CopyFromExistingModal";
 
@@ -114,6 +116,10 @@ const StartRFQ = () => {
 
   // ── Derived ──
   const isTender = queryMeta.orderType === "tender";
+  // Coverage unavailable (loading/failed) counts as available: never hide the
+  // entry because the lookup failed.
+  const { coverage: policyCoverage } = usePolicyCoverage({ enabled: isLoggedIn });
+  const tenderUnavailable = isTender && !isTenderAvailable(policyCoverage);
   const entityLabel = isTender ? "Tender" : "RFQ";
 
   const moduleKey = isTender ? "boq" : "rfq";
@@ -1227,9 +1233,20 @@ const StartRFQ = () => {
   // ── Page render ───────────────────────────
   return (
     <div className={styles.page}>
-      {view === VIEW.LANDING && renderLanding()}
-      {view === VIEW.BU && renderBu()}
-      {view === VIEW.PRODUCTS && renderProducts()}
+      {tenderUnavailable ? (
+        <div role="status" className={styles.tenderUnavailable}>
+          <p>Tenders aren&apos;t set up for your company&apos;s units. Ask your company admin.</p>
+          <button type="button" className={styles.breadcrumbLink} onClick={handleBackToLanding}>
+            Back
+          </button>
+        </div>
+      ) : (
+        <>
+          {view === VIEW.LANDING && renderLanding()}
+          {view === VIEW.BU && renderBu()}
+          {view === VIEW.PRODUCTS && renderProducts()}
+        </>
+      )}
 
       {/* Success modal */}
       {successData && (

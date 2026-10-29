@@ -2,13 +2,20 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import { BsXLg } from "react-icons/bs";
 import { DS, PROCESS_TYPES, PROCESS_TYPE_COLORS } from "../constants";
+import { stageShortLabel } from "../stageLabels";
 import s from "./ProcessFormModal.module.scss";
 
+const flowDesc = (types) => types.map(stageShortLabel).join(" > ");
+const RFQ_FLOW = flowDesc(["RFQ", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "PO"]);
+const TENDER_FLOW = flowDesc(["TENDER", "TECHNICAL", "NEGOTIATION", "NEGOTIATION_QUOTE", "ARC"]);
+// ARC is not offered: Unit ARC workflows are process-free, so an ARC-type
+// process could never be used. Existing ARC-typed processes still display
+// correctly when edited.
 const PROCESS_TYPE_OPTIONS = [
-  { value: PROCESS_TYPES.RFQ, label: "RFQ", desc: "RFQ > Tech > Negotiation > Neg. Quote > PO" },
-  { value: PROCESS_TYPES.TENDER, label: "Tender", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
-  { value: PROCESS_TYPES.ARC, label: "ARC", desc: "Tender > Tech > Negotiation > Neg. Quote > ARC" },
+  { value: PROCESS_TYPES.RFQ, label: "RFQ", desc: RFQ_FLOW },
+  { value: PROCESS_TYPES.TENDER, label: "Tender", desc: TENDER_FLOW },
 ];
+const LEGACY_ARC_OPTION = { value: PROCESS_TYPES.ARC, label: "ARC", desc: TENDER_FLOW };
 
 const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) => {
   const [name, setName] = useState("");
@@ -53,7 +60,7 @@ const ProcessFormModal = ({ isOpen, onClose, onSave, editingProcess = null }) =>
         <div className={s.field}>
           <label className={s.label}>Process Type{!isEdit && <span className={s.required}>*</span>}</label>
           {isEdit ? (() => {
-            const currentOpt = PROCESS_TYPE_OPTIONS.find((o) => o.value === process_type) || PROCESS_TYPE_OPTIONS[0];
+            const currentOpt = [...PROCESS_TYPE_OPTIONS, LEGACY_ARC_OPTION].find((o) => o.value === process_type) || PROCESS_TYPE_OPTIONS[0];
             const color = PROCESS_TYPE_COLORS[currentOpt.value.toUpperCase()] || DS.primary;
             return (
               <div className={s.typeCard} style={{ borderColor: color, background: color + "08", cursor: "default" }}>

@@ -198,7 +198,7 @@ export default function ArcLifecyclePage() {
           { label: "Contract term", value: <><span className="em">{fmtDate(arc.contract_start_at)}</span> → <span className="em">{fmtDate(arc.contract_end_at)}</span></> },
           { label: "Eligibility", value: <span className="em">{arc.eligibility_type === "open" ? "Open tender" : "Invitation-only"}</span> },
           { label: "Lifecycle", value: <><span className="em">{stages.filter((s) => ["complete", "skipped"].includes(s.state)).length} of {stages.length}</span> stages complete</> },
-          { label: "Scope", value: <span className="em">{arc.is_group ? `Group · ${(arc.hotels || []).length} hotels` : "Single hotel"}</span> },
+          { label: "Scope", value: <span className="em">{arc.is_group ? `Group · ${(arc.hotels || []).length} hotels` : "Unit"}</span> },
         ]}
       />
 

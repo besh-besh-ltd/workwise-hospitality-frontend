@@ -28,7 +28,7 @@ const ProcessManageBar = ({ processes, onCreateProcess, onUpdateProcess, onDelet
       </div>
       <ProcessFormModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={async (data) => { await onCreateProcess(data); }} />
       <ProcessFormModal isOpen={!!editingProcess} onClose={() => setEditingProcess(null)} onSave={async (data) => { if (editingProcess) await onUpdateProcess(editingProcess.id, data); }} editingProcess={editingProcess} />
-      <ConfirmationModal isOpen={!!deletingProcess} onClose={() => setDeletingProcess(null)} onConfirm={async () => { if (deletingProcess) { await onDeleteProcess(deletingProcess.id); setDeletingProcess(null); } }} title="Delete Process" description={`Are you sure you want to delete <strong>"${deletingProcess?.name}"</strong>?`} confirmButtonColor="danger" confirmButtonText="Delete" cancelButtonText="Cancel" />
+      <ConfirmationModal isOpen={!!deletingProcess} onClose={() => setDeletingProcess(null)} onConfirm={async () => { if (!deletingProcess) return; try { await onDeleteProcess(deletingProcess.id); } catch (_) { /* the hook already toasted why it was refused */ } finally { setDeletingProcess(null); } }} title="Deactivate process" description={`Are you sure you want to deactivate <strong>"${deletingProcess?.name}"</strong>?`} confirmButtonColor="danger" confirmButtonText="Deactivate" cancelButtonText="Cancel" />
     </>
   );
 };

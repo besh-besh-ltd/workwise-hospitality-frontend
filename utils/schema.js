@@ -1,4 +1,37 @@
 import * as yup from "yup";
+import {
+  COUNTRY_CODE_PATTERN,
+  MOBILE_MAX_DIGITS,
+  MOBILE_MAX_LENGTH,
+  MOBILE_MIN_DIGITS,
+  formatMobile,
+} from "./mobile";
+
+// A user's mobile is stored as "<code>-<number>" in a varchar(15) column, so
+// the number's limit depends on the code in front of it. The old rule allowed
+// 15 DIGITS on their own, and only required the country code to be non-empty —
+// which is how a whole phone number sitting in the country-code field passed,
+// and the save sent 21 characters. See utils/mobile.js.
+const userMobileRule = () =>
+  yup
+    .string()
+    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
+    .min(MOBILE_MIN_DIGITS, `Mobile number must be at least ${MOBILE_MIN_DIGITS} digits`)
+    .max(MOBILE_MAX_DIGITS, `Mobile number cannot exceed ${MOBILE_MAX_DIGITS} digits`)
+    .test(
+      "fits-with-country-code",
+      "This number is too long for the selected country code",
+      function fitsWithCountryCode(value) {
+        return !value || formatMobile(this.parent.countryCode, value).length <= MOBILE_MAX_LENGTH;
+      }
+    )
+    .required("Mobile number is required");
+
+const userCountryCodeRule = () =>
+  yup
+    .string()
+    .matches(COUNTRY_CODE_PATTERN, "Choose a valid country code")
+    .required("Country code is required");
 
 // Common email regex pattern
 const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -194,13 +227,8 @@ export const createAccountSchema = yup.object().shape({
     .string()
     .email("Invalid email")
     .required("Email is required"),
-  mobile: yup
-    .string()
-    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
-    .min(8, "Mobile number must be at least 8 digits")
-    .max(15, "Mobile number cannot exceed 15 digits")
-    .required("Mobile number is required"),
-  countryCode: yup.string().required("Country code is required"),
+  mobile: userMobileRule(),
+  countryCode: userCountryCodeRule(),
   department_id: yup
     .array()
     .min(1, "At least one department is required")
@@ -418,13 +446,8 @@ export const dynamicAccountEditSchema = yup.object().shape({
     .string()
     .email("Invalid email")
     .required("Email is required"),
-  mobile: yup
-    .string()
-    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
-    .min(8, "Mobile number must be at least 8 digits")
-    .max(15, "Mobile number cannot exceed 15 digits")
-    .required("Mobile number is required"),
-  countryCode: yup.string().required("Country code is required"),
+  mobile: userMobileRule(),
+  countryCode: userCountryCodeRule(),
 });
 
 // Team member validation schema for Dynamic Form Modal
@@ -433,3 +456,11 @@ export const dynamicTeamMemberSchema = yup.object().shape({
 });
 
 // ==========================================
+
+// The self-profile "Contact Details" form had no validation at all, so saving
+// with the number field blank stored "<code>-" — the corrupt value at the
+// start of the admin-edit failure.
+export const contactDetailsSchema = yup.object().shape({
+  mobile: userMobileRule(),
+  countryCode: userCountryCodeRule(),
+});

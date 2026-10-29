@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { BsArrowLeft } from "react-icons/bs";
@@ -18,6 +18,8 @@ const ApprovalHierarchyRedesigned = () => {
   const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' | 'wizard'
   const [editingProcess, setEditingProcess] = useState(null);
   const [editingPolicies, setEditingPolicies] = useState([]);
+  // Set once the open wizard has written or deleted any stage.
+  const wizardWrote = useRef(false);
 
   const {
     hotel,
@@ -29,6 +31,7 @@ const ApprovalHierarchyRedesigned = () => {
     loading: dataLoading,
     refresh: refreshPolicies,
     getApproverOptions,
+    getUsersByRole,
     getApproverDisplayInfo,
     handleDeletePolicy,
     getDeptSubGraphPreview,
@@ -122,6 +125,7 @@ const ApprovalHierarchyRedesigned = () => {
   );
 
   const handleWizardSave = useCallback(() => {
+    wizardWrote.current = false;
     refreshPolicies();
     refreshProcesses();
     setEditingProcess(null);
@@ -131,11 +135,17 @@ const ApprovalHierarchyRedesigned = () => {
   }, [refreshPolicies, refreshProcesses]);
 
   const handleWizardCancel = useCallback(() => {
+    // A partial save leaves the dashboard showing the pre-save policies.
+    if (wizardWrote.current) {
+      wizardWrote.current = false;
+      refreshPolicies();
+      refreshProcesses();
+    }
     setEditingProcess(null);
     setEditingPolicies([]);
     setInitialFlow(null);
     setViewMode("dashboard");
-  }, []);
+  }, [refreshPolicies, refreshProcesses]);
 
   if (loading) {
     return (
@@ -215,6 +225,8 @@ const ApprovalHierarchyRedesigned = () => {
           onDeleteProcess={handleDeleteProcess}
           getApproverDisplayInfo={getApproverDisplayInfo}
           getDeptSubGraphPreview={getDeptSubGraphPreview}
+          roles={roles}
+          getUsersByRole={getUsersByRole}
 
         />
       ) : (
@@ -235,6 +247,7 @@ const ApprovalHierarchyRedesigned = () => {
             hotel: policies.some((p) => !p.process_id && isPrEntityType(p.entity_type) && p.hotel_id != null),
             company: policies.some((p) => !p.process_id && isPrEntityType(p.entity_type) && p.hotel_id == null),
           }}
+          onWrite={() => { wizardWrote.current = true; }}
           groupWorkflowExists={policies.some((p) => !p.process_id && isArcGroupEntityType(p.entity_type))}
         />
       )}
