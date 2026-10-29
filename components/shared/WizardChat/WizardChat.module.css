@@ -53,3 +53,14 @@
     z-index: 1051;
   }
 }
+
+/* Desktop counterpart: a page with a fixed bottom action dock (the Purchase
+   Requisition pages) sets the body flag, and the button would otherwise sit
+   on the dock's right-most — primary — button. Lift it clear at every width.
+   !important beats a drag position saved earlier (inline top/left). Placed
+   after the phone rule so it wins on a phone too. */
+:global(body.has-page-action-bar) .fab {
+  top: auto !important;
+  left: auto !important;
+  bottom: calc(var(--page-action-bar-h, 72px) + 16px) !important;
+}

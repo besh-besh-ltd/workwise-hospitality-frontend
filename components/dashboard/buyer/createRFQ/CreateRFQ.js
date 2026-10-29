@@ -2039,11 +2039,18 @@ useEffect(() => {
           draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
           draftRes.data.rfq_form_data.country_code = extractedCountryCode;
 
-          //  set selected hotel ids
-          const getSelectedHotelIds = draftRes?.data?.mappedHotels.map((item)=> item.hotel_id);
-          setSelectedHotelIds(getSelectedHotelIds);
-
           setonecountrycode(extractedCountryCode);
+        }
+        //  set selected hotel ids — whether or not the draft has a contact number
+        //  (a draft built from purchase requisitions has none when the buyer has no mobile).
+        //  Like the edit path: mappedHotels when non-empty, else the draft's hotel_id.
+        const mappedHotelIds = Array.isArray(draftRes.data.mappedHotels)
+          ? draftRes.data.mappedHotels.map((item)=> item.hotel_id).filter(Boolean)
+          : [];
+        const draftHotelId = draftRes.data.rfq_form_data?.hotel_id;
+        const getSelectedHotelIds = mappedHotelIds.length > 0 ? mappedHotelIds : (draftHotelId ? [draftHotelId] : []);
+        if (getSelectedHotelIds.length > 0) {
+          setSelectedHotelIds(getSelectedHotelIds);
         }
         if (draftRes?.data?.rfq_form_data) {
           draftRes.data.rfq_form_data.reverse_auction = 0;

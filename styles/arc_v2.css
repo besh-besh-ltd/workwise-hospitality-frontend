@@ -894,6 +894,8 @@ button.btn-danger:hover,  a.btn-danger:hover { color:#ffffff; }
 .wf-step.current .wf-node { background:white; border-color:var(--warn); box-shadow:0 0 0 3px rgba(180,83,9,0.14); animation:pulse 2s ease-in-out infinite; }
 .wf-step.current .wf-node::after { content:''; width:6px; height:6px; background:var(--warn); border-radius:50%; }
 .wf-step.rejected .wf-node { background:var(--danger); border-color:var(--danger); color:white; font-size:11px; }
+.wf-step.skipped .wf-node { background:var(--surface-2); border-style:dashed; }
+.wf-step.skipped .body .nm { color:var(--fg-3); font-weight:500; }
 .wf-step .body .nm { font-size:13px; font-weight:600; color:var(--fg); }
 .wf-step .body .meta { margin-top:3px; font-size:11.5px; color:var(--fg-3); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .wf-step .body .meta .ev-av { width:16px; height:16px; border-radius:50%; display:grid; place-items:center; font-size:8px; font-weight:700; }

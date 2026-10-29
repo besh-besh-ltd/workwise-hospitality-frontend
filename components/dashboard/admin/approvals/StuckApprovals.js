@@ -64,8 +64,10 @@ const CLASS_META = {
 };
 
 // Stage names come from the shared vocabulary; `is_group` (missing = Unit)
-// tells a Group ARC approval apart from a Unit ARC one.
-const entityLabel = (item) => item.entity_type === "MR" ? "Material requisition" : stageLabel(item.entity_type, { isGroup: !!item.is_group });
+// tells a Group ARC approval apart from a Unit ARC one. MR and PR name the
+// document itself, followed by its number.
+const DOCUMENT_LABEL = { MR: "Material requisition", PR: "Purchase requisition" };
+const entityLabel = (item) => DOCUMENT_LABEL[item.entity_type] || stageLabel(item.entity_type, { isGroup: !!item.is_group });
 
 const ageLabel = (days) => {
   if (days <= 0) return "today";

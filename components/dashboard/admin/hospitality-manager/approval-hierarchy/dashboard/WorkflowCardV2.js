@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { BsPencilSquare, BsTrash3, BsPeopleFill, BsPersonFill, BsChevronDown, BsEnvelope, BsBuilding } from "react-icons/bs";
+import { escapeHtml } from "@/utils/escapeHtml";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { DS, PROCESS_TYPE_COLORS, getCardStageOrder, getEntityTypeConfig } from "../constants";
 import { stageLabel, stageShortLabel, stageDescription } from "../stageLabels";
@@ -71,12 +72,20 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
   // say). ARC-flow stages are never appended — they are process-free and a
   // process-pinned ARC policy can never fire; DashboardView reports those.
   // Everything the card DOES show is counted in its own totals below.
-  const stageOrder = getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc, isArcGroup);
+  const isPr = !!process?.is_pr;
+  const stageOrder = isPr ? ["PR"] : getCardStageOrder(processType === "RFQ" ? "RFQ" : "TENDER", policies, isArc, isArcGroup);
   const typeColor = PROCESS_TYPE_COLORS[processType] || DS.primary;
   const stages = stageOrder.map((et) => { const p = (policies || []).find((pol) => pol.entity_type === et); return { entity_type: et, steps: p?.steps || [] }; });
   const processName = process?.name || "Process";
   const totalLevels = stages.reduce((sum, st) => sum + (st.steps?.length || 0), 0);
   const configuredStages = stages.filter((st) => st.steps?.length > 0).length;
+
+  // ConfirmationModal renders `description` as HTML, so any name is escaped.
+  const deleteCopy = process?.pr_scope === "company"
+    ? "This removes the Purchase Requisition approval chain for every hotel that doesn't have its own."
+    : process?.pr_scope === "hotel"
+    ? "This removes this hotel's own Purchase Requisition approval chain. The hotel will use the company-wide chain, if there is one."
+    : `Delete the entire approval workflow for <strong>${escapeHtml(processName)}</strong>?`;
 
   const handleStageClick = useCallback((i) => {
     setExpandedStage((prev) => prev === i ? null : i);
@@ -231,7 +240,7 @@ const WorkflowCardV2 = ({ process, policies, onEdit, onDelete, getApproverDispla
           </div>
         )}
       </div>
-      <ConfirmationModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={async () => { await onDelete(process); setShowDeleteModal(false); }} title="Delete workflow" description={`Delete the entire approval workflow for <strong>${processName}</strong>?`} confirmButtonColor="danger" confirmButtonText="Delete" cancelButtonText="Cancel" />
+      <ConfirmationModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={async () => { await onDelete(process); setShowDeleteModal(false); }} title="Delete workflow" description={deleteCopy} confirmButtonColor="danger" confirmButtonText="Delete" cancelButtonText="Cancel" />
     </>
   );
 };

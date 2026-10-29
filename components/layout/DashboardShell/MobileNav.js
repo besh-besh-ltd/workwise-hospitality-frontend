@@ -6,6 +6,7 @@ import { X, LogOut, KeyRound } from "lucide-react";
 import { visibleRoleMenu } from "@/components/layout/Header/headerConfig";
 import { isGuestSession } from "@/utils/guestSession";
 import usePendingApprovalIndicators from "@/hooks/usePendingApprovalIndicators";
+import usePrCanCreate from "@/hooks/usePrCanCreate";
 import { getNavIcon } from "./navIcons";
 import styles from "./DashboardShell.module.css";
 
@@ -24,9 +25,12 @@ const MobileNav = ({ open, onClose, user, currentUserType, onLogout, navGrants =
   const isSubLocked = isHospitalityVendor && !hasValidSub;
   const { pendingCountFor } = usePendingApprovalIndicators({ enabled: !!user });
 
+  // "New requisition" only for users who may raise a PR somewhere.
+  const canCreatePr = usePrCanCreate({ enabled: !!user && currentUserType === "buyer" });
+
   const currentRoleMenu = useMemo(
-    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession(), navGrants }),
-    [currentUserType, isHospitalityCompany, userProfile, navGrants]
+    () => visibleRoleMenu(currentUserType, { isHospitalityCompany, profile: userProfile, isGuestSession: isGuestSession(), navGrants, canCreatePr }),
+    [currentUserType, isHospitalityCompany, userProfile, navGrants, canCreatePr]
   );
 
   if (!open) return null;

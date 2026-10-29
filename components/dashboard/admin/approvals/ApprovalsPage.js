@@ -7,6 +7,7 @@ import { getHospitalityCompanies } from "@/services/hospitality";
 import ApprovalHierarchyRedesigned from "@/components/dashboard/admin/hospitality-manager/approval-hierarchy";
 import StuckApprovals from "./StuckApprovals";
 import ApprovalCover from "./ApprovalCover";
+import PrReviewRouting from "./PrReviewRouting";
 import Loader from "@/components/shared/Loader";
 import InfoTip from "@/components/shared/InfoTip";
 import styles from "./Approvals.module.css";
@@ -36,7 +37,7 @@ import styles from "./Approvals.module.css";
 const ApprovalsPage = () => {
   const router = useRouter();
   const { companyId, hotelId, view } = router.query;
-  const activeView = ["stuck", "cover"].includes(view) ? view : "setup";
+  const activeView = ["stuck", "cover", "pr-routing"].includes(view) ? view : "setup";
 
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +131,15 @@ const ApprovalsPage = () => {
       >
         Cover
       </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeView === "pr-routing"}
+        className={`${styles.viewTab} ${activeView === "pr-routing" ? styles.viewTabOn : ""}`}
+        onClick={() => showView("pr-routing")}
+      >
+        PR review routing
+      </button>
     </div>
   );
 
@@ -142,12 +152,14 @@ const ApprovalsPage = () => {
             <p className={styles.subtitle}>
               {activeView === "stuck"
                 ? "What is waiting, and who on"
+                : activeView === "pr-routing"
+                ? "Which department technically reviews which category of purchase requisition"
                 : "Who stands in while someone is away"}
             </p>
           </div>
         </header>
         {viewTabs}
-        {activeView === "stuck" ? <StuckApprovals /> : <ApprovalCover />}
+        {activeView === "stuck" ? <StuckApprovals /> : activeView === "pr-routing" ? <PrReviewRouting /> : <ApprovalCover />}
       </div>
     );
   }

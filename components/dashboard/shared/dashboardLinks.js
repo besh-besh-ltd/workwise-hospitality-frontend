@@ -220,6 +220,25 @@ export const arcContract = (arcId, { stage, tab } = {}) =>
 export const materialRequisition = (mrId) =>
   hasId(mrId) ? `${BASE}/material-requisitions/${encodeURIComponent(mrId)}` : `${BASE}/material-requisitions`;
 
+/** Raise-a-Material-Requisition form (PR guided buying points here). */
+export const materialRequisitionCreate = () => `${BASE}/material-requisitions/create`;
+
+/* ─── Purchase requisitions ──────────────────────────────── */
+
+const PR_LIST_TABS = ["mine", "all", "awaiting"];
+/** PR list; `tab` = mine | all | awaiting (what the "Awaiting me" KPI counts). */
+export const purchaseRequisitions = ({ tab } = {}) =>
+  `${BASE}/purchase-requisitions${qs({ tab: PR_LIST_TABS.includes(tab) ? tab : undefined })}`;
+export const purchaseRequisition = (prId) =>
+  hasId(prId) ? `${BASE}/purchase-requisitions/${encodeURIComponent(prId)}` : purchaseRequisitions();
+/** New PR form; with an id, resumes that draft/returned PR. */
+export const purchaseRequisitionCreate = (prId) =>
+  `${BASE}/purchase-requisitions/create${qs({ id: hasId(prId) ? prId : undefined })}`;
+/** Technical reviewer's inbox. */
+export const purchaseRequisitionReview = () => `${BASE}/purchase-requisitions/review`;
+/** Buyer purchase queue (pool of approved lines). */
+export const purchaseRequisitionQueue = () => `${BASE}/purchase-requisitions/queue`;
+
 export const reports = () => `${BASE}/reports`;
 
 /* ─── Approvals ───────────────────────────────────────────── */
@@ -241,11 +260,11 @@ const ARC_APPROVAL_STAGE = {
 /**
  * Where an approver ACTS on one pending approval.
  *   entityType  approval instance entity_type
- *   ids         { rfqId, poId, arcId, mrId, entityId }
+ *   ids         { rfqId, poId, arcId, mrId, prId, entityId }
  * Prod id shapes (SPEC rule 6): TECHNICAL/NEGOTIATION_QUOTE carry the RFQ in
  * metadata — pass it as rfqId; PO.entity_id is the PO id.
  */
-export const approvalHref = (entityType, { rfqId, poId, arcId, mrId, entityId } = {}) => {
+export const approvalHref = (entityType, { rfqId, poId, arcId, mrId, prId, entityId } = {}) => {
   const type = String(entityType || "").toUpperCase();
   if (type === "PO") {
     if (hasId(poId || entityId)) return poDetail(poId || entityId);
@@ -258,6 +277,7 @@ export const approvalHref = (entityType, { rfqId, poId, arcId, mrId, entityId } 
   }
   if (ARC_APPROVAL_STAGE[type]) return arcContract(arcId || entityId, ARC_APPROVAL_STAGE[type]);
   if (type === "MR") return materialRequisition(mrId || entityId);
+  if (type === "PR") return purchaseRequisition(prId || entityId);
   return rfqListView("pending_for_me");
 };
 
@@ -275,6 +295,8 @@ export const approvalQueue = (entityType) => {
       return negotiationList({ needsMyApproval: true });
     case "PO":
       return poList({ status: "action-required" });
+    case "PR":
+      return purchaseRequisitions({ tab: "awaiting" });
     default:
       return rfqListView("pending_for_me");
   }
@@ -284,5 +306,7 @@ export const approvalQueue = (entityType) => {
 export const ALL_LINK_BUILDERS = {
   rfqDetail, resumeDraft, rfqList, rfqListView, rfqListForStage, techEval, quoteCompare,
   negotiationForRfq, negotiationList, negotiationCreateRound, negotiationRoundApproval, poDetail, poList, poTracking,
-  arcContract, materialRequisition, reports, approvalHref, approvalQueue,
+  arcContract, materialRequisition, materialRequisitionCreate, reports, approvalHref, approvalQueue,
+  purchaseRequisitions, purchaseRequisition, purchaseRequisitionCreate, purchaseRequisitionReview,
+  purchaseRequisitionQueue,
 };
