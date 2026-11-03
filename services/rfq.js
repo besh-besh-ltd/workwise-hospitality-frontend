@@ -576,10 +576,50 @@ export const getLastPurchaseDetails = (payload) => {
 };
 
 
-export const closeRFQ = (id, comment) => {
+// itemClosure (optional): how items still open are closed with the RFQ —
+// { item_reason_code, item_remarks, items: [{ rfq_product_id, reason_code, remarks }] }.
+// Without it the server closes them with reason "rfq_closed".
+export const closeRFQ = (id, comment, itemClosure = {}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/close-rfq/${id}`, { comment });
+      let response = await axiosInstance.post(`/rfq/close-rfq/${id}`, { comment, ...itemClosure });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// What Close RFQ / Close items would do: each item's state and blockers, and
+// the approvals and POs a Close RFQ would cancel. RFQ creator only.
+export const getRfqClosePreview = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/${id}/close-preview`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// Close items without award: { rfq_product_ids, reason_code, remarks }.
+export const closeRfqItems = (id, body) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/${id}/items/close`, body);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+// Reopen items closed without award: { rfq_product_ids, remarks }.
+export const reopenRfqItems = (id, body) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/${id}/items/reopen`, body);
       resolve(response);
     } catch (error) {
       reject({ message: error });

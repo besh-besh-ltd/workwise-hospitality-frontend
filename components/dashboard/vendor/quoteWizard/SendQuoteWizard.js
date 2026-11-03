@@ -62,6 +62,7 @@ import {
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
 import { isValidGstin, seedGstin } from "@/utils/gstin";
+import { isItemClosed } from "@/utils/rfqItemClosure";
 
 // True on a phone-width screen (<=768px, the MobileActionBar breakpoint).
 // Only decides whether to MOUNT the phone action bar — layout itself is CSS.
@@ -1222,9 +1223,11 @@ const SendQuoteWizard = () => {
   // component) can disable its fields while still letting the vendor open it.
   const isLineLocked = (p) => {
     if (!p) return false;
+    // A line the buyer closed without award is frozen like a finalized one.
     const finalizedLocked =
       p.finalization_status === "Another vendor is finalized" ||
-      p.finalization_status === "You are finalized";
+      p.finalization_status === "You are finalized" ||
+      isItemClosed(p);
     const techLocked =
       showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted;
     const negSubmitted = !!negotiationQuoteSubmitted[p.id];
@@ -2136,6 +2139,8 @@ const SendQuoteWizard = () => {
           // Skip finalized / locked products
           if (p.finalization_status === "Another vendor is finalized") return false;
           if (p.finalization_status === "You are finalized") return false;
+          // Closed without award by the buyer: the server refuses a line for it.
+          if (isItemClosed(p)) return false;
           // Tech-eval restriction (legacy parity): not-accepted products are
           // locked in the pricing grid and must not be quoted.
           if (showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted) return false;
@@ -4044,9 +4049,11 @@ const Step3Pricing = ({
           </div>
 
           {products.map((p, idx) => {
+            const itemClosed = isItemClosed(p);
             const finalizedLocked =
               p.finalization_status === "Another vendor is finalized" ||
-              (p.finalization_status === "You are finalized");
+              (p.finalization_status === "You are finalized") ||
+              itemClosed;
             // Tech-eval restriction (legacy parity): evaluation exists but the
             // buyer hasn't accepted it — the line cannot be priced.
             const techLocked =
@@ -4170,7 +4177,11 @@ const Step3Pricing = ({
                             {((p.other_charges || []).filter((c) => c.name).length || 0) > 1 ? "s" : ""}
                           </span>
                         )}
-                        {isLinePriced(p) ? (
+                        {itemClosed ? (
+                          <span className={styles.pill} data-testid="line-closed-by-buyer">
+                            Closed by buyer — not awarded
+                          </span>
+                        ) : isLinePriced(p) ? (
                           <span className={`${styles.pill} ${styles.success}`}>
                             <span className={styles.pdot} style={{ background: "var(--success)" }} />
                             Priced
