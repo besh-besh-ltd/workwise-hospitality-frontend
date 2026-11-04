@@ -6,6 +6,7 @@
 import moment from 'moment';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
 import { parseLocalDateTimeInput } from '@/utils/negotiationTime';
+import { isItemClosed } from '@/utils/rfqItemClosure';
 
 // Engine total reader: quote_details rows enriched by quote-compare carry
 // `engine.total`; legacy stored `total_price` is the authoritative fallback.
@@ -218,6 +219,12 @@ export const roundCoversProduct = (round, productId) => {
 
 export const getProductRoundStatus = (product, quoteApprovalStatuses = {}) => {
   if (!product) return { isDisabled: true, statusLabel: '', statusClass: '' };
+
+  // Closed without award by the buyer: no round can include it (the server
+  // refuses one too).
+  if (isItemClosed(product)) {
+    return { isDisabled: true, statusLabel: 'Closed', statusClass: 'createStatusNoQuotes' };
+  }
 
   const approval = quoteApprovalStatuses[product.id];
   if (approval?.status === 'APPROVED') {

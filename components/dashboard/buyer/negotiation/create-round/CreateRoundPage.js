@@ -121,9 +121,16 @@ const CreateRoundPage = () => {
           ['ACTIVE', 'PENDING_APPROVAL'].includes(String(r?.status || '').toUpperCase())
           && parseNegotiationTime(r.end_date) > now
         );
+        // Items closed without award come from the comparison view (state
+        // "closed", with its closure); the picker disables them.
+        const viewProducts = viewRes?.products || viewRes?.data?.products || [];
+        const closureById = new Map(
+          viewProducts.filter(vp => vp?.state === 'closed').map(vp => [String(vp.id), vp.closure || {}])
+        );
         const stitched = productList.map(p => ({
           ...p,
           active_round: p.active_round || inFlightRounds.find(r => roundCoversProduct(r, p.id)) || null,
+          closed_at: p.closed_at || (closureById.has(String(p.id)) ? (closureById.get(String(p.id)).closed_at || true) : null),
         }));
 
         setProducts(stitched);

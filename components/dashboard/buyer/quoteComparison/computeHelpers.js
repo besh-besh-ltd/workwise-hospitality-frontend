@@ -299,8 +299,9 @@ export const riskFlagCount = (vendors, products) => {
 export const coverageVendors = (vendors, products) =>
   vendors.filter((v) => products.some((p) => p.quotes?.[v.id])).length;
 
+// `closed`: the buyer closed the item without award — settled, nothing to do.
 export const stateCounts = (products) => {
-  const c = { total: products.length, approved: 0, pending: 0, rejected: 0, open: 0 };
+  const c = { total: products.length, approved: 0, pending: 0, rejected: 0, open: 0, closed: 0 };
   products.forEach((p) => {
     if (c[p.state] != null) c[p.state]++;
   });

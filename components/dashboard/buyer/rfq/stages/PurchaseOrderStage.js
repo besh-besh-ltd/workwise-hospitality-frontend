@@ -727,11 +727,14 @@ const ageShort = (value) => {
 const oldestFirst = (list) =>
   [...list].sort((a, b) => (new Date(a?.created_at).getTime() || 0) - (new Date(b?.created_at).getTime() || 0));
 
-// "covers 8 of 9 products" — only when the server sent both counts.
-const coverage = (po) =>
-  isCount(po?.po_product_count) && isCount(po?.rfq_product_count)
-    ? `${Number(po.po_product_count)} of ${Number(po.rfq_product_count)} products`
-    : null;
+// "covers 8 of 9 products" — only when the server sent both counts. Products
+// closed without award are not in rfq_product_count; say so when there are any.
+const coverage = (po) => {
+  if (!(isCount(po?.po_product_count) && isCount(po?.rfq_product_count))) return null;
+  const closed = Number(po?.products_closed);
+  const base = `${Number(po.po_product_count)} of ${Number(po.rfq_product_count)} products`;
+  return Number.isFinite(closed) && closed > 0 ? `${base} (${closed} closed without award)` : base;
+};
 const stillAwarding = (po) => {
   const n = Number(po?.products_unawarded);
   return Number.isFinite(n) && n > 0 ? `${plural(n, "product is", "products are")} still being awarded.` : null;

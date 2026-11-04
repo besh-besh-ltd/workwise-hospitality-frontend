@@ -47,7 +47,14 @@ import {
   getEntityLabel,
   canEditRfq,
   getRFQPublishState,
+  isBidEnded,
 } from "@/utils/sharedFunctions";
+import {
+  isItemClosed,
+  isItemFinalized,
+  itemCloseReasonLabel,
+  awardOutcomeLabel,
+} from "@/utils/rfqItemClosure";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import { getTechEvalStatus } from "@/services/rfq";
@@ -193,6 +200,7 @@ const ProductCard = ({
   negRounds,
   negLoading,
   onOpenNegotiation,
+  onReopen,
 }) => {
   const specs = Array.isArray(product?.product_specs) ? product.product_specs : [];
   // Canonical spec titles used across the platform.
@@ -254,10 +262,10 @@ const ProductCard = ({
      is fetched once per RFQ by ViewRFQ and split per product — it backs the
      round count, the "finalized by" actor, and the clickable history modal. */
   const finalizationStatus = product?.finalization_status;
-  const finalized =
-    !!finalizationStatus &&
-    finalizationStatus !== "No vendor finalized yet" &&
-    finalizationStatus !== "Pending";
+  // Closed without award (the buyer closed it): settled, never "finalized".
+  const closed = isItemClosed(product);
+  // A positive list: an unknown status must never read as a finalized vendor.
+  const finalized = !closed && isItemFinalized(finalizationStatus);
   // Buyer-facing winning-vendor name + amount (additive backend field). Falls
   // back to a neutral label so we never surface the vendor-perspective string
   // "Another vendor is finalized" on the buyer page.
@@ -382,6 +390,35 @@ const ProductCard = ({
           </div>
         </div>
       </div>
+
+      {closed && (
+        <div className={styles.itemClosedStrip} data-testid="item-closed-strip">
+          <span className={`${styles.pill} ${styles.danger}`}>
+            <XCircle size={9} strokeWidth={3} />
+            Closed without award
+          </span>
+          {product?.close_reason_code && (
+            <span className={styles.itemClosedReason}>
+              {itemCloseReasonLabel(product.close_reason_code)}
+              {product?.close_remarks ? ` — “${product.close_remarks}”` : ""}
+            </span>
+          )}
+          <span className={styles.itemClosedBy}>
+            {product?.closed_by?.name ? `by ${product.closed_by.name} · ` : ""}
+            {fmtDate(product?.closed_at)}
+          </span>
+          {onReopen && (
+            <button
+              type="button"
+              className={styles.itemReopenBtn}
+              onClick={() => onReopen(product)}
+              id={`reopen_item_${product?.id}-product_card-view_rfq_page`}
+            >
+              Reopen
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Body grid: Technical evaluation (left) + Commercial negotiation (right) */}
       <div className={styles.productBody}>
@@ -512,7 +549,7 @@ const ProductCard = ({
                 <div className={styles.negStatusRow}>
                   <span className={`${styles.pill} ${styles.neutral}`}>
                     <span className={styles.pdot} />
-                    {finalized ? "Finalized" : "In progress"}
+                    {closed ? "Closed" : finalized ? "Finalized" : "In progress"}
                   </span>
                 </div>
                 {finalized ? (
@@ -528,7 +565,7 @@ const ProductCard = ({
                     <div className={styles.negFoot}>Vendor finalized for this product</div>
                   </>
                 ) : (
-                  <div className={styles.negMeta}>No negotiation rounds</div>
+                  <div className={styles.negMeta}>{closed ? "Closed without award" : "No negotiation rounds"}</div>
                 )}
               </div>
             );
@@ -562,7 +599,7 @@ const ProductCard = ({
                 )}
               </div>
               <div className={styles.negStatusRow}>
-                {negEnded ? (
+                {negEnded || closed ? (
                   <span className={`${styles.pill} ${styles.success}`}>
                     <CheckCircle2 size={9} strokeWidth={3} />
                     Ended
@@ -641,6 +678,9 @@ const ViewRFQ = ({
   data,
   onCloseRFQ,
   closeLoading,
+  onCloseItems,
+  onReopenItem,
+  lifecycleRefreshKey = 0,
   isCreator,
   onWithdrawPublish,
   withdrawLoading,
@@ -699,6 +739,12 @@ const ViewRFQ = ({
       /* keep the current view — the action's own toast already reported it */
     }
   }, [data?.id, data?.is_tender, router.query.id]);
+
+  // After a close / item close / reopen the page re-fetches the RFQ; the
+  // timeline must follow, or it keeps showing the stage from before.
+  useEffect(() => {
+    if (lifecycleRefreshKey > 0) refreshLifecycle();
+  }, [lifecycleRefreshKey, refreshLifecycle]);
 
   // Come back to this tab and the PO guide may point at a draft someone else
   // has since initiated. Re-pull when the tab becomes visible, debounced so a
@@ -815,6 +861,14 @@ const ViewRFQ = ({
 
   const rfqStatus = data?.status ? Number(data.status) : 0;
   const publishState = useMemo(() => getRFQPublishState(data), [data]);
+  // Items closed without award (backend rfqItemClosure.js): the creator closes
+  // the leftovers once bidding is over; the server re-checks every rule.
+  const itemsSummary = data?.items_summary || null;
+  const canCloseItems =
+    !!onCloseItems && rfqStatus === 1 && isCreator && Number(data?.is_published) === 1 &&
+    Number(itemsSummary?.open) > 0 && isBidEnded(data);
+  const canReopenItems = !!onReopenItem && rfqStatus === 1 && isCreator;
+  const outcomeText = awardOutcomeLabel(data?.award_outcome, itemsSummary);
   const eyebrow = useMemo(
     () => getEyebrow(data, publishState),
     [data, publishState],
@@ -1050,6 +1104,17 @@ const ViewRFQ = ({
                   onDark
                 />
               )}
+              {canCloseItems && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  id="close_items-rfq_actions-view_rfq_page"
+                  onClick={onCloseItems}
+                >
+                  <XCircle size={13} strokeWidth={2} />
+                  Close remaining items
+                </button>
+              )}
               {rfqStatus === 1 && isCreator && (
                 <button
                   type="button"
@@ -1116,8 +1181,28 @@ const ViewRFQ = ({
               <XCircle size={13} strokeWidth={2} />
             </div>
             <div>
-              <strong>{entity} is closed.</strong>{" "}
+              <strong>{entity} is closed{outcomeText ? ` · ${outcomeText}` : ""}.</strong>{" "}
               {data.close_comment || "Vendors can no longer submit quotes."}
+            </div>
+          </div>
+        )}
+        {rfqStatus === 1 && data.award_outcome === "not_awarded" && (
+          <div className={`${styles.banner} ${styles.warn}`} style={{ marginTop: 14 }} data-testid="all-items-closed-banner">
+            <div className={styles.bannerIcon} style={{ borderColor: "rgba(180, 83, 9, 0.16)", color: "#b45309" }}>
+              <AlertTriangle size={13} strokeWidth={2} />
+            </div>
+            <div>
+              <strong>Every item is closed without award.</strong> Close the {entity} to finish it.
+            </div>
+          </div>
+        )}
+        {rfqStatus === 1 && data.award_outcome === "partially_awarded" && (
+          <div className={`${styles.banner} ${styles.info}`} style={{ marginTop: 14 }} data-testid="partial-award-banner">
+            <div className={styles.bannerIcon}>
+              <Info size={13} strokeWidth={2} />
+            </div>
+            <div>
+              <strong>{outcomeText}.</strong> The other items were closed without award.
             </div>
           </div>
         )}
@@ -1372,6 +1457,7 @@ const ViewRFQ = ({
                     negRounds={negRoundsByProduct[p?.id]}
                     negLoading={!!negLoading[p?.id]}
                     onOpenNegotiation={openNegotiation}
+                    onReopen={canReopenItems && isItemClosed(p) ? onReopenItem : undefined}
                   />
                 ))}
               </div>

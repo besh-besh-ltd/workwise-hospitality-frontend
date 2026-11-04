@@ -1791,7 +1791,16 @@ const QuoteComparison = ({
                     Create Negotiation
                   </button>
                 )}
-                {p.state !== "open" && (
+                {p.state === "closed" && (
+                  <span
+                    className={`${styles.itemState} ${styles.closed}`}
+                    data-testid="qc-item-closed"
+                    title={p.closure?.remarks || undefined}
+                  >
+                    Closed without award
+                  </span>
+                )}
+                {p.state !== "open" && p.state !== "closed" && (
                   <button
                     className={`${styles.itemState} ${styles[p.state]} ${styles.clickableTag} ${
                       p.state === "rejected" && p.reject_info ? styles.hasTip : ""
@@ -2124,6 +2133,13 @@ const QuoteComparison = ({
 
   const renderPhoneStateTag = (p) => {
     if (p.state === "open") return null;
+    if (p.state === "closed") {
+      return (
+        <span className={`${styles.pcState} ${styles.closed}`} title={p.closure?.remarks || undefined}>
+          <X size={12} /> Closed without award
+        </span>
+      );
+    }
     return (
       <button
         type="button"
@@ -2780,6 +2796,7 @@ const QuoteComparison = ({
               <div className={styles.sub}>
                 {counts.approved} of {counts.total} approved · {counts.pending} awaiting approval ·{" "}
                 {counts.rejected} need attention
+                {counts.closed > 0 && <> · {counts.closed} closed without award</>}
               </div>
             </div>
             <div className={styles.pct}>{approvalPct}%</div>
@@ -2789,6 +2806,7 @@ const QuoteComparison = ({
             <div className={styles.segPending} style={{ width: pct(counts.pending, counts.total) }} />
             <div className={styles.segRejected} style={{ width: pct(counts.rejected, counts.total) }} />
             <div className={styles.segNone} style={{ width: pct(counts.open, counts.total) }} />
+            <div className={styles.segClosed} style={{ width: pct(counts.closed, counts.total) }} />
           </div>
           <div className={styles.approvalLegend}>
             <div className={styles.item}>
@@ -2803,6 +2821,11 @@ const QuoteComparison = ({
             <div className={styles.item}>
               <span className={`${styles.dot} ${styles.none}`} /> Not finalized
             </div>
+            {counts.closed > 0 && (
+              <div className={styles.item}>
+                <span className={`${styles.dot} ${styles.closed}`} /> Closed without award
+              </div>
+            )}
           </div>
           <div className={styles.approvalCounts}>
             <div className={styles.countCard}>
@@ -2825,6 +2848,12 @@ const QuoteComparison = ({
               <div className={styles.n}>{counts.open}</div>
               <div className={styles.l}>Not finalized</div>
             </div>
+            {counts.closed > 0 && (
+              <div className={styles.countCard} data-testid="qc-closed-count">
+                <div className={styles.n}>{counts.closed}</div>
+                <div className={styles.l}>Closed without award</div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -2941,7 +2970,8 @@ const QuoteComparison = ({
             </div>
             <div className={styles.right}>
               <span className={`${styles.pill} ${styles.outline}`}>
-                {counts.pending + counts.approved} of {counts.total} finalized
+                {counts.pending + counts.approved} of {counts.total - counts.closed} finalized
+                {counts.closed > 0 && ` · ${counts.closed} closed`}
               </span>
             </div>
           </div>
