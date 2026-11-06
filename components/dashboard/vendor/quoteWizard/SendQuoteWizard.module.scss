@@ -3109,6 +3109,16 @@
   background: #f4f4f5;
   color: #71717a;
 }
+.reviewClosedPill {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
 .reviewKvMuted {
   color: var(--fg-4, #a1a1aa);
   font-style: italic;

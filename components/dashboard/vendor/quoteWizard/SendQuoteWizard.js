@@ -3995,7 +3995,7 @@ const Step3Pricing = ({
           <div className={styles.miniStats}>
             <div className={styles.miniStat}>
               <div className={styles.lbl}>Items to price</div>
-              <div className={styles.val}>{products.length}</div>
+              <div className={styles.val}>{products.filter((p) => !isItemClosed(p)).length}</div>
             </div>
             {rfq.vendor_clarification_date && (
               <>
@@ -4178,7 +4178,7 @@ const Step3Pricing = ({
                           </span>
                         )}
                         {itemClosed ? (
-                          <span className={styles.pill} data-testid="line-closed-by-buyer">
+                          <span className={`${styles.pill} ${styles.danger}`} data-testid="line-closed-by-buyer">
                             Closed by buyer — not awarded
                           </span>
                         ) : isLinePriced(p) ? (
@@ -5055,8 +5055,12 @@ const Step5Review = ({
 }) => {
   // MRP-aware — see isLinePriced. Testing unit_price here is what told vendors
   // their priced MRP lines would be "marked as regret".
-  const priced = products.filter(isLinePriced);
-  const skipped = products.filter((p) => !isLinePriced(p));
+  // A line the buyer closed without award isn't sent at all (see the submit
+  // filter), so it is neither "priced" nor "skipped as regret".
+  const openLines = products.filter((p) => !isItemClosed(p));
+  const closedCount = products.length - openLines.length;
+  const priced = openLines.filter(isLinePriced);
+  const skipped = openLines.filter((p) => !isLinePriced(p));
   const activeGlobalCharges = (globalCharges || []).filter(
     (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
@@ -5106,6 +5110,7 @@ const Step5Review = ({
               </h3>
               <span className={styles.reviewHeadMeta}>
                 {priced.length} priced{skipped.length > 0 ? ` · ${skipped.length} skipped` : ""}
+                {closedCount > 0 ? ` · ${closedCount} closed by buyer` : ""}
               </span>
             </div>
             <div className={styles.reviewCardBody}>
@@ -5118,14 +5123,17 @@ const Step5Review = ({
                 // and fall back to qty × unit only if it hasn't synced yet.
                 const lineTotal = Number(p.total_price) > 0 ? Number(p.total_price) : unit * qty;
                 const chargesCount = (p.other_charges || p.charges || []).filter((c) => c.name).length;
-                const isSkipped = !isLinePriced(p);
+                const isClosed = isItemClosed(p);
+                const isSkipped = !isClosed && !isLinePriced(p);
                 const provenance = p.pricing_method === "MRP" ? mrpProvenance(p) : "";
                 return (
-                  <div key={p.id} className={`${styles.reviewLine} ${isSkipped ? styles.reviewLineSkipped : ""}`}>
+                  <div key={p.id} className={`${styles.reviewLine} ${isSkipped || isClosed ? styles.reviewLineSkipped : ""}`}>
                     <div className={styles.reviewLineNum}>{String(idx + 1).padStart(2, "0")}</div>
                     <div className={styles.reviewLineMain}>
                       <div className={styles.reviewLineName}>{p.product_name || p.name}</div>
-                      {isSkipped ? (
+                      {isClosed ? (
+                        <div className={styles.reviewLineDesc}>The buyer closed this item without award. It isn't sent with your quote.</div>
+                      ) : isSkipped ? (
                         <div className={styles.reviewLineDesc}>Not priced — will be marked as regret for this line</div>
                       ) : (
                         <div className={styles.reviewLineMath}>
@@ -5138,7 +5146,9 @@ const Step5Review = ({
                       )}
                     </div>
                     <div className={styles.reviewLineRight}>
-                      {isSkipped ? <span className={styles.reviewSkippedPill}>Skipped</span> : `₹ ${fmtINR(lineTotal)}`}
+                      {isClosed ? (
+                        <span className={styles.reviewClosedPill} data-testid="review-line-closed">Closed by buyer</span>
+                      ) : isSkipped ? <span className={styles.reviewSkippedPill}>Skipped</span> : `₹ ${fmtINR(lineTotal)}`}
                     </div>
                   </div>
                 );

@@ -3,8 +3,8 @@
 // A closed item must read as closed (reason, who, when), never as "Vendor
 // finalized": the card used to call anything other than two known strings
 // "finalized", and the server now sends "Closed without award". The creator
-// gets "Close remaining items" once bidding is over and items are still open,
-// and Reopen on a closed item.
+// gets "Close remaining items" while items are still open, before or after the
+// bid deadline, and Reopen on a closed item.
 
 jest.mock("next/router", () => ({
   __esModule: true,
@@ -132,6 +132,26 @@ describe("ViewRFQ — items closed without award", () => {
 
     fireEvent.click(within(cardOf("Towel rail")).getByRole("button", { name: "Reopen" }));
     expect(onReopenItem).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }));
+  });
+
+  it("offers Close remaining items before the bid deadline too", async () => {
+    render(
+      <ViewRFQ
+        data={rfq({ bid_end_date: "2999-01-01 10:00" })}
+        isCreator onCloseRFQ={jest.fn()} onCloseItems={jest.fn()} onReopenItem={jest.fn()}
+      />
+    );
+    expect(await screen.findByRole("button", { name: /Close remaining items/ })).toBeInTheDocument();
+  });
+
+  it("offers it when the only item left is awaiting award approval, so the dialog can say why", async () => {
+    render(
+      <ViewRFQ
+        data={rfq({ items_summary: { total: 3, awarded: 1, award_pending: 1, closed_no_award: 1, open: 0 } })}
+        isCreator onCloseRFQ={jest.fn()} onCloseItems={jest.fn()} onReopenItem={jest.fn()}
+      />
+    );
+    expect(await screen.findByRole("button", { name: /Close remaining items/ })).toBeInTheDocument();
   });
 
   it("offers neither to someone who is not the creator, nor when nothing is left open", async () => {

@@ -54,9 +54,13 @@ describe("Close remaining items", () => {
 
     expect(await screen.findByText("Towel rail")).toBeInTheDocument();
     expect(screen.getByText("Shower head")).toBeInTheDocument();
-    // Awarded and blocked items are not offered; the blocked one says why.
+    // Awarded and blocked items are not offered; the blocked one says why, and
+    // an item that is simply awarded needs no explaining.
     expect(screen.queryByLabelText(/Basin mixer/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Soap dish \(negotiation round open\)/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Soap dish/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("rfq-close-blocked-14")).toHaveTextContent("Soap dish");
+    expect(screen.getByTestId("rfq-close-blocked-14")).toHaveTextContent("A negotiation round is open");
+    expect(screen.queryByTestId("rfq-close-blocked-11")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Reason/)).toHaveValue("no_quotes_received");
 
     // Untick one, then close.
@@ -67,6 +71,41 @@ describe("Close remaining items", () => {
       rfq_product_ids: [12], reason_code: "no_quotes_received", remarks: undefined,
     }));
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["award_pending", "award_pending", "Award approval is pending"],
+    ["awarded", "po_approval_pending", "Purchase order approval is pending"],
+    ["open", "tech_approval_pending", "Technical approval is pending"],
+    ["open", "negotiation_approval_pending", "Negotiation round approval is pending"],
+    ["open", "reverse_auction_running", "Reverse auction is running"],
+  ])("says why an item in state %s can't be closed: %s", async (state, blocker, text) => {
+    getRfqClosePreview.mockResolvedValue(preview({
+      items: [
+        { rfq_product_id: 21, product_name: "Blocked thing", state, closable: false, blockers: [blocker], suggested_reason: null, quoted_vendor_count: 1 },
+        { rfq_product_id: 22, product_name: "Free thing", state: "open", closable: true, blockers: [], suggested_reason: null, quoted_vendor_count: 0 },
+      ],
+    }));
+    render(<RfqCloseModal isOpen mode="items" rfq={RFQ} onClose={jest.fn()} onDone={jest.fn()} />);
+
+    expect(await screen.findByTestId("rfq-close-blocked-21")).toHaveTextContent(text);
+    expect(document.getElementById("item_close_pick_21-rfq_close_modal")).toBeNull();
+    expect(document.getElementById("item_close_pick_22-rfq_close_modal")).toBeChecked();
+  });
+
+  it("explains every item and offers no close when nothing can be closed", async () => {
+    getRfqClosePreview.mockResolvedValue(preview({
+      items: [
+        { rfq_product_id: 31, product_name: "Item one", state: "open", closable: false, blockers: ["reverse_auction_running"], suggested_reason: null, quoted_vendor_count: 1 },
+        { rfq_product_id: 32, product_name: "Item two", state: "open", closable: false, blockers: ["tech_approval_pending", "reverse_auction_running"], suggested_reason: null, quoted_vendor_count: 1 },
+      ],
+    }));
+    render(<RfqCloseModal isOpen mode="items" rfq={RFQ} onClose={jest.fn()} onDone={jest.fn()} />);
+
+    expect(await screen.findByText("No item can be closed right now.")).toBeInTheDocument();
+    expect(screen.getByTestId("rfq-close-blocked-32")).toHaveTextContent("Technical approval is pending · Reverse auction is running");
+    expect(screen.queryByLabelText(/^Reason/)).not.toBeInTheDocument();
+    expect(document.getElementById("confirm-rfq_close_modal")).toBeDisabled();
   });
 
   it("needs remarks when the reason is Other", async () => {
