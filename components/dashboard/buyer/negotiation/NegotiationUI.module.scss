@@ -713,6 +713,12 @@ $status-colors: (
   color: #617389;
 }
 
+.createStatusClosed {
+  background: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.22);
+  color: #b91c1c;
+}
+
 .createMetaGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

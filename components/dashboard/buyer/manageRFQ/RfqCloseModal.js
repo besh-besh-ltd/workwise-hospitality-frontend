@@ -4,7 +4,7 @@ import { TriangleAlert, Lock } from "lucide-react";
 import base from "@/components/modal/ConfirmationModal.module.scss";
 import styles from "./RfqCloseModal.module.scss";
 import { getRfqClosePreview, closeRfqItems, closeRFQ } from "@/services/rfq";
-import { ITEM_CLOSE_REASONS, CLOSE_BLOCKER_TEXT, awardOutcomeLabel } from "@/utils/rfqItemClosure";
+import { ITEM_CLOSE_REASONS, CLOSE_BLOCKER_TEXT, awardOutcomeLabel, blockedItemsToExplain } from "@/utils/rfqItemClosure";
 
 // Close an RFQ, or close its leftover items without award.
 //
@@ -69,7 +69,7 @@ const RfqCloseModal = ({ isOpen, mode = "rfq", rfq, entity = "RFQ", onClose, onD
   const items = preview?.items || [];
   const openItems = items.filter((i) => i.state === "open");
   const closableItems = items.filter((i) => i.closable);
-  const blockedOpenItems = openItems.filter((i) => !i.closable);
+  const blockedItems = blockedItemsToExplain(items);
   const onClose_ = preview?.on_close_rfq || null;
   const outcome = awardOutcomeLabel(preview?.award_outcome, preview?.summary);
 
@@ -222,12 +222,23 @@ const RfqCloseModal = ({ isOpen, mode = "rfq", rfq, entity = "RFQ", onClose, onD
                 ))}
               </ul>
             )}
-            {blockedOpenItems.length > 0 && (
-              <div className={styles.note}>
-                Can't be closed yet:{" "}
-                {blockedOpenItems
-                  .map((i) => `${i.product_name} (${i.blockers.map((b) => CLOSE_BLOCKER_TEXT[b] || b).join(", ")})`)
-                  .join("; ")}
+            {blockedItems.length > 0 && (
+              <div className={styles.blocked} data-testid="rfq-close-blocked">
+                <div className={styles.blockedTitle}>Can't be closed right now</div>
+                <ul className={styles.blockedList}>
+                  {blockedItems.map((i) => (
+                    <li
+                      key={i.rfq_product_id}
+                      className={styles.blockedRow}
+                      data-testid={`rfq-close-blocked-${i.rfq_product_id}`}
+                    >
+                      <span className={styles.itemName}>{i.product_name}</span>
+                      <span className={styles.blockedReason}>
+                        {i.blockers.map((b) => CLOSE_BLOCKER_TEXT[b] || b).join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {closableItems.length > 0 && reasonPicker}

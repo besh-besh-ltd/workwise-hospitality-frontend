@@ -40,15 +40,28 @@ export const isItemFinalized = (finalizationStatus) =>
 export const isItemSettled = (product) =>
   isItemFinalized(product?.finalization_status) || isItemClosed(product);
 
-/** Why an item cannot be closed (server closeBlockers), as a sentence fragment. */
+/** Why an item cannot be closed (server closeBlockers). */
 export const CLOSE_BLOCKER_TEXT = {
-  already_closed: "already closed",
-  awarded: "already awarded",
-  award_pending: "award awaiting approval",
-  negotiation_round: "negotiation round open",
-  tech_eval_pending: "technical evaluation awaiting a decision",
-  bid_window_open: "bid window still open",
+  already_closed: "Already closed",
+  awarded: "Already awarded",
+  award_pending: "Award approval is pending",
+  po_approval_pending: "Purchase order approval is pending",
+  tech_approval_pending: "Technical approval is pending",
+  tech_eval_pending: "Technical evaluation is in progress",
+  negotiation_approval_pending: "Negotiation round approval is pending",
+  negotiation_round: "A negotiation round is open",
+  reverse_auction_running: "Reverse auction is running",
+  rfq_not_live: "The RFQ is not live",
 };
+
+/** Blockers that need no explaining: the item is already finished. */
+const SETTLED_BLOCKERS = new Set(["already_closed", "awarded"]);
+
+/** Items the buyer may expect to close but can't yet, so the dialog says why. */
+export const blockedItemsToExplain = (items) =>
+  (items || []).filter(
+    (i) => !i.closable && (i.blockers || []).some((b) => !SETTLED_BLOCKERS.has(b))
+  );
 
 /**
  * The RFQ's outcome from its items, for labels:

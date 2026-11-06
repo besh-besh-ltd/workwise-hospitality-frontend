@@ -218,7 +218,7 @@
 .approvalLegend .dot.pending  { background: var(--warn); }
 .approvalLegend .dot.rejected { background: var(--danger); }
 .approvalLegend .dot.none     { background: var(--border-strong); }
-.approvalLegend .dot.closed   { background: var(--fg-4); }
+.approvalLegend .dot.closed   { background: var(--danger); }
 .approvalCounts { margin-top: 14px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 @media (max-width: 720px) { .approvalCounts { grid-template-columns: 1fr 1fr; } }
 .countCard { border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; background: var(--surface); }
@@ -331,7 +331,7 @@
 .itemState.pending  { background: var(--warn-soft); color: var(--warn); border: 1px solid rgba(180,83,9,0.22); }
 .itemState.rejected { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(185,28,28,0.22); }
 /* Closed without award: settled, not actionable, so no hover / click affordance. */
-.itemState.closed   { background: var(--bg-2, #f4f4f1); color: var(--fg-3, #71717a); border: 1px solid var(--border-strong); }
+.itemState.closed   { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(185,28,28,0.22); }
 .itemState.hasTip { cursor: help; transition: all 0.15s ease; }
 .itemState.hasTip:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
@@ -1220,7 +1220,7 @@
   .pcState.pending  { background: var(--warn-soft); color: var(--warn); border-color: rgba(180,83,9,0.28); }
   .pcState.approved { background: var(--success-soft); color: var(--success); border-color: rgba(21,128,61,0.28); }
   .pcState.rejected { background: var(--danger-soft); color: var(--danger); border-color: rgba(185,28,28,0.28); }
-  .pcState.closed   { background: var(--bg-2, #f4f4f1); color: var(--fg-3, #71717a); border-color: var(--border-strong); }
+  .pcState.closed   { background: var(--danger-soft); color: var(--danger); border-color: rgba(185,28,28,0.28); }
 
   .pcRejectInfo {
     display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px;

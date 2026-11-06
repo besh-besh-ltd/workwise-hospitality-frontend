@@ -2944,7 +2944,7 @@ const RfqManagementPreview = () => {
                                         </span>
                                       ) : isItemClosed(item) ? (
                                         <span
-                                          className="text-muted"
+                                          className="text-danger"
                                           style={{ pointerEvents: "none" }}
                                         >
                                           Closed by buyer — not awarded

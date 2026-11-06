@@ -223,7 +223,7 @@ export const getProductRoundStatus = (product, quoteApprovalStatuses = {}) => {
   // Closed without award by the buyer: no round can include it (the server
   // refuses one too).
   if (isItemClosed(product)) {
-    return { isDisabled: true, statusLabel: 'Closed', statusClass: 'createStatusNoQuotes' };
+    return { isDisabled: true, statusLabel: 'Closed', statusClass: 'createStatusClosed' };
   }
 
   const approval = quoteApprovalStatuses[product.id];

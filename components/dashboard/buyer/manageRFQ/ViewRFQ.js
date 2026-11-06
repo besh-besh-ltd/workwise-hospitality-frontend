@@ -47,7 +47,6 @@ import {
   getEntityLabel,
   canEditRfq,
   getRFQPublishState,
-  isBidEnded,
 } from "@/utils/sharedFunctions";
 import {
   isItemClosed,
@@ -547,7 +546,7 @@ const ProductCard = ({
                   </div>
                 </div>
                 <div className={styles.negStatusRow}>
-                  <span className={`${styles.pill} ${styles.neutral}`}>
+                  <span className={`${styles.pill} ${closed ? styles.danger : styles.neutral}`}>
                     <span className={styles.pdot} />
                     {closed ? "Closed" : finalized ? "Finalized" : "In progress"}
                   </span>
@@ -599,7 +598,12 @@ const ProductCard = ({
                 )}
               </div>
               <div className={styles.negStatusRow}>
-                {negEnded || closed ? (
+                {closed ? (
+                  <span className={`${styles.pill} ${styles.danger}`}>
+                    <span className={styles.pdot} />
+                    Closed
+                  </span>
+                ) : negEnded ? (
                   <span className={`${styles.pill} ${styles.success}`}>
                     <CheckCircle2 size={9} strokeWidth={3} />
                     Ended
@@ -861,12 +865,14 @@ const ViewRFQ = ({
 
   const rfqStatus = data?.status ? Number(data.status) : 0;
   const publishState = useMemo(() => getRFQPublishState(data), [data]);
-  // Items closed without award (backend rfqItemClosure.js): the creator closes
-  // the leftovers once bidding is over; the server re-checks every rule.
+  // Items closed without award (backend rfqItemClosure.js): the creator can
+  // close items at any time while the RFQ is live, before or after the deadline.
+  // An item waiting on an award approval still opens the dialog, which says why
+  // it can't be closed. The server re-checks every rule.
   const itemsSummary = data?.items_summary || null;
   const canCloseItems =
     !!onCloseItems && rfqStatus === 1 && isCreator && Number(data?.is_published) === 1 &&
-    Number(itemsSummary?.open) > 0 && isBidEnded(data);
+    (Number(itemsSummary?.open) > 0 || Number(itemsSummary?.award_pending) > 0);
   const canReopenItems = !!onReopenItem && rfqStatus === 1 && isCreator;
   const outcomeText = awardOutcomeLabel(data?.award_outcome, itemsSummary);
   const eyebrow = useMemo(
