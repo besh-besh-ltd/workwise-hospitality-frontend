@@ -61,6 +61,7 @@ function describe(stage) {
         stage.reason === "window_open" ? "Opens after quotes close"
         : stage.reason === "technical_incomplete" ? "Awaits technical approval"
         : stage.reason === "commercial_incomplete" ? "After Commercial"
+        : stage.reason === "contracts_in_review" ? "After contracts are sent"
         : "Not reached";
       return { node: "locked", icon: I.lock, text, tone: "dim" };
     }
@@ -128,6 +129,8 @@ function describe(stage) {
       }
       if (stage.key === "awarding") {
         if (stage.reason === "preview") return { node: "current", icon: I.clock, text: "Preview · pending finalize", tone: "neutral" };
+        // Committee approved; the contract copies wait for review + send.
+        if (stage.reason === "contract_review") return { node: "act", icon: I.bolt, text: "Review & send contracts", tone: "act" };
         return yourCall
           ? { node: "act", icon: I.bolt, text: "Your decision needed", tone: "act" }
           : { node: "wait", icon: I.clock, text: "Committee in review", tone: "info" };

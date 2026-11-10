@@ -27,7 +27,8 @@ const STATUS_TO_PHASE = {
   committee_approved:          "committee",
   committee_sent_back:         "committee",
   committee_rejected:          "committee",
-  contract_generated:          "awaiting",
+  // Committee approved; contract copies still under buyer review.
+  contract_generated:          "committee",
   awaiting_vendor_acceptance:  "awaiting",
   contract_active:             "active",
   expiring_soon:               "active",

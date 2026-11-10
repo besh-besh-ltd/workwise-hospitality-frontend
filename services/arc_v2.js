@@ -154,6 +154,13 @@ export const getCommitteeView = (arcId) => axiosInstance.get(`${BASE}/committee/
 // decision: 'approve' | 'reject' (reject = send back; comment mandatory).
 export const decideCommittee  = (arcId, body) => axiosInstance.post(`${BASE}/committee/${arcId}/decide`, body);
 
+// Contract copies held for review after the committee approves (drafts):
+// list them, preview the exact document a vendor will sign (HTML), then send.
+// body: { contract_ids?: number[] } — omitted sends every draft.
+export const getContractReview  = (arcId) => axiosInstance.get(`${BASE}/${arcId}/contracts/review`);
+export const getContractPreview = (arcId, contractId) => axiosInstance.get(`${BASE}/${arcId}/contracts/${contractId}/preview`);
+export const sendContracts      = (arcId, body = {}) => axiosInstance.post(`${BASE}/${arcId}/contracts/send`, body);
+
 // ============================================================
 // Vendor portal — quote submission + contract acceptance
 // ============================================================
