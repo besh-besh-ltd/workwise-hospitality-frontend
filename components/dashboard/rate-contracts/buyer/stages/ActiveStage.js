@@ -71,7 +71,11 @@ function describeAuditEvent(e, vendorNameById = {}) {
       return p.decision === "approved"
         ? { tone: "success", title: "Committee approved the award" }
         : { tone: "danger",  title: "Committee rejected the award" };
-    case "contract_generated":  return { tone: "success", title: p.contracts ? `${p.contracts} contract document${Number(p.contracts) === 1 ? "" : "s"} generated` : "Contract documents generated", detail: "Sent to vendors for signature" };
+    case "contract_generated": {
+      const n = p.contract_count ?? p.contracts;
+      return { tone: "success", title: n ? `${n} contract cop${Number(n) === 1 ? "y" : "ies"} prepared` : "Contract copies prepared", detail: p.held_for_review === false ? null : "Held for buyer review before sending" };
+    }
+    case "contract_awaiting_acceptance": return { tone: "info", title: <>Contract sent to <span className="em">{vname(p.vendor_id)}</span> for signature</> };
     case "vendor_signed": {
       const ids = Array.isArray(p.vendor_ids) ? p.vendor_ids : (p.vendor_id ? [p.vendor_id] : []);
       const names = ids.map(vname).join(", ");

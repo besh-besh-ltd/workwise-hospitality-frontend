@@ -57,7 +57,8 @@ function statusChip(status) {
   if (status.startsWith("tech_eval")) return { cls: "eval", label: "Technical evaluation" };
   if (status.startsWith("comm_eval")) return { cls: "eval", label: "Commercial evaluation" };
   if (status.startsWith("committee")) return { cls: "committee", label: "Committee review" };
-  if (["contract_generated", "awaiting_vendor_acceptance"].includes(status)) return { cls: "awaiting", label: "Awaiting vendor sign" };
+  if (status === "contract_generated") return { cls: "committee", label: "Contract review" };
+  if (status === "awaiting_vendor_acceptance") return { cls: "awaiting", label: "Awaiting vendor sign" };
   if (status === "contract_active") return { cls: "active", label: "Active" };
   if (status === "expiring_soon") return { cls: "expiring", label: "Expiring soon" };
   if (status === "expired") return { cls: "expired", label: "Expired" };

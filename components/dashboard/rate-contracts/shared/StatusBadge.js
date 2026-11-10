@@ -17,7 +17,7 @@ const LABELS = {
   committee_approved:          { label: "Committee Approved",     tone: "success" },
   committee_sent_back:         { label: "Sent Back",              tone: "warning" },
   committee_rejected:          { label: "Committee Rejected",     tone: "danger" },
-  contract_generated:          { label: "Contract Generated",     tone: "success" },
+  contract_generated:          { label: "Contract Review",        tone: "warning" },
   awaiting_vendor_acceptance:  { label: "Awaiting Vendor Sign",   tone: "warning" },
   contract_active:             { label: "Active",                 tone: "success" },
   expiring_soon:               { label: "Expiring Soon",          tone: "warning" },
