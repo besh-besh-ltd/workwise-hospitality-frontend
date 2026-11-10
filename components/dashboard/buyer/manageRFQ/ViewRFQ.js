@@ -26,6 +26,7 @@ import {
   Pencil,
   History,
   MessageSquare,
+  HelpCircle,
   BarChart2,
   ClipboardCheck,
   ShieldCheck,
@@ -42,6 +43,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getRfqLineage } from "@/services/rfq";
+import { getClarifications } from "@/services/clarification";
 
 import {
   getEntityLabel,
@@ -885,6 +887,33 @@ const ViewRFQ = ({
 
   const rfqId = data?.id;
 
+  // Vendor clarifications (tbl_rfq_clarifications) live on their own page,
+  // separate from the Queries chat. They outlive the clarification window:
+  // the window only stops vendors raising NEW ones, while the creator still
+  // answers and closes open ones afterwards. So the entry point shows whenever
+  // the RFQ has a clarification window, before or after it closes, with the
+  // open count so a waiting clarification is never out of sight.
+  const hasClarificationWindow = !!data?.vendor_clarification_date;
+  const [openClarifications, setOpenClarifications] = useState(0);
+  useEffect(() => {
+    if (!rfqId || !hasClarificationWindow) {
+      setOpenClarifications(0);
+      return undefined;
+    }
+    let cancelled = false;
+    getClarifications(rfqId)
+      .then((res) => {
+        const payload = res?.data?.data || res?.data || {};
+        const list = Array.isArray(payload.clarifications) ? payload.clarifications : [];
+        if (!cancelled) setOpenClarifications(list.filter((c) => c.status === "OPEN").length);
+      })
+      .catch(() => {
+        // The badge is a hint; the page behind the button still loads its own list.
+        if (!cancelled) setOpenClarifications(0);
+      });
+    return () => { cancelled = true; };
+  }, [rfqId, hasClarificationWindow]);
+
   /* ── Per-product Technical Evaluation status ──
      Mirrors inquiries-details.js (lines 276-327): for every product with
      tech_evaluation_status.has_tech_eval we fetch getTechEvalStatus(product.id)
@@ -1085,13 +1114,31 @@ const ViewRFQ = ({
                 id="queries_button-rfq_header-view_rfq_page"
               >
                 <MessageSquare size={13} strokeWidth={2} />
-                {isTender ? "Clarifications" : "Queries"}
+                {/* Always "Queries": this opens the Queries chat. Labelling it
+                    "Clarifications" on tenders sent users here looking for the
+                    vendor's clarification, which this page never shows. */}
+                Queries
                 {isTender && data.unseen_query_count > 0 && (
                   <span className="status-pill info" style={{ padding: "1px 6px", fontSize: 10 }}>
                     {data.unseen_query_count}
                   </span>
                 )}
               </Link>
+              {hasClarificationWindow && (
+                <Link
+                  href={`/dashboard/buyer/clarification-management?rfq_id=${data.id}`}
+                  className="btn btn-sm"
+                  id="clarifications_button-rfq_header-view_rfq_page"
+                >
+                  <HelpCircle size={13} strokeWidth={2} />
+                  Clarifications
+                  {openClarifications > 0 && (
+                    <span className="status-pill warn" style={{ padding: "1px 6px", fontSize: 10 }}>
+                      {openClarifications} open
+                    </span>
+                  )}
+                </Link>
+              )}
               <button
                 type="button"
                 className="btn btn-sm"
