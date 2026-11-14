@@ -262,6 +262,39 @@ const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
   );
 };
 
+// Tax (GST) is entered as a percentage only — vendors can no longer pick ₹ for
+// tax. A quote saved earlier with a flat ₹ tax keeps its saved figure, so that
+// line still shows ₹ (selected, not clickable) and its total stays exactly as
+// submitted. Pressing % moves the line to a percentage and clears the figure,
+// so an old rupee amount is never re-read as a rate; ₹ then disappears.
+const TaxPercentOnlyToggle = ({ mode, disabled, onPercent }) => {
+  const savedAsRupees = mode === "absolute";
+  return (
+    <div className={styles.modeSeg} role="group" aria-label="Tax mode">
+      <button
+        type="button"
+        className={savedAsRupees ? "" : styles.modeSegActive}
+        onClick={savedAsRupees ? onPercent : undefined}
+        disabled={disabled}
+        aria-pressed={!savedAsRupees}
+      >
+        %
+      </button>
+      {savedAsRupees && (
+        <button
+          type="button"
+          className={styles.modeSegActive}
+          disabled
+          aria-pressed={true}
+          title="Saved earlier in ₹. Press % to enter the tax as a percentage."
+        >
+          ₹
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Normalize a `documents` negotiation field into the buyer's per-document
 // comments + an overall demand. `targetPrice` is the array the buyer set per
 // document — `[{ document_index, file_url, comment }]`; `demand` is the buyer's
@@ -4344,8 +4377,8 @@ const Step3Pricing = ({
                         />
                         {p.pricing_method === "MRP" ? (
                           // MRP: GST is always a percentage extracted from within the
-                          // price — no ₹ option (an absolute GST would break the MRP
-                          // round-trip; the server also forces percentage).
+                          // price (an absolute GST would break the MRP round-trip; the
+                          // server also forces percentage).
                           <div className={styles.modeSeg} role="group" aria-label="Tax mode">
                             <button
                               type="button"
@@ -4357,26 +4390,11 @@ const Step3Pricing = ({
                             </button>
                           </div>
                         ) : (
-                          <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                            <button
-                              type="button"
-                              className={p.tax_mode === "percentage" ? styles.modeSegActive : ""}
-                              onClick={() => onUpdateProduct(idx, { tax_mode: "percentage" })}
-                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                              aria-pressed={p.tax_mode === "percentage"}
-                            >
-                              %
-                            </button>
-                            <button
-                              type="button"
-                              className={p.tax_mode === "absolute" ? styles.modeSegActive : ""}
-                              onClick={() => onUpdateProduct(idx, { tax_mode: "absolute" })}
-                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                              aria-pressed={p.tax_mode === "absolute"}
-                            >
-                              ₹
-                            </button>
-                          </div>
+                          <TaxPercentOnlyToggle
+                            mode={p.tax_mode}
+                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
+                            onPercent={() => onUpdateProduct(idx, { tax_mode: "percentage", tax: "" })}
+                          />
                         )}
                       </div>
                       {(() => {
@@ -5846,26 +5864,11 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={isChargeTaxLocked(ch)}
                       />
-                      <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                        <button
-                          type="button"
-                          className={(ch.tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { tax_mode: "percentage" })}
-                          aria-pressed={(ch.tax_mode || "percentage") === "percentage"}
-                          disabled={isChargeTaxLocked(ch)}
-                        >
-                          %
-                        </button>
-                        <button
-                          type="button"
-                          className={ch.tax_mode === "absolute" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { tax_mode: "absolute" })}
-                          aria-pressed={ch.tax_mode === "absolute"}
-                          disabled={isChargeTaxLocked(ch)}
-                        >
-                          ₹
-                        </button>
-                      </div>
+                      <TaxPercentOnlyToggle
+                        mode={ch.tax_mode}
+                        disabled={isChargeTaxLocked(ch)}
+                        onPercent={() => onUpdateCharge(ci, { tax_mode: "percentage", tax: null })}
+                      />
                     </div>
                   </div>
                   <div>
@@ -6313,26 +6316,11 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={isChargeLocked(ch)}
                       />
-                      <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                        <button
-                          type="button"
-                          className={(ch.extra_tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "percentage" })}
-                          aria-pressed={(ch.extra_tax_mode || "percentage") === "percentage"}
-                          disabled={isChargeLocked(ch)}
-                        >
-                          %
-                        </button>
-                        <button
-                          type="button"
-                          className={ch.extra_tax_mode === "absolute" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "absolute" })}
-                          aria-pressed={ch.extra_tax_mode === "absolute"}
-                          disabled={isChargeLocked(ch)}
-                        >
-                          ₹
-                        </button>
-                      </div>
+                      <TaxPercentOnlyToggle
+                        mode={ch.extra_tax_mode}
+                        disabled={isChargeLocked(ch)}
+                        onPercent={() => onUpdateCharge(ci, { extra_tax_mode: "percentage", extra_tax: "" })}
+                      />
                     </div>
                   </div>
                   <div>
