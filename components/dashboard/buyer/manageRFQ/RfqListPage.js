@@ -20,6 +20,7 @@ import {
 import { toast } from "react-toastify";
 import { getRfqListView, deleteDraft } from "@/services/rfq";
 import { canEditRfq } from "@/utils/sharedFunctions";
+import { awardOutcomeLabel } from "@/utils/rfqItemClosure";
 import { fyToRange, currentFyRange, defaultFyState } from "@/utils/financialYear";
 import FyFilter from "@/components/shared/FyFilter";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -659,6 +660,12 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
   const meta = metaFor(row.status_key);
   const cats = Array.isArray(row.categories) ? row.categories : [];
   const products = Array.isArray(row.products) ? row.products : [];
+  // Items closed without award: "Partially awarded (3 of 5)", "2 closed without
+  // award". A fully awarded open RFQ already says "Completed".
+  const outcomeChip =
+    row.award_outcome === "fully_awarded" && row.status_key !== "CLOSED"
+      ? null
+      : awardOutcomeLabel(row.award_outcome, row.items_summary);
   // An RFQ waiting on publish approval is NOT a draft: it must open the details
   // page (where the Approve/Reject decision card lives), never the create
   // wizard. Two independent signals — the server's `approval` bucket and the
@@ -751,6 +758,9 @@ function RfqRow({ row, onClone, onDeleted, currentUser }) {
                 >
                   {poRejectedText(row.po_rejection, row.status_key)}
                 </span>
+              )}
+              {outcomeChip && (
+                <span className="pending-extra" data-testid="award-outcome-chip">{outcomeChip}</span>
               )}
             </div>
             <div className="cc-sub">

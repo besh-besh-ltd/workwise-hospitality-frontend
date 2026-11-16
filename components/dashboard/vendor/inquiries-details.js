@@ -50,6 +50,7 @@ import inquiryStyles from "@/components/dashboard/vendor/InquiriesDetails.module
 import MobileActionBar, { MobileActionButton } from "@/components/shared/mobile/MobileActionBar";
 import RfqAssignmentBanner, { ROUTING_PENDING_REASON, isRoutingPending } from "@/components/dashboard/vendor/network/RfqAssignmentBanner";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { isItemSettled, isItemClosed } from "@/utils/rfqItemClosure";
 
 const WysiwygEditor = dynamic(
   () => import("@/components/wysiwyg-editor/wysiwygeditor"),
@@ -456,10 +457,7 @@ const RfqManagementPreview = () => {
         wasEndDatePassed &&
         !enableBuyerView &&
         productleftforbid &&
-        rfqDetails?.products?.every(item =>
-          item.finalization_status !== "Another vendor is finalized" &&
-          item.finalization_status !== "You are finalized"
-        )
+        rfqDetails?.products?.every(item => !isItemSettled(item))
     ) {
       toast.info("The reverse auction has started. You can send quotes again.", {
         position: "top-right",
@@ -600,9 +598,9 @@ const RfqManagementPreview = () => {
         }
 
         // Check if any products are not finalized
+        // Items the buyer closed without award are settled too.
         const hasUnfinalizedProducts = res.data?.products?.some(
-          product => product.finalization_status !== "Another vendor is finalized" &&
-                    product.finalization_status !== "You are finalized"
+          product => !isItemSettled(product)
         );
 
         // Only set productleftforbid to true if there are unfinalized products
@@ -1327,11 +1325,7 @@ const RfqManagementPreview = () => {
   const vendorPhoneActions = (() => {
     if (loading || enableBuyerView || !rfqDetails?.id) return null;
     const quotations = rfqDetails.quotations || [];
-    const allFinalized = rfqDetails.products?.every(
-      (item) =>
-        item.finalization_status === "Another vendor is finalized" ||
-        item.finalization_status === "You are finalized"
-    );
+    const allFinalized = rfqDetails.products?.every((item) => isItemSettled(item));
     let main = null;
     if (routingPending && quotations.length === 0) {
       return {
@@ -1804,11 +1798,7 @@ const RfqManagementPreview = () => {
                         routingPending ||
                         (quoteDisabled && statusMessage !== "Reverse Auction is Active") ||
                         rfqDetails.status == 2 ||
-                        rfqDetails.products?.every(
-                          (item) =>
-                            item.finalization_status === "Another vendor is finalized" ||
-                            item.finalization_status === "You are finalized"
-                        );
+                        rfqDetails.products?.every((item) => isItemSettled(item));
                       const regretReason = routingPending
                         ? ROUTING_PENDING_REASON
                         : rfqDetails.status == 2
@@ -2951,6 +2941,13 @@ const RfqManagementPreview = () => {
                                           style={{ pointerEvents: "none" }}
                                         >
                                           Another vendor is finalized
+                                        </span>
+                                      ) : isItemClosed(item) ? (
+                                        <span
+                                          className="text-danger"
+                                          style={{ pointerEvents: "none" }}
+                                        >
+                                          Closed by buyer — not awarded
                                         </span>
                                       ) : (
                                         <span className="text-warning">

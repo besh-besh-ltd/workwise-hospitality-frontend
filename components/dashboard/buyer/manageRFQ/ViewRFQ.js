@@ -26,6 +26,7 @@ import {
   Pencil,
   History,
   MessageSquare,
+  HelpCircle,
   BarChart2,
   ClipboardCheck,
   ShieldCheck,
@@ -42,12 +43,19 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { getRfqLineage } from "@/services/rfq";
+import { getClarifications } from "@/services/clarification";
 
 import {
   getEntityLabel,
   canEditRfq,
   getRFQPublishState,
 } from "@/utils/sharedFunctions";
+import {
+  isItemClosed,
+  isItemFinalized,
+  itemCloseReasonLabel,
+  awardOutcomeLabel,
+} from "@/utils/rfqItemClosure";
 import PublishDateTimer from "@/components/shared/PublishDateTimer";
 import useHasTechClauses from "@/hooks/useHasTechClauses";
 import { getTechEvalStatus } from "@/services/rfq";
@@ -193,6 +201,7 @@ const ProductCard = ({
   negRounds,
   negLoading,
   onOpenNegotiation,
+  onReopen,
 }) => {
   const specs = Array.isArray(product?.product_specs) ? product.product_specs : [];
   // Canonical spec titles used across the platform.
@@ -254,10 +263,10 @@ const ProductCard = ({
      is fetched once per RFQ by ViewRFQ and split per product — it backs the
      round count, the "finalized by" actor, and the clickable history modal. */
   const finalizationStatus = product?.finalization_status;
-  const finalized =
-    !!finalizationStatus &&
-    finalizationStatus !== "No vendor finalized yet" &&
-    finalizationStatus !== "Pending";
+  // Closed without award (the buyer closed it): settled, never "finalized".
+  const closed = isItemClosed(product);
+  // A positive list: an unknown status must never read as a finalized vendor.
+  const finalized = !closed && isItemFinalized(finalizationStatus);
   // Buyer-facing winning-vendor name + amount (additive backend field). Falls
   // back to a neutral label so we never surface the vendor-perspective string
   // "Another vendor is finalized" on the buyer page.
@@ -382,6 +391,35 @@ const ProductCard = ({
           </div>
         </div>
       </div>
+
+      {closed && (
+        <div className={styles.itemClosedStrip} data-testid="item-closed-strip">
+          <span className={`${styles.pill} ${styles.danger}`}>
+            <XCircle size={9} strokeWidth={3} />
+            Closed without award
+          </span>
+          {product?.close_reason_code && (
+            <span className={styles.itemClosedReason}>
+              {itemCloseReasonLabel(product.close_reason_code)}
+              {product?.close_remarks ? ` — “${product.close_remarks}”` : ""}
+            </span>
+          )}
+          <span className={styles.itemClosedBy}>
+            {product?.closed_by?.name ? `by ${product.closed_by.name} · ` : ""}
+            {fmtDate(product?.closed_at)}
+          </span>
+          {onReopen && (
+            <button
+              type="button"
+              className={styles.itemReopenBtn}
+              onClick={() => onReopen(product)}
+              id={`reopen_item_${product?.id}-product_card-view_rfq_page`}
+            >
+              Reopen
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Body grid: Technical evaluation (left) + Commercial negotiation (right) */}
       <div className={styles.productBody}>
@@ -510,9 +548,9 @@ const ProductCard = ({
                   </div>
                 </div>
                 <div className={styles.negStatusRow}>
-                  <span className={`${styles.pill} ${styles.neutral}`}>
+                  <span className={`${styles.pill} ${closed ? styles.danger : styles.neutral}`}>
                     <span className={styles.pdot} />
-                    {finalized ? "Finalized" : "In progress"}
+                    {closed ? "Closed" : finalized ? "Finalized" : "In progress"}
                   </span>
                 </div>
                 {finalized ? (
@@ -528,7 +566,7 @@ const ProductCard = ({
                     <div className={styles.negFoot}>Vendor finalized for this product</div>
                   </>
                 ) : (
-                  <div className={styles.negMeta}>No negotiation rounds</div>
+                  <div className={styles.negMeta}>{closed ? "Closed without award" : "No negotiation rounds"}</div>
                 )}
               </div>
             );
@@ -562,7 +600,12 @@ const ProductCard = ({
                 )}
               </div>
               <div className={styles.negStatusRow}>
-                {negEnded ? (
+                {closed ? (
+                  <span className={`${styles.pill} ${styles.danger}`}>
+                    <span className={styles.pdot} />
+                    Closed
+                  </span>
+                ) : negEnded ? (
                   <span className={`${styles.pill} ${styles.success}`}>
                     <CheckCircle2 size={9} strokeWidth={3} />
                     Ended
@@ -641,6 +684,9 @@ const ViewRFQ = ({
   data,
   onCloseRFQ,
   closeLoading,
+  onCloseItems,
+  onReopenItem,
+  lifecycleRefreshKey = 0,
   isCreator,
   onWithdrawPublish,
   withdrawLoading,
@@ -699,6 +745,12 @@ const ViewRFQ = ({
       /* keep the current view — the action's own toast already reported it */
     }
   }, [data?.id, data?.is_tender, router.query.id]);
+
+  // After a close / item close / reopen the page re-fetches the RFQ; the
+  // timeline must follow, or it keeps showing the stage from before.
+  useEffect(() => {
+    if (lifecycleRefreshKey > 0) refreshLifecycle();
+  }, [lifecycleRefreshKey, refreshLifecycle]);
 
   // Come back to this tab and the PO guide may point at a draft someone else
   // has since initiated. Re-pull when the tab becomes visible, debounced so a
@@ -815,6 +867,16 @@ const ViewRFQ = ({
 
   const rfqStatus = data?.status ? Number(data.status) : 0;
   const publishState = useMemo(() => getRFQPublishState(data), [data]);
+  // Items closed without award (backend rfqItemClosure.js): the creator can
+  // close items at any time while the RFQ is live, before or after the deadline.
+  // An item waiting on an award approval still opens the dialog, which says why
+  // it can't be closed. The server re-checks every rule.
+  const itemsSummary = data?.items_summary || null;
+  const canCloseItems =
+    !!onCloseItems && rfqStatus === 1 && isCreator && Number(data?.is_published) === 1 &&
+    (Number(itemsSummary?.open) > 0 || Number(itemsSummary?.award_pending) > 0);
+  const canReopenItems = !!onReopenItem && rfqStatus === 1 && isCreator;
+  const outcomeText = awardOutcomeLabel(data?.award_outcome, itemsSummary);
   const eyebrow = useMemo(
     () => getEyebrow(data, publishState),
     [data, publishState],
@@ -824,6 +886,33 @@ const ViewRFQ = ({
   const products = Array.isArray(data?.products) ? data.products : [];
 
   const rfqId = data?.id;
+
+  // Vendor clarifications (tbl_rfq_clarifications) live on their own page,
+  // separate from the Queries chat. They outlive the clarification window:
+  // the window only stops vendors raising NEW ones, while the creator still
+  // answers and closes open ones afterwards. So the entry point shows whenever
+  // the RFQ has a clarification window, before or after it closes, with the
+  // open count so a waiting clarification is never out of sight.
+  const hasClarificationWindow = !!data?.vendor_clarification_date;
+  const [openClarifications, setOpenClarifications] = useState(0);
+  useEffect(() => {
+    if (!rfqId || !hasClarificationWindow) {
+      setOpenClarifications(0);
+      return undefined;
+    }
+    let cancelled = false;
+    getClarifications(rfqId)
+      .then((res) => {
+        const payload = res?.data?.data || res?.data || {};
+        const list = Array.isArray(payload.clarifications) ? payload.clarifications : [];
+        if (!cancelled) setOpenClarifications(list.filter((c) => c.status === "OPEN").length);
+      })
+      .catch(() => {
+        // The badge is a hint; the page behind the button still loads its own list.
+        if (!cancelled) setOpenClarifications(0);
+      });
+    return () => { cancelled = true; };
+  }, [rfqId, hasClarificationWindow]);
 
   /* ── Per-product Technical Evaluation status ──
      Mirrors inquiries-details.js (lines 276-327): for every product with
@@ -1025,13 +1114,31 @@ const ViewRFQ = ({
                 id="queries_button-rfq_header-view_rfq_page"
               >
                 <MessageSquare size={13} strokeWidth={2} />
-                {isTender ? "Clarifications" : "Queries"}
+                {/* Always "Queries": this opens the Queries chat. Labelling it
+                    "Clarifications" on tenders sent users here looking for the
+                    vendor's clarification, which this page never shows. */}
+                Queries
                 {isTender && data.unseen_query_count > 0 && (
                   <span className="status-pill info" style={{ padding: "1px 6px", fontSize: 10 }}>
                     {data.unseen_query_count}
                   </span>
                 )}
               </Link>
+              {hasClarificationWindow && (
+                <Link
+                  href={`/dashboard/buyer/clarification-management?rfq_id=${data.id}`}
+                  className="btn btn-sm"
+                  id="clarifications_button-rfq_header-view_rfq_page"
+                >
+                  <HelpCircle size={13} strokeWidth={2} />
+                  Clarifications
+                  {openClarifications > 0 && (
+                    <span className="status-pill warn" style={{ padding: "1px 6px", fontSize: 10 }}>
+                      {openClarifications} open
+                    </span>
+                  )}
+                </Link>
+              )}
               <button
                 type="button"
                 className="btn btn-sm"
@@ -1049,6 +1156,17 @@ const ViewRFQ = ({
                   idAttr="edit_rfq-rfq_actions-view_rfq_page"
                   onDark
                 />
+              )}
+              {canCloseItems && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  id="close_items-rfq_actions-view_rfq_page"
+                  onClick={onCloseItems}
+                >
+                  <XCircle size={13} strokeWidth={2} />
+                  Close remaining items
+                </button>
               )}
               {rfqStatus === 1 && isCreator && (
                 <button
@@ -1116,8 +1234,28 @@ const ViewRFQ = ({
               <XCircle size={13} strokeWidth={2} />
             </div>
             <div>
-              <strong>{entity} is closed.</strong>{" "}
+              <strong>{entity} is closed{outcomeText ? ` · ${outcomeText}` : ""}.</strong>{" "}
               {data.close_comment || "Vendors can no longer submit quotes."}
+            </div>
+          </div>
+        )}
+        {rfqStatus === 1 && data.award_outcome === "not_awarded" && (
+          <div className={`${styles.banner} ${styles.warn}`} style={{ marginTop: 14 }} data-testid="all-items-closed-banner">
+            <div className={styles.bannerIcon} style={{ borderColor: "rgba(180, 83, 9, 0.16)", color: "#b45309" }}>
+              <AlertTriangle size={13} strokeWidth={2} />
+            </div>
+            <div>
+              <strong>Every item is closed without award.</strong> Close the {entity} to finish it.
+            </div>
+          </div>
+        )}
+        {rfqStatus === 1 && data.award_outcome === "partially_awarded" && (
+          <div className={`${styles.banner} ${styles.info}`} style={{ marginTop: 14 }} data-testid="partial-award-banner">
+            <div className={styles.bannerIcon}>
+              <Info size={13} strokeWidth={2} />
+            </div>
+            <div>
+              <strong>{outcomeText}.</strong> The other items were closed without award.
             </div>
           </div>
         )}
@@ -1372,6 +1510,7 @@ const ViewRFQ = ({
                     negRounds={negRoundsByProduct[p?.id]}
                     negLoading={!!negLoading[p?.id]}
                     onOpenNegotiation={openNegotiation}
+                    onReopen={canReopenItems && isItemClosed(p) ? onReopenItem : undefined}
                   />
                 ))}
               </div>

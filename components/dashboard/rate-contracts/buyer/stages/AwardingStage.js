@@ -4,6 +4,9 @@
 //   reason === 'preview'  → commercial is partially allocated but NOT finalized
 //     yet: show the award proposals shaping up, read-only, with no decide
 //     controls (there is no approval instance to act on).
+//   reason === 'contract_review' → the committee approved and each vendor's
+//     contract copy is a DRAFT: review them here (ContractReviewPanel) and
+//     send them. Nothing reaches the vendors before that.
 //   otherwise             → the real committee gate. Only the CURRENT pending
 //     approver (server-computed can_user_approve) sees the decision controls;
 //     everyone else gets a view-only chain showing exactly which level the
@@ -19,6 +22,7 @@ import { useSelector } from "react-redux";
 import * as ArcApi from "@/services/arc_v2";
 import { StageNoPermission, removalReasonLabel } from "./StageShared";
 import { ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
+import ContractReviewPanel from "./ContractReviewPanel";
 
 function fmtINR(n) {
   if (n == null || Number.isNaN(Number(n))) return "—";
@@ -45,6 +49,7 @@ function fmtDate(s) {
 const STATUS_LABEL = {
   committee_review: "Committee review",
   committee_approved: "Committee approved",
+  contract_generated: "Contract review",
   committee_sent_back: "Sent back",
   awaiting_vendor_acceptance: "Awaiting vendor acceptance",
   contract_active: "Contract active",
@@ -64,6 +69,8 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
     arcPerms.includes("read") ||
     !!stage?.approval?.can_user_approve;
   const isPreview = stage?.reason === "preview";
+  // Committee approved; the contract copies wait for review and sending.
+  const isContractReview = stage?.reason === "contract_review";
 
   const userProfile = useSelector((s) => s.userProfile);
   const me = Number(userProfile?.id) || null;
@@ -296,7 +303,7 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
             <div className="ac-title">Your decision is required — approval level {currentStepNo} of {totalSteps}</div>
             <div className="ac-sub">
               Review the <strong>{proposals.length}</strong> award proposal(s) below, then approve or send back with a reason.
-              Approving the final level generates the vendor contracts automatically.
+              Approving the final level prepares each vendor&apos;s contract copy for review — nothing goes to the vendors until it is sent.
             </div>
           </div>
         </section>
@@ -314,13 +321,27 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
           </div>
         </div>
       )}
-      {instanceStatus === "APPROVED" && (
+      {instanceStatus === "APPROVED" && isContractReview && (
+        <section className="action-center">
+          <div className="ac-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+          </div>
+          <div className="ac-body">
+            <div className="ac-title">Committee approved — check the contract copies before they go out</div>
+            <div className="ac-sub">
+              Each awarded vendor&apos;s contract has been prepared as a draft. Open every copy, confirm the items,
+              rates and terms, then send them. <strong>Nothing has been sent to the vendors yet.</strong>
+            </div>
+          </div>
+        </section>
+      )}
+      {instanceStatus === "APPROVED" && !isContractReview && (
         <div className="guide success" style={{ alignItems: "center" }}>
           <div className="g-ic" style={{ marginTop: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <div>
-            <strong>Committee approved.</strong> Contracts were generated per awarded vendor and the
+            <strong>Committee approved.</strong> Contracts were reviewed and sent to each awarded vendor, and the
             rate contract moved to <em>{STATUS_LABEL[arc?.status] || arc?.status}</em>. This stage is
             now locked — the record below is the authoritative award trail.
           </div>
@@ -376,6 +397,18 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
           <div><div className="s-val">{fmtDate(comm_evaluation?.finalized_at)}</div><div className="s-label">Finalized by commercial</div></div>
         </div>
       </section>
+
+      {/* ── CONTRACT COPIES — review, then send (committee approved) ── */}
+      {isContractReview && (
+        <ContractReviewPanel
+          arcId={arc.id}
+          onSent={async (sent) => {
+            showToast(`Sent to ${sent.length} vendor${sent.length === 1 ? "" : "s"} for signature`);
+            // The last send moves the rate contract to Contract Active.
+            await onRefresh({ advance: true });
+          }}
+        />
+      )}
 
       {/* ── TWO-COLUMN BODY ── */}
       <div className="ccm-grid">
@@ -725,11 +758,18 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
                 </div>
               </div>
             </div>
+            <div className={`wf-step ${isContractReview ? "current" : ["awaiting_vendor_acceptance", "contract_active"].includes(arc?.status) ? "done" : "pending"}`}>
+              <div className="wf-node" />
+              <div className="body">
+                <div className="nm">Contract copies reviewed</div>
+                <div className="meta">One draft per awarded vendor · checked before sending</div>
+              </div>
+            </div>
             <div className={`wf-step ${["awaiting_vendor_acceptance", "contract_active"].includes(arc?.status) ? "done" : "pending"}`}>
               <div className="wf-node" />
               <div className="body">
-                <div className="nm">Contracts generated &amp; sent to vendors</div>
-                <div className="meta">One per awarded vendor · OTP signature</div>
+                <div className="nm">Contracts sent to vendors</div>
+                <div className="meta">Vendors review and sign by OTP</div>
               </div>
             </div>
           </div>
@@ -751,6 +791,8 @@ export default function AwardingStage({ arc, stage, permissions, onRefresh }) {
             <span className="fs-13 text-fg-2">
               {isPreview
                 ? <>Preview — <strong>{proposals.length}</strong> proposal(s) shaping up. Finalize in Commercial to start the committee vote.</>
+                : isContractReview
+                ? <>Committee approved — <strong>review the contract copies</strong> above and send them to the vendors.</>
                 : !approval_instance
                 ? "Committee approval not started."
                 : decided

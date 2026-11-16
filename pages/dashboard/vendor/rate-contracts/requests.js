@@ -133,6 +133,10 @@ const buildItems = ({ requests, pending, active }) => {
       myStatus = "evaluating"; stageLabel = "Commercial evaluation"; stageNote = "Commercial evaluation in progress";
     } else if (st === "committee_review") {
       myStatus = "evaluating"; stageLabel = "Committee review"; stageNote = "Under committee review";
+    } else if (st === "contract_generated") {
+      // Committee approved; the buyer is still checking the contract copies.
+      // The award is not announced until they are sent.
+      myStatus = "evaluating"; stageLabel = "Award being finalised"; stageNote = "Award being finalised by the buyer";
     } else {
       // floated / submission_closed — quote is in, evaluation not opened yet.
       myStatus = "submitted";

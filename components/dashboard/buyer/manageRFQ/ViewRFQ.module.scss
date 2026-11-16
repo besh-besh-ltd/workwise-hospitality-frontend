@@ -766,6 +766,44 @@
   gap: 12px;
 }
 
+/* Item closed without award: reason, who and when, and Reopen for the creator. */
+.itemClosedStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 20px 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid rgba(185, 28, 28, 0.14);
+  font-size: 12px;
+  color: #3f3f46;
+}
+
+.itemClosedReason {
+  color: #18181b;
+  overflow-wrap: anywhere;
+}
+
+.itemClosedBy {
+  color: #71717a;
+}
+
+.itemReopenBtn {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  color: #3f3f46;
+  cursor: pointer;
+
+  &:hover { background: #f4f4f1; }
+}
+
 @media (max-width: 720px) {
   .productHead { grid-template-columns: 1fr; }
   .productStats { gap: 16px; flex-wrap: wrap; }

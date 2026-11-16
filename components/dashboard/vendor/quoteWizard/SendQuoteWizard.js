@@ -62,6 +62,7 @@ import {
 } from "./helpers";
 import { downloadQuoteExcel } from "@/utils/quoteExcel";
 import { isValidGstin, seedGstin } from "@/utils/gstin";
+import { isItemClosed } from "@/utils/rfqItemClosure";
 
 // True on a phone-width screen (<=768px, the MobileActionBar breakpoint).
 // Only decides whether to MOUNT the phone action bar — layout itself is CSS.
@@ -257,6 +258,39 @@ const BuyerAskHint = ({ value, label = "Buyer's ask", mono = true }) => {
     <div className={styles.negHint}>
       <span className={styles.negHintDot} />
       {label}: {mono ? <span className={styles.mono}>{value}</span> : <span>{value}</span>}
+    </div>
+  );
+};
+
+// Tax (GST) is entered as a percentage only — vendors can no longer pick ₹ for
+// tax. A quote saved earlier with a flat ₹ tax keeps its saved figure, so that
+// line still shows ₹ (selected, not clickable) and its total stays exactly as
+// submitted. Pressing % moves the line to a percentage and clears the figure,
+// so an old rupee amount is never re-read as a rate; ₹ then disappears.
+const TaxPercentOnlyToggle = ({ mode, disabled, onPercent }) => {
+  const savedAsRupees = mode === "absolute";
+  return (
+    <div className={styles.modeSeg} role="group" aria-label="Tax mode">
+      <button
+        type="button"
+        className={savedAsRupees ? "" : styles.modeSegActive}
+        onClick={savedAsRupees ? onPercent : undefined}
+        disabled={disabled}
+        aria-pressed={!savedAsRupees}
+      >
+        %
+      </button>
+      {savedAsRupees && (
+        <button
+          type="button"
+          className={styles.modeSegActive}
+          disabled
+          aria-pressed={true}
+          title="Saved earlier in ₹. Press % to enter the tax as a percentage."
+        >
+          ₹
+        </button>
+      )}
     </div>
   );
 };
@@ -1222,9 +1256,11 @@ const SendQuoteWizard = () => {
   // component) can disable its fields while still letting the vendor open it.
   const isLineLocked = (p) => {
     if (!p) return false;
+    // A line the buyer closed without award is frozen like a finalized one.
     const finalizedLocked =
       p.finalization_status === "Another vendor is finalized" ||
-      p.finalization_status === "You are finalized";
+      p.finalization_status === "You are finalized" ||
+      isItemClosed(p);
     const techLocked =
       showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted;
     const negSubmitted = !!negotiationQuoteSubmitted[p.id];
@@ -2136,6 +2172,8 @@ const SendQuoteWizard = () => {
           // Skip finalized / locked products
           if (p.finalization_status === "Another vendor is finalized") return false;
           if (p.finalization_status === "You are finalized") return false;
+          // Closed without award by the buyer: the server refuses a line for it.
+          if (isItemClosed(p)) return false;
           // Tech-eval restriction (legacy parity): not-accepted products are
           // locked in the pricing grid and must not be quoted.
           if (showTechEvalRestrictions && p.has_tech_eval && !p.tech_eval_accepted) return false;
@@ -3990,7 +4028,7 @@ const Step3Pricing = ({
           <div className={styles.miniStats}>
             <div className={styles.miniStat}>
               <div className={styles.lbl}>Items to price</div>
-              <div className={styles.val}>{products.length}</div>
+              <div className={styles.val}>{products.filter((p) => !isItemClosed(p)).length}</div>
             </div>
             {rfq.vendor_clarification_date && (
               <>
@@ -4044,9 +4082,11 @@ const Step3Pricing = ({
           </div>
 
           {products.map((p, idx) => {
+            const itemClosed = isItemClosed(p);
             const finalizedLocked =
               p.finalization_status === "Another vendor is finalized" ||
-              (p.finalization_status === "You are finalized");
+              (p.finalization_status === "You are finalized") ||
+              itemClosed;
             // Tech-eval restriction (legacy parity): evaluation exists but the
             // buyer hasn't accepted it — the line cannot be priced.
             const techLocked =
@@ -4170,7 +4210,11 @@ const Step3Pricing = ({
                             {((p.other_charges || []).filter((c) => c.name).length || 0) > 1 ? "s" : ""}
                           </span>
                         )}
-                        {isLinePriced(p) ? (
+                        {itemClosed ? (
+                          <span className={`${styles.pill} ${styles.danger}`} data-testid="line-closed-by-buyer">
+                            Closed by buyer — not awarded
+                          </span>
+                        ) : isLinePriced(p) ? (
                           <span className={`${styles.pill} ${styles.success}`}>
                             <span className={styles.pdot} style={{ background: "var(--success)" }} />
                             Priced
@@ -4333,8 +4377,8 @@ const Step3Pricing = ({
                         />
                         {p.pricing_method === "MRP" ? (
                           // MRP: GST is always a percentage extracted from within the
-                          // price — no ₹ option (an absolute GST would break the MRP
-                          // round-trip; the server also forces percentage).
+                          // price (an absolute GST would break the MRP round-trip; the
+                          // server also forces percentage).
                           <div className={styles.modeSeg} role="group" aria-label="Tax mode">
                             <button
                               type="button"
@@ -4346,26 +4390,11 @@ const Step3Pricing = ({
                             </button>
                           </div>
                         ) : (
-                          <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                            <button
-                              type="button"
-                              className={p.tax_mode === "percentage" ? styles.modeSegActive : ""}
-                              onClick={() => onUpdateProduct(idx, { tax_mode: "percentage" })}
-                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                              aria-pressed={p.tax_mode === "percentage"}
-                            >
-                              %
-                            </button>
-                            <button
-                              type="button"
-                              className={p.tax_mode === "absolute" ? styles.modeSegActive : ""}
-                              onClick={() => onUpdateProduct(idx, { tax_mode: "absolute" })}
-                              disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
-                              aria-pressed={p.tax_mode === "absolute"}
-                            >
-                              ₹
-                            </button>
-                          </div>
+                          <TaxPercentOnlyToggle
+                            mode={p.tax_mode}
+                            disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
+                            onPercent={() => onUpdateProduct(idx, { tax_mode: "percentage", tax: "" })}
+                          />
                         )}
                       </div>
                       {(() => {
@@ -5044,8 +5073,12 @@ const Step5Review = ({
 }) => {
   // MRP-aware — see isLinePriced. Testing unit_price here is what told vendors
   // their priced MRP lines would be "marked as regret".
-  const priced = products.filter(isLinePriced);
-  const skipped = products.filter((p) => !isLinePriced(p));
+  // A line the buyer closed without award isn't sent at all (see the submit
+  // filter), so it is neither "priced" nor "skipped as regret".
+  const openLines = products.filter((p) => !isItemClosed(p));
+  const closedCount = products.length - openLines.length;
+  const priced = openLines.filter(isLinePriced);
+  const skipped = openLines.filter((p) => !isLinePriced(p));
   const activeGlobalCharges = (globalCharges || []).filter(
     (c) => c.name && c.name.trim() && Number.isFinite(parseFloat(c.amount))
   );
@@ -5095,6 +5128,7 @@ const Step5Review = ({
               </h3>
               <span className={styles.reviewHeadMeta}>
                 {priced.length} priced{skipped.length > 0 ? ` · ${skipped.length} skipped` : ""}
+                {closedCount > 0 ? ` · ${closedCount} closed by buyer` : ""}
               </span>
             </div>
             <div className={styles.reviewCardBody}>
@@ -5107,14 +5141,17 @@ const Step5Review = ({
                 // and fall back to qty × unit only if it hasn't synced yet.
                 const lineTotal = Number(p.total_price) > 0 ? Number(p.total_price) : unit * qty;
                 const chargesCount = (p.other_charges || p.charges || []).filter((c) => c.name).length;
-                const isSkipped = !isLinePriced(p);
+                const isClosed = isItemClosed(p);
+                const isSkipped = !isClosed && !isLinePriced(p);
                 const provenance = p.pricing_method === "MRP" ? mrpProvenance(p) : "";
                 return (
-                  <div key={p.id} className={`${styles.reviewLine} ${isSkipped ? styles.reviewLineSkipped : ""}`}>
+                  <div key={p.id} className={`${styles.reviewLine} ${isSkipped || isClosed ? styles.reviewLineSkipped : ""}`}>
                     <div className={styles.reviewLineNum}>{String(idx + 1).padStart(2, "0")}</div>
                     <div className={styles.reviewLineMain}>
                       <div className={styles.reviewLineName}>{p.product_name || p.name}</div>
-                      {isSkipped ? (
+                      {isClosed ? (
+                        <div className={styles.reviewLineDesc}>The buyer closed this item without award. It isn't sent with your quote.</div>
+                      ) : isSkipped ? (
                         <div className={styles.reviewLineDesc}>Not priced — will be marked as regret for this line</div>
                       ) : (
                         <div className={styles.reviewLineMath}>
@@ -5127,7 +5164,9 @@ const Step5Review = ({
                       )}
                     </div>
                     <div className={styles.reviewLineRight}>
-                      {isSkipped ? <span className={styles.reviewSkippedPill}>Skipped</span> : `₹ ${fmtINR(lineTotal)}`}
+                      {isClosed ? (
+                        <span className={styles.reviewClosedPill} data-testid="review-line-closed">Closed by buyer</span>
+                      ) : isSkipped ? <span className={styles.reviewSkippedPill}>Skipped</span> : `₹ ${fmtINR(lineTotal)}`}
                     </div>
                   </div>
                 );
@@ -5825,26 +5864,11 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={isChargeTaxLocked(ch)}
                       />
-                      <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                        <button
-                          type="button"
-                          className={(ch.tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { tax_mode: "percentage" })}
-                          aria-pressed={(ch.tax_mode || "percentage") === "percentage"}
-                          disabled={isChargeTaxLocked(ch)}
-                        >
-                          %
-                        </button>
-                        <button
-                          type="button"
-                          className={ch.tax_mode === "absolute" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { tax_mode: "absolute" })}
-                          aria-pressed={ch.tax_mode === "absolute"}
-                          disabled={isChargeTaxLocked(ch)}
-                        >
-                          ₹
-                        </button>
-                      </div>
+                      <TaxPercentOnlyToggle
+                        mode={ch.tax_mode}
+                        disabled={isChargeTaxLocked(ch)}
+                        onPercent={() => onUpdateCharge(ci, { tax_mode: "percentage", tax: null })}
+                      />
                     </div>
                   </div>
                   <div>
@@ -6292,26 +6316,11 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                         onWheel={(e) => e.currentTarget.blur()}
                         disabled={isChargeLocked(ch)}
                       />
-                      <div className={styles.modeSeg} role="group" aria-label="Tax mode">
-                        <button
-                          type="button"
-                          className={(ch.extra_tax_mode || "percentage") === "percentage" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "percentage" })}
-                          aria-pressed={(ch.extra_tax_mode || "percentage") === "percentage"}
-                          disabled={isChargeLocked(ch)}
-                        >
-                          %
-                        </button>
-                        <button
-                          type="button"
-                          className={ch.extra_tax_mode === "absolute" ? styles.modeSegActive : ""}
-                          onClick={() => onUpdateCharge(ci, { extra_tax_mode: "absolute" })}
-                          aria-pressed={ch.extra_tax_mode === "absolute"}
-                          disabled={isChargeLocked(ch)}
-                        >
-                          ₹
-                        </button>
-                      </div>
+                      <TaxPercentOnlyToggle
+                        mode={ch.extra_tax_mode}
+                        disabled={isChargeLocked(ch)}
+                        onPercent={() => onUpdateCharge(ci, { extra_tax_mode: "percentage", extra_tax: "" })}
+                      />
                     </div>
                   </div>
                   <div>

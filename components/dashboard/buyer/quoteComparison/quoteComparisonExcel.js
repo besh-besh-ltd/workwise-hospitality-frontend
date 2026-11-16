@@ -40,6 +40,7 @@ const ensureXlsx = async () => { XLSX = await loadXlsx(); return XLSX; };
 import { saveAs } from "file-saver";
 
 import * as C from "./computeHelpers";
+import { itemCloseReasonLabel } from "@/utils/rfqItemClosure";
 
 // ── formats ───────────────────────────────────────────────────────────────
 // Plain grouping, not the Indian lakh/crore custom format: the conditional
@@ -78,6 +79,12 @@ const border = () => ({
 });
 
 const txt = (v, s) => ({ v: v == null ? "" : String(v), t: "s", s: { border: border(), ...(s || {}) } });
+
+// "Closed without award — No quotes received" for an item the buyer closed.
+const closedStateText = (p) => {
+  const reason = itemCloseReasonLabel(p.closure?.reason_code);
+  return reason ? `Closed without award — ${reason}` : "Closed without award";
+};
 const num = (v, z = MONEY, s) =>
   v == null || !Number.isFinite(Number(v))
     ? txt("", s)
@@ -270,7 +277,7 @@ function comparisonSheet(view) {
     row.push(num(l1Total));
     row.push(txt(awarded ? awarded.name : ""));
     row.push(num(awarded ? C.cellLineTotal(p, awarded.id) : null));
-    row.push(txt(p.state || ""));
+    row.push(txt(p.state === "closed" ? closedStateText(p) : p.state || ""));
 
     rows.push(row);
   });
@@ -553,6 +560,7 @@ export async function buildSummaryWorkbook(view) {
     metric("Pending approval", num(counts.pending, INT)),
     metric("Rejected", num(counts.rejected, INT)),
     metric("Not finalised", num(counts.open, INT)),
+    metric("Closed without award", num(counts.closed || 0, INT)),
     metric("Risk flags (missing costs)", num(C.riskFlagCount(vendors, products), INT)),
     [txt("")],
 

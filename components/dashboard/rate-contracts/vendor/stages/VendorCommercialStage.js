@@ -270,14 +270,14 @@ export default function VendorCommercialStage({
                           <div className="suffix" style={{ padding: 0 }}>
                             <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
                               {l.pricing_method === "MRP" ? (
-                                // MRP: GST is always a percentage extracted from within the price —
-                                // no ₹ option (an absolute GST would break the MRP round-trip; the
-                                // server forces percentage regardless of what the client sends).
+                                // MRP: GST is always a percentage extracted from within the price
+                                // (an absolute GST would break the MRP round-trip; the server forces
+                                // percentage regardless of what the client sends).
                                 <button type="button" className="is-active" style={{ borderRadius: 0 }} disabled>%</button>
                               ) : (
                                 <>
+                                  {/* GST is entered as a % only — the ₹ option was removed for vendors. */}
                                   <button type="button" className={l.gstMode === "%" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
-                                  <button type="button" className={l.gstMode === "₹" ? "is-active" : ""} onClick={() => updateLine(it.id, { gstMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
                                 </>
                               )}
                             </div>
@@ -773,8 +773,10 @@ export default function VendorCommercialStage({
                           />
                           <div className="suffix" style={{ padding: 0 }}>
                             <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                              <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], taxMode: "%" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
-                              <button type="button" className={c.taxMode === "₹" ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], taxMode: "₹" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                              {/* Charge tax is a % only. A charge saved earlier with a ₹ tax still shows
+                                  its ₹ (selected, not clickable); pressing % clears that figure. */}
+                              <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], taxMode: "%", ...(ch[ci].taxMode === "₹" ? { tax: "" } : {}) }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                              {c.taxMode === "₹" && <button type="button" className="is-active" style={{ borderRadius: 0 }} disabled title="Saved earlier in ₹. Press % to enter the tax as a percentage.">₹</button>}
                             </div>
                           </div>
                         </div>
@@ -914,8 +916,9 @@ export default function VendorCommercialStage({
                         />
                         <div className="suffix" style={{ padding: 0 }}>
                           <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
-                            <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "%" })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
-                            <button type="button" className={c.taxMode === "₹" ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "₹" })} style={{ borderRadius: 0 }} disabled={readOnly}>₹</button>
+                            {/* Charge tax is a % only (a ₹ tax saved earlier still shows, not clickable). */}
+                            <button type="button" className={(!c.taxMode || c.taxMode === "%") ? "is-active" : ""} onClick={() => updateGlobalCharge && updateGlobalCharge(ci, { taxMode: "%", ...(c.taxMode === "₹" ? { tax: "" } : {}) })} style={{ borderRadius: 0 }} disabled={readOnly}>%</button>
+                            {c.taxMode === "₹" && <button type="button" className="is-active" style={{ borderRadius: 0 }} disabled title="Saved earlier in ₹. Press % to enter the tax as a percentage.">₹</button>}
                           </div>
                         </div>
                       </div>
