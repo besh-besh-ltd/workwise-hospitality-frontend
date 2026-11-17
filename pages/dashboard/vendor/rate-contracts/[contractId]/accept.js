@@ -133,6 +133,9 @@ export default function VendorAcceptPage() {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [devCode, setDevCode] = useState(null);
   const [otpExpiresAt, setOtpExpiresAt] = useState(null);
+  // Where the code was emailed (masked by the server) and when Resend unlocks.
+  const [otpSentTo, setOtpSentTo] = useState([]);
+  const [resendIn, setResendIn] = useState(0);
 
   // decline modal
   const [showDecline, setShowDecline] = useState(false);
@@ -307,30 +310,48 @@ export default function VendorAcceptPage() {
 
   const toggleTerm = (k) => setTermCheck((s) => ({ ...s, [k]: !s[k] }));
 
-  // OTP — calls real API
-  const sendOtp = async () => {
+  // Resend countdown (the server allows one code a minute).
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setTimeout(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  // OTP — the server emails the code to the vendor's registered email.
+  const sendOtp = async ({ resend = false } = {}) => {
     if (otpSending || otpVerified) return;
     setOtpSending(true);
     setShowOtp(true);
     try {
       const res = await ArcApi.vendorRequestOtp(contractId);
       const code = res?.data?.dev_code || null;
+      const sentTo = res?.data?.sent_to || [];
       setDevCode(code);
       setOtpExpiresAt(res?.data?.otp_expires_at || null);
-      showToast(code ? `OTP sent (dev code shown below)` : "OTP sent to your registered mobile");
+      setOtpSentTo(sentTo);
+      setResendIn(Number(res?.data?.resend_after_seconds) || 60);
+      showToast(sentTo.length ? `Code sent to ${sentTo.join(", ")}` : "Code sent to your registered email");
     } catch (e) {
-      // axios interceptor will surface error toast; allow retry
-      setShowOtp(false);
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+      if (status === 429) {
+        // A code went out less than a minute ago and still works: keep the boxes.
+        setResendIn(Number(data?.data?.retry_after_seconds) || 60);
+      } else if (!resend) {
+        setShowOtp(false);
+      }
+      showToast(data?.message || "Couldn't send the code. Please try again.");
     } finally {
       setOtpSending(false);
     }
   };
   const resendOtp = async () => {
+    if (resendIn > 0) return;
     setOtpDigits(["", "", "", "", "", ""]);
     setOtpVerified(false);
     setOtpSending(false);
     setDevCode(null);
-    await sendOtp();
+    await sendOtp({ resend: true });
   };
   const onOtpInput = (i, e) => {
     const raw = (e.target.value || "").replace(/[^0-9]/g, "");
@@ -478,7 +499,6 @@ export default function VendorAcceptPage() {
   const arcTitle   = A.title || contract.arc_title || contract.title || "Rate contract";
   const vendorName = contract.vendor_name || "Your company";
   const vendorSignatory = contract.vendor_name || "Authorised signatory";
-  const vendorMobile = contract.vendor_mobile || contract.vendor_phone_masked || null;
   const vendorEmail  = contract.vendor_email || null;
   const isGroup    = !!A.is_group;
   const hotelName  = isGroup ? `${hotels.length} hotel${hotels.length === 1 ? "" : "s"}` : (A.hotel_name || "the business unit");
@@ -1038,25 +1058,18 @@ export default function VendorAcceptPage() {
                   {!showOtp ? (
                     <>
                       <div className="sf-intro">
-                        A one-time code will be sent to your registered mobile and email. Signing is <strong>irrevocable</strong> — the document hash (SHA-256) is sealed on verification.
+                        We'll email a one-time code to your registered email address. Signing is <strong>irrevocable</strong> — the document hash (SHA-256) is sealed on verification.
                       </div>
                       <div className="ev-stack">
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div className="ev-ic"><Icon w={15} d={ICONS.phone} /></div>
-                          <div style={{ flex: 1 }}>
-                            <div className="fs-12 text-fg fw-600">{vendorMobile || "+91 ●●●●● ●●●●●"}</div>
-                            <div className="fs-11 text-fg-3">Registered for vendor signatory</div>
-                          </div>
-                        </div>
-                        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
                           <div className="ev-ic"><Icon w={15} d={ICONS.mail} /></div>
                           <div style={{ flex: 1 }}>
-                            <div className="fs-12 text-fg fw-600">{vendorEmail || "vendor on file"}</div>
-                            <div className="fs-11 text-fg-3">Mirror copy of OTP</div>
+                            <div className="fs-12 text-fg fw-600" data-testid="otp-email">{vendorEmail || "your registered email"}</div>
+                            <div className="fs-11 text-fg-3">The code is sent here</div>
                           </div>
                         </div>
                       </div>
-                      <button className="btn btn-warn btn-lg mt-3" onClick={sendOtp} disabled={otpSending} style={{ width: "100%" }}>
+                      <button className="btn btn-warn btn-lg mt-3" onClick={() => sendOtp()} disabled={otpSending} style={{ width: "100%" }}>
                         <Icon w={15} d={ICONS.paperPlane} />
                         {otpSending ? "Sending OTP…" : "Send OTP & begin signing"}
                       </button>
@@ -1093,8 +1106,10 @@ export default function VendorAcceptPage() {
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-3 fs-11 text-fg-3">
-                        <span>Sent to your registered phone &amp; email</span>
-                        <button className="btn btn-ghost btn-sm" onClick={resendOtp} style={{ padding: "3px 8px", fontSize: 11 }} disabled={otpSending}>Resend</button>
+                        <span data-testid="otp-sent-to">Sent to {otpSentTo.length ? otpSentTo.join(", ") : (vendorEmail || "your registered email")}</span>
+                        <button className="btn btn-ghost btn-sm" onClick={resendOtp} style={{ padding: "3px 8px", fontSize: 11 }} disabled={otpSending || resendIn > 0}>
+                          {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend"}
+                        </button>
                       </div>
                       {!otpVerified && (
                         <button className="btn btn-success btn-lg mt-3" onClick={verifyOtp} disabled={otpCode.length !== 6 || otpVerifying} style={{ width: "100%" }}>
