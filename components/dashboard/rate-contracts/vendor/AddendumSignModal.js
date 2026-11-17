@@ -26,18 +26,39 @@ export default function AddendumSignModal({ addendum, onClose, onDone }) {
   const [devCode, setDevCode] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  // Where the code was emailed (masked) and when Resend unlocks (one code a minute).
+  const [sentTo, setSentTo] = useState([]);
+  const [resendIn, setResendIn] = useState(0);
 
   // Render into document.body so the overlay sits above any other modal
   // (e.g. the amendment-detail modal, which itself portals to body).
   useEffect(() => setMounted(true), []);
 
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setTimeout(() => setResendIn((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  // The server emails the code to the vendor's registered email.
   const sendOtp = async () => {
     setBusy(true); setErr(null);
     try {
       const res = await ArcApi.vendorRequestAddendumOtp(addendum.id);
       setDevCode(res?.data?.dev_code || null);
+      setSentTo(res?.data?.sent_to || []);
+      setResendIn(Number(res?.data?.resend_after_seconds) || 60);
       setStep("code");
-    } catch (e) { setErr("Could not send the OTP. Please try again."); }
+    } catch (e) {
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+      if (status === 429) {
+        // A code went out less than a minute ago and still works.
+        setResendIn(Number(data?.data?.retry_after_seconds) || 60);
+        setStep("code");
+      }
+      setErr(data?.message || "Could not send the OTP. Please try again.");
+    }
     finally { setBusy(false); }
   };
 
@@ -72,6 +93,12 @@ export default function AddendumSignModal({ addendum, onClose, onDone }) {
 
         {step === "code" && (
           <>
+            <div data-testid="addendum-otp-sent-to" style={{ marginTop: 14, fontSize: 12, color: "var(--fg-3)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span>{sentTo.length ? `We emailed the code to ${sentTo.join(", ")}` : "We emailed the code to your registered email"}</span>
+              <button className="btn btn-ghost btn-sm" onClick={sendOtp} disabled={busy || resendIn > 0} style={{ padding: "3px 8px", fontSize: 11 }}>
+                {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend"}
+              </button>
+            </div>
             {devCode && (
               <div style={{ marginTop: 14, padding: "8px 12px", background: "var(--surface-2)", border: "1px dashed var(--border)", borderRadius: 8, fontSize: 12, color: "var(--fg-3)" }}>
                 Dev OTP: <span className="mono fw-600" style={{ color: "var(--fg)" }}>{devCode}</span>
