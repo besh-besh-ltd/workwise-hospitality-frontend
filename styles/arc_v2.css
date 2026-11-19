@@ -3206,6 +3206,12 @@ a.mr-vendor-link:hover .mr-vendor-sub { text-decoration:underline; }
 .actor-card .afc-contact-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--fg-4); font-weight:700; margin-bottom:5px; }
 .actor-card .afc-contact-name { font-size:13px; color:var(--fg); font-weight:600; }
 .actor-card .afc-contact-role { font-size:11px; color:var(--fg-3); margin-top:1px; }
+/* REQ-2026-0095: "+N more" under a people list opens to show everyone. Used in
+   the who's-involved card and the approval decision card. */
+.afc-more { align-self:flex-start; background:none; border:0; padding:2px 0 0; margin:0; font:inherit; font-size:11.5px; font-weight:600; color:var(--primary); cursor:pointer; text-align:left; }
+.afc-more:hover { text-decoration:underline; }
+.afc-more:focus-visible { outline:2px solid var(--primary); outline-offset:2px; border-radius:3px; }
+.actor-card .afc-contact-others { font-size:11.5px; color:var(--fg-2); margin-top:2px; line-height:1.4; overflow-wrap:anywhere; }
 .actor-card .afc-contact-email { font-size:11.5px; color:var(--primary); text-decoration:none; display:block; margin-top:3px; }
 .actor-card .afc-contact-email:hover { text-decoration:underline; }
 .actor-card .afc-contact-mobile { font-size:11.5px; color:var(--fg-2); margin-top:2px; font-family:'Geist Mono',monospace; }
