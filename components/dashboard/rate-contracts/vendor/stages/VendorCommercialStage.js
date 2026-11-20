@@ -12,6 +12,7 @@
 //   - Aside overflow fix: .q-cols/.hero-summary get responsive style guards.
 
 import phone from "@/components/dashboard/rate-contracts/vendor/VendorArcPhone.module.css";
+import GstRateSelect from "@/components/shared/GstRateSelect";
 
 // Sr 53 — 2-decimal money display (not whole-rupee rounding); mirrors quote.js's fmtN.
 const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -256,15 +257,14 @@ export default function VendorCommercialStage({
                         {/* Sr 52 — GST is mandatory (0 is a valid explicit choice; blank is not). */}
                         <label className="label">{l.pricing_method === "MRP" ? "GST (extracted)" : "GST"} <span className="req">*</span></label>
                         <div className="input-group">
-                          <input
-                            type="number"
-                            inputMode="decimal"
+                          {/* Picked from a list; a rate saved earlier outside it (e.g. 0% or 2%)
+                              is shown as an extra option until changed. Blank can't be picked. */}
+                          <GstRateSelect
                             className="input input-num"
                             value={l.gst_pct}
-                            onChange={e => updateLine(it.id, { gst_pct: e.target.value })}
+                            onChange={v => updateLine(it.id, { gst_pct: v, gstMode: "%" })}
                             onBlur={onFieldBlur}
-                            placeholder="0"
-                            min="0"
+                            aria-label={l.pricing_method === "MRP" ? "GST (extracted)" : "GST"}
                             disabled={readOnly}
                           />
                           <div className="suffix" style={{ padding: 0 }}>
@@ -759,17 +759,19 @@ export default function VendorCommercialStage({
                         </div>
                         {/* Phase 2 — per-charge additional tax. Blank = inherit base GST; 0 = no tax; >0 = explicit rate. */}
                         <div className="input-group">
-                          <input
+                          {/* Blank = inherit the line's GST (selectable). A rate saved earlier
+                              outside the list, e.g. 0% (no tax), shows as an extra option. */}
+                          <GstRateSelect
                             className="input input-num"
-                            type="number"
-                            inputMode="decimal"
-                            value={c.tax ?? ""}
-                            onChange={e => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], tax: e.target.value }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
+                            value={c.tax}
+                            rupees={c.taxMode === "₹"}
+                            blankSelectable
+                            blankLabel="Inherit"
+                            onChange={v => setPrice(p => { const cur = { ...(p[modalItem.id] || blankLine()) }; const ch = [...cur.charges]; ch[ci] = { ...ch[ci], tax: v, taxMode: "%" }; cur.charges = ch; return { ...p, [modalItem.id]: cur }; })}
                             onBlur={onFieldBlur}
-                            placeholder="inherit"
-                            min="0"
                             disabled={readOnly}
-                            title="Leave blank to inherit the line's base GST; enter 0 for no tax on this charge; enter a rate for a custom charge tax."
+                            aria-label="GST on this charge"
+                            title="Inherit uses the line's GST; or pick a rate for this charge."
                           />
                           <div className="suffix" style={{ padding: 0 }}>
                             <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
@@ -902,17 +904,19 @@ export default function VendorCommercialStage({
                         </div>
                       </div>
                       <div className="input-group">
-                        <input
+                        {/* Blank = inherit the base GST (selectable). A rate saved earlier
+                            outside the list, e.g. 0% (no tax), shows as an extra option. */}
+                        <GstRateSelect
                           className="input input-num"
-                          type="number"
-                          inputMode="decimal"
-                          value={c.tax ?? ""}
-                          onChange={e => updateGlobalCharge && updateGlobalCharge(ci, { tax: e.target.value })}
+                          value={c.tax}
+                          rupees={c.taxMode === "₹"}
+                          blankSelectable
+                          blankLabel="Inherit"
+                          onChange={v => updateGlobalCharge && updateGlobalCharge(ci, { tax: v, taxMode: "%" })}
                           onBlur={onFieldBlur}
-                          placeholder="inherit"
-                          min="0"
                           disabled={readOnly}
-                          title="Leave blank to inherit the base GST; enter 0 for no tax; enter a rate for a custom charge tax."
+                          aria-label="GST on this charge"
+                          title="Inherit uses the base GST; or pick a rate for this charge."
                         />
                         <div className="suffix" style={{ padding: 0 }}>
                           <div className="seg" style={{ border: "none", borderRadius: 0, height: "100%" }}>
