@@ -162,7 +162,8 @@ const openPricing = async (rfq) => {
   return await screen.findAllByRole("group", { name: "Tax mode" });
 };
 
-const taxInputOf = (group) => group.closest(`div`).parentElement.querySelector("input");
+// The tax box beside a Tax mode group. It is a GST dropdown now (REQ-2026-0098).
+const taxInputOf = (group) => group.closest(`div`).parentElement.querySelector("select");
 
 beforeAll(() => {
   window.scrollTo = jest.fn();
@@ -186,14 +187,14 @@ describe("item Tax (GST)", () => {
     const rupee = within(group).getByRole("button", { name: "₹" });
     expect(rupee).toBeDisabled();
     expect(rupee).toHaveAttribute("aria-pressed", "true");
-    expect(taxInputOf(group)).toHaveValue(900);
+    expect(taxInputOf(group)).toHaveDisplayValue("₹900 (saved)");
 
     fireEvent.click(within(group).getByRole("button", { name: "%" }));
 
     const [after] = await screen.findAllByRole("group", { name: "Tax mode" });
     expect(within(after).queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
     expect(within(after).getByRole("button", { name: "%" })).toHaveAttribute("aria-pressed", "true");
-    expect(taxInputOf(after)).toHaveValue(null);
+    expect(taxInputOf(after)).toHaveDisplayValue("Select");
   });
 });
 
@@ -216,7 +217,7 @@ describe("tax on an item's other charge", () => {
   test("a charge saved earlier with a ₹ tax shows ₹ (not clickable); pressing % clears it", async () => {
     const { chargeTax } = await openCharges([freight({ tax: 45, tax_mode: "absolute" })]);
     expect(within(chargeTax).getByRole("button", { name: "₹" })).toBeDisabled();
-    expect(taxInputOf(chargeTax)).toHaveValue(45);
+    expect(taxInputOf(chargeTax)).toHaveDisplayValue("₹45 (saved)");
 
     fireEvent.click(within(chargeTax).getByRole("button", { name: "%" }));
 
@@ -224,7 +225,7 @@ describe("tax on an item's other charge", () => {
     const after = groups[groups.length - 1];
     expect(within(after).queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
     // Cleared to blank = "uses base rate" (the item's GST %).
-    expect(taxInputOf(after)).toHaveValue(null);
+    expect(taxInputOf(after)).toHaveDisplayValue("Base rate (18%)");
     expect(screen.getByText("uses base rate")).toBeInTheDocument();
   });
 });
@@ -253,6 +254,66 @@ describe("tax on a global charge", () => {
     fireEvent.click(within(legacy).getByRole("button", { name: "%" }));
     const after = screen.getAllByRole("group", { name: "Tax mode" })[1];
     expect(within(after).queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
-    expect(taxInputOf(after)).toHaveValue(null);
+    expect(taxInputOf(after)).toHaveDisplayValue("No tax");
+  });
+});
+
+// REQ-2026-0098 — Tax (GST) is picked from 5 / 12 / 18 / 28 / 40 %. A rate saved
+// before the dropdown (e.g. 2%) is shown as an extra option, so the quote still
+// reads as submitted, until the vendor picks a listed rate and saves.
+describe("GST dropdown", () => {
+  const optionsOf = (select) => within(select).getAllByRole("option").map((o) => o.textContent);
+
+  test("a line saved at 18% shows 18% and the four rates", async () => {
+    const [group] = await openPricing(mkRfq({ tax: "18.00" }));
+    const box = taxInputOf(group);
+    expect(box).toHaveDisplayValue("18%");
+    expect(optionsOf(box)).toEqual(["Select", "5%", "12%", "18%", "28%", "40%"]);
+  });
+
+  test("a line saved at 2% shows 2%; picking 18% switches it and keeps 2% offered until saved", async () => {
+    const [group] = await openPricing(mkRfq({ tax: 2 }));
+    const box = taxInputOf(group);
+    expect(box).toHaveDisplayValue("2%");
+    expect(optionsOf(box)).toEqual(["Select", "2%", "5%", "12%", "18%", "28%", "40%"]);
+
+    fireEvent.change(box, { target: { value: "18" } });
+
+    const [after] = await screen.findAllByRole("group", { name: "Tax mode" });
+    expect(taxInputOf(after)).toHaveDisplayValue("18%");
+    expect(optionsOf(taxInputOf(after))).toContain("2%");
+  });
+
+  test("picking a rate on a line saved with a ₹ tax moves it to %", async () => {
+    const [group] = await openPricing(mkRfq({ tax: 900, taxMode: "absolute" }));
+    fireEvent.change(taxInputOf(group), { target: { value: "12" } });
+    const [after] = await screen.findAllByRole("group", { name: "Tax mode" });
+    expect(taxInputOf(after)).toHaveDisplayValue("12%");
+    expect(within(after).queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
+    expect(optionsOf(taxInputOf(after))).not.toContain("₹900 (saved)");
+  });
+
+  test("40% can be picked and the line reads 40% GST", async () => {
+    const [group] = await openPricing(mkRfq({ tax: 18 }));
+    fireEvent.change(taxInputOf(group), { target: { value: "40" } });
+    const [after] = await screen.findAllByRole("group", { name: "Tax mode" });
+    expect(taxInputOf(after)).toHaveDisplayValue("40%");
+    // The line-total formula ("10 × ₹500.00 + 40% GST") is split across elements.
+    expect(document.body.textContent).toMatch(/\+\s*40%\s*GST/);
+  });
+
+  test("a charge saved with 0% (no tax) shows 0%; Base rate can be picked back", async () => {
+    await openPricing(mkRfq({ charges: [freight({ tax: 0 })] }));
+    fireEvent.click(await screen.findByRole("button", { name: /charge added/i }));
+    await screen.findByRole("button", { name: /^Done$/i });
+    const groups = screen.getAllByRole("group", { name: "Tax mode" });
+    const box = taxInputOf(groups[groups.length - 1]);
+    expect(box).toHaveDisplayValue("0%");
+    expect(optionsOf(box)).toEqual(["Base rate (18%)", "0%", "5%", "12%", "18%", "28%", "40%"]);
+
+    fireEvent.change(box, { target: { value: "" } });
+    const again = screen.getAllByRole("group", { name: "Tax mode" });
+    expect(taxInputOf(again[again.length - 1])).toHaveDisplayValue("Base rate (18%)");
+    expect(screen.getByText("uses base rate")).toBeInTheDocument();
   });
 });

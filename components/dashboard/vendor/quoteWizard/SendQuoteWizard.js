@@ -39,6 +39,7 @@ import usePreviewTotals from "@/hooks/usePreviewTotals";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import QuoteMethodModal from "@/components/shared/QuoteMethodModal";
 import ReadMore from "@/components/shared/ReadMore";
+import GstRateSelect from "@/components/shared/GstRateSelect";
 import {
   RaiseClarificationModal,
   ClarificationDetailModal,
@@ -4362,17 +4363,16 @@ const Step3Pricing = ({
                         {p.pricing_method === "MRP" ? "GST % (extracted from MRP)" : "Tax (GST)"}
                       </label>
                       <div className={styles.taxField}>
-                        <input
-                          type="number"
-                          inputMode="decimal"
+                        {/* GST is picked from a list. A rate saved earlier outside the
+                            list (or a ₹ tax) is shown as an extra option until changed. */}
+                        <GstRateSelect
                           className={styles.taxInput}
-                          value={p.tax ?? ""}
-                          onChange={(e) =>
-                            onUpdateProduct(idx, { tax: e.target.value })
+                          value={p.tax}
+                          rupees={p.pricing_method !== "MRP" && p.tax_mode === "absolute"}
+                          onChange={(v) =>
+                            onUpdateProduct(idx, { tax: v, tax_mode: "percentage" })
                           }
-                          placeholder="0"
-                          min={0}
-                          onWheel={(e) => e.currentTarget.blur()}
+                          aria-label={p.pricing_method === "MRP" ? "GST % (extracted from MRP)" : "Tax (GST)"}
                           disabled={locked || !isFieldTaxNegotiable("base_price", "unit_price", "price")}
                         />
                         {p.pricing_method === "MRP" ? (
@@ -5847,21 +5847,26 @@ const ChargesModal = ({ product, pIdx, onClose, onAddCharge, onUpdateCharge, onR
                       ) : null}
                     </label>
                     <div className={styles.taxField}>
-                      <input
+                      {/* Blank = "uses base rate" (the item's GST), still selectable. */}
+                      <GstRateSelect
                         className={styles.taxInput}
-                        type="number"
-                        inputMode="decimal"
-                        value={ch.tax == null ? "" : ch.tax}
-                        onChange={(e) =>
+                        value={ch.tax}
+                        rupees={ch.tax_mode === "absolute"}
+                        blankSelectable
+                        blankLabel={
+                          product?.tax === "" || product?.tax == null
+                            ? "Base rate"
+                            : `Base rate (${Number(product.tax) || 0}${
+                                (product?.tax_mode || "percentage") === "absolute" ? "₹" : "%"
+                              })`
+                        }
+                        onChange={(v) =>
                           onUpdateCharge(ci, {
-                            tax: e.target.value === "" ? null : Number(e.target.value),
+                            tax: v === "" ? null : Number(v),
+                            tax_mode: "percentage",
                           })
                         }
-                        placeholder={`${product?.tax ?? 0}${
-                          (product?.tax_mode || "percentage") === "absolute" ? "₹" : "%"
-                        }`}
-                        min={0}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        aria-label="Tax (GST) on this charge"
                         disabled={isChargeTaxLocked(ch)}
                       />
                       <TaxPercentOnlyToggle
@@ -6301,19 +6306,25 @@ const GlobalChargesModal = ({ charges, onClose, onAddCharge, onUpdateCharge, onR
                       Tax (GST) <span className={styles.labelMeta}>optional</span>
                     </label>
                     <div className={styles.taxField}>
-                      <input
+                      {/* Optional: blank = no GST on this charge, still selectable. A saved
+                          0% means the same thing, so it shows as "No tax" too. */}
+                      <GstRateSelect
                         className={styles.taxInput}
-                        type="number"
-                        inputMode="decimal"
-                        value={ch.extra_tax == null ? "" : ch.extra_tax}
-                        onChange={(e) =>
+                        value={
+                          ch.extra_tax_mode !== "absolute" && ch.extra_tax !== "" && ch.extra_tax != null && Number(ch.extra_tax) === 0
+                            ? ""
+                            : ch.extra_tax
+                        }
+                        rupees={ch.extra_tax_mode === "absolute"}
+                        blankSelectable
+                        blankLabel="No tax"
+                        onChange={(v) =>
                           onUpdateCharge(ci, {
-                            extra_tax: e.target.value === "" ? "" : Number(e.target.value),
+                            extra_tax: v === "" ? "" : Number(v),
+                            extra_tax_mode: "percentage",
                           })
                         }
-                        placeholder="0"
-                        min={0}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        aria-label="Tax (GST) on this charge"
                         disabled={isChargeLocked(ch)}
                       />
                       <TaxPercentOnlyToggle
