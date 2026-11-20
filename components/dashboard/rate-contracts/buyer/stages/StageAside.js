@@ -4,12 +4,38 @@
 //   ActorFlowCard  — Item 3: per-stage who-acts / who-approves / next-stage
 //   ApprovalDecisionCard — Item 2: highlighted approval decision card (right-sized buttons)
 
+import { useState } from "react";
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 function initials(name) {
   if (!name) return "?";
   const parts = String(name).trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// "+N more" under a capped people list is a button that shows everyone
+// (REQ-2026-0095: the names behind "+1 more" could not be seen). The lifecycle
+// API already sends the full list; only the screen capped it.
+function MoreToggle({ hidden, expanded, onToggle }) {
+  if (!hidden || hidden <= 0) return null;
+  return (
+    <button type="button" className="afc-more" aria-expanded={expanded} onClick={onToggle}>
+      {expanded ? "Show fewer" : `+${hidden} more`}
+    </button>
+  );
+}
+
+// The people behind the contact's "+N more": the step's other pending live
+// approvers, picked by the same rule as the backend's deriveContact (pending
+// first, else every live approver; never a REMOVED one). The contact is the
+// first of that set. Names only — no extra emails or mobile numbers.
+export function contactOthers(approver) {
+  if (approver?.status !== "PENDING" || !Array.isArray(approver.people)) return [];
+  const live = approver.people.filter((p) => p.status !== "REMOVED");
+  const pending = live.filter((p) => p.status === "PENDING");
+  const pool = pending.length > 0 ? pending : live;
+  return pool.slice(1);
 }
 
 // ── StageColumns ─────────────────────────────────────────────────────────────
@@ -79,6 +105,15 @@ export function ActorFlowCard({ stage }) {
   // No data yet
   if (!flow && !actors) return null;
 
+  return <ActorFlowBody flow={flow} actors={actors} />;
+}
+
+// The "who's involved" body. A component of its own so its expand/collapse
+// state lives below ActorFlowCard's early returns (hooks may not follow them).
+function ActorFlowBody({ flow, actors }) {
+  const [showAllActors, setShowAllActors] = useState(false);
+  const [showAllApprovers, setShowAllApprovers] = useState(false);
+
   const approver = actors?.approver || null;
   const actionTaker = actors?.action_taker || null;
   const nextStage = actors?.next_stage || null;
@@ -93,6 +128,8 @@ export function ActorFlowCard({ stage }) {
     return null;
   };
   const approverPill = approverStatusLabel();
+  // Only when the backend counted others (contact.plus) — an evaluator contact has none.
+  const contactOthersList = contact?.plus ? contactOthers(approver) : [];
 
   return (
     <div className="actor-card">
@@ -107,15 +144,17 @@ export function ActorFlowCard({ stage }) {
             <div className="afc-value">{actionTaker.role}</div>
             {actionTaker.people && actionTaker.people.length > 0 && (
               <div className="afc-people">
-                {actionTaker.people.slice(0, 2).map((p) => (
+                {(showAllActors ? actionTaker.people : actionTaker.people.slice(0, 2)).map((p) => (
                   <div key={p.user_id || p.id || p.email} className="afc-person">
                     <div className="afc-av">{initials(p.name)}</div>
                     <span className="afc-pname">{p.name}</span>
                   </div>
                 ))}
-                {actionTaker.people.length > 2 && (
-                  <div className="afc-sub">+{actionTaker.people.length - 2} more</div>
-                )}
+                <MoreToggle
+                  hidden={actionTaker.people.length - 2}
+                  expanded={showAllActors}
+                  onToggle={() => setShowAllActors((v) => !v)}
+                />
               </div>
             )}
           </div>
@@ -150,7 +189,7 @@ export function ActorFlowCard({ stage }) {
                 )}
                 {approver.people && approver.people.length > 0 && approver.status === "PENDING" && (
                   <div className="afc-people">
-                    {approver.people.slice(0, 2).map((p) => (
+                    {(showAllApprovers ? approver.people : approver.people.slice(0, 2)).map((p) => (
                       <div key={p.user_id || p.email} className="afc-person">
                         <div className="afc-av">{initials(p.name)}</div>
                         <div>
@@ -159,9 +198,11 @@ export function ActorFlowCard({ stage }) {
                         </div>
                       </div>
                     ))}
-                    {approver.people.length > 2 && (
-                      <div className="afc-sub">+{approver.people.length - 2} more</div>
-                    )}
+                    <MoreToggle
+                      hidden={approver.people.length - 2}
+                      expanded={showAllApprovers}
+                      onToggle={() => setShowAllApprovers((v) => !v)}
+                    />
                   </div>
                 )}
               </>
@@ -184,7 +225,15 @@ export function ActorFlowCard({ stage }) {
         {contact && (
           <div className="afc-contact">
             <div className="afc-contact-label">Contact to clear this stage</div>
-            <div className="afc-contact-name">{contact.name}{contact.plus ? ` +${contact.plus} more` : ""}</div>
+            <div className="afc-contact-name">
+              {contact.name}
+              {contact.plus && !contactOthersList.length ? ` +${contact.plus} more` : ""}
+            </div>
+            {contactOthersList.length > 0 && (
+              <div className="afc-contact-others">
+                Also: {contactOthersList.map((p) => p.name).join(", ")}
+              </div>
+            )}
             <div className="afc-contact-role">{contact.role}</div>
             {contact.email && (
               <a href={`mailto:${contact.email}`} className="afc-contact-email">{contact.email}</a>
@@ -226,6 +275,7 @@ export function ApprovalDecisionCard({
   rejectRequiredLabel = "required to reject",
   children,
 }) {
+  const [showAllApprovers, setShowAllApprovers] = useState(false);
   return (
     <div className="approve-aside">
       <div className="aa-head">
@@ -236,7 +286,7 @@ export function ApprovalDecisionCard({
       {/* Compact approvers list (read-only context) */}
       {approvers && approvers.length > 0 && (
         <div className="aa-approvers">
-          {approvers.slice(0, 3).map((ap) => (
+          {(showAllApprovers ? approvers : approvers.slice(0, 3)).map((ap) => (
             <div key={ap.user_id || ap.email} className="mem-row" style={{ padding: "6px 0", gridTemplateColumns: "24px 1fr" }}>
               <div className="mr-av" style={{ width: 24, height: 24, fontSize: 9, borderRadius: 6 }}>{initials(ap.name || ap.user_name)}</div>
               <div className="mr-meta">
@@ -247,9 +297,11 @@ export function ApprovalDecisionCard({
               </div>
             </div>
           ))}
-          {approvers.length > 3 && (
-            <div style={{ fontSize: 11, color: "var(--fg-4)", paddingTop: 4 }}>+{approvers.length - 3} more</div>
-          )}
+          <MoreToggle
+            hidden={approvers.length - 3}
+            expanded={showAllApprovers}
+            onToggle={() => setShowAllApprovers((v) => !v)}
+          />
         </div>
       )}
 
