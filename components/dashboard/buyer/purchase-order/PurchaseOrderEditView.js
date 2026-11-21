@@ -15,6 +15,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { addCommasToNumber } from "@/utils/sharedFunctions";
 import CommonFormInput from "@/components/shared/CommonFormInput";
+import GstRateSelect from "@/components/shared/GstRateSelect";
 import usePreviewTotals from "@/hooks/usePreviewTotals";
 
 // Map a PO product's legacy charges_meta shape into the engine's canonical
@@ -648,34 +649,22 @@ const PurchaseOrderEditView = ({
                           <Col md={4}>
                             <Form.Group>
                               <Form.Label>Tax (GST)</Form.Label>
-                              <div className="d-flex gap-2">
-                                <Form.Control
-                                  type="number"
-                                  min={0}
-                                  value={charges.tax ?? ""}
-                                  onChange={(e) =>
-                                    handleChargeChange(
-                                      idx,
-                                      "tax",
-                                      e.target.value
-                                    )
+                              {/* GST is picked from the list, as a % (like the vendor's quote).
+                                  A rate saved earlier outside the list (e.g. 0% or 13%) is shown
+                                  as an extra option, and a flat ₹ tax as "₹N (saved)", until a
+                                  listed rate is picked. */}
+                              <GstRateSelect
+                                className="form-control"
+                                value={charges.tax}
+                                rupees={charges.tax_mode === "absolute"}
+                                aria-label="Tax (GST)"
+                                onChange={(v) => {
+                                  handleChargeChange(idx, "tax", v);
+                                  if ((charges.tax_mode || "percentage") !== "percentage") {
+                                    handleChargeChange(idx, "tax_mode", "percentage");
                                   }
-                                />
-                                <Form.Select
-                                  style={{ maxWidth: 130 }}
-                                  value={charges.tax_mode || "percentage"}
-                                  onChange={(e) =>
-                                    handleChargeChange(
-                                      idx,
-                                      "tax_mode",
-                                      e.target.value
-                                    )
-                                  }
-                                >
-                                  <option value="percentage">%</option>
-                                  <option value="absolute">₹</option>
-                                </Form.Select>
-                              </div>
+                                }}
+                              />
                             </Form.Group>
                           </Col>
                         </Row>
