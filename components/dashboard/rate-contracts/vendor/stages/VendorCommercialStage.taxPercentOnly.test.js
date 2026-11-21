@@ -8,6 +8,9 @@
 //
 // The line GST had a second reason to go: its ₹/% mode is never stored, so a
 // ₹ GST came back on reload as the same number read as a percentage.
+//
+// The GST boxes are dropdowns now (REQ-2026-0098), so a box is found by the
+// text of its selected option: "18%", or "₹36 (saved)" for an old ₹ tax.
 
 import React from "react";
 import { render, screen, within, fireEvent } from "@testing-library/react";
@@ -73,7 +76,7 @@ const charge = (over = {}) => ({ name: "Freight", amount: "200", amountMode: "�
 
 test("line GST offers % only — no ₹ button", () => {
   renderStage();
-  const gst = screen.getByDisplayValue("18");
+  const gst = screen.getByDisplayValue("18%");
   const seg = segFor(gst);
   expect(seg.getByRole("button", { name: "%" })).toHaveClass("is-active");
   expect(seg.queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
@@ -84,14 +87,14 @@ test("tax on an item's other charge offers % only; the charge amount keeps ₹",
   const amountSeg = segFor(screen.getByDisplayValue("200"));
   expect(amountSeg.getByRole("button", { name: "₹" })).toBeInTheDocument();
 
-  const taxSeg = segFor(screen.getByDisplayValue("5"));
+  const taxSeg = segFor(screen.getByDisplayValue("5%"));
   expect(taxSeg.getByRole("button", { name: "%" })).toHaveClass("is-active");
   expect(taxSeg.queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
 });
 
 test("a charge saved earlier with a ₹ tax shows ₹ (not clickable); pressing % clears the old figure", () => {
   const { price, setPrice } = renderStage({ chargesOpen: ITEM.id, line: { charges: [charge({ tax: "36", taxMode: "₹" })] } });
-  const taxSeg = segFor(screen.getByDisplayValue("36"));
+  const taxSeg = segFor(screen.getByDisplayValue("₹36 (saved)"));
   const rupee = taxSeg.getByRole("button", { name: "₹" });
   expect(rupee).toBeDisabled();
   expect(rupee).toHaveClass("is-active");
@@ -103,7 +106,7 @@ test("a charge saved earlier with a ₹ tax shows ₹ (not clickable); pressing 
 
 test("pressing % on a charge already in % keeps its rate", () => {
   const { price, setPrice } = renderStage({ chargesOpen: ITEM.id, line: { charges: [charge({ tax: "12" })] } });
-  fireEvent.click(segFor(screen.getByDisplayValue("12")).getByRole("button", { name: "%" }));
+  fireEvent.click(segFor(screen.getByDisplayValue("12%")).getByRole("button", { name: "%" }));
   const next = setPrice.mock.calls[0][0](price);
   expect(next[ITEM.id].charges[0]).toMatchObject({ taxMode: "%", tax: "12" });
 });
@@ -113,12 +116,53 @@ test("tax on a document-level charge offers % only; a saved ₹ tax is cleared o
     globalChargesOpen: true,
     globalCharges: [charge({ name: "Insurance", amount: "300", tax: "9" }), charge({ name: "TCS", amount: "400", tax: "40", taxMode: "₹" })],
   });
-  const fresh = segFor(screen.getByDisplayValue("9"));
+  const fresh = segFor(screen.getByDisplayValue("9%"));
   expect(fresh.queryByRole("button", { name: "₹" })).not.toBeInTheDocument();
   expect(segFor(screen.getByDisplayValue("300")).getByRole("button", { name: "₹" })).toBeInTheDocument();
 
-  const legacy = segFor(screen.getByDisplayValue("40"));
+  const legacy = segFor(screen.getByDisplayValue("₹40 (saved)"));
   expect(legacy.getByRole("button", { name: "₹" })).toBeDisabled();
   fireEvent.click(legacy.getByRole("button", { name: "%" }));
   expect(updateGlobalCharge).toHaveBeenCalledWith(1, { taxMode: "%", tax: "" });
+});
+
+// REQ-2026-0098 — GST is picked from 5 / 12 / 18 / 28 / 40 %. A rate saved before the
+// dropdown (e.g. 2%, or 0% on a charge) is shown as an extra option until changed.
+describe("GST dropdown", () => {
+  const optionsOf = (select) => within(select).getAllByRole("option").map((o) => o.textContent);
+
+  test("line GST saved at 2% shows 2%; picking 12% updates the line as a %", () => {
+    const { updateLine } = renderStage({ line: { gst_pct: "2" } });
+    const box = screen.getByDisplayValue("2%");
+    expect(optionsOf(box)).toEqual(["Select", "2%", "5%", "12%", "18%", "28%", "40%"]);
+    fireEvent.change(box, { target: { value: "12" } });
+    expect(updateLine).toHaveBeenCalledWith(ITEM.id, { gst_pct: "12", gstMode: "%" });
+  });
+
+  test("a blank line GST shows Select, which can't be picked (GST stays mandatory)", () => {
+    renderStage({ line: { gst_pct: "" } });
+    const box = screen.getByRole("combobox", { name: "GST" });
+    expect(box).toHaveDisplayValue("Select");
+    expect(within(box).getByRole("option", { name: "Select" })).toBeDisabled();
+  });
+
+  test("a charge saved at 0% (no tax) shows 0%; Inherit can be picked back", () => {
+    const { price, setPrice } = renderStage({ chargesOpen: ITEM.id, line: { charges: [charge({ tax: "0" })] } });
+    const box = screen.getByDisplayValue("0%");
+    expect(optionsOf(box)).toEqual(["Inherit", "0%", "5%", "12%", "18%", "28%", "40%"]);
+    fireEvent.change(box, { target: { value: "" } });
+    const next = setPrice.mock.calls[0][0](price);
+    expect(next[ITEM.id].charges[0]).toMatchObject({ tax: "", taxMode: "%" });
+  });
+
+  test("a document-level charge picks a rate (40%) as a %", () => {
+    const { updateGlobalCharge } = renderStage({
+      globalChargesOpen: true,
+      globalCharges: [charge({ name: "Insurance", amount: "300", tax: "" })],
+    });
+    const box = screen.getByRole("combobox", { name: "GST on this charge" });
+    expect(box).toHaveDisplayValue("Inherit");
+    fireEvent.change(box, { target: { value: "40" } });
+    expect(updateGlobalCharge).toHaveBeenCalledWith(0, { tax: "40", taxMode: "%" });
+  });
 });

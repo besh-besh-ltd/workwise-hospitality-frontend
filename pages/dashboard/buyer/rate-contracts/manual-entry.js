@@ -13,9 +13,10 @@
 // GET /manual/draft/:id. Section autosave on blur (PUT section). On finalize,
 // navigate to the new ARC's lifecycle detail page. arc_v2.css tokens only.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import * as ArcApi from "@/services/arc_v2";
+import GstRateSelect from "@/components/shared/GstRateSelect";
 import {
   buildSectionPayload,
   buildDraftPayload,
@@ -97,6 +98,28 @@ const RULE_BADGE = {
   A: { label: "Auto",     cls: "violet" },
   H: { label: "Hidden",   cls: "" },
 };
+
+// A section card — only renders when its group belongs to the active step and
+// is not hidden for the current stage; shows the title + a Required/Optional badge.
+// Defined here, not inside the page, so React keeps the same component between
+// renders: declared inside, every keystroke made it a new type and rebuilt the
+// boxes in it, so the box being typed in lost focus and its blur autosave was
+// skipped. The page passes what it needs (rules, current step, badge) via context.
+const SectionCtx = createContext({ rules: {}, current: { groups: [] }, badge: () => null });
+function Section({ g, children }) {
+  const { rules, current, badge } = useContext(SectionCtx);
+  if (rules[g.id] === "H") return null;
+  if (!current.groups.includes(g.id)) return null;
+  return (
+    <div className="section-card" id={`sec-${g.key}`}>
+      <div className="section-head">
+        <strong style={{ fontSize: 14 }}>{g.title}</strong>
+        {badge(g.id)}
+      </div>
+      <div className="section-body">{children}</div>
+    </div>
+  );
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Wizard steps — the page is a guided, one-step-at-a-time flow. Each step
@@ -958,27 +981,15 @@ export default function ManualArcEntryPage() {
     return <span className={cls} style={r === "A" ? { color: "var(--violet)", background: "var(--violet-soft)", borderColor: "rgba(109,40,217,0.18)" } : undefined}>{text}</span>;
   }
 
-  // a section card — only renders when its group belongs to the active step and
-  // is not hidden for the current stage; shows the title + a Required/Optional badge.
-  function Section({ g, children }) {
-    if (rules[g.id] === "H") return null;
-    if (!current.groups.includes(g.id)) return null;
-    return (
-      <div className="section-card" id={`sec-${g.key}`}>
-        <div className="section-head">
-          <strong style={{ fontSize: 14 }}>{g.title}</strong>
-          <RuleBadge gid={g.id} />
-        </div>
-        <div className="section-body">{children}</div>
-      </div>
-    );
-  }
+  // What the module-level <Section> needs from this render (see SectionCtx).
+  const sectionCtx = { rules, current, badge: (gid) => <RuleBadge gid={gid} /> };
 
   const numericContract = stage === "ended" ? endedStatus : (
     stage === "active" ? "contract_active" :
     stage === "sig_pending" ? "awaiting_vendor_acceptance" : null);
 
   return (
+    <SectionCtx.Provider value={sectionCtx}>
     <div className="main-body" style={{ paddingBottom: 96 }}>
       {/* ── Header (full width — shares the grid's left edge) ── */}
       <header className="me-head">
@@ -1403,7 +1414,8 @@ export default function ManualArcEntryPage() {
                             <tr key={it.uid}>
                               <td style={{ fontWeight: 600 }}>{it.name}</td>
                               <td className="text-right"><input className="input input-num" style={{ width: 90 }} type="number" min="0" value={ql.rate ?? ""} onBlur={() => autosaveSection("quotes")} onChange={(e) => setQuoteLine(v.id, it.uid, { rate: e.target.value })} /></td>
-                              <td className="text-right"><input className="input input-num" style={{ width: 70 }} type="number" min="0" max="100" value={ql.gst_pct ?? ""} onBlur={() => autosaveSection("quotes")} onChange={(e) => setQuoteLine(v.id, it.uid, { gst_pct: e.target.value })} /></td>
+                              {/* GST is picked from the list; a rate saved earlier outside it (e.g. 0% or 13%) is shown as an extra option until changed. */}
+                              <td className="text-right"><GstRateSelect className="input input-num" style={{ width: 96 }} value={ql.gst_pct} aria-label={`GST % for ${it.name}`} onBlur={() => autosaveSection("quotes")} onChange={(val) => setQuoteLine(v.id, it.uid, { gst_pct: val })} /></td>
                               <td className="text-right"><input className="input input-num" style={{ width: 70 }} type="number" min="0" value={ql.lead_time_days ?? ""} onBlur={() => autosaveSection("quotes")} onChange={(e) => setQuoteLine(v.id, it.uid, { lead_time_days: e.target.value })} /></td>
                               <td className="text-right"><input className="input input-num" style={{ width: 70 }} type="number" min="0" value={ql.moq ?? ""} onBlur={() => autosaveSection("quotes")} onChange={(e) => setQuoteLine(v.id, it.uid, { moq: e.target.value })} /></td>
                             </tr>
@@ -1742,6 +1754,7 @@ export default function ManualArcEntryPage() {
         }
       `}</style>
     </div>
+    </SectionCtx.Provider>
   );
 }
 
