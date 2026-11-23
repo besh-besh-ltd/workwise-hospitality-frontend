@@ -77,9 +77,21 @@ const BUCKET_ORDER_LIFECYCLE = {
 
 // Finer per-row chip override for the two publish-approval states (they share
 // the "draft" bucket but deserve a distinct label + tone on the card).
-function statusChipOverride(status) {
+function statusChipOverride(row) {
+  const status = row?.status;
   if (status === "pending_publish_approval") return { label: "Pending approval", tone: "committee" };
   if (status === "publish_rejected")         return { label: "Publish rejected", tone: "expired" };
+  // REQ-2026-0094 — the bucket (and its filter) stays "Floated", but once the
+  // window is over nobody is waiting on vendors any more; the pill says so.
+  // The server decides the window (IST), so a browser clock can't skew it.
+  if (status === "submission_closed" || (status === "floated" && row?.submission_window_closed === true)) {
+    return { label: "Submissions closed", tone: "floated" };
+  }
+  // Committee approved, contract copies still with the buyer: nothing has gone
+  // to the vendors yet, so "Awaiting Vendor" would point at the wrong side.
+  if (status === "committee_approved" || status === "contract_generated") {
+    return { label: "Contract review", tone: "committee" };
+  }
   return null;
 }
 
@@ -288,6 +300,93 @@ function VendorCell({ vendors, commercialHref }) {
     >
       Vendor: <span className="em">{primary}</span>{vendors.length > 1 ? ` +${vendors.length - 1}` : ""}
       {anchor && <VendorTooltip vendors={vendors} anchor={anchor} />}
+    </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  "Waiting on" — who the contract's next step is waiting on (REQ-2026-0094).
+//  The server decides who (row.waiting_on, built from the approval engine,
+//  the ARC's evaluator roles and its vendors); this only words it. Hover lists
+//  everyone, with the role, the approval level and what they need to do.
+// ──────────────────────────────────────────────────────────────────────────
+const RULE_TEXT = { ANY: "any one approves", ALL: "all must approve" };
+
+function waitingOnPeople(w) {
+  return (Array.isArray(w?.people) ? w.people : []).filter((p) => p && p.name);
+}
+
+function WaitingOnTooltip({ w, anchor }) {
+  if (!anchor || typeof document === "undefined") return null;
+  const W = 280;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const left = Math.max(8, Math.min(anchor.right - W, vw - W - 8));
+  const above = anchor.top > (vh - anchor.bottom);
+  const pos = above ? { bottom: Math.max(8, vh - anchor.top + 8) } : { top: anchor.bottom + 8 };
+  const people = waitingOnPeople(w);
+  const shown = people.slice(0, 10);
+  const extra = people.length - shown.length;
+  const step = w.step && w.step.level
+    ? `Level ${w.step.level} of ${w.step.of || w.step.level}${RULE_TEXT[w.step.rule] ? ` · ${RULE_TEXT[w.step.rule]}` : ""}`
+    : null;
+  return createPortal(
+    <div role="tooltip" style={{ position: "fixed", left, ...pos, zIndex: 4000, width: W, background: "#fff", border: "1px solid #ebebe6", borderRadius: 11, boxShadow: "0 10px 30px -10px rgba(15,15,14,0.22), 0 2px 8px rgba(15,15,14,0.06)", overflow: "hidden", pointerEvents: "none", textAlign: "left" }}>
+      <div style={{ padding: "9px 13px", borderBottom: "1px solid #f4f4f1" }}>
+        <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa" }}>Waiting on · {w.role}</div>
+        {step && <div style={{ fontSize: 11, color: "#71717a", marginTop: 3 }}>{step}</div>}
+        {w.action && <div style={{ fontSize: 12, color: "#3f3f46", marginTop: 3, lineHeight: 1.35 }}>{w.action}</div>}
+      </div>
+      <div style={{ padding: "6px 0" }}>
+        {shown.map((p, i) => (
+          <div key={`${p.name}-${i}`} style={{ padding: "5px 13px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#18181b", lineHeight: 1.3 }}>{p.name}</span>
+            {p.company ? <span style={{ fontSize: 11, color: "#71717a", lineHeight: 1.3 }}>{p.company}</span> : null}
+          </div>
+        ))}
+        {extra > 0 && <div style={{ padding: "4px 13px 2px", fontSize: 11, color: "#a1a1aa" }}>+{extra} more</div>}
+        {people.length === 0 && w.kind !== "window" && (
+          <div style={{ padding: "5px 13px", fontSize: 12, color: "#b45309" }}>
+            {Number(w.unreachable) > 0
+              ? "The only approver on this level is inactive and cannot act."
+              : "No one holds this role for this hotel and department yet."}
+          </div>
+        )}
+        {people.length > 0 && Number(w.unreachable) > 0 && (
+          <div style={{ padding: "4px 13px 2px", fontSize: 11, color: "#a1a1aa" }}>
+            {w.unreachable} inactive approver{Number(w.unreachable) === 1 ? "" : "s"} not shown
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function WaitingOn({ w }) {
+  const ref = useRef(null);
+  const [anchor, setAnchor] = useState(null);
+  if (!w || !w.role) return null;
+  const people = waitingOnPeople(w);
+  let body;
+  if (people.length > 0) {
+    body = (<>Waiting on <span className="fw-600 text-fg">{people[0].name}</span>{people.length > 1 ? ` +${people.length - 1}` : ""}</>);
+  } else if (w.kind === "window") {
+    body = "Waiting for the window to close";
+  } else {
+    body = (<>Waiting on <span className="fw-600 text-fg">{w.role}</span> · <span style={{ color: "#b45309" }}>{Number(w.unreachable) > 0 ? "approver inactive" : "none assigned"}</span></>);
+  }
+  return (
+    <span
+      ref={ref}
+      className="text-fg-3 fs-12"
+      data-testid="arc-waiting-on"
+      onMouseEnter={() => { if (ref.current) setAnchor(ref.current.getBoundingClientRect()); }}
+      onMouseLeave={() => setAnchor(null)}
+      style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "default" }}
+    >
+      {body}
+      {anchor && <WaitingOnTooltip w={w} anchor={anchor} />}
     </span>
   );
 }
@@ -580,7 +679,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
 
             {!loading && filtered.map((row) => {
               const bucket = statusBucket(row.status);
-              const chipOverride = statusChipOverride(row.status);
+              const chipOverride = statusChipOverride(row);
               const tone = chipOverride ? chipOverride.tone : BUCKET_TONE[bucket];
               const chipLabel = chipOverride ? chipOverride.label : BUCKET_LABEL[bucket];
               const termStart = fmtDate(row.contract_start_at);
@@ -681,6 +780,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                       <span className={`status-pill ${tone}${pulse ? " pulse" : ""}`}>
                         <span className="dot" /><span>{chipLabel}</span>
                       </span>
+                      <WaitingOn w={row.waiting_on} />
                       {Number(row.requested_amendments) > 0 && (
                         <span className="your-action" style={{ fontSize: 10, padding: "3px 9px" }}>
                           {row.requested_amendments} amendment{Number(row.requested_amendments) === 1 ? "" : "s"} pending
@@ -728,7 +828,7 @@ export default function ContractsListPage({ filterPreset = "all" }) {
                         </div>
                         <span className="progress-label">
                           <span className="mono">{submittedOverInvited}</span> vendors
-                          {subEnd && (<> · closes <span className="fw-600 text-fg">{subEnd}</span></>)}
+                          {subEnd && (<> · {row.submission_window_closed || row.status === "submission_closed" ? "closed" : "closes"} <span className="fw-600 text-fg">{subEnd}</span></>)}
                         </span>
                       </div>
                     </div>
