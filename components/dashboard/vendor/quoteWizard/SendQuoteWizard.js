@@ -366,7 +366,7 @@ const DocAskComment = ({ comment }) => {
 
 const ALL_STEPS = [
   { id: "overview", label: "Inquiry overview", meta: "Buyer, products & terms" },
-  { id: "clarifications", label: "Clarifications", meta: "Tender clarification window" },
+  { id: "clarifications", label: "Clarifications", meta: "Clarification window" },
   { id: "eval", label: "Technical evaluation", meta: "Specs & clause responses" },
   { id: "pricing", label: "Pricing", meta: "Per-line prices & charges" },
   { id: "terms", label: "Commercial terms", meta: "GSTIN, payment & global charges" },
@@ -668,7 +668,7 @@ const SendQuoteWizard = () => {
   const markUnsaved = () => { hasUnsavedChangesRef.current = true; };
   const clearUnsaved = () => { hasUnsavedChangesRef.current = false; };
 
-  // Clarifications (tenders only) — list + open status + modals.
+  // Clarifications (RFQs and tenders) — list + open status + modals.
   const [clarifications, setClarifications] = useState([]);
   const [hasOpenClarification, setHasOpenClarification] = useState(false);
   const [isOwnerOfOpenClarification, setIsOwnerOfOpenClarification] = useState(false);
@@ -841,14 +841,18 @@ const SendQuoteWizard = () => {
   // decides whether to inject the Clarifications step. The full set of
   // derived clarification flags (window-active, countdown, blocks, etc.)
   // lives in a block further down for readability.
-  const isTender = rfq?.is_tender === 1;
+  // REQ-2026-0099 — the clarification rules apply to RFQs exactly as to
+  // tenders: while the vendor clarification window is open, or a
+  // clarification is open, no quote can be sent. They used to be gated on
+  // is_tender, so an RFQ with a clarification window let vendors fill and send
+  // a quote mid-window (the server refuses a new quote then, but not an edit).
   const clarificationDeadline = useMemo(
     () => rfq?.vendor_clarification_date ? parseISTDateTimeToUTCDate(rfq.vendor_clarification_date) : null,
     [rfq?.vendor_clarification_date]
   );
   const isClarWindowActive = !!(clarificationDeadline && now < clarificationDeadline);
-  const clarBlocksQuote = isTender && (isClarWindowActive || hasOpenClarification);
-  const showClarStep = isTender && (clarificationDeadline != null || clarifications.length > 0);
+  const clarBlocksQuote = isClarWindowActive || hasOpenClarification;
+  const showClarStep = clarificationDeadline != null || clarifications.length > 0;
 
   const visibleSteps = useMemo(() => {
     const base = visibleStepsFor({ hasTechEval, showClarStep });
@@ -1087,7 +1091,14 @@ const SendQuoteWizard = () => {
   );
   const submitBlockReason = useMemo(() => {
     if (canSubmit) return null;
-    if (clarBlocksQuote) return "An open clarification must be resolved before you can submit.";
+    if (clarBlocksQuote) {
+      // Say which of the two locks it is: an open clarification, or simply the
+      // clarification window still running (no clarification needs resolving).
+      if (!hasOpenClarification && isClarWindowActive) {
+        return `Quotes can be submitted once the clarification window closes${clarificationDeadline ? ` on ${fmtShortDate(clarificationDeadline, { includeTime: true })}` : ""}.`;
+      }
+      return "An open clarification must be resolved before you can submit.";
+    }
     if (!evalGateOk) {
       if (techLoading) return "Loading your technical evaluation answers…";
       if (evalNeedsNote > 0) {
@@ -1098,7 +1109,7 @@ const SendQuoteWizard = () => {
     if (!canContinueStep3) return "Enter a price (and delivery period) for at least one item. Go back to the Pricing step.";
     if (!canContinueStep4) return `${termsBlockReason || "Commercial terms need attention."} Go back to the Commercial terms step.`;
     return null;
-  }, [canSubmit, clarBlocksQuote, evalGateOk, techLoading, evalNeedsNote, canContinueStep3, canContinueStep4, termsBlockReason]);
+  }, [canSubmit, clarBlocksQuote, hasOpenClarification, isClarWindowActive, clarificationDeadline, evalGateOk, techLoading, evalNeedsNote, canContinueStep3, canContinueStep4, termsBlockReason]);
 
   // Review-step double-check callouts.
   const reviewWarnings = useMemo(() => {
@@ -1150,8 +1161,8 @@ const SendQuoteWizard = () => {
     if (i <= currentStep) return true;
     const targetId = visibleSteps[i]?.id;
     if (targetId === "clarifications") return acceptedTerms;
-    // For tenders during clarification window OR with an open clarification,
-    // every subsequent step is locked behind the clarifications step.
+    // During the clarification window OR with an open clarification (RFQ or
+    // tender), every subsequent step is locked behind the clarifications step.
     if (clarBlocksQuote && targetId !== "clarifications") return false;
     if (targetId === "eval") return acceptedTerms;
     if (targetId === "pricing") return acceptedTerms && evalGateOk;
@@ -1271,7 +1282,7 @@ const SendQuoteWizard = () => {
   };
 
   /* ─────────────────────────── Clarification window ─────────────────────────── */
-  // (isTender / clarificationDeadline / isClarWindowActive / clarBlocksQuote /
+  // (clarificationDeadline / isClarWindowActive / clarBlocksQuote /
   //  showClarStep are declared above so the step list + canSubmit memos can
   //  see them. Remaining derivations live here for readability.)
   const clarMsLeft = isClarWindowActive ? clarificationDeadline.getTime() - now.getTime() : 0;
@@ -1283,7 +1294,7 @@ const SendQuoteWizard = () => {
 
   // Fetch clarifications on load + after a new one is raised / replied to.
   const refreshClarifications = useCallback(async () => {
-    if (!id || !isTender) return;
+    if (!id) return;
     try {
       setClarLoading(true);
       const res = await getClarifications(parseInt(id), token);
@@ -1300,7 +1311,7 @@ const SendQuoteWizard = () => {
     } finally {
       setClarLoading(false);
     }
-  }, [id, token, isTender]);
+  }, [id, token]);
 
   useEffect(() => {
     refreshClarifications();
@@ -1716,9 +1727,8 @@ const SendQuoteWizard = () => {
           const steps = visibleStepsFor({
             hasTechEval: evalAtLoad.length > 0,
             showClarStep:
-              landingCtx.data.is_tender === 1 &&
-              (landingCtx.data.vendor_clarification_date != null ||
-                (landingCtx.data.clarifications || []).length > 0),
+              landingCtx.data.vendor_clarification_date != null ||
+              (landingCtx.data.clarifications || []).length > 0,
           });
           const idx = steps.findIndex((s) => s.id === landOn);
           if (idx >= 0) setCurrentStep(idx);
@@ -3295,9 +3305,9 @@ const DetailCell = ({ label, value, mono = false }) => (
 );
 
 /* ════════════════════════════════════════════════════════════════
-   Step — Clarifications (tenders only)
+   Step — Clarifications (RFQs and tenders)
 
-   This step shows whenever a tender has a configured clarification
+   This step shows whenever an RFQ or tender has a configured clarification
    window (vendor_clarification_date) or any open clarifications.
    While the window is open OR an open clarification exists, every
    subsequent step (tech eval, pricing, terms, review) is locked.
@@ -3319,6 +3329,7 @@ const StepClarifications = ({
 }) => {
   const deadlineText = deadline ? fmtShortDate(deadline, { includeTime: true }) : "";
   const isLocked = isWindowActive || hasOpen;
+  const entity = rfq?.is_tender === 1 ? "tender" : "RFQ";
 
   // Choose the headline status pill + body copy based on the current state.
   const statusBlock = (() => {
@@ -3339,7 +3350,7 @@ const StepClarifications = ({
       return {
         tone: "info",
         title: "Clarification window is open",
-        body: "Raise any clarifications you have about the tender. Once the window closes (and any open clarifications are resolved), quote submission will unlock.",
+        body: `Raise any clarifications you have about the ${entity}. Once the window closes (and any open clarifications are resolved), quote submission will unlock.`,
       };
     }
     return {
@@ -3355,7 +3366,7 @@ const StepClarifications = ({
         <div>
           <div className={styles.sectionTitle}>Clarifications</div>
           <div className={styles.sectionSub}>
-            Tender clarification window — raise questions, see responses, and
+            Clarification window — raise questions, see responses, and
             unlock quote submission once everything is resolved.
           </div>
         </div>
@@ -3430,7 +3441,7 @@ const StepClarifications = ({
           <div className={styles.clarEmptyTitle}>No clarifications yet</div>
           <div className={styles.clarEmptyBody}>
             {canRaise
-              ? "Spot something unclear in the tender? Raise a clarification — the buyer's response will be visible here for every invited vendor."
+              ? `Spot something unclear in the ${entity}? Raise a clarification — the buyer's response will be visible here for every invited vendor.`
               : isWindowActive
               ? "Wait for the current clarification to be resolved before raising another."
               : "The clarification window has closed — no new clarifications can be raised."}
