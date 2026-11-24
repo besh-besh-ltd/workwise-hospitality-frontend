@@ -41,8 +41,14 @@ export default function Login() {
       const next = typeof router.query.next === "string" ? router.query.next : "/dashboard/buyer";
       // Full navigation, so the gated page is fetched with the fresh cookie
       // and the app boots with storage already populated.
-      // Same-origin paths only: "//host" is protocol-relative and would leave the site.
-      window.location.href = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard/buyer";
+      // Same-origin paths only. Resolving against our origin catches "//host"
+      // and "/\host" (browsers read the backslash as a slash) alike.
+      let dest = "/dashboard/buyer";
+      try {
+        const u = new URL(next, window.location.origin);
+        if (next.startsWith("/") && u.origin === window.location.origin) dest = u.pathname + u.search + u.hash;
+      } catch (_) { /* malformed next: keep the default */ }
+      window.location.href = dest;
     } catch (_) {
       setError("Something went wrong. Try again.");
       setBusy(false);
