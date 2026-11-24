@@ -272,8 +272,9 @@ export default function CreateRateContractPage() {
   useEffect(() => {
     if (!router.isReady) return;
     // Numeric ids and contract numbers (ARC-2627-0016) both resume.
-    const raw = router.query.c;
-    const c = /^\d+$/.test(String(raw || "")) ? Number(raw) : raw;
+    // Only those two shapes: c goes into an API path, so nothing else is accepted.
+    const raw = String(router.query.c || "");
+    const c = /^\d+$/.test(raw) ? Number(raw) : (/^ARC-\d{4}-\d{4}$/.test(raw) ? raw : null);
     if (!c) return;
     let cancelled = false;
     (async () => {
