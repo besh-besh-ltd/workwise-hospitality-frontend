@@ -158,8 +158,20 @@ const POTracking = () => {
   const totalItems = data?.total_items || 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_LIMIT));
 
-  // KPI strip derived from real tab_counts + the current rows.
+  // KPI strip. The server's own figures cover every PO in scope; the fallback
+  // below only saw the current tab's page of rows, so the tiles changed as you
+  // switched tabs.
+  const serverKpis = data?.kpis || null;
   const kpis = useMemo(() => {
+    if (serverKpis) {
+      return {
+        inTransit: serverKpis.in_transit || 0,
+        grnOverdue: serverKpis.grn_overdue || 0,
+        paymentsDueValue: serverKpis.payments_due_value || 0,
+        earliestEta: serverKpis.earliest_eta || null,
+        completed: serverKpis.completed || 0,
+      };
+    }
     const inTransit = rows.filter((p) =>
       ["dispatched", "sent", "ack"].includes(p.current_stage)
     ).length;
@@ -178,7 +190,7 @@ const POTracking = () => {
       earliestEta,
       completed: tabCounts.completed || 0,
     };
-  }, [rows, tabCounts]);
+  }, [rows, tabCounts, serverKpis]);
 
   const toggle = (id) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
 

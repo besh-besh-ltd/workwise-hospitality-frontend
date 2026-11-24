@@ -251,9 +251,42 @@ export const vendors = [
     certifications: [],
     risk: { level: "high", note: "Regretted — cannot meet the 500 GSM specification." },
   },
+
+  // ── the rest of the supplier base (the other RFQs in the book) ──
+  // Appended, never inserted: numeric ids are 7101 + position, and the linen
+  // nine above are referenced by id across the quote grids and POs.
+  ...[
+    ["coolcellar", "Coolcellar Beverages Distribution", "Mumbai", "Maharashtra", 2020, ["Minibar beverages", "Bottled water"], 93, 3800000, 2],
+    ["snackcraft", "SnackCraft Gourmet Foods", "Bengaluru", "Karnataka", 2022, ["Premium snacks", "Minibar food"], 90, 1900000, 1],
+    ["hotelware", "Hotelware India Pvt Ltd", "Mumbai", "Maharashtra", 2018, ["Crockery", "Glassware", "Buffet equipment"], 95, 12100000, 3],
+    ["clayfire", "Clayfire Porcelain", "Khurja", "Uttar Pradesh", 2021, ["Crockery"], 88, 2600000, 1],
+    ["aerotherm", "AeroTherm HVAC Services", "Mumbai", "Maharashtra", 2019, ["HVAC maintenance", "Chiller AMC"], 97, 21500000, 2],
+    ["ductpro", "DuctPro Hygiene Services", "Gurugram", "Haryana", 2021, ["Kitchen exhaust cleaning", "Grease trap service"], 92, 3100000, 1],
+    ["chemclean", "Chemclean Hygiene Solutions", "Mumbai", "Maharashtra", 2019, ["Housekeeping chemicals", "Dosing equipment"], 94, 6800000, 2],
+    ["washwell", "WashWell Laundry Services", "Bengaluru", "Karnataka", 2020, ["Laundry outsourcing"], 91, 9400000, 1],
+    ["stitchline", "Stitchline Uniforms", "Tiruppur", "Tamil Nadu", 2022, ["Uniforms", "Chef wear"], 89, 2200000, 1],
+    ["bakersguild", "Bakers' Guild Foods", "Noida", "Uttar Pradesh", 2023, ["Bakery", "Fresh supplies"], 93, 1500000, 1],
+  ].map(([id, name, city, state, since, categories, onTimePct, priorSpend, contractsWon], i) => ({
+    id,
+    name,
+    short: name.split(" ").slice(0, 2).join(" ").replace(/['’]s$/, ""),
+    city,
+    state,
+    since,
+    incumbent: priorSpend > 5000000,
+    categories,
+    gst: `${["27", "29", "27", "09", "27", "06", "27", "29", "33", "09"][i]}AAC${id.slice(0, 1).toUpperCase()}${4100 + i * 37}Q1Z${i}`,
+    performance: { onTimePct, responseHours: 12 + i * 2, qualityRejectPct: 0.8 + (i % 4) * 0.3, priceIndex: 96 + (i % 5), propertiesServed: 2 + (i % 4), priorSpend, contractsWon, disputes: i === 3 ? 1 : 0, fillRatePct: 92 + (i % 6) },
+    certifications: [{ name: "ISO 9001:2015", status: "valid", expires: `2027-0${(i % 9) + 1}-15` }],
+    risk: { level: i === 3 ? "medium" : "low", note: i === 3 ? "One breakage dispute in 2025, settled with credit note." : "Clean record with the group." },
+  })),
 ];
 
 export const vendorsById = Object.fromEntries(vendors.map((v) => [v.id, v]));
+
+/** The numeric id every grid uses — 7101 + position (same as demoQuotes.vendorNumericId). */
+export const vendorNumericIdOf = (slug) => 7101 + vendors.findIndex((v) => v.id === slug);
+export const vendorByNumericId = (n) => vendors[Number(n) - 7101] || null;
 export const getVendor = (id) => vendorsById[id] || null;
 
 /** The six who actually responded, in the order they submitted. */

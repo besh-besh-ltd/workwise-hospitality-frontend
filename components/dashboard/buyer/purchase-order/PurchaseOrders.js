@@ -335,6 +335,9 @@ const PurchaseOrders = () => {
     try {
       const value = await getPoDetails(requestedPo);
       if (requestedPo !== po) return; // stale — a newer po is now selected
+      // An order already out of drafting (sent, delivered, rejected by the
+      // vendor…) opens on the full PO screen, which carries its lifecycle.
+      if (value?.detail_route) { router.replace(value.detail_route); return; }
       if(value) setPODetails(value);
     } finally {
       if (requestedPo === po) setDetailsLoading(false);

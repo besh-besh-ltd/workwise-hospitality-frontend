@@ -271,7 +271,9 @@ export default function CreateRateContractPage() {
   // departmentId, so order doesn't matter.
   useEffect(() => {
     if (!router.isReady) return;
-    const c = Number(router.query.c);
+    // Numeric ids and contract numbers (ARC-2627-0016) both resume.
+    const raw = router.query.c;
+    const c = /^\d+$/.test(String(raw || "")) ? Number(raw) : raw;
     if (!c) return;
     let cancelled = false;
     (async () => {

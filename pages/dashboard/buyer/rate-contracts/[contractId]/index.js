@@ -23,6 +23,7 @@ import CommercialStage from "@/components/dashboard/rate-contracts/buyer/stages/
 import AwardingStage from "@/components/dashboard/rate-contracts/buyer/stages/AwardingStage";
 import ActiveStage from "@/components/dashboard/rate-contracts/buyer/stages/ActiveStage";
 import LifecycleHero from "@/components/dashboard/shared/LifecycleHero";
+import { TECH_EVAL_ARC_ID } from "@/data/ihg/contracts";
 
 const STAGE_KEYS = ["overview", "technical", "commercial", "awarding", "active"];
 
@@ -73,6 +74,17 @@ export default function ArcLifecyclePage() {
   const [loading, setLoading] = useState(true);
   const [stageKey, setStageKey] = useState(null);
   const [lockedNote, setLockedNote] = useState("");
+
+  // The technical-evaluation prototypes moved from ARC-2627-0014 (now the
+  // active golden-thread contract) to their own contract. Links already
+  // shared keep working: the old technical-stage URL lands on the new one.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (contractId === "ARC-2627-0014" && router.query.stage === "technical") {
+      const { contractId: _old, ...rest } = router.query;
+      router.replace({ pathname: `/dashboard/buyer/rate-contracts/${TECH_EVAL_ARC_ID}`, query: rest });
+    }
+  }, [router.isReady, contractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     const res = await ArcApi.getLifecycle(contractId);

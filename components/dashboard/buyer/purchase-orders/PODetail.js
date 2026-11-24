@@ -952,6 +952,7 @@ const PODetail = ({ id }) => {
           {/* AI decision memo — the prototype's panel, carried across whole:
               the call, the four checks, the scoring breakdown and the note on
               what would change the verdict. */}
+          {(isPending || po.status === "draft" || hasPoMemo(po?.po_number || id)) && (
           <WwAiPanel
             id="ai-memo"
             className="podetail-ai-panel"
@@ -968,6 +969,7 @@ const PODetail = ({ id }) => {
             disabledHint="No decision memo has been prepared for this purchase order."
             buildPlan={() => buildPoDecisionMemoPlan(String(po?.po_number || id))}
           />
+          )}
 
           {/* Items & pricing. Every section the memo cites carries the id its
               evidence chips scroll to (#itemsCard, #vendorCard, #rfqCard,

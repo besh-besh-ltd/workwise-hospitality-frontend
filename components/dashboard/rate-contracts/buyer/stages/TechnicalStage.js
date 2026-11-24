@@ -13,6 +13,7 @@ import * as ArcApi from "@/services/arc_v2";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
 import { buildTechEvalPlan } from "@/lib/wwai/panels/techEval";
 import { buildTechApprovePlan } from "@/lib/wwai/panels/techApprove";
+import { TECH_EVAL_ARC_ID } from "@/data/ihg/contracts";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton, removalReasonLabel } from "./StageShared";
 import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
@@ -683,6 +684,9 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   // The evaluation has been submitted into ARC_TECH approval, and this viewer
   // is reviewing it rather than scoring it.
   const showApproverAi = !!approval?.instance_id && (approval.status === "PENDING" || !canEvaluate);
+  // The AI panels narrate one evaluation's fixture (lib/wwai/data/techEval) —
+  // the towel contract's. Any other contract's stage shows no AI panel.
+  const aiDemo = arc?.id === TECH_EVAL_ARC_ID;
 
   return (
     <StageColumns aside={<>
@@ -771,7 +775,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           this slot: the AI Technical Approver checks the marks that were
           submitted rather than proposing new ones. Evaluators who can still
           score keep the evaluator's panel. */}
-      {!isSkipped && showApproverAi && (
+      {aiDemo && !isSkipped && showApproverAi && (
         <WwAiPanel
           key="ai-tech-approve"
           id="ai-tech-approve"
@@ -792,7 +796,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       {/* AI Technical Evaluator — the prototype's panel, carried across whole.
           Sits directly under the scoring guidance and above the matrix, which
           is where it appears in the prototype. */}
-      {!isSkipped && !showApproverAi && (
+      {aiDemo && !isSkipped && !showApproverAi && (
         <WwAiPanel
           key="ai-tech-eval"
           id="ai-tech-eval"

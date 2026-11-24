@@ -492,7 +492,7 @@ const PODashboard = () => {
                       <td>
                         <span className={`${styles.statusPill} ${statusTone(p.status)}`}>
                           <span className={styles.dot} />
-                          {statusLabel(p.status)}
+                          {p.status_label || statusLabel(p.status)}
                         </span>
                       </td>
                       <td>

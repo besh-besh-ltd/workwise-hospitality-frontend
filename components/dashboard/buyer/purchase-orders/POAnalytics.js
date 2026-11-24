@@ -138,7 +138,8 @@ const POAnalytics = () => {
     [statusDist]
   );
   const statusTotalValueL = useMemo(
-    () => statusDist.reduce((a, b) => a + (Number(b.value) || 0), 0),
+    // Rejected orders are on the chart but are not committed spend.
+    () => statusDist.filter((s) => s.committed !== false).reduce((a, b) => a + (Number(b.value) || 0), 0),
     [statusDist]
   );
 
@@ -278,7 +279,9 @@ const POAnalytics = () => {
                 )}
               </div>
               <div className={styles.kMeta}>
-                {fmtPct(kpis.otd_delta) ? (
+                {kpis.otd_basis ? (
+                  <span>{kpis.otd_basis}</span>
+                ) : fmtPct(kpis.otd_delta) ? (
                   <span className={`${styles.delta} ${kpis.otd_delta >= 0 ? styles.up : styles.down}`}>
                     {kpis.otd_delta >= 0 ? "↑" : "↓"} {Math.abs(kpis.otd_delta)}%
                   </span>
@@ -442,7 +445,7 @@ const POAnalytics = () => {
                 <div className={styles.chLeft}>
                   <h3>PO portfolio · by status</h3>
                   <div className={styles.chSub}>
-                    {statusTotalCount} POs · ₹{statusTotalValueL.toFixed(2)} L committed
+                    {statusTotalCount} POs · ₹{toLakh(statusTotalValueL)} L committed
                   </div>
                 </div>
               </div>

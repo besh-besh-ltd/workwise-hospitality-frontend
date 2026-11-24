@@ -24,6 +24,7 @@ const ENTITY_TYPE_TO_HREF = {
   // this follows TECHNICAL above and badges the RFQ module it lives under.
   NEGOTIATION_QUOTE: "/dashboard/buyer/rfq-management",
   // Contracts (ARC v2)
+  ARC_PUBLISH: "/dashboard/buyer/rate-contracts",
   ARC_TECH: "/dashboard/buyer/rate-contracts",
   ARC_COMMITTEE: "/dashboard/buyer/rate-contracts",
   ARC_AMENDMENT: "/dashboard/buyer/rate-contracts",

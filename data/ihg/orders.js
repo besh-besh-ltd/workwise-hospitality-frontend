@@ -1,4 +1,5 @@
 import { contract, rfq as threadRfq, lineItems as threadLineItems } from "./thread";
+import { bookPos } from "./poBook";
 
 /**
  * Purchase orders awaiting approval — the approver's queue.
@@ -380,7 +381,7 @@ export const purchaseOrders = [
       financialApproval,
     ],
     // The golden thread's own RFQ — the one record here with a page to open.
-    rfq: { number: threadRfq.id, id: threadRfq.id, title: threadRfq.title, invited: threadRfq.invited, quoted: threadRfq.quoted, finalizedBy: "purchase", finalizedOn: "2026-07-01" },
+    rfq: { number: threadRfq.id, id: threadRfq.id, title: threadRfq.title, invited: threadRfq.invited, quoted: threadRfq.quoted, finalizedBy: "purchase", finalizedOn: "2026-07-13" },
     compare: [
       { vendorId: "sriram", extra: 0, deliveryDays: 9 },
       { vendorId: "nandan", extra: 72096, deliveryDays: 11 },
@@ -399,7 +400,9 @@ export const purchaseOrders = [
   }),
 ];
 
-export const posById = Object.fromEntries(purchaseOrders.map((p) => [p.id, p]));
+// The rest of the book (data/ihg/poBook.js) resolves by id too, so the printed
+// order and every detail lookup find a sent, delivered or closed PO as well.
+export const posById = Object.fromEntries([...purchaseOrders, ...bookPos].map((p) => [p.id, p]));
 export const getPo = (id) => posById[id] || null;
 
 /** Derived, never typed — the queue total always matches the rows in it. */

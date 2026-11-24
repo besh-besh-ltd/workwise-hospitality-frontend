@@ -23,12 +23,12 @@ import { itRfq, itLineItems, itVendors } from "./itRfq";
  * but the financial-year control.
  */
 export const otherRfqs = [
-  { id: "535912", title: "Banquet Crockery & Glassware — FY 2026-27", propertyIds: ["ic-mumbai", "cp-noida"], department: "Food & Beverage", status: "Under negotiation", invited: 7, quoted: 5, closesOn: "2026-09-22", value: 12400000 , category: "F&B operating equipment", products: ["Banquet crockery, 12-piece", "Wine glassware set", "Buffet chafing dish"], vendors: ["Welspun Hospitality Solutions", "Orient Craft Hospitality", "GreenLeaf Amenities Pvt Ltd"] },
+  { id: "535912", title: "Banquet Crockery & Glassware — FY 2026-27", propertyIds: ["ic-mumbai", "cp-noida"], department: "Food & Beverage", status: "Awarded", invited: 7, quoted: 5, closesOn: "2026-05-12", value: 12400000 , category: "F&B operating equipment", products: ["Banquet crockery, 12-piece", "Wine glassware set", "Buffet chafing dish"], vendors: ["Welspun Hospitality Solutions", "Orient Craft Hospitality", "GreenLeaf Amenities Pvt Ltd"] },
   { id: "535903", title: "Guest Room Minibar Replenishment — H1", propertyIds: ["ic-mumbai", "voco-corb", "ss-barwara"], department: "Food & Beverage", status: "Under negotiation", invited: 6, quoted: 6, closesOn: "2026-09-26", value: 8600000 , category: "F&B supply", products: ["Minibar soft drinks", "Premium snack assortment", "Bottled water 500ml"], vendors: ["GreenLeaf Amenities Pvt Ltd", "Kaveri Home Textiles"] },
   { id: "535887", title: "Kitchen Exhaust Deep Clean — annual", propertyIds: ["cp-noida", "hie-blr"], department: "Engineering", status: "Awarded", invited: 5, quoted: 3, closesOn: "2026-05-22", value: 3100000 , category: "Engineering services", products: ["Kitchen exhaust duct cleaning", "Grease trap service"], vendors: ["Trident Hometex Ltd", "Solapur Terry Mills"] },
   { id: "535961", title: "Spa Consumables & Therapy Linen", propertyIds: ["ss-barwara", "voco-corb"], department: "Housekeeping", status: "Open", invited: 6, quoted: 2, closesOn: "2026-10-18", value: 5400000 , category: "Housekeeping supply", products: ["Spa therapy linen set", "Aroma oil assortment", "Disposable slippers"], vendors: ["Aarvi Linens & Amenities", "Sriram Textiles Pvt Ltd"] },
   { id: "535958", title: "Uniform Refresh — Front Office & F&B", propertyIds: ["ic-mumbai", "cp-noida", "hie-blr", "voco-corb", "ss-barwara"], department: "Front Office", status: "Open", invited: 8, quoted: 4, closesOn: "2026-10-25", value: 9800000 , category: "Uniforms", products: ["Front office blazer", "F&B service shirt", "Chef jacket"], vendors: ["Orient Craft Hospitality", "Nandan Terry Ltd", "Kaveri Home Textiles"] },
-  { id: "535874", title: "Chiller AMC — 3 year", propertyIds: ["ic-mumbai"], department: "Engineering", status: "Quotes received", invited: 4, quoted: 4, closesOn: "2026-10-10", value: 21500000 , category: "Engineering services", products: ["Chiller annual maintenance", "Cooling tower service"], vendors: ["Trident Hometex Ltd", "Welspun Hospitality Solutions"] },
+  { id: "535874", title: "Chiller AMC — 3 year", propertyIds: ["ic-mumbai"], department: "Engineering", status: "Awarded", invited: 4, quoted: 4, closesOn: "2026-04-22", value: 21500000 , category: "Engineering services", products: ["Chiller annual maintenance", "Cooling tower service"], vendors: ["Trident Hometex Ltd", "Welspun Hospitality Solutions"] },
 ];
 
 /** The live thread, shaped like a register row. */
@@ -38,7 +38,9 @@ export const threadRfqRow = {
   title: `${CATEGORY} — ${FY}`,
   propertyIds: rfq.propertyIds,
   department: rfq.department,
-  status: rfq.status,
+  // Awarded into ARC-2627-0014 after NEG-535944-R1 (see rfqBook.js); the
+  // thread's own status field predates the award.
+  status: "Awarded",
   invited: rfq.invited,
   quoted: rfq.quoted,
   closesOn: rfq.closesOn,

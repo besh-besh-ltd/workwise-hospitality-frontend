@@ -220,7 +220,8 @@ export default function BuyerRateContractsDashboard() {
       const b = statusBucket(r.status);
       if (b !== "active" && b !== "expiring") return;
       const cat = r.category_title || "Uncategorised";
-      const v = Number(r.committed_value || 0);
+      // Spend = released call-off POs against the contract (excl. taxes).
+      const v = Number(r.consumed_value || 0);
       const cur = map.get(cat) || { category: cat, value: 0 };
       cur.value += v;
       map.set(cat, cur);
@@ -233,13 +234,14 @@ export default function BuyerRateContractsDashboard() {
   const topBus = useMemo(() => {
     const map = new Map();
     rows.forEach((r) => {
-      const id = r.hotel_id;
-      if (id == null) return;
-      const name = r.hotel_name || `Hotel #${id}`;
-      const v = Number(r.committed_value || 0);
-      const cur = map.get(id) || { buId: id, name, code: buCodeFor(name), value: 0 };
-      cur.value += v;
-      map.set(id, cur);
+      // Released call-off spend, attributed to the property each PO was raised for.
+      asArray(r.calloff_by_hotel).forEach((h) => {
+        if (h.id == null) return;
+        const name = h.name || `Hotel #${h.id}`;
+        const cur = map.get(h.id) || { buId: h.id, name, code: buCodeFor(name), value: 0 };
+        cur.value += Number(h.value || 0);
+        map.set(h.id, cur);
+      });
     });
     return Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 5);
   }, [rows]);
@@ -265,17 +267,14 @@ export default function BuyerRateContractsDashboard() {
   const topProducts = useMemo(() => {
     const map = new Map();
     rows.forEach((r) => {
-      const ids = asArray(r.product_variant_ids);
-      const names = asArray(r.item_names);
-      if (!ids.length) return;
-      const share = Number(r.committed_value || 0) / ids.length;
-      ids.forEach((pid, idx) => {
-        if (pid == null) return;
-        const name = names[idx] || `Variant #${pid}`;
-        const cur = map.get(pid) || { itemId: pid, name, value: 0, count: 0 };
-        cur.value += share;
+      // Released call-off spend per product line, keyed by product name so the
+      // same product on two contracts adds up.
+      asArray(r.calloff_by_item).forEach((p) => {
+        if (!p.name) return;
+        const cur = map.get(p.name) || { itemId: p.name, name: p.name, value: 0, count: 0 };
+        cur.value += Number(p.value || 0);
         cur.count += 1;
-        map.set(pid, cur);
+        map.set(p.name, cur);
       });
     });
     return Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 5);
@@ -501,7 +500,7 @@ export default function BuyerRateContractsDashboard() {
             </span>
             Spend by category
           </h3>
-          <div className="h-sub">Active + expiring · committed value</div>
+          <div className="h-sub">Active + expiring · released POs</div>
         </div>
         <div className="dash-panel-body">
           <div className="rank-list">
@@ -543,7 +542,7 @@ export default function BuyerRateContractsDashboard() {
               </span>
               Top business units
             </h3>
-            <div className="h-sub">by committed value</div>
+            <div className="h-sub">by released PO value</div>
           </div>
           <div className="dash-panel-body">
             <div className="rank-list">
@@ -617,7 +616,7 @@ export default function BuyerRateContractsDashboard() {
               </span>
               Top products
             </h3>
-            <div className="h-sub">by committed spend</div>
+            <div className="h-sub">by released PO value</div>
           </div>
           <div className="dash-panel-body">
             <div className="rank-list">

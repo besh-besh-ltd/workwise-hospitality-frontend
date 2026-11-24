@@ -30,7 +30,7 @@ const ENTITY_CONFIG = {
   TECHNICAL:         { label: "Technical evaluation",    tone: "slate",  getUrl: rfqStage("technical") },
   NEGOTIATION:       { label: "Negotiation approval",    tone: "amber",  getUrl: rfqStage("negotiation-award") },
   NEGOTIATION_QUOTE: { label: "Award approval",          tone: "violet", getUrl: rfqStage("negotiation-award") },
-  PO:                { label: "Purchase order approval", tone: "rose",   getUrl: rfqStage("purchase-order") },
+  PO:                { label: "Purchase order approval", tone: "rose",   getUrl: (e) => `/dashboard/buyer/purchase-orders/${e.entity_id}` },
   ARC_PUBLISH:       { label: "Rate contract — publish",   tone: "blue",   getUrl: arcStage("overview") },
   ARC_TECH:          { label: "Rate contract — technical", tone: "cyan",   getUrl: arcStage("technical") },
   ARC_COMMITTEE:     { label: "Rate contract — committee", tone: "violet", getUrl: arcStage("awarding") },
