@@ -41,7 +41,8 @@ export default function Login() {
       const next = typeof router.query.next === "string" ? router.query.next : "/dashboard/buyer";
       // Full navigation, so the gated page is fetched with the fresh cookie
       // and the app boots with storage already populated.
-      window.location.href = next.startsWith("/") ? next : "/dashboard/buyer";
+      // Same-origin paths only: "//host" is protocol-relative and would leave the site.
+      window.location.href = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard/buyer";
     } catch (_) {
       setError("Something went wrong. Try again.");
       setBusy(false);

@@ -1,11 +1,21 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import WwAiPanel from "@/components/wwai/WwAiPanel";
-import { buildNegotiatorPlan } from "@/lib/wwai/panels/negotiator";
-import { Info, AlertTriangle } from 'lucide-react';
+import {
+  buildNegotiatorPlan,
+  negotiatorOutcome,
+  negotiatorVendorFor,
+} from "@/lib/wwai/panels/negotiator";
+import { Info, AlertTriangle, Check } from 'lucide-react';
 import NegotiationFieldsSelect, { getChargeTargetKey } from '../NegotiationFieldsSelect';
 import VendorListPanel from './VendorListPanel';
 import TextFieldTargetModal from './TextFieldTargetModal';
-import { getProductDetails, computeFieldL1, computeFieldTaxL1 } from './negotiationHelpers';
+import {
+  getProductDetails,
+  computeFieldL1,
+  computeFieldTaxL1,
+  buildVendorTargetsPayload,
+} from './negotiationHelpers';
+import { buildPreviewItem, previewItemTotal } from './buildPreviewItems';
 import styles from './CreateRound.module.scss';
 
 // Fields handled by a separate surface — hide them from both the global
@@ -16,6 +26,20 @@ const DEFERRED_FIELD_KEYS = ['payment_terms', 'global_comment'];
 // quote-level global charge slug. Used to restrict NegotiationFieldsSelect
 // when `mode='rfq'`.
 const RFQ_STATIC_KEYS = ['payment_terms', 'global_comment', 'documents'];
+
+const fmtInr0 = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+// Brief highlight on an element the AI just wrote — the prototype's
+// "ai-applied" flash, run through the Web Animations API so it needs no
+// keyframes anywhere.
+const flashEl = (el) => {
+  if (!el || typeof el.animate !== 'function') return;
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate(
+    [{ boxShadow: '0 0 0 3px rgba(79, 70, 229, 0.38)' }, { boxShadow: '0 0 0 0 rgba(79, 70, 229, 0)' }],
+    { duration: 1100, easing: 'cubic-bezier(.22, 1, .36, 1)' }
+  );
+};
 
 // Step 2 — pick fields + global targets, end date, vendors.
 // Per-vendor overrides happen inside the vendor accordion: each charge card
@@ -30,6 +54,7 @@ const StepVendorsAndTargets = ({
   onDeselectAllVendors,
   vendorTargets,
   setVendorTargets,
+  setSelectedVendorIds,
   formData,
   updateFormData,
   toggleNegotiationField,
@@ -105,6 +130,115 @@ const StepVendorsAndTargets = ({
     });
     return out;
   }, [productPriceData, chargeNamesList, isRfqMode]);
+
+  // ── AI Negotiator → form ──────────────────────────────────────────
+  // "Apply suggested targets" writes the draft into this wizard's own state,
+  // in the prototype's order: the three global targets, the vendor set, then
+  // each vendor's overrides. VendorListPanel animates every row from quoted
+  // to projected as the targets land.
+  const [aiApplied, setAiApplied] = useState(false);
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+
+  const applyAiTargets = useCallback((plan) => new Promise((resolve) => {
+    const rows = (productPriceData?.vendors || []).filter(v => v.vendorId && !v.isRegret);
+    const rowFor = (planVendor) => rows.find(r => negotiatorVendorFor(r.vendorName)?.id === planVendor.id) || null;
+    const mapped = plan.vendors.map(pv => ({ pv, row: rowFor(pv) })).filter(x => x.row);
+    const g = plan.globals;
+    const steps = [];
+
+    // a · fields + global targets
+    steps.push(() => {
+      const current = formDataRef.current?.negotiation_fields || [];
+      const fields = Array.from(new Set([...current, ...plan.fields]));
+      updateFormData({
+        negotiation_fields: fields,
+        [getChargeTargetKey('base_price')]: String(g.base_price),
+        [getChargeTargetKey('freight')]: String(g.freight),
+        target_freight_mode: 'percentage',
+        [getChargeTargetKey('packaging')]: String(g.packaging),
+        target_packaging_mode: 'percentage',
+      });
+      setTimeout(() => {
+        document.querySelectorAll('[class*="negFieldInput"]').forEach(flashEl);
+      }, 60);
+    });
+
+    // b · the vendor set — only when the rows on screen ARE the drafted vendors
+    if (mapped.length && typeof setSelectedVendorIds === 'function') {
+      steps.push(() => {
+        const inRound = mapped.filter(x => x.pv.include).map(x => x.row.vendorId);
+        const unmatched = rows.filter(r => !mapped.some(x => x.row === r)).map(r => r.vendorId);
+        setSelectedVendorIds(prev => [
+          ...inRound,
+          ...prev.filter(id => unmatched.includes(id) && !inRound.includes(id)),
+        ]);
+      });
+    }
+
+    // c · per-vendor overrides, one vendor at a time
+    mapped.filter(x => x.pv.include && x.pv.target).forEach(({ pv, row }) => {
+      steps.push(() => {
+        const t = pv.target;
+        const entry = { _localFields: [], _excludedFields: [] };
+        if (t.unit != null && Number(t.unit) !== Number(g.base_price)) entry.base_price = String(t.unit);
+        if (pv.skip.includes('freight')) {
+          entry._excludedFields.push('freight');
+        } else if (t.freightPct != null && Number(t.freightPct) !== Number(g.freight)) {
+          entry.freight = String(t.freightPct);
+          entry.freight_mode = 'percentage';
+        }
+        if (t.packagingPct != null && Number(t.packagingPct) !== Number(g.packaging)) {
+          entry.packaging = String(t.packagingPct);
+          entry.packaging_mode = 'percentage';
+        }
+        if (t.deliveryDays) {
+          entry.delivery_period = String(t.deliveryDays);
+          entry._localFields.push('delivery_period');
+        }
+        setVendorTargets(prev => ({ ...prev, [row.vendorId]: entry }));
+      });
+    });
+
+    steps.push(() => {
+      setAiApplied(true);
+      resolve();
+    });
+
+    let i = 0;
+    const tick = () => {
+      if (i >= steps.length) return;
+      steps[i++]();
+      setTimeout(tick, i === 1 ? 320 : 240);
+    };
+    tick();
+  }), [productPriceData, updateFormData, setSelectedVendorIds, setVendorTargets]);
+
+  // What the round on screen would send, and — when its vendors are the ones
+  // the AI drafted — the expected saving recomputed from the form.
+  const aiSummary = useMemo(() => {
+    if (!aiApplied) return null;
+    const fields = formData?.negotiation_fields?.length ? formData.negotiation_fields : ['base_price'];
+    const payload = buildVendorTargetsPayload({
+      selectedVendorIds, vendorTargets, effectiveFields: fields, formData, productPriceData,
+    });
+    const targets = payload.reduce((n, v) => n + v.fields.length, 0);
+    const rows = (productPriceData?.vendors || []).filter(v => v.vendorId && !v.isRegret).map((v) => {
+      const included = selectedVendorIds.includes(v.vendorId);
+      const item = included
+        ? buildPreviewItem({
+          vendorQuoteData: v,
+          vendorId: v.vendorId,
+          formData,
+          vendorTargets,
+          globalSelectedFields: formData?.negotiation_fields || [],
+          chargeNamesList,
+        })
+        : null;
+      return { name: v.vendorName, quoted: v.totalPrice, projected: previewItemTotal(item) ?? v.totalPrice, included };
+    });
+    return { targets, vendors: payload.length, outcome: negotiatorOutcome(rows) };
+  }, [aiApplied, formData, selectedVendorIds, vendorTargets, productPriceData, chargeNamesList]);
 
   // Text-field sub-modal state — used for payment_terms / vendor_tc /
   // comment / documents per-vendor overrides.
@@ -300,9 +434,27 @@ const StepVendorsAndTargets = ({
         className="neg-ai-panel"
         title="AI Negotiator"
         sub="Drafts a round from vendor history, market rates and past concessions."
-        runLabel="Re-run analysis"
-        buildPlan={() => buildNegotiatorPlan()}
+        runLabel="Draft this round"
+        buildPlan={() => buildNegotiatorPlan({ onApply: isRfqMode ? null : applyAiTargets })}
       />
+
+      {aiSummary && (
+        <div className={styles.aiAppliedBar} role="status">
+          <span className={styles.aiAppliedChip}>
+            <Check size={13} strokeWidth={2.6} aria-hidden="true" />
+            AI targets applied · {aiSummary.targets} fields
+          </span>
+          <span className={styles.aiAppliedStat}>
+            <strong>{aiSummary.targets}</strong> targets across <strong>{aiSummary.vendors}</strong> vendor{aiSummary.vendors === 1 ? '' : 's'}
+          </span>
+          {aiSummary.outcome && (
+            <span className={styles.aiAppliedSaving}>
+              Expected landed saving <strong>{fmtInr0(aiSummary.outcome.expectedSaving)}</strong>
+              {' '}against today’s L1 landed {fmtInr0(aiSummary.outcome.l1Total)}
+            </span>
+          )}
+        </div>
+      )}
 
       <NegotiationFieldsSelect
         selectedFields={formData.negotiation_fields}

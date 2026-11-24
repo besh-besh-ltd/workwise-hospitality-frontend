@@ -13,6 +13,9 @@ const PushPermissionPrompt = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // The demo has no push backend, and on a stand phone the prompt sits on
+    // top of the pinned Approve / Reject bar.
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "1") return;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
 
     const token = storageInstance.getStorage("token");

@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import * as ArcApi from "@/services/arc_v2";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
 import { buildTechEvalPlan } from "@/lib/wwai/panels/techEval";
+import { buildTechApprovePlan } from "@/lib/wwai/panels/techApprove";
 import { StageNoPermission, StageReadOnlyBanner, StageSkeleton, removalReasonLabel } from "./StageShared";
 import { StageColumns, ActorFlowCard, ApprovalDecisionCard } from "./StageAside";
 
@@ -94,6 +95,13 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
   const [decideComment, setDecideComment] = useState("");
   const [commentError, setCommentError] = useState(false);
   const [decideBusy, setDecideBusy] = useState(false);
+  // AI Technical Approver wiring: the decision card it hands off to, the
+  // panel's own handle (to relabel its buttons once a decision lands), and the
+  // handlers it calls — held in a ref so a run started before a re-render
+  // still reaches the current state.
+  const decisionCardRef = useRef(null);
+  const aiApproveApiRef = useRef(null);
+  const aiApproveHandlersRef = useRef({});
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -332,10 +340,12 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     return [...set];
   }, [evalByItem, onlyQuoted]);
   const itemTabState = useCallback((itemId) => {
+    // An item with no clauses has nothing to score — no amber "pending" dot.
+    if (!(evalByItem[itemId]?.clauses || []).length) return "none";
     const vendors = vendorsRespondingFor(itemId);
     if (vendors.length === 0) return "pending";
     return vendors.every((vid) => vendorFullyEvaluated(itemId, vid)) ? "done" : "pending";
-  }, [vendorsRespondingFor, vendorFullyEvaluated]);
+  }, [evalByItem, vendorsRespondingFor, vendorFullyEvaluated]);
 
   const progress = useMemo(() => {
     let total = 0, done = 0;
@@ -468,11 +478,15 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     }
   };
 
-  const decide = async (decision) => {
-    if (decision === "reject" && !decideComment.trim()) {
+  // `commentOverride` lets the AI Technical Approver approve with its note in
+  // the same click — the comment state would not have updated yet. Resolves
+  // true once the decision is recorded.
+  const decide = async (decision, commentOverride) => {
+    const comment = (commentOverride != null ? commentOverride : decideComment).trim();
+    if (decision === "reject" && !comment) {
       setCommentError(true);
-      showToast("Add a reason before rejecting");
-      return;
+      showToast("Add a note before sending back");
+      return false;
     }
     const amendMarks = Object.entries(amends).map(([response_id, v]) => ({ response_id: Number(response_id), ...v }));
     // Universal (ARC-wide) amends fold into the SAME decide call as amend.universal_marks.
@@ -482,7 +496,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
     try {
       await ArcApi.techEvalDecide(arc.id, {
         decision,
-        comment: decideComment.trim() || null,
+        comment: comment || null,
         ...(decision === "approve" && hasAmends
           ? { amend: {
               ...(amendMarks.length ? { marks: amendMarks } : {}),
@@ -492,17 +506,57 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
       });
       showToast(decision === "approve"
         ? (hasAmends ? "Marks amended & approval recorded" : "Approval recorded")
-        : "Evaluation rejected — sent back to the evaluators");
+        : "Evaluation sent back to the evaluator with your note");
       setAmends({});
       setUniversalAmends({});
       setAmendMode(false);
       setDecideComment("");
       await onRefresh({ advance: decision === "approve" });
+      // The approval chain was only read on mount, so after a decision the
+      // matrix below still showed the approver as pending. Read it again.
+      const ap = await ArcApi.getTechEvalApproval(arc.id).catch(() => null);
+      if (ap) {
+        setApprovalDetail(ap?.data?.approval || null);
+        setEditHistory(ap?.data?.edit_history || []);
+      }
+      aiApproveApiRef.current?.markDecided(decision === "approve" ? "approved" : "rejected");
+      return true;
     } catch (e) {
       showToast(e?.response?.data?.message || "Action failed");
+      return false;
     } finally {
       setDecideBusy(false);
     }
+  };
+
+  // What the AI Technical Approver's two actions do. Both go through the
+  // screen's own decision controls; neither decides on its own.
+  aiApproveHandlersRef.current = {
+    // Puts the AI's note in the decision card and brings the card into view.
+    // Sending it stays the approver's click on "Send back".
+    sendBack: (note) => {
+      if (!canApprove) return false;
+      setDecideComment(note);
+      setCommentError(false);
+      const card = decisionCardRef.current;
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.transition = "box-shadow .3s ease";
+        card.style.borderRadius = "12px";
+        card.style.boxShadow = "0 0 0 3px rgba(79,70,229,.30)";
+        setTimeout(() => { card.style.boxShadow = ""; }, 1600);
+        setTimeout(() => {
+          // Open the comment box to the note's length so it can be read
+          // before it is sent, not scrolled through two lines at a time.
+          const box = card.querySelector("textarea");
+          if (box) box.style.height = `${Math.min(box.scrollHeight + 4, 320)}px`;
+          card.querySelector(".btn-danger")?.focus({ preventScroll: true });
+        }, 500);
+      }
+      return true;
+    },
+    // The approver's own words win; the AI's note is the fallback remark.
+    approve: (note) => (canApprove ? decide("approve", decideComment.trim() || note) : false),
   };
 
   // ── Universal (ARC-wide) derivations + handlers ────────────────────────
@@ -626,11 +680,17 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
 
   const amendCount = Object.keys(amends).length + Object.keys(universalAmends).length;
   const hasUniversal = !!universalBlock && (universalBlock.clauses || []).length > 0;
+  // The evaluation has been submitted into ARC_TECH approval, and this viewer
+  // is reviewing it rather than scoring it.
+  const showApproverAi = !!approval?.instance_id && (approval.status === "PENDING" || !canEvaluate);
 
   return (
     <StageColumns aside={<>
       <ActorFlowCard stage={stage} />
       {canApprove && (
+        // Wrapped so the AI Technical Approver can bring the card into view
+        // when it hands its note over.
+        <div ref={decisionCardRef} id="tech-approval-decision">
         <ApprovalDecisionCard
           stepLabel={stage?.actors?.approver?.step_label}
           approvers={stage?.actors?.approver?.people}
@@ -641,6 +701,11 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           onReject={() => decide("reject")}
           busy={decideBusy}
           approveLabel={amendCount > 0 ? `Save ${amendCount} edit${amendCount === 1 ? "" : "s"} & approve` : "Approve evaluation"}
+          // Sending it back to the evaluator is what this button does — the
+          // evaluation returns to them for re-scoring, it is not discarded.
+          rejectLabel="Send back"
+          rejectRequiredLabel="required to send back"
+          commentPlaceholder="Note for the approval trail — the evaluator reads it if you send back…"
         >
           <label className="cbx" style={{ margin: "0 0 8px", display: "flex", alignItems: "flex-start", gap: 8 }}>
             <input type="checkbox" checked={amendMode} onChange={(e) => { setAmendMode(e.target.checked); if (!e.target.checked) setAmends({}); }} />
@@ -648,6 +713,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
             <span style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.45 }}>Amend marks before approving — edits recorded in edit history</span>
           </label>
         </ApprovalDecisionCard>
+        </div>
       )}
     </>}>
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: canEvaluate ? 88 : 0 }}>
@@ -671,8 +737,23 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
         <div className="guide warn" style={{ alignItems: "center" }}>
           <div className="g-ic" style={{ marginTop: 0 }}><WarnTriIcon /></div>
           <div>
-            <strong>The approver rejected this evaluation.</strong>{" "}
-            Review the remarks in the approval panel, adjust the scores, and resubmit.
+            <strong>The approver sent this evaluation back.</strong>{" "}
+            Review the note in the approval panel, adjust the scores, and resubmit.
+          </div>
+        </div>
+      )}
+      {!isComplete && !isSkipped && stage?.reason === "awaiting_approval" && (
+        <div className="guide" style={{ alignItems: "center" }}>
+          <div className="g-ic" style={{ marginTop: 0 }}><InfoIcon /></div>
+          <div>
+            <strong>
+              Scored and submitted
+              {stage?.actors?.action_taker?.people?.[0]?.name ? ` by ${stage.actors.action_taker.people[0].name}` : ""}
+              {stage?.submitted_at ? ` on ${fmtDate(stage.submitted_at)}` : ""}.
+            </strong>{" "}
+            {canApprove
+              ? "Check the marks against the evidence, then approve the evaluation or send it back to the evaluator with a note."
+              : `Waiting on ${stage?.actors?.approver?.people?.[0]?.name || "the technical approver"} to approve or send it back.`}
           </div>
         </div>
       )}
@@ -686,11 +767,34 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
           </div>
         </div>
       )}
+      {/* Once the evaluation is with the approver, the approver's panel takes
+          this slot: the AI Technical Approver checks the marks that were
+          submitted rather than proposing new ones. Evaluators who can still
+          score keep the evaluator's panel. */}
+      {!isSkipped && showApproverAi && (
+        <WwAiPanel
+          key="ai-tech-approve"
+          id="ai-tech-approve"
+          className="te-ai-panel"
+          title="AI Technical Approver"
+          sub="Checks every mark the evaluator gave against the evidence before you sign off."
+          runLabel="Check the evaluation"
+          buildPlan={() => buildTechApprovePlan({
+            canDecide: canApprove,
+            decision: approval?.status === "APPROVED" ? "approved" : approval?.status === "REJECTED" ? "rejected" : null,
+            approverName: stage?.actors?.approver?.people?.[0]?.name,
+            onSendBack: (note) => aiApproveHandlersRef.current.sendBack(note),
+            onApprove: (note) => aiApproveHandlersRef.current.approve(note),
+            onReady: (api) => { aiApproveApiRef.current = api; },
+          })}
+        />
+      )}
       {/* AI Technical Evaluator — the prototype's panel, carried across whole.
           Sits directly under the scoring guidance and above the matrix, which
           is where it appears in the prototype. */}
-      {!isSkipped && (
+      {!isSkipped && !showApproverAi && (
         <WwAiPanel
+          key="ai-tech-eval"
           id="ai-tech-eval"
           className="te-ai-panel"
           title="AI Technical Evaluator"
@@ -1004,7 +1108,9 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                 <tbody>
                   {(activeBlock.clauses || []).map((cl, idx) => (
                     <tr key={cl.id}>
-                      <td className="col-clause">
+                      {/* Ids are what the AI panels' evidence chips scroll to
+                          ("#clause-c4", "#cell-2-c4"). */}
+                      <td className="col-clause" id={`clause-c${cl.id}`}>
                         <div className="clause-cell">
                           <span className="c-num">{idx + 1}</span>
                           <span className="c-text">{cl.clause_text || cl.text}</span>
@@ -1030,7 +1136,7 @@ export default function TechnicalStage({ arc, stage, permissions, onRefresh }) {
                         const isSaving = savingKey === k;
                         const amended = resp?.response_id && amends[resp.response_id];
                         return (
-                          <td key={v.vendor_key} className={`score-cell ${disq ? "is-disq" : ""}`}>
+                          <td key={v.vendor_key} id={`cell-${v.vendor_key}-c${cl.id}`} className={`score-cell ${disq ? "is-disq" : ""}`}>
                             <div className="resp">
                               <div className="response-text" style={!resp?.vendor_response ? { color: "var(--fg-4)" } : undefined}>
                                 <span>{resp?.vendor_response || "No response submitted"}</span>

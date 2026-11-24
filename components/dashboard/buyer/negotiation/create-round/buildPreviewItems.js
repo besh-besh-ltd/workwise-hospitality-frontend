@@ -69,7 +69,13 @@ export const buildPreviewItem = ({
   let baseTax = parseFloat(vendorQuoteData.tax) || 0;
   let baseTaxMode = vendorQuoteData.taxMode || 'percentage';
   if (globalFields.has('base_price') && !excluded.has('base_price')) {
-    const { value } = globalTargetFor('base_price', formData);
+    // A per-vendor base override wins over the global target, exactly as
+    // buildVendorTargetsPayload sends it — otherwise the projected total
+    // would price a different round from the one that goes out.
+    const localBase = vt.base_price;
+    const hasLocalBase = localBase != null && localBase !== '';
+    const { value: globalBase } = globalTargetFor('base_price', formData);
+    const value = hasLocalBase ? localBase : globalBase;
     const numeric = value != null ? parseFloat(value) : NaN;
     if (Number.isFinite(numeric) && numeric > 0
         && targetBeatsQuoted('base_price', value, 'amount', vendorQuoteData)) {
@@ -232,6 +238,28 @@ export const buildPreviewItem = ({
   if (!dirty) return null;
 
   return item;
+};
+
+// Landed total of one preview item — what /pricing/preview's engine returns
+// as the line total: base + base tax + each charge (% of the base, or flat)
+// + that charge's tax. Used when the preview endpoint gives back no total
+// (the demo's mock answers with the base only), so the projection still
+// reflects the targets on the form.
+export const previewItemTotal = (item) => {
+  if (!item) return null;
+  const qty = parseFloat(item.quantity) || 0;
+  const base = (parseFloat(item.unit_price) || 0) * qty;
+  if (!(base > 0)) return null;
+  const pctOr = (value, mode, of) => {
+    const v = parseFloat(value) || 0;
+    return (mode === 'amount' || mode === 'absolute') ? v : (v / 100) * of;
+  };
+  let total = base + pctOr(item.tax, item.tax_mode, base);
+  (item.other_charges || []).forEach((c) => {
+    const amt = pctOr(c.amount, c.amount_mode, base);
+    total += amt + (c.tax != null ? pctOr(c.tax, c.tax_mode, amt) : 0);
+  });
+  return Math.round(total * 100) / 100;
 };
 
 // Variant of buildPreviewItem that consumes the SUBMITTED-shape

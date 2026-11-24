@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { getPOKpis, getPODashboardList, getPOAwaiting, downloadPOListExcel } from "@/services/po";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
-import { buildPoDecisionQueuePlan } from "@/lib/wwai/panels/poDecision";
+import { buildPoDecisionQueuePlan, poAiCall } from "@/lib/wwai/panels/poDecision";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import AccessDeniedPage from "@/components/shared/AccessDeniedPage";
 import { VendorFilter, DateFilter, EMPTY_DATE_FILTER, rangeOf } from "./FilterMenus";
@@ -248,8 +248,8 @@ const PODashboard = () => {
 
       {/* Body */}
       <main className={styles.pageBody}>
-        {/* KPI strip */}
-        <section className={styles.kpiStrip}>
+        {/* KPI strip — `kpiStrip` is what the AI queue's "KPI summary" chip scrolls to */}
+        <section id="kpiStrip" className={styles.kpiStrip}>
           <Kpi
             label="Active POs"
             value={k.activeCount ?? 0}
@@ -373,6 +373,8 @@ const PODashboard = () => {
                       ))}
                     </div>
                   )}
+                  {/* The AI's call on this order, as the prototype's cards carry it. */}
+                  <AwaitingAiFlag po={p} />
                   <div className={styles.aFoot}>
                     <div className={styles.aAmount}>{inr(p.total_value)}</div>
                     <div className={styles.aCta}>
@@ -395,8 +397,8 @@ const PODashboard = () => {
           )}
         </section>
 
-        {/* All purchase orders */}
-        <section className={styles.sectionCard}>
+        {/* All purchase orders — `poTableCard` is the AI queue's "PO table" chip target */}
+        <section id="poTableCard" className={styles.sectionCard}>
           <div className={styles.sectionHead}>
             <div className={styles.hLeft}>
               <div className={styles.ic}>
@@ -457,6 +459,7 @@ const PODashboard = () => {
                   <th>Vendor</th>
                   <th>Items</th>
                   <th className={styles.thRight}>Value</th>
+                  <th className={styles.aiTh}>AI call</th>
                   <th>Initiator</th>
                   <th>Created</th>
                   <th className={styles.thRight}>Actions</th>
@@ -466,14 +469,14 @@ const PODashboard = () => {
                 {listLoading && list.length === 0 ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={`sk-${i}`}>
-                      <td colSpan={9}>
+                      <td colSpan={10}>
                         <Sk h={20} />
                       </td>
                     </tr>
                   ))
                 ) : list.length === 0 ? (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={10}>
                       <div className={styles.emptyState}>
                         <div className={styles.ic}>
                           <FileText size={20} />
@@ -521,7 +524,7 @@ const PODashboard = () => {
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontSize: "12.5px", color: "var(--fg)" }}>{p.items_label}</div>
+                        <div className={styles.itemsCell} style={{ fontSize: "12.5px", color: "var(--fg)" }}>{p.items_label}</div>
                         <div className={styles.ago}>
                           {p.items_count} item{p.items_count === 1 ? "" : "s"}
                           {p.quantity != null && <> · {Number(p.quantity).toLocaleString("en-IN")} qty</>}
@@ -529,6 +532,9 @@ const PODashboard = () => {
                       </td>
                       <td className={styles.tdRight}>
                         <div className={styles.amount}>{inr(p.total_value)}</div>
+                      </td>
+                      <td className={styles.aiCol}>
+                        <AiCallCell po={p} />
                       </td>
                       <td>
                         {p.initiator ? (
@@ -609,6 +615,47 @@ const PODashboard = () => {
           )}
         </section>
       </main>
+    </div>
+  );
+};
+
+/* ── AI call column ─────────────────────────────────────────────────────
+   Every order still waiting on someone carries the AI's verdict — the same
+   call the triage panel reads out. Anything decided, or raised during the
+   demo with no memo behind it, shows the prototype's quiet "—". */
+const PENDING_STATUSES = new Set(["pending", "pending_approval", "acceptance_pending"]);
+
+const AiCallBadge = ({ call }) => (
+  <span className={`ww-ai-badge ${call.cls}`} title={call.note || undefined}>
+    <span className="bdot" />
+    {call.label}
+  </span>
+);
+
+const AiCallCell = ({ po }) => {
+  const call = PENDING_STATUSES.has(po.status) ? poAiCall(po.po_number || po.id) : null;
+  if (!call) {
+    return (
+      <span className="ww-ai-badge v-pending" title="No AI call on this order">
+        <span className="bdot" />—
+      </span>
+    );
+  }
+  return (
+    <>
+      <AiCallBadge call={call} />
+      {call.note && <div className="ww-ai-colnote">{call.note}</div>}
+    </>
+  );
+};
+
+const AwaitingAiFlag = ({ po }) => {
+  const call = poAiCall(po.po_number || po.id);
+  if (!call) return null;
+  return (
+    <div className={styles.aFlags}>
+      <AiCallBadge call={call} />
+      {call.note && <span className={`${styles.pill} ${styles.aiRowHint}`}>{call.note}</span>}
     </div>
   );
 };

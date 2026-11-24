@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import VendorChargeCard from './VendorChargeCard';
@@ -26,6 +26,48 @@ const tintFor = (name) => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
   return TINT_PALETTE[Math.abs(hash) % TINT_PALETTE.length];
+};
+
+const fmtRupees = (n) => `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+// A projected total that counts from wherever it last stood to its new value
+// (900 ms, ease-out) — so applying targets visibly moves each row from the
+// quoted figure to the projected one, as the prototype's rows do.
+const AnimatedAmount = ({ value, from, className }) => {
+  const [shown, setShown] = useState(from ?? value);
+  const lastRef = useRef(from ?? value);
+  useEffect(() => {
+    const start = lastRef.current;
+    const end = value;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || Math.abs(end - start) < 0.005) {
+      lastRef.current = end;
+      setShown(end);
+      return undefined;
+    }
+    const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      lastRef.current = end;
+      setShown(end);
+      return undefined;
+    }
+    let raf = 0;
+    const t0 = performance.now();
+    const dur = 900;
+    const frame = (now) => {
+      const k = Math.max(0, Math.min(1, (now - t0) / dur));
+      const v = start + (end - start) * (1 - Math.pow(1 - k, 3));
+      lastRef.current = v;
+      setShown(v);
+      if (k < 1) raf = requestAnimationFrame(frame);
+      else lastRef.current = end;
+    };
+    raf = requestAnimationFrame(frame);
+    // never leave a half-counted figure on screen if frames stall
+    const done = setTimeout(() => { lastRef.current = end; setShown(end); }, dur + 120);
+    return () => { cancelAnimationFrame(raf); clearTimeout(done); };
+  }, [value]);
+  return <span className={className}>{fmtRupees(Math.round(shown * 100) / 100)}</span>;
 };
 
 const titleCase = (s) =>
@@ -493,8 +535,6 @@ const VendorListPanel = ({
                         return <span className={styles.total}>{quoted}</span>;
                       }
 
-                      const projected = `₹${Number(projection.value)
-                        .toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
                       const deltaSign = projection.delta < 0 ? '−' : '+';
                       const absDelta = Math.abs(projection.delta);
                       const tooltipText = `${deltaSign}₹${absDelta.toLocaleString('en-IN', { maximumFractionDigits: 2 })} (${Math.abs(projection.deltaPct).toFixed(2)}%) vs quoted`;
@@ -512,8 +552,13 @@ const VendorListPanel = ({
                             onClick={(e) => e.stopPropagation()}
                           >
                             <s className={styles.totalStruck}>{quoted}</s>
-                            <span className={`${styles.totalProjected} ${projectedClass}`}>
-                              {projected}
+                            <AnimatedAmount
+                              value={Number(projection.value)}
+                              from={vendor.total}
+                              className={`${styles.totalProjected} ${projectedClass}`}
+                            />
+                            <span className={`${styles.deltaPill} ${projection.delta > 0 ? styles.deltaPillUp : ''}`}>
+                              {deltaSign}₹{Math.round(absDelta).toLocaleString('en-IN')}
                             </span>
                           </span>
                         </OverlayTrigger>

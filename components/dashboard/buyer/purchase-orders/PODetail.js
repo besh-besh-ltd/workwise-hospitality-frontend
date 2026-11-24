@@ -25,14 +25,12 @@ import {
   Circle,
   ChevronDown,
   Send,
+  Sparkles,
 } from "lucide-react";
 import ReadMore from "@/components/shared/ReadMore";
 import { getPODetailFull, handlePOApproval, handlePOInitialization } from "@/services/po";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
-import { buildPoDecisionMemoPlan } from "@/lib/wwai/panels/poDecision";
-
-/** The purchase orders a decision memo has actually been written for. */
-const MEMO_POS = new Set(["108215", "108231", "108244", "108250", "108258"]);
+import { buildPoDecisionMemoPlan, hasPoMemo, poAiCall, poApprovalNote } from "@/lib/wwai/panels/poDecision";
 import { previewTotals } from "@/services/pricing";
 import { useModulePermissions } from "@/hooks/useModulePermissions";
 import usePoInitiators, { INITIATORS_VISIBLE, mailtoHref, telHref } from "@/hooks/usePoInitiators";
@@ -331,6 +329,10 @@ const PODetail = ({ id }) => {
   // Reject is a two-step action: the button opens the modal, the modal's
   // confirm submits. Nothing is sent from the button click itself.
   const [rejectOpen, setRejectOpen] = useState(false);
+  // Phone only: Approve on the pinned bar opens a sheet with the AI memo's
+  // note already written, and one more tap approves.
+  const [approveSheetOpen, setApproveSheetOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState("");
 
   /* ── Permission scope ────────────────────────────────────────────────────
      Whether this user may act on THIS purchase order is a question about the
@@ -466,6 +468,7 @@ const PODetail = ({ id }) => {
       toast.success(message);
       setComment("");
       setRejectOpen(false);
+      setApproveSheetOpen(false);
       await fetchDetail();
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || "Something went wrong, please try again.";
@@ -706,12 +709,23 @@ const PODetail = ({ id }) => {
   const arcHref = callOff.arc_id
     ? `/dashboard/buyer/rate-contracts/${callOff.arc_id}?stage=active`
     : null;
+
+  // Phone (≤640px): the decision is pinned to the bottom of the screen with the
+  // AI's call beside it, and Approve opens a sheet holding the memo's note.
+  const showDecisionBar = isPending && awaitingMe && canApprove;
+  const poNumber = String(po.po_number || po.id);
+  const aiCall = poAiCall(poNumber);
+  const aiApprovalNote = poApprovalNote(poNumber);
+  const openApproveSheet = () => {
+    setApproveNote(aiApprovalNote);
+    setApproveSheetOpen(true);
+  };
   const mrHref = callOff.mr_id
     ? `/dashboard/buyer/material-requisitions/${callOff.mr_id}`
     : null;
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${showDecisionBar ? styles.pageWithDecisionBar : ""}`}>
       <Breadcrumb onBack={handleBack} current={po.po_number || po.id} />
 
       {/* Hero */}
@@ -856,8 +870,9 @@ const PODetail = ({ id }) => {
             )}
             {isPending && awaitingMe && canApprove && (
               <>
+                {/* hideOnPhone: on a phone the pinned decision bar replaces these. */}
                 <button
-                  className={`${styles.btn} ${styles.btnDangerStrong}`}
+                  className={`${styles.btn} ${styles.btnDangerStrong} ${styles.hideOnPhone}`}
                   type="button"
                   disabled={!!submitting}
                   onClick={() => setRejectOpen(true)}
@@ -866,7 +881,7 @@ const PODetail = ({ id }) => {
                   Reject
                 </button>
                 <button
-                  className={`${styles.btn} ${styles.btnSuccess}`}
+                  className={`${styles.btn} ${styles.btnSuccess} ${styles.hideOnPhone}`}
                   type="button"
                   disabled={!!submitting}
                   onClick={() => decide("approved")}
@@ -941,19 +956,23 @@ const PODetail = ({ id }) => {
             id="ai-memo"
             className="podetail-ai-panel"
             title="AI decision memo"
-            sub={`PO #${po?.po_number || id} · ${po?.vendor?.name || ""}`}
-            runLabel="Re-run analysis"
+            sub={`PO #${po?.po_number || id} · ${po?.vendor?.name || ""} · ${inr(pricing.total ?? po.total_value)}`}
+            // The prototype's label. After a run the engine relabels it
+            // "Re-run analysis" itself.
+            runLabel="Analyse this PO"
             // The memo is written per PO. Asking for one that has none used to
             // fall back to the fixture's default PO, so running it on an order
             // raised during the demo produced a confident memo about a
             // different supplier and a different amount.
-            disabled={!MEMO_POS.has(String(po?.po_number || id))}
+            disabled={!hasPoMemo(po?.po_number || id)}
             disabledHint="No decision memo has been prepared for this purchase order."
             buildPlan={() => buildPoDecisionMemoPlan(String(po?.po_number || id))}
           />
 
-          {/* Items & pricing */}
-          <section className={styles.sectionCard}>
+          {/* Items & pricing. Every section the memo cites carries the id its
+              evidence chips scroll to (#itemsCard, #vendorCard, #rfqCard,
+              #techCard, #compareCard, #docsCard, #auditCard, #datesCard). */}
+          <section id="itemsCard" className={styles.sectionCard}>
             <div className={styles.sectionHead}>
               <div className={styles.hLeft}>
                 <div className={styles.ic}>
@@ -965,6 +984,7 @@ const PODetail = ({ id }) => {
                 </span>
               </div>
             </div>
+            <div className={styles.tableScroll}>
             <table className={styles.itemsTable}>
               <thead>
                 <tr>
@@ -1166,11 +1186,12 @@ const PODetail = ({ id }) => {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </section>
 
           {/* Vendor profile */}
           {vendor.name && (
-            <section className={styles.sectionCard}>
+            <section id="vendorCard" className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
                   <div className={styles.ic}>
@@ -1254,7 +1275,7 @@ const PODetail = ({ id }) => {
 
           {/* RFQ context */}
           {(rfq.title || rfq.number) && (
-            <section className={styles.sectionCard}>
+            <section id="rfqCard" className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
                   <div className={styles.ic}>
@@ -1399,7 +1420,7 @@ const PODetail = ({ id }) => {
           {/* Technical evaluation — per product clause marks + % + approver.
               Hidden only when no product in this PO has a technical evaluation. */}
           {techEval.length > 0 && (
-            <section className={styles.sectionCard}>
+            <section id="techCard" className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
                   <div className={styles.ic}>
@@ -1502,16 +1523,19 @@ const PODetail = ({ id }) => {
 
           {/* Quote comparison */}
           {comparison.length > 0 && (
-            <section className={styles.sectionCard}>
+            <section id="compareCard" className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
                   <div className={styles.ic}>
                     <BarChart2 size={13} />
                   </div>
                   <h2>Quote comparison</h2>
-                  <span className={styles.pill}>{comparison.length} bidders</span>
+                  <span className={styles.pill}>
+                    {comparison.length} bidder{comparison.length === 1 ? "" : "s"}
+                  </span>
                 </div>
               </div>
+              <div className={styles.tableScroll}>
               <table className={styles.compareTable}>
                 <thead>
                   <tr>
@@ -1555,6 +1579,7 @@ const PODetail = ({ id }) => {
                   ))}
                 </tbody>
               </table>
+              </div>
             </section>
           )}
 
@@ -1566,7 +1591,7 @@ const PODetail = ({ id }) => {
               provenance of a file is knowable only where it was read; a
               filename here cannot tell an RFQ spec from a vendor's. */}
           {docGroups.length > 0 && (
-            <section className={styles.sectionCard}>
+            <section id="docsCard" className={styles.sectionCard}>
               <div className={styles.sectionHead}>
                 <div className={styles.hLeft}>
                   <div className={styles.ic}>
@@ -1590,7 +1615,9 @@ const PODetail = ({ id }) => {
                       return (
                         <a
                           key={i}
-                          href={f.url || "#"}
+                          // No URL, no link: "#" jumped the page back to the top.
+                          href={f.url || undefined}
+                          aria-disabled={f.url ? undefined : true}
                           target={f.url ? "_blank" : undefined}
                           rel="noreferrer"
                           className={`${styles.docItem} ${styles[fileKind(name)] || ""}`}
@@ -1663,9 +1690,9 @@ const PODetail = ({ id }) => {
               </div>
             )}
 
-            {/* Action card */}
+            {/* Action card — on a phone the pinned decision bar replaces it. */}
             {isPending && awaitingMe && canApprove && (
-              <div className={styles.actionCard}>
+              <div className={`${styles.actionCard} ${styles.hideOnPhone}`}>
                 <div className={styles.acHead}>
                   <div className={styles.hereNow}>Your action required</div>
                   <div className={styles.title}>
@@ -1714,7 +1741,7 @@ const PODetail = ({ id }) => {
 
             {/* Audit trail — full PO lifecycle */}
             {workflow.length > 0 && (
-              <div className={styles.workflowCard}>
+              <div id="auditCard" className={styles.workflowCard}>
                 <div className={styles.wfHead}>
                   <span>Audit trail</span>
                   <span className={styles.wfProgress}>
@@ -1789,7 +1816,7 @@ const PODetail = ({ id }) => {
 
             {/* Key dates */}
             {keyDates.length > 0 && (
-              <div className={styles.datesCard}>
+              <div id="datesCard" className={styles.datesCard}>
                 <div className={styles.dHead}>Key dates</div>
                 {keyDates.map((d, i) => (
                   <div key={i} className={`${styles.dRow} ${d.soon ? styles.dSoon : ""}`}>
@@ -1841,6 +1868,107 @@ const PODetail = ({ id }) => {
           </div>
         </div>
       </main>
+
+      {/* Pinned decision bar — phone only. Above 640px it is display:none and
+          the desktop page is exactly as it was. Safe-area padding keeps the
+          buttons clear of the iPhone home indicator. */}
+      {showDecisionBar && (
+        <div className={styles.decisionBar} role="region" aria-label="Approve or reject this purchase order">
+          {aiCall && (
+            <div className={styles.dbVerdict}>
+              <span className={`ww-ai-badge ${aiCall.cls}`}>
+                <span className="bdot" />
+                {aiCall.label}
+              </span>
+              {aiCall.headline && <span className={styles.dbHeadline}>{aiCall.headline}</span>}
+              {aiCall.confidence != null && <span className={styles.dbConf}>{aiCall.confidence}%</span>}
+            </div>
+          )}
+          <div className={styles.dbButtons}>
+            <button
+              className={`${styles.btn} ${styles.btnDangerStrong}`}
+              type="button"
+              disabled={!!submitting}
+              onClick={() => setRejectOpen(true)}
+            >
+              <X size={15} />
+              Reject
+            </button>
+            <button
+              className={`${styles.btn} ${styles.btnSuccess}`}
+              type="button"
+              disabled={!!submitting}
+              onClick={openApproveSheet}
+            >
+              <Check size={16} strokeWidth={2.4} />
+              Approve
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Approve sheet — the second of the two taps. The note is the AI memo's
+          own approval note, editable before it is signed. */}
+      {approveSheetOpen && (
+        <div
+          className={styles.sheetOverlay}
+          onClick={() => {
+            if (!submitting) setApproveSheetOpen(false);
+          }}
+        >
+          <div
+            className={styles.sheet}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="po-approve-sheet-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.sheetGrip} aria-hidden="true" />
+            <h2 id="po-approve-sheet-title" className={styles.sheetTitle}>
+              Approve PO #{poNumber}?
+            </h2>
+            <div className={styles.sheetSub}>
+              {vendor.name} · {inr(pricing.total ?? po.total_value)}
+            </div>
+            <label className={styles.sheetLabel} htmlFor="po-approve-note">
+              {aiApprovalNote ? (
+                <>
+                  <Sparkles size={12} />
+                  Note written by Workwise AI from the decision memo
+                </>
+              ) : (
+                "Note for the next approver or audit trail (optional)"
+              )}
+            </label>
+            <textarea
+              id="po-approve-note"
+              className={styles.sheetNote}
+              rows={6}
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+            />
+            <div className={styles.sheetCta}>
+              <button
+                className={`${styles.btn} ${styles.btnSecondary}`}
+                type="button"
+                disabled={!!submitting}
+                onClick={() => setApproveSheetOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={`${styles.btn} ${styles.btnSuccess}`}
+                type="button"
+                disabled={!!submitting}
+                onClick={() => decide("approved", approveNote)}
+              >
+                <Check size={16} strokeWidth={2.4} />
+                {submitting === "approved" ? "Approving…" : "Approve PO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject confirmation — the reason is collected HERE, at the moment of
           the decision, by both Reject buttons on this page. Confirm stays

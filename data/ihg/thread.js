@@ -6,11 +6,14 @@
  * with each other wherever they appear. Later phases extend these objects
  * rather than inventing parallel data.
  *
- *   MR-2627-0881  raised at The Grand Marine Drive
+ *   MR-2627-0881  raised at Workwise Grand
  *     → RFQ #535944       consolidated across 5 properties   (AI Vendor Match)
  *     → Negotiation R1                                        (AI Negotiator)
  *     → ARC-2627-0014     rate contract, technical evaluation (AI Tech Eval)
- *     → PO #108215        call-off against the contract       (AI Triage + Memo)
+ *     → PO #108231        call-off against the contract       (AI Triage)
+ *
+ * The AI decision memo the stand demo opens is PO #108215, a separate
+ * bath-linen order in the same approval queue (see orders.js).
  */
 
 export const CATEGORY = "Housekeeping Linen & Amenities";
@@ -106,15 +109,15 @@ export const contract = {
 };
 
 export const po = {
-  id: "108215",
-  ref: "PO #108215",
+  id: "108231",
+  ref: "PO #108231",
   contractId: "ARC-2627-0014",
   propertyId: "ic-mumbai",
   status: "Pending approval",
   raisedBy: "purchase",
-  raisedOn: "2026-08-19",
+  raisedOn: "2026-08-07",
   approverId: "finance",
-  value: 1843656,   // = sum of its lines in orders.js
+  value: 2005590.72,   // = sum of its lines in orders.js, GST included
   lineCount: 6,
   pendingDays: 7,
 };

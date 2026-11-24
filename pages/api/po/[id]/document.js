@@ -73,7 +73,10 @@ const fromFixture = (id) => {
     vc: vendor.city || "",
     vg: vendor.gst || "",
     b: peopleById[po.raisedBy]?.name || "",
-    l: (po.lines || []).map((l) => [l.name, "nos", l.qty, l.rate, l.value]),
+    l: (po.lines || []).map((l) => [l.name, l.unit || "nos", l.qty, l.rate, l.value]),
+    // The seeded POs carry their own GST rate, so the printed total is the
+    // register's total. Payloads without one keep the 18% default.
+    g: po.lines?.[0]?.gst,
   };
 };
 
@@ -88,7 +91,8 @@ export default function handler(req, res) {
 
   const lines = (model.l || []).map(([name, uom, qty, rate, amount]) => ({ name, uom, qty, rate, amount }));
   const subtotal = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
-  const gst = Math.round(subtotal * 0.18);
+  const gstPct = Number(model.g) || 18;
+  const gst = Math.round(subtotal * gstPct) / 100;
   const total = subtotal + gst;
   const poNo = model.n || String(id);
 
@@ -219,7 +223,7 @@ export default function handler(req, res) {
     <tbody>${rows}</tbody>
     <tfoot>
       <tr><td colspan="4"></td><td class="lbl">Sub-total</td><td class="r">${inr(subtotal)}</td></tr>
-      <tr><td colspan="4"></td><td class="lbl">GST @ 18%</td><td class="r">${inr(gst)}</td></tr>
+      <tr><td colspan="4"></td><td class="lbl">GST @ ${gstPct}%</td><td class="r">${inr(gst)}</td></tr>
       <tr class="grand"><td colspan="4"></td><td class="lbl">Total</td><td class="r">${inr(total)}</td></tr>
     </tfoot>
   </table>

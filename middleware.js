@@ -20,7 +20,9 @@ export async function middleware(request) {
   // with no sign-in prompt.
   url.pathname = "/login";
   // Remember where they were headed so login can put them back there.
-  url.search = `?next=${encodeURIComponent(request.nextUrl.pathname)}`;
+  // Keep the query too: the stand's demo links (?demo=towel, ?view=approver)
+  // must land on the same screen after sign-in.
+  url.search = `?next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}`;
   return NextResponse.redirect(url);
 }
 

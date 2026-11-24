@@ -207,6 +207,25 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   color: #b45309;
 }
 
+// Saving against the quote, beside the projected total.
+.deltaPill {
+  font-family: $font-mono;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #15803d;
+  background: #ecfdf3;
+  border: 1px solid rgba(21, 128, 61, 0.24);
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.deltaPillUp {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.24);
+}
+
 .empty {
   padding: 28px 0;
   text-align: center;

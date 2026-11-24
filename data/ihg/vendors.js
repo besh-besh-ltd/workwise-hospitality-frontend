@@ -135,7 +135,7 @@ export const vendors = [
       note: "GST returns filed late in two of the last four quarters; OEKO-TEX lapsed in March.",
     },
     concessionPattern: "Concedes fast and deep — 9% in a single round — which usually signals the opening was padded.",
-    strengths: ["Local to The Grand Marine Drive"],
+    strengths: ["Local to Workwise Grand"],
     watchOuts: [
       "OEKO-TEX certificate expired 31 Mar 2026",
       "On-time delivery 82% — lowest in the base",

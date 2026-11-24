@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { previewTotals } from '@/services/pricing';
-import { buildPreviewItem } from './buildPreviewItems';
+import { buildPreviewItem, previewItemTotal } from './buildPreviewItems';
 
 const DEBOUNCE_MS = 300;
 
@@ -12,6 +12,19 @@ const readLines = (response) => {
   if (Array.isArray(response.lines)) return response.lines;
   if (Array.isArray(response?.data?.lines)) return response.data.lines;
   return [];
+};
+
+const toProjection = (projected, original) => {
+  const delta = projected - original;
+  const deltaPct = original > 0 ? (delta / original) * 100 : 0;
+  return {
+    value: projected,
+    originalValue: original,
+    delta,
+    deltaPct,
+    direction: Math.abs(delta) < 0.01 ? 'flat' : (delta < 0 ? 'down' : 'up'),
+    isUnchanged: Math.abs(delta) < 0.01,
+  };
 };
 
 const readSubtotal = (line) => {
@@ -60,6 +73,21 @@ export default function useVendorProjection({
     return { items: localItems, projectableVendorIds: ids };
   }, [vendors, formData, vendorTargets, globalSelectedFields, chargeNamesList]);
 
+  // Projected from the item itself, synchronously. The engine's answer (below)
+  // replaces it when it carries a total; until then — or when the endpoint
+  // answers without one, as the demo's mock does — the row still moves the
+  // moment a target changes instead of sitting on the quoted figure.
+  const localMap = useMemo(() => {
+    const out = {};
+    projectableVendorIds.forEach((vid, idx) => {
+      const projected = previewItemTotal(items[idx]);
+      if (projected == null) return;
+      const original = vendors.find(v => v.id === vid)?.quotedTotal || 0;
+      out[vid] = toProjection(projected, original);
+    });
+    return out;
+  }, [items, projectableVendorIds, vendors]);
+
   const [projectionMap, setProjectionMap] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const requestIdRef = useRef(0);
@@ -97,16 +125,7 @@ export default function useVendorProjection({
           const projected = readSubtotal(lines[idx]);
           if (projected == null) return;
           const original = vendors.find(v => v.id === vid)?.quotedTotal || 0;
-          const delta = projected - original;
-          const deltaPct = original > 0 ? (delta / original) * 100 : 0;
-          updates[vid] = {
-            value: projected,
-            originalValue: original,
-            delta,
-            deltaPct,
-            direction: Math.abs(delta) < 0.01 ? 'flat' : (delta < 0 ? 'down' : 'up'),
-            isUnchanged: Math.abs(delta) < 0.01,
-          };
+          updates[vid] = toProjection(projected, original);
         });
         setProjectionMap((prev) => ({ ...prev, ...updates }));
       } catch {
@@ -122,5 +141,16 @@ export default function useVendorProjection({
     // back to ids. eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, projectableVendorIds, vendors]);
 
-  return { projectionMap, isLoading };
+  // Engine answers win; the local figure fills every vendor it has not priced.
+  // Only vendors that are still projectable are returned (stale entries are
+  // pruned from projectionMap above).
+  const merged = useMemo(() => {
+    const out = { ...localMap };
+    Object.keys(projectionMap).forEach((vid) => {
+      if (out[vid] || projectableVendorIds.some(id => String(id) === String(vid))) out[vid] = projectionMap[vid];
+    });
+    return out;
+  }, [localMap, projectionMap, projectableVendorIds]);
+
+  return { projectionMap: merged, isLoading };
 }

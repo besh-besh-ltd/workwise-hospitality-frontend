@@ -1224,6 +1224,58 @@ $font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
   color: $ink-strong;
 }
 
+// "· 4 vendors · 15 targets" — what the round on screen would send.
+.footerTargetInfo {
+  font-weight: 500;
+  color: $ink-soft;
+  font-variant-numeric: tabular-nums;
+}
+
+// Shown once "Apply suggested targets" has written the AI draft into the
+// form: what it wrote, and the expected saving recomputed from the form.
+.aiAppliedBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(79, 70, 229, 0.22);
+  border-radius: 10px;
+  background: #f7f7ff;
+  font-size: 12.5px;
+  color: $ink-soft;
+}
+
+.aiAppliedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid rgba(79, 70, 229, 0.22);
+  white-space: nowrap;
+}
+
+.aiAppliedStat {
+  font-variant-numeric: tabular-nums;
+  strong {
+    color: $ink-strong;
+    font-weight: 600;
+  }
+}
+
+.aiAppliedSaving {
+  font-variant-numeric: tabular-nums;
+  strong {
+    color: #15803d;
+    font-weight: 700;
+  }
+}
+
 .footerProductTag {
   display: inline-block;
   font-size: 13px;

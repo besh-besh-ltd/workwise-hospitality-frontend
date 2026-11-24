@@ -12,6 +12,12 @@ import StepProduct from './StepProduct';
 import StepVendorsAndTargets from './StepVendorsAndTargets';
 import StepReview from './StepReview';
 import { getProductDetails, getProductRoundStatus, roundCoversProduct } from './negotiationHelpers';
+import {
+  DEMO_FLAG,
+  DEMO_RFQ_ID,
+  applyNegotiatorDemo,
+  isNegotiatorDemoProduct,
+} from './adapters/negotiatorDemoAdapter';
 import { formatNegotiationDeadline, parseNegotiationTime } from '@/utils/negotiationTime';
 import styles from './CreateRound.module.scss';
 
@@ -23,7 +29,11 @@ const STEPS = [
 
 const CreateRoundPage = () => {
   const router = useRouter();
-  const { rfqId: rawRfqId, preSelectProductId, level, returnTo } = router.query;
+  const { rfqId: rawRfqId, preSelectProductId, level, returnTo, demo } = router.query;
+  // `?demo=round` — the stand runbook's negotiator stop: opens straight on
+  // "Vendors & targets" for the Bath Towel line, priced from the same dataset
+  // the AI Negotiator reads (see adapters/negotiatorDemoAdapter.js).
+  const isRoundDemo = demo === DEMO_FLAG;
   const rfqId = useMemo(() => {
     if (!rawRfqId) return null;
     const n = parseInt(rawRfqId);
@@ -65,6 +75,7 @@ const CreateRoundPage = () => {
   //                           hides the product step and the base-price and
   //                           charge fields that only a product round offers.
   // `?preSelectProductId=N` → a product IS chosen, so that one jumps to Step 2.
+  // `?demo=round`           → the Bath Towel line, straight to Step 2.
   const { setMode: wizardSetMode, handleSelectProduct: wizardSelectProduct, goToStep: wizardGoToStep } = wizard;
   const preselectAppliedRef = useRef(false);
   useEffect(() => {
@@ -79,8 +90,14 @@ const CreateRoundPage = () => {
       preselectAppliedRef.current = true;
       wizardSelectProduct(pid);
       wizardGoToStep(2);
+    } else if (isRoundDemo) {
+      const target = products.find(isNegotiatorDemoProduct);
+      if (!target) return; // wait for load
+      preselectAppliedRef.current = true;
+      wizardSelectProduct(Number(target.id));
+      wizardGoToStep(2);
     }
-  }, [router.isReady, level, preSelectProductId, products, wizardSetMode, wizardSelectProduct, wizardGoToStep]);
+  }, [router.isReady, level, preSelectProductId, isRoundDemo, products, wizardSetMode, wizardSelectProduct, wizardGoToStep]);
 
   // Load RFQ products + active rounds + charge names
   useEffect(() => {
@@ -103,7 +120,10 @@ const CreateRoundPage = () => {
 
         setRfqInfo(viewRes?.rfq || viewRes?.data?.rfq || null);
 
-        const productList = qcRes?.data?.products || qcRes?.products || [];
+        const loadedProducts = qcRes?.data?.products || qcRes?.products || [];
+        const productList = isRoundDemo && rfqId === DEMO_RFQ_ID
+          ? applyNegotiatorDemo(loadedProducts)
+          : loadedProducts;
         const activeRounds = activeRoundsRes?.data || (Array.isArray(activeRoundsRes) ? activeRoundsRes : []);
         const charges = chargesRes?.data || chargesRes || [];
 
@@ -147,7 +167,7 @@ const CreateRoundPage = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [router.isReady, rfqId]);
+  }, [router.isReady, rfqId, isRoundDemo]);
 
   // Eligible products on Step 1's terms: not approved, not in active round,
   // has quotes — minus anything already queued. Used to gate "+ Add More
@@ -409,6 +429,16 @@ const CreateRoundPage = () => {
     ? getProductDetails(wizard.selectedProduct)
     : null;
 
+  // "· 4 vendors · 15 targets" beside the step number — what the round on
+  // screen would actually send, counted from the same payload builder.
+  const step2TargetInfo = (() => {
+    if (wizard.step !== 2) return null;
+    const built = wizard.buildCurrentRoundPayload();
+    const vt = built?.payload?.vendor_targets || [];
+    const targets = vt.reduce((n, v) => n + (v.fields?.length || 0), 0);
+    return targets ? { vendors: vt.length, targets } : null;
+  })();
+
   return (
     <div className={styles.page}>
       <div className={styles.pageInner}>
@@ -594,6 +624,7 @@ const CreateRoundPage = () => {
             onDeselectAllVendors={wizard.deselectAllVendors}
             vendorTargets={wizard.vendorTargets}
             setVendorTargets={wizard.setVendorTargets}
+            setSelectedVendorIds={wizard.setSelectedVendorIds}
             formData={wizard.formData}
             updateFormData={wizard.updateFormData}
             toggleNegotiationField={wizard.toggleNegotiationField}
@@ -632,7 +663,15 @@ const CreateRoundPage = () => {
           <footer className={styles.footer}>
             <div className={styles.footerInner}>
               <div className={styles.footerStepInfo}>
-                <span><span className={styles.footerStepNum}>Step {wizard.step} of 3</span></span>
+                <span>
+                  <span className={styles.footerStepNum}>Step {wizard.step} of 3</span>
+                  {step2TargetInfo && (
+                    <span className={styles.footerTargetInfo}>
+                      {' · '}{step2TargetInfo.vendors} vendor{step2TargetInfo.vendors === 1 ? '' : 's'}
+                      {' · '}{step2TargetInfo.targets} target{step2TargetInfo.targets === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </span>
                 {wizard.mode === 'rfq' && (
                   <span className={styles.footerProductTag} title="RFQ-level fields">
                     RFQ-level fields

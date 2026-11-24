@@ -13,7 +13,12 @@ import {
 
 import { searchProductsV2 } from "@/services/products";
 import WwAiPanel from "@/components/wwai/WwAiPanel";
-import { buildVendorMatchPlan, stagedFromNames } from "@/lib/wwai/panels/vendorMatch";
+import {
+  buildVendorMatchPlan,
+  stagedFromItems,
+  demoBasketItems,
+} from "@/lib/wwai/panels/vendorMatch";
+import { properties as orgProperties } from "@/data/ihg/org";
 import { getRFQHotels } from "@/services/hospitality";
 import {
   addProductsToDraft,
@@ -40,7 +45,11 @@ const VIEW = {
 const StartRFQ = () => {
   const userProfile = useSelector((state) => state.userProfile);
   const router = useRouter();
-  const { loggedin } = router.query;
+  const { loggedin, demo } = router.query;
+  // `?demo=towel` — the stand runbook's opening screen: the RFQ products step
+  // for the Mumbai property, a towel basket already staged, AI vendor matching
+  // run on it. Without the flag the page is the normal Create RFQ flow.
+  const isTowelDemo = demo === "towel";
 
   // ── State ───────────────────────────────────
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -83,6 +92,9 @@ const StartRFQ = () => {
   const [deletingDraft, setDeletingDraft] = useState(null);
   // "Copy from existing" two-phase modal (pick RFQ → BU → copy → "Edit draft?").
   const [showCopyFromModal, setShowCopyFromModal] = useState(false);
+  // What "Apply recommended vendors" carried onto the basket, for the rail.
+  const [vmApplied, setVmApplied] = useState(null);
+  const demoSeededRef = useRef(false);
 
   const searchRef = useRef(null);
 
@@ -157,7 +169,7 @@ const StartRFQ = () => {
     setQueryMeta({
       rfq_id: parsedRfqId,
       sheet_id: parsedSheetId,
-      orderType: orderType || null,
+      orderType: orderType || (router.query.demo === "towel" ? "rfq" : null),
     });
 
     if (parsedRfqId !== null) {
@@ -181,6 +193,28 @@ const StartRFQ = () => {
       setRedirectAfterLogin(null);
     }
   }, [router, loggedin, userProfile]);
+
+  // Demo: land straight on the products step with the towel basket staged for
+  // the Mumbai property. Runs once, after the profile's BU mappings are in.
+  useEffect(() => {
+    if (!isTowelDemo || demoSeededRef.current) return;
+    if (!isLoggedIn || queryMeta.rfq_id || userHotelMappings.length === 0) return;
+    const items = demoBasketItems();
+    if (!items.length) return;
+    const mumbai = orgProperties.find((p) => p.id === "ic-mumbai");
+    const mapping =
+      userHotelMappings.find((m) => Number(m.hospitality_hotel_id || m.hotel_id) === mumbai?.numericId) ||
+      userHotelMappings[0];
+    demoSeededRef.current = true;
+    setSelectedHotelIds([mapping.hospitality_hotel_id || mapping.hotel_id]);
+    setAdvancedToProducts(true);
+    setStagedItems(items);
+  }, [isTowelDemo, isLoggedIn, queryMeta.rfq_id, userHotelMappings]);
+
+  // A changed basket is a new question — the applied shortlist no longer holds.
+  useEffect(() => {
+    setVmApplied(null);
+  }, [stagedItems]);
 
   // Recommendations — only on Products view.
   useEffect(() => {
@@ -327,7 +361,7 @@ const StartRFQ = () => {
   };
 
   const handleBackToLanding = () => {
-    const { orderType: _o, rfq_id: _r, sheet_id: _s, ...rest } = router.query;
+    const { orderType: _o, rfq_id: _r, sheet_id: _s, demo: _d, ...rest } = router.query;
     router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
     setQueryMeta({ rfq_id: null, sheet_id: null, orderType: null });
     setSelectedHotelIds([]);
@@ -501,6 +535,21 @@ const StartRFQ = () => {
       setDeletingDraft(null);
     }
   };
+
+  // The business unit(s) this basket is for, named the way the BU picker
+  // names them (org.js via the profile's mappings).
+  const selectedBuLabel = useMemo(() => {
+    const picked = userHotelMappings.filter((m) =>
+      selectedHotelIds.includes(m.hospitality_hotel_id || m.hotel_id)
+    );
+    if (picked.length === 1) {
+      const m = picked[0];
+      const name = m.hotel_name || m.name;
+      if (!name) return null;
+      return m.city && !String(name).includes(m.city) ? `${name}, ${m.city}` : name;
+    }
+    return picked.length > 1 ? `${picked.length} business units` : null;
+  }, [userHotelMappings, selectedHotelIds]);
 
   // ── Subcomponents ─────────────────────────
   const PageHeader = ({ title, sub, breadcrumb }) => (
@@ -821,8 +870,13 @@ const StartRFQ = () => {
             <ChevronRight size={11} className={styles.breadcrumbSep} />
             {!queryMeta.rfq_id && (
               <>
-                <button type="button" className={styles.breadcrumbLink} onClick={handleBackToBu}>
-                  Business units
+                <button
+                  type="button"
+                  className={styles.breadcrumbLink}
+                  onClick={handleBackToBu}
+                  title="Change business unit"
+                >
+                  {selectedBuLabel || "Business units"}
                 </button>
                 <ChevronRight size={11} className={styles.breadcrumbSep} />
               </>
@@ -889,14 +943,20 @@ const StartRFQ = () => {
                 : "Ranked on past on-time delivery, response speed and your approved-vendor list"
             }
             runLabel="Match vendors"
+            // As in the prototype, a basket that is already staged when the
+            // page opens is analysed straight away — the button then reads
+            // "Re-run analysis". Only the demo opens with a staged basket.
+            autoRun={isTowelDemo && demoSeededRef.current}
             // Nothing to match against until something is selected. Left live,
             // it produced a ranked shortlist from an empty basket.
             disabled={stagedItems.length === 0}
             disabledHint="Add at least one product above — the match is made against the items you select."
             buildPlan={() =>
               buildVendorMatchPlan({
-                staged: stagedFromNames(stagedItems.map((it) => it.variant_name || it.product_name)),
+                staged: stagedFromItems(stagedItems),
                 bypass: {},
+                applied: !!vmApplied,
+                onApply: (summary) => setVmApplied(summary),
               })
             }
           />
@@ -1174,6 +1234,16 @@ const StartRFQ = () => {
           </div>
 
           <div className={styles.stagedFooter}>
+            {vmApplied && stagedItems.length > 0 && (
+              <div className={styles.vmStagedNote}>
+                <Check size={13} strokeWidth={2.6} />
+                <span>
+                  <b>{vmApplied.vendors.length}</b> vendors will be invited across{" "}
+                  <b>{vmApplied.lines}</b> line{vmApplied.lines === 1 ? "" : "s"} ·{" "}
+                  <b>{Number(vmApplied.expectedQuotes).toFixed(1)}</b> quotes expected
+                </span>
+              </div>
+            )}
             <button
               type="button"
               className={`${styles.btnPrimary} ${styles.btnBlock}`}

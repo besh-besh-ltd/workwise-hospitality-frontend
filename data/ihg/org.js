@@ -26,8 +26,8 @@ export const properties = [
   {
     id: "ic-mumbai",
     numericId: 501,
-    name: "The Grand Marine Drive",
-    shortName: "The Grand Marine Drive",
+    name: "Workwise Grand",
+    shortName: "Workwise Grand",
     brand: "The Grand",
     city: "Mumbai",
     state: "Maharashtra",
@@ -144,7 +144,7 @@ export const people = [
     propertyIds: ["ic-mumbai"],
     department: "finance",
     approvalLimit: 2500000,
-    blurb: "Approver view — approves purchase orders up to ₹25L for The Grand Marine Drive.",
+    blurb: "Approver view — approves purchase orders up to ₹25L for Workwise Grand.",
     can: { raiseMR: false, runSourcing: false, approvePO: true, awardContract: false },
   },
   {
