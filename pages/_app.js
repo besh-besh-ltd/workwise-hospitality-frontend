@@ -4,6 +4,8 @@
 //   return <Component {...pageProps} />
 // }
 
+// First, before anything reads the clock: in demo mode "today" is the story's day.
+import '@/lib/demoClock';
 import { initOtel } from '@/lib/otel';
 if (typeof window !== 'undefined') {
   initOtel();
