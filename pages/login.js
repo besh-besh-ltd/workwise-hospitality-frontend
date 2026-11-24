@@ -46,7 +46,9 @@ export default function Login() {
       let dest = "/dashboard/buyer";
       try {
         const u = new URL(next, window.location.origin);
-        if (next.startsWith("/") && u.origin === window.location.origin) dest = u.pathname + u.search + u.hash;
+        // Navigate to the absolute href we checked, never a re-parsed path:
+        // "/.//host" resolves here but its pathname is "//host".
+        if (next.startsWith("/") && u.origin === window.location.origin) dest = u.href;
       } catch (_) { /* malformed next: keep the default */ }
       window.location.href = dest;
     } catch (_) {
