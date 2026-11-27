@@ -97,7 +97,7 @@ describe("ARC contracts list — Waiting on", () => {
     expect(tip).toHaveTextContent("1 inactive approver not shown");
   });
 
-  test("window still open → 'Floated', waiting on the vendors yet to respond", async () => {
+  test("window still open → 'Awaiting Quotes', waiting on the vendors yet to respond", async () => {
     respond([row({
       id: 22, title: "Open window", submitted_count: 1, submission_window_closed: false,
       waiting_on: {
@@ -108,7 +108,7 @@ describe("ARC contracts list — Waiting on", () => {
     render(<ContractsListPage filterPreset="all" />);
 
     const card = await cardFor("Open window");
-    expect(within(card).getByText("Floated")).toBeInTheDocument();
+    expect(within(card).getByText("Awaiting Quotes")).toBeInTheDocument();
     expect(within(card).getByTestId("arc-waiting-on")).toHaveTextContent("Waiting on Vendor Beta");
     expect(within(card).getByText(/closes/, { selector: ".progress-label" })).toBeInTheDocument();
   });
@@ -181,7 +181,7 @@ describe("ARC contracts list — Waiting on", () => {
     expect(within(await cardFor("Live one")).queryByTestId("arc-waiting-on")).toBeNull();
     const older = await cardFor("Older payload");
     expect(within(older).queryByTestId("arc-waiting-on")).toBeNull();
-    expect(within(older).getByText("Floated")).toBeInTheDocument();
+    expect(within(older).getByText("Awaiting Quotes")).toBeInTheDocument();
     expect(within(older).getByText(/closes/, { selector: ".progress-label" })).toBeInTheDocument();
     expect(within(await cardFor("Publish pending")).getByText("Pending approval")).toBeInTheDocument();
   });

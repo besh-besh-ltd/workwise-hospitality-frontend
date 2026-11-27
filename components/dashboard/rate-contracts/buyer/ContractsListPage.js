@@ -75,18 +75,37 @@ const BUCKET_ORDER_LIFECYCLE = {
   expiring: 0, active: 1, eval: 2, committee: 3, awaiting: 4, floated: 5, draft: 6, expired: 7,
 };
 
-// Finer per-row chip override for the two publish-approval states (they share
-// the "draft" bucket but deserve a distinct label + tone on the card).
+// Finer per-row chip label + tone inside a bucket: the publish-approval states,
+// the bidding states and each evaluation step. The bucket still drives the
+// tabs, the Status filter and the sort.
 function statusChipOverride(row) {
   const status = row?.status;
   if (status === "pending_publish_approval") return { label: "Pending approval", tone: "committee" };
   if (status === "publish_rejected")         return { label: "Publish rejected", tone: "expired" };
-  // REQ-2026-0094 — the bucket (and its filter) stays "Floated", but once the
-  // window is over nobody is waiting on vendors any more; the pill says so.
-  // The server decides the window (IST), so a browser clock can't skew it.
-  if (status === "submission_closed" || (status === "floated" && row?.submission_window_closed === true)) {
+  // REQ-2026-0094 — the bucket (and its filter) stays "Floated"; the pill says
+  // where bidding is, in the RFQ list's words. The server decides the window
+  // (IST), so a browser clock can't skew it.
+  if (status === "floated" || status === "submission_closed") {
+    const closed = status === "submission_closed" || row?.submission_window_closed === true;
+    if (!closed) return { label: "Awaiting Quotes", tone: "floated" };
+    if (Number(row?.submitted_count || 0) === 0) return { label: "Ended · No Quotes", tone: "expiring" };
     return { label: "Submissions closed", tone: "floated" };
   }
+  // The "In Evaluation" bucket, one pill per step (RFQ list names). A live or
+  // pending-approval negotiation round wins over the commercial step it runs in.
+  if (status === "tech_eval_approved" || status === "comm_eval_in_progress") {
+    if (row?.negotiation_in_progress === true || row?.waiting_on?.role === "Negotiation round approval") {
+      return { label: "Negotiation Rounds", tone: "eval" };
+    }
+    return { label: "Commercial Evaluation", tone: "committee" };
+  }
+  if (status === "tech_eval_in_progress") {
+    if (row?.waiting_on?.kind === "approval" && row?.waiting_on?.role === "Technical approval") {
+      return { label: "Technical Approval", tone: "committee" };
+    }
+    return { label: "Technical Evaluation", tone: "eval" };
+  }
+  if (status === "tech_eval_rejected") return { label: "Technical Rejected", tone: "expiring" };
   // Committee approved, contract copies still with the buyer: nothing has gone
   // to the vendors yet, so "Awaiting Vendor" would point at the wrong side.
   if (status === "committee_approved" || status === "contract_generated") {
