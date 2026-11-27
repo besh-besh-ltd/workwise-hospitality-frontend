@@ -327,8 +327,8 @@ const StepVendorsAndTargets = ({
           <TrendingUp size={16} className={styles.aboveQuoteBannerIcon} aria-hidden="true" />
           <span>
             <strong>Target above the vendor’s quoted price.</strong> The vendor will be able to
-            {' '}<strong>raise</strong> their price in this round, up to your target. This is an exception:
-            add the reason in “Remarks for approvers” on the next step.
+            {' '}<strong>raise</strong> their price in this round; your target is the price you are asking for.
+            This is an exception: add the reason in “Remarks for approvers” on the next step.
           </span>
         </div>
       )}

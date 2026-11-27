@@ -863,7 +863,7 @@ const StepReview = ({
           <TrendingUp size={16} className={styles.aboveQuoteBannerIcon} aria-hidden="true" />
           <span>
             <strong>This round asks a vendor to raise a price.</strong> At least one target is above the
-            vendor’s quoted price (marked “above quote” below), so the vendor can increase their quote up to it.
+            vendor’s quoted price (marked “above quote” below), so the vendor can increase their quote.
           </span>
         </div>
       )}
