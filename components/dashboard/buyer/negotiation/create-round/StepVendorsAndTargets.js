@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Info, AlertTriangle } from 'lucide-react';
+import { Info, AlertTriangle, TrendingUp } from 'lucide-react';
 import NegotiationFieldsSelect, { getChargeTargetKey } from '../NegotiationFieldsSelect';
 import VendorListPanel from './VendorListPanel';
 import TextFieldTargetModal from './TextFieldTargetModal';
@@ -32,6 +32,7 @@ const StepVendorsAndTargets = ({
   updateFormData,
   toggleNegotiationField,
   showTargetWarning,
+  showAboveQuoteWarning = false,
   step2Errors,
   chargeNamesList = [],
   mode = 'product',
@@ -321,13 +322,24 @@ const StepVendorsAndTargets = ({
         mode={mode}
       />
 
+      {showAboveQuoteWarning && (
+        <div className={styles.aboveQuoteBanner} role="status" data-testid="above-quote-banner">
+          <TrendingUp size={16} className={styles.aboveQuoteBannerIcon} aria-hidden="true" />
+          <span>
+            <strong>Target above the vendor’s quoted price.</strong> The vendor will be able to
+            {' '}<strong>raise</strong> their price in this round; your target is the price you are asking for.
+            This is an exception: add the reason in “Remarks for approvers” on the next step.
+          </span>
+        </div>
+      )}
+
       {showTargetWarning && (
         <div className={styles.dangerBanner} role="alert">
           <AlertTriangle size={16} className={styles.dangerBannerIcon} aria-hidden="true" />
           <span>
-            The target must be <strong>better than the vendor’s quoted value</strong>
-            (lower price / charges / days). If it isn’t, that field is dropped for that vendor and
-            they can’t negotiate it.
+            A target that <strong>matches the vendor’s quoted value</strong>, or asks for more delivery
+            days than quoted, isn’t a change. That field is dropped for that vendor and they can’t
+            negotiate it.
           </span>
         </div>
       )}

@@ -296,7 +296,7 @@ const CreateRoundPage = () => {
   const handleSendForApproval = async () => {
     if (!wizard.canSubmit) {
       if (!wizard.formData.end_date) wizard.setEndDateError(true);
-      toast.error('Please complete the round before submitting.');
+      toast.error((wizard.step3Errors && wizard.step3Errors[0]) || 'Please complete the round before submitting.');
       return;
     }
 
@@ -621,6 +621,7 @@ const CreateRoundPage = () => {
             updateFormData={wizard.updateFormData}
             toggleNegotiationField={wizard.toggleNegotiationField}
             showTargetWarning={wizard.showTargetWarning}
+            showAboveQuoteWarning={wizard.currentRoundAboveQuote}
             step2Errors={wizard.step2Errors}
             chargeNamesList={chargeNamesList}
             mode={wizard.mode}
@@ -648,6 +649,7 @@ const CreateRoundPage = () => {
             mode={wizard.mode}
             remarks={wizard.roundRemarks}
             onRemarksChange={wizard.setRoundRemarks}
+            remarksRequired={wizard.remarksRequired}
           />
         )}
       </div>

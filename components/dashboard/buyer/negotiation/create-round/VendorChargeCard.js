@@ -1,8 +1,8 @@
 import React from 'react';
-import { Check, Pencil, AlertTriangle, TrendingDown } from 'lucide-react';
+import { Check, Pencil, AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
-import { compareTargetToQuoted, chargeBase } from './negotiationHelpers';
+import { compareTargetToQuoted, chargeBase, targetMayRaise } from './negotiationHelpers';
 import styles from './VendorChargeCard.module.scss';
 
 // Field keys that take free-text targets (open in a sub-modal).
@@ -169,21 +169,26 @@ const VendorChargeCard = ({
     : (isLocallyActive ? (localMode || globalMode || 'percentage') : (globalMode || 'percentage'));
   const targetText = supportsTarget ? formatTarget(effectiveTargetRaw, effectiveMode, fieldKey, basePrice) : null;
 
-  // Per-card validity: target must be strictly *better* than the vendor's
-  // quoted value (i.e. lower price / lower charges / shorter days). The diff
-  // is normalized to amount via base price so percentage charges compare on
-  // the same axis as flat ones. Text fields (payment_terms, vendor_tc,
-  // documents) skip this check.
+  // Per-card check against the vendor's quoted value. The diff is normalized
+  // to amount via base price so percentage charges compare on the same axis
+  // as flat ones. Text fields (payment_terms, vendor_tc, documents) skip it.
+  //   - lower: the usual ask.
+  //   - greater on a price field (base price / charge): allowed as an
+  //     exception (REQ-2026-0104) — the vendor is asked to RAISE the price.
+  //   - equal, or more delivery days than quoted: not sent.
   const comparison = supportsTarget
     ? compareTargetToQuoted(effectiveTargetRaw, effectiveMode, vendorQuoteData, fieldKey)
     : null;
-  const isInvalidTarget = comparison && (comparison.result === 'greater' || comparison.result === 'equal');
+  const isAboveQuote = !!comparison && comparison.result === 'greater' && targetMayRaise(fieldKey);
+  const isInvalidTarget = !!comparison && (comparison.result === 'equal' || (comparison.result === 'greater' && !isAboveQuote));
   const tooltipText = comparison
-    ? (comparison.result === 'greater'
-        ? `Target is ${comparison.diffAmt} (${comparison.diffPct}) higher than the quoted ${comparison.quotedAmt} — vendor can’t negotiate this field.`
-        : comparison.result === 'equal'
-          ? `Target matches the quoted value (${comparison.quotedAmt}) — vendor can’t negotiate this field.`
-          : `Target is ${comparison.diffAmt} (${comparison.diffPct}) lower than the quoted ${comparison.quotedAmt}.`)
+    ? (isAboveQuote
+        ? `Target is ${comparison.diffAmt} (${comparison.diffPct}) above the quoted ${comparison.quotedAmt} — the vendor will be asked to raise this price.`
+        : comparison.result === 'greater'
+          ? `Target is ${comparison.diffAmt} (${comparison.diffPct}) higher than the quoted ${comparison.quotedAmt} — vendor can’t negotiate this field.`
+          : comparison.result === 'equal'
+            ? `Target matches the quoted value (${comparison.quotedAmt}) — vendor can’t negotiate this field.`
+            : `Target is ${comparison.diffAmt} (${comparison.diffPct}) lower than the quoted ${comparison.quotedAmt}.`)
     : null;
 
   // Base price is global-only: never editable per-vendor. When it's not in
@@ -261,6 +266,7 @@ const VendorChargeCard = ({
     styles.card,
     isLocallyActive ? styles.cardSelected : '',
     isInvalidTarget ? styles.cardInvalid : '',
+    isAboveQuote ? styles.cardAbove : '',
     isGloballyClaimed && !isIncludedForVendor ? styles.cardExcluded : '',
   ].filter(Boolean).join(' ');
 
@@ -278,12 +284,14 @@ const VendorChargeCard = ({
               overlay={<Tooltip id={`vct-${vendorId}-${fieldKey}`}>{tooltipText}</Tooltip>}
             >
               <span
-                className={`${styles.badge} ${isInvalidTarget ? styles.badgeInvalid : styles.badgeOk}`}
-                aria-label={isInvalidTarget ? 'Invalid target' : 'Valid target'}
+                className={`${styles.badge} ${isInvalidTarget ? styles.badgeInvalid : isAboveQuote ? styles.badgeAbove : styles.badgeOk}`}
+                aria-label={isInvalidTarget ? 'Invalid target' : isAboveQuote ? 'Target above the quoted price' : 'Valid target'}
               >
                 {isInvalidTarget
                   ? <AlertTriangle size={12} strokeWidth={2.5} />
-                  : <TrendingDown size={12} strokeWidth={2.5} />}
+                  : isAboveQuote
+                    ? <TrendingUp size={12} strokeWidth={2.5} />
+                    : <TrendingDown size={12} strokeWidth={2.5} />}
               </span>
             </OverlayTrigger>
           )}
@@ -315,7 +323,7 @@ const VendorChargeCard = ({
         {targetText && (
           <>
             <span className={styles.arrow} aria-hidden="true">→</span>
-            <span className={`${styles.target} ${isInvalidTarget ? styles.targetInvalid : ''}`}>
+            <span className={`${styles.target} ${isInvalidTarget ? styles.targetInvalid : isAboveQuote ? styles.targetAbove : ''}`}>
               {targetText}
             </span>
           </>
@@ -356,7 +364,12 @@ const VendorChargeCard = ({
         );
       })()}
 
-      {comparison && comparison.result === 'greater' && (
+      {isAboveQuote && (
+        <p className={styles.aboveLine} data-testid="target-above-quote">
+          Target is {comparison.diffAmt} ({comparison.diffPct}) above the quoted {comparison.quotedAmt}. The vendor will be asked to raise this price.
+        </p>
+      )}
+      {comparison && comparison.result === 'greater' && !isAboveQuote && (
         <p className={styles.invalidLine}>
           Target is {comparison.diffAmt} ({comparison.diffPct}) higher than the quoted {comparison.quotedAmt} — won’t be sent.
         </p>

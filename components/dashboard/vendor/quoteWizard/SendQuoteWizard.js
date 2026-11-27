@@ -1783,9 +1783,11 @@ const SendQuoteWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token, rfq?.id]);
 
-  // Auto-add missing negotiated charges and drop fields whose target is
-  // already met by the quoted value (legacy parity). Tax demands survive
-  // regardless of the amount target.
+  // Auto-add missing negotiated charges and drop fields whose target equals
+  // the quoted value (nothing to change). A target ABOVE the quote is kept:
+  // the buyer may ask a vendor to raise a price (REQ-2026-0104), and dropping
+  // the field would lock the input. Tax demands survive regardless of the
+  // amount target.
   useEffect(() => {
     if (negotiationChargesAddedRef.current) return;
     const fields = negotiationFields;
@@ -1818,13 +1820,13 @@ const SendQuoteWizard = () => {
           // reads this same list, so a dropped base_price DISABLES the price
           // input for the whole round. Every MRP line was un-repriceable.
           if (!Number.isFinite(quoted) || quoted <= 0) return true;
-          return target < quoted;
+          return target !== quoted;
         }
         const charge = (product.other_charges || []).find(
           (c) => (c.slug || c.name) === f.name
         );
         if (!charge || parseFloat(charge.amount || 0) <= 0) return true;
-        return target < parseFloat(charge.amount || 0);
+        return target !== parseFloat(charge.amount || 0);
       });
     });
     setNegotiationFields(filteredFields);

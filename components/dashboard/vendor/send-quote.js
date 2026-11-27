@@ -674,14 +674,16 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
     }
   }, [rfqDetails?.bid_end_date, id]);
 
-  // Auto-add missing negotiated charges and filter out fields where target >= quoted value
+  // Auto-add missing negotiated charges and filter out fields whose target equals the
+  // quoted value (nothing to change). A target ABOVE the quote is kept: the buyer may ask
+  // a vendor to raise a price (REQ-2026-0104), and dropping it would lock the input.
   useEffect(() => {
     if (negotiationChargesAddedRef.current) return;
     const fields = activeNegotiationFields;
     if (!fields || Object.keys(fields).length === 0 || quoteProducts.length === 0) return;
     negotiationChargesAddedRef.current = true;
 
-    // Filter out negotiation fields where target >= vendor's quoted value
+    // Filter out negotiation fields whose target equals the vendor's quoted value
     const filteredFields = {};
     Object.keys(fields).forEach(productId => {
       const product = quoteProducts.find(p => String(p.id) === String(productId));
@@ -694,13 +696,13 @@ const openQuoteHistoryModal = async (product_variant_id, index) => {
         if (isNaN(target)) return true; // keep non-numeric fields like payment_terms
         if (f.name === 'base_price') {
           const quoted = parseFloat(product.unit_price || 0);
-          return quoted > 0 && target < quoted;
+          return quoted > 0 && target !== quoted;
         }
         // For charges, find the matching charge in other_charges
         const charge = (product.other_charges || []).find(c => (c.slug || c.name) === f.name);
         if (!charge || parseFloat(charge.amount || 0) <= 0) return true; // new charge, always show
         const quotedAmt = parseFloat(charge.amount || 0);
-        return target < quotedAmt;
+        return target !== quotedAmt;
       });
     });
     setActiveNegotiationFields(filteredFields);

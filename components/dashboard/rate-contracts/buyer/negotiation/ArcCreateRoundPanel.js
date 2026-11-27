@@ -357,6 +357,7 @@ export default function ArcCreateRoundPanel({ arcId }) {
             updateFormData={wizard.updateFormData}
             toggleNegotiationField={wizard.toggleNegotiationField}
             showTargetWarning={wizard.showTargetWarning}
+            showAboveQuoteWarning={wizard.currentRoundAboveQuote}
             step2Errors={wizard.step2Errors}
             chargeNamesList={chargeNamesList}
             mode={wizard.mode}
@@ -386,6 +387,7 @@ export default function ArcCreateRoundPanel({ arcId }) {
               mode={wizard.mode}
               remarks={wizard.roundRemarks}
               onRemarksChange={wizard.setRoundRemarks}
+              remarksRequired={wizard.remarksRequired}
               wholeScope={ARC_WHOLE_SCOPE}
             />
             {canAddAnother && (
