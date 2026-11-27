@@ -1,5 +1,5 @@
 import { getChargeTargetKey } from '../NegotiationFieldsSelect';
-import { compareTargetToQuoted, TEXT_ONLY_NEG_FIELDS, targetTaxBeatsQuoted } from './negotiationHelpers';
+import { compareTargetToQuoted, TEXT_ONLY_NEG_FIELDS, targetTaxBeatsQuoted, targetMayRaise } from './negotiationHelpers';
 
 // Fields handled by a separate surface — never participate in the projection.
 const DEFERRED_FIELDS = new Set(['payment_terms', 'global_comment']);
@@ -29,13 +29,15 @@ const globalTargetTaxFor = (slug, formData) => {
   return { value: raw, mode };
 };
 
-// Is `target` actually better than what the vendor quoted on this slug? We
-// reuse the same comparison used by validators and the submit payload builder
-// so the projection never includes a target the BE would drop.
+// Will this target be sent? Lower than the quote, or — for a price field —
+// above it (REQ-2026-0104: the vendor is asked to raise the price). Same
+// comparison as the validators and the submit payload builder, so the
+// projection never includes a target that gets dropped (equal, or more
+// delivery days).
 const targetBeatsQuoted = (slug, targetValue, targetMode, vendorQuoteData) => {
   const cmp = compareTargetToQuoted(targetValue, targetMode, vendorQuoteData, slug);
   if (!cmp) return false;          // can't compare (text field, no quoted value) → leave to caller's defaults
-  return cmp.result === 'lower';
+  return cmp.result === 'lower' || (cmp.result === 'greater' && targetMayRaise(slug));
 };
 
 // Build the single `items[i]` payload for one vendor with all in-scope target

@@ -7,6 +7,8 @@ import {
   getVendorIdsForProduct,
   getProductDetails,
   buildVendorTargetsPayload,
+  vendorTargetsHaveAboveQuote,
+  ABOVE_QUOTE_REMARKS_MESSAGE,
   toUtcEndDate,
   aggregateRfqVendors,
 } from './negotiationHelpers';
@@ -230,12 +232,31 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   // endpoints enforce. Read every render rather than memoised on the value:
   // the same pick goes stale as the clock moves.
   const deadlineTooSoon = isRoundDeadlineTooSoon(formData.end_date);
+
+  // REQ-2026-0104 — a target above a vendor's quoted price is allowed as an
+  // exception, so the round must give the approvers a reason. Checked over
+  // the current selection and every queued entry.
+  const currentRoundAboveQuote = useMemo(() => {
+    if (selectedVendorIds.length === 0) return false;
+    const vendor_targets = buildVendorTargetsPayload({
+      selectedVendorIds,
+      vendorTargets,
+      effectiveFields,
+      formData,
+      productPriceData,
+    });
+    return vendorTargetsHaveAboveQuote(vendor_targets, productPriceData, formData);
+  }, [selectedVendorIds, vendorTargets, effectiveFields, formData, productPriceData]);
+  const remarksRequired = currentRoundAboveQuote || queuedRounds.some((r) => r._aboveQuote);
+  const remarksMissing = remarksRequired && !(roundRemarks || '').trim();
+
   const step3Errors = useMemo(() => {
     const errors = [];
     if (!formData.end_date) errors.push('Set an end date for the round.');
     else if (deadlineTooSoon) errors.push(ROUND_DEADLINE_TOO_SOON_MESSAGE);
+    if (remarksMissing) errors.push(ABOVE_QUOTE_REMARKS_MESSAGE);
     return errors;
-  }, [formData.end_date, deadlineTooSoon]);
+  }, [formData.end_date, deadlineTooSoon, remarksMissing]);
 
   // Is there an in-progress current round (a product picked, or RFQ mode)?
   // When false but the queue is non-empty, the wizard is in "queue-only"
@@ -243,7 +264,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
   // the rounds they already queued.
   const hasCurrentRound = mode === 'rfq' || !!selectedProductId;
 
-  const canSubmit = !!formData.end_date && !deadlineTooSoon && (
+  const canSubmit = !!formData.end_date && !deadlineTooSoon && !remarksMissing && (
     hasCurrentRound
       ? step2Errors.length === 0
       : queuedRounds.length > 0
@@ -356,6 +377,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
           is_rfq_level: true,
         },
         mode: 'rfq',
+        aboveQuote: vendorTargetsHaveAboveQuote(vendor_targets, productPriceData, formData),
         productName: 'RFQ-level round',
         summary: {
           vendorCount: selectedVendorIds.length,
@@ -372,6 +394,7 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
         vendor_targets,
       },
       mode: 'product',
+      aboveQuote: vendorTargetsHaveAboveQuote(vendor_targets, productPriceData, formData),
       productName: details.name || `Product ${selectedProduct.id}`,
       summary: {
         vendorCount: selectedVendorIds.length,
@@ -390,6 +413,8 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
         mode: built.mode,
         productName: built.productName,
         summary: built.summary,
+        // Asks a vendor to raise a price: the submission then needs remarks.
+        _aboveQuote: !!built.aboveQuote,
         // Live wizard-state snapshot so the entry can be restored for editing
         // (the payload above is the flattened submit shape — lossy to reverse).
         // Stripped before POST by the submit loop's explicit field mapping.
@@ -471,6 +496,8 @@ export default function useCreateRoundState({ products = [], preSelectedProductI
     setRoundRemarks,
     effectiveFields,
     showTargetWarning,
+    currentRoundAboveQuote,
+    remarksRequired,
     endDateError,
     step2Errors,
     step3Errors,

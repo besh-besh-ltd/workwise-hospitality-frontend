@@ -265,10 +265,29 @@ export const chargeBase = (vendorData) => {
   return (parseFloat(vendorData?.unitPrice) || 0) * (parseFloat(vendorData?.quantity) || 1);
 };
 
-// Per-(vendor, field) check: is the effective target ≥ the vendor's quoted
-// value? Numeric only — text fields always return false.
-export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, formData) => {
-  if (!vendorData || TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return false;
+// REQ-2026-0104 — a PRICE target (base price or a charge) may go above the
+// vendor's quote: the buyer can ask a vendor to raise a price, for example to
+// a rate already approved. It is an exception, so the screens flag it and the
+// round needs a reason for the approvers. Delivery days keep the old rule
+// (fewer days only), and a target equal to the quote asks for no change, so
+// it is still dropped.
+export const targetMayRaise = (fieldKey) =>
+  fieldKey !== 'delivery_period' && !TEXT_ONLY_NEG_FIELDS.has(fieldKey);
+
+export const ABOVE_QUOTE_REMARKS_MESSAGE =
+  'A target is above the vendor’s quoted price. Add the reason in “Remarks for approvers”.';
+
+const compareAmounts = (target, quoted, tolerance) => {
+  if (Math.abs(target - quoted) <= tolerance) return 'equal';
+  return target > quoted ? 'greater' : 'lower';
+};
+
+// Per-(vendor, field): the effective target against the vendor's quoted
+// value — 'lower' | 'equal' | 'greater', or null when there is nothing to
+// compare (text field, no target, no quoted value). Charges are compared in
+// rupees, so a % target competes fairly with a flat quoted charge.
+const fieldTargetVsQuote = (fieldKey, vendorTargetMap, vendorData, formData) => {
+  if (!vendorData || TEXT_ONLY_NEG_FIELDS.has(fieldKey)) return null;
   const unitPrice = parseFloat(vendorData.unitPrice) || 0;
   const basePrice = chargeBase(vendorData);
 
@@ -277,16 +296,15 @@ export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, form
   const globalVal = globalKey ? formData?.[globalKey] : '';
   const rawTarget = localVal != null && localVal !== '' ? localVal : globalVal;
   const target = parseFloat(rawTarget);
-  if (!Number.isFinite(target) || target <= 0) return false;
+  if (!Number.isFinite(target) || target <= 0) return null;
 
   if (fieldKey === 'base_price') {
-    return unitPrice > 0 && target >= unitPrice;
+    return unitPrice > 0 ? compareAmounts(target, unitPrice, 1e-9) : null;
   }
 
-  // Delivery period: target must be fewer days than quoted to be sent.
   if (fieldKey === 'delivery_period') {
     const quotedDays = parseFloat(vendorData.deliveryPeriod) || 0;
-    return quotedDays > 0 && target >= quotedDays;
+    return quotedDays > 0 ? compareAmounts(target, quotedDays, 1e-9) : null;
   }
 
   const charge = (vendorData.otherCharges || []).find((c) =>
@@ -295,9 +313,9 @@ export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, form
   const globalCharge = !charge
     ? (vendorData.globalCharges || []).find((c) => (c.slug || c.name) === fieldKey || c.name === fieldKey)
     : null;
-  if (!charge && !globalCharge) return false;
+  if (!charge && !globalCharge) return null;
   const quotedValue = parseFloat(charge ? charge.amount : globalCharge.tax);
-  if (!Number.isFinite(quotedValue) || quotedValue <= 0 || basePrice <= 0) return false;
+  if (!Number.isFinite(quotedValue) || quotedValue <= 0 || basePrice <= 0) return null;
   const quotedMode = (charge ? charge.amount_mode : globalCharge.tax_mode) || 'percentage';
   const quotedAmt = quotedMode === 'percentage' ? (quotedValue / 100) * basePrice : quotedValue;
 
@@ -307,8 +325,34 @@ export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, form
   const targetMode = localMode || globalMode || 'percentage';
   const targetAmt = targetMode === 'percentage' ? (target / 100) * basePrice : target;
 
-  return targetAmt >= quotedAmt;
+  return compareAmounts(targetAmt, quotedAmt, 0.01);
 };
+
+// Per-(vendor, field): is the target one that can't be sent? An equal target
+// (no change asked), or more delivery days than quoted. Text fields: never.
+export const isFieldTargetInvalid = (fieldKey, vendorTargetMap, vendorData, formData) => {
+  const result = fieldTargetVsQuote(fieldKey, vendorTargetMap, vendorData, formData);
+  if (result === 'equal') return true;
+  return result === 'greater' && !targetMayRaise(fieldKey);
+};
+
+// Per-(vendor, field): is this a price target ABOVE the vendor's quote?
+// Sent, but flagged as an exception (see targetMayRaise).
+export const isFieldTargetAboveQuote = (fieldKey, vendorTargetMap, vendorData, formData) =>
+  targetMayRaise(fieldKey)
+  && fieldTargetVsQuote(fieldKey, vendorTargetMap, vendorData, formData) === 'greater';
+
+// Does a built vendor_targets payload ask any vendor to raise a price?
+export const vendorTargetsHaveAboveQuote = (vendorTargetsPayload, productPriceData, formData) =>
+  (vendorTargetsPayload || []).some((vt) => {
+    const vendorData = (productPriceData?.vendors || []).find((v) => v.vendorId === vt.vendor_id);
+    return (vt.fields || []).some((f) => {
+      if (f?.target == null || f.target === '' || typeof f.target === 'object') return false;
+      const targetMap = { [f.name]: f.target };
+      if (f.mode) targetMap[`${f.name}_mode`] = f.mode === 'absolute' ? 'amount' : f.mode;
+      return isFieldTargetAboveQuote(f.name, targetMap, vendorData, formData);
+    });
+  });
 
 // Build the per-product POST payload identical to NegotiationModal.js:740-810.
 // Returns { vendor_targets: [...] } — caller adds rfq_id, rfq_product_id, end_date.

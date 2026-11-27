@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Trash2, ArrowRight } from 'lucide-react';
+import { CalendarDays, Trash2, ArrowRight, TrendingUp } from 'lucide-react';
 import { previewTotals } from '@/services/pricing';
 import {
   formatNegotiationDeadline,
@@ -16,6 +16,7 @@ import {
   compareTargetToQuoted,
   aggregateRfqVendors,
   computeVendorGrandTotals,
+  targetMayRaise,
 } from './negotiationHelpers';
 
 // Signed rupee change for a field comparison: negative = saving, positive =
@@ -389,6 +390,10 @@ export const RFQ_WHOLE_SCOPE = {
 
 // Render a single round card — used for both queued and current, in either
 // product or RFQ-level mode.
+// REQ-2026-0104 — a price target above the vendor's quote (sent, as an
+// exception: the vendor is asked to raise the price).
+const isTargetAboveQuote = (t) => t.deltaDirection === 'greater' && targetMayRaise(t.fieldKey);
+
 const ReviewProductCard = ({
   round,
   projection,
@@ -584,9 +589,11 @@ const ReviewProductCard = ({
                           <span className={`${styles.reviewFieldDelta} ${
                             t.deltaDirection === 'lower'
                               ? styles.deltaDown
-                              : (t.deltaDirection === 'greater' ? styles.deltaUp : styles.deltaFlat)
+                              : (isTargetAboveQuote(t)
+                                ? styles.deltaAbove
+                                : (t.deltaDirection === 'greater' ? styles.deltaUp : styles.deltaFlat))
                           }`}>
-                            {t.deltaDisplay}
+                            {t.deltaDisplay}{isTargetAboveQuote(t) ? ' above quote' : ''}
                           </span>
                         )}
                         {t.docDetail && (
@@ -652,6 +659,8 @@ const StepReview = ({
   // Optional internal note for approvers (editable only in the wizard).
   remarks = '',
   onRemarksChange,
+  // A target is above a vendor's quote: remarks become required (REQ-2026-0104).
+  remarksRequired = false,
   // Read-only review (approval page): end date renders as static text,
   // validation errors are suppressed. Default keeps wizard behavior intact.
   readOnly = false,
@@ -787,6 +796,12 @@ const StepReview = ({
     return Array.from(seen);
   }, [rounds]);
 
+  // Does any round ask a vendor to raise a price? (REQ-2026-0104)
+  const anyTargetAboveQuote = useMemo(
+    () => rounds.some(r => r.vendorRows.some(vr => vr.targets.some(isTargetAboveQuote))),
+    [rounds]
+  );
+
   // Grand total across product rounds in this submission. Excludes RFQ-level
   // rounds — those edit globals (TCS etc.) whose contribution isn't captured
   // in the line subtotal, so summing them would be misleading.
@@ -843,6 +858,15 @@ const StepReview = ({
 
   return (
     <div className={styles.reviewGrid}>
+      {anyTargetAboveQuote && (
+        <div className={styles.aboveQuoteBanner} role="status" data-testid="review-above-quote-banner">
+          <TrendingUp size={16} className={styles.aboveQuoteBannerIcon} aria-hidden="true" />
+          <span>
+            <strong>This round asks a vendor to raise a price.</strong> At least one target is above the
+            vendor’s quoted price (marked “above quote” below), so the vendor can increase their quote up to it.
+          </span>
+        </div>
+      )}
       {/* 1 — Round timeline (top, shared by every round in this submission) */}
       <section className={styles.reviewBlock}>
         <div className={styles.reviewBlockHead}>
@@ -888,14 +912,23 @@ const StepReview = ({
         )}
         {!readOnly && (
           <div style={{ marginTop: 16 }}>
-            <label htmlFor="round-remarks" className={styles.endDateTitle} style={{ display: 'block' }}>Remarks for approvers</label>
+            <label htmlFor="round-remarks" className={styles.endDateTitle} style={{ display: 'block' }}>
+              Remarks for approvers {remarksRequired && <span style={{ color: '#dc2626' }}>*</span>}
+            </label>
             <p className={styles.endDateHint}>
               Why is this round being raised? Approvers and your team will see this. Vendors never do.
             </p>
+            {remarksRequired && (
+              <p className={styles.endDateHint} style={{ color: '#9a3412' }} data-testid="remarks-required-hint">
+                Required: a target is above a vendor’s quoted price. Say why the vendor should raise it
+                (for example, the rate already approved).
+              </p>
+            )}
             <textarea
               id="round-remarks"
               value={remarks || ''}
               onChange={(e) => onRemarksChange && onRemarksChange(e.target.value)}
+              aria-required={remarksRequired || undefined}
               maxLength={1000}
               rows={3}
               placeholder="e.g. Negotiated at unit level; asking all vendors to match L1 and align payment terms."
